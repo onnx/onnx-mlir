@@ -63,15 +63,15 @@ struct ONNXArgMinMaxOpLowering : public OpConversionPattern<ARG_OP> {
     // Convert the reduced output type to MemRefType.
     Type convertedType =
         this->typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType reducedMemRefType = convertedType.cast<MemRefType>();
+    MemRefType reducedMemRefType = mlir::cast<MemRefType>(convertedType);
     Type reducedElementType = reducedMemRefType.getElementType();
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input
     Value data = adaptor.getData();
-    MemRefType dataType = data.getType().cast<MemRefType>();
+    MemRefType dataType = mlir::cast<MemRefType>(data.getType());
     int64_t dataRank = dataType.getRank();
 
     // axis & keepdims attribute

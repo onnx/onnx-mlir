@@ -110,7 +110,7 @@ bool isNotDisabled(StringRef name) {
 
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
-  return constOp.getValueAttr().cast<ElementsAttr>();
+  return mlir::cast<ElementsAttr>(constOp.getValueAttr());
 }
 
 // Creates ONNXConstantOp with the location from replacingValue.
@@ -401,7 +401,7 @@ bool satisfiesMinLessThanMaxRequirement(ShapedType type, Value min, Value max) {
 template <typename ElementwiseBinaryOp>
 Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
     Value replacingValue, Value lhsValue, Value rhsValue) {
-  auto replacingType = replacingValue.getType().cast<ShapedType>();
+  auto replacingType = mlir::cast<ShapedType>(replacingValue.getType());
 
   ElementsAttr lhs = getConstValueElements(lhsValue);
   ElementsAttr rhs = getConstValueElements(rhsValue);
@@ -420,7 +420,7 @@ template <typename ElementwiseBinaryOp>
 Value ConstPropVariadicElementwiseBinary(
     PatternRewriter &rewriter, Value replacingValue, ValueRange inputList) {
   assert(inputList.size() > 0 && "The variadic input is empty");
-  auto replacingType = replacingValue.getType().cast<ShapedType>();
+  auto replacingType = mlir::cast<ShapedType>(replacingValue.getType());
 
   Value lhsValue = inputList[0];
   if (inputList.size() == 1)
@@ -547,7 +547,7 @@ template <typename ElementwiseUnaryOp>
 Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   Type replacingElemType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
+      mlir::cast<ShapedType>(replacingValue.getType()).getElementType();
 
   ElementsAttr constElements = getConstValueElements(constValue);
   assert(replacingElemType == constElements.getElementType() &&
@@ -569,7 +569,7 @@ Value ConstPropElementwiseUnary(
 
 Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
     Value condValue, Value lhsValue, Value rhsValue) {
-  auto replacingType = replacingValue.getType().cast<ShapedType>();
+  auto replacingType = mlir::cast<ShapedType>(replacingValue.getType());
 
   ElementsAttr cond = getConstValueElements(condValue);
   assert(cond.getElementType().isInteger(1) &&
@@ -605,9 +605,10 @@ Attribute getIdentity(Builder &builder, Type type) {
   if constexpr (std::is_same_v<ReduceOp, ONNXAddOp>) {
     return builder.getZeroAttr(type);
   } else if constexpr (std::is_same_v<ReduceOp, ONNXMulOp>) {
-    if (auto itype = type.dyn_cast<IntegerType>())
+    if (auto itype = mlir::dyn_cast<IntegerType>(type))
       return builder.getIntegerAttr(type, APInt(itype.getWidth(), 1));
-    assert(type.isa<FloatType>() && "only supported types are integer, float");
+    assert(mlir::isa<FloatType>(type) &&
+           "only supported types are integer, float");
     return builder.getFloatAttr(type, 1.0);
   } else {
     // Follow NumPy which doesn't support empty tensor for Min, Max, Mean.
@@ -631,7 +632,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
   // Find absoluteAxes, converting any negative axes to non-negative.
   SmallVector<unsigned, 4> absoluteAxes;
   ElementsAttr data = getConstValueElements(dataValue);
-  int64_t rank = data.getType().cast<ShapedType>().getRank();
+  int64_t rank = mlir::cast<ShapedType>(data.getType()).getRank();
   for (APInt a : axesRange) {
     int64_t axis = a.getSExtValue();
     assert(-rank <= axis && axis < rank && "axis out of range");
@@ -658,7 +659,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
   } else if (data.empty()) {
     Attribute identity = getIdentity<ReduceOp>(rewriter, elemType);
     reduced = DenseElementsAttr::get(
-        replacingValue.getType().cast<ShapedType>(), {identity});
+        mlir::cast<ShapedType>(replacingValue.getType()), {identity});
   } else {
     bool keepdims = getSIntAttr(op, "keepdims", /*default=*/1) != 0;
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
@@ -896,10 +897,10 @@ Value ConstPropTranspose(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   // TODO: figure out if default may be omitted and what to do in that case
   ArrayAttr permAttr =
-      replacingValue.getDefiningOp()->getAttr("perm").cast<ArrayAttr>();
+      mlir::cast<ArrayAttr>(replacingValue.getDefiningOp()->getAttr("perm"));
   SmallVector<uint64_t, 4> perm;
   for (auto permVal : permAttr.getValue())
-    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+    perm.emplace_back(mlir::cast<IntegerAttr>(permVal).getInt());
 
   ElementsAttr constElements = getConstValueElements(constValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
@@ -1033,7 +1034,7 @@ Value ConstPropPad(PatternRewriter &rewriter, Value replacingValue, Value data,
 
 Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
-  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
+  ShapedType outputType = mlir::cast<ShapedType>(replacingValue.getType());
   int64_t axis = axisAttr.getValue().getSExtValue();
   if (axis < 0)
     axis += outputType.getRank();
@@ -1074,7 +1075,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
   int64_t axis = gatherOp.getAxis();
   if (axis < 0)
-    axis += inputValue.getType().cast<ShapedType>().getRank();
+    axis += mlir::cast<ShapedType>(inputValue.getType()).getRank();
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(inputValue);
@@ -1107,7 +1108,7 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
 
   // ONNXConstantOfShapeOp::inferShapes() makes sure that the 'value' attribute
   // here is specified
-  ElementsAttr constElements = value.cast<ElementsAttr>();
+  ElementsAttr constElements = mlir::cast<ElementsAttr>(value);
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr expandedElements =
@@ -1122,7 +1123,7 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
     Value start, Value limit, Value delta) {
-  ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
+  ShapedType replacingType = mlir::cast<ShapedType>(replacingValue.getType());
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr rangeElements = elementsBuilder.range(
@@ -1156,7 +1157,7 @@ Value ConstPropNonZero(
 std::vector<Value> ConstPropSplit(PatternRewriter &rewriter,
     ResultRange replacingValues, Value input, Value split, int64_t axis) {
   unsigned numResults = replacingValues.size();
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
   int64_t splitAxisSize = inputShape[axis];

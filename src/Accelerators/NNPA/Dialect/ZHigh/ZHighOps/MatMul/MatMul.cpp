@@ -103,7 +103,8 @@ LogicalResult ZHighMatMulOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   ZTensorEncodingAttr encoding;
   if (outputDims.size() == 2)
     encoding = ZTensorEncodingAttr::get(
@@ -128,7 +129,7 @@ LogicalResult ZHighMatMulOp::verify() {
   ZTensorEncodingAttr::DataLayout yLayout = getZTensorLayout(Y.getType());
   // Bias can be None.
   ZTensorEncodingAttr::DataLayout bLayout;
-  bool hasBias = !B.getType().isa<NoneType>();
+  bool hasBias = !mlir::isa<NoneType>(B.getType());
   if (hasBias)
     bLayout = getZTensorLayout(B.getType());
 

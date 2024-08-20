@@ -37,7 +37,7 @@ struct ONNXSqueezeOpLoweringToStablehlo : public ConversionPattern {
     Value axes = squeezeOp.getAxes();
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
-    ShapedType dataType = data.getType().cast<ShapedType>();
+    ShapedType dataType = mlir::cast<ShapedType>(data.getType());
     int64_t rank = dataType.getRank();
 
     // Shape helper is unused
@@ -48,7 +48,7 @@ struct ONNXSqueezeOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t, 4> axesList;
     if (ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes)) {
       for (IntegerAttr value : axesAttr.getValues<IntegerAttr>()) {
-        int64_t axis = value.cast<IntegerAttr>().getInt();
+        int64_t axis = mlir::cast<IntegerAttr>(value).getInt();
         if (axis < 0)
           axis += rank;
         axesList.push_back(axis);

@@ -44,7 +44,7 @@ struct ONNXQuantizeLinearOpLowering
     auto xMemRefType = dyn_cast<MemRefType>(X.getType());
     auto yMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(qlOp.getResult().getType()));
-    MemRefType yScaleMemRefType = YScale.getType().cast<MemRefType>();
+    MemRefType yScaleMemRefType = mlir::cast<MemRefType>(YScale.getType());
 
     // Types
     Type elementType = xMemRefType.getElementType();

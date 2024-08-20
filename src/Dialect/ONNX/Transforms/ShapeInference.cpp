@@ -29,7 +29,7 @@ bool hasDynamicOrUnknownShape(Type type) {
   if (auto tensorType = dyn_cast<TensorType>(type))
     return !tensorType.hasStaticShape();
 
-  if (type.isa<NoneType>())
+  if (mlir::isa<NoneType>(type))
     return false;
 
   if (auto seqType = dyn_cast<SeqType>(type))

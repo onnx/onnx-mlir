@@ -29,7 +29,7 @@ LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
   ONNXOneHotEncoderOp oneHotOp = llvm::cast<ONNXOneHotEncoderOp>(op);
   ONNXOneHotEncoderOpAdaptor operandAdaptor(operands);
   Value X = operandAdaptor.getX();
-  ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
+  ShapedType inputType = mlir::dyn_cast<RankedTensorType>(X.getType());
   assert(inputType && "expected ranked type");
 
   // If the input is a tensor of float, int32, or double,
@@ -65,7 +65,7 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
   if (!hasShapeAndRank(input))
     return success();
 
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
   if (!inputType)
     return success();
 

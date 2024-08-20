@@ -123,12 +123,13 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
-  } else if (elementType.isa<krnl::StringType>()) {
-    auto stringType = elementType.cast<krnl::StringType>();
+  } else if (mlir::isa<krnl::StringType>(elementType)) {
+    auto stringType = mlir::cast<krnl::StringType>(elementType);
     sizeInBits = stringType.getElementSize();
   } else {
-    assert(elementType.isa<VectorType>() && "elementType is not a VectorType");
-    auto vectorType = elementType.cast<VectorType>();
+    assert(mlir::isa<VectorType>(elementType) &&
+           "elementType is not a VectorType");
+    auto vectorType = mlir::cast<VectorType>(elementType);
     sizeInBits =
         vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
   }
@@ -137,7 +138,7 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
 
 /// Get the size of a static MemRef in bytes.
 int64_t getMemRefSizeInBytes(Value value) {
-  MemRefType memRefType = value.getType().dyn_cast<MemRefType>();
+  MemRefType memRefType = mlir::dyn_cast<MemRefType>(value.getType());
   auto memRefShape = memRefType.getShape();
   int64_t size = 1;
   for (unsigned int i = 0; i < memRefShape.size(); i++)
@@ -150,9 +151,9 @@ int64_t getMemRefSizeInBytes(Value value) {
 /// If all the dimensions are static, emit a constant.
 /// Otherwise, emit runtime computations.
 Value getDynamicMemRefSize(PatternRewriter &rewriter, Location loc, Value val) {
-  assert(
-      val.getType().isa<MemRefType>() && "Value type should be a MemRefType");
-  MemRefType memRefType = val.getType().cast<MemRefType>();
+  assert(mlir::isa<MemRefType>(val.getType()) &&
+         "Value type should be a MemRefType");
+  MemRefType memRefType = mlir::cast<MemRefType>(val.getType());
   auto shape = memRefType.getShape();
   // Accumulate static dimensions first.
   int64_t staticSizeInBytes = 1;
@@ -185,9 +186,9 @@ Value getDynamicMemRefSize(PatternRewriter &rewriter, Location loc, Value val) {
 /// Otherwise, emit runtime computations.
 Value getDynamicMemRefSizeInBytes(
     PatternRewriter &rewriter, Location loc, Value val) {
-  assert(
-      val.getType().isa<MemRefType>() && "Value type should be a MemRefType");
-  MemRefType memRefType = val.getType().cast<MemRefType>();
+  assert(mlir::isa<MemRefType>(val.getType()) &&
+         "Value type should be a MemRefType");
+  MemRefType memRefType = mlir::cast<MemRefType>(val.getType());
   auto shape = memRefType.getShape();
   // Accumulate static dimensions first.
   int64_t staticSizeInBytes = getMemRefEltSizeInBytes(memRefType);
@@ -255,7 +256,7 @@ Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
 ///
 int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index) {
   auto memRefShape =
-      allocOp.getResult().getType().dyn_cast<MemRefType>().getShape();
+      mlir::dyn_cast<MemRefType>(allocOp.getResult().getType()).getShape();
   auto rank = memRefShape.size();
 
   int dynDimIdx = 0;

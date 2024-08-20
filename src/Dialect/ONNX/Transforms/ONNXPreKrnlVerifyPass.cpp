@@ -62,13 +62,13 @@ public:
 private:
   static LogicalResult verifyRanked(Operation &op) {
     for (auto ty : op.getOperandTypes()) {
-      if (ty.isa<SeqType>()) {
-        auto seqTy = ty.cast<SeqType>();
-        if (!seqTy.getElementType().isa<RankedTensorType>()) {
+      if (mlir::isa<SeqType>(ty)) {
+        auto seqTy = mlir::cast<SeqType>(ty);
+        if (!mlir::isa<RankedTensorType>(seqTy.getElementType())) {
           op.emitError("SeqType with unranked Sequence Element");
           return failure();
         }
-      } else if (!ty.isa<RankedTensorType>() && !ty.isa<NoneType>()) {
+      } else if (!mlir::isa<RankedTensorType>(ty) && !mlir::isa<NoneType>(ty)) {
         op.emitError("not ranked");
         return failure();
       } else if (ONNXGatherNDOp gatherNDOp =

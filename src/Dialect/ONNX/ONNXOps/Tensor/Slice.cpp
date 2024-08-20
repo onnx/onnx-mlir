@@ -29,7 +29,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXSliceOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.getData();
-  uint64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
+  uint64_t dataRank = mlir::cast<ShapedType>(data.getType()).getShape().size();
 
   // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 4> axesIntLit;
@@ -195,7 +195,8 @@ LogicalResult ONNXSliceOp::inferShapes(
     }
   }
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
   ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -119,10 +119,10 @@ int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   assert((numElems == 3 || numElems == 5) &&
          "Expect MemRef type to contain either 3 or 5 elements.");
 
-  return (numElems == 3) ? 0 // MemRef refers to a scalar.
-                         : memRefTy.getBody()[3]
-                               .cast<LLVM::LLVMArrayType>()
-                               .getNumElements();
+  return (numElems == 3)
+             ? 0 // MemRef refers to a scalar.
+             : mlir::cast<LLVM::LLVMArrayType>(memRefTy.getBody()[3])
+                   .getNumElements();
 }
 
 // Convert an MLIR type to the correspoding ONNX type.
@@ -137,7 +137,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
     const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) {
   MLIRContext *context = module.getContext();
-  auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
+  auto outMemRefTy = mlir::dyn_cast<LLVM::LLVMStructType>(outMemRef.getType());
   auto int64Ty = IntegerType::get(context, 64);
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -293,7 +293,9 @@ Operation *getFirstEntryOpInBlock(
   Operation *firstEntryPointOp = nullptr;
   for (auto entryGlobalOp : entryGlobalOps) {
     std::string entryName =
-        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+        mlir::cast<StringAttr>(entryGlobalOp.getValue().value())
+            .getValue()
+            .str();
     // Entry point name is encoded in EBCDIC on z/OS.
     entryName = isZOS(module) ? krnl::e2a_s(entryName) : entryName;
 
@@ -315,14 +317,15 @@ ArrayRef<char> getRawData(KrnlGlobalOp &op) {
   auto value = op.getValue().value();
   TypeSwitch<Attribute>(value)
       .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-        auto blob =
-            value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
+        auto blob = mlir::cast<DenseResourceElementsAttr>(value)
+                        .getRawHandle()
+                        .getBlob();
         assert(blob && "Expecting dense resource with a valid blob");
         rawData = blob->getData();
       })
       .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
         DenseElementsAttr denseAttr =
-            value.dyn_cast_or_null<DenseElementsAttr>();
+            mlir::dyn_cast_or_null<DenseElementsAttr>(value);
         rawData = denseAttr.getRawData();
       })
       .Default([&](Attribute attr) { return; });
@@ -333,7 +336,8 @@ bool isZOS(ModuleOp module) {
   bool zOS = false;
   if (Attribute mtripleAttr =
           module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
-    zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
+    zOS =
+        llvm::Triple(mlir::cast<StringAttr>(mtripleAttr).getValue()).isOSzOS();
   return zOS;
 }
 

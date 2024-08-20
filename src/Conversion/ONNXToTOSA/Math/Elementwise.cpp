@@ -408,7 +408,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     Value lhs = adaptor.getA();
     Value rhs = adaptor.getB();
-    auto resultType = op.getResult().getType().template cast<TensorType>();
+    auto resultType = mlir::cast<TensorType>(op.getResult().getType());
     Type resultElementType = resultType.getElementType();
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());

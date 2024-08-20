@@ -98,7 +98,8 @@ inline bool isTOSAInt(mlir::Type type) {
 }
 
 inline bool isTOSAFloat(mlir::Type type) {
-  return type.isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>();
+  return mlir::isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>(
+      type);
 }
 
 //===----------------------------------------------------------------------===//

@@ -74,9 +74,9 @@ ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
 
 DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
     ElementsAttr elements) {
-  if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elements))
     return disposable;
-  if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
+  if (auto dense = mlir::dyn_cast<DenseElementsAttr>(elements)) {
     if (!disposablePool.isActive())
       return nullptr;
     ElementsProperties props = getElementsProperties(dense);
@@ -85,7 +85,7 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
     // Check for race condition where disposablePool became inactive since we
     // checked, in which case it returns a DenseElementsAttr which we don't
     // want.
-    if (auto disposable = created.dyn_cast<DisposableElementsAttr>())
+    if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(created))
       return disposable;
     else
       return nullptr;
@@ -97,9 +97,9 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
 /*static*/
 DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
     ElementsAttr elements) {
-  if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elements))
     return disposable.toDenseElementsAttr();
-  if (auto dense = elements.dyn_cast<DenseElementsAttr>())
+  if (auto dense = mlir::dyn_cast<DenseElementsAttr>(elements))
     return dense;
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
@@ -148,7 +148,7 @@ bool ElementsAttrBuilder::allEqual(
           constexpr BType TAG = toBType<cpptype>;
           return n.narrow<TAG>() == x;
         };
-        if (auto disposable = lhs.dyn_cast<DisposableElementsAttr>()) {
+        if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(lhs)) {
           if (disposable.isTransformedOrCast()) {
             ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
             return llvm::all_of(nums.get(), [n](WideNum m) {
@@ -159,7 +159,7 @@ bool ElementsAttrBuilder::allEqual(
             auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
             return llvm::all_of(values, nEquals);
           }
-        } else if (auto dense = lhs.dyn_cast<DenseElementsAttr>()) {
+        } else if (auto dense = mlir::dyn_cast<DenseElementsAttr>(lhs)) {
           if (dense.isSplat()) {
             cpptype x = dense.getSplatValue<cpptype>();
             return nEquals(x);
@@ -526,7 +526,7 @@ ElementsAttr ElementsAttrBuilder::reshape(
     return create(reshapedType, props.bufferBType, *reshapedStrides,
         props.buffer, props.transformer);
 
-  auto disp = elms.dyn_cast<DisposableElementsAttr>();
+  auto disp = mlir::dyn_cast<DisposableElementsAttr>(elms);
   assert(disp && "reshapeStrides() always succeeds for non-Disposable "
                  "ElementsAttr as strides are always default or splat");
 
@@ -1076,13 +1076,13 @@ ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
-  if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elements)) {
     ArrayRef<int64_t> strides = disposable.getStrides();
     return {/*.bufferBType=*/disposable.getBufferBType(),
         /*.strides=*/{strides.begin(), strides.end()},
         /*.buffer=*/disposable.getBuffer(),
         /*.transformer=*/disposable.getTransformer()};
-  } else if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
+  } else if (auto dense = mlir::dyn_cast<DenseElementsAttr>(elements)) {
     ShapedType type = dense.getType();
     SmallVector<int64_t, 4> strides;
     if (dense.isSplat()) {
@@ -1103,7 +1103,7 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
 ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
     llvm::SmallVectorImpl<int64_t> &expandedStrides) {
-  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elms)) {
     expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
     return disposable.getBufferAsWideNums();
   } else if (elms.isSplat()) {

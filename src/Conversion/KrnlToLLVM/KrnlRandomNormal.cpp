@@ -50,10 +50,9 @@ public:
         getOrInsertRandomNormal(rewriter, parentModule, inType);
 
     // First operand.
-    Type outputType = operandAdaptor.getOutput()
-                          .getType()
-                          .cast<LLVM::LLVMStructType>()
-                          .getBody()[1];
+    Type outputType =
+        mlir::cast<LLVM::LLVMStructType>(operandAdaptor.getOutput().getType())
+            .getBody()[1];
     Value alignedOutput =
         create.llvm.extractValue(outputType, operandAdaptor.getOutput(), {1});
 

@@ -30,9 +30,10 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
 
   ElementsAttr valAttr;
   if (operandAdaptor.getSparseValue().has_value())
-    valAttr = operandAdaptor.getSparseValueAttr().cast<SparseElementsAttr>();
+    valAttr =
+        mlir::cast<SparseElementsAttr>(operandAdaptor.getSparseValueAttr());
   else
-    valAttr = operandAdaptor.getValueAttr().cast<ElementsAttr>();
+    valAttr = mlir::cast<ElementsAttr>(operandAdaptor.getValueAttr());
   return setOutputDimsFromTypeWithConstantShape(valAttr.getType());
 }
 
@@ -90,11 +91,11 @@ LogicalResult ONNXConstantOp::inferShapes(
   }
   ElementsAttr valAttr;
   if (getSparseValue().has_value())
-    valAttr = getSparseValueAttr().cast<SparseElementsAttr>();
+    valAttr = mlir::cast<SparseElementsAttr>(getSparseValueAttr());
   else
-    valAttr = getValueAttr().cast<ElementsAttr>();
+    valAttr = mlir::cast<ElementsAttr>(getValueAttr());
   Type elementType =
-      valAttr.getType().cast<RankedTensorType>().getElementType();
+      mlir::cast<RankedTensorType>(valAttr.getType()).getElementType();
   ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

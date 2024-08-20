@@ -61,7 +61,7 @@ std::vector<int64_t> getDilations(PoolOp poolOp) {
   ArrayAttr dilationsAttribute = poolOp.getDilationsAttr();
   bool isDefaultDilations = true;
   for (auto dilation : dilationsAttribute.getValue()) {
-    int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
+    int64_t dilationValue = mlir::cast<IntegerAttr>(dilation).getInt();
     if (dilationValue > 1 && isDefaultDilations)
       isDefaultDilations = false;
     dilations.emplace_back(dilationValue);
@@ -205,14 +205,14 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
 
     // Type information about the input and result of this operation.
     Value inputOperand = adaptor.getX();
-    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
+    auto inputShape = mlir::cast<MemRefType>(inputOperand.getType()).getShape();
 
     // Convert the output type to MemRefType.
     Type convertedType =
         this->typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     ArrayRef<int64_t> outputShape = memRefType.getShape();
     Type outputElementType = memRefType.getElementType();
 

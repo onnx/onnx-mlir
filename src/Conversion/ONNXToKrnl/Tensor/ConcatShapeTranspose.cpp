@@ -47,8 +47,8 @@ struct ONNXConcatShapeTransposeOpLowering
     unsigned numInputs = op->getNumOperands();
     Value firstInput = adaptor.getInputs().front();
     ArrayRef<int64_t> commonShape =
-        firstInput.getType().cast<ShapedType>().getShape();
-    // firstInput.getType().cast<ShapedType>().getElementType();
+        mlir::cast<ShapedType>(firstInput.getType()).getShape();
+    // mlir::cast<ShapedType>(firstInput.getType()).getElementType();
     uint64_t rank = commonShape.size();
     int64_t axis = adaptor.getAxis();
 
@@ -99,7 +99,7 @@ struct ONNXConcatShapeTransposeOpLowering
 
     // Alloc and set value for ShapeOp output
     auto convertedShapeType =
-        typeConverter->convertType(outputShapeType).cast<MemRefType>();
+        mlir::cast<MemRefType>(typeConverter->convertType(outputShapeType));
     Value shapeAlloc = create.mem.alignedAlloc(
         convertedShapeType, shapeHelper.getOutputDims());
     Type elementType = convertedShapeType.getElementType();
@@ -114,7 +114,8 @@ struct ONNXConcatShapeTransposeOpLowering
     DimsExpr outputTransposeDims = shapeHelper.getOutputDims(1);
     ArrayAttr permAttr = adaptor.getPermAttr();
     Type t = op->getResultTypes()[1];
-    auto outputTransposeType = typeConverter->convertType(t).cast<MemRefType>();
+    auto outputTransposeType =
+        mlir::cast<MemRefType>(typeConverter->convertType(t));
     Value alloc =
         create.mem.alignedAlloc(outputTransposeType, outputTransposeDims);
 

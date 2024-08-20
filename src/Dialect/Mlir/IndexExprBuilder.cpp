@@ -86,7 +86,7 @@ namespace onnx_mlir {
 // a dependence on ONNX.
 bool IndexExprBuilder::hasShapeAndRank(Value value) {
   assert(value && "expected a value");
-  ShapedType shapedType = value.getType().dyn_cast_or_null<ShapedType>();
+  ShapedType shapedType = mlir::dyn_cast_or_null<ShapedType>(value.getType());
   return shapedType && shapedType.hasRank();
 }
 
@@ -100,7 +100,7 @@ void IndexExprBuilder::assertHasShapeAndRank(Value value) {
 uint64_t IndexExprBuilder::getShapedTypeRank(Value value) {
   assertHasShapeAndRank(value);
   // Find shaped type size (rank of 0 is scalar).
-  return value.getType().cast<ShapedType>().getRank();
+  return mlir::cast<ShapedType>(value.getType()).getRank();
 }
 
 // Size from 1D attribute array.
@@ -131,7 +131,7 @@ IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
   uint64_t size = getArraySize(intAttrArray);
   if (i >= size)
     return UndefinedIndexExpr();
-  int64_t val = (intAttrArray.getValue()[i]).cast<IntegerAttr>().getInt();
+  int64_t val = mlir::cast<IntegerAttr>(intAttrArray.getValue()[i]).getInt();
   return LiteralIndexExpr(val);
 }
 
@@ -366,7 +366,7 @@ bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
 int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
   uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   assert(i < rank && "expected index smaller than memref rank");
-  return tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[i];
+  return mlir::cast<ShapedType>(tensorOrMemrefValue.getType()).getShape()[i];
 }
 
 // Get index expressions from tensor/memref shape.

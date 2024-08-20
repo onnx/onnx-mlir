@@ -68,7 +68,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
         activationForward.f.name =
-            activationArrAttr[0].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[0]).getValue();
       }
     }
 
@@ -77,7 +77,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
       unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.name =
-            activationArrAttr[startIndex].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[startIndex]).getValue();
       }
     }
   }
@@ -88,7 +88,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
-        activationForward.f.alpha = activationArrAttr[0].cast<FloatAttr>();
+        activationForward.f.alpha = mlir::cast<FloatAttr>(activationArrAttr[0]);
       }
     }
 
@@ -97,7 +97,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
       unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.alpha =
-            activationArrAttr[startIndex].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex]);
       }
     }
   }
@@ -108,7 +108,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
-        activationForward.f.beta = activationArrAttr[0].cast<FloatAttr>();
+        activationForward.f.beta = mlir::cast<FloatAttr>(activationArrAttr[0]);
       }
     }
 
@@ -117,7 +117,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
       unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.beta =
-            activationArrAttr[startIndex].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex]);
       }
     }
   }
@@ -140,8 +140,8 @@ getWeightPack<ONNXRNNOp, RnnWeightPack>(
   // direction
   StringRef direction = op->getDirection();
 
-  ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  Type elementType = W.getType().cast<ShapedType>().getElementType();
+  ArrayRef<int64_t> wShape = mlir::cast<ShapedType>(W.getType()).getShape();
+  Type elementType = mlir::cast<ShapedType>(W.getType()).getElementType();
   int64_t hiddenSize = wShape[1];
   int64_t inputSize = wShape[2];
 
@@ -214,8 +214,8 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
 
   // Split B.
   if (!isNoneValue(B)) {
-    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
-    Type elementType = B.getType().cast<ShapedType>().getElementType();
+    ArrayRef<int64_t> bShape = mlir::cast<ShapedType>(B.getType()).getShape();
+    Type elementType = mlir::cast<ShapedType>(B.getType()).getElementType();
     int64_t hiddenSize = bShape[1] / 2;
 
     // MemRef types.
@@ -297,7 +297,7 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
   Value noneValue;
   initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
       noneValue, noneValue, operandAdaptor.getInitialH(), noneValue,
-      operandAdaptor.getX().getType().cast<MemRefType>().getElementType(),
+      mlir::cast<MemRefType>(operandAdaptor.getX().getType()).getElementType(),
       direction, /*onlyHidden=*/true);
   return state;
 }
@@ -326,7 +326,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
-  MemRefType matrixType = Ht.getType().cast<MemRefType>();
+  MemRefType matrixType = mlir::cast<MemRefType>(Ht.getType());
   unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.

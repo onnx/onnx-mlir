@@ -126,7 +126,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> std::optional<Type> {
-    if (isTOSAInt(type) || isa<FloatType>(type) || type.isa<NoneType>() ||
+    if (isTOSAInt(type) || isa<FloatType>(type) || isa<NoneType>(type) ||
         isTOSABool(type))
       return type;
     return std::nullopt;

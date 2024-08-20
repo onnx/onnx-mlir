@@ -376,12 +376,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     //////////////////////////////////////////////////////////////////////
     // Handle type conversion.
-    MemRefType memRefInType = input.getType().cast<MemRefType>();
+    MemRefType memRefInType = mlir::cast<MemRefType>(input.getType());
     Type convertedOutType =
         this->typeConverter->convertType(*op->result_type_begin());
-    assert(convertedOutType && convertedOutType.isa<MemRefType>() &&
+    assert(convertedOutType && mlir::isa<MemRefType>(convertedOutType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefOutType = convertedOutType.cast<MemRefType>();
+    MemRefType memRefOutType = mlir::cast<MemRefType>(convertedOutType);
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
     auto memRefOutShape = memRefOutType.getShape();
@@ -573,9 +573,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
       // Convert the mask type to MemRefType.
       Type convertedMaskType = this->typeConverter->convertType(maskType);
-      assert(convertedMaskType && convertedMaskType.isa<MemRefType>() &&
+      assert(convertedMaskType && mlir::isa<MemRefType>(convertedMaskType) &&
              "Failed to convert type to MemRefType");
-      MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
+      MemRefType maskTypeInMemRefType =
+          mlir::cast<MemRefType>(convertedMaskType);
       maskVal = create.mem.alignedAlloc(maskTypeInMemRefType);
       falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
       trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
@@ -602,7 +603,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       // Consider the case when axes[i] is negative
       // maskVal[axes[i] < 0 ? axes[i]+inRank: axes[i]] = 1
       auto axesElementType =
-          axesVal.getType().cast<MemRefType>().getElementType();
+          mlir::cast<MemRefType>(axesVal.getType()).getElementType();
       auto dataDimConst = create.math.constant(axesElementType, inRank);
       Value zeroValue = create.math.constant(axesElementType, 0);
       if (!axisShape0.isLiteral()) {

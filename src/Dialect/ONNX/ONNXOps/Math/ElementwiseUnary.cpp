@@ -34,7 +34,8 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::dyn_cast<RankedTensorType>(input.getType());
   return inferShapeForUnaryOps(
       op, inputType.getElementType(), inputType.getEncoding());
 }
@@ -45,7 +46,8 @@ LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
   Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::dyn_cast<RankedTensorType>(input.getType());
   return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
 }
 
@@ -148,7 +150,7 @@ LogicalResult ONNXCastOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  Type elementType = mlir::cast<::TypeAttr>((*this)->getAttr("to")).getValue();
   ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -262,7 +264,7 @@ LogicalResult ONNXGeluOp::verify() {
 LogicalResult ONNXGeluOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation(),
-      this->getResult().getType().cast<ShapedType>().getElementType());
+      mlir::cast<ShapedType>(this->getResult().getType()).getElementType());
 }
 
 //===----------------------------------------------------------------------===//
@@ -317,7 +319,7 @@ LogicalResult ONNXIsInfOp::verify() {
 LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation(),
-      this->getResult().getType().cast<ShapedType>().getElementType());
+      mlir::cast<ShapedType>(this->getResult().getType()).getElementType());
 }
 
 //===----------------------------------------------------------------------===//
@@ -358,7 +360,7 @@ LogicalResult ONNXLogSoftmaxOp::verify() {
     return success(); // Won't be able to do any checking at this stage.
 
   int64_t inputRank =
-      operandAdaptor.getInput().getType().cast<ShapedType>().getRank();
+      mlir::cast<ShapedType>(operandAdaptor.getInput().getType()).getRank();
   int64_t axisIndex = getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
@@ -457,7 +459,7 @@ LogicalResult ONNXScalerOp::inferShapes(
     return success();
 
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
-  RankedTensorType xType = getX().getType().dyn_cast<RankedTensorType>();
+  RankedTensorType xType = mlir::dyn_cast<RankedTensorType>(getX().getType());
   return shapeHelper.computeShapeAndUpdateType(
       FloatType::getF32(getContext()), xType.getEncoding());
 }

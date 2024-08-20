@@ -79,15 +79,15 @@ StringRef convertONNXTensorDataLayoutToString(
 }
 
 bool isONNXTensor(const Type type) {
-  if (auto ttp = type.dyn_cast<RankedTensorType>())
-    if (ttp.getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>())
+  if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
+    if (mlir::dyn_cast_or_null<ONNXTensorEncodingAttr>(ttp.getEncoding()))
       return true;
   return false;
 }
 
 ONNXTensorEncodingAttr getONNXTensorEncoding(Type type) {
-  if (auto ttp = type.dyn_cast<RankedTensorType>())
-    return ttp.getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>();
+  if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
+    return mlir::dyn_cast_or_null<ONNXTensorEncodingAttr>(ttp.getEncoding());
   return nullptr;
 }
 
@@ -295,22 +295,22 @@ size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 size_t ArrayAttrSize(std::optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  return mlir::cast<IntegerAttr>(a.getValue()[i]).getInt();
 }
 
 int64_t ArrayAttrIntVal(std::optional<ArrayAttr> a, int i) {
-  return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
+  return mlir::cast<IntegerAttr>(a.value().getValue()[i]).getInt();
 }
 
 void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i) {
   for (size_t k = 0; k < a.size(); ++k)
-    i.emplace_back((a.getValue()[k]).cast<IntegerAttr>().getInt());
+    i.emplace_back(mlir::cast<IntegerAttr>(a.getValue()[k]).getInt());
 }
 
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)
-    return constantOp.getValueAttr().dyn_cast<ElementsAttr>();
+    return mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   return nullptr;
 }
 
@@ -353,12 +353,12 @@ ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
   // Read first permute vectors.
   SmallVector<int64_t, 4> initialPerm;
   for (auto firstPermVal : firstPermAttr.getValue())
-    initialPerm.emplace_back(firstPermVal.cast<IntegerAttr>().getInt());
+    initialPerm.emplace_back(mlir::cast<IntegerAttr>(firstPermVal).getInt());
   // Read second permute vector. Use it as an index in the first permute
   // vector.
   SmallVector<int64_t, 4> resPerm;
   for (auto secondPermVal : secondPermAttr.getValue()) {
-    auto index = secondPermVal.cast<IntegerAttr>().getInt();
+    auto index = mlir::cast<IntegerAttr>(secondPermVal).getInt();
     resPerm.emplace_back(initialPerm[index]);
   }
   // Convert to Array of Attributes.
@@ -373,7 +373,7 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
     return false;
   int64_t currentIndex = 0;
   for (auto permVal : permAttr.getValue())
-    if (permVal.cast<IntegerAttr>().getInt() != currentIndex++)
+    if (mlir::cast<IntegerAttr>(permVal).getInt() != currentIndex++)
       return false;
   return true;
 }
@@ -383,7 +383,8 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   if (!hasShapeAndRank(value) || !hasShapeAndRank(shape))
     return false;
 
-  ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> valueShape =
+      mlir::cast<ShapedType>(value.getType()).getShape();
   ElementsAttr shapeAttr = getElementAttributeFromONNXValue(shape);
   if (shapeAttr == nullptr)
     return false;
@@ -417,12 +418,12 @@ bool isScalarConstantTensor(mlir::Value v) {
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
   ShapedType shapedType;
-  if (SeqType seqType = valType.dyn_cast<SeqType>())
-    shapedType = seqType.getElementType().dyn_cast<ShapedType>();
-  else if (OptType optType = valType.dyn_cast<OptType>())
-    shapedType = optType.getElementType().dyn_cast<ShapedType>();
+  if (SeqType seqType = mlir::dyn_cast<SeqType>(valType))
+    shapedType = mlir::dyn_cast<ShapedType>(seqType.getElementType());
+  else if (OptType optType = mlir::dyn_cast<OptType>(valType))
+    shapedType = mlir::dyn_cast<ShapedType>(optType.getElementType());
   else
-    shapedType = valType.dyn_cast<ShapedType>();
+    shapedType = mlir::dyn_cast<ShapedType>(valType);
   return shapedType && shapedType.hasRank();
 }
 
@@ -527,7 +528,7 @@ void getDims(Value val, SmallVectorImpl<Value> &dims) {
 // Create a DenseElementsAttr based on the shape of type at the given index.
 DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
     PatternRewriter &rewriter, Value value, IntegerAttr indexAttr) {
-  auto inType = value.getType().cast<ShapedType>();
+  auto inType = mlir::cast<ShapedType>(value.getType());
   ArrayRef<int64_t> shape = inType.getShape();
   int64_t index = indexAttr.getValue().getSExtValue();
   SmallVector<int64_t, 4> values(1, shape[index]);
@@ -538,7 +539,7 @@ DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
 // Create a DenseElementsAttr based on the size of type.
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().cast<ShapedType>();
+  auto inType = mlir::cast<ShapedType>(value.getType());
   // Output Type should be scalar: tensor<i64>
   SmallVector<int64_t, 1> dims;
   SmallVector<int64_t, 1> values = {inType.getNumElements()};
@@ -577,8 +578,8 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
-    return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isa<FloatType>()) {
+    return (RESULT_TYPE)mlir::cast<IntegerAttr>(*valueIt).getInt();
+  } else if (mlir::isa<FloatType>(elementaryType)) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
   } else if (elementaryType.isBF16()) {
@@ -592,7 +593,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
   Type type = constantOp.getType();
-  ElementsAttr attr = constantOp.getValueAttr().dyn_cast<ElementsAttr>();
+  ElementsAttr attr = mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   if (!attr)
     constantOp.emitError("ElementsAttr expected");
   return getScalarValue<RESULT_TYPE>(attr, type);
@@ -679,9 +680,9 @@ int64_t mlirTypeToOnnxType(Type elemType) {
       .Case<BFloat16Type>(
           [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
       .Case<ComplexType>([&](ComplexType type) {
-        if (type.getElementType().isa<Float32Type>())
+        if (mlir::isa<Float32Type>(type.getElementType()))
           onnxType = onnx::TensorProto::COMPLEX64;
-        else if (type.getElementType().isa<Float64Type>())
+        else if (mlir::isa<Float64Type>(type.getElementType()))
           onnxType = onnx::TensorProto::COMPLEX128;
       })
       .Case<Float16Type>(
@@ -741,14 +742,14 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   if (elementAttr.getNumElements() != 1)
     return false;
   Type elementType = elementAttr.getElementType();
-  if (elementType.isa<FloatType>()) {
+  if (mlir::isa<FloatType>(elementType)) {
     double floatVal = getScalarValue<double>(elementAttr, elementType);
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
       exponentValue = (int64_t)floatVal;
       return true;
     }
-  } else if (elementType.isa<IntegerType>()) {
+  } else if (mlir::isa<IntegerType>(elementType)) {
     exponentValue = getScalarValue<int64_t>(elementAttr, elementType);
     return true;
   }
@@ -844,17 +845,17 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
   }
   // Try with op location.
   Location loc = op->getLoc();
-  if (auto nameLoc = loc.dyn_cast<NameLoc>()) {
+  if (auto nameLoc = mlir::dyn_cast<NameLoc>(loc)) {
     return nameLoc.getName().str();
   }
-  if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+  if (auto fusedLoc = mlir::dyn_cast<FusedLoc>(loc)) {
     // Combine each location name and set it as nodeName.
     std::string name;
     for (Location locIt : fusedLoc.getLocations()) {
-      if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
+      if (auto nameLocIt = mlir::dyn_cast<NameLoc>(locIt))
         name += nameLocIt.getName().str() + "-";
       else if (useFileLine) {
-        if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+        if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(locIt)) {
           getNameFromFileLineLoc(fileLineColLoc, name, "-");
         }
       }
@@ -866,7 +867,7 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
     return name;
   }
   if (useFileLine) {
-    if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+    if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(loc)) {
       std::string name = "";
       getNameFromFileLineLoc(fileLineColLoc, name);
       return name;

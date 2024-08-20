@@ -285,7 +285,7 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
           apiSpec.outputTy, apiSpec.inputTys, apiSpec.isVarArg);
   SmallVector<Type, 1> outputTys;
   Type outputTy = apiSpec.outputTy;
-  if (!outputTy.isa<LLVM::LLVMVoidType>())
+  if (!mlir::isa<LLVM::LLVMVoidType>(outputTy))
     outputTys.emplace_back(outputTy);
   return create.llvm.call(
       ArrayRef<Type>(outputTys), symbolRef, ArrayRef<Value>(params));
@@ -305,7 +305,8 @@ size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   if (numElems == 3)
     return 0; // MemRef refers to a scalar.
   else
-    return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
+    return mlir::cast<LLVM::LLVMArrayType>(memRefTy.getBody()[3])
+        .getNumElements();
 }
 
 /// Get a vector of 'size' dimensions from a 1D DenseElementsAttr.
@@ -317,7 +318,7 @@ std::vector<Value> getDimsFromDenseElementsAttr(PatternRewriter &rewriter,
   std::vector<Value> dims;
   auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
   for (unsigned int i = 0; i < size; ++i) {
-    int64_t dim = (*valueIt++).cast<IntegerAttr>().getInt();
+    int64_t dim = mlir::cast<IntegerAttr>(*valueIt++).getInt();
     Value dimVal = create.llvm.constant(rewriter.getI64Type(), dim);
     dims.emplace_back(dimVal);
   }
@@ -367,7 +368,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
                 module, addressOfOp.getGlobalNameAttr()));
         if (globalOp) {
           DenseElementsAttr valueAttr =
-              globalOp.getValue().value().dyn_cast<DenseElementsAttr>();
+              mlir::dyn_cast<DenseElementsAttr>(globalOp.getValue().value());
           if (valueAttr)
             return getDimsFromDenseElementsAttr(
                 rewriter, loc, module, valueAttr, size);
@@ -418,7 +419,7 @@ void getDimsFromMemRef(PatternRewriter &rewriter, Location loc, ModuleOp module,
     Value memRef, SmallVectorImpl<Value> &dims) {
   MemRefDescriptor memRefDesc(memRef);
   size_t rank =
-      getRankFromMemRefType(memRef.getType().cast<LLVM::LLVMStructType>());
+      getRankFromMemRefType(mlir::cast<LLVM::LLVMStructType>(memRef.getType()));
   for (size_t i = 0; i < rank; i++) {
     Value dimI64 = memRefDesc.size(rewriter, loc, i);
     dims.emplace_back(dimI64);
@@ -428,9 +429,9 @@ void getDimsFromMemRef(PatternRewriter &rewriter, Location loc, ModuleOp module,
 /// Type conversion from LLVMType to zDNNType.
 /// TODO: fill in the complete list of the zDNN types.
 zdnn_data_types llvmTypeToZDNNType(Type elemType) {
-  if (elemType.isa<Float16Type>())
+  if (mlir::isa<Float16Type>(elemType))
     return FP16;
-  else if (elemType.isa<Float32Type>())
+  else if (mlir::isa<Float32Type>(elemType))
     return FP32;
   else
     llvm_unreachable("Unexpected LLVM type, cannot be converted to zDNN type.");

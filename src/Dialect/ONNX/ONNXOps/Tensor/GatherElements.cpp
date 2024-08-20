@@ -44,8 +44,8 @@ LogicalResult ONNXGatherElementsOp::verify() {
   // Get operands and attributes.
   Value data = operandAdaptor.getData();
   Value indices = operandAdaptor.getIndices();
-  auto dataType = data.getType().cast<ShapedType>();
-  auto indicesType = indices.getType().cast<ShapedType>();
+  auto dataType = mlir::cast<ShapedType>(data.getType());
+  auto indicesType = mlir::cast<ShapedType>(indices.getType());
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t axis = this->getAxis();
@@ -97,7 +97,8 @@ LogicalResult ONNXGatherElementsOp::inferShapes(
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
   ONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

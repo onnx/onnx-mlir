@@ -43,7 +43,7 @@ namespace onnx_mlir {
 
 // If 'A' is NoneType, return -B. Otherwise return A-B.
 Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
-  if (A.getType().isa<NoneType>())
+  if (mlir::isa<NoneType>(A.getType()))
     return rewriter.create<ONNXNegOp>(loc, B);
   return rewriter.create<ONNXSubOp>(loc, A, B);
 }
@@ -67,12 +67,14 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
 
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
 Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
-  ArrayRef<int64_t> aShape = A.getType().cast<RankedTensorType>().getShape();
-  ArrayRef<int64_t> bShape = B.getType().cast<RankedTensorType>().getShape();
+  ArrayRef<int64_t> aShape =
+      mlir::cast<RankedTensorType>(A.getType()).getShape();
+  ArrayRef<int64_t> bShape =
+      mlir::cast<RankedTensorType>(B.getType()).getShape();
   SmallVector<int64_t> resShape(aShape.begin(), aShape.end() - 1);
   resShape.emplace_back(bShape[bShape.size() - 1]);
   return RankedTensorType::get(
-      resShape, A.getType().cast<ShapedType>().getElementType());
+      resShape, mlir::cast<ShapedType>(A.getType()).getElementType());
 }
 
 // Get the index of the axis value in the given permutation array.
@@ -80,7 +82,7 @@ IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
   IntegerAttr result;
   for (uint64_t i = 0; i < permAttr.getValue().size(); ++i) {
-    IntegerAttr attr = permAttr.getValue()[i].cast<IntegerAttr>();
+    IntegerAttr attr = mlir::cast<IntegerAttr>(permAttr.getValue()[i]);
     assert(attr && "Element in ArrayAttr is not IntegerAttr");
     if (attr.getValue().getSExtValue() == axis.getValue().getSExtValue())
       return rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), i);
@@ -93,7 +95,7 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
     Location loc, ValueRange inputs, ArrayAttr permAttr) {
   SmallVector<Value, 4> transposedInputs;
   for (Value inp : inputs) {
-    ShapedType inpType = inp.getType().cast<ShapedType>();
+    ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
     assert(inpType && "Type is not ShapedType");
     ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
         loc, UnrankedTensorType::get(inpType.getElementType()), inp, permAttr);
@@ -108,7 +110,7 @@ SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
     ValueRange inputs, IntegerAttr saturate, TypeAttr to) {
   SmallVector<Value, 4> castInputs;
   for (Value inp : inputs) {
-    ShapedType inpType = inp.getType().cast<ShapedType>();
+    ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
     assert(inpType && "Type is not ShapedType");
     ONNXCastOp castOp = rewriter.create<ONNXCastOp>(loc,
         UnrankedTensorType::get(inpType.getElementType()), inp, saturate, to);
@@ -121,7 +123,7 @@ SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
 // Check if all values are produced by ONNXTransposeOp.
 bool areProducedByTransposeOp(ValueRange values) {
   return llvm::all_of(values, [](Value v) {
-    if (v.isa<BlockArgument>())
+    if (mlir::isa<BlockArgument>(v))
       return false;
     return isa<ONNXTransposeOp>(v.getDefiningOp());
   });
@@ -131,7 +133,7 @@ bool areProducedByTransposeOp(ValueRange values) {
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
     Value value, int64_t start = 0, std::optional<int64_t> end = std::nullopt) {
 
-  auto inType = value.getType().cast<ShapedType>();
+  auto inType = mlir::cast<ShapedType>(value.getType());
   assert(inType.hasRank() && "inType must be ranked");
   auto shape = inType.getShape();
   int64_t rank = inType.getRank();
@@ -167,7 +169,7 @@ bool AreTheSameAxesArrayAttr(
   auto asSet = [rank](ArrayRef<Attribute> array) {
     llvm::SmallSet<int64_t, 6> axes;
     for (auto attr : array) {
-      int64_t axis = attr.cast<IntegerAttr>().getInt();
+      int64_t axis = mlir::cast<IntegerAttr>(attr).getInt();
       axes.insert(axis < 0 ? axis + rank : axis);
     }
     return axes;
@@ -211,11 +213,11 @@ bool isNegativeSplatConstant(Value val) {
   if (!valAttr.isSplat())
     return false;
 
-  Type elemTy = val.getType().cast<ShapedType>().getElementType();
-  if (elemTy.isa<FloatType>()) {
+  Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
+  if (mlir::isa<FloatType>(elemTy)) {
     double v = valAttr.getSplatValue<double>();
     return (v < 0.0);
-  } else if (elemTy.isa<IntegerType>()) {
+  } else if (mlir::isa<IntegerType>(elemTy)) {
     int64_t v = valAttr.getSplatValue<int64_t>();
     return (v < 0);
   }
@@ -226,15 +228,15 @@ bool isNegativeSplatConstant(Value val) {
 bool areAllDimSizes(ValueRange vals) {
   return llvm::all_of(vals, [](Value val) {
     // Block arguments.
-    if (val.isa<BlockArgument>())
+    if (mlir::isa<BlockArgument>(val))
       return false;
     // Defined by DimOp.
     if (val.getDefiningOp<ONNXDimOp>())
       return true;
     // Defined by ConstantOp.
     if (isDenseONNXConstant(val) && isScalarTensor(val)) {
-      Type elemTy = val.getType().cast<ShapedType>().getElementType();
-      if (!elemTy.isa<IntegerType>())
+      Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
+      if (!mlir::isa<IntegerType>(elemTy))
         return false;
       ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
       auto valAttr =
@@ -255,7 +257,7 @@ bool areAllDimSizes(ValueRange vals) {
 // A and B are constants.
 bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
     Operation *&matmulOrGemmOp, Operation *&addOp, bool &isGemm) {
-  if (v.isa<BlockArgument>())
+  if (mlir::isa<BlockArgument>(v))
     return false;
   if (!hasOneUseExceptDimOp(v))
     return false;
@@ -270,7 +272,7 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
     if (!hasOneUseExceptDimOp(origV))
       break;
   }
-  if (origV.isa<BlockArgument>() || !hasOneUseExceptDimOp(origV))
+  if (mlir::isa<BlockArgument>(origV) || !hasOneUseExceptDimOp(origV))
     return false;
 
   // Match Gemm
@@ -745,14 +747,14 @@ private:
   // A helper function to check whether a value is defined by ONNXConstantOp in
   // the same block or not.
   bool isDefinedByIntegerConstantOp(Value v) const {
-    if (v.isa<BlockArgument>())
+    if (mlir::isa<BlockArgument>(v))
       return false;
     Operation *definingOp = v.getDefiningOp();
-    if (v.getType().cast<ShapedType>().getElementType().isa<IntegerType>() &&
+    if (mlir::isa<IntegerType>(
+            mlir::cast<ShapedType>(v.getType()).getElementType()) &&
         isa<ONNXConstantOp>(definingOp) &&
-        cast<ONNXConstantOp>(definingOp)
-            .getValueAttr()
-            .isa<DenseElementsAttr>())
+        mlir::isa<DenseElementsAttr>(
+            cast<ONNXConstantOp>(definingOp).getValueAttr()))
       return true;
     return false;
   }
@@ -762,38 +764,40 @@ private:
   // shifted by 1 to the left in YieldOp. If a block argument is unchanged when
   // being shifted in YieldOp, then it is invariant to iterations.
   bool isInvariantBlockArg(Value v, Operation *yieldOp) const {
-    return v.isa<BlockArgument>() &&
-           (v == yieldOp->getOperands()[v.cast<BlockArgument>().getArgNumber() -
-                                        1]);
+    return mlir::isa<BlockArgument>(v) &&
+           (v ==
+               yieldOp
+                   ->getOperands()[mlir::cast<BlockArgument>(v).getArgNumber() -
+                                   1]);
   }
 
   // A helper function to check whether a value is defined by ONNXConstantOp in
   // the same block or an invariant block argument.
   bool isIntConstantOrInvariantBlockArg(Value v, Operation *yieldOp) const {
-    return ((v.isa<BlockArgument>() && isInvariantBlockArg(v, yieldOp)) ||
-            (!v.isa<BlockArgument>() && isDefinedByIntegerConstantOp(v)));
+    return ((mlir::isa<BlockArgument>(v) && isInvariantBlockArg(v, yieldOp)) ||
+            (!mlir::isa<BlockArgument>(v) && isDefinedByIntegerConstantOp(v)));
   }
 
   // A helper function to check whether an block argument is updated by a Value
   // inside the loop or not.
   bool isUpdatedArgByValue(Value v, Value newV, Operation *yieldOp) const {
-    return v.isa<BlockArgument>() &&
+    return mlir::isa<BlockArgument>(v) &&
            (newV ==
                yieldOp
-                   ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
+                   ->getOperands()[mlir::cast<BlockArgument>(v).getArgNumber() -
+                                   1]);
   }
 
   // A helper function to get the value that is fed to an operation's argument.
   Value getFedValue(Value arg, Operation *op) const {
-    return op->getOperands()[arg.cast<BlockArgument>().getArgNumber()];
+    return op->getOperands()[mlir::cast<BlockArgument>(arg).getArgNumber()];
   }
 
   // A helper function to get an integer constant from a value.
   int64_t getOneIntegerConstant(Value v) const {
     Operation *definingOp = v.getDefiningOp();
-    DenseElementsAttr valueAttr = cast<ONNXConstantOp>(definingOp)
-                                      .getValueAttr()
-                                      .cast<DenseElementsAttr>();
+    DenseElementsAttr valueAttr = mlir::cast<DenseElementsAttr>(
+        cast<ONNXConstantOp>(definingOp).getValueAttr());
     return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
   }
 
@@ -840,7 +844,7 @@ private:
     // The break condition is the first argument of YieldOp.
     // `ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)`
     Value breakCond = yieldOp->getOperands()[0];
-    if (breakCond.isa<BlockArgument>())
+    if (mlir::isa<BlockArgument>(breakCond))
       return std::make_pair(false, maxTripCountValue);
     Operation *breakCondOp = breakCond.getDefiningOp();
 
@@ -852,10 +856,8 @@ private:
     Value newCounterValue = breakCondOp->getOperands()[0];
     Value ubValue = breakCondOp->getOperands()[1];
     // Input type of Less must be integer.
-    if (!newCounterValue.getType()
-             .cast<ShapedType>()
-             .getElementType()
-             .isa<IntegerType>())
+    if (!mlir::isa<IntegerType>(
+            mlir::cast<ShapedType>(newCounterValue.getType()).getElementType()))
       return std::make_pair(false, maxTripCountValue);
 
     // Compute a trip count from the break condition, given that the upper bound
@@ -863,7 +865,7 @@ private:
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
 
     // Only support ONNXAddOp at this moment.
-    if (newCounterValue.isa<BlockArgument>() ||
+    if (mlir::isa<BlockArgument>(newCounterValue) ||
         !isa<ONNXAddOp>(newCounterValue.getDefiningOp()))
       return std::make_pair(false, maxTripCountValue);
     // ONNXLoop(max_trip_count, true, ..., ubValue, ..., startValue, ...)
@@ -925,8 +927,9 @@ private:
 
       SmallVector<int64_t, 1> values(1, derivedTripCount);
       DenseElementsAttr valueAttr = DenseElementsAttr::get(
-          RankedTensorType::get({},
-              maxTripCountValue.getType().cast<ShapedType>().getElementType()),
+          RankedTensorType::get(
+              {}, mlir::cast<ShapedType>(maxTripCountValue.getType())
+                      .getElementType()),
           ArrayRef(values));
       return std::make_pair(true, onnx.constant(valueAttr));
     }
@@ -936,14 +939,14 @@ private:
     // - new_max_trip_count =
     //      min(old_max_trip_count, ceil(upper_bound - lower_bound)/step)
     TypeAttr tripCountType = TypeAttr::get(
-        maxTripCountValue.getType().cast<ShapedType>().getElementType());
+        mlir::cast<ShapedType>(maxTripCountValue.getType()).getElementType());
 
     // Cast the upper and lower bounds to the correct type.
-    if (maxTripCountValue.getType().cast<ShapedType>().getElementType() !=
-        ubValue.getType().cast<ShapedType>().getElementType())
+    if (mlir::cast<ShapedType>(maxTripCountValue.getType()).getElementType() !=
+        mlir::cast<ShapedType>(ubValue.getType()).getElementType())
       ubValue = onnx.cast(ubValue, tripCountType);
-    if (maxTripCountValue.getType().cast<ShapedType>().getElementType() !=
-        lbValue.getType().cast<ShapedType>().getElementType())
+    if (mlir::cast<ShapedType>(maxTripCountValue.getType()).getElementType() !=
+        mlir::cast<ShapedType>(lbValue.getType()).getElementType())
       lbValue = onnx.cast(lbValue, tripCountType);
 
     // Emit code to compute the max trip count.
@@ -987,14 +990,14 @@ public:
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
     assert(operand.size() == 1 && "should be called with singleton range");
     Value input = operand[0].get();
-    if (!input.getType().isa<NoneType>()) {
+    if (!mlir::isa<NoneType>(input.getType())) {
       Value transposed = transpose(input, perm);
       operand.assign(transposed);
     }
   }
 
   void transposeOutput(Value output, ArrayAttr perm) {
-    if (!output.getType().isa<NoneType>()) {
+    if (!mlir::isa<NoneType>(output.getType())) {
       Value transposed = transpose(output, perm);
       output.replaceAllUsesExcept(transposed, transposed.getDefiningOp());
     }
@@ -1153,7 +1156,7 @@ public:
     Value input = powOp.getX();
 
     Value result = nullptr;
-    ShapedType resultType = powOp.getZ().getType().cast<ShapedType>();
+    ShapedType resultType = mlir::cast<ShapedType>(powOp.getZ().getType());
     Type elementType = getElementType(resultType);
     if (exponent == 0) {
       Attribute one = isa<FloatType>(elementType)

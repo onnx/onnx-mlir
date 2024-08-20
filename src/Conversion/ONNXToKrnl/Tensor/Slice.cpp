@@ -37,9 +37,9 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     int64_t outputRank = outputMemRefType.getShape().size();
 
     // Insert an allocation and deallocation for the output of this operation.
