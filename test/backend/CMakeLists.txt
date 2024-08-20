@@ -227,7 +227,7 @@ add_dependencies(check-onnx-backend-model PyRuntimeC)
 add_dependencies(check-onnx-backend-signature onnx-mlir)
 add_dependencies(check-onnx-backend-signature PyRuntimeC)
 add_dependencies(check-onnx-backend-input-verification onnx-mlir)
-add_dependencies(check-onnx-backend-input-verification PyRuntimeC)
+# add_dependencies(check-onnx-backend-input-verification PyRuntimeC)
 add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib PyRuntimeC)
 
