@@ -3629,7 +3629,7 @@ class InferenceBackendTest(BackendTest):
             outputs,
             rtol,
             atol,
-            model_dir=model_dir,
+            model_dir,
         )
 
     def _add_onnxmlir_model_test(
@@ -3645,20 +3645,17 @@ class InferenceBackendTest(BackendTest):
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
             atol = model_test.atol
-            onnx_home = os.path.expanduser(
-                os.getenv("ONNX_HOME", os.path.join("~", ".onnx"))
-            )
-            model_dir = os.path.join(onnx_home, "models", model_test.model.graph.name)
-
+            model_dir = model_test.model_dir
             self.assert_similar_outputs(
                 ref_outputs,
                 outputs,
                 rtol,
                 atol,
-                model_dir=model_dir,
+                model_dir,
             )
 
-        self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
+        model_name = model_test.model.graph.name
+        self._add_test(kind + "Model", model_name, run, model_marker)
 
 
 # There are two issues, which necessitates the adoption of this endianness
