@@ -25,7 +25,7 @@
 //
 // might violate the rules about strict aliasing in C++.
 #define BIT_CAST(TO_TYPE, TO, FROM)                                            \
-  TO_TYPE(TO);                                                                \
+  TO_TYPE(TO);                                                                 \
   static_assert(sizeof(TO) == sizeof(FROM), "only bit cast same sizes");       \
   memcpy(&(TO), &(FROM), sizeof(FROM))
 

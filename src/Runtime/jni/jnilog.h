@@ -39,9 +39,8 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
      * number of chars printed without '\0'. So as long as k < j,              \
      * it means the output, with a trailing '\0', fits in the buffer.          \
      */                                                                        \
-    while (__i < __l &&                                                        \
-           (__k = snprintf(__p, __j, (format),                                 \
-                ((type *)(data))[__i])) < __j) {                               \
+    while (__i < __l && (__k = snprintf(__p, __j, (format),                    \
+                             ((type *)(data))[__i])) < __j) {                  \
       assert(__k >= 0 && "snprintf write error to __p");                       \
       __p += __k;                                                              \
       __j -= __k;                                                              \
