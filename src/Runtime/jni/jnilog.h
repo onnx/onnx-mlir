@@ -40,7 +40,8 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
      * it means the output, with a trailing '\0', fits in the buffer.          \
      */                                                                        \
     while (__i < __l &&                                                        \
-           (__k = snprintf(__p, __j, (format), ((type *)(data))[__i])) < __j) {\
+           (__k = snprintf(__p, __j, (format),                                 \
+                ((type *)(data))[__i])) < __j) {                               \
       assert(__k >= 0 && "snprintf write error to __p");                       \
       __p += __k;                                                              \
       __j -= __k;                                                              \
@@ -73,7 +74,8 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
       break;                                                                   \
     case ONNX_TYPE_UINT16:                                                     \
     case ONNX_TYPE_INT16:                                                      \
-      LOG_BUF_C_TYPE(const short, (hex) ? " %04x" : " %d", (buf), (data), (n));\
+      LOG_BUF_C_TYPE(                                                          \
+          const short, (hex) ? " %04x" : " %d", (buf), (data), (n));           \
       break;                                                                   \
     case ONNX_TYPE_UINT32:                                                     \
     case ONNX_TYPE_INT32:                                                      \
@@ -81,16 +83,19 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
       break;                                                                   \
     case ONNX_TYPE_UINT64:                                                     \
     case ONNX_TYPE_INT64:                                                      \
-      LOG_BUF_C_TYPE(const long, (hex) ? " %016x" : " %ld", (buf), (data), (n));\
+      LOG_BUF_C_TYPE(                                                          \
+          const long, (hex) ? " %016x" : " %ld", (buf), (data), (n));          \
       break;                                                                   \
     case ONNX_TYPE_FLOAT16:                                                    \
       LOG_BUF_C_TYPE(const short, " %04x", (buf), (data), (n));                \
       break;                                                                   \
     case ONNX_TYPE_FLOAT:                                                      \
-      LOG_BUF_C_TYPE(const float, (hex) ? " %08x" : " %f", (buf), (data), (n));\
+      LOG_BUF_C_TYPE(                                                          \
+          const float, (hex) ? " %08x" : " %f", (buf), (data), (n));           \
       break;                                                                   \
     case ONNX_TYPE_DOUBLE:                                                     \
-      LOG_BUF_C_TYPE(const double, (hex) ? " %016x" : " %lf", (buf), (data), (n));\
+      LOG_BUF_C_TYPE(                                                          \
+          const double, (hex) ? " %016x" : " %lf", (buf), (data), (n));        \
       break;                                                                   \
     default: {                                                                 \
       int __a = sprintf((buf), " unsupported data type %d ", (type));          \
@@ -102,7 +107,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 #define LOG_BUF(type, buf, data, n)                                            \
   LOG_BUF_ONNX_TYPE((type), (buf), (data), (n), 0)
 #define LOG_XBUF(type, buf, data, n)                                           \
-  LOG_BUF_ONNX_TYPE((type),(buf), (data), (n), 1)
+  LOG_BUF_ONNX_TYPE((type), (buf), (data), (n), 1)
 
 #define LOG_CHAR_BUF(buf, data, n)                                             \
   LOG_BUF_C_TYPE(const char, "%c", (buf), (data), (n))
@@ -127,7 +132,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 #define LOG_DOUBLE_BUF(buf, data, n)                                           \
   LOG_BUF_C_TYPE(const double, " %lf", (buf), (data), (n))
 #define LOG_DOUBLE_XBUF(buf, data, n)                                          \
-  LOG_BUF_C_TYPE(const double, " %016x", (buf), (data),(n))
+  LOG_BUF_C_TYPE(const double, " %016x", (buf), (data), (n))
 
 /* Main macro for log output */
 #define LOG_PRINTF(level, ...)                                                 \

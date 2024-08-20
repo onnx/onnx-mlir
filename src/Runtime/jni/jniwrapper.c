@@ -37,7 +37,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * this call simply returns NULL.
  */
 #define CHECK_CALL(type, var, call, success, ...)                              \
-  type (var) = (call);                                                         \
+  type(var) = (call);                                                          \
   do {                                                                         \
     if (!(success)) {                                                          \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
@@ -78,7 +78,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * log error and throw Java exception if the call failed.
  */
 #define JNI_TYPE_VAR_CALL(env, type, var, call, success, ecpt, ...)            \
-  JNI_CALL((env), type (var) = (call), (success), (ecpt), __VA_ARGS__);
+  JNI_CALL((env), type(var) = (call), (success), (ecpt), __VA_ARGS__);
 
 /* Make a native library call, check success condition,
  * log error and throw Java exception if native code failed.
@@ -108,7 +108,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * if the call failed. Also check success condition.
  */
 #define LIB_TYPE_VAR_CALL(type, var, call, success, env, ecpt, ...)            \
-  LIB_CALL(type (var) = (call), (success), (env), (ecpt), __VA_ARGS__);
+  LIB_CALL(type(var) = (call), (success), (env), (ecpt), __VA_ARGS__);
 
 /* Debug output of OMTensor fields */
 #define OMT_DEBUG(                                                             \
