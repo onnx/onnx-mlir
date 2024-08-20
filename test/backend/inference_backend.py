@@ -3373,16 +3373,16 @@ def get_test_models():
         # No need to label this test FLOAT16 because it only passes the float16
         # data through to a call to omTensorSort, it doesn't generate any of the
         # float16 LLVM instructions that are unsupported on some platforms.
-        # "test_onnxmlir_top_k_float16_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {0: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
-        # "test_onnxmlir_top_k_smallest_float16_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {0: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        "test_onnxmlir_top_k_float16_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_onnxmlir_top_k_smallest_float16_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
     }
 
     ############################################################
@@ -3645,7 +3645,7 @@ class InferenceBackendTest(BackendTest):
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
             atol = model_test.atol
-            model_dir = model_test.model_dir
+            model_dir = None
             self.assert_similar_outputs(
                 ref_outputs,
                 outputs,
