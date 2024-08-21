@@ -42,14 +42,14 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
 
 #define ZDNN_MAX_DIMS 4 // number of dims in AIU's Tensor Descriptor
 
-#define CEIL(a, b) (uint64_t)((a + b - 1) / b) // positive numbers only
-#define MIN(a, b) ((a > b) ? b : a)
-#define MAX(a, b) ((a < b) ? b : a)
+#define CEIL(a, b) (uint64_t)(((a) + (b)-1) / (b)) // positive numbers only
+#define MIN(a, b) (((a) > (b)) ? (b) : (a))
+#define MAX(a, b) (((a) < (b)) ? (b) : (a))
 #define BIT_SIZEOF(a) (sizeof(a) * 8)
 
 // padded = next multiple of AIU_2BYTE_CELLS_PER_STICK
 #define PADDED(x)                                                              \
-  ((uint32_t)CEIL(x, AIU_2BYTE_CELLS_PER_STICK) * AIU_2BYTE_CELLS_PER_STICK)
+  ((uint32_t)CEIL((x), AIU_2BYTE_CELLS_PER_STICK) * AIU_2BYTE_CELLS_PER_STICK)
 #define ZDNN_STATUS_OK ZDNN_OK
 
 typedef enum elements_mode {
@@ -92,8 +92,8 @@ DECLARE_DATA_FORMAT_STR(ZDNN_FORMAT_4DKERNEL)
 static short get_data_layout_num_gates(zdnn_data_layouts layout) {
 
 #define CASE_RTN_GATES(a, b)                                                   \
-  case a:                                                                      \
-    return b;
+  case (a):                                                                    \
+    return (b);
 
   switch (layout) {
     CASE_RTN_GATES(ZDNN_BIDIR_ZRH, 3);
@@ -109,8 +109,8 @@ static short get_data_layout_num_gates(zdnn_data_layouts layout) {
 static short get_data_layout_dims(zdnn_data_layouts layout) {
 
 #define CASE_RTN_DIM(a, b)                                                     \
-  case a:                                                                      \
-    return b;
+  case (a):                                                                    \
+    return (b);
 
   switch (layout) {
     CASE_RTN_DIM(ZDNN_1D, 1);
@@ -152,7 +152,7 @@ uint32_t get_rnn_concatenated_dim2(uint32_t val, zdnn_concat_info info) {
 short get_func_code_num_gates(nnpa_function_code func_code) {
 
 #define CASE_RTN_GATES(a, b)                                                   \
-  case a:                                                                      \
+  case (a):                                                                    \
     return get_data_layout_num_gates(b); // piggyback thus no need to hardcode
 
   switch (func_code) {
@@ -167,7 +167,7 @@ short get_func_code_num_gates(nnpa_function_code func_code) {
 const char *get_data_layout_str(zdnn_data_layouts layout) {
 
 #define CASE_RTN_STR(a)                                                        \
-  case a:                                                                      \
+  case (a):                                                                    \
     return DATA_LAYOUT_STR_##a;
 
   switch (layout) {
@@ -194,7 +194,7 @@ const char *get_data_layout_str(zdnn_data_layouts layout) {
 const char *get_data_format_str(zdnn_data_formats format) {
 
 #define CASE_RTN_STR(a)                                                        \
-  case a:                                                                      \
+  case (a):                                                                    \
     return DATA_FORMAT_STR_##a;
 
   switch (format) {
@@ -209,8 +209,8 @@ const char *get_data_format_str(zdnn_data_formats format) {
 short get_data_type_size(zdnn_data_types type) {
 
 #define CASE_RTN_SIZE(a, b)                                                    \
-  case a:                                                                      \
-    return b;
+  case (a):                                                                    \
+    return (b);
 
   switch (type) {
     CASE_RTN_SIZE(BFLOAT, 2);
