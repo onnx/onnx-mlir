@@ -4,7 +4,7 @@
 
 //====------ ConvertKrnlToLLVM.cpp - Krnl Dialect Lowering  ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
