@@ -276,12 +276,12 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
 
 /*
 Example of how to use the interface:
-Say you have a loop of i=0..128, j=0..0 and want to exploit r[i,j] = a[i,j] +
+Say you have a loop of i=0..256, j=0..128 and want to exploit r[i,j] = a[i,j] +
 b[j] + c. For the loops, we will need access functions for a, b, and r.
 
 Say we already have the loop for the outer loop of i
 
-krnl.iterate(loop i from 0 to 128) {
+krnl.iterate(loop i from 0 to 256) {
   ii is the loop index.
 
   // 1) compute access function for a, b, c

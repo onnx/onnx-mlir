@@ -65,7 +65,7 @@ struct ScalarOp<ONNXTanhOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
   return {{GenericOps::TrigHyperbolicGop, 1}};
 }
 
@@ -75,7 +75,7 @@ struct ScalarOp<ONNXAddOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -85,7 +85,7 @@ struct ScalarOp<ONNXAbsOp> {
   using IOp = math::AbsIOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
   return {{GenericOps::AbsGop, 1}};
 }
 
@@ -95,7 +95,7 @@ struct ScalarOp<ONNXMulOp> {
   using IOp = arith::MulIOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
   return {{GenericOps::MulGop, 1}};
 }
 
@@ -105,7 +105,7 @@ struct ScalarOp<ONNXDivOp> {
   using IOp = arith::DivSIOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
   return {{GenericOps::DivGop, 1}};
 }
 
@@ -115,7 +115,7 @@ struct ScalarOp<ONNXSubOp> {
   using IOp = arith::SubIOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -161,7 +161,7 @@ struct ScalarOp<ONNXExpOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
   return {{GenericOps::ExpGop, 1}};
 }
 
@@ -171,7 +171,7 @@ struct ScalarOp<ONNXSumOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -181,7 +181,7 @@ struct ScalarOp<ONNXCosOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
   return {{GenericOps::TrigGop, 1}};
 }
 
@@ -191,7 +191,7 @@ struct ScalarOp<ONNXLogOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
   return {{GenericOps::LogGop, 1}};
 }
 
@@ -201,7 +201,7 @@ struct ScalarOp<ONNXSqrtOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
   return {{GenericOps::SqrtGop, 1}};
 }
 
@@ -217,7 +217,7 @@ struct ScalarOp<ONNXCeilOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
   return {{GenericOps::CeilGop, 1}};
 }
 
@@ -227,7 +227,7 @@ struct ScalarOp<ONNXFloorOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
   return {{GenericOps::FloorGop, 1}};
 }
 
@@ -237,7 +237,7 @@ struct ScalarOp<ONNXSinOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
   return {{GenericOps::TrigGop, 1}};
 }
 
@@ -247,7 +247,7 @@ struct ScalarOp<ONNXPowOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-GenOpsMixList getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
   return {{GenericOps::PowGop, 1}};
 }
 
@@ -303,7 +303,7 @@ struct ScalarOp<ONNXGeluOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXGeluOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXGeluOp>(Type t, Operation *op) {
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
     return {{GenericOps::ArithmeticGop, 1}, {GenericOps::ErfGop, 1},
@@ -439,7 +439,7 @@ struct ScalarOp<ONNXSinhOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXSinhOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSinhOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
       {GenericOps::DivGop, 1}};
 }
@@ -471,7 +471,7 @@ struct ScalarOp<ONNXCoshOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXCoshOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXCoshOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
       {GenericOps::DivGop, 1}};
 }
@@ -503,7 +503,7 @@ struct ScalarOp<ONNXSigmoidOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXSigmoidOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSigmoidOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 1},
       {GenericOps::DivGop, 1}};
 }
@@ -534,7 +534,7 @@ struct ScalarOp<ONNXHardSigmoidOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXHardSigmoidOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXHardSigmoidOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 3}, {GenericOps::MulGop, 1}};
 }
 
@@ -576,7 +576,7 @@ struct ScalarOp<ONNXEluOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXEluOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXEluOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
       {GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
       {GenericOps::ExpGop, 1}};
@@ -612,7 +612,7 @@ struct ScalarOp<ONNXReluOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXReluOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReluOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -637,7 +637,7 @@ struct ScalarOp<ONNXLeakyReluOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
   return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
       {GenericOps::MulGop, 1}};
 }
@@ -670,7 +670,7 @@ struct ScalarOp<ONNXPReluOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXPReluOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXPReluOp>(Type t, Operation *op) {
   return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
       {GenericOps::MulGop, 1}};
 }
@@ -700,7 +700,7 @@ struct ScalarOp<ONNXSeluOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXSeluOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSeluOp>(Type t, Operation *op) {
   return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
       {GenericOps::MulGop, 2}, {GenericOps::ArithmeticGop, 1},
       {GenericOps::ExpGop, 1}};
@@ -740,7 +740,7 @@ struct ScalarOp<ONNXReciprocalOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXReciprocalOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReciprocalOp>(Type t, Operation *op) {
   return {{GenericOps::DivGop, 1}};
 }
 
@@ -766,7 +766,7 @@ struct ScalarOp<ONNXSoftplusOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXSoftplusOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSoftplusOp>(Type t, Operation *op) {
   return {{GenericOps::ExpGop, 1}, {GenericOps::ArithmeticGop, 1},
       {GenericOps::LogGop, 1}};
 }
@@ -795,7 +795,7 @@ struct ScalarOp<ONNXSoftsignOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXSoftsignOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSoftsignOp>(Type t, Operation *op) {
   return {{GenericOps::AbsGop, 1}, {GenericOps::ArithmeticGop, 1},
       {GenericOps::DivGop, 1}};
 }
@@ -824,7 +824,7 @@ struct ScalarOp<ONNXSignOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXSignOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXSignOp>(Type t, Operation *op) {
   return {{GenericOps::CompareGop, 2}, {GenericOps::SelectGop, 2}};
 }
 
@@ -866,7 +866,7 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXErfOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXErfOp>(Type t, Operation *op) {
   return {{GenericOps::ErfGop, 1}};
 }
 
@@ -880,7 +880,7 @@ struct ScalarOp<ONNXMaxOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXMaxOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXMaxOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -908,7 +908,7 @@ struct ScalarOp<ONNXMinOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXMinOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXMinOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -937,7 +937,7 @@ struct ScalarOp<ONNXNegOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXNegOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXNegOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
@@ -1099,7 +1099,7 @@ struct ScalarOp<ONNXModOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXModOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXModOp>(Type t, Operation *op) {
   return {{GenericOps::RemGop, 1}, {GenericOps::CopySignGop, 1}};
 }
 
@@ -1182,7 +1182,7 @@ struct ScalarOp<ONNXMeanOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXMeanOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXMeanOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}, {GenericOps::DivGop, 1}};
 }
 
@@ -1205,7 +1205,7 @@ struct ScalarOp<ONNXRoundOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
       {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
       {GenericOps::FloorGop, 2}};
@@ -1231,7 +1231,7 @@ struct ScalarOp<ONNXClipOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXClipOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXClipOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 2}};
 }
 
@@ -1260,7 +1260,7 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 };
 
 template <>
-GenOpsMixList getGenOpMix<ONNXDequantizeLinearOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXDequantizeLinearOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
       {GenericOps::ConversionGop, 2}};
 }
@@ -1943,8 +1943,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = true;
-      GenOpsMixList mix =
-          getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
+      GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
       int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(
           outputMemRefType, collapsedInnermostLoops, mix, canOverCompute,
           simdLoopStaticTripCount, simdOnly);
@@ -2122,8 +2121,7 @@ struct ONNXElementwiseBinaryOpLowering
         !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
-      GenOpsMixList mix =
-          getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
+      GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
       int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(
           outputMemRefType, collapsedInnermostLoops, mix, canOverCompute,
           simdLoopStaticTripCount, simdOnly);
@@ -2298,8 +2296,7 @@ struct ONNXElementwiseVariadicOpLowering
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
-      GenOpsMixList mix =
-          getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
+      GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
       int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(
           outputMemRefType, collapsedInnermostLoops, mix, canOverCompute,
           simdLoopStaticTripCount, simdOnly);

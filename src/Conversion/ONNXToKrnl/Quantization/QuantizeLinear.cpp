@@ -49,7 +49,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   if (enableSIMD) {
     int64_t innermostLoopCollapse = 1; // Only innermost is simdized.
     bool canOverCompute = false;
-    GenOpsMixList mix = {{GenericOps::DivGop, 1},
+    GenOpMix mix = {{GenericOps::DivGop, 1},
         {GenericOps::ArithmeticGop, 5}, {GenericOps::ConversionGop, 1},
         {GenericOps::MinMaxGop, 2}, {GenericOps::MulGop, 2},
         {GenericOps::SelectGop, 3}, {GenericOps::FloorGop, 2}};

@@ -77,7 +77,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   return (simdBitSize / typeBitSize);
 }
 
-/*static*/ double VectorMachineSupport::getAvgArchVectorLength(GenOpsMix genOps,
+/*static*/ double VectorMachineSupport::getAvgArchVectorLength(GenOpMix &genOps,
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
   int64_t size = genOps.size();
   if (!hasSimd()) {
@@ -353,6 +353,29 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
     return UNSUPPORTED;
   }
   llvm_unreachable("should have handled all cases above");
+}
+
+// =============================================================================
+// Support for Generic Operation Mix
+
+GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2) {
+  GenOpMix u;
+  // Pick ops from the first mix.
+  for (auto pair : mix1) {
+    GenericOps genOp = pair.first;
+    int64_t num = pair.second;
+    u[genOp] = num;
+  }
+  // Merge entries from the second mix.
+  for (auto pair : mix1) {
+    GenericOps genOp = pair.first;
+    int64_t num = pair.second;
+    if (u.find(genOp) != u.end())
+      u[genOp] += num; // Has this op already, add to it.
+    else
+      u[genOp] = num;
+  }
+  return u;
 }
 
 } // namespace onnx_mlir

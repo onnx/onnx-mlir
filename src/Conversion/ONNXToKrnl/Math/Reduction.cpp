@@ -57,7 +57,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceProdOp>() {
   return VectorBuilder::CombiningKind::MUL;
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceProdOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceProdOp>(Type t, Operation *op) {
   return {{GenericOps::MulGop, 1}};
 }
 
@@ -77,7 +77,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceProdV13Op>() {
   return getCombiningKind<ONNXReduceProdOp>();
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceProdV13Op>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceProdV13Op>(Type t, Operation *op) {
   return getGenOpMix<ONNXReduceProdOp>(t, op);
 }
 template <>
@@ -101,7 +101,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceSumOp>() {
   return VectorBuilder::CombiningKind::ADD;
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceSumOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceSumOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 template <>
@@ -120,7 +120,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceSumV11Op>() {
   return getCombiningKind<ONNXReduceSumOp>();
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceSumV11Op>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceSumV11Op>(Type t, Operation *op) {
   return getGenOpMix<ONNXReduceSumOp>(t, op);
 }
 template <>
@@ -144,7 +144,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanOp>() {
   return VectorBuilder::CombiningKind::ADD;
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceMeanOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceMeanOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 template <>
@@ -167,7 +167,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanV13Op>() {
   return getCombiningKind<ONNXReduceMeanOp>();
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceMeanV13Op>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceMeanV13Op>(Type t, Operation *op) {
   return getGenOpMix<ONNXReduceMeanOp>(t, op);
 }
 template <>
@@ -195,7 +195,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMaxOp>() {
   return VectorBuilder::CombiningKind::MAX;
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceMaxOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceMaxOp>(Type t, Operation *op) {
   return {{GenericOps::MinMaxGop, 1}};
 }
 template <>
@@ -218,7 +218,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMaxV13Op>() {
   return getCombiningKind<ONNXReduceMaxOp>();
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceMaxV13Op>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceMaxV13Op>(Type t, Operation *op) {
   return getGenOpMix<ONNXReduceMaxOp>(t, op);
 }
 template <>
@@ -243,7 +243,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMinOp>() {
   return VectorBuilder::CombiningKind::MIN;
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceMinOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceMinOp>(Type t, Operation *op) {
   return {{GenericOps::MinMaxGop, 1}};
 }
 template <>
@@ -266,7 +266,7 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMinV13Op>() {
   return getCombiningKind<ONNXReduceMinOp>();
 }
 template <>
-GenOpsMixList getGenOpMix<ONNXReduceMinV13Op>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXReduceMinV13Op>(Type t, Operation *op) {
   return getGenOpMix<ONNXReduceMinOp>(t, op);
 }
 template <>
@@ -315,10 +315,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   // Study SIMD. Assume here that since SIMD is determined by the input type
   // (which is expected to be the same as the output scalar value), both
   // reduction will have the same archVL.
-  GenOpsMixList mix = getGenOpMix<ONNXReductionOp1>(elementType, op);
+  GenOpMix mix = getGenOpMix<ONNXReductionOp1>(elementType, op);
   if (hasTwoRed) {
-    GenOpsMixList mix2 = getGenOpMix<ONNXReductionOp2>(elementType, op);
-    mix.append(mix2);
+    GenOpMix mix2 = getGenOpMix<ONNXReductionOp2>(elementType, op);
+    mix = computeGenOpMixUnion(mix, mix2);
   }
   int64_t collapsedInnermostLoops = inputRank;
   int64_t simdLoopStaticTripCount;
@@ -657,7 +657,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // Currently only vectorize loops whose SIMD dimension is a multiple
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
-          GenOpsMixList mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
+          GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
           bool simdOnly, canOverCompute = false;
           totVL = VectorBuilder::computeSuitableUnrollFactor(memRefInType,
               innermostLoopCollapse, mix, canOverCompute,

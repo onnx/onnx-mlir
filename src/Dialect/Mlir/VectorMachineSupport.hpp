@@ -67,8 +67,9 @@ enum class GenericOps {
 // Describe the mix of Generic operations in a given kernel. Each generic
 // operation is associated with a number, which indicates the number of
 // occurrence of that generic op in the given kernel.
-using GenOpsMix = mlir::ArrayRef<std::pair<GenericOps, int64_t>>;
-using GenOpsMixList = llvm::SmallVector<std::pair<GenericOps, int64_t>, 4>;
+using GenOpMix = llvm::SmallDenseMap<GenericOps, int64_t, 8>;
+
+GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2);
 
 //===----------------------------------------------------------------------===//
 // Generic vector machine support class, which must be refined for each
@@ -131,7 +132,7 @@ public:
   // number of times that generic operation was found. Note that scalar
   // operation have a vector length of one in the weighted average as they still
   // contribute one result.
-  static double getAvgArchVectorLength(GenOpsMix genOps, mlir::Type elementType,
+  static double getAvgArchVectorLength(GenOpMix &genOps, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 protected:
