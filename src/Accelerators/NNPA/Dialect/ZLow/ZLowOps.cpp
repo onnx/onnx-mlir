@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
@@ -398,64 +399,131 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   StringAttr layout =
       zlowStickifiedConstantOp.getLayoutAttr(); // or getLayout() and check
   ArrayRef<char> ret;
-  if (DenseResourceElementsAttr denseResourceAttr =
-          mlir::dyn_cast_or_null<mlir::DenseResourceElementsAttr>(
-              zlowStickifiedConstantOp.getValue().value())) {
-    ret = denseResourceAttr.getRawHandle().getBlob()->getData();
-    llvm::dbgs() << "Init ret.size() " << ret.size() << "\n";
+  if (zlowStickifiedConstantOp.getValueAttr()) {
+    if (DenseElementsAttr dataAttr =
+            mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+                zlowStickifiedConstantOp.getValue().value())) {
+      ArrayRef<int64_t> shape = dataAttr.getType().getShape();
+      Type elementType = dataAttr.getType().getElementType();
+      int rank = shape.size(); // TOOD: `shape` should be original one, but now
+                               // normalized one
+      // Read attributes's raw data.
+      std::vector<char> rawData;
+      getRawData(dataAttr, rawData);
+      // Call stickify.
+      zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
+      // pre-transformed desc.
+      zdnn_data_layouts zDNNLayout =
+          convertLayoutAttrToZDNNDataLayout(rank, layout);
+      // If zDNNLayout is NHWC, we stickify directly from NCHW.
+      if (zDNNLayout == ZDNN_NHWC)
+        zDNNLayout = ZDNN_NCHW;
+      zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
+      set_info_pre_transformed_desc(
+          &pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
+      // transformed desc.
+      zdnn_status status =
+          generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
+      assert(status == ZDNN_OK);
+      // Stick data using the software stickify.
+      zdnn_ztensor ztensor;
+      init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
+      status = allochelper_ztensor_alloc(&ztensor);
+      assert(status == ZDNN_OK);
+      status = stickify(&ztensor, rawData.data());
+      assert(status == ZDNN_OK);
+      std::vector<char>().swap(rawData);
+      zlowStickifiedConstantOp.removeValueAttr();
+
+      // rawData = std::vector<char>();
+      // Use an dense resource attribute to store stickified data.
+      // Attribute type: tensor<sizeInBytes x i8>
+      int64_t sizeInBytes = ztensor.buffer_size;
+      // llvm::dbgs() << "ztensor.buffer_size " << sizeInBytes << "\n";
+      DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+          zlowStickifiedConstantOp.getOperation()
+              ->getDialect()
+              ->getNamespace(), // use the dialect as the blob "hint"
+          HeapAsmResourceBlob::allocateAndCopyWithAlign(
+              llvm::ArrayRef((char *)ztensor.buffer, sizeInBytes),
+              alignof(char)));
+      zlowStickifiedConstantOp.setValueAttr(valueAttr);
+      AsmResourceBlob *blob = valueAttr.getRawHandle().getBlob();
+      assert(blob && "Expecting dense resource with a valid blob");
+      ret = blob->getData();
+      // ret = llvm::ArrayRef((char *)ztensor.buffer, sizeInBytes);
+      allochelper_ztensor_free(&ztensor);
+      llvm::dbgs() << "Dense ret.size() " << ret.size() << "\n";
+    } else if (DenseResourceElementsAttr denseResourceAttr =
+                   mlir::dyn_cast_or_null<mlir::DenseResourceElementsAttr>(
+                       zlowStickifiedConstantOp.getValue().value())) {
+      ret = denseResourceAttr.getRawHandle().getBlob()->getData();
+      llvm::dbgs() << "DenseResource ret.size() " << ret.size() << "\n";
+    } else {
+      llvm_unreachable("Unsupported data type.");
+    }
   } else {
-    DenseElementsAttr dataAttr =
-        mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-            zlowStickifiedConstantOp.getValue().value());
-    ArrayRef<int64_t> shape = dataAttr.getType().getShape();
-    Type elementType = dataAttr.getType().getElementType();
-    int rank = shape.size();
-    // Read attributes's raw data.
-    std::vector<char> rawData;
-    getRawData(dataAttr, rawData);
-    // Call stickify.
-    zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
-    // pre-transformed desc.
-    zdnn_data_layouts zDNNLayout =
-        convertLayoutAttrToZDNNDataLayout(rank, layout);
-    // If zDNNLayout is NHWC, we stickify directly from NCHW.
-    if (zDNNLayout == ZDNN_NHWC)
-      zDNNLayout = ZDNN_NCHW;
-    zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
-    set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
-    // transformed desc.
-    zdnn_status status =
-        generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
-    assert(status == ZDNN_OK);
-    // Stick data using the software stickify.
-    zdnn_ztensor ztensor;
-    init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
-    status = allochelper_ztensor_alloc(&ztensor);
-    assert(status == ZDNN_OK);
-    status = stickify(&ztensor, rawData.data());
-    assert(status == ZDNN_OK);
-    std::vector<char>().swap(rawData);
-    // rawData = std::vector<char>();
     // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes = ztensor.buffer_size;
-    // llvm::dbgs() << "ztensor.buffer_size " << sizeInBytes << "\n";
+    int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
+        zlowStickifiedConstantOp.getResult().getType())
+                              .value();
+    char *rawData = (char *)malloc(sizeInBytes);
+    memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
         RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
         zlowStickifiedConstantOp.getOperation()
             ->getDialect()
             ->getNamespace(), // use the dialect as the blob "hint"
         HeapAsmResourceBlob::allocateAndCopyWithAlign(
-            llvm::ArrayRef((char *)ztensor.buffer, sizeInBytes),
-            alignof(char)));
+            llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
     zlowStickifiedConstantOp.setValueAttr(valueAttr);
     AsmResourceBlob *blob = valueAttr.getRawHandle().getBlob();
     assert(blob && "Expecting dense resource with a valid blob");
     ret = blob->getData();
-    allochelper_ztensor_free(&ztensor);
-    llvm::dbgs() << "NEW ret.size() " << ret.size() << "\n";
+    // ret = llvm::ArrayRef(rawData, sizeInBytes);
+    free(rawData);
+    llvm::dbgs() << "Init ret.size() " << ret.size() << "\n";
   }
   return ret;
+}
+
+uint64_t ZLowStickifiedConstantOp::getBufferSize() {
+  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+  return affine::getIntOrFloatMemRefSizeInBytes(
+      zlowStickifiedConstantOp.getResult().getType())
+      .value();
+}
+
+void ZLowStickifiedConstantOp::freeBuffer() {
+  //  MLIRContext *context = getOperation()->getContext();
+  //  PatternRewriter rewriter(context);
+  //  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+  //      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+  //  DenseResourceElementsAttr denseResourceAttr =
+  //      mlir::dyn_cast_or_null<mlir::DenseResourceElementsAttr>(
+  //          zlowStickifiedConstantOp.getValue().value());
+  //  free(const_cast<char *>(
+  //      (denseResourceAttr.getRawHandle().getBlob()->getData()).data()));
+  MLIRContext *context = getOperation()->getContext();
+  PatternRewriter rewriter(context);
+  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+  int64_t sizeInBytes = 1;
+  char *rawData = (char *)malloc(sizeInBytes);
+  memset(rawData, 0, sizeInBytes);
+  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+      zlowStickifiedConstantOp.getOperation()
+          ->getDialect()
+          ->getNamespace(), // use the dialect as the blob "hint"
+      HeapAsmResourceBlob::allocateAndCopyWithAlign(
+          llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
+  zlowStickifiedConstantOp.setValueAttr(valueAttr);
+  free(rawData);
+  return;
 }
 
 } // namespace zlow

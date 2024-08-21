@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -831,9 +832,16 @@ ArrayRef<char> KrnlGlobalOp::getBuffer() {
   return rawData;
 }
 
-// Attribute KrnlGlobalOp::getValueAttr() {
-//   return getOperation().getValue().value();
-// }
+uint64_t KrnlGlobalOp::getBufferSize() {
+  KrnlGlobalOp krnlGlobalOp = mlir::cast<KrnlGlobalOp>(getOperation());
+  const Type type = krnlGlobalOp.getResult().getType();
+  const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
+  return affine::getIntOrFloatMemRefSizeInBytes(memRefTy).value();
+}
+
+void KrnlGlobalOp::freeBuffer() {
+  return;
+}
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp

@@ -195,22 +195,22 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             /*value=*/nullptr,
             /*layout*/ StringAttr(),
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
-
-    // Use an dense resource attribute to store stickified data.
-    // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes =
-        affine::getIntOrFloatMemRefSizeInBytes(resType).value();
-    char *rawData = (char *)malloc(sizeInBytes);
-    memset(rawData, 0, sizeInBytes);
-    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-        stickifiedConstant.getOperation()
-            ->getDialect()
-            ->getNamespace(), // use the dialect as the blob "hint"
-        HeapAsmResourceBlob::allocateAndCopyWithAlign(
-            llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
-    stickifiedConstant.setValueAttr(valueAttr);
-    free(rawData);
+    //   // Use an dense resource attribute to store stickified data.
+    //   // Attribute type: tensor<sizeInBytes x i8>
+    //   int64_t sizeInBytes =
+    //       affine::getIntOrFloatMemRefSizeInBytes(resType).value();
+    //   char *rawData = (char *)malloc(sizeInBytes);
+    //   memset(rawData, 0, sizeInBytes);
+    //   DenseResourceElementsAttr valueAttr =
+    //   DenseUI8ResourceElementsAttr::get(
+    //       RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+    //       stickifiedConstant.getOperation()
+    //           ->getDialect()
+    //           ->getNamespace(), // use the dialect as the blob "hint"
+    //       HeapAsmResourceBlob::allocateAndCopyWithAlign(
+    //           llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
+    //   stickifiedConstant.setValueAttr(valueAttr);
+    //   free(rawData);
 
     res = stickifiedConstant.getResult();
   } else {
@@ -680,12 +680,11 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     MemRefType normalizedType =
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
-
-    DenseElementsAttr dataAttr =
-        mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-            zhighStickifiedConstOp.getValue().value());
     ZLowStickifiedConstantOp zlowStickifiedConstantOp;
-    if (dataAttr) {
+    if (zhighStickifiedConstOp.getValueAttr()) {
+      DenseElementsAttr dataAttr =
+          mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+              zhighStickifiedConstOp.getValue().value());
 
       ArrayRef<int64_t> shape = dataAttr.getType().getShape();
 
@@ -693,7 +692,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
       zlowStickifiedConstantOp = rewriter.create<ZLowStickifiedConstantOp>(loc,
           mlir::cast<MemRefType>(zMemRefType.value),
           /*shape=*/
-          rewriter.getI64ArrayAttr(shape),
+          rewriter.getI64ArrayAttr(normalizedShape),
           /*value=*/zhighStickifiedConstOp.getValueAttr(),
           /*name=*/
           rewriter.getStringAttr(
@@ -707,7 +706,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
           mlir::cast<MemRefType>(zMemRefType.value),
           /*shape=*/
           rewriter.getI64ArrayAttr(normalizedShape),
-          /*value=*/zhighStickifiedConstOp.getValueAttr(),
+          /*value=*/nullptr,
           /*name=*/
           rewriter.getStringAttr(
               "constant_stickify_" + std::to_string(constantID)),

@@ -29,6 +29,14 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
+          "uint64_t", "getBufferSize", (ins )
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
+          "void", "freeBuffer", (ins )
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
           "std::optional<Attribute>", "getValue", (ins )
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"

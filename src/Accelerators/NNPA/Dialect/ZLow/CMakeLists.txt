@@ -15,6 +15,7 @@ add_onnx_mlir_library(OMZLowOps
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRMemRefTransforms
   OMMlirDialects
   OMLayoutHelper
   OMStickify

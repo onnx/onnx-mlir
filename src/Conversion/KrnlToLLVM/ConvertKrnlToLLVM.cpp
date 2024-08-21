@@ -487,17 +487,21 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
         return WalkResult::advance();
 
       // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
-      ArrayRef<char> rawData = op.getBuffer();
-      if (rawData.empty())
+      uint64_t bufferSize = op.getBufferSize();
+      if (bufferSize <= singleThreshold) {
+        ArrayRef<char> rawData = op.getBuffer();
         return WalkResult::advance();
-
-      auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
-      if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
-        return WalkResult::advance();
-
+      }
+      if (op.getValueAttr()) {
+        auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
+        if (valueAttr.isSplat()) {
+          ArrayRef<char> rawData = op.getBuffer();
+          return WalkResult::advance();
+        }
+      }
       globalOfInterest.emplace_back(op);
-      totalSize += rawData.size();
-      // llvm::dbgs() << "totalSize = " << totalSize << "\n";
+      totalSize += bufferSize;
+      llvm::dbgs() << "totalSize = " << totalSize << "\n";
     }
     return WalkResult::advance();
   });
@@ -543,13 +547,16 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       SmallVector<char> pads(padSize, (char)0);
       outfile.write(pads.data(), pads.size());
       totalConstSize += pads.size();
+      //      free(pads.begin());
     }
 
     op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
-    op.removeValueAttr();
     outfile.write(rawData.data(), rawData.size());
     totalConstSize += rawData.size();
-    // llvm::dbgs() << "totalConstSize=" << totalConstSize << "\n";
+    op.removeValueAttr();
+    // op.freeBuffer();
+    // free(const_cast<char *>(rawData.data()));
+    llvm::dbgs() << "totalConstSize = " << totalConstSize << "\n";
   }
   // No constant statisfying thresholds, do not store constants to file.
   if (totalConstSize == 0)
