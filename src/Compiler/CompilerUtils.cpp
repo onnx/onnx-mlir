@@ -824,8 +824,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
   }
   }
-  std::string msg = "Compilation completed";
-  showCompilePhase(msg);
+  showCompilePhase("Compilation completed");
 
   return CompilerSuccess;
 } // end anonymous namespace
