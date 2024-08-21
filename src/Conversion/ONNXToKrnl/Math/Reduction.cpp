@@ -323,13 +323,12 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   int64_t collapsedInnermostLoops = inputRank;
   int64_t simdLoopStaticTripCount;
   bool simdOnly, canOverCompute = false;
-  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(inputType,
-      collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
-      simdOnly);
+  int64_t totVL =
+      computeSuitableUnrollFactor(inputType, collapsedInnermostLoops, mix,
+          canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Current simdized loop only support SIMD only scheme.
   if (!simdOnly) {
-    totVL = VectorBuilder::capVLForSimdOnly(
-        inputType, totVL, simdLoopStaticTripCount);
+    totVL = capVLForSimdOnly(inputType, totVL, simdLoopStaticTripCount);
   }
   if (totVL <= 1)
     return false; // TODO alexe: consider staying here with VL=1
@@ -659,19 +658,19 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // vectors.
           GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
           bool simdOnly, canOverCompute = false;
-          totVL = VectorBuilder::computeSuitableUnrollFactor(memRefInType,
-              innermostLoopCollapse, mix, canOverCompute,
-              simdLoopStaticTripCount, simdOnly);
+          totVL =
+              computeSuitableUnrollFactor(memRefInType, innermostLoopCollapse,
+                  mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
           if (!hasHorizontalSimdSupport) {
             // When we don't have horizontal SIMD support, we use a code gen
             // scheme that relies on unrolling. So we don't want any unrollVL
             // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
-            totVL = VectorBuilder::capVLForMaxUnroll(memRefInType, totVL, 1);
+            totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
           }
           // Current code gen scheme only support SIMD only scheme.
           if (!simdOnly) {
-            totVL = VectorBuilder::capVLForSimdOnly(
-                memRefInType, totVL, simdLoopStaticTripCount);
+            totVL =
+                capVLForSimdOnly(memRefInType, totVL, simdLoopStaticTripCount);
           }
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, totVL " << totVL << "\n");

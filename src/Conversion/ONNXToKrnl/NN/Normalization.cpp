@@ -617,7 +617,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
 
     // TODO: Use old scheme here, maybe update to new scheme.
     int64_t simdLoopStaticTripCount;
-    totVL = VectorBuilder::computeSuitableUnrollFactor(XMemRefType, lowRank, 4,
+    totVL = computeSuitableUnrollFactor(XMemRefType, lowRank, 4,
         /*canOverCompute*/ false, simdLoopStaticTripCount);
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount

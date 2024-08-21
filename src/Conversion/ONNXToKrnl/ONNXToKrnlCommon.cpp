@@ -635,9 +635,9 @@ bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
 //===----------------------------------------------------------------------===//
 
 // New style.
-int64_t computeSuitableUnrollFactor(
-    MemRefType memRefType, int64_t collapsedInnermostLoops, GenOpMix &genOps,
-    bool canOverCompute, int64_t &simdLoopStaticTripCount, bool &simdOnly) {
+int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+    int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
+    int64_t &simdLoopStaticTripCount, bool &simdOnly) {
   // Default return values for no simd.
   simdLoopStaticTripCount = 0;
   simdOnly = false;
@@ -771,9 +771,9 @@ int64_t capVLForSimdOnly(
 }
 
 // Old style.
-int64_t computeSuitableUnrollFactor(
-    MemRefType memRefType, int64_t collapsedInnermostLoops, int64_t maxUnrollVL,
-    bool canOverCompute, int64_t &simdLoopStaticTripCount) {
+int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+    int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
+    int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
   assert(maxUnrollVL > 0 && "expected positive max simd unroll");
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.
@@ -823,7 +823,6 @@ int64_t computeSuitableUnrollFactor(
   }
   llvm_unreachable("should always find u==1 feasible");
 }
-
 
 //===----------------------------------------------------------------------===//
 // Support functions for reporting.
