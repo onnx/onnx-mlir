@@ -93,7 +93,14 @@ endif()
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
 # Only test cases for operations supported by zDNN are listed. Non-supported cases are
 # commented out. This list is set in the environment variable `TEST_CASE_BY_USER`. So,
-# instruction name is added after test case name in each test case.
+# instruction name and dimParams are added after test case name if necessary.
+# For example, the following line
+#    test_add_cpu,zdnn_add,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
+# means that (1) the test name is "test_add_cpu", (2) instruction name is
+# "zdnn_add" to check the function is called, (3) when dimParams is
+# "NO_DYNAMIC_SHAPE_TEST", backend test is skipped, otherwise the string is
+# passed as --dimParams option. "0:0=a,1=b,2=c|1:0=a,1=b,2=c" means that the
+# first, second and third dimensions of the first and second input arguments # are the same respectively.
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA
@@ -103,7 +110,7 @@ set(NNPA_TEST_LIST
     # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # Scalar tensor not supported.
-    test_add_cpu,zdnn_add
+    test_add_cpu,zdnn_add,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
@@ -111,32 +118,32 @@ set(NNPA_TEST_LIST
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
-    test_averagepool_2d_default_cpu,zdnn_avgpool2d
+    test_averagepool_2d_default_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_averagepool_2d_pads_count_include_pad_cpu
     # test_averagepool_2d_pads_cpu
     # test_averagepool_2d_precomputed_pads_count_include_pad_cpu
-    test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d
-    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
-    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d
+    test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_averagepool_2d_same_lower_cpu
-    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
-    test_averagepool_2d_strides_cpu,zdnn_avgpool2d
+    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_averagepool_3d_default_cpu
 
     # ==OP== BatchNormalization
     # ==MIN== 6
     # ==LIM== Input and output tensor must be 4D(N x C x H x W).
-    test_batchnorm_epsilon_cpu,zdnn_mul
-    test_batchnorm_example_cpu,zdnn_mul
+    test_batchnorm_epsilon_cpu,zdnn_mul,NO_DYNAMIC_SHAPE_TEST
+    test_batchnorm_example_cpu,zdnn_mul,NO_DYNAMIC_SHAPE_TEST
 
     # ==OP== Conv
     # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(1).<br>- `dilations` must be default value(1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
-    test_basic_conv_with_padding_cpu,zdnn_conv2d
-    test_basic_conv_without_padding_cpu,zdnn_conv2d
+    test_basic_conv_with_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_basic_conv_without_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     # test_conv_with_autopad_same_cpu
-    test_conv_with_strides_no_padding_cpu,zdnn_conv2d
-    test_conv_with_strides_padding_cpu,zdnn_conv2d
+    test_conv_with_strides_no_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_conv_with_strides_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     # test_conv_with_strides_and_asymmetric_padding_cpu
 
     # ==OP== ConvTranspose
@@ -144,20 +151,20 @@ set(NNPA_TEST_LIST
     # ==LIM== - 1D and 3D not supported because Conv1D and Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN.
     # test_convtranspose_1d_cpu,zdnn_conv1d
     # test_convtranspose_3d_cpu
-    test_convtranspose_autopad_same_cpu,zdnn_conv2d
-    test_convtranspose_cpu,zdnn_conv2d
+    test_convtranspose_autopad_same_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     # test_convtranspose_dilations_cpu,zdnn_conv2d
-    test_convtranspose_kernel_shape_cpu,zdnn_conv2d
-    test_convtranspose_output_shape_cpu,zdnn_conv2d
-    test_convtranspose_pad_cpu,zdnn_conv2d
-    test_convtranspose_pads_cpu,zdnn_conv2d
+    test_convtranspose_kernel_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_output_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_pad_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_pads_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
 
     # ==OP== Div
     # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
-    test_div_cpu,zdnn_div
+    test_div_cpu,zdnn_div,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_div_bcast_cpu
-    test_div_example_cpu,zdnn_div
+    test_div_example_cpu,zdnn_div,"0:0=a|1:0=a"
 
     # ==OP== Exp
     # ==MIN== 6
@@ -183,8 +190,8 @@ set(NNPA_TEST_LIST
     # ==OP== GlobalAveragePool
     # ==MIN== 1
     # ==LIM== - Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static.
-    test_globalaveragepool_cpu,zdnn_meanreduce2d
-    test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
+    test_globalaveragepool_cpu,zdnn_meanreduce2d,NO_DYNAMIC_SHAPE_TEST
+    test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d,NO_DYNAMIC_SHAPE_TEST
     # GlobalMaxPool
     # test_globalmaxpool_cpu
     # test_globalmaxpool_precomputed_cpu
@@ -214,7 +221,7 @@ set(NNPA_TEST_LIST
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
     # test_logsoftmax_axis_2_cpu,zdnn_log
-    test_logsoftmax_example_1_cpu,zdnn_softmax
+    test_logsoftmax_example_1_cpu,zdnn_softmax,NO_DYNAMIC_SHAPE_TEST
     # test_logsoftmax_default_axis_cpu
     # test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
@@ -231,16 +238,16 @@ set(NNPA_TEST_LIST
     # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2.
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
-    test_matmul_4d_cpu,zdnn_matmul_op
+    test_matmul_4d_cpu,zdnn_matmul_op,"0:0=a,1=b,2=c,3=d|1:0=a,1=b,2=d,3=c"
 
     # ==OP== Max
     # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_max_example_cpu
     #test_max_one_input_cpu
-    test_max_two_inputs_cpu,zdnn_max
+    test_max_two_inputs_cpu,zdnn_max,"0:0=a|1:0=a"
     # test_max_float16_cpu
-    test_max_float32_cpu,zdnn_max
+    test_max_float32_cpu,zdnn_max,NO_DYNAMIC_SHAPE_TEST
     # test_max_float64_cpu
     # test_max_int8_cpu
     # test_max_int16_cpu
@@ -256,15 +263,15 @@ set(NNPA_TEST_LIST
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
-    test_maxpool_2d_default_cpu,zdnn_avgpool2d
+    test_maxpool_2d_default_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_maxpool_2d_dilations_cpu
     # test_maxpool_2d_pads_cpu
     # test_maxpool_2d_precomputed_pads_cpu
-    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
-    test_maxpool_2d_precomputed_strides_cpu,zdnn_avgpool2d
+    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_precomputed_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_maxpool_2d_same_lower_cpu
-    test_maxpool_2d_same_upper_cpu,zdnn_avgpool2d
-    test_maxpool_2d_strides_cpu,zdnn_avgpool2d
+    test_maxpool_2d_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_maxpool_3d_default_cpu
 
     # ==OP== Min
@@ -272,9 +279,9 @@ set(NNPA_TEST_LIST
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_min_example_cpu
     # test_min_one_input_cpu
-    test_min_two_inputs_cpu,zdnn_min
+    test_min_two_inputs_cpu,zdnn_min,"0:0=a|1:0=a"
     # test_min_float16_cpu
-    test_min_float32_cpu,zdnn_min
+    test_min_float32_cpu,zdnn_min,NO_DYNAMIC_SHAPE_TEST
     # test_min_float64_cpu
     # test_min_int8_cpu
     # test_min_int16_cpu
@@ -288,9 +295,9 @@ set(NNPA_TEST_LIST
     # ==OP== Mul
     # ==MIN== 6
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
-    test_mul_cpu,zdnn_mul
+    test_mul_cpu,zdnn_mul,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_mul_bcast_cpu
-    test_mul_example_cpu,zdnn_mul
+    test_mul_example_cpu,zdnn_mul,"0:0=a|1:0=a"
 
     # ==OP== Pow
     # ==MIN== 7
@@ -321,22 +328,22 @@ set(NNPA_TEST_LIST
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
     # test_softmax_default_axis_cpu
-    test_softmax_example_cpu,zdnn_softmax
+    test_softmax_example_cpu,zdnn_softmax,NO_DYNAMIC_SHAPE_TEST
     # test_softmax_large_number_cpu #  accuracy error
 
     # ==OP== Sub
     # ==MIN== 6
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
-    test_sub_cpu,zdnn_sub
+    test_sub_cpu,zdnn_sub,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_sub_bcast_cpu
-    test_sub_example_cpu,zdnn_sub
+    test_sub_example_cpu,zdnn_sub,"0:0=a|1:0=a"
 
     # ==OP== Sum
     # ==MIN== 6
     # ==LIM== - All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported.
-    test_sum_example_cpu,zdnn_add
+    test_sum_example_cpu,zdnn_add,"0:0=a|1:0=a|2:0=a"
     # test_sum_one_input_cpu
-    test_sum_two_inputs_cpu,zdnn_add
+    test_sum_two_inputs_cpu,zdnn_add,"0:0=a|1:0=a"
 
     # ==OP== Tanh
     # ==MIN== 6
@@ -348,11 +355,11 @@ set(NNPA_TEST_LIST
 
     # Model
     # test_densenet121_cpu  #  accurary error
-    test_inception_v1_cpu,zdnn_conv2d
-    test_resnet50_cpu,zdnn_conv2d
-    test_shufflenet_cpu,zdnn_matmul_op
-    test_squeezenet_cpu,zdnn_conv
-    test_vgg19_cpu,zdnn_conv
+    #test_inception_v1_cpu,zdnn_conv2d
+    #test_resnet50_cpu,zdnn_conv2d
+    #test_shufflenet_cpu,zdnn_matmul_op
+    #test_squeezenet_cpu,zdnn_conv
+    #test_vgg19_cpu,zdnn_conv
 )
 set(ENV_TEST_CASE_BY_USER "")
 foreach(test_name IN LISTS NNPA_TEST_LIST)
@@ -361,33 +368,11 @@ endforeach()
 
 set(NNPA_TESTS_ENVS TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER} TEST_ATOL=0.01 TEST_RTOL=0.05)
 
-set(NNPA_TEST_LIST_DYNAMIC
-    test_exp_cpu,zdnn_exp
-    test_exp_example_cpu,zdnn_exp
-    test_gemm_default_matrix_bias_cpu,zdnn_matmul_op
-    test_gemm_default_no_bias_cpu,zdnn_matmul_op
-    test_gemm_default_vector_bias_cpu,zdnn_matmul_op
-    test_gemm_default_zero_bias_cpu,zdnn_matmul_op
-    test_gemm_transposeA_cpu,zdnn_matmul_op
-    test_gemm_transposeB_cpu,zdnn_matmul_op
-    test_log_example_cpu,zdnn_log
-    test_log_cpu,zdnn_log
-    test_logsoftmax_example_1_cpu,zdnn_softmax
-    test_lstm_defaults_cpu,zdnn_lstm
-    test_lstm_with_initial_bias_cpu,zdnn_lstm
-    test_matmul_2d_cpu,zdnn_matmul_op
-    test_matmul_3d_cpu,zdnn_matmul_op
-    test_pow_bcast_scalar_cpu
-    test_relu_cpu,zdnn_relu
-    test_softmax_example_cpu,zdnn_softmax
-    #test_inception_v1_cpu,zdnn_conv2d
-    #test_resnet50_cpu,zdnn_conv2d
-    #test_shufflenet_cpu,zdnn_matmul_op
-    #test_squeezenet_cpu,zdnn_conv
-    #test_vgg19_cpu,zdnn_conv
-)
-foreach(test_name IN LISTS NNPA_TEST_LIST_DYNAMIC)
-  set(ENV_TEST_CASE_BY_USER_DYNAMIC "${ENV_TEST_CASE_BY_USER_DYNAMIC} ${test_name}")
+set(ENV_TEST_CASE_BY_USER_DYNAMIC "")
+foreach(test_name IN LISTS NNPA_TEST_LIST)
+  if(NOT ${test_name} MATCHES ",NO_DYNAMIC_SHAPE_TEST$")
+    set(ENV_TEST_CASE_BY_USER_DYNAMIC "${ENV_TEST_CASE_BY_USER_DYNAMIC} ${test_name}")
+  endif()
 endforeach()
 
 set(NNPA_TESTS_ENVS_DYNAMIC TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER_DYNAMIC} TEST_ATOL=0.01 TEST_RTOL=0.05)

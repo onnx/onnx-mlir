@@ -41,6 +41,7 @@ std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
+bool disableKrnlOpFusion;                              // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -52,6 +53,7 @@ bool preserveMLIR;                                     // onnx-mlir only
 bool useOnnxModelTypes;                                // onnx-mlir only
 int repeatOnnxTransform;                               // onnx-mlir only
 std::string shapeInformation;                          // onnx-mlir only
+std::string dimParams;                                 // onnx-mlir only
 ModelSize modelSize;                                   // onnx-mlir only
 bool storeConstantsToFile;                             // onnx-mlir only
 float constantsToFileTotalThreshold;                   // onnx-mlir only
@@ -83,6 +85,7 @@ std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
+bool enableTiming;                                     // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -201,6 +204,13 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::location(functionsToDecompose),
         llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
+    "disable-krnl-op-fusion",
+    llvm::cl::desc("disable op fusion in onnx-to-krnl pass (default=false)\n"
+                   "Set to 'true' if you want to disable fusion."),
+    llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
     llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
@@ -285,6 +295,23 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
         "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> dimParamsOpt("dimParams",
+    llvm::cl::desc(
+        "Custom onnx.dim_params attributes for the inputs of the ONNX model for"
+        "specifying relationship among dynamic dimensions of the inputs.\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1=S1,D2=S2,...,Dn=Sn|INPUT_ID2:D1=T1,D2=T2,...Dn=Tn|"
+        "...\" where \"INPUT_ID1, INPUT_ID2, ...\" are input indices "
+        "(starting from 0 or being -1 for all input indices), and\n"
+        "\"S1, S2, ...\" and \"T2, T2, ...\" are symbols to specify that same "
+        "symbols have the same value. "
+        "All dimensions of onnx.dim_params for a specified input index in "
+        "the original onnx model are cleared and repalced by this option. "
+        "onnx.dim_params for other input indices in the original onnx model "
+        "are not cleared"),
+    llvm::cl::value_desc("value"), llvm::cl::location(dimParams),
     llvm::cl::cat(OnnxMlirOptions));
 
 // Default value is defined by the OnnxMlirEnvOptionName constant string
@@ -551,6 +578,12 @@ static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
             "Provide report on how OMP Parallel is applied to ONNX ops."),
         clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")),
     llvm::cl::init(OptReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enable_timing("enable-timing",
+    llvm::cl::desc("Enable compile timing (default is false)\n"
+                   "Set to 'true' if you want to enable compile timing."),
+    llvm::cl::location(enableTiming), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir-opt only
 static llvm::cl::opt<bool, true> split_input_file_opt("split-input-file",
