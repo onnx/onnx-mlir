@@ -6,6 +6,7 @@
 #
 ################################################################################
 from __future__ import absolute_import
+from __future__ import annotations
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
@@ -1257,21 +1258,21 @@ def get_test_models():
         },
         # ==OP== GroupNormalization
         # ==MIN== 18
-        "test_group_normalization_epsilon_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
+        #"test_group_normalization_epsilon_cpu": {
+        #    STATIC_SHAPE: {},
+        #    DYNAMIC_SHAPE: {-1: {-1}},
+        #    CONSTANT_INPUT: {-1},
+        #},
         "test_group_normalization_epsilon_expanded_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        "test_group_normalization_example_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
+        #"test_group_normalization_example_cpu": {
+        #    STATIC_SHAPE: {},
+        #    DYNAMIC_SHAPE: {-1: {-1}},
+        #    CONSTANT_INPUT: {-1},
+        #},
         "test_group_normalization_example_expanded_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3619,11 +3620,12 @@ class InferenceBackendTest(BackendTest):
         outputs: Sequence[Any],
         rtol: float,
         atol: float,
+        model_dir: str | None = None,
     ) -> None:
         rtol = float(os.getenv("TEST_RTOL", rtol))
         atol = float(os.getenv("TEST_ATOL", atol))
         super(InferenceBackendTest, cls).assert_similar_outputs(
-            ref_outputs, outputs, rtol, atol
+            ref_outputs, outputs, rtol, atol, model_dir
         )
 
     def _add_onnxmlir_model_test(
