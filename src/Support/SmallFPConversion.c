@@ -25,9 +25,9 @@
 //
 // might violate the rules about strict aliasing in C++.
 #define BIT_CAST(TO_TYPE, TO, FROM)                                            \
-  TO_TYPE TO;                                                                  \
+  TO_TYPE(TO);                                                                 \
   static_assert(sizeof(TO) == sizeof(FROM), "only bit cast same sizes");       \
-  memcpy(&TO, &FROM, sizeof(FROM))
+  memcpy(&(TO), &(FROM), sizeof(FROM))
 
 #if defined(__x86_64__) && defined(__F16C__)
 // On x86-64 build config -DCMAKE_CXX_FLAGS=-march=native defines __F16C__.

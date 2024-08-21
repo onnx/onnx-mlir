@@ -23,4 +23,4 @@ void perf_recordFlops(benchmark::State &state, float f);
 int perf_main(int argc, char **argv);
 
 #define PERF_MAIN()                                                            \
-  int main(int argc, char **argv) { return perf_main(argc, argv); }
+  int main(int argc, char **argv) { return perf_main((argc), (argv)); }
