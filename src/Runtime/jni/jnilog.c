@@ -40,7 +40,7 @@ static pthread_key_t log_inited;
 static pthread_key_t log_level;
 static pthread_key_t log_fp;
 
-#define THREAD_LOCAL_INIT(key, func) pthread_once(key, func)
+#define THREAD_LOCAL_INIT(key, func) pthread_once((key), (func))
 
 INLINE void key_init() {
   pthread_key_create(&log_inited, NULL);
