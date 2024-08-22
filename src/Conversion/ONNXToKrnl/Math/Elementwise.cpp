@@ -57,25 +57,6 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 }
 
 // =============================================================================
-// Template for SIMD analysis
-
-// Default template for ops that do not support SIMD. For the ones that support
-// SIMD, we must create an `analyzeSimdFor` template that returns the right
-// values.
-
-static double noSimd(int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
-  vectorizedOpNum = 0;
-  scalarOpNum = 1;
-  return 1.0;
-}
-
-template <typename Op>
-double analyzeSimdFor(Type elementType, Operation *op, int64_t &vectorizedOpNum,
-    int64_t &scalarOpNum) {
-  return noSimd(vectorizedOpNum, scalarOpNum);
-}
-
-// =============================================================================
 // Scalar ops handling
 
 template <>
@@ -84,10 +65,8 @@ struct ScalarOp<ONNXTanhOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXTanhOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::TrigHyperbolicGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
 }
 
 template <>
@@ -96,10 +75,8 @@ struct ScalarOp<ONNXAddOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-double analyzeSimdFor<ONNXAddOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -108,10 +85,8 @@ struct ScalarOp<ONNXAbsOp> {
   using IOp = math::AbsIOp;
 };
 template <>
-double analyzeSimdFor<ONNXAbsOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::AbsGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
+  return {{GenericOps::AbsGop, 1}};
 }
 
 template <>
@@ -120,10 +95,8 @@ struct ScalarOp<ONNXMulOp> {
   using IOp = arith::MulIOp;
 };
 template <>
-double analyzeSimdFor<ONNXMulOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::MulGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
+  return {{GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -132,10 +105,8 @@ struct ScalarOp<ONNXDivOp> {
   using IOp = arith::DivSIOp;
 };
 template <>
-double analyzeSimdFor<ONNXDivOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::DivGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
+  return {{GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -144,10 +115,8 @@ struct ScalarOp<ONNXSubOp> {
   using IOp = arith::SubIOp;
 };
 template <>
-double analyzeSimdFor<ONNXSubOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -192,10 +161,8 @@ struct ScalarOp<ONNXExpOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXExpOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ExpGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}};
 }
 
 template <>
@@ -204,10 +171,8 @@ struct ScalarOp<ONNXSumOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-double analyzeSimdFor<ONNXSumOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -216,10 +181,8 @@ struct ScalarOp<ONNXCosOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXCosOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::TrigGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
 }
 
 template <>
@@ -228,10 +191,8 @@ struct ScalarOp<ONNXLogOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXLogOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::LogGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
+  return {{GenericOps::LogGop, 1}};
 }
 
 template <>
@@ -240,10 +201,8 @@ struct ScalarOp<ONNXSqrtOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXSqrtOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::SqrtGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
+  return {{GenericOps::SqrtGop, 1}};
 }
 
 template <>
@@ -258,10 +217,8 @@ struct ScalarOp<ONNXCeilOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXCeilOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CeilGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
+  return {{GenericOps::CeilGop, 1}};
 }
 
 template <>
@@ -270,10 +227,8 @@ struct ScalarOp<ONNXFloorOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXFloorOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::FloorGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
+  return {{GenericOps::FloorGop, 1}};
 }
 
 template <>
@@ -282,10 +237,8 @@ struct ScalarOp<ONNXSinOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXSinOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::TrigGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
 }
 
 template <>
@@ -294,10 +247,8 @@ struct ScalarOp<ONNXPowOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXPowOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::PowGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
+  return {{GenericOps::PowGop, 1}};
 }
 
 template <>
@@ -352,19 +303,14 @@ struct ScalarOp<ONNXGeluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXGeluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
+GenOpMix getGenOpMix<ONNXGeluOp>(Type t, Operation *op) {
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
-    return VectorMachineSupport::getAvgArchVectorLength(
-        {{GenericOps::ArithmeticGop, 1}, {GenericOps::ErfGop, 1},
-            {GenericOps::MulGop, 3}},
-        t, von, son);
+    return {{GenericOps::ArithmeticGop, 1}, {GenericOps::ErfGop, 1},
+        {GenericOps::MulGop, 3}};
   if (approximate.equals_insensitive("tanh"))
-    return VectorMachineSupport::getAvgArchVectorLength(
-        {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 5},
-            {GenericOps::TrigHyperbolicGop, 1}},
-        t, von, son);
+    return {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 5},
+        {GenericOps::TrigHyperbolicGop, 1}};
   llvm_unreachable("approximate should be only none or tanh");
 }
 
@@ -493,12 +439,9 @@ struct ScalarOp<ONNXSinhOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSinhOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXSinhOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -528,12 +471,9 @@ struct ScalarOp<ONNXCoshOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXCoshOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXCoshOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -563,12 +503,9 @@ struct ScalarOp<ONNXSigmoidOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSigmoidOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 1},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXSigmoidOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 1},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -597,10 +534,8 @@ struct ScalarOp<ONNXHardSigmoidOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXHardSigmoidOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 3}, {GenericOps::MulGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXHardSigmoidOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 3}, {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -641,13 +576,10 @@ struct ScalarOp<ONNXEluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXEluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
-          {GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::ExpGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXEluOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
+      {GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::ExpGop, 1}};
 }
 
 template <>
@@ -680,10 +612,8 @@ struct ScalarOp<ONNXReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXReluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXReluOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -707,12 +637,9 @@ struct ScalarOp<ONNXLeakyReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXLeakyReluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::MulGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -743,12 +670,9 @@ struct ScalarOp<ONNXPReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXPReluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::MulGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXPReluOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -776,13 +700,10 @@ struct ScalarOp<ONNXSeluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSeluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::MulGop, 2}, {GenericOps::ArithmeticGop, 1},
-          {GenericOps::ExpGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXSeluOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::MulGop, 2}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::ExpGop, 1}};
 }
 
 template <>
@@ -819,10 +740,8 @@ struct ScalarOp<ONNXReciprocalOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXReciprocalOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::DivGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXReciprocalOp>(Type t, Operation *op) {
+  return {{GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -847,12 +766,9 @@ struct ScalarOp<ONNXSoftplusOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSoftplusOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ExpGop, 1}, {GenericOps::ArithmeticGop, 1},
-          {GenericOps::LogGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXSoftplusOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::LogGop, 1}};
 }
 
 template <>
@@ -879,12 +795,9 @@ struct ScalarOp<ONNXSoftsignOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSoftsignOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::AbsGop, 1}, {GenericOps::ArithmeticGop, 1},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXSoftsignOp>(Type t, Operation *op) {
+  return {{GenericOps::AbsGop, 1}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -911,10 +824,8 @@ struct ScalarOp<ONNXSignOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSignOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 2}, {GenericOps::SelectGop, 2}}, t, von, son);
+GenOpMix getGenOpMix<ONNXSignOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 2}, {GenericOps::SelectGop, 2}};
 }
 
 template <>
@@ -955,10 +866,8 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXErfOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ErfGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXErfOp>(Type t, Operation *op) {
+  return {{GenericOps::ErfGop, 1}};
 }
 
 //===----------------------------------------------------------------------===//
@@ -971,10 +880,8 @@ struct ScalarOp<ONNXMaxOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMaxOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXMaxOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1001,10 +908,8 @@ struct ScalarOp<ONNXMinOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMinOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXMinOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1032,10 +937,8 @@ struct ScalarOp<ONNXNegOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXNegOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXNegOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1196,10 +1099,8 @@ struct ScalarOp<ONNXModOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXModOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::RemGop, 1}, {GenericOps::CopySignGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXModOp>(Type t, Operation *op) {
+  return {{GenericOps::RemGop, 1}, {GenericOps::CopySignGop, 1}};
 }
 
 template <>
@@ -1266,15 +1167,6 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
     Value answer =
         create.math.select(needAdjust, adjustedRemainder, mathRemainder);
 
-#ifdef DEBUG_ONNX_MOD
-    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: dividend=", dividend);
-    create.krnl.printf(", divisor=", divisor);
-    create.krnl.printf(", mathReminder=", mathRemainder);
-    create.krnl.printf(", adjustedReminder=", adjustedRemainder);
-    create.krnl.printf(", Answer=", answer);
-    create.krnl.printf("\n");
-#endif
-
     return answer;
   }
   llvm_unreachable("unsupported element type");
@@ -1290,10 +1182,8 @@ struct ScalarOp<ONNXMeanOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMeanOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}, {GenericOps::DivGop, 1}}, t, von, son);
+GenOpMix getGenOpMix<ONNXMeanOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}, {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -1315,13 +1205,10 @@ struct ScalarOp<ONNXRoundOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXRoundOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
-          {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
-          {GenericOps::FloorGop, 2}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
+      {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
+      {GenericOps::FloorGop, 2}};
 }
 
 template <>
@@ -1344,10 +1231,8 @@ struct ScalarOp<ONNXClipOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXClipOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}}, t, von, son);
+GenOpMix getGenOpMix<ONNXClipOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}};
 }
 
 template <>
@@ -1375,12 +1260,9 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXDequantizeLinearOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
-          {GenericOps::ConversionGop, 2}},
-      t, von, son);
+GenOpMix getGenOpMix<ONNXDequantizeLinearOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
+      {GenericOps::ConversionGop, 2}};
 }
 
 template <>
@@ -1409,48 +1291,6 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-// Return total vector length; no simd -> return 1;
-// collapsedLiteralSize is ignored when we can collapse every loop iterations as
-// we then rely on padding of the allocated memory to enable arbitrary output
-// array simdization. When partial simd is requested, then we must ensure that
-// the collapsed loop cumulative static size is a multiple of the VL.
-template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
-    int64_t &estimatedSimdLoopTripCount) {
-  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
-  // SIMD is enabled for this operation, test if profitable.
-  Type elementType = memRefType.getElementType();
-  int64_t vectorizedOpNum, scalarOpNum;
-  double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
-      elementType, op, vectorizedOpNum, scalarOpNum);
-  if (avgSimdWidth < 1.5) {
-    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
-                            << avgSimdWidth << " too small\n");
-    return 1;
-  }
-  // Determine empirical unroll factor.
-  int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
-  int64_t unrollVL;
-  if (vectorizedOpNum >= vrNum / 2)
-    unrollVL = 1; // TODO, it would appear to be beneficial to always have 2.
-  else if (vectorizedOpNum >= vrNum / 4)
-    unrollVL = 4;
-  else
-    unrollVL = 8;
-  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
-      collapsedInnermostLoops, unrollVL,
-      /*canPad*/ true, estimatedSimdLoopTripCount);
-  LLVM_DEBUG({
-    if (totVL)
-      llvm::dbgs() << "  simd enabled with VL " << totVL << "\n";
-    else
-      LLVM_DEBUG(
-          llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
-  });
-  return totVL;
-}
-
 //===----------------------------------------------------------------------===//
 // SIMD code gen for kernels where data can be partially or fully flattened.
 //===----------------------------------------------------------------------===//
@@ -1461,14 +1301,20 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
     MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
     int64_t VL, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
-    bool isUnaryOp, bool enableParallel) {
+    bool isUnaryOp, bool simdOnly, bool enableParallel) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
   LLVM_DEBUG(llvm::dbgs() << "  partial SIMD code for elementwise op "
                           << op->getName() << " flattening "
                           << collapsedInnermostLoops << " inner dims\n");
-
-  // generate SIMD code of VL elements per vector.
+  // If fully collapse the loop, then we can allocate more data and we don't
+  // care if we compute a few more values... set simdOnly to true then
+  // regardless of whether the dims allow us to do so or not.
+  if (collapsedInnermostLoops == (int64_t)outputMemRefType.getRank()) {
+    LLVM_DEBUG(llvm::dbgs() << "  fully flattened, set simdOnly to true\n");
+    simdOnly = true;
+  }
+  // Generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   DimsExpr outputDims;
   getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
@@ -1490,8 +1336,13 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     }
     DimsExpr operDims, flattenOperDims;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
+    // Because we fully fuse 1x1x128xf32 and 128xf32, the
+    // collapsedInnermostLoops may be higher than the rank of this input. Adjust
+    // collapsedInnermostLoops accordingly for the flatten below.
+    int64_t currRank = operDims.size();
+    int64_t currCollapsedNum = std::min(collapsedInnermostLoops, currRank);
     Value flatOper = create.mem.reshapeToFlatInnermost(
-        oper, operDims, flattenOperDims, collapsedInnermostLoops);
+        oper, operDims, flattenOperDims, currCollapsedNum);
     flatOperands.emplace_back(flatOper);
   }
 
@@ -1499,111 +1350,130 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   int64_t rank = outputDims.size() - collapsedInnermostLoops + 1;
   LLVM_DEBUG(
       llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
-  int64_t flattenedDim = rank - 1;
   SmallVector<IndexExpr, 4> flattenedOutputDims;
   Value flatAlloc = create.mem.reshapeToFlatInnermost(
       alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
-  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
-  // one and blocked by VL.
-  ValueRange loopDef = create.krnl.defineLoops(rank);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
-  SmallVector<Value, 4> optimizedLoopDef;
-  for (int64_t r = 0; r < rank - 1; ++r) {
-    optimizedLoopDef.emplace_back(loopDef[r]);
-  }
-  optimizedLoopDef.emplace_back(blockedLoopDef[0]);
-  // Create the vector type to operate over.
-  VectorType vecElementType = VectorType::get({VL}, outputElementType);
+
+  // Create loop iteration, rank-1, all but the flattened innermost [simd] loop.
+  int64_t outerLoopRank = rank - 1;
+  ValueRange loopDef = create.krnl.defineLoops(outerLoopRank);
   // Iterate only over the blocks.
-  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  IndexExpr zero = LitIE(0);
+  DimsExpr lbs(outerLoopRank, zero);
+  DimsExpr ubs = flattenedOutputDims;
+  IndexExpr simdUb = ubs.pop_back_val(); // Remove flattened ub.
+  bool useParallelInSimdLoop = false;
   if (enableParallel) {
     int64_t parId;
-    if (findSuitableParallelDimension(
-            lbs, flattenedOutputDims, 0, std::min((int64_t)2, rank), parId)) {
-      create.krnl.parallel(optimizedLoopDef[parId]);
-      onnxToKrnlParallelReport(op, true, parId, lbs[parId],
-          flattenedOutputDims[parId], "elementwise simd partially flattened");
+    if (outerLoopRank > 1) {
+      // Outer loop parallelism.
+      if (findSuitableParallelDimension(
+              lbs, ubs, 0, std::min((int64_t)2, outerLoopRank), parId)) {
+        create.krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "outer-loop of elementwise simd partially flattened");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "not enough work in outermost-loops of elementwise simd partially "
+            "flattened");
+      }
     } else {
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "no dim with enough work in elementwise simd partially flattened");
+      // SIMD loop parallelism.
+      DimsExpr simdLbs = {zero}, simdUbs = {simdUb};
+      if (findSuitableParallelDimension(
+              simdLbs, simdUbs, 0, 1, parId, VL * 32)) {
+        assert(parId == 0 && "expected loop zero to be parallelized");
+        useParallelInSimdLoop = true;
+        onnxToKrnlParallelReport(op, true, parId, zero, simdUb,
+            "innermost-loop of elementwise simd partially flattened");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "not enough work in innermost-loop of elementwise simd partially "
+            "flattened");
+      }
     }
   }
-  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
-      [&](KrnlBuilder &ck, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-        SmallVector<IndexExpr, 4> outputAccessExprs;
-        getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
+  create.krnl.iterateIE(
+      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &ck, ValueRange loopInd) {
+        MultiDialectBuilder<KrnlBuilder> create(ck);
+        // LoopInd has the current indices for all but the innermost dim. Since
+        // we expect here the entire innermost loop iteration in one go, the
+        // innermost loop starts at zero. Add here to the list of Dim symbols.
+        SmallVector<IndexExpr, 4> outputAccessExprs = DimListIE(loopInd);
+        outputAccessExprs.emplace_back(zero);
 
-        llvm::SmallVector<Value, 4> loadedVals;
-        // Load all the values
-        for (int64_t i = 0; i < (int64_t)flatOperands.size(); ++i) {
-          Value flatOper = flatOperands[i];
-          if (isNoneValue(flatOper)) {
-            // None, just pass it on unmodified.
-            loadedVals.emplace_back(flatOper);
+        // Have to produce the list of input values and their access functions.
+        llvm::SmallVector<Value, 4> inputs = flatOperands;
+        llvm::SmallVector<DimsExpr, 4> inputAFs;
+        for (int64_t i = 0; i < (int64_t)inputs.size(); ++i) {
+          Value input = inputs[i];
+          // Define the access function for each of the inputs.
+          DimsExpr inputAF;
+          // Check if we have a none value.
+          if (isNoneValue(input)) {
+            // Have one, pass the none value with empty AF.
+            inputAFs.emplace_back(inputAF);
             continue;
           }
-          MemRefType memRefType =
-              mlir::dyn_cast<MemRefType>(flatOper.getType());
-          assert(memRefType && "expected memref");
-          VectorType vecType =
-              VectorType::get({VL}, memRefType.getElementType());
-          if (hasOneElementInInnermostDims(flatOper, 1)) {
-            // If its a scalar, do a scalar load and splat.
-            llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
-            if (hasOneElement(flatOper)) {
-              // Not flattened, with only 1 dims, just put zeros as needed.
-              int64_t scalarRank =
-                  mlir::dyn_cast<ShapedType>(flatOper.getType()).getRank();
-              for (int r = 0; r < scalarRank; ++r)
-                scalarAccessFct.emplace_back(LiteralIndexExpr(0));
+          // We have a memref, analyze which kind.
+          MemRefType inputType = mlir::dyn_cast<MemRefType>(input.getType());
+          assert(inputType && "expected memref");
+          // Check if we have a scalar.
+          if (hasOneElement(input)) {
+            // Not flattened, with only 1 dims, just put zeros as needed.
+            int64_t inputRank = inputType.getRank();
+            for (int r = 0; r < inputRank; ++r)
+              inputAF.emplace_back(zero);
+            inputAFs.emplace_back(inputAF);
+            continue;
+          }
+          // We have a regular access.
+          LogicalResult res =
+              shapeHelper->getAccessExprs(input, i, outputAccessExprs, inputAF,
+                  /*flattened*/ true, ruledOutBroadcast);
+          assert(succeeded(res) && "Could not compute access indices");
+          inputAFs.emplace_back(inputAF);
+        }
+        // Produce the list of outputs and output AFs
+        Value output = flatAlloc;
+        DimsExpr outputAF = outputAccessExprs;
 
-            } else {
-              // Was flattened, with non 1 dims, use get access expr.
-              LogicalResult res =
-                  shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
-                      scalarAccessFct, /*flattened*/ true, ruledOutBroadcast);
-              assert(succeeded(res) && "Could not compute access indices");
-            }
-            Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
-            // Delay splat since it is now integrated in MathBuilder
-            loadedVals.emplace_back(loadedVal);
-          } else {
-            llvm::SmallVector<IndexExpr, 4> loadAccessFct;
-            LogicalResult res =
-                shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
-                    loadAccessFct, /*flattened*/ true, ruledOutBroadcast);
-            assert(succeeded(res) && "Could not compute access indices");
-            Value loadedVal =
-                create.vec.loadIE(vecType, flatOper, loadAccessFct, {});
-            loadedVals.emplace_back(loadedVal);
-          }
-        }
-        Value finalResult;
-        if (isUnaryOp) {
-          // For unary op, we through all operands at once as the other ones are
-          // scalars / none values.
-          finalResult = emitScalarOpFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, loadedVals);
-        } else {
-          // For non-unary ops, each op is a flattened array that need to be
-          // processed; process the two first ones, and then "accumulate" one
-          // value at a time. Use the first operand as temporary result.
-          Value accumulated = loadedVals[0];
-          // Iterate over the remaining operands.
-          for (unsigned i = 1; i < numArgs; ++i) {
-            Value next = loadedVals[i];
-            // Fold.
-            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
-                op, vecElementType, {accumulated, next});
-          }
-          // Postprocessing (dummy op if none).
-          finalResult = emitPostProcessingFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, accumulated);
-        }
-        // Store result in the resulting array.
-        create.vec.store(finalResult, flatAlloc, loopInd);
-      });
+        create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, simdOnly,
+            useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
+            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
+                SmallVectorImpl<Value> &resVals, int64_t VL) {
+              MultiDialectBuilder<MathBuilder> create(kb);
+              Type currElementType = outputElementType;
+              if (VL > 1)
+                currElementType = VectorType::get({VL}, outputElementType);
+              Value res;
+              if (isUnaryOp) {
+                // For unary op, we through all operands at once as the other
+                // ones are scalars / none values.
+                res = emitScalarOpFor<OP_TYPE>(
+                    rewriter, create.getLoc(), op, currElementType, inputVals);
+              } else {
+                // For non-unary ops, each op is a flattened array that need to
+                // be processed; process the two first ones, and then
+                // "accumulate" one value at a time. Use the first operand as
+                // temporary result.
+                Value accumulated = inputVals[0];
+                // Iterate over the remaining operands.
+                for (unsigned i = 1; i < numArgs; ++i) {
+                  Value next = inputVals[i];
+                  // Fold.
+                  accumulated =
+                      emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(), op,
+                          currElementType, {accumulated, next});
+                }
+                // Postprocessing (dummy op if none).
+                res = emitPostProcessingFor<OP_TYPE>(rewriter, create.getLoc(),
+                    op, currElementType, accumulated);
+              }
+              resVals.emplace_back(res);
+            }); // SIMD kernel.
+      });       // Outer loops.
+
   rewriter.replaceOp(op, alloc);
   return success();
 }
@@ -2054,7 +1924,11 @@ struct ONNXElementwiseUnaryOpLowering
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     int64_t outputRank = outputMemRefType.getRank();
-    Type elementType = outputMemRefType.getElementType();
+    Type outputElementType = outputMemRefType.getElementType();
+
+    // In unary, we don't have any broadcast, and thus our target is to fully
+    // collapse the loop to a 1D loop.
+    int64_t collapsedInnermostLoops = outputRank;
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -2067,22 +1941,23 @@ struct ONNXElementwiseUnaryOpLowering
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
-      int64_t estimatedSimdLoopTripCount;
+      int64_t simdLoopStaticTripCount;
+      bool simdOnly, canOverCompute = true;
+      GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
       int64_t totVL =
-          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, op, outputMemRefType, outputRank,
-              estimatedSimdLoopTripCount);
+          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
+              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-            estimatedSimdLoopTripCount, "unary fully flattened");
+            simdLoopStaticTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            totVL, /*collapsedInnermostLoop*/ outputRank,
-            /*ruleOutBroadcast*/ true, /*unary*/ true, enableParallel);
+            totVL, collapsedInnermostLoops, /*ruleOutBroadcast*/ true,
+            /*unary*/ true, simdOnly, enableParallel);
       }
-      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
-          estimatedSimdLoopTripCount,
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in unary because could not find beneficial VL");
+
     } else {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
           "no simd in unary because scalar/layouts");
@@ -2133,7 +2008,7 @@ struct ONNXElementwiseUnaryOpLowering
               args.emplace_back(loadedVal);
             }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                rewriter, loc, op, elementType, args);
+                rewriter, loc, op, outputElementType, args);
             loweredOpResult =
                 opFusionHelper.emitFuseOps(loweredOpResult, alloc, loopInd);
             // Store result in the resulting array.
@@ -2155,7 +2030,7 @@ struct ONNXElementwiseUnaryOpLowering
         args.emplace_back(loadedVal);
       }
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, elementType, args);
+          rewriter, loc, op, outputElementType, args);
       loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult, alloc);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
@@ -2165,7 +2040,7 @@ struct ONNXElementwiseUnaryOpLowering
     opFusionHelper.replaceOrEraseONNXOps(alloc);
     return success();
   }
-}; // namespace onnx_mlir
+};
 
 //===----------------------------------------------------------------------===//
 // Element-wise binary ops lowering to Krnl dialect.
@@ -2209,7 +2084,7 @@ struct ONNXElementwiseBinaryOpLowering
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Type outputElementType = outputMemRefType.getElementType();
-    uint64_t outputRank = outputMemRefType.getRank();
+    int64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -2244,25 +2119,25 @@ struct ONNXElementwiseBinaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
-      int64_t estimatedSimdLoopTripCount;
+      int64_t simdLoopStaticTripCount;
+      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
       int64_t totVL =
-          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
-              estimatedSimdLoopTripCount);
+          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
+              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
-        if (collapsedInnermostLoops == (int64_t)outputRank)
+        if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-              estimatedSimdLoopTripCount, "binary fully flattened");
+              simdLoopStaticTripCount, "binary fully flattened");
         else
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-              estimatedSimdLoopTripCount, "binary with manageable broadcast");
+              simdLoopStaticTripCount, "binary with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false, enableParallel);
+            /*unary*/ false, simdOnly, enableParallel);
       }
-      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
-          estimatedSimdLoopTripCount,
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in binary because no beneficial VL");
     } else {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
@@ -2289,7 +2164,7 @@ struct ONNXElementwiseBinaryOpLowering
       if (enableParallel) {
         int64_t parId;
         if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise binary not simdized");
@@ -2386,7 +2261,7 @@ struct ONNXElementwiseVariadicOpLowering
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Type outputElementType = outputMemRefType.getElementType();
-    uint64_t outputRank = outputMemRefType.getRank();
+    int64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -2419,25 +2294,25 @@ struct ONNXElementwiseVariadicOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
-      int64_t estimatedSimdLoopTripCount;
+      int64_t simdLoopStaticTripCount;
+      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
       int64_t totVL =
-          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
-              estimatedSimdLoopTripCount);
+          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
+              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
-        if (collapsedInnermostLoops == (int64_t)outputRank)
+        if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-              estimatedSimdLoopTripCount, "variadic fully flattened");
+              simdLoopStaticTripCount, "variadic fully flattened");
         else
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-              estimatedSimdLoopTripCount, "variadic with manageable broadcast");
+              simdLoopStaticTripCount, "variadic with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false, enableParallel);
+            /*unary*/ false, simdOnly, enableParallel);
       }
-      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
-          estimatedSimdLoopTripCount,
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in variadic because no beneficial VL");
     } else {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
@@ -2464,7 +2339,7 @@ struct ONNXElementwiseVariadicOpLowering
       if (enableParallel) {
         int64_t parId;
         if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise variadic not simdized");
@@ -2493,8 +2368,8 @@ struct ONNXElementwiseVariadicOpLowering
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
               LogicalResult res = shapeHelper.getAccessExprs(operands[i], i,
-                  outputAccessExprs, oprdAccessExprs, /*flattened dims*/ false,
-                  hasNoBroadcast);
+                  outputAccessExprs, oprdAccessExprs,
+                  /*flattened dims*/ false, hasNoBroadcast);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
               // Fold.
@@ -2564,7 +2439,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
-    uint64_t outputRank = outputMemRefType.getRank();
+    int64_t outputRank = outputMemRefType.getRank();
     ONNXWhereOpAdaptor operandAdaptor(operands);
 
     // Shape helper.
@@ -2587,7 +2462,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       if (enableParallel) {
         int64_t parId;
         if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(
               op, true, parId, lbs[parId], ubs[parId], "where op not simdized");

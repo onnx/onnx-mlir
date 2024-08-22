@@ -27,6 +27,9 @@ namespace onnx_mlir {
 
 enum RLegacy { Latest, UpTo13 };
 
+//===----------------------------------------------------------------------===//
+// Defaults
+
 // Defines the VectorBuilder's CombiningKind associated with a given Op.
 template <typename OP>
 VectorBuilder::CombiningKind getCombiningKind() {
@@ -39,54 +42,9 @@ bool divideByMean() {
   return false;
 }
 
-// Identity values
-template <>
-Value getIdentityValue<ONNXReduceMaxOp>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.negativeInf(type);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMaxOp>() {
-  return VectorBuilder::CombiningKind::MAX;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceMaxV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.negativeInf(type);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMaxV13Op>() {
-  return VectorBuilder::CombiningKind::MAX;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceMinOp>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.positiveInf(type);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMinOp>() {
-  return VectorBuilder::CombiningKind::MIN;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceMinV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.positiveInf(type);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMinV13Op>() {
-  return VectorBuilder::CombiningKind::MIN;
-}
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXReduceProdOp
+//===----------------------------------------------------------------------===//
 
 template <>
 Value getIdentityValue<ONNXReduceProdOp>(
@@ -94,88 +52,14 @@ Value getIdentityValue<ONNXReduceProdOp>(
   MathBuilder createMath(rewriter, loc);
   return createMath.constant(type, 1);
 }
-
 template <>
 VectorBuilder::CombiningKind getCombiningKind<ONNXReduceProdOp>() {
   return VectorBuilder::CombiningKind::MUL;
 }
-
 template <>
-Value getIdentityValue<ONNXReduceProdV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.constant(type, 1);
+GenOpMix getGenOpMix<ONNXReduceProdOp>(Type t, Operation *op) {
+  return {{GenericOps::MulGop, 1}};
 }
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceProdV13Op>() {
-  return VectorBuilder::CombiningKind::MUL;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceSumV11Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.constant(type, 0);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceSumV11Op>() {
-  return VectorBuilder::CombiningKind::ADD;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceSumOp>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.constant(type, 0);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceSumOp>() {
-  return VectorBuilder::CombiningKind::ADD;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceMeanOp>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.constant(type, 0);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanOp>() {
-  return VectorBuilder::CombiningKind::ADD;
-}
-
-template <>
-bool divideByMean<ONNXReduceMeanOp>() {
-  return true;
-}
-
-template <>
-Value getIdentityValue<ONNXReduceMeanV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MathBuilder createMath(rewriter, loc);
-  return createMath.constant(type, 0);
-}
-
-template <>
-VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanV13Op>() {
-  return VectorBuilder::CombiningKind::ADD;
-}
-
-template <>
-bool divideByMean<ONNXReduceMeanV13Op>() {
-  return true;
-}
-
-// Scalar ops
-template <>
-struct ScalarOp<ONNXReduceProdV13Op> {
-  using FOp = arith::MulFOp;
-  using IOp = arith::MulIOp;
-};
 
 template <>
 struct ScalarOp<ONNXReduceProdOp> {
@@ -184,11 +68,42 @@ struct ScalarOp<ONNXReduceProdOp> {
 };
 
 template <>
-struct ScalarOp<ONNXReduceSumV11Op> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
+Value getIdentityValue<ONNXReduceProdV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return getIdentityValue<ONNXReduceProdOp>(rewriter, loc, type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceProdV13Op>() {
+  return getCombiningKind<ONNXReduceProdOp>();
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceProdV13Op>(Type t, Operation *op) {
+  return getGenOpMix<ONNXReduceProdOp>(t, op);
+}
+template <>
+struct ScalarOp<ONNXReduceProdV13Op> {
+  using FOp = arith::MulFOp;
+  using IOp = arith::MulIOp;
 };
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXReduceSumOp
+//===----------------------------------------------------------------------===//
+
+template <>
+Value getIdentityValue<ONNXReduceSumOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceSumOp>() {
+  return VectorBuilder::CombiningKind::ADD;
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceSumOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
 template <>
 struct ScalarOp<ONNXReduceSumOp> {
   using FOp = arith::AddFOp;
@@ -196,13 +111,71 @@ struct ScalarOp<ONNXReduceSumOp> {
 };
 
 template <>
-struct ScalarOp<ONNXReduceMeanV13Op> {
+Value getIdentityValue<ONNXReduceSumV11Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return getIdentityValue<ONNXReduceSumOp>(rewriter, loc, type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceSumV11Op>() {
+  return getCombiningKind<ONNXReduceSumOp>();
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceSumV11Op>(Type t, Operation *op) {
+  return getGenOpMix<ONNXReduceSumOp>(t, op);
+}
+template <>
+struct ScalarOp<ONNXReduceSumV11Op> {
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
+};
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXReduceMeanOp
+//===----------------------------------------------------------------------===//
+
+template <>
+Value getIdentityValue<ONNXReduceMeanOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanOp>() {
+  return VectorBuilder::CombiningKind::ADD;
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceMeanOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+template <>
+bool divideByMean<ONNXReduceMeanOp>() {
+  return true;
+}
+template <>
+struct ScalarOp<ONNXReduceMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
 };
 
 template <>
-struct ScalarOp<ONNXReduceMeanOp> {
+Value getIdentityValue<ONNXReduceMeanV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return getIdentityValue<ONNXReduceMeanOp>(rewriter, loc, type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanV13Op>() {
+  return getCombiningKind<ONNXReduceMeanOp>();
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceMeanV13Op>(Type t, Operation *op) {
+  return getGenOpMix<ONNXReduceMeanOp>(t, op);
+}
+template <>
+bool divideByMean<ONNXReduceMeanV13Op>() {
+  return divideByMean<ONNXReduceMeanOp>();
+}
+template <>
+struct ScalarOp<ONNXReduceMeanV13Op> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
 };
@@ -210,16 +183,21 @@ struct ScalarOp<ONNXReduceMeanOp> {
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReduceMaxOp
 //===----------------------------------------------------------------------===//
-template <>
-Value emitScalarOpFor<ONNXReduceMaxV13Op>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  MathBuilder createMath(rewriter, loc);
-  Value lhs = scalarOperands[0];
-  Value rhs = scalarOperands[1];
-  return createMath.max(lhs, rhs);
-}
 
+template <>
+Value getIdentityValue<ONNXReduceMaxOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.negativeInf(type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMaxOp>() {
+  return VectorBuilder::CombiningKind::MAX;
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceMaxOp>(Type t, Operation *op) {
+  return {{GenericOps::MinMaxGop, 1}};
+}
 template <>
 Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -230,19 +208,44 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
   return createMath.max(lhs, rhs);
 }
 
+template <>
+Value getIdentityValue<ONNXReduceMaxV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return getIdentityValue<ONNXReduceMaxOp>(rewriter, loc, type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMaxV13Op>() {
+  return getCombiningKind<ONNXReduceMaxOp>();
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceMaxV13Op>(Type t, Operation *op) {
+  return getGenOpMix<ONNXReduceMaxOp>(t, op);
+}
+template <>
+Value emitScalarOpFor<ONNXReduceMaxV13Op>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  return emitScalarOpFor<ONNXReduceMaxOp>(
+      rewriter, loc, op, elementType, scalarOperands);
+}
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReduceMinOp
 //===----------------------------------------------------------------------===//
-template <>
-Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  MathBuilder createMath(rewriter, loc);
-  Value lhs = scalarOperands[0];
-  Value rhs = scalarOperands[1];
-  return createMath.min(lhs, rhs);
-}
 
+template <>
+Value getIdentityValue<ONNXReduceMinOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.positiveInf(type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMinOp>() {
+  return VectorBuilder::CombiningKind::MIN;
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceMinOp>(Type t, Operation *op) {
+  return {{GenericOps::MinMaxGop, 1}};
+}
 template <>
 Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -252,6 +255,29 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   Value rhs = scalarOperands[1];
   return createMath.min(lhs, rhs);
 }
+
+template <>
+Value getIdentityValue<ONNXReduceMinV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return getIdentityValue<ONNXReduceMinOp>(rewriter, loc, type);
+}
+template <>
+VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMinV13Op>() {
+  return getCombiningKind<ONNXReduceMinOp>();
+}
+template <>
+GenOpMix getGenOpMix<ONNXReduceMinV13Op>(Type t, Operation *op) {
+  return getGenOpMix<ONNXReduceMinOp>(t, op);
+}
+template <>
+Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  return emitScalarOpFor<ONNXReduceMinOp>(
+      rewriter, loc, op, elementType, scalarOperands);
+}
+
+//===----------------------------------------------------------------------===//
 
 using MDBuilder =
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
@@ -280,21 +306,33 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   // Flatten entirely the input memref.
   Value flatInput = create.mem.reshapeToFlatInnermost(
       input, inputDims, flatInputDims, inputRank);
-  // Study SIMD. Assume here that since SIMD is determined by the input type
-  // (which is expected to be the same as the output scalar value), both
-  // reduction will have the same archVL.
-  int64_t unrollVL = 4;
-  int64_t estimatedSimdLoopTripCount = 0;
-  int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType, inputRank,
-      unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
-  if (totVL <= 1)
-    return false;
-  IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Has one or 2 reductions?
   bool hasTwoRed = true;
   if constexpr (std::is_same<ONNXReductionOp2, ONNXNoneOp>::value)
     hasTwoRed = false;
+
+  // Study SIMD. Assume here that since SIMD is determined by the input type
+  // (which is expected to be the same as the output scalar value), both
+  // reduction will have the same archVL.
+  GenOpMix mix = getGenOpMix<ONNXReductionOp1>(elementType, op);
+  if (hasTwoRed) {
+    GenOpMix mix2 = getGenOpMix<ONNXReductionOp2>(elementType, op);
+    mix = computeGenOpMixUnion(mix, mix2);
+  }
+  int64_t collapsedInnermostLoops = inputRank;
+  int64_t simdLoopStaticTripCount;
+  bool simdOnly, canOverCompute = false;
+  int64_t totVL =
+      computeSuitableUnrollFactor(inputType, collapsedInnermostLoops, mix,
+          canOverCompute, simdLoopStaticTripCount, simdOnly);
+  // Current simdized loop only support SIMD only scheme.
+  if (!simdOnly) {
+    totVL = capVLForSimdOnly(inputType, totVL, simdLoopStaticTripCount);
+  }
+  if (totVL <= 1)
+    return false; // TODO alexe: consider staying here with VL=1
+  IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Compute type of small temporary reduction vector.
   MemRefType outputType = MemRefType::get({}, elementType);
@@ -321,7 +359,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     create.vec.store(initVec2, redAlloc2, {zero});
   }
 
-  // Loop trip count
+  // Loop over SIMD values.
   ValueRange loopDef = create.krnl.defineLoops(1);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[0], totVL);
   create.krnl.iterate(loopDef, {blockedLoopDef[0]}, {zero},
@@ -344,13 +382,6 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           create.vec.store(accumulatedVec2, redAlloc2, {zero});
         }
       });
-  Value divisorForMean = nullptr;
-  if (divideByMean<ONNXReductionOp1>() || divideByMean<ONNXReductionOp2>()) {
-    // Compute the divisor that is the number of elements participated in
-    // reduction, i.e., 'divisor = size of input / size of output, where output
-    // size == 1'.
-    divisorForMean = create.math.cast(elementType, flatInputDims[0].getValue());
-  }
 
   // First reduction horizontal sum.
   Value reductionVec1 = create.vec.load(vecType, redAlloc1, {zero});
@@ -365,6 +396,13 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   }
 
   // Handle mean if any.
+  Value divisorForMean = nullptr;
+  if (divideByMean<ONNXReductionOp1>() || divideByMean<ONNXReductionOp2>()) {
+    // Compute the divisor that is the number of elements participated in
+    // reduction, i.e., 'divisor = size of input / size of output, where output
+    // size == 1'.
+    divisorForMean = create.math.cast(elementType, flatInputDims[0].getValue());
+  }
   if (divideByMean<ONNXReductionOp1>())
     res1 = create.math.div(res1, divisorForMean);
   if (hasTwoRed && divideByMean<ONNXReductionOp2>())
@@ -377,10 +415,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
 
   if (hasTwoRed)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-        estimatedSimdLoopTripCount, "fused reduction to a scalar");
+        simdLoopStaticTripCount, "fused reduction to a scalar");
   else
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-        estimatedSimdLoopTripCount, "reduction to a scalar");
+        simdLoopStaticTripCount, "reduction to a scalar");
 
   return true;
 }
@@ -566,7 +604,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
     int64_t totVL = 1;
-    int64_t estimatedSimdLoopTripCount = 0;
+    int64_t simdLoopStaticTripCount = 0;
 
     // With dynamic axes, use this
     Value maskVal = nullptr;
@@ -607,7 +645,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                  "expected at most horizontal or parallel SIMD");
           DimsExpr inputDims;
           create.krnlIE.getShapeAsSymbols(input, inputDims);
-          int64_t unrollVL = 4;
           if (horizontalSimd) {
 #if !DEBUG_FORCE_SHUFFLE_REDUCTION
             VectorBuilder::CombiningKind kind =
@@ -615,22 +652,26 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             hasHorizontalSimdSupport =
                 supportedHorizontalSIMDOp(kind, elementOutType);
 #endif
-            if (!hasHorizontalSimdSupport) {
-              // Does not have SIMD horizontal support, so use a scheme that
-              // unrollVL the innermost non-simd loop by VL. Because trip counts
-              // of such loops could be small (e.g. GPT2 = 8), we don't want a
-              // large VL here.
-              unrollVL = 1;
-            }
           }
-          LLVM_DEBUG(llvm::dbgs() << "  SIMD: study with init unrollVL "
-                                  << unrollVL << "\n");
           // Currently only vectorize loops whose SIMD dimension is a multiple
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
-          totVL = create.vec.computeSuitableUnrollFactor(memRefInType,
-              innermostLoopCollapse, unrollVL, /*canPad*/ false,
-              estimatedSimdLoopTripCount);
+          GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
+          bool simdOnly, canOverCompute = false;
+          totVL =
+              computeSuitableUnrollFactor(memRefInType, innermostLoopCollapse,
+                  mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+          if (!hasHorizontalSimdSupport) {
+            // When we don't have horizontal SIMD support, we use a code gen
+            // scheme that relies on unrolling. So we don't want any unrollVL
+            // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
+            totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
+          }
+          // Current code gen scheme only support SIMD only scheme.
+          if (!simdOnly) {
+            totVL =
+                capVLForSimdOnly(memRefInType, totVL, simdLoopStaticTripCount);
+          }
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, totVL " << totVL << "\n");
           if (totVL <= 1) {
@@ -770,13 +811,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             alloc, inRank, outRank, totVL, innermostLoopCollapse, isKeepdims,
             divisorForMean, enableParallel);
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-            estimatedSimdLoopTripCount, "horizontal");
+            simdLoopStaticTripCount, "horizontal");
       } else {
         genShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
             input, alloc, inRank, outRank, totVL, innermostLoopCollapse,
             isKeepdims, divisorForMean, enableParallel);
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-            estimatedSimdLoopTripCount, "shuffle-horizontal");
+            simdLoopStaticTripCount, "shuffle-horizontal");
       }
     } else {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
@@ -788,7 +829,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       else
         msg = "unsupported";
       onnxToKrnlSimdReport(
-          op, /*successful*/ false, /*vl*/ 0, estimatedSimdLoopTripCount, msg);
+          op, /*successful*/ false, /*vl*/ 0, simdLoopStaticTripCount, msg);
     }
     rewriter.replaceOp(op, alloc);
     return success();
@@ -799,6 +840,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value alloc, int64_t inRank, int64_t outRank, bool dynamicAxes,
       Value maskVal, std::map<int64_t, int64_t> &outInDimMap,
       Value divisorForMean, bool enableParallel) const {
+    LLVM_DEBUG(llvm::dbgs() << "gen scalar reduction\n");
     //////////////////////////////////////////////////////////////////////
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -955,7 +997,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
-
+    LLVM_DEBUG(llvm::dbgs() << "gen horizontal simd reduction\n");
     assert(VL > 1 && "expected simd here");
     VectorType vecType = VectorType::get({VL}, elementType);
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
@@ -1110,6 +1152,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
 
+    LLVM_DEBUG(llvm::dbgs() << "gen shuffle horizontal simd reduction\n");
     assert(VL > 1 && "expected simd here");
     IndexExpr VLIndexExpr = LiteralIndexExpr(VL);
     VectorType vecType = VectorType::get({VL}, elementType);
