@@ -617,7 +617,7 @@ bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
     int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
 
 //===----------------------------------------------------------------------===//
-// Support functions for simd.
+// Support functions for determining simd unrolling.
 //===----------------------------------------------------------------------===//
 
 // Compute a suitable SIMD Vector length (which may be a multiple of the
