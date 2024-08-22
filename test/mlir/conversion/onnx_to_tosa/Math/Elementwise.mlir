@@ -228,7 +228,7 @@ func.func @test_div_unsigned(%arg0: tensor<13x21x1xui8>, %arg1: tensor<13x21x1xu
   "func.return"(%0) : (tensor<13x21x1xui8>) -> ()
 // CHECK-LABEL:  func @test_div_unsigned
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xui8>, [[PARAM_1_:%.+]]: tensor<13x21x1xui8>) -> tensor<13x21x1xui8> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.div [[PARAM_0_]], [[PARAM_1_]] : (tensor<13x21x1xui8>, tensor<13x21x1xui8>) -> tensor<13x21x1xui8>
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.int_div [[PARAM_0_]], [[PARAM_1_]] : (tensor<13x21x1xui8>, tensor<13x21x1xui8>) -> tensor<13x21x1xui8>
 }
 
 // -----
