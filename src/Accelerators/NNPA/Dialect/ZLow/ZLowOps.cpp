@@ -439,27 +439,22 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
       // Use an dense resource attribute to store stickified data.
       // Attribute type: tensor<sizeInBytes x i8>
       int64_t sizeInBytes = ztensor.buffer_size;
-      // llvm::dbgs() << "ztensor.buffer_size " << sizeInBytes << "\n";
-      DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-          zlowStickifiedConstantOp.getOperation()
-              ->getDialect()
-              ->getNamespace(), // use the dialect as the blob "hint"
-          HeapAsmResourceBlob::allocateAndCopyWithAlign(
-              llvm::ArrayRef((char *)ztensor.buffer, sizeInBytes),
-              alignof(char)));
-      zlowStickifiedConstantOp.setValueAttr(valueAttr);
-      AsmResourceBlob *blob = valueAttr.getRawHandle().getBlob();
-      assert(blob && "Expecting dense resource with a valid blob");
-      ret = blob->getData();
       // ret = llvm::ArrayRef((char *)ztensor.buffer, sizeInBytes);
+      char *retData = (char *)malloc(sizeInBytes);
+      memcpy(retData, ztensor.buffer, sizeInBytes);
+      ret = llvm::ArrayRef(retData, sizeInBytes);
       allochelper_ztensor_free(&ztensor);
-      llvm::dbgs() << "Dense ret.size() " << ret.size() << "\n";
     } else if (DenseResourceElementsAttr denseResourceAttr =
                    mlir::dyn_cast_or_null<mlir::DenseResourceElementsAttr>(
                        zlowStickifiedConstantOp.getValue().value())) {
-      ret = denseResourceAttr.getRawHandle().getBlob()->getData();
-      llvm::dbgs() << "DenseResource ret.size() " << ret.size() << "\n";
+      ArrayRef<char> attrData =
+          denseResourceAttr.getRawHandle().getBlob()->getData();
+      int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
+          zlowStickifiedConstantOp.getResult().getType())
+                                .value();
+      char *rawData = (char *)malloc(sizeInBytes);
+      memcpy(rawData, attrData.data(), sizeInBytes);
+      ret = llvm::ArrayRef(rawData, sizeInBytes);
     } else {
       llvm_unreachable("Unsupported data type.");
     }
@@ -471,20 +466,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
                               .value();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
-    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-        zlowStickifiedConstantOp.getOperation()
-            ->getDialect()
-            ->getNamespace(), // use the dialect as the blob "hint"
-        HeapAsmResourceBlob::allocateAndCopyWithAlign(
-            llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
-    zlowStickifiedConstantOp.setValueAttr(valueAttr);
-    AsmResourceBlob *blob = valueAttr.getRawHandle().getBlob();
-    assert(blob && "Expecting dense resource with a valid blob");
-    ret = blob->getData();
-    // ret = llvm::ArrayRef(rawData, sizeInBytes);
-    free(rawData);
-    llvm::dbgs() << "Init ret.size() " << ret.size() << "\n";
+    ret = llvm::ArrayRef(rawData, sizeInBytes);
   }
   return ret;
 }
@@ -497,32 +479,25 @@ uint64_t ZLowStickifiedConstantOp::getBufferSize() {
       .value();
 }
 
-void ZLowStickifiedConstantOp::freeBuffer() {
-  //  MLIRContext *context = getOperation()->getContext();
-  //  PatternRewriter rewriter(context);
-  //  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
-  //      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-  //  DenseResourceElementsAttr denseResourceAttr =
-  //      mlir::dyn_cast_or_null<mlir::DenseResourceElementsAttr>(
-  //          zlowStickifiedConstantOp.getValue().value());
-  //  free(const_cast<char *>(
-  //      (denseResourceAttr.getRawHandle().getBlob()->getData()).data()));
+void ZLowStickifiedConstantOp::setBuffer(ArrayRef<char> rawData) {
   MLIRContext *context = getOperation()->getContext();
   PatternRewriter rewriter(context);
   ZLowStickifiedConstantOp zlowStickifiedConstantOp =
       mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-  int64_t sizeInBytes = 1;
-  char *rawData = (char *)malloc(sizeInBytes);
-  memset(rawData, 0, sizeInBytes);
+  int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
+      zlowStickifiedConstantOp.getResult().getType())
+                            .value();
   DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
       RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
       zlowStickifiedConstantOp.getOperation()
           ->getDialect()
           ->getNamespace(), // use the dialect as the blob "hint"
-      HeapAsmResourceBlob::allocateAndCopyWithAlign(
-          llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
+      HeapAsmResourceBlob::allocateAndCopyWithAlign(rawData, alignof(char)));
   zlowStickifiedConstantOp.setValueAttr(valueAttr);
-  free(rawData);
+}
+
+void ZLowStickifiedConstantOp::freeBuffer(ArrayRef<char> rawData) {
+  free(const_cast<char *>(rawData.data()));
   return;
 }
 

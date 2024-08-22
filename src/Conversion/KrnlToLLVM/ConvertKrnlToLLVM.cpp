@@ -490,12 +490,14 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       uint64_t bufferSize = op.getBufferSize();
       if (bufferSize <= singleThreshold) {
         ArrayRef<char> rawData = op.getBuffer();
+        op.setBuffer(rawData);
         return WalkResult::advance();
       }
       if (op.getValueAttr()) {
         auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
         if (valueAttr.isSplat()) {
           ArrayRef<char> rawData = op.getBuffer();
+          op.setBuffer(rawData);
           return WalkResult::advance();
         }
       }
@@ -554,8 +556,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     outfile.write(rawData.data(), rawData.size());
     totalConstSize += rawData.size();
     op.removeValueAttr();
-    // op.freeBuffer();
-    // free(const_cast<char *>(rawData.data()));
+    op.freeBuffer(rawData);
     llvm::dbgs() << "totalConstSize = " << totalConstSize << "\n";
   }
   // No constant statisfying thresholds, do not store constants to file.
