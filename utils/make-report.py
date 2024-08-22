@@ -40,8 +40,8 @@ def print_usage(msg=""):
         """
 Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
 make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
-      [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]
-      [-w <num>]
+      [-p <plot_file_name][-s <stats>] [--sort <val>] [--supported] [-u <val>]
+      [-f <op regexp>] [-w <num>]
           
 Compile-time statistics are collected from a `onnx-mlir` compiler output
 with the `--opt-report` option equal to `Simd` or other supported sub-options.
@@ -57,11 +57,23 @@ Additional help.
   `onnx-mlir --debug-only=lowering-to-krnl` and look at the compiler output.
   Use `-l 3` to correlate the node name printed here with compiler output.
 
-Parameters:
+Parameters on inputs:
   -c/--compile <file_log>: File name containing the compile-time statistics
                            or runtime signature statistics.
   -r/--runtime <file_log>: File name containing the runtime time statistics.
 
+Parameters to focus analysis:
+  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+  -m/--min <num>:      Focus on operations with at least <num>% of exec time.
+  --supported:         Focus only on ops that are supported. Namely, the report
+                       will skip ops for which compile-time statistics list
+                       the 'unsupported' keyword in its printout.
+                       For SIMD/parallel statistics, this include all ops that
+                       have currently no support for it.
+  -w/--warmup <num>:   If multiple runtime statistics are given, ignore the first
+                       <num> stats. Default is zero.
+
+Parameters on what to print:
   -s/--stats <name>:   Print specific statistics:
                        simd: Print simd optimization stats.
                              Default if a compile time file is given.
@@ -74,19 +86,15 @@ Parameters:
                        1: Also count reasons for success/failure.
                        2: Also list metrics.
                        3: Also list node name.
-  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
-  -m/--min <num>:      Focus on operations with at least <num>% of exec time.
-  -supported:          Focus only on ops that are supported. Namely, the report
-                       will skip ops for which compile-time statistics list
-                       the 'unsupported' keyword in its printout.
-                       For SIMD/parallel statistics, this include all ops that
-                       have currently no support for it.
+  -p/--plot <name>:    Print a "<name>.jpg" plot of the output.
+
+Parameters on how to print:
   -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or
                        microsecond ('us).
   --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`.
+
+Help:
   -v/--verbose:        Run in verbose mode (see error and warnings).
-  -w/--warmup <num>:   If multiple runtime statistics are given, ignore the first
-                       <num> stats. Default is zero.
   -h/--help:           Print usage.
     """
     )
@@ -116,6 +124,11 @@ sorting_preference = ""
 report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names.
 time_unit = 1  # seconds.
 min_percent_reporting = 0.0  # percentage.
+
+# For plot info
+plot_names = np.array([])
+plot_values = np.array([])
+plot_x_axis = "time"
 
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
@@ -438,7 +451,7 @@ def get_percent(n, d):
 def get_sorting_key(count, name, time):
     global sorting_preference
     if sorting_preference == "num":
-        key = -count
+        return -count
     if sorting_preference == "name":
         return name
     return -time
@@ -450,18 +463,25 @@ def make_report(stat_message):
     global has_timing, time_unit, error_missing_time
     global report_level, supported_only, verbose, min_percent_reporting
     global sorting_preference
+    global plot_names, plot_values, plot_x_axis
 
     # Gather statistics in a dictionary so that we may sort the entries.
     sorted_output = {}
+    sorted_plot_output = {}
     for op in op_count_dict:
         count = op_count_dict[op]
         count_time_str = str(count)
         time = 0
+        plot_name_val = []
         if op in op_time_dict:
             time = np.sum(op_time_dict[op])
             count_time_str += ", {:.7f}".format(time * time_unit / count)
             count_time_str += ", {:.7f}".format(time * time_unit)
             count_time_str += ", {:.1f}%".format(get_percent(time, tot_time))
+            # Keep plot_name -> plot_val in sorted_plot_output.
+            plot_name = "{} ({})".format(op, count)
+            plot_val = time * time_unit
+            plot_name_val = [plot_name, plot_val]
         if get_percent(time, tot_time) < min_percent_reporting:
             continue
         output = "  " + op + ", " + count_time_str
@@ -495,22 +515,34 @@ def make_report(stat_message):
             for key in sorted(sorted_det_output):
                 output += sorted_det_output[key]
 
-        # add output to sorted_output
+        # Add output to sorted_output.
         output_key = get_sorting_key(count, op, time)
         if output_key in sorted_output:
             sorted_output[output_key] += "\n" + output
         else:
             sorted_output[output_key] = output
+        # Add plot name/val tuple to sorted_plot_output.
+        if len(plot_name_val) == 2:
+            if output_key in sorted_plot_output:
+                curr_list = sorted_plot_output[output_key]
+                curr_list.append(plot_name_val)
+                sorted_plot_output[output_key] = curr_list
+            else:
+                sorted_plot_output[output_key] = [plot_name_val]
 
     # Print legend and stats.
     num_desc = "num"
     if has_timing:
         if time_unit == 1:
-            unit_str = "(s)"
+            unit_str = "s"
         elif time_unit == 1000:
-            unit_str = "(ms)"
+            unit_str = "ms"
         elif time_unit == 1000 * 1000:
-            unit_str = "(us)"
+            unit_str = "us"
+        plot_x_axis = "execution time ({}) out of total time of {:.2f}{}".format(
+            unit_str, tot_time * time_unit, unit_str
+        )
+        unit_str = "(" + unit_str + ")"
         num_desc += ", average time " + unit_str
         num_desc += ", cumulative time " + unit_str
         num_desc += ", percent of total "
@@ -524,23 +556,63 @@ def make_report(stat_message):
     print("")
     stat_details = ""
     if supported_only:
-        stat_details = ", supported ops"
+        stat_details = " supported ops"
     else:
-        stat_details = ", all ops"
+        stat_details = " all ops"
     if min_percent_reporting > 0:
         stat_details += ", " + str(min_percent_reporting) + "%+ exec time"
-    stat_details += ", ordered_by " + sorting_preference
+    stat_details += " ordered_by " + sorting_preference
     if has_timing:
-        stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
+        stat_details += ", tot_time,  {:.7f}".format(tot_time * time_unit)
     print("Statistics start" + stat_details)
     for key in sorted(sorted_output):
         print(sorted_output[key])
+        if key in sorted_plot_output:
+            for t in sorted_plot_output[key]:
+                plot_names = np.append(plot_names, t[0])
+                plot_values = np.append(plot_values, t[1])
     print("Statistics end" + stat_details)
 
     # Report spurious node name if any.
     if error_missing_time:
         print("> Timing information was missing for some of the nodes.")
         print("> Run with `-v` for detailed list of errors.")
+
+
+################################################################################
+# Print plot.
+
+
+def output_plot(runtime_file_name, plot_file_name):
+    global plot_names, plot_values, plot_x_axis
+    if len(plot_names) == 0:
+        print("\n> No info to plot, skip")
+        return
+    try:
+        import matplotlib.pyplot as plt
+
+        # Create the horizontal bar graph.
+        fig, ax = plt.subplots()
+        bars = ax.barh(np.flip(plot_names), np.flip(plot_values), color="blue")
+
+        # Adding the data values next to the bars.
+        for bar in bars:
+            width = bar.get_width()
+            text = " {:.1f}".format(width)
+            ax.text(width, bar.get_y() + bar.get_height() / 2, text, va="center")
+
+        # Setting the axes limits to make room for annotations.
+        ax.set_xlim(0, max(plot_values) * 1.2)
+
+        # Adjust layout to make room for the table:
+        # plt.subplots_adjust(left=0.1)
+        plt.xlabel(plot_x_axis)
+        plt.title("execution time summary for " + runtime_file_name)
+        output_file_name = "{}.jpg".format(plot_file_name)
+        plt.savefig(output_file_name, bbox_inches="tight")
+        print('\n> output plot printed in "{}"'.format(output_file_name))
+    except ImportError:
+        print("\n> Could not import mathplotlib, please add if you want to plot.")
 
 
 ################################################################################
@@ -554,19 +626,21 @@ def main(argv):
 
     compile_file_name = ""
     runtime_file_name = ""
+    plot_file_name = ""
     make_stats = ""
     make_legend = ""
     warmup_num = 0
     try:
         opts, args = getopt.getopt(
             argv,
-            "c:f:hl:m:r:s:u:vw:",
+            "c:f:hl:m:p:r:s:u:vw:",
             [
                 "compile=",
                 "focus=",
                 "help",
                 "level=",
                 "min=",
+                "plot=",
                 "runtime=",
                 "stats=",
                 "sort=",
@@ -593,6 +667,8 @@ def main(argv):
                 print_usage("detail levels are 0, 1, 2, or 3")
         elif opt in ("-m", "--min"):
             min_percent_reporting = float(arg)
+        elif opt in ("-p", "--plot"):
+            plot_file_name = arg
         elif opt in ("-r", "--runtime"):
             runtime_file_name = arg
         elif opt in ("-s", "--stats"):
@@ -674,6 +750,9 @@ def main(argv):
         make_report(make_legend)
     else:
         print_usage("Command requires an input file name (compile/runtime or both).\n")
+
+    if plot_file_name:
+        output_plot(runtime_file_name, plot_file_name)
 
 
 if __name__ == "__main__":
