@@ -3,10 +3,14 @@
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
 
+// -----
+
+
 func.func @test_quantize_linear(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %arg2: tensor<ui8>) -> tensor<6xui8> {
   %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<6xf32>, tensor<f32>, tensor<ui8>) -> tensor<6xui8>
   return %0 : tensor<6xui8>
 
+// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_quantize_linear
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<6xf32>, [[PARAM_1_:%.+]]: memref<f32>, [[PARAM_2_:%.+]]: memref<ui8>) -> memref<6xui8> {
 // CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = arith.constant 5.000000e-01 : f32
@@ -41,14 +45,13 @@ func.func @test_quantize_linear(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %arg2:
 // CHECK-DAG:         [[VAR_20_:%.+]] = arith.cmpf oeq, [[VAR_9_]], [[CST_5_dot_000000_]] : f32
 // CHECK:             [[VAR_21_:%.+]] = arith.select [[VAR_20_]], [[VAR_19_]], [[VAR_12_]] : f32
 // CHECK:             [[VAR_22_:%.+]] = arith.addf [[VAR_21_]], [[VAR_3_]] : f32
-// CHECK:             [[VAR_23_:%.+]] = arith.cmpf olt, [[VAR_22_]], [[CST_0_dot_000000_]] : f32
-// CHECK:             [[VAR_24_:%.+]] = arith.select [[VAR_23_]], [[CST_0_dot_000000_]], [[VAR_22_]] : f32
-// CHECK:             [[VAR_25_:%.+]] = arith.cmpf olt, [[VAR_24_]], [[CST_2_dot_550000_]] : f32
-// CHECK:             [[VAR_26_:%.+]] = arith.select [[VAR_25_]], [[VAR_24_]], [[CST_2_dot_550000_]] : f32
-// CHECK:             [[VAR_27_:%.+]] = arith.fptoui [[VAR_26_]] : f32 to i8
-// CHECK:             [[VAR_28_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]] : i8 to ui8
-// CHECK:             krnl.store [[VAR_28_]], [[RES_]]{{.}}[[VAR_5_]]{{.}} : memref<6xui8>
+// CHECK:             [[VAR_23_:%.+]] = arith.maxnumf [[VAR_22_]], [[CST_0_dot_000000_]] : f32
+// CHECK:             [[VAR_24_:%.+]] = arith.minnumf [[VAR_23_]], [[CST_2_dot_550000_]] : f32
+// CHECK:             [[VAR_25_:%.+]] = arith.fptoui [[VAR_24_]] : f32 to i8
+// CHECK:             [[VAR_26_:%.+]] = builtin.unrealized_conversion_cast [[VAR_25_]] : i8 to ui8
+// CHECK:             krnl.store [[VAR_26_]], [[RES_]]{{.}}[[VAR_5_]]{{.}} : memref<6xui8>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<6xui8>
 // CHECK:         }
 }
+

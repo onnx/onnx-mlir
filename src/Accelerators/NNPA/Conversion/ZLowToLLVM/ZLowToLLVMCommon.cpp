@@ -287,8 +287,8 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
   Type outputTy = apiSpec.outputTy;
   if (!mlir::isa<LLVM::LLVMVoidType>(outputTy))
     outputTys.emplace_back(outputTy);
-  return create.llvm.call(
-      ArrayRef<Type>(outputTys), symbolRef, ArrayRef<Value>(params));
+  return create.llvm.call(ArrayRef<Type>(outputTys), symbolRef,
+      ArrayRef<Value>(params), apiSpec.isVarArg);
 }
 
 size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
