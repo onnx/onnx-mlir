@@ -495,6 +495,112 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
       });
 }
 
+void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd,
+    /* in: use [x][n] */ ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+    /* tmp: use [y][VL] */ ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs,
+    /* out: gen [z][1] */ ArrayRef<Value> outputs, ArrayRef<DimsExpr> outputAFs,
+    /* init val: scalar */ ArrayRef<Value> initVals,
+    /* reduction function (simd or scalar) */
+    function_ref<void(KrnlBuilder &kb, ArrayRef<Value> inputVals,
+        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
+        int64_t VL)>
+        reductionBuilderFn,
+    /* post reduction function (simd to scalar + post processing)*/
+    function_ref<void(KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
+        postProcessingBuilderFn) {
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+      MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem,
+      SCFBuilder>; // hi alex, parse
+  MDBuilder create(*this);
+
+  int64_t inputSize = inputs.size();
+  int64_t outputSize = outputs.size();
+  assert((int64_t)inputAFs.size() == inputSize && "expect same input size");
+  assert(tmps.size() == tmpAFs.size() && "expect same tmp size");
+  assert((int64_t)outputAFs.size() == outputSize && "expect output same size");
+  assert((int64_t)tmps.size() == outputSize && "expect 1 tmp per output");
+  assert((int64_t)initVals.size() == outputSize && "expect 1 init per output");
+  // Gather element and vector types and perform the inits. Do it in SIMD mode
+  // regardless.
+  llvm::SmallVector<Type, 4> elementTypes; // hi alex, maybe not needed
+  llvm::SmallVector<VectorType, 4> vectorTypes;
+  for (int64_t o = 0; o < outputSize; ++o) {
+    Value initVal = initVals[o];
+    Type elementType = initVal.getType();
+    VectorType vectorType = VectorType::get({VL}, elementType);
+    elementTypes.emplace_back(elementType);
+    vectorTypes.emplace_back(vectorType);
+    Value initVec = create.vec.splat(vectorType, initVal);
+    create.vec.storeIE(initVec, tmps[o], tmpAFs[o], {});
+  }
+  if (VL > 1) {
+    // Want SIMD, execute full SIMD loops reductions blocked by VL.
+    ValueRange loopDef = defineLoops(1);
+    ValueRange blockedLoopDef = block(loopDef[0], VL);
+
+    // Logic: see simdIterateIE.
+    IndexExpr simdUb = ub;
+    if (!fullySimd)
+      simdUb = simdUb - (VL - 1);
+    // Perform SIMD reduction: iterates over all SIMD vectors.
+    iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
+        [&](KrnlBuilder &ck, ValueRange loopInd) {
+          IndexExprScope scope(ck);
+          MDBuilder create(ck);
+          IndexExpr ind = DimIE(loopInd[0]);
+          // Load input values in SIMD mode.
+          llvm::SmallVector<Value, 4> inputVals;
+          for (int64_t i = 0; i < inputSize; ++i) {
+            // Load inputs in vector mode indexed by ind in innermost dim.
+            Value input = inputs[i];
+            DimsExpr inputAF = inputAFs[i];
+            MemRefType inputType = mlir::cast<MemRefType>(input.getType());
+            VectorType vecType =
+                VectorType::get({VL}, inputType.getElementType());
+            Value inputVal =
+                create.vec.loadIE(vecType, input, inputAF, {ind.getValue()});
+            inputVals.emplace_back(inputVal);
+          }
+          // Load tmp value in SIMD mode.
+          llvm::SmallVector<Value, 4> tmpVals;
+          for (int64_t o = 0; o < outputSize; ++o) {
+            // Load tmp in vector mode (no indexing, same value over & over).
+            Value tmpVal =
+                create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
+            tmpVals.emplace_back(tmpVal);
+          }
+          // Call reduction.
+          llvm::SmallVector<Value, 4> resultVals;
+          reductionBuilderFn(ck, inputVals, tmpVals, resultVals, VL);
+          assert((int64_t)resultVals.size() == outputSize &&
+                 "expect ouputSize results");
+          // Save tmp values in SIMD mode.
+          for (int64_t o = 0; o < outputSize; ++o) {
+            // Save results to tmp in vector mode.
+            create.vec.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+          }
+        });
+  }
+  assert(fullySimd && "not implemented yet");
+  // Now perform post processing. Load all tmps.
+  llvm::SmallVector<Value, 4> tmpVals;
+  for (int64_t o = 0; o < outputSize; ++o) {
+    // Load tmp in vector mode.
+    Value tmpVal = create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
+    tmpVals.emplace_back(tmpVal);
+  }
+  llvm::SmallVector<Value, 4> scalarOutputs;
+  postProcessingBuilderFn(*this, tmpVals, scalarOutputs, VL);
+  assert((int64_t)scalarOutputs.size() == outputSize &&
+         "expect outputSize results");
+  // Store reductions.
+  for (int64_t o = 0; o < outputSize; ++o) {
+    create.krnl.storeIE(scalarOutputs[o], outputs[o], outputAFs[o]);
+  }
+}
+
 void KrnlBuilder::yield(mlir::ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
@@ -561,8 +667,8 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
   MultiDialectBuilder<MathBuilder> create(*this);
   Value zero = create.math.constantIndex(0);
-  b().create<KrnlMemcpyOp>(
-      loc(), dest, src, numElems, /*dest_offset=*/zero, /*src_offset=*/zero);
+  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems,
+      /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems,

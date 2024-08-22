@@ -958,6 +958,45 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value tmpAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange outLoopInd, Value simdUB,
       int64_t VL) const {
+#if 1
+    IndexExpr lb = LitIE(0);
+    IndexExpr ub = SymIE(simdUB);
+    bool fullySIMD = true;
+    SmallVector<IndexExpr, 4> outputAF = SymListIE(outLoopInd);
+    SmallVector<IndexExpr, 4> inputAF = outputAF;
+    inputAF.emplace_back(lb);
+    SmallVector<IndexExpr, 4> tmpAF(2, lb); // tmpAlloc is 2D
+    Value identity = getIdentityValue<ONNXReductionOp>(
+        rewriter, create.getLoc(), elementType);
+    create.krnl.simdReduceIE(
+        lb, ub, VL, fullySIMD,
+        /* inputs*/ {flatInput}, {inputAF},
+        /* temp */ {tmpAlloca}, {tmpAF},
+        /* output */ {flatAlloc}, {outputAF},
+        /* init */ {identity},
+        /* reduction simd/scalar */
+        [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
+            llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
+          Value input = inputVals[0];
+          Value tmp = tmpVals[0];
+          Type type = VL > 1 ? vecType : elementType;
+          Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
+              rewriter, create.getLoc(), op, type, {tmp, input});
+          resultVals.emplace_back(accumulatedVec);
+        },
+        /* post processing */
+        [&](KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+            llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
+          Value tmp = tmpVals[0];
+          Value accumulatedVal =
+              create.vec.reduction(getCombiningKind<ONNXReductionOp>(), tmp);
+          // other operation...
+          if (divideByMean<ONNXReductionOp>()) {
+            accumulatedVal = create.math.div(accumulatedVal, divisorForMean);
+          }
+          scalarOutputs.emplace_back(accumulatedVal);
+        });
+#else
     // Init temp memory to init values.
     Value zero = create.math.constantIndex(0);
     create.vec.store(initVec, tmpAlloca, {zero, zero});
@@ -987,6 +1026,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     }
     // Store tmp into result.
     create.krnl.store(accumulatedVal, flatAlloc, outLoopInd);
+#endif
   }
 
   // We assume here that the hardware has an efficient SIMD horizontal
