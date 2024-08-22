@@ -14,7 +14,6 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 - 1)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0, s1] -> (s1 + s0)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s0)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s0 + s1)>
 // CHECK-LABEL:  func.func @test_sequence_erase
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xmemref<?x4x5xf32>>) -> memref<3xi64> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<0> : tensor<i64>} : () -> memref<i64>
@@ -55,7 +54,7 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_13_:%.+]] = arith.cmpi slt, [[VAR_12_]], [[CST_0_4_]] : index
-// CHECK-DAG:       [[VAR_14_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_12_]], [[VAR_dim_4_]]{{.}}
+// CHECK-DAG:       [[VAR_14_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_4_]], [[VAR_12_]]{{.}}
 // CHECK:           [[VAR_15_:%.+]] = arith.select [[VAR_13_]], [[VAR_14_]], [[VAR_12_]] : index
 // CHECK-DAG:       [[VAR_16_:%.+]] = "krnl.seqextract"([[VAR_2_]], [[VAR_15_]]) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index

@@ -11,7 +11,7 @@ func.func @test_argmax_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0> : tensor<i64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
 // CHECK:           [[VAR_3_:%.+]] = stablehlo.dynamic_iota [[VAR_0_]], dim = 3 : (tensor<4xindex>) -> tensor<5x5x1x32xi64>
-// CHECK:           [[VAR_4_:%.+]]:2 = stablehlo.reduce(%arg0 init: %1), (%3 init: %0) across dimensions = [3] : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi64>, tensor<f32>, tensor<i64>) -> (tensor<5x5x1xf32>, tensor<5x5x1xi64>)
+// CHECK:           [[VAR_4_:%.+]]:2 = stablehlo.reduce(%arg0 init: [[VAR_2_]]), (%1 init: [[VAR_1_]]) across dimensions = [3] : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi64>, tensor<f32>, tensor<i64>) -> (tensor<5x5x1xf32>, tensor<5x5x1xi64>)
 // CHECK:            reducer(%arg1: tensor<f32>, %arg3: tensor<f32>) (%arg2: tensor<i64>, %arg4: tensor<i64>)  {
 // CHECK:             [[VAR_6_:%.+]] = stablehlo.compare  GE, %arg1, %arg3,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_7_:%.+]] = stablehlo.select [[VAR_6_]], %arg1, %arg3 : tensor<i1>, tensor<f32>
