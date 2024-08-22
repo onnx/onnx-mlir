@@ -33,7 +33,7 @@ namespace onnx_mlir {
 
 enum class GenericOps {
   AbsGop,
-  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity */
+  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity. */
   CeilDivGop,
   CeilGop,
   CompareGop, /* All compare operations, signed/unsigned fixed/float. */
@@ -48,11 +48,12 @@ enum class GenericOps {
   LogGop,
   LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
   MinMaxGop,
-  MinMaxAcrossGop, /* compute min/max across vector */
+  MinMaxAcrossGop, /* Compute min/max across vector. */
   MulGop,
   PowGop,
   RemGop,
   RoundGop,
+  ScalarOnlyGop, /* Any ops that are guaranteed to be scalar on any arch. */
   SelectGop,
   ShiftGop,   /* Shift operations: logical/arithmetic. */
   ShuffleGop, /* All bit/byte moving operations: shuffle, rotate, shift. */
@@ -63,7 +64,12 @@ enum class GenericOps {
   TrigHyperbolicGop, /* Hyperbolic trig. */
 };
 
-using GenOpsMix = mlir::ArrayRef<std::pair<GenericOps, int64_t>>;
+// Describe the mix of Generic operations in a given kernel. Each generic
+// operation is associated with a number, which indicates the number of
+// occurrence of that generic op in the given kernel.
+using GenOpMix = llvm::SmallDenseMap<GenericOps, int64_t, 8>;
+
+GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2);
 
 //===----------------------------------------------------------------------===//
 // Generic vector machine support class, which must be refined for each
@@ -126,7 +132,7 @@ public:
   // number of times that generic operation was found. Note that scalar
   // operation have a vector length of one in the weighted average as they still
   // contribute one result.
-  static double getAvgArchVectorLength(GenOpsMix genOps, mlir::Type elementType,
+  static double getAvgArchVectorLength(GenOpMix &genOps, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 protected:

@@ -193,6 +193,9 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // has MB, and if it does, we then attempt to test at the next innermost
   // level... until we fail or we run out of dimensions.
   //
+  // Below: ?1 and ?2 indicate 2 dynamic dimensions, which may/may not be
+  // guaranteed to be equal depending on what dynamic analysis says.
+  //
   // Manageable broadcast (MB) is either that:
   //   1) we have no broadcast up to that level, or
   //   2) we have scalars up to that level being broadcasted.
@@ -227,6 +230,9 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // - (1,3) and (1, 1) have MB at CIL 1; technically, CIL 2 is also a MB but
   //    there is nothing to be gained by collapsing dimensions where all
   //    inputs have dimensions of 1. We thus do not include them in our CILs.
+  //    Revision: it is actually good to detects 1s everywhere as we can
+  //    collapse the loop and have less overhead.
+
   virtual bool hasManageableBroadcastForInnerDims(
       int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
       IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis);

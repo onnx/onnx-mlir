@@ -506,44 +506,6 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
-  // Compute a suitable SIMD Vector length (which may be a multiple of the
-  // hardware vector length, up to maxSimdUnroll times). If the dims are too
-  // small, return 1 (no suitable simd). The collapsedInnermostLoops parameter
-  // indicates how many inner dimensions of the memref are considered for
-  // vectorization. If all of them are considered and padding is possible,
-  // then we can always generate SIMD code with the maxSIMD unroll factor.
-  // Otherwise, we must ensure that the cumulative static size (dynamic sizes
-  // are ignored here ) of the array is a multiple of the Vector Length
-  // associated with this type. If it is not, then no SIMD code gen is
-  // possible (return 1). If it is possible, return the largest SIMD unroll
-  // factor (starting at maxSimdUnroll) that divide the cumulative static size
-  // of the memref being collapsed for SIMD. simdLoopStaticTripCount: provide
-  // an estimation of the SIMD loop trip count. If runtime, return -1; if
-  // cannot simdize, return 0; if compile time (or a multiple of a compile
-  // time value): return that literal.
-  // Note that if simdLoopStaticTripCount>0 (we have simd) and
-  // simdLoopStaticTripCount % (returned VL) == 0, we can guarantee that all
-  // iterations will be SIMD iterations.
-  static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
-      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
-      int64_t &simdLoopStaticTripCount);
-
-  // Compute a suitable SIMD Vector length (VL). If no SIMD is suitable, return
-  // 1. Type determine the initial VL. Then the mix of Generic
-  // Operations is used to determine the mix of SIMD/Scalar operations in that
-  // loop. If the type does not support SIMD, or there are too few SIMD
-  // operations, or the innermost loop has too few (static) loop iterations,
-  // SIMD will be disabled (return VL=1). Otherwise, the register pressure is
-  // then taken into account to determine a suitable additional unrolling (by
-  // multiple of VL) so as to suitably exploit the available SIMD hardware.
-  //
-  // In this call, we assume that code gen can handle SIMD loops with trip count
-  // that are not known to be a multiple of VL.
-  // Definition and usage of simdLoopStaticTripCount is as in the previous call.
-  static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
-      int64_t collapsedInnermostLoops, GenOpsMix GenOps,
-      int64_t &simdLoopStaticTripCount);
-
 private:
   bool isPowerOf2(uint64_t num) const;
   uint64_t getLengthOf1DVector(mlir::Value vec) const;
