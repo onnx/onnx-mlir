@@ -1453,8 +1453,12 @@ private:
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
+      Type outTy = ImportType(output.type(), dim_params);
+      if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
+        outTy =
+            UnrankedTensorType::get(cast<TensorType>(outTy).getElementType());
       if (output.type().tensor_type().has_shape()) {
-        val.setType(ImportType(output.type(), dim_params));
+        val.setType(outTy);
       }
       ret_types.emplace_back(val.getType());
     } else {

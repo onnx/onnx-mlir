@@ -29,6 +29,7 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
+void configureOnnxToZHighLoweringPass(bool reportOnNNPAUnsupportedOps);
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();

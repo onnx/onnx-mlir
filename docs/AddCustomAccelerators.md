@@ -52,6 +52,8 @@ Each accelerator is required to define a few macros. These needs to be included 
 1. `INSTRUMENTSTAGE_ENUM_<accel_name>`
 2. `INSTRUMENTSTAGE_CL_ENUM_<accel_name>`
 3. `PROFILEIR_CL_ENUM_<accel_name>`
+4. `OPTREPORT_ENUM_<accel_name>`
+5. `OPTREPORT_CL_ENUM_<accel_name>`
 
 Replace `<accel_name>` with the name of the accelerator, for example if your accelerator is named `ACCEL1` use:
 
@@ -59,6 +61,8 @@ Replace `<accel_name>` with the name of the accelerator, for example if your acc
 #define INSTRUMENTSTAGE_ENUM_ACCEL1
 #define INSTRUMENTSTAGE_CL_ENUM_ACCEL1
 #define PROFILEIR_CL_ENUM_ACCEL1
+#define OPTREPORT_ENUM_ACCEL1
+#define OPTREPORT_CL_ENUM_ACCEL1
 ```
 
 ### 2.2 Dialects and passes

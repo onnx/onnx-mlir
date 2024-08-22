@@ -84,8 +84,9 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // should be -1 (represented as QuestionmarkIndexExpr)
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
+      IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
       outputDims[i] = outputDims[i].selectOrSelf(
-          outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+          dimShape == -1, numOfElements.floorDiv(numOfElementsFromShape));
     } else {
       // ToFix: can not check getAllowzero because the operandAdaptor is
       // constructed without attributes
