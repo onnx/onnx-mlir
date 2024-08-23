@@ -547,7 +547,6 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       SmallVector<char> pads(padSize, (char)0);
       outfile.write(pads.data(), pads.size());
       totalConstSize += pads.size();
-      //      free(pads.begin());
     }
 
     op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));

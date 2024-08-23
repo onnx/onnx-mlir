@@ -23,59 +23,46 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
   }];
 
   let methods = [
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Set the constant value to value attribute.",
           "void", "setBuffer", (ins "::mlir::ArrayRef<char>": $buffer)
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Get the constant value from value attribute. ",
           "::mlir::ArrayRef<char>", "getBuffer", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Get the size of the constant value.", 
           "uint64_t", "getBufferSize", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Free the constant value retrieved from value "
+                      "attribute.",
           "void", "freeBuffer", (ins "::mlir::ArrayRef<char>": $buffer)
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Get the value from the attribute.",
           "std::optional<Attribute>", "getValue", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Get the `value` attribute.",
           "Attribute", "getValueAttr", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
-          "std::optional<uint64_t>", "getAlignment", (ins )
-      >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
-          "IntegerAttr", "getAlignmentAttr", (ins )
-      >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
-          "void", "setOffsetAttr", (ins "::mlir::IntegerAttr": $attr)
-      >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Remove value attribute.",
           "Attribute", "removeValueAttr", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Get the `alignment` attribute.",
+          "std::optional<uint64_t>", "getAlignment", (ins )
+      >,
+      InterfaceMethod<"Get the attribute for the alignment.",
+          "IntegerAttr", "getAlignmentAttr", (ins )
+      >,
+      InterfaceMethod<"Get the `shape` attribute.",
           "::mlir::Attribute", "getShape", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Get the `name` attribute.",
           "::mlir::StringRef", "getName", (ins )
       >,
-      InterfaceMethod<"Get the index of the region corresponding to the"
-                      "onnx subgraph identified by its name.",
+      InterfaceMethod<"Set the offset to the attribute.",
+          "void", "setOffsetAttr", (ins "::mlir::IntegerAttr": $attr)
+      >,
+      InterfaceMethod<"Get the `offset` attribute.",
           "std::optional<uint64_t>", "getOffset", (ins )
       >
-      
   ];
   
   let extraClassDeclaration = [{

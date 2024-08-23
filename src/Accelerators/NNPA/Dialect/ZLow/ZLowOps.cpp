@@ -25,6 +25,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
@@ -400,67 +401,61 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
       zlowStickifiedConstantOp.getLayoutAttr(); // or getLayout() and check
   ArrayRef<char> ret;
   if (zlowStickifiedConstantOp.getValueAttr()) {
-    if (DenseElementsAttr dataAttr =
-            mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-                zlowStickifiedConstantOp.getValue().value())) {
-      ArrayRef<int64_t> shape = dataAttr.getType().getShape();
-      Type elementType = dataAttr.getType().getElementType();
-      int rank = shape.size(); // TOOD: `shape` should be original one, but now
-                               // normalized one
-      // Read attributes's raw data.
-      std::vector<char> rawData;
-      getRawData(dataAttr, rawData);
-      // Call stickify.
-      zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
-      // pre-transformed desc.
-      zdnn_data_layouts zDNNLayout =
-          convertLayoutAttrToZDNNDataLayout(rank, layout);
-      // If zDNNLayout is NHWC, we stickify directly from NCHW.
-      if (zDNNLayout == ZDNN_NHWC)
-        zDNNLayout = ZDNN_NCHW;
-      zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
-      set_info_pre_transformed_desc(
-          &pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
-      // transformed desc.
-      zdnn_status status =
-          generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
-      assert(status == ZDNN_OK);
-      // Stick data using the software stickify.
-      zdnn_ztensor ztensor;
-      init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
-      status = allochelper_ztensor_alloc(&ztensor);
-      assert(status == ZDNN_OK);
-      status = stickify(&ztensor, rawData.data());
-      assert(status == ZDNN_OK);
-      std::vector<char>().swap(rawData);
-      zlowStickifiedConstantOp.removeValueAttr();
-
-      // rawData = std::vector<char>();
-      // Use an dense resource attribute to store stickified data.
-      // Attribute type: tensor<sizeInBytes x i8>
-      int64_t sizeInBytes = ztensor.buffer_size;
-      // ret = llvm::ArrayRef((char *)ztensor.buffer, sizeInBytes);
-      char *retData = (char *)malloc(sizeInBytes);
-      memcpy(retData, ztensor.buffer, sizeInBytes);
-      ret = llvm::ArrayRef(retData, sizeInBytes);
-      allochelper_ztensor_free(&ztensor);
-    } else if (DenseResourceElementsAttr denseResourceAttr =
-                   mlir::dyn_cast_or_null<mlir::DenseResourceElementsAttr>(
-                       zlowStickifiedConstantOp.getValue().value())) {
-      ArrayRef<char> attrData =
-          denseResourceAttr.getRawHandle().getBlob()->getData();
-      int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
-          zlowStickifiedConstantOp.getResult().getType())
-                                .value();
-      char *rawData = (char *)malloc(sizeInBytes);
-      memcpy(rawData, attrData.data(), sizeInBytes);
-      ret = llvm::ArrayRef(rawData, sizeInBytes);
-    } else {
-      llvm_unreachable("Unsupported data type.");
-    }
+    auto dataAttr = zlowStickifiedConstantOp.getValue().value();
+    TypeSwitch<Attribute>(dataAttr)
+        .Case<DenseElementsAttr>([&](DenseElementsAttr denseAttr) {
+          ArrayRef<int64_t> shape = denseAttr.getType().getShape();
+          Type elementType = denseAttr.getType().getElementType();
+          int rank = shape.size(); // TOOD: `shape` should be original one, but
+                                   // now normalized one
+          // Read attributes's raw data.
+          std::vector<char> attrData;
+          getRawData(denseAttr, attrData);
+          // Call stickify.
+          zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
+          // pre-transformed desc.
+          zdnn_data_layouts zDNNLayout =
+              convertLayoutAttrToZDNNDataLayout(rank, layout);
+          // If zDNNLayout is NHWC, we stickify directly from NCHW.
+          if (zDNNLayout == ZDNN_NHWC)
+            zDNNLayout = ZDNN_NCHW;
+          zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
+          set_info_pre_transformed_desc(
+              &pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
+          // transformed desc.
+          zdnn_status status =
+              generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
+          assert(status == ZDNN_OK);
+          // Stick data using the software stickify.
+          zdnn_ztensor ztensor;
+          init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
+          status = allochelper_ztensor_alloc(&ztensor);
+          assert(status == ZDNN_OK);
+          status = stickify(&ztensor, attrData.data());
+          assert(status == ZDNN_OK);
+          std::vector<char>().swap(attrData);
+          zlowStickifiedConstantOp.removeValueAttr();
+          int64_t sizeInBytes = ztensor.buffer_size;
+          char *rawData = (char *)malloc(sizeInBytes);
+          memcpy(rawData, ztensor.buffer, sizeInBytes);
+          ret = llvm::ArrayRef(rawData, sizeInBytes);
+          allochelper_ztensor_free(&ztensor);
+        })
+        .Case<DenseResourceElementsAttr>(
+            [&](DenseResourceElementsAttr denseResourceAttr) {
+              ArrayRef<char> attrData =
+                  denseResourceAttr.getRawHandle().getBlob()->getData();
+              int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
+                  zlowStickifiedConstantOp.getResult().getType())
+                                        .value();
+              char *rawData = (char *)malloc(sizeInBytes);
+              memcpy(rawData, attrData.data(), sizeInBytes);
+              ret = llvm::ArrayRef(rawData, sizeInBytes);
+            })
+        .Default([&](Attribute attr) {
+          llvm_unreachable("Unsupported data type.");
+        });
   } else {
-    // Use an dense resource attribute to store stickified data.
-    // Attribute type: tensor<sizeInBytes x i8>
     int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
         zlowStickifiedConstantOp.getResult().getType())
                               .value();
