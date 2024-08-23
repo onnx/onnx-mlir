@@ -625,6 +625,8 @@ Type convertONNXTypeToMLIRType(
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT4:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
     llvm_unreachable("Unsupported data type encountered.");
     return nullptr;
