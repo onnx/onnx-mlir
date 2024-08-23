@@ -79,6 +79,7 @@ mlir::Value KrnlBuilder::load(mlir::Value memref, mlir::ValueRange indices,
 }
 
 Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
+  // TODO: could rewrite this to a KrnlBuilder::load.
   if (indices.size() == 0) {
     // case memref<1xdtype>
     MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
@@ -92,6 +93,13 @@ Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   return b().create<KrnlLoadOp>(loc(), memref, indexValues);
+}
+
+Value KrnlBuilder::loadIE(
+    Value memref, ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return load(memref, indexValues, offsets);
 }
 
 void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
@@ -119,6 +127,7 @@ void KrnlBuilder::store(mlir::Value val, mlir::Value memref,
 
 void KrnlBuilder::storeIE(
     Value val, Value memref, ArrayRef<IndexExpr> indices) const {
+  // TODO: could rewrite this to a KrnlBuilder::store.
   if (indices.size() == 0) {
     // case memref<1xdtype>
     MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
@@ -133,6 +142,13 @@ void KrnlBuilder::storeIE(
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   b().create<KrnlStoreOp>(loc(), val, memref, indexValues);
+}
+
+void KrnlBuilder::storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices,
+    mlir::ValueRange offsets) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  store(val, memref, indexValues, offsets);
 }
 
 Value KrnlBuilder::getLinearOffsetIndex(
@@ -524,13 +540,11 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
   assert((int64_t)initVals.size() == outputSize && "expect 1 init per output");
   // Gather element and vector types and perform the inits. Do it in SIMD mode
   // regardless.
-  llvm::SmallVector<Type, 4> elementTypes; // hi alex, maybe not needed
   llvm::SmallVector<VectorType, 4> vectorTypes;
   for (int64_t o = 0; o < outputSize; ++o) {
     Value initVal = initVals[o];
     Type elementType = initVal.getType();
     VectorType vectorType = VectorType::get({VL}, elementType);
-    elementTypes.emplace_back(elementType);
     vectorTypes.emplace_back(vectorType);
     Value initVec = create.vec.splat(vectorType, initVal);
     create.vec.storeIE(initVec, tmps[o], tmpAFs[o], {});
@@ -549,24 +563,19 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
         [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
           MDBuilder create(ck);
-          IndexExpr ind = DimIE(loopInd[0]);
-          // Load input values in SIMD mode.
+          // Load inputs in SIMD mode, indexed by loopInd[0] in innermost dim.
           llvm::SmallVector<Value, 4> inputVals;
           for (int64_t i = 0; i < inputSize; ++i) {
-            // Load inputs in vector mode indexed by ind in innermost dim.
-            Value input = inputs[i];
-            DimsExpr inputAF = inputAFs[i];
-            MemRefType inputType = mlir::cast<MemRefType>(input.getType());
+            MemRefType inputType = mlir::cast<MemRefType>(inputs[i].getType());
             VectorType vecType =
                 VectorType::get({VL}, inputType.getElementType());
-            Value inputVal =
-                create.vec.loadIE(vecType, input, inputAF, {ind.getValue()});
+            Value inputVal = create.vec.loadIE(
+                vecType, inputs[i], inputAFs[i], {loopInd[0]});
             inputVals.emplace_back(inputVal);
           }
-          // Load tmp value in SIMD mode.
+          // Load tmp value in SIMD mode  (no indexing, same value over & over).
           llvm::SmallVector<Value, 4> tmpVals;
           for (int64_t o = 0; o < outputSize; ++o) {
-            // Load tmp in vector mode (no indexing, same value over & over).
             Value tmpVal =
                 create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
             tmpVals.emplace_back(tmpVal);
@@ -578,12 +587,64 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
                  "expect ouputSize results");
           // Save tmp values in SIMD mode.
           for (int64_t o = 0; o < outputSize; ++o) {
-            // Save results to tmp in vector mode.
             create.vec.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
           }
         });
+    if (fullySimd) {
+      // No leftovers, no additional iterations to be done.
+    } else {
+      // Account for the loop iterations performed above.
+      IndexExpr tripCount = ub - lb;
+      IndexExpr missingIters = tripCount % VL;
+      IndexExpr completedIters = tripCount - missingIters;
+      if (missingIters.isLiteralAndIdenticalTo(0)) {
+        // Detected that we have no missing iterations. Ee are done, namely
+        // fullySimd is true.
+        fullySimd = true;
+      } else {
+        // We may have additional iterations to perform, adjust lb to skip the
+        // completed iterations.
+        lb = lb + completedIters;
+      }
+    }
+  } else {
+    // VL was 1, set fullySimd to false so that we execute all iterations
+    // sequentially.
+    fullySimd = false;
   }
-  assert(fullySimd && "not implemented yet");
+  if (!fullySimd) {
+    // We have leftover iterations to be done in sequential mode.
+    // Handle remaining scalar values (from lb to ub without unrolling).
+    ValueRange loopDef = defineLoops(1);
+    iterateIE(
+        loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
+          IndexExprScope scope(ck);
+          IndexExpr ind = DimIE(loopInd[0]);
+          // We now perform sequential reduction in the tmps 1st element. Load
+          // inputs in sequential mode indexed by loopInd[0] in innermost dim.
+          llvm::SmallVector<Value, 4> inputVals;
+          for (int64_t i = 0; i < inputSize; ++i) {
+            Value inputVal =
+                create.krnl.loadIE(inputs[i], inputAFs[i], {loopInd[0]});
+            inputVals.emplace_back(inputVal);
+          }
+          // Load tmps in scalar mode (no indexing, same value over & over).
+          llvm::SmallVector<Value, 4> tmpVals;
+          for (int64_t o = 0; o < outputSize; ++o) {
+            Value tmpVal = create.krnl.loadIE(tmps[o], tmpAFs[o], {});
+            tmpVals.emplace_back(tmpVal);
+          }
+          // Call reduction.
+          llvm::SmallVector<Value, 4> resultVals;
+          reductionBuilderFn(ck, inputVals, tmpVals, resultVals, 1);
+          assert((int64_t)resultVals.size() == outputSize &&
+                 "expect ouputSize results");
+          // Save tmp values in sequential mode.
+          for (int64_t o = 0; o < outputSize; ++o) {
+            create.krnl.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+          }
+        });
+  }
   // Now perform post processing. Load all tmps.
   llvm::SmallVector<Value, 4> tmpVals;
   for (int64_t o = 0; o < outputSize; ++o) {
@@ -592,10 +653,12 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     tmpVals.emplace_back(tmpVal);
   }
   llvm::SmallVector<Value, 4> scalarOutputs;
+  // Invoke the post processing operations, which takes each tmp vector and
+  // reduces it to a scalar.
   postProcessingBuilderFn(*this, tmpVals, scalarOutputs, VL);
   assert((int64_t)scalarOutputs.size() == outputSize &&
          "expect outputSize results");
-  // Store reductions.
+  // Store the scalar reductions.
   for (int64_t o = 0; o < outputSize; ++o) {
     create.krnl.storeIE(scalarOutputs[o], outputs[o], outputAFs[o]);
   }

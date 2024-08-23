@@ -339,6 +339,89 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   MemRefType redType = MemRefType::get({totVL}, elementType);
   VectorType vecType = VectorType::get({totVL}, elementType);
 
+#if 1
+  SmallVector<Value, 2> inputs, tmps, outputs, initVals;
+  SmallVector<DimsExpr, 2> inputAFs, tmpAFs, outputAFs;
+  IndexExpr zero = LitIE(0);
+  DimsExpr emptyAF;
+  DimsExpr zeroAF(1, zero);
+
+  // Initialize data for input (same for both reduction).
+  inputs.emplace_back(flatInput);
+  inputAFs.emplace_back(zeroAF);
+
+  // Init data for 1st reduction: tmp (redAlloc), output (alloc), and init.
+  Value redAlloc1 = create.mem.alignedAlloc(redType);
+  tmps.emplace_back(redAlloc1);
+  tmpAFs.emplace_back(zeroAF);
+  /*output*/ alloc1 = create.mem.alloc(outputType);
+  outputs.emplace_back(alloc1);
+  outputAFs.emplace_back(emptyAF);
+  Value identity1 = getIdentityValue<ONNXReductionOp1>(
+      rewriter, create.getLoc(), elementType);
+  initVals.emplace_back(identity1);
+  // Init data for 2nd reduction.
+  alloc2 = nullptr;
+  if (hasTwoRed) {
+    Value redAlloc2 = create.mem.alignedAlloc(redType);
+    tmps.emplace_back(redAlloc2);
+    tmpAFs.emplace_back(zeroAF);
+    /*output*/ alloc2 = create.mem.alloc(outputType);
+    outputs.emplace_back(alloc2);
+    outputAFs.emplace_back(emptyAF);
+    Value identity2 = getIdentityValue<ONNXReductionOp2>(
+        rewriter, create.getLoc(), elementType);
+    initVals.emplace_back(identity2);
+  }
+  IndexExpr lb = zero;
+  IndexExpr ub = flatInputDims[0];
+  bool fullySimd = true;
+  create.krnl.simdReduceIE(
+      lb, ub, totVL, fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs,
+      outputAFs, initVals,
+      /* reduction function */
+      [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
+          llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
+        Type type = (VL > 1) ? vecType : elementType;
+        // First reduction, enqueue result.
+        Value accumulatedVec1 = emitScalarOpFor<ONNXReductionOp1>(
+            rewriter, create.getLoc(), op, type, {tmpVals[0], inputVals[0]});
+        resultVals.emplace_back(accumulatedVec1);
+        if (hasTwoRed) {
+          // Has a second reduction, also enqueue result.
+          Value accumulatedVec2 = emitScalarOpFor<ONNXReductionOp2>(
+              rewriter, create.getLoc(), op, type, {tmpVals[1], inputVals[0]});
+          resultVals.emplace_back(accumulatedVec2);
+        }
+      },
+      /* post reduction function*/
+      [&](KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+          llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
+        // Perform horizontal reductions.
+        Value res1 = create.vec.reduction(
+            getCombiningKind<ONNXReductionOp1>(), tmpVals[0]);
+        scalarOutputs.emplace_back(res1);
+        if (hasTwoRed) {
+          Value res2 = create.vec.reduction(
+              getCombiningKind<ONNXReductionOp2>(), tmpVals[1]);
+          scalarOutputs.emplace_back(res2);
+        }
+        // Handle means if any.
+        Value divisorForMean = nullptr;
+        if (divideByMean<ONNXReductionOp1>() ||
+            divideByMean<ONNXReductionOp2>()) {
+          // Compute the divisor that is the number of elements participated in
+          // reduction, i.e., 'divisor = size of input / size of output, where
+          // output size == 1'.
+          divisorForMean =
+              create.math.cast(elementType, flatInputDims[0].getValue());
+        }
+        if (divideByMean<ONNXReductionOp1>())
+          scalarOutputs[0] = create.math.div(scalarOutputs[0], divisorForMean);
+        if (hasTwoRed && divideByMean<ONNXReductionOp2>())
+          scalarOutputs[1] = create.math.div(scalarOutputs[1], divisorForMean);
+      });
+#else
   // Initialize first reduction.
   Value zero = create.math.constantIndex(0);
   /*output*/ alloc1 = create.mem.alloc(outputType);
@@ -412,6 +495,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   create.affineKMem.store(res1, alloc1, {});
   if (hasTwoRed)
     create.affineKMem.store(res2, alloc2, {});
+#endif
 
   if (hasTwoRed)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
