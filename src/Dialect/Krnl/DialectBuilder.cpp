@@ -385,7 +385,8 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
   assert(inputAFs.size() == inputs.size() && "expected same size");
   int64_t outputNum = outputs.size();
   assert(outputAFs.size() == outputs.size() && "expected same size");
-  MultiDialectBuilder<VectorBuilder> create(*this);
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, VectorBuilder>;
+  MDBuilder create(*this);
 
   if (VL > 1) {
     // Want SIMD, execute full SIMD loops blocked by VL.
@@ -403,7 +404,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
         [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
-          MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+          MDBuilder create(ck);
           IndexExpr ind = DimIE(loopInd[0]);
           // Load all the inputs as vectors of VL values, with a few exceptions.
           // One is if the value is a "none value", leave as is. Another one is
@@ -469,7 +470,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
   iterateIE(
       loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
         IndexExprScope scope(ck);
-        MultiDialectBuilder<KrnlBuilder> create(ck);
+        MDBuilder create(ck);
         IndexExpr ind = DimIE(loopInd[0]);
         // Load all the inputs as scalar values,
         llvm::SmallVector<Value, 4> scalarInputVals;
@@ -526,9 +527,7 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     function_ref<void(KrnlBuilder &kb, ArrayRef<Value> tmpVals,
         llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
         postProcessingBuilderFn) {
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem,
-      SCFBuilder>; // hi alex, parse
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, VectorBuilder>;
   MDBuilder create(*this);
 
   int64_t inputSize = inputs.size();
