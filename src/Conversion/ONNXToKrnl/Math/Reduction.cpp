@@ -327,11 +327,15 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       computeSuitableUnrollFactor(inputType, collapsedInnermostLoops, mix,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Current simdized loop only support SIMD only scheme.
+#define HI_ALEX_NEW 1
+#if HI_ALEX_NEW
+#else
   if (!simdOnly) {
     totVL = capVLForSimdOnly(inputType, totVL, simdLoopStaticTripCount);
   }
   if (totVL <= 1)
     return false; // TODO alexe: consider staying here with VL=1
+#endif
   IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Compute type of small temporary reduction vector.
@@ -339,7 +343,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   MemRefType redType = MemRefType::get({totVL}, elementType);
   VectorType vecType = VectorType::get({totVL}, elementType);
 
-#if 1
+#if HI_ALEX_NEW
   SmallVector<Value, 2> inputs, tmps, outputs, initVals;
   SmallVector<DimsExpr, 2> inputAFs, tmpAFs, outputAFs;
   IndexExpr zero = LitIE(0);
@@ -375,9 +379,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   }
   IndexExpr lb = zero;
   IndexExpr ub = flatInputDims[0];
-  bool fullySimd = true;
   create.krnl.simdReduceIE(
-      lb, ub, totVL, fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs,
+      lb, ub, totVL, simdOnly, inputs, inputAFs, tmps, tmpAFs, outputs,
       outputAFs, initVals,
       /* reduction function */
       [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
@@ -1042,7 +1045,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value tmpAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange outLoopInd, Value simdUB,
       int64_t VL) const {
-#if 1
+#if HI_ALEX_NEW
     IndexExpr lb = LitIE(0);
     IndexExpr ub = SymIE(simdUB);
     bool fullySIMD = true;
