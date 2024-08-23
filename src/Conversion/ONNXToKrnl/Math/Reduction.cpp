@@ -290,10 +290,10 @@ using MDBuilder =
 // Return true if we can optimize the reduction, false otherwise.
 
 // TODO: alexe add support for parallel
-// TODO: alexe see if the new simd infrastructure can be used.
 template <typename ONNXReductionOp1, typename ONNXReductionOp2>
 bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Value &alloc1, Value &alloc2) {
+    Operation *op, Value input, Value &alloc1, Value &alloc2,
+    bool enableParallel) {
   // Create scope.
   IndexExprScope scope(&rewriter, loc);
   MDBuilder create(rewriter, loc);
@@ -514,9 +514,11 @@ void emitMinMaxReductionToScalar(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Value input, Value &minAlloc, Value &maxAlloc,
     bool enableSIMD, bool enableParallel) {
   // Try optimized path first.
-  if (enableSIMD && emitFullSIMDReductionFor<ONNXReduceMinOp, ONNXReduceMaxOp>(
-                        rewriter, loc, op, input, minAlloc, maxAlloc))
+  if (enableSIMD &&
+      emitFullSIMDReductionFor<ONNXReduceMinOp, ONNXReduceMaxOp>(
+          rewriter, loc, op, input, minAlloc, maxAlloc, enableParallel)) {
     return;
+  }
   // Could not optimize the pattern, generate default path.
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   Type elementType = mlir::cast<MemRefType>(input.getType()).getElementType();
