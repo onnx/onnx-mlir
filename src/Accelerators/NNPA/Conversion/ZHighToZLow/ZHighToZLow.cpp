@@ -190,28 +190,12 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
 
     // Create a ZHighStickifiedConstantOp.
+    // Set zero in value attribute later in lowering pass to LLVMIR.
     ZHighStickifiedConstantOp stickifiedConstant =
         rewriter.create<ZHighStickifiedConstantOp>(loc, resType,
             /*value=*/nullptr,
             /*layout*/ StringAttr(),
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
-    //   // Use an dense resource attribute to store stickified data.
-    //   // Attribute type: tensor<sizeInBytes x i8>
-    //   int64_t sizeInBytes =
-    //       affine::getIntOrFloatMemRefSizeInBytes(resType).value();
-    //   char *rawData = (char *)malloc(sizeInBytes);
-    //   memset(rawData, 0, sizeInBytes);
-    //   DenseResourceElementsAttr valueAttr =
-    //   DenseUI8ResourceElementsAttr::get(
-    //       RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-    //       stickifiedConstant.getOperation()
-    //           ->getDialect()
-    //           ->getNamespace(), // use the dialect as the blob "hint"
-    //       HeapAsmResourceBlob::allocateAndCopyWithAlign(
-    //           llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
-    //   stickifiedConstant.setValueAttr(valueAttr);
-    //   free(rawData);
-
     res = stickifiedConstant.getResult();
   } else {
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
@@ -664,82 +648,6 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ZHighStickifiedConstantOp zhighStickifiedConstOp =
-        cast<ZHighStickifiedConstantOp>(op);
-
-    //    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-    //    ZHighStickifiedConstantOpShapeHelper shapeHelper(op, operands,
-    //    &createKrnlIE); shapeHelper.computeShapeAndAssertOnFailure();
-
-    // Convert ZTensor type to MemRefType.
-    ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(*op->result_type_begin());
-
-    // Normalize MemRefType to get a static shape.
-    assert(mlir::cast<MemRefType>(zMemRefType.value).getNumDynamicDims() == 0 &&
-           "MemRefType has dynamic dimensions");
-    MemRefType normalizedType =
-        affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
-    ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
-    ZLowStickifiedConstantOp zlowStickifiedConstantOp;
-    if (zhighStickifiedConstOp.getValueAttr()) {
-      DenseElementsAttr dataAttr =
-          mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-              zhighStickifiedConstOp.getValue().value());
-
-      ArrayRef<int64_t> shape = dataAttr.getType().getShape();
-
-      // Create a ZLowStickifiedConstantOp.
-      zlowStickifiedConstantOp = rewriter.create<ZLowStickifiedConstantOp>(loc,
-          mlir::cast<MemRefType>(zMemRefType.value),
-          /*shape=*/
-          rewriter.getI64ArrayAttr(normalizedShape),
-          /*value=*/zhighStickifiedConstOp.getValueAttr(),
-          /*name=*/
-          rewriter.getStringAttr(
-              "constant_stickify_" + std::to_string(constantID)),
-          /*layout=*/zhighStickifiedConstOp.getLayoutAttr(),
-          /*offset=*/rewriter.getI64IntegerAttr(0),
-          /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
-    } else {
-      // Create a ZLowStickifiedConstantOp.
-      zlowStickifiedConstantOp = rewriter.create<ZLowStickifiedConstantOp>(loc,
-          mlir::cast<MemRefType>(zMemRefType.value),
-          /*shape=*/
-          rewriter.getI64ArrayAttr(normalizedShape),
-          /*value=*/nullptr,
-          /*name=*/
-          rewriter.getStringAttr(
-              "constant_stickify_" + std::to_string(constantID)),
-          /*layout=*/zhighStickifiedConstOp.getLayoutAttr(),
-          /*offset=*/rewriter.getI64IntegerAttr(0),
-          /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
-    }
-    // Increment constant ID:
-    constantID++;
-
-    rewriter.replaceOp(op, zlowStickifiedConstantOp.getResult());
-    return success();
-  }
-};
-
-int ZHighToZLowStickifiedConstantOpLowering::constantID = 0;
-
-//===----------------------------------------------------------------------===//
-// Lower ZHigh Stickified Constant to KrnlGlobal (Original)
-//===----------------------------------------------------------------------===//
-
-struct ZHighToZLowStickifiedConstantOpLoweringOriginal
-    : public ConversionPattern {
-  static int constantID;
-  ZHighToZLowStickifiedConstantOpLoweringOriginal(
-      TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            ZHighStickifiedConstantOp::getOperationName(), 1, ctx) {}
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ZHighStickifiedConstantOp stickifiedConstOp =
         llvm::dyn_cast<ZHighStickifiedConstantOp>(op);
 
     // Convert ZTensor type to MemRefType.
@@ -753,41 +661,33 @@ struct ZHighToZLowStickifiedConstantOpLoweringOriginal
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
-    // Get dense resource attribute.
-    auto blob = mlir::cast<DenseResourceElementsAttr>(
-        stickifiedConstOp.getValue().value())
-                    .getRawHandle()
-                    .getBlob();
-    assert(blob && "Expecting dense resource with a valid blob");
-    ArrayRef<char> data = blob->getData();
+    auto valueAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+        zhighStickifiedConstOp.getValueAttr());
 
-    // Validate the stickified tensor.
-    int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
-    memRefSizeInBytes *= normalizedType.getNumElements();
-    assert((data.size() == (uint64_t)memRefSizeInBytes) &&
-           "The stickified tensor's buffer size and MemRef's size mismatched");
-
-    // Create a KrnlGlobalOp.
-    KrnlGlobalOp constantGlobal =
-        rewriter.create<KrnlGlobalOp>(loc, zMemRefType.value,
+    // Create a ZLowStickifiedConstantOp.
+    // Set nullptr in the valueAttr when it is initialized with zero later.
+    ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+        rewriter.create<ZLowStickifiedConstantOp>(loc,
+            mlir::cast<MemRefType>(zMemRefType.value),
             /*shape=*/
             rewriter.getI64ArrayAttr(normalizedShape),
+            /*value=*/valueAttr,
             /*name=*/
             rewriter.getStringAttr(
                 "constant_stickify_" + std::to_string(constantID)),
-            /*value=*/stickifiedConstOp.getValueAttr(),
-            /*offset=*/nullptr,
-            /*alignment=*/stickifiedConstOp.getAlignmentAttr());
+            /*layout=*/zhighStickifiedConstOp.getLayoutAttr(),
+            /*offset=*/rewriter.getI64IntegerAttr(0),
+            /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
 
     // Increment constant ID:
     constantID++;
 
-    rewriter.replaceOp(op, constantGlobal.getResult());
+    rewriter.replaceOp(op, zlowStickifiedConstantOp.getResult());
     return success();
   }
 };
 
-int ZHighToZLowStickifiedConstantOpLoweringOriginal::constantID = 0;
+int ZHighToZLowStickifiedConstantOpLowering::constantID = 0;
 
 template <typename OP_TYPE>
 struct ZLowOpFor {
@@ -1815,8 +1715,6 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
     bool enableParallel) {
   // Stickify and unstickify operations.
-  // patterns.insert<ZHighToZLowStickifiedConstantOpLoweringOriginal>(typeConverter,
-  // ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);

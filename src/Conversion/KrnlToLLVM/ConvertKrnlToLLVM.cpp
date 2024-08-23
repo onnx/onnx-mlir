@@ -317,6 +317,7 @@ void genSignatureFunction(ModuleOp &module,
   Type i8PtrPtrTy = getPointerType(context, i8PtrTy);
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
+
   // Emit a global constant to store an array of pointers pointing to each entry
   // point constants. The array ends with NULL.
   OpBuilder::InsertionGuard guard(b);
@@ -464,47 +465,44 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
   SmallVector<ConstantOpInterface> globalOfInterest;
-  module.walk([&](Operation *op0) {
-    if (ConstantOpInterface op = dyn_cast<ConstantOpInterface>(op0)) {
-      // Ignore constants that are return values.
-      bool isReturnedValue = false;
-      for (Operation *user : op.getResult().getUsers()) {
-        if (isa<func::ReturnOp>(user)) {
-          isReturnedValue = true;
-          break;
-        }
+  module.walk([&](ConstantOpInterface op) {
+    // Ignore constants that are return values.
+    bool isReturnedValue = false;
+    for (Operation *user : op.getResult().getUsers()) {
+      if (isa<func::ReturnOp>(user)) {
+        isReturnedValue = true;
+        break;
       }
-      if (isReturnedValue)
-        return WalkResult::advance();
+    }
+    if (isReturnedValue)
+      return WalkResult::advance();
 
-      // Ignore constants of bool.
-      // For an unknown reason, enabling constants of bool caused segfault in
-      // the IBM granite.20B model (The model with KV cache) at 1265 input
-      // tokens. See issue https://github.com/onnx/onnx-mlir/issues/2713.
-      if (llvm::cast<MemRefType>(op.getResult().getType())
-              .getElementType()
-              .isInteger(1))
-        return WalkResult::advance();
+    // Ignore constants of bool.
+    // For an unknown reason, enabling constants of bool caused segfault in
+    // the IBM granite.20B model (The model with KV cache) at 1265 input
+    // tokens. See issue https://github.com/onnx/onnx-mlir/issues/2713.
+    if (llvm::cast<MemRefType>(op.getResult().getType())
+            .getElementType()
+            .isInteger(1))
+      return WalkResult::advance();
 
-      // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
-      uint64_t bufferSize = op.getBufferSize();
-      if (bufferSize <= singleThreshold) {
+    // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
+    uint64_t bufferSize = op.getBufferSize();
+    if (bufferSize <= singleThreshold) {
+      ArrayRef<char> rawData = op.getBuffer();
+      op.setBuffer(rawData);
+      return WalkResult::advance();
+    }
+    if (op.getValueAttr()) {
+      auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
+      if (valueAttr.isSplat()) {
         ArrayRef<char> rawData = op.getBuffer();
         op.setBuffer(rawData);
         return WalkResult::advance();
       }
-      if (op.getValueAttr()) {
-        auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
-        if (valueAttr.isSplat()) {
-          ArrayRef<char> rawData = op.getBuffer();
-          op.setBuffer(rawData);
-          return WalkResult::advance();
-        }
-      }
-      globalOfInterest.emplace_back(op);
-      totalSize += bufferSize;
-      llvm::dbgs() << "totalSize = " << totalSize << "\n";
     }
+    globalOfInterest.emplace_back(op);
+    totalSize += bufferSize;
     return WalkResult::advance();
   });
   // Do not use file if the total size of satisfied constants is <=
@@ -557,7 +555,6 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     totalConstSize += rawData.size();
     op.removeValueAttr();
     op.freeBuffer(rawData);
-    llvm::dbgs() << "totalConstSize = " << totalConstSize << "\n";
   }
   // No constant statisfying thresholds, do not store constants to file.
   if (totalConstSize == 0)
@@ -895,10 +892,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(ctx);
+
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
       verifyInputTensors, enableParallel);
+
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx);
@@ -968,8 +967,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
-  // krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlConstantOpInterfacePattern(
+  krnl::populateLoweringConstantOpInterfacePattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
