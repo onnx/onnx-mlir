@@ -1,0 +1,81 @@
+name: GitHub Action Ubuntu
+
+on:
+  pull_request:
+  push:
+    branches: [ main, feature/onnx-to-tosa ]
+
+concurrency:
+  # Build every push to main
+  # Only build the newest PR; cancel older builds of a PR
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: install tools that are needed for compilation
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc g++ cmake ninja-build
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        # A full build of llvm, clang, lld, and lldb takes about 250MB
+        # of ccache space. There's not much reason to have more than this,
+        # because we usually won't need to save cache entries from older
+        # builds.  Also, there is an overall 10GB cache limit, and each
+        # run creates a new cache entry so we want to ensure that we have
+        # enough cache space for all the tests to run at once and still
+        # fit under the 10 GB limit.
+        max-size: 500M
+        key: sccache
+        variant: sccache
+        create-symlink: true
+
+    - name: install protobuf
+      run: |
+        # Keep in sync with utils/install-protobuf.sh
+        PROTOBUF_VERSION=21.12
+        git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
+        cd protobuf
+        ./autogen.sh
+        ./configure --enable-static=no --prefix=/usr
+        sudo make -j2 install
+
+    - name: clone & build MLIR
+      run: |
+        cd ..
+        export EXTRA_CMAKE_ARGS="-DLLVM_USE_LINKER=lld -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+        sh onnx-mlir/utils/clone-mlir.sh
+        sh onnx-mlir/utils/build-mlir.sh
+
+    - name: install python requirements
+      run: |
+        python3 -m pip install --upgrade wheel
+        python3 -m pip install -r requirements.txt
+        pip install onnx==1.15.0
+
+    - name: build onnx-mlir
+      run: |
+        cd ..
+        export EXTRA_CMAKE_ARGS="-DONNX_MLIR_ENABLE_STABLEHLO=OFF -DLLVM_USE_LINKER=lld -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+        bash onnx-mlir/utils/install-onnx-mlir.sh
+
+    - name: build and run docs/doc_example tests
+      run: |
+        cd ..
+        sh onnx-mlir/utils/check-doc-example.sh
+
+    - name: build and run unit tests
+      run: |
+        cd ..
+        sh onnx-mlir/utils/check-unittest.sh
