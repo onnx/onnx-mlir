@@ -46,13 +46,15 @@ Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
 
 // Calutes Broadcast dimensions
 SmallVector<int64_t> getBroadcastDims(
-    Value operand, llvm::SmallVector<int64_t, 4> axes) {
+    Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
   int64_t rank = mlir::cast<RankedTensorType>(operand.getType()).getRank();
   SmallVector<int64_t> dims;
   for (int64_t i = 0; i < rank; i++) {
     if (!(std::find(axes.begin(), axes.end(), i) != axes.end())) {
       dims.push_back(i);
     }
+    else if(keepDims)
+      dims.push_back(1);
   }
 
   return dims;
@@ -121,8 +123,8 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
 
     Value operand = operands[0];
-    assert(
-        hasStaticShape(operand.getType()) && "Only Static shapes are accepted");
+    // assert(
+    //     hasStaticShape(operand.getType()) && "Only Static shapes are accepted");
 
     Location loc = op->getLoc();
     Type outputType = *op->result_type_begin();
@@ -151,20 +153,49 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
     // Sum of the all the exponents for the denominator
     SmallVector<int64_t> reducedShape =
         getReductionShape(ExpOutputType, axes, false);
-    ShapedType ReducedShapeType = mlir::cast<ShapedType>(
+    ShapedType ReducedShapeType;
+    if(hasStaticShape(operand.getType()))
+    {
+      ReducedShapeType = mlir::cast<ShapedType>(
         RankedTensorType::get(reducedShape, ExpOutputType.getElementType()));
+    }
+    else
+    {
+      SmallVector<int64_t> reducedShape_with_dims = getReductionShape(ExpOutputType, axes, true);
+      ReducedShapeType = mlir::cast<ShapedType>(
+        RankedTensorType::get(reducedShape_with_dims, ExpOutputType.getElementType()));
+    }
     Value identity = rewriter.create<stablehlo::ConstantOp>(
         loc, rewriter.getZeroAttr(ExpOutputType.getElementType()));
     Value ReduceSum = computeReduceSum(loc, ElementwiseExpStableHLO, identity,
-        reducedShape, axes, rewriter, false, ReducedShapeType);
+        reducedShape, axes, rewriter, !(hasStaticShape(operand.getType())), ReducedShapeType);
     if (ReduceSum == nullptr)
       return failure();
 
     SmallVector<int64_t> broadcast_dims =
-        getBroadcastDims(ElementwiseExpStableHLO, axes);
-    Value BroadCastOp =
-        rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType,
-            ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+        getBroadcastDims(ElementwiseExpStableHLO, axes, !(hasStaticShape(operand.getType())));
+
+    Value BroadCastOp;
+    if(hasStaticShape(operand.getType()))
+      BroadCastOp =
+          rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType,
+              ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+    else{
+      //mlir::Value ReshapeOp = rewriter.create<stablehlo::DynamicReshapeOp>(loc, mlir::cast<RankedTensorType>(operand.getType()).getElementType(),  ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+      // llvm::ArrayRef<int64_t> output_dimensions = mlir::cast<mlir::RankedTensorType>(op->getResultTypes()[0]).getShape();
+      // mlir::Type i64_type = rewriter.getIntegerType(64);
+      // mlir::RankedTensorType output_rank = mlir::RankedTensorType::get({ExpOutputType.getRank()}, i64_type);
+      // mlir::DenseElementsAttr DenseOutputDimensions = mlir::DenseElementsAttr::get(output_rank, output_dimensions);
+      mlir::Value OutputDimensions = rewriter.create<shape::ShapeOfOp>(loc, operand);
+      llvm::outs() << OutputDimensions << "\n";
+      llvm::outs() << ReduceSum << "\n";
+      SmallVector<int64_t> dims;
+      for(int64_t i = 0; i < ExpOutputType.getRank(); i++)
+          dims.push_back(i);
+      
+      BroadCastOp = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, ExpOutputType, ReduceSum, OutputDimensions, rewriter.getDenseI64ArrayAttr(dims));//, rewriter.getDenseI64ArrayAttr(known_expanding_dims), rewriter.getDenseI64ArrayAttr(broadcast_dims));
+      llvm::outs() << BroadCastOp << "\n";
+    }
     if (BroadCastOp == nullptr)
       return failure();
 
