@@ -21,6 +21,7 @@ add_onnx_mlir_library(OMPyExecutionSessionBase
   OMMlirUtilities
   pybind11::embed
   pybind11::python_link_helper
+  onnx
   )
 if(MSVC)
   target_link_libraries(OMPyExecutionSessionBase

@@ -57,6 +57,9 @@ add_onnx_mlir_library(OMVersion
   Version.cpp
   ${version_inc}
 
+  DEPENDS
+  llvm_vcsrevision_h
+
   LINK_LIBS PUBLIC
     LLVMSupport
     LLVMTargetParser

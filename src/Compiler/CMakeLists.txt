@@ -37,6 +37,8 @@ if (ONNX_MLIR_VENDOR)
 endif()
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+
 add_onnx_mlir_library(OMCompilerOptions
   CompilerOptions.cpp
 
@@ -69,6 +71,7 @@ add_onnx_mlir_library(OMCompilerDialects
   OMONNXOps
   MLIRIR
   MLIROpenMPToLLVMIRTranslation
+  ${dialect_libs}
   )
 
 add_onnx_mlir_library(OMCompilerPasses
@@ -147,7 +150,6 @@ list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
 list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 
 add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
