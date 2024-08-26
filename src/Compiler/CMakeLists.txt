@@ -147,6 +147,7 @@ list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
 list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 
 add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
@@ -158,6 +159,7 @@ add_onnx_mlir_library(OMCompilerUtils
   ExternalUtil
   llc
   opt
+  ${dialect_libs}
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -171,6 +173,7 @@ add_onnx_mlir_library(OMCompilerUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion
+  ${dialect_libs}
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.

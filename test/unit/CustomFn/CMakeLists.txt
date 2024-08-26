@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_unittest(TestCustomFn
+add_onnx_mlir_unittest(TestCustomFn
   TestCustomFn.cpp
 
   LINK_LIBS PRIVATE
