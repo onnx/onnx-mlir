@@ -429,12 +429,14 @@ void IndexExprImpl::getAffineMapAndOperands(
   // will extract the correct info.
   if (auto affineMinOp = getValue().getDefiningOp<affine::AffineMinOp>()) {
     map = affineMinOp.getAffineMap();
+    // hi alex, test if we should not just responds with cope.getDimAndSymbolList(operands);
     for (Value val : affineMinOp.getMapOperands())
       operands.emplace_back(val);
     return;
   }
   if (auto affineMaxOp = getValue().getDefiningOp<affine::AffineMaxOp>()) {
     map = affineMaxOp.getAffineMap();
+    // hi alex, test if we should not just responds with cope.getDimAndSymbolList(operands);
     for (Value val : affineMaxOp.getMapOperands())
       operands.emplace_back(val);
     return;

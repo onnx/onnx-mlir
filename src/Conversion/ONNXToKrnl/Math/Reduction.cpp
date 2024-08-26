@@ -458,7 +458,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     IndexExpr blockSize = ub.ceilDiv(tNum);
     bool simdOnly = false; // Refine, but since we are chunking input, safer.
     ValueRange loopDef = create.krnl.defineLoops(1);
-    // create.krnl.parallel(loopDef[0]);
+    // create.krnl.parallel(loopDef[0]); // hi alex, enables.
     create.krnl.iterateIE(loopDef, loopDef, {zero}, {tNumIE},
         [&](onnx_mlir::KrnlBuilder &ck, mlir::ValueRange loopInd) {
           IndexExprScope scope(ck);

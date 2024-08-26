@@ -565,9 +565,6 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     create.vec.storeIE(initVec, tmps[o], tmpAFs[o], {});
   }
   if (VL > 1) {
-    // Want SIMD, execute full SIMD loops reductions blocked by VL.
-    ValueRange loopDef = defineLoops(1);
-    ValueRange blockedLoopDef = block(loopDef[0], VL);
 
     // Logic: see simdIterateIE.
     IndexExpr simdUb = ub;
@@ -575,10 +572,45 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     if (!fullySimd)
       simdUb = simdUb - (VL - 1);
 #endif
-#if 0 // hi alex, test only
-    IndexExpr randomExpr = simdUb * LitIE(2)- LitIE(8);
-    simdUb = IndexExpr::min(simdUb, randomExpr);
-#endif
+
+#if 1 // hi alex, cannot use iterate here
+    SCFBuilder createSCF(*this);
+    createSCF.forLoop(lb.getValue(), simdUb.getValue(), VL,
+        [&](SCFBuilder cs, Value loopInd) {
+          IndexExprScope scope(cs);
+          MDBuilder create(cs);
+          // Load inputs in SIMD mode, indexed by loopInd[0] in innermost dim.
+          llvm::SmallVector<Value, 4> inputVals;
+          for (int64_t i = 0; i < inputSize; ++i) {
+            MemRefType inputType = mlir::cast<MemRefType>(inputs[i].getType());
+            VectorType vecType =
+                VectorType::get({VL}, inputType.getElementType());
+            Value inputVal = create.vec.loadIE(
+                vecType, inputs[i], inputAFs[i], {loopInd});
+            inputVals.emplace_back(inputVal);
+          }
+          // Load tmp value in SIMD mode  (no indexing, same value over & over).
+          llvm::SmallVector<Value, 4> tmpVals;
+          for (int64_t o = 0; o < outputSize; ++o) {
+            Value tmpVal =
+                create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
+            tmpVals.emplace_back(tmpVal);
+          }
+          // Call reduction.
+          llvm::SmallVector<Value, 4> resultVals;
+          reductionBuilderFn(create.krnl, inputVals, tmpVals, resultVals, VL);
+          assert((int64_t)resultVals.size() == outputSize &&
+                 "expect ouputSize results");
+          // Save tmp values in SIMD mode.
+          for (int64_t o = 0; o < outputSize; ++o) {
+            create.vec.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+          }
+        });
+
+#else
+    // Want SIMD, execute full SIMD loops reductions blocked by VL.
+    ValueRange loopDef = defineLoops(1);
+    ValueRange blockedLoopDef = block(loopDef[0], VL);
 
     // Perform SIMD reduction: iterates over all SIMD vectors.
     iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
@@ -612,10 +644,10 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
             create.vec.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
           }
         });
+#endif
     if (fullySimd) {
       // No leftovers, no additional iterations to be done.
     } else {
-#if 1 // needed
       // Account for the loop iterations performed above.
       IndexExpr tripCount = ub - lb;
       IndexExpr missingIters = tripCount % VL;
@@ -629,17 +661,43 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
         // completed iterations.
         lb = lb + completedIters;
       }
-#endif
     }
   } else {
     // VL was 1, set fullySimd to false so that we execute all iterations
     // sequentially.
     fullySimd = false;
   }
-#if 1 // needed
   if (!fullySimd) {
     // We have leftover iterations to be done in sequential mode.
     // Handle remaining scalar values (from lb to ub without unrolling).
+#if 1 // hi alex, cannot use iterate here
+    SCFBuilder createSCF(*this);
+    createSCF.forLoop(
+        lb.getValue(), ub.getValue(), 1, [&](SCFBuilder cs, Value loopInd) {
+          MDBuilder create(cs);
+          llvm::SmallVector<Value, 4> inputVals;
+          for (int64_t i = 0; i < inputSize; ++i) {
+            Value inputVal =
+                create.krnl.loadIE(inputs[i], inputAFs[i], {loopInd});
+            inputVals.emplace_back(inputVal);
+          }
+          // Load tmps in scalar mode (no indexing, same value over & over).
+          llvm::SmallVector<Value, 4> tmpVals;
+          for (int64_t o = 0; o < outputSize; ++o) {
+            Value tmpVal = create.krnl.loadIE(tmps[o], tmpAFs[o], {});
+            tmpVals.emplace_back(tmpVal);
+          }
+          // Call reduction.
+          llvm::SmallVector<Value, 4> resultVals;
+          reductionBuilderFn(create.krnl, inputVals, tmpVals, resultVals, 1);
+          assert((int64_t)resultVals.size() == outputSize &&
+                 "expect ouputSize results");
+          // Save tmp values in sequential mode.
+          for (int64_t o = 0; o < outputSize; ++o) {
+            create.krnl.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+          }
+        });
+#else
     ValueRange loopDef = defineLoops(1);
     iterateIE(
         loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
@@ -670,8 +728,8 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
             create.krnl.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
           }
         });
-  }
 #endif
+  }
   // Now perform post processing. Load all tmps.
   llvm::SmallVector<Value, 4> tmpVals;
   for (int64_t o = 0; o < outputSize; ++o) {
