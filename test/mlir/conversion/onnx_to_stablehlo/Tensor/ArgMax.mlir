@@ -13,9 +13,9 @@ func.func @test_argmax_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64>
 // CHECK:           [[VAR_3_:%.+]] = stablehlo.dynamic_iota [[VAR_0_]], dim = 3 : (tensor<4xindex>) -> tensor<5x5x1x32xi64>
 // CHECK:           [[VAR_4_:%.+]]:2 = stablehlo.reduce(%arg0 init: [[VAR_2_]]), (%1 init: [[VAR_1_]]) across dimensions = [3] : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi64>, tensor<f32>, tensor<i64>) -> (tensor<5x5x1xf32>, tensor<5x5x1xi64>)
 // CHECK:            reducer(%arg1: tensor<f32>, %arg3: tensor<f32>) (%arg2: tensor<i64>, %arg4: tensor<i64>)  {
-// CHECK:             [[VAR_6_:%.+]] = stablehlo.compare  GE, %arg1, %arg3,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK:             [[VAR_6_:%.+]] = stablehlo.compare  GE, %arg1, %arg3 : (tensor<f32>, tensor<f32>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_7_:%.+]] = stablehlo.select [[VAR_6_]], %arg1, %arg3 : tensor<i1>, tensor<f32>
-// CHECK-DAG:         [[VAR_8_:%.+]] = stablehlo.compare  EQ, %arg1, %arg3,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK-DAG:         [[VAR_8_:%.+]] = stablehlo.compare  EQ, %arg1, %arg3 : (tensor<f32>, tensor<f32>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_9_:%.+]] = stablehlo.minimum %arg2, %arg4 : tensor<i64>
 // CHECK-DAG:         [[VAR_10_:%.+]] = stablehlo.select [[VAR_6_]], %arg2, %arg4 : tensor<i1>, tensor<i64>
 // CHECK:             [[VAR_11_:%.+]] = stablehlo.select [[VAR_8_]], [[VAR_9_]], [[VAR_10_]] : tensor<i1>, tensor<i64>
@@ -43,9 +43,9 @@ func.func @test_argmax_verifier_2(%arg0 : tensor<5x?x1x32xf32>) -> tensor<*xi64>
 // CHECK:           [[VAR_3_:%.+]] = stablehlo.dynamic_iota [[VAR_2_]], dim = 3 : (tensor<4xindex>) -> tensor<5x?x1x32xi64>
 // CHECK:           [[VAR_4_:%.+]]:2 = stablehlo.reduce([[PARAM_0_]] init: [[VAR_0_]]), ([[VAR_3_]] init: [[VAR_1_]]) across dimensions = [3] : (tensor<5x?x1x32xf32>, tensor<5x?x1x32xi64>, tensor<f32>, tensor<i64>) -> (tensor<5x?x1xf32>, tensor<5x?x1xi64>)
 // CHECK:            reducer(%arg1: tensor<f32>, %arg3: tensor<f32>) (%arg2: tensor<i64>, %arg4: tensor<i64>)  {
-// CHECK:             [[VAR_11_:%.+]] = stablehlo.compare  GE, %arg1, %arg3,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK:             [[VAR_11_:%.+]] = stablehlo.compare  GE, %arg1, %arg3 : (tensor<f32>, tensor<f32>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_12_:%.+]] = stablehlo.select [[VAR_11_]], %arg1, %arg3 : tensor<i1>, tensor<f32>
-// CHECK-DAG:         [[VAR_13_:%.+]] = stablehlo.compare  EQ, %arg1, %arg3,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK-DAG:         [[VAR_13_:%.+]] = stablehlo.compare  EQ, %arg1, %arg3 : (tensor<f32>, tensor<f32>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_14_:%.+]] = stablehlo.minimum %arg2, %arg4 : tensor<i64>
 // CHECK-DAG:         [[VAR_15_:%.+]] = stablehlo.select [[VAR_11_]], %arg2, %arg4 : tensor<i1>, tensor<i64>
 // CHECK:             [[VAR_16_:%.+]] = stablehlo.select [[VAR_13_]], [[VAR_14_]], [[VAR_15_]] : tensor<i1>, tensor<i64>

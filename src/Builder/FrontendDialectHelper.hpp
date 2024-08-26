@@ -4,7 +4,7 @@
 
 //===--------------------- FrontendDialectHelper.hpp ----------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_FRONTEND_HELPER_H
+#define ONNX_MLIR_FRONTEND_HELPER_H
 
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 
@@ -26,3 +27,4 @@ mlir::ElementsAttr onnxTensorProtoToElmAttr(mlir::MLIRContext *ctx,
     const std::string &externalDataDir, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.hpp - Index expression---------------------=== //
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_INDEX_EXPR_H
+#define ONNX_MLIR_INDEX_EXPR_H
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -401,6 +402,8 @@ private:
 //===----------------------------------------------------------------------===//
 // IndexExprExpr
 //===----------------------------------------------------------------------===//
+
+using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
 
 // Data structure that is the public interface for IndexExpr. It is a shallow
 // data structure that is simply a pointer to the actual data (IndexExprImpl).
@@ -879,7 +882,7 @@ inline llvm::SmallVector<IndexExpr, 4> SymListIE(mlir::ValueRange range) {
 
 // Create a list of IndexExpr of kind INDEX_EXPR from another list of IndexExpr.
 template <class INDEX_EXPR>
-void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
+void getIndexExprList(const llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
@@ -887,14 +890,14 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
 }
 
 inline llvm::SmallVector<IndexExpr, 4> DimListIE(
-    llvm::SmallVectorImpl<IndexExpr> &inputList) {
+    const llvm::SmallVectorImpl<IndexExpr> &inputList) {
   llvm::SmallVector<IndexExpr, 4> outputList;
   getIndexExprList<DimIndexExpr>(inputList, outputList);
   return outputList;
 }
 
 inline llvm::SmallVector<IndexExpr, 4> SymListIE(
-    llvm::SmallVectorImpl<IndexExpr> &inputList) {
+    const llvm::SmallVectorImpl<IndexExpr> &inputList) {
   llvm::SmallVector<IndexExpr, 4> outputList;
   getIndexExprList<SymbolIndexExpr>(inputList, outputList);
   return outputList;
@@ -910,3 +913,4 @@ void getIndexExprListFromShape(mlir::ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir
+#endif

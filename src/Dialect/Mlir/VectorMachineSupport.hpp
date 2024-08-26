@@ -4,7 +4,7 @@
 
 //===-- VectorMachineSupport.hpp - Helper for what SIMD ops are supported -===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,7 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_VECTOR_MACHINE_H
+#define ONNX_MLIR_VECTOR_MACHINE_H
 
 #include "mlir/IR/Types.h"
 #include "llvm/ADT/SmallVector.h"
@@ -32,7 +33,7 @@ namespace onnx_mlir {
 
 enum class GenericOps {
   AbsGop,
-  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity */
+  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity. */
   CeilDivGop,
   CeilGop,
   CompareGop, /* All compare operations, signed/unsigned fixed/float. */
@@ -47,11 +48,12 @@ enum class GenericOps {
   LogGop,
   LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
   MinMaxGop,
-  MinMaxAcrossGop, /* compute min/max across vector */
+  MinMaxAcrossGop, /* Compute min/max across vector. */
   MulGop,
   PowGop,
   RemGop,
   RoundGop,
+  ScalarOnlyGop, /* Any ops that are guaranteed to be scalar on any arch. */
   SelectGop,
   ShiftGop,   /* Shift operations: logical/arithmetic. */
   ShuffleGop, /* All bit/byte moving operations: shuffle, rotate, shift. */
@@ -61,6 +63,13 @@ enum class GenericOps {
   TrigGop,           /* Trigonometry ops: sin, cos, tan. */
   TrigHyperbolicGop, /* Hyperbolic trig. */
 };
+
+// Describe the mix of Generic operations in a given kernel. Each generic
+// operation is associated with a number, which indicates the number of
+// occurrence of that generic op in the given kernel.
+using GenOpMix = llvm::SmallDenseMap<GenericOps, int64_t, 8>;
+
+GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2);
 
 //===----------------------------------------------------------------------===//
 // Generic vector machine support class, which must be refined for each
@@ -75,51 +84,73 @@ public:
   // Must call setGlobalVectorMachineSupport once before using any calls below.
   static void setGlobalVectorMachineSupport(
       std::string arch, std::string cpu, std::string attr);
-  // Get the defined vector machine support.
-  static VectorMachineSupport *getGlobalVectorMachineSupport() {
-    assert(globalVectorMachineSupport && "vector machine support undefined");
-    return globalVectorMachineSupport;
-  }
   static void clearGlobalVectorMachineSupport();
+
+  static std::string getArchName() { return vms()->computeArchName(); }
 
   // Determine if the machine has simd. Requires an initialized vector machine
   // support.
-  static bool hasSimd();
+  static bool hasSimd() { return getArchVectorRegisterNum() > 0; }
 
   // When querying Vector length for machines with unsupported simd, UNSUPPORTED
   // (aka 0) is returned.
-  static const int64_t UNSUPPORTED = 0;
+  static const int64_t UNSUPPORTED = 1;
 
   // Number of vector registers available.
-  virtual int64_t VectorRegisterNum() = 0;
+  static int64_t getArchVectorRegisterNum() {
+    // Indirection to the object specific to a subclass.
+    return vms()->computeArchVectorRegisterNum();
+  }
 
   // Return the bit width of the SIMD unit regardless of the type/operation.
   // This is an upper bound and does not guarantee that an actual operation can
   // provide this VL. A value of zero means no SIMD available.
-  virtual int64_t getVectorBitWidth() = 0;
+  static int64_t getArchVectorBitWidth() {
+    // Indirection to the object specific to a subclass.
+    return vms()->computeArchVectorBitWidth();
+  }
   // Return the number of elements that can be processed in SIMD fashion
   // regardless of the operation. This is an upper bound and does not guarantee
   // that an actual operation can provide this VL. A value of zero means no SIMD
   // available.
-  virtual int64_t getVectorLength(mlir::Type elementType);
+  static int64_t getArchVectorLength(mlir::Type elementType) {
+    // Indirection to the object specific to a subclass.
+    return vms()->computeArchVectorLength(elementType);
+  }
+
   // Return the number of elements that can be processed in SIMD fashion if
   // support exists. A value of zero means no SIMD available.
-  virtual int64_t getVectorLength(GenericOps gop, mlir::Type elementType) = 0;
+  static int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) {
+    // Indirection to the object specific to a subclass.
+    return vms()->computeArchVectorLength(gop, elementType);
+  }
 
   // Analyze the benefits of using SIMD on a list of generic ops in an algorithm
   // where each op on the list occurs a given number of times. The function
   // returns the weighted average vector length among the operations listed in
-  // the gops list, where each operation gops[i] occur exactly gopsNum[i] times
-  // in the algorithm. Note that scalar operation have a vector length of
-  // one in the weighted average as they still contribute one result. The opNums
-  // are also weighted by the gopsNum to better represent the mix of
-  // vectorized and scalar operations present in the algorithm.
-  double getAvgVectorLength(mlir::ArrayRef<GenericOps> &gops,
-      mlir::ArrayRef<int64_t> &gopsNum, mlir::Type elementType,
+  // the GenOps list, where each entry is a pair of generic operation and the
+  // number of times that generic operation was found. Note that scalar
+  // operation have a vector length of one in the weighted average as they still
+  // contribute one result.
+  static double getAvgArchVectorLength(GenOpMix &genOps, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
+protected:
+  // Virtual functions that do the actual work. Called by the "get" functions.
+  virtual std::string computeArchName() = 0;
+  virtual int64_t computeArchVectorRegisterNum() = 0;
+  virtual int64_t computeArchVectorBitWidth() = 0;
+  virtual int64_t computeArchVectorLength(mlir::Type elementType);
+  virtual int64_t computeArchVectorLength(
+      GenericOps gop, mlir::Type elementType) = 0;
+
 private:
-  static VectorMachineSupport *globalVectorMachineSupport;
+  static VectorMachineSupport *vms() {
+    assert(globalVectorMachineSupport && "vector machine support undefined");
+    return globalVectorMachineSupport;
+  }
+
+  static VectorMachineSupport *globalVectorMachineSupport; // Init to null.
 };
 
 // No support for SIMD.
@@ -128,12 +159,14 @@ public:
   NoVectorMachineSupport() = default;
   virtual ~NoVectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 0; }
-  int64_t getVectorBitWidth() override { return 0; }
-  int64_t getVectorLength(mlir::Type elementType) override {
+  std::string computeArchName() override { return "no_vector"; }
+  int64_t computeArchVectorRegisterNum() override { return 0; }
+  int64_t computeArchVectorBitWidth() override { return 0; }
+  int64_t computeArchVectorLength(mlir::Type elementType) override {
     return UNSUPPORTED;
   }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override {
+  int64_t computeArchVectorLength(
+      GenericOps gop, mlir::Type elementType) override {
     return UNSUPPORTED;
   }
 };
@@ -145,9 +178,11 @@ public:
   Z16VectorMachineSupport() = default;
   virtual ~Z16VectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 32; }
-  int64_t getVectorBitWidth() override { return 128; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+  std::string computeArchName() override { return "z16"; }
+  int64_t computeArchVectorRegisterNum() override { return 32; }
+  int64_t computeArchVectorBitWidth() override { return 128; }
+  int64_t computeArchVectorLength(
+      GenericOps gop, mlir::Type elementType) override;
 };
 
 // TODO: create models for z14 and z15.
@@ -160,9 +195,11 @@ public:
   SSE42x86VectorMachineSupport() = default;
   virtual ~SSE42x86VectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 16; }
-  int64_t getVectorBitWidth() override { return 128; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+  std::string computeArchName() override { return "x86-sse4.2"; }
+  int64_t computeArchVectorRegisterNum() override { return 16; }
+  int64_t computeArchVectorBitWidth() override { return 128; }
+  int64_t computeArchVectorLength(
+      GenericOps gop, mlir::Type elementType) override;
 };
 
 class AVX2x86VectorMachineSupport : public SSE42x86VectorMachineSupport {
@@ -170,7 +207,8 @@ public:
   AVX2x86VectorMachineSupport() = default;
   virtual ~AVX2x86VectorMachineSupport() = default;
 
-  int64_t getVectorBitWidth() override { return 258; }
+  std::string computeArchName() override { return "x86-avx2"; }
+  int64_t computeArchVectorBitWidth() override { return 258; }
 };
 
 // Support for Arm 64
@@ -180,9 +218,12 @@ public:
   NeonVectorMachineSupport() = default;
   virtual ~NeonVectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 32; }
-  int64_t getVectorBitWidth() override { return 128; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+  std::string computeArchName() override { return "arm64-neon"; }
+  int64_t computeArchVectorRegisterNum() override { return 32; }
+  int64_t computeArchVectorBitWidth() override { return 128; }
+  int64_t computeArchVectorLength(
+      GenericOps gop, mlir::Type elementType) override;
 };
 
 } // namespace onnx_mlir
+#endif

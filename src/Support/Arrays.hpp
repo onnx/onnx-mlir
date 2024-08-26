@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ARRAYS_H
+#define ONNX_MLIR_ARRAYS_H
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
@@ -70,3 +71,4 @@ llvm::MutableArrayRef<New> castMutableArrayRef(llvm::MutableArrayRef<Old> a) {
 }
 
 } // namespace onnx_mlir
+#endif

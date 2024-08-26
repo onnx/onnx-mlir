@@ -116,13 +116,14 @@ private:
     return mlir::cast<IntegerAttr>(a.getValue()[i]).getInt();
   }
 
-  LLVM::GlobalOp lowerDenseResourceConstant(ConstantOpInterface &constOpInterface,
-      Type globalType, ConversionPatternRewriter &rewriter) const {
+  LLVM::GlobalOp lowerDenseResourceConstant(
+      ConstantOpInterface &constOpInterface, Type globalType,
+      ConversionPatternRewriter &rewriter) const {
     assert(constOpInterface.getValue().has_value() &&
            "Expecting ConstantOpInterface with a valid value");
-    assert(
-        mlir::isa<DenseResourceElementsAttr>(constOpInterface.getValue().value()) &&
-        "Expecting a global with an dense resource elements attribute");
+    assert(mlir::isa<DenseResourceElementsAttr>(
+               constOpInterface.getValue().value()) &&
+           "Expecting a global with an dense resource elements attribute");
 
     MLIRContext *context = constOpInterface.getContext();
     Location loc = constOpInterface.getLoc();
@@ -132,10 +133,10 @@ private:
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    auto blob =
-        mlir::cast<DenseResourceElementsAttr>(constOpInterface.getValue().value())
-            .getRawHandle()
-            .getBlob();
+    auto blob = mlir::cast<DenseResourceElementsAttr>(
+        constOpInterface.getValue().value())
+                    .getRawHandle()
+                    .getBlob();
     assert(blob && "Expecting dense resource with a valid blob");
     ArrayRef<char> rawData = blob->getData();
 
@@ -148,8 +149,8 @@ private:
     auto llvmArrayI8Ty =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
     LLVM::GlobalOp global = create.llvm.globalOp(llvmArrayI8Ty,
-        /*isConstant=*/true, LLVM::Linkage::Internal, constOpInterface.getName(),
-        llvmStringAttr);
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        constOpInterface.getName(), llvmStringAttr);
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
     return global;
@@ -189,8 +190,8 @@ private:
       StringRef data(rawData.data(), rawData.size());
       StringAttr llvmStringAttr = StringAttr::get(context, data);
       global = create.llvm.globalOp(llvmArrayI8Ty,
-          /*isConstant=*/true, LLVM::Linkage::Internal, constOpInterface.getName(),
-          llvmStringAttr);
+          /*isConstant=*/true, LLVM::Linkage::Internal,
+          constOpInterface.getName(), llvmStringAttr);
     } else {
       if (mlir::isa<StringType>(denseAttr.getElementType()))
         global = lowerStringLiteral(constOpInterface, globalType, rewriter);
@@ -209,7 +210,8 @@ private:
       ConversionPatternRewriter &rewriter) const {
     Location loc = constOpInterface.getLoc();
     MLIRContext *context = constOpInterface.getContext();
-    ModuleOp module = constOpInterface.getOperation()->getParentOfType<ModuleOp>();
+    ModuleOp module =
+        constOpInterface.getOperation()->getParentOfType<ModuleOp>();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Type llvmI8Ty = IntegerType::get(context, 8);
@@ -331,8 +333,8 @@ private:
     // block.
     auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, offsets.size());
     auto global = create.llvm.globalOp(arrayType,
-        /*isConstant=*/true, LLVM::Linkage::Internal, constOpInterface.getName(),
-        Attribute());
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        constOpInterface.getName(), Attribute());
     Region &region = global.getInitializerRegion();
     Block *block = builder.createBlock(&region);
 

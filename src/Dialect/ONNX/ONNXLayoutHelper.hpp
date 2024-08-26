@@ -4,13 +4,14 @@
 
 //===---------- ONNXLayoutHelper.hpp - ONNX Layout Helper -----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_LAYOUT_HELPER_H
+#define ONNX_MLIR_ONNX_LAYOUT_HELPER_H
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -23,3 +24,4 @@ const std::string LAYOUT_KCMN4C4K = "KCMN4C4K";
 const std::string LAYOUT_STANDARD = "STANDARD";
 
 } // namespace onnx_mlir
+#endif

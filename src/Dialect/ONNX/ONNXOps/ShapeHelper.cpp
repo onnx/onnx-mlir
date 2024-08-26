@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -517,8 +517,23 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
     // no need to collapse the 1 dimensions... it brings no advantages. So by
     // skipping the updating of collapsedInnermostLoops here, we will omit
     // these leading ones.
-    if (numOfOnes == dimNum) {
+
+    // Revision: it is actually good to detects 1s everywhere as we can
+    // collapse the loop and have less overhead.
+#define REVISION_COLLAPSE_ALL_ONES 1
+    bool allOnes = numOfOnes == dimNum;
+    if (allOnes) {
+#if REVISION_COLLAPSE_ALL_ONES
+      // No need to update the sizes as dim is all ones.
+      collapsedInnermostLoops = -r;
+      LLVM_DEBUG(llvm::dbgs() << "  SUCCESS (all ones) at collapsing "
+                              << collapsedInnermostLoops
+                              << " inner loops with cumulative static size of "
+                              << collapsedLiteralSize << "\n\n");
+
+#else
       LLVM_DEBUG(llvm::dbgs() << "  all ones, done\n");
+#endif
       continue;
     }
 
@@ -530,7 +545,8 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
       LLVM_DEBUG(llvm::dbgs() << "  check non-scalar compatibility\n");
       // For all non scalars...
       for (int64_t d = 0; d < dimNum; ++d) {
-        // Consider only dims d that are not scalar, and skip d == nonScalarID.
+        // Consider only dims d that are not scalar, and skip d ==
+        // nonScalarID.
         if (isOne[d] || d == nonScalarID)
           continue;
         // Compare nonScalarID with d
@@ -551,8 +567,8 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                                   << nonScalarID << " & " << d << "; abort\n");
           return collapsedInnermostLoops > 0;
         }
-        // We could not determine compatibility with literals, try deducing info
-        // with dim analysis, if available.
+        // We could not determine compatibility with literals, try deducing
+        // info with dim analysis, if available.
         if (canUseDimAnalysis &&
             /* Use negative index convention here as operands may have fewer
                than outputRank dimensions */
@@ -571,7 +587,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
       } // End for all non-scalars,
     }   // End testing non-scalar compatibility.
 
-    // 4) Since we have at least one non-scalar,
+    // 4) Since we have at least one non-scalar
     //   4.1) all the scalar inputs are now marked as having a broadcast.
     //   4.2) any inputs with a one that is not a scalar has a new broadcast,
     //        which is not allowed as only scalars can be broadcast to be
@@ -585,10 +601,10 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
       } else if (isOne[d]) { // Is one but is not a scalar.
         // Case 1x4x1, 2x4x1, and 1x1x1: no broadcast at r==-1, broadcast at
         // r==-2 for last entry, no broadcast for the others. At r==-3,
-        // continued broadcast for last entry, but first entry has new broadcast
-        // to size 2 (i.e. isOne[0] is true, and isScalar[0] is false). We
-        // cannot manage this. Abort at this rank r; thus stops at previous
-        // iteration of r.
+        // continued broadcast for last entry, but first entry has new
+        // broadcast to size 2 (i.e. isOne[0] is true, and isScalar[0] is
+        // false). We cannot manage this. Abort at this rank r; thus stops at
+        // previous iteration of r.
         LLVM_DEBUG(llvm::dbgs() << "  one and no scalar" << d << "; abort\n");
         return collapsedInnermostLoops > 0;
       }

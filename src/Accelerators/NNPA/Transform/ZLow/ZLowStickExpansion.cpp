@@ -67,17 +67,23 @@ public:
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
     // Generic way to handle all formats listed below.
+    // Did not add the HWCK as this is typically for constants and want to
+    // preserve the high level constant propagation of constant values into the
+    // Convolution filters.
     StringAttr layout = unstickOp.getLayoutAttr();
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS")) {
+        layout.getValue().equals_insensitive("3DS") ||
+        (layout.getValue().equals_insensitive("NHWC"))) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
+  // The only requirement for this code to generate the proper code is that E1
+  // is been sticked by 64.
   LogicalResult generateUnstickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowUnstickOp unstickOp) const {
     Operation *op = unstickOp.getOperation();
@@ -93,20 +99,20 @@ public:
     int64_t rank = outputDims.size();
 
     // Info for SIMD Vector Length (VL) and associated types.
-    int64_t VL = 8;          // FP16 VL.
-    int64_t VLHalf = VL / 2; // FP32 VL.
-    assert(64 % VL == 0 && "SIMD vector length must divide 64");
+    int64_t archVL = 8;              // FP16 archVL.
+    int64_t archVLHalf = archVL / 2; // FP32 archVL.
+    assert(64 % archVL == 0 && "SIMD vector length must divide 64");
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
-    VectorType vecF16Type = VectorType::get({VL}, f16Type);
-    MemRefType bufferType = MemRefType::get({VL}, f32Type);
+    VectorType vecF16Type = VectorType::get({archVL}, f16Type);
+    MemRefType bufferType = MemRefType::get({archVL}, f32Type);
 
     // Define useful literals.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr lit1 = LiteralIndexExpr(1);
-    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr litVL = LiteralIndexExpr(VL);
-    IndexExpr lit64 = LiteralIndexExpr(64);
+    IndexExpr litZero = LitIE(0);
+    IndexExpr lit1 = LitIE(1);
+    IndexExpr litArchVLHalf = LitIE(archVLHalf);
+    IndexExpr litArchVL = LitIE(archVL);
+    IndexExpr lit64 = LitIE(64);
 
     // Useful references for indexing dimensions (neg val are not used).
     int64_t E1 = rank - 1;
@@ -137,7 +143,7 @@ public:
     // tiles. Since we don't allocate, it is just a "view", we only need to
     // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
     // 64.
-    IndexExpr T = LiteralIndexExpr(2);
+    IndexExpr T = LitIE(2);
     DimsExpr reallocTileDims = {T, lit64};
     Value inputAsTx64 =
         create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
@@ -155,7 +161,7 @@ public:
           // Translate the tile index t1 to the actual targetted data.
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, inputAF);
-          IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
+          IndexExpr inputDataOffset = SymIE(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
 
 // Prefetch
@@ -179,7 +185,7 @@ public:
           // I may process here up to [e1 ... e1 + m*64), make sure its
           // not going out of bound, i.e. beyond outputDIms[E1];
           IndexExpr ub1 = SymIE(outputDims[E1]);
-          IndexExpr lit64Bis = LiteralIndexExpr(64);
+          IndexExpr lit64Bis = LitIE(64);
           IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
           IndexExpr isFullLogical = isFull >= 0;
           create.scf.ifThenElse(
@@ -189,21 +195,23 @@ public:
               [&](SCFBuilder b) {
                 MDBuilder create(b);
                 // Loop (tried unroll of 2 and 8, 4 was best).
-                const int64_t U = 4;
-                assert(U * VL <= 64 && "bad unroll");
-                create.scf.forLoop(litZero.getValue(), lit64.getValue(), U * VL,
+                const int64_t unrollVL = 4;
+                const int64_t totVL = unrollVL * archVL;
+                assert(totVL <= 64 && "bad unroll");
+                create.scf.forLoop(litZero.getValue(), lit64.getValue(), totVL,
                     [&](SCFBuilder b, Value loopIndex) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &outerScope);
                       IndexExpr l = DimIE(loopIndex);
-                      Value vecF16[U], vecF32H[U], vecF32L[U];
+                      Value vecF16[unrollVL], vecF32H[unrollVL],
+                          vecF32L[unrollVL];
                       // Load f16 values from input via reinterpreted data tile.
-                      for (int64_t i = 0; i < U; ++i) {
+                      for (int64_t i = 0; i < unrollVL; ++i) {
                         vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
-                            {SymIE(inputTileOffset), l + (i * VL)}, {});
+                            {SymIE(inputTileOffset), l + (i * archVL)}, {});
                       }
                       // Convert back to f32.
-                      for (int64_t i = 0; i < U; ++i) {
+                      for (int64_t i = 0; i < unrollVL; ++i) {
                         auto convertOp =
                             rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
                                 loc, vecF16[i]);
@@ -213,8 +221,8 @@ public:
                       // Store f32 values back to the (normal layout) output.
                       DimsExpr outputAF = SymListIE(inputAF);
                       outputAF[E1] = outputAF[E1] + l;
-                      for (int64_t i = 0; i < U; ++i) {
-                        LiteralIndexExpr iH(i * VL), iL(i * VL + VL / 2);
+                      for (int64_t i = 0; i < unrollVL; ++i) {
+                        LitIE iH(i * archVL), iL(i * archVL + archVL / 2);
                         create.vec.storeIE(
                             vecF32H[i], alloc, outputAF, {iH.getValue()});
                         create.vec.storeIE(
@@ -231,9 +239,10 @@ public:
                 // all as we subtract (VL-1). Aka if VL=8 and tripCount = 16,
                 // tripCountWithoutPartialLastVL is 16 - 7 = 9. Thus we iterate
                 // over i=0 & i=8 as both are < 9.
-                IndexExpr tripCountWithoutPartialLastVL = tripCount - (VL - 1);
+                IndexExpr tripCountWithoutPartialLastVL =
+                    tripCount - (archVL - 1);
                 create.scf.forLoop(litZero.getValue(),
-                    tripCountWithoutPartialLastVL.getValue(), VL,
+                    tripCountWithoutPartialLastVL.getValue(), archVL,
                     [&](SCFBuilder b, Value loopIndex) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
@@ -252,10 +261,10 @@ public:
                       outputAF[E1] = outputAF[E1] + l;
                       create.vec.storeIE(vecF32H, alloc, outputAF, {});
                       create.vec.storeIE(
-                          vecF32L, alloc, outputAF, {litVLHalf.getValue()});
+                          vecF32L, alloc, outputAF, {litArchVLHalf.getValue()});
                     });
                 // Deal with the last values: compute f32 using simd.
-                IndexExpr remainingScalarValues = tripCount % VL;
+                IndexExpr remainingScalarValues = tripCount % archVL;
                 IndexExpr lastL = tripCount - remainingScalarValues;
                 Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
                     {SymIE(inputTileOffset), lastL}, {});
@@ -264,10 +273,10 @@ public:
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
                 Value vecF32H = convertOp.getResult(0);
                 Value vecF32L = convertOp.getResult(1);
-                // Save into VL value buffer.
+                // Save into archVL value buffer.
                 Value bufferF32 = create.mem.alignedAlloca(bufferType);
                 create.vec.storeIE(vecF32H, bufferF32, {litZero}, {});
-                create.vec.storeIE(vecF32L, bufferF32, {litVLHalf}, {});
+                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf}, {});
                 // Save the remaining values as scalars.
                 create.scf.forLoop(litZero.getValue(),
                     remainingScalarValues.getValue(), 1,
@@ -306,17 +315,23 @@ public:
     StringAttr layout = stickOp.getLayoutAttr();
 
     // Generic way to handle all formats listed below.
+    // Did not add the HWCK as this is typically for constants and want to
+    // preserve the high level constant propagation of constant values into the
+    // Convolution filters.
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS")) {
+        layout.getValue().equals_insensitive("3DS") ||
+        layout.getValue().equals_insensitive("NHWC")) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
-  /* Version without buffer, more like zdnn */
+  // Version without buffer, more like zdnn.
+  // The only requirement for this code to generate the proper code is that E1
+  // is been sticked by 64.
   LogicalResult generateStickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowStickOp stickOp) const {
     Operation *op = stickOp.getOperation();
@@ -335,17 +350,16 @@ public:
     int64_t rank = outputDims.size();
 
     // Info for SIMD Vector Length (VL) and associated types.
-    int64_t VL = 8;          // FP16 VL.
-    int64_t VLHalf = VL / 2; // FP32 VL.
-    assert(64 % VL == 0 && "SIMD vector length must divide 64");
+    int64_t archVL = 8;              // FP16 archVL.
+    int64_t archVLHalf = archVL / 2; // FP32 archVL.
+    assert(64 % archVL == 0 && "SIMD vector length must divide 64");
     Type f32Type = rewriter.getF32Type();
-    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+    VectorType vecF32Type = VectorType::get({archVLHalf}, f32Type);
 
     // Define useful literals.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr lit1 = LiteralIndexExpr(1);
-    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr lit64 = LiteralIndexExpr(64);
+    IndexExpr litZero = LitIE(0);
+    IndexExpr lit1 = LitIE(1);
+    IndexExpr lit64 = LitIE(64);
 
     // Values for saturation.
     Value vecDlf16Min, vecDlf16Max;
@@ -367,6 +381,28 @@ public:
     IndexExpr T1 = outputDims[E1].ceilDiv(64);
     ubs[E1] = T1; // E1 dim is over tiles.
 
+    // If outputDims[E1] is constant and < 64, then T1 is 1 (ok), and we can
+    // iterate over fewer values in the SIMD loop.
+    IndexExpr simdLoopUB = lit64;
+    int64_t unrollVL = 4; // Unrolling of SIMD loop: tried 2 and 8, 4 was best.
+    if (outputDims[E1].isLiteral()) {
+      int64_t d1 = outputDims[E1].getLiteral();
+      if (d1 < 64) {
+        // Shrink unrollVL if suitable.
+        if (d1 <= archVL)
+          unrollVL = 1;
+        else if (d1 <= 2 * archVL)
+          unrollVL = 2;
+        else if (d1 <= 3 * archVL)
+          unrollVL = 3;
+        double trip = unrollVL * archVL;
+        int64_t ub = std::ceil((1.0 * d1) / trip) * trip;
+        simdLoopUB = LitIE(ub);
+      }
+    }
+    int64_t totVL = unrollVL * archVL;
+    assert(totVL <= 64 && "bad unroll");
+
     // Parallel...
     if (enableParallel) {
       int64_t parId;
@@ -385,7 +421,7 @@ public:
     // tiles. Since we don't allocate, it is just a "view", we only need to
     // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
     // 64 elements.
-    IndexExpr T = LiteralIndexExpr(2);
+    IndexExpr T = LitIE(2);
     DimsExpr reallocTileDims = {T, lit64};
     Value allocAsTx64 =
         create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
@@ -396,7 +432,7 @@ public:
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
-          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          getIndexExprList<SymIE>(loopInd, outerIndices);
           DimsExpr memAF = outerIndices;
           memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
@@ -418,21 +454,19 @@ public:
 #endif
 #endif
 
-          const int64_t U = 4; // Tried 2 and 8, 4 was best.
-          assert(U * VL <= 64 && "bad unroll");
-          create.affine.forIE(litZero, lit64, U * VL,
+          create.affine.forIE(litZero, simdLoopUB, totVL,
               [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymbolIndexExpr l(loopInd[0]);
-                getIndexExprList<SymbolIndexExpr>(memAF, inputAF);
+                SymIE l(loopInd[0]);
+                getIndexExprList<SymIE>(memAF, inputAF);
                 // E1: add the "l" local E1 offset.
                 inputAF[E1] = inputAF[E1] + l;
                 // Load the f32.
-                Value vecF32H[U], vecF32L[U], vecF16[U];
-                for (int64_t u = 0; u < U; ++u) {
-                  LiteralIndexExpr iH(u * VL), iL(u * VL + VL / 2);
+                Value vecF32H[unrollVL], vecF32L[unrollVL], vecF16[unrollVL];
+                for (int64_t u = 0; u < unrollVL; ++u) {
+                  LitIE iH(u * archVL), iL(u * archVL + archVL / 2);
                   vecF32H[u] = create.vec.loadIE(
                       vecF32Type, input, inputAF, {iH.getValue()});
                   vecF32L[u] = create.vec.loadIE(
@@ -440,25 +474,25 @@ public:
                 }
                 if (saturation) {
                   // Get rid of too-high values.
-                  for (int64_t u = 0; u < U; ++u) {
+                  for (int64_t u = 0; u < unrollVL; ++u) {
                     vecF32H[u] = create.math.min(vecF32H[u], vecDlf16Max);
                     vecF32L[u] = create.math.min(vecF32L[u], vecDlf16Max);
                   }
                   // Get rid of too-low values.
-                  for (int64_t u = 0; u < U; ++u) {
+                  for (int64_t u = 0; u < unrollVL; ++u) {
                     vecF32H[u] = create.math.max(vecF32H[u], vecDlf16Min);
                     vecF32L[u] = create.math.max(vecF32L[u], vecDlf16Min);
                   }
                 }
                 // Convert f32 to dlfloat16.
-                for (int64_t u = 0; u < U; ++u) {
+                for (int64_t u = 0; u < unrollVL; ++u) {
                   vecF16[u] = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
                       loc, vecF32H[u], vecF32L[u]);
                 }
                 // Store the dlfloat16.
-                for (int64_t u = 0; u < U; ++u) {
+                for (int64_t u = 0; u < unrollVL; ++u) {
                   create.vec.storeIE(vecF16[u], allocAsTx64,
-                      {SymIE(allocTileIndex), l + (u * VL)}, {});
+                      {SymIE(allocTileIndex), l + (u * archVL)}, {});
                 }
               });
         });

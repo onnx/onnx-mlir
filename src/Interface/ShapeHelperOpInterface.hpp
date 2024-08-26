@@ -4,7 +4,7 @@
 
 //===-------- ShapeHelperOpInterface.hpp - Definition for ShapeHelper -----===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SHAPE_HELPER_INFERENCE_H
+#define ONNX_MLIR_SHAPE_HELPER_INFERENCE_H
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -25,8 +26,6 @@
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
-
-using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
 
 struct ONNXOpShapeHelper {
   /* Constructor for shape inference.
@@ -176,3 +175,4 @@ private:
 
 /// Include the auto-generated declarations.
 #include "src/Interface/ShapeHelperOpInterface.hpp.inc"
+#endif

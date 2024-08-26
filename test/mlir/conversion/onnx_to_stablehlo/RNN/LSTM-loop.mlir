@@ -76,7 +76,7 @@ func.func @test_lstm_loop(%arg0 : tensor<128x16x512xf32>, %arg1 : tensor<2x2048x
 // CHECK-DAG:       [[VAR_48_:%.+]] = stablehlo.slice [[VAR_32_]] [1792:2048] : (tensor<2048xf32>) -> tensor<256xf32>
 // CHECK-DAG:       [[VAR_49_:%.+]]:4 = stablehlo.while([[VAR_iterArg_:%.+]] = [[VAR_c_7_]], [[VAR_iterArg_9_:%.+]] = [[VAR_cst_5_]], [[VAR_iterArg_10_:%.+]] = [[VAR_10_]], [[VAR_iterArg_11_:%.+]] = [[VAR_12_]]) : tensor<1xi64>, tensor<128x1x16x256xf32>, tensor<16x256xf32>, tensor<16x256xf32>
 // CHECK:            cond {
-// CHECK:             [[VAR_52_:%.+]] = stablehlo.compare  LT, [[VAR_iterArg_]], [[VAR_c_4_]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
+// CHECK:             [[VAR_52_:%.+]] = stablehlo.compare  LT, [[VAR_iterArg_]], [[VAR_c_4_]] : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK:             [[VAR_53_:%.+]] = stablehlo.reshape [[VAR_52_]] : (tensor<1xi1>) -> tensor<i1>
 // CHECK:             stablehlo.return [[VAR_53_]] : tensor<i1>
 // CHECK:           } do {
@@ -156,7 +156,7 @@ func.func @test_lstm_loop(%arg0 : tensor<128x16x512xf32>, %arg1 : tensor<2x2048x
 // CHECK:           }
 // CHECK:           [[VAR_50_:%.+]]:4 = stablehlo.while([[VAR_iterArg_1_:%.+]] = [[VAR_c_]], [[VAR_iterArg_9_1_:%.+]] = [[VAR_c_]]st_5, [[VAR_iterArg_10_1_:%.+]] = [[VAR_14_]], [[VAR_iterArg_11_1_:%.+]] = [[VAR_16_]]) : tensor<1xi64>, tensor<128x1x16x256xf32>, tensor<16x256xf32>, tensor<16x256xf32>
 // CHECK:            cond {
-// CHECK:             [[VAR_52_2_:%.+]] = stablehlo.compare  GE, [[VAR_iterArg_1_]], [[VAR_c_7_]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
+// CHECK:             [[VAR_52_2_:%.+]] = stablehlo.compare  GE, [[VAR_iterArg_1_]], [[VAR_c_7_]] : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK:             [[VAR_53_2_:%.+]] = stablehlo.reshape [[VAR_52_2_]] : (tensor<1xi1>) -> tensor<i1>
 // CHECK:             stablehlo.return [[VAR_53_2_]] : tensor<i1>
 // CHECK:           } do {

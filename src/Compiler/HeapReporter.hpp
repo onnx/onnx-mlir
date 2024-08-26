@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_HEAP_REPORTER_H
+#define ONNX_MLIR_HEAP_REPORTER_H
 
 #include <string>
 #include <vector>
@@ -39,3 +40,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

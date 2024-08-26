@@ -64,7 +64,7 @@ std::string mllvm;                                     // onnx-mlir only
 std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
-bool instrumentONNXSignature;                          // onnx-mlir only
+std::string instrumentSignatures;                      // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
@@ -432,10 +432,17 @@ static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
     llvm::cl::location(parallelizeOps), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> instrumentONNXSignatureOpt(
-    "instrument-onnx-signature",
-    llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
-    llvm::cl::location(instrumentONNXSignature), llvm::cl::init(false),
+static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
+    "instrument-signature",
+    llvm::cl::desc("Specify which high-level operations should print their"
+                   " input type(s) and shape(s)\n"
+                   "\"ALL\" or \"\" for all available operations,\n"
+                   "\"NONE\" for no instrument (default),\n"
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
+    llvm::cl::location(instrumentSignatures), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
@@ -592,6 +599,25 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
                    "Set to 'true' if you want to enable the check."),
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+#if defined(_DEBUG)
+// Option only available in debug mode: set using command options.
+static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
+    llvm::cl::desc(
+        "Help compiler writers test a new (small) optimization. When false, "
+        "the old approach should be used. When true, the new opt should be "
+        "used. Utilities such as CheckONNXModel.py can then verify that the "
+        "new opt deliver the same results.\n"
+        "E.g. CheckONNXModel.py -m test.mlir -t -O3 -a test-compiler-opt=true\n"
+        "Once the new opt works, it should not rely this option any more.\n"
+        "Only defined in DEBUG build and default to false.\n"),
+    llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+bool debugTestCompilerOpt;
+#else
+// Option only available in debug mode: disable when not in debug.
+bool debugTestCompilerOpt = false;
+#endif
 
 // Options for onnx-mlir-opt only
 static llvm::cl::opt<bool, true> split_input_file_opt("split-input-file",

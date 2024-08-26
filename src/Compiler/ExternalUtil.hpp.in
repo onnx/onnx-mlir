@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ONNX_MLIR_EXTERNAL_UTIL_H
+#define ONNX_MLIR_EXTERNAL_UTIL_H
 
 #include <map>
 #include <string>
@@ -26,3 +27,4 @@ static const std::map<std::string, std::string> toolPathMap = {
     {"jar", kJarPath}, {"defaultTriple", kDefaultTriple},
     {"lrodataScript", kLrodataScript}};
 } // namespace onnx_mlir
+#endif

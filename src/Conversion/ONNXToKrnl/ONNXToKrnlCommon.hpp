@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_TO_KRNL_H
+#define ONNX_MLIR_ONNX_TO_KRNL_H
 
 #include <map>
 
@@ -92,9 +93,6 @@ bool hasAllScalarValues(mlir::ValueRange values);
 // HasOneElement returns true for scalars as well as tensors that contain only
 // one elements, such as 1xf32 or 1x1x1xf32.
 bool hasOneElement(mlir::Value value);
-// Same as hasOneElement, but check only from the innerDims innermost
-// dimensions.
-bool hasOneElementInInnermostDims(mlir::Value value, int64_t innerDims);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
@@ -227,27 +225,48 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
   // int. Thus we look at the type the first input argument, and not the output
   // elementType.
   mlir::Type actualElementType =
-      MathBuilder::elementTypeWithVector(scalarOperands[0].getType());
+      MathBuilder::elementTypeOfScalarOrVector(scalarOperands[0]);
   // Perform int or float operation depending on the actual elementary type.
   if (mlir::isa<mlir::IntegerType>(actualElementType)) {
     // Generate the integer code only if the scalar integer op is non-void
     // (unsupported) and non-int (supported by custom sequence of ops).
     if constexpr (!(std::is_same<ScalarIOp<Op>, NotSuportedScalarOp>::value) &&
-                  !(std::is_same<ScalarIOp<Op>, CustomScalarOp>::value))
+                  !(std::is_same<ScalarIOp<Op>, CustomScalarOp>::value)) {
+      llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
+      MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+      create.math.splatToMatch(scalarsSplatted);
       return rewriter.create<ScalarIOp<Op>>(
-          loc, elementType, scalarOperands, std::nullopt);
+          loc, elementType, scalarsSplatted, std::nullopt);
+    }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
     // Generate the floating point code only if the scalar integer op is
-    // non-void (unsupported) and non-int (supported by custom sequence of ops).
+    // non-void (unsupported) and non-int (supported by custom sequence of
+    // ops).
     if constexpr (!(std::is_same<ScalarFOp<Op>, NotSuportedScalarOp>::value) &&
-                  !(std::is_same<ScalarFOp<Op>, CustomScalarOp>::value))
+                  !(std::is_same<ScalarFOp<Op>, CustomScalarOp>::value)) {
+      llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
+      MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+      create.math.splatToMatch(scalarsSplatted);
       return rewriter.create<ScalarFOp<Op>>(
-          loc, elementType, scalarOperands, std::nullopt);
+          loc, elementType, scalarsSplatted, std::nullopt);
+    }
     llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
+}
+
+// =============================================================================
+// Template for SIMD analysis
+
+// Default template for ops that do not support SIMD. For the ones that support
+// SIMD, we must create an `getGenOpsMix` template that returns their
+// corresponding mix of generic operations.
+
+template <typename Op>
+GenOpMix getGenOpMix(mlir::Type elementType, mlir::Operation *op) {
+  return {{GenericOps::ScalarOnlyGop, 1}};
 }
 
 //===----------------------------------------------------------------------===//
@@ -277,8 +296,8 @@ public:
            llvm::all_of(call.getResultTypes(), f);
   }
 
-  // Return the default alignment value used when allocating a MemRef buffer for
-  // the given type. E.g. some special types for accelerators requires
+  // Return the default alignment value used when allocating a MemRef buffer
+  // for the given type. E.g. some special types for accelerators requires
   // 4K-aligned buffers.
   static int64_t getDefaultAllocAlignment(mlir::Type type);
 };
@@ -359,9 +378,11 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 
 // `Quantization` directory methods:
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXQuantizeLinearOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
+    bool enableSIMD, bool enableParallel);
+void populateLoweringONNXQuantizeLinearOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
@@ -596,6 +617,59 @@ bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
     int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
 
 //===----------------------------------------------------------------------===//
+// Support functions for determining simd unrolling.
+//===----------------------------------------------------------------------===//
+
+// Compute a suitable SIMD Vector length (which may be a multiple of the
+// hardware vector length, up to maxUnrollVL times). If the dims are too
+// small, return 1 (no suitable simd). The collapsedInnermostLoops parameter
+// indicates how many inner dimensions of the memref are considered for
+// vectorization. If all of them are considered and padding is possible (aka
+// canOverCompute==true), then we can always generate SIMD code with the
+// maxSIMD unroll factor. Otherwise, we must ensure that the cumulative static
+// size (dynamic sizes are ignored here ) of the array is a multiple of the
+// Vector Length associated with this type. If it is not, then no SIMD code
+// gen is possible (return 1). If it is possible, return the largest SIMD
+// unroll factor (starting at maxUnrollVL) that divide the cumulative static
+// size of the memref being collapsed for SIMD. simdLoopStaticTripCount:
+// provide an estimation of the SIMD loop trip count. If runtime, return -1;
+// if cannot simdize, return 0; otherwise, return that literal.
+int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+    int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
+    int64_t &simdLoopStaticTripCount);
+
+// Compute a suitable SIMD Vector Length (totVL). If no SIMD is suitable,
+// return totVL = 1. Type determine the archVL for the given memRefType. Then
+// compute the average amount of SIMD operations given the mix of Generic
+// Operations in that loop. If the element type does not support SIMD, or
+// there are too few SIMD operations, or the innermost loop has too few
+// (static) loop iterations, SIMD will be disabled (return totVL=1).
+// Otherwise, the register pressure is then taken into account to determine a
+// suitable additional unrolling (by multiple of VL) so as to suitably exploit
+// the available SIMD hardware.
+//
+// In this call, we assume that code gen can handle SIMD loops with trip count
+// that are not known to be a multiple of VL. The simdOnly boolean flag will
+// be set to true if all loop iterations can be handled using SIMD code with
+// totVL. In other words, simdOnly is set to true if we can guarantee that
+// there is no scalar loop for the leftovers not handled by the simd loop.
+//
+// Now some SIMD scheme may allow to write past the last original loop
+// iterations; in this case we may ignore the simdOnly flag .
+int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+    int64_t collapsedInnermostLoops, GenOpMix &GenOps, bool canOverCompute,
+    int64_t &simdLoopStaticTripCount, bool &simdOnly);
+// Cap totVL so that it is at most maxUnrollVL * archVL.
+int64_t capVLForMaxUnroll(
+    mlir::MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL);
+// Enabling a simdOnly code generation scheme by capping totVL so that it
+// divides simdLoopStaticTripCount. When not possible (either because
+// there is no totVL that divides simdLoopStaticTripCount or trip count is
+// runtime only), then disable SIMD by returning totVL = 1.
+int64_t capVLForSimdOnly(mlir::MemRefType memRefType, int64_t totVL,
+    int64_t simdLoopStaticTripCount);
+
+//===----------------------------------------------------------------------===//
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
@@ -622,10 +696,9 @@ void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
 // the ONNX operation parallelized.
 //
 // Loop level: -1: none; 0: outermost; 1: next to outermost...
-// Parallel loop trip count; 0: none; -1: runtime only; >0: min number known at
-// compile time.
-// Comment: explanation of how parallelism was achieved / or failed. Comments
-// cannot have ',' in them.
+// Parallel loop trip count; 0: none; -1: runtime only; >0: min number known
+// at compile time. Comment: explanation of how parallelism was achieved / or
+// failed. Comments cannot have ',' in them.
 inline void onnxToKrnlParallelReport(mlir::Operation *op,
     bool successful = false, int64_t loopLevel = -1,
     int64_t parallelLoopTripCount = 0, const std::string &comment = "") {
@@ -656,9 +729,9 @@ inline void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
 // compile time.
 // Comment: explanation of how SIMD was achieved / or failed. Comments cannot
 // have ',' in them. Use the following comment templates. If SIMD is not
-// supported, comments should be "unsupported". If SIMD is supported but fails,
-// comment should be "no simd [in <specific place>] because <reason>." When simd
-// succeeds, comment indicates what type of pattern is used.
+// supported, comments should be "unsupported". If SIMD is supported but
+// fails, comment should be "no simd [in <specific place>] because <reason>."
+// When simd succeeds, comment indicates what type of pattern is used.
 inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
     int64_t vectorLength = 0, int64_t simdLoopTripCount = 0,
     const std::string &comment = "") {
@@ -667,4 +740,12 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
         op, successful, vectorLength, simdLoopTripCount, comment);
 }
 
+// Compute the min and max of input, allocate and save the results into
+// minAlloc and maxAlloc.
+void emitMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Value input,
+    mlir::Value &minAlloc, mlir::Value &maxAlloc, bool enableSIMD,
+    bool enableParallel);
+
 } // namespace onnx_mlir
+#endif

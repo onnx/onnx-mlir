@@ -46,6 +46,7 @@ public:
         ONNXEntryPointOp::getEntryPointFuncAttrName());
     StringRef entryPointName = funcRefAttr.getLeafReference().getValue();
     Operation *entryPointOp = module.lookupSymbol(entryPointName);
+    assert(entryPointOp && "entry point name not found!");
     func::FuncOp entryPointFunc = cast<func::FuncOp>(entryPointOp);
 
     IntegerAttr numInputsAttr =
@@ -222,8 +223,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Quantization
-  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
@@ -490,12 +491,9 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
   if (reportOnSimd) {
     if (!simdIsEnabled) {
       OnnxToKrnlLoweringConfiguration::defaultSimdComment = "simd is disabled";
-    } else {
-      VectorMachineSupport *vms =
-          VectorMachineSupport::getGlobalVectorMachineSupport();
-      if (!vms->hasSimd())
-        OnnxToKrnlLoweringConfiguration::defaultSimdComment =
-            "cpu with unspecified simd ISA";
+    } else if (!VectorMachineSupport::hasSimd()) {
+      OnnxToKrnlLoweringConfiguration::defaultSimdComment =
+          "cpu with unspecified simd ISA";
     }
   }
   if (parallelIsEnabled)

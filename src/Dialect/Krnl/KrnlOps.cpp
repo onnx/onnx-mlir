@@ -839,13 +839,9 @@ uint64_t KrnlGlobalOp::getBufferSize() {
   return affine::getIntOrFloatMemRefSizeInBytes(memRefTy).value();
 }
 
-void KrnlGlobalOp::setBuffer(ArrayRef<char> rawData) {
-  return;
-}
-  
-void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {
-  return;
-}
+void KrnlGlobalOp::setBuffer(ArrayRef<char> rawData) { return; }
+
+void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) { return; }
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp
