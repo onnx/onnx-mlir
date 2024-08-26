@@ -64,6 +64,10 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
   set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include)
+  set(ONNX_MLIR_BUILD_INTREE OFF)
+else()
+  message(STATUS "ONNX-MLIR in-tree build.")
+  set(ONNX_MLIR_BUILD_INTREE ON)
 endif()
 
 set(ONNX_MLIR_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -168,14 +172,14 @@ add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
-  if (NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  if (ONNX_MLIR_BUILD_INTREE)
     message(FATAL_ERROR "In tree builds don't support stablehloe yet. "
       "Please pass -DONNX_MLIR_ENABLE_STABLEHLO=OFF to cmake or build out-of-tree.")
   endif()
   add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
 endif()
 
-if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR AND NOT TARGET benchmark)
+if (NOT ONNX_MLIR_BUILD_INTREE AND NOT TARGET benchmark)
   set(BENCHMARK_USE_BUNDLED_GTEST OFF)
   set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
   set(BENCHMARK_ENABLE_TESTING OFF)
@@ -189,7 +193,7 @@ endif()
 # compile flags updated via llvm_update_compile_flags, so we need to do that to
 # benchmark and rapidcheck as well, so that we can successfully link against them.
 # Otherwise, some of the flags for exceptions (among others) are not set correctly.
-if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+if (NOT ONNX_MLIR_BUILD_INTREE)
   llvm_update_compile_flags(benchmark)
   llvm_update_compile_flags(benchmark_main)
 endif()

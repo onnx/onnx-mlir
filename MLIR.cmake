@@ -3,7 +3,7 @@
 # Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
 # won't change accordingly.
 unset(LLVM_DIR CACHE)
-if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+if (NOT ONNX_MLIR_BUILD_INTREE)
   if (NOT DEFINED MLIR_DIR)
     message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
       "Set the cmake option MLIR_DIR, e.g.,\n"

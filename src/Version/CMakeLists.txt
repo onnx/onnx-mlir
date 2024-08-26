@@ -53,12 +53,16 @@ set_source_files_properties("${version_inc}"
              HEADER_FILE_ONLY TRUE
   )
 
+if(ONNX_MLIR_BUILD_INTREE)
+  set(llvm_vcsrevision_h_target llvm_vcsrevision_h)
+endif()
+
 add_onnx_mlir_library(OMVersion
   Version.cpp
   ${version_inc}
 
   DEPENDS
-  llvm_vcsrevision_h
+  ${llvm_vcsrevision_h_target}
 
   LINK_LIBS PUBLIC
     LLVMSupport
