@@ -11,6 +11,7 @@ module {
   "krnl.entry_point"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4 , 5] , \22name\22 : \22input0\22 }\0A ,    { \22type\22 : \22f32\22 , \22dims\22 : [-1 , 4 , 5] , \22name\22 : \22input1\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4 , 5] , \22name\22 : \22output0\22 }\0A\0A]\00"} : () -> ()
 
 // CHECK:         llvm.func @run_main_graph([[arg0_:.*]]: !llvm.ptr) -> !llvm.ptr {
+// CHECK-DAG:       [[VAR_0:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK-DAG:       [[VAR_0_2_:%.+]] = llvm.mlir.addressof @"om_Wrong size for the dimension 2 of the input 1: expect 5, but got {{\%}}lld\0A" : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_2_:%.+]] = llvm.mlir.addressof @"om_Wrong size for the dimension 1 of the input 1: expect 4, but got {{\%}}lld\0A" : !llvm.ptr
 // CHECK-DAG:       [[VAR_2_2_:%.+]] = llvm.mlir.addressof @"om_Wrong size for the dimension 0 of the input 1: expect a non-negative value\0A" : !llvm.ptr
@@ -26,6 +27,7 @@ module {
 // CHECK-DAG:       [[VAR_12_1_:%.+]] = llvm.mlir.constant(3 : i64) : i64
 // CHECK-DAG:       [[VAR_13_1_:%.+]] = llvm.mlir.addressof @"om_Wrong data type for the input 0: expect f32\0A" : !llvm.ptr
 // CHECK-DAG:       [[VAR_14_1_:%.+]] = llvm.mlir.constant(1 : i64) : i64
+// CHECK-DAG:       [[VAR_14_2_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-DAG:       [[VAR_15_1_:%.+]] = llvm.mlir.constant(22 : i32) : i32
 // CHECK-DAG:       [[VAR_16_1_:%.+]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr
 // CHECK-DAG:       [[VAR_17_1_:%.+]] = llvm.mlir.constant(2 : i64) : i64
@@ -36,8 +38,7 @@ module {
 // CHECK:           llvm.call @printf([[VAR_20_]], [[VAR_21_]]) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_22_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_22_]] : i32, !llvm.ptr
-// CHECK:           [[VAR_23_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK:           llvm.return [[VAR_23_]] : !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_24_:%.+]] = llvm.call @omTensorListGetOmtArray([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr
 // CHECK:           [[LOAD_VAR_24_MEM_:%.+]] = llvm.load [[VAR_24_]] : !llvm.ptr -> !llvm.ptr
@@ -48,8 +49,7 @@ module {
 // CHECK:           llvm.call @printf([[VAR_28_]]) : (!llvm.ptr) -> ()
 // CHECK:           [[VAR_29_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_29_]] : i32, !llvm.ptr
-// CHECK:           [[VAR_30_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK:           llvm.return [[VAR_30_]] : !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
 // CHECK:         ^bb4:  // pred: ^bb2
 // CHECK:           [[VAR_31_:%.+]] = llvm.call @omTensorGetRank([[LOAD_VAR_24_MEM_]]) : (!llvm.ptr) -> i64
 // CHECK:           [[VAR_32_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_31_]] : i64
@@ -78,7 +78,7 @@ module {
 // CHECK:         ^bb9:  // pred: ^bb8
 // CHECK:           [[VAR_46_:%.+]] = llvm.call @omTensorGetRank([[LOAD_VAR_42_MEM_]]) : (!llvm.ptr) -> i64
 // CHECK:           [[VAR_47_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_46_]] : i64
-// CHECK:           llvm.cond_br [[VAR_47_]], ^bb1([[VAR_4_2_]], [[VAR_4_2_]]6 : !llvm.ptr, i64), ^bb10
+// CHECK:           llvm.cond_br [[VAR_47_]], ^bb1([[VAR_4_2_]], [[VAR_46_]] : !llvm.ptr, i64), ^bb10
 // CHECK:         ^bb10:  // pred: ^bb9
 // CHECK:           [[VAR_48_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_42_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
 // CHECK:           [[LOAD_VAR_48_MEM_:%.+]] = llvm.load [[VAR_48_]] : !llvm.ptr -> i64
@@ -100,9 +100,8 @@ module {
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[LOAD_VAR_57_MEM_:%.+]] = llvm.load [[VAR_57_]] : !llvm.ptr -> !llvm.ptr
 // CHECK-DAG:       [[VAR_60_:%.+]] = llvm.alloca [[VAR_14_1_]] x !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)> : (i64) -> !llvm.ptr
-// CHECK-DAG:       [[VAR_61_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK:           [[VAR_62_:%.+]] = llvm.call @omTensorGetDataPtr([[LOAD_VAR_57_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
-// CHECK:           [[VAR_63_:%.+]] = llvm.insertvalue [[VAR_62_]], [[VAR_61_]][0] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
+// CHECK:           [[VAR_63_:%.+]] = llvm.insertvalue [[VAR_62_]], [[VAR_0]][0] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK:           [[VAR_64_:%.+]] = llvm.insertvalue [[VAR_62_]], [[VAR_63_]][1] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK-DAG:       [[VAR_65_:%.+]] = llvm.insertvalue [[VAR_3_2_]], [[VAR_64_]][2] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK-DAG:       [[VAR_66_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_57_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
@@ -128,9 +127,8 @@ module {
 // CHECK:           [[VAR_84_:%.+]] = llvm.getelementptr [[VAR_57_]][1] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
 // CHECK-DAG:       [[LOAD_VAR_84_MEM_:%.+]] = llvm.load [[VAR_84_]] : !llvm.ptr -> !llvm.ptr
 // CHECK-DAG:       [[VAR_86_:%.+]] = llvm.alloca [[VAR_14_1_]] x !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)> : (i64) -> !llvm.ptr
-// CHECK-DAG:       [[VAR_87_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK:           [[VAR_88_:%.+]] = llvm.call @omTensorGetDataPtr([[LOAD_VAR_84_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
-// CHECK:           [[VAR_89_:%.+]] = llvm.insertvalue [[VAR_88_]], [[VAR_87_]][0] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
+// CHECK:           [[VAR_89_:%.+]] = llvm.insertvalue [[VAR_88_]], [[VAR_0]][0] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK:           [[VAR_90_:%.+]] = llvm.insertvalue [[VAR_88_]], [[VAR_89_]][1] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK-DAG:       [[VAR_91_:%.+]] = llvm.insertvalue [[VAR_3_2_]], [[VAR_90_]][2] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
 // CHECK-DAG:       [[VAR_92_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_84_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
