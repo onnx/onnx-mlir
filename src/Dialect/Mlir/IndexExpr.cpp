@@ -559,7 +559,9 @@ static bool isIdentical(const IndexExpr litExpr, double dval) {
   return litExpr.isLiteralAndIdenticalTo(ival);
 }
 
-// Used for add/sub/mult/ceilDiv/floorDiv
+// Used for add/sub/mult/ceilDiv/floorDiv.
+// Add/sub: B does not need to be a literal for the result to be affine.
+// All the other ones (mul, div*, mod) require the B to be a literal.
 IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
     bool hasNeutralA, bool hasNeutralB, double neutralVal, F2 litFct,
     F2 affineExprFct, F2 valueFct) const {
@@ -573,6 +575,8 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
   bool canBeAffine = (affineExprFct != nullptr);
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
+  if (resIsAffine)
+    fprintf(stderr, "hi alex, res can be affine\n");
   // Test if we have a neutral value.
   if (hasNeutralA && isIdentical(*this, neutralVal))
     return b.deepCopy(); // Copy of the other value (use same questionmark).
@@ -864,6 +868,10 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
     return NonAffineIndexExpr(createMath.sub(aa.getValue(), bb.getValue()));
   };
   // Neutral value: a - 0 = a.
+  fprintf(stderr, "hi alex, has sub\n");
+  this->debugPrint("  A - b");
+  b.debugPrint("  a - B");
+
   if (areFloat(b))
     return binaryOp(b, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
   return binaryOp(b, false, false, true, 0.0, litFct, affineExprFct, valueFct);

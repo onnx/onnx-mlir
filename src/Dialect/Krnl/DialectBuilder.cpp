@@ -385,8 +385,8 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
   assert(inputAFs.size() == inputs.size() && "expected same size");
   int64_t outputNum = outputs.size();
   assert(outputAFs.size() == outputs.size() && "expected same size");
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, VectorBuilder>;
-  MDBuilder create(*this);
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, VectorBuilder, SCFBuilder>;
+  MDBuilder create(*this); // hi alex, added scf.
 
   if (VL > 1) {
     // Want SIMD, execute full SIMD loops blocked by VL.
@@ -401,11 +401,19 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     IndexExpr simdUb = ub;
     if (!fullySimd)
       simdUb = simdUb - (VL - 1);
+#if 0
+    create.scf.forLoop(lb.getValue(), simdUb.getValue(), VL,
+        [&](SCFBuilder &cs, Value loopInd) {
+          IndexExprScope scope(cs);
+          MDBuilder create(cs);
+          IndexExpr ind = DimIE(loopInd);
+#else
     iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
         [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
           MDBuilder create(ck);
           IndexExpr ind = DimIE(loopInd[0]);
+#endif
           // Load all the inputs as vectors of VL values, with a few exceptions.
           // One is if the value is a "none value", leave as is. Another one is
           // if the innermost dim is a scalar (ie dim[rank-1] == 1), then we
@@ -465,13 +473,21 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     // completed iterations.
     lb = lb + completedIters;
   }
-  // Handle remaining scalar values (from lb to ub without unrolling).
+// Handle remaining scalar values (from lb to ub without unrolling).
+#if 0
+  create.scf.forLoop(
+      lb.getValue(), ub.getValue(), 1, [&](SCFBuilder &cs, Value loopInd) {
+        IndexExprScope scope(cs);
+        MDBuilder create(cs);
+        IndexExpr ind = DimIE(loopInd);
+#else
   ValueRange loopDef = defineLoops(1);
   iterateIE(
       loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
         IndexExprScope scope(ck);
         MDBuilder create(ck);
         IndexExpr ind = DimIE(loopInd[0]);
+#endif
         // Load all the inputs as scalar values,
         llvm::SmallVector<Value, 4> scalarInputVals;
         for (int64_t i = 0; i < inputNum; ++i) {
@@ -555,8 +571,15 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
 
     // Logic: see simdIterateIE.
     IndexExpr simdUb = ub;
+#if 1 // computation is making issues
     if (!fullySimd)
       simdUb = simdUb - (VL - 1);
+#endif
+#if 0 // hi alex, test only
+    IndexExpr randomExpr = simdUb * LitIE(2)- LitIE(8);
+    simdUb = IndexExpr::min(simdUb, randomExpr);
+#endif
+
     // Perform SIMD reduction: iterates over all SIMD vectors.
     iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
         [&](KrnlBuilder &ck, ValueRange loopInd) {
@@ -592,6 +615,7 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     if (fullySimd) {
       // No leftovers, no additional iterations to be done.
     } else {
+#if 1 // needed
       // Account for the loop iterations performed above.
       IndexExpr tripCount = ub - lb;
       IndexExpr missingIters = tripCount % VL;
@@ -605,12 +629,14 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
         // completed iterations.
         lb = lb + completedIters;
       }
+#endif
     }
   } else {
     // VL was 1, set fullySimd to false so that we execute all iterations
     // sequentially.
     fullySimd = false;
   }
+#if 1 // needed
   if (!fullySimd) {
     // We have leftover iterations to be done in sequential mode.
     // Handle remaining scalar values (from lb to ub without unrolling).
@@ -618,6 +644,7 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     iterateIE(
         loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
+          MDBuilder create(ck);
           IndexExpr ind = DimIE(loopInd[0]);
           // We now perform sequential reduction in the tmps 1st element. Load
           // inputs in sequential mode indexed by loopInd[0] in innermost dim.
@@ -644,6 +671,7 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
           }
         });
   }
+#endif
   // Now perform post processing. Load all tmps.
   llvm::SmallVector<Value, 4> tmpVals;
   for (int64_t o = 0; o < outputSize; ++o) {
