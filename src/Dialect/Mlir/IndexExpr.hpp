@@ -582,7 +582,7 @@ public:
   // Debug (enable running with --debug-only=index-expr, for example).
   void debugPrint(const std::string &msg) const;
   static void debugPrint(
-      const std::string &msg, const llvm::SmallVectorImpl<IndexExpr> &list);
+      const std::string &msg, const mlir::ArrayRef<IndexExpr> list);
 
 protected:
   // Private queries.
@@ -882,7 +882,7 @@ inline llvm::SmallVector<IndexExpr, 4> SymListIE(mlir::ValueRange range) {
 
 // Create a list of IndexExpr of kind INDEX_EXPR from another list of IndexExpr.
 template <class INDEX_EXPR>
-void getIndexExprList(const llvm::SmallVectorImpl<IndexExpr> &inputList,
+void getIndexExprList(const mlir::ArrayRef<IndexExpr> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
@@ -890,14 +890,14 @@ void getIndexExprList(const llvm::SmallVectorImpl<IndexExpr> &inputList,
 }
 
 inline llvm::SmallVector<IndexExpr, 4> DimListIE(
-    const llvm::SmallVectorImpl<IndexExpr> &inputList) {
+    const mlir::ArrayRef<IndexExpr> inputList) {
   llvm::SmallVector<IndexExpr, 4> outputList;
   getIndexExprList<DimIndexExpr>(inputList, outputList);
   return outputList;
 }
 
 inline llvm::SmallVector<IndexExpr, 4> SymListIE(
-    const llvm::SmallVectorImpl<IndexExpr> &inputList) {
+    const mlir::ArrayRef<IndexExpr> inputList) {
   llvm::SmallVector<IndexExpr, 4> outputList;
   getIndexExprList<SymbolIndexExpr>(inputList, outputList);
   return outputList;

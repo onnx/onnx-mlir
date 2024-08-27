@@ -338,7 +338,7 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 }
 
 // All element in list are literals.
-/*static*/ bool IndexExpr::isLiteral(mlir::ArrayRef<IndexExpr> list) {
+/*static*/ bool IndexExpr::isLiteral(ArrayRef<IndexExpr> list) {
   for (IndexExpr i : list)
     if (!i.isLiteral())
       return false;
@@ -346,8 +346,7 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 }
 
 // All element in list are literals and non-negative (i.e. >= 0).
-/*static*/ bool IndexExpr::isNonNegativeLiteral(
-    mlir::ArrayRef<IndexExpr> list) {
+/*static*/ bool IndexExpr::isNonNegativeLiteral(ArrayRef<IndexExpr> list) {
   for (IndexExpr i : list)
     if (!i.isLiteral() || i.getLiteral() < 0)
       return false;
@@ -462,7 +461,7 @@ void IndexExpr::debugPrint(const std::string &msg) const {
 }
 
 void IndexExpr::debugPrint(
-    const std::string &msg, const SmallVectorImpl<IndexExpr> &list) {
+    const std::string &msg, const ArrayRef<IndexExpr> list) {
   LLVM_DEBUG({
     int s = list.size();
     llvm::dbgs() << msg.c_str() << " (" << s << " elements)\n";
@@ -525,7 +524,7 @@ void IndexExpr::debugPrint(
 
 /* static*/ void IndexExpr::getAffineMapAndOperands(
     ArrayRef<IndexExpr> indexExprArray, AffineMap &map,
-    SmallVectorImpl<mlir::Value> &operands) {
+    SmallVectorImpl<Value> &operands) {
   assert(indexExprArray.size() > 0 && "expected at least one index expr");
   SmallVector<AffineExpr, 8> affineExprList;
   for (IndexExpr expr : indexExprArray) {
@@ -1291,8 +1290,8 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 // IndexExpr Ops Derivatives
 //===----------------------------------------------------------------------===//
 
-bool IndexExpr::retrieveAffineMinMax(bool &isMin,
-    llvm::SmallVectorImpl<mlir::Value> &vals, mlir::AffineMap &map) const {
+bool IndexExpr::retrieveAffineMinMax(
+    bool &isMin, llvm::SmallVectorImpl<Value> &vals, AffineMap &map) const {
   Value val = this->getValue();
   auto minOp = val.getDefiningOp<affine::AffineMinOp>();
   auto maxOp = val.getDefiningOp<affine::AffineMaxOp>();
