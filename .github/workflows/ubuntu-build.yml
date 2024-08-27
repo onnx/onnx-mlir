@@ -42,7 +42,9 @@ jobs:
         create-symlink: true
 
     - name: install dependencies
-      run: utils/install-dependencies.sh
+      run: |
+          utils/install-protobuf.sh
+          utils/install-venv.sh
 
     - name: clone & build MLIR
       run: |
