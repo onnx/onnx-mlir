@@ -1637,9 +1637,8 @@ void MemRefBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
       loc(), memref, indices, isWrite, locality, isData);
 }
 
-void MemRefBuilder::prefetchIE(Value memref,
-    llvm::SmallVectorImpl<IndexExpr> &indices, bool isWrite, unsigned locality,
-    bool isData) {
+void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
+    bool isWrite, unsigned locality, bool isData) {
   SmallVector<Value, 4> indexVals;
   IndexExpr::getValues(indices, indexVals);
   prefetch(memref, indexVals, isWrite, locality, isData);
