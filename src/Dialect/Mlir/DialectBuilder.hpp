@@ -408,7 +408,7 @@ private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
   void computeDynSymbols(
       mlir::MemRefType type, // Use type to determine dynamic dimensions.
-      llvm::SmallVectorImpl<IndexExpr> &dims, // Get dyn syms from index expr.
+      DimsExprRef dims, // Get dyn syms from index expr.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
       const;
   void computeDynSymbols(

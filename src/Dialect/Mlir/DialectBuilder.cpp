@@ -1084,8 +1084,7 @@ IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
 // values from the list of index expressions that represent the shape of the
 // memref.
 
-void MemRefBuilder::computeDynSymbols(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims,
+void MemRefBuilder::computeDynSymbols(MemRefType type, DimsExprRef dims,
     llvm::SmallVectorImpl<Value> &dynSymbols) const {
   dynSymbols.clear();
   int64_t rank = type.getRank();

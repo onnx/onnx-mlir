@@ -338,7 +338,7 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 }
 
 // All element in list are literals.
-/*static*/ bool IndexExpr::isLiteral(SmallVectorImpl<IndexExpr> &list) {
+/*static*/ bool IndexExpr::isLiteral(mlir::ArrayRef<IndexExpr> list) {
   for (IndexExpr i : list)
     if (!i.isLiteral())
       return false;
@@ -347,7 +347,7 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 
 // All element in list are literals and non-negative (i.e. >= 0).
 /*static*/ bool IndexExpr::isNonNegativeLiteral(
-    SmallVectorImpl<IndexExpr> &list) {
+    mlir::ArrayRef<IndexExpr> list) {
   for (IndexExpr i : list)
     if (!i.isLiteral() || i.getLiteral() < 0)
       return false;
@@ -820,8 +820,8 @@ IndexExpr IndexExpr::operator!() const {
 
 // The affine reduction lambda function processes the whole list and must init
 // the result. Literal and Values treat one operation at a time
-/* static*/ IndexExpr IndexExpr::reductionOp(SmallVectorImpl<IndexExpr> &vals,
-    F2Self litRed, Flist affineRed, F2Self valueRed) {
+/* static*/ IndexExpr IndexExpr::reductionOp(
+    ArrayRef<IndexExpr> vals, F2Self litRed, Flist affineRed, F2Self valueRed) {
   // If no values, result is undefined.
   int size = vals.size();
   if (size == 0)
@@ -1169,7 +1169,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   return NonAffineIndexExpr(results);
 }
 
-/*static*/ IndexExpr IndexExpr::min(SmallVectorImpl<IndexExpr> &vals) {
+/*static*/ IndexExpr IndexExpr::min(ArrayRef<IndexExpr> vals) {
   // Res is already an literal int, we are reducing into it.
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
     if (aa.isLiteralAndSmallerThan(res))
@@ -1177,13 +1177,13 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
-                            SmallVectorImpl<IndexExpr> &vvals) -> IndexExpr {
+                            ArrayRef<IndexExpr> vvals) -> IndexExpr {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
     // Important to get the affine expressions before getting the
     // dims/symbols.
-    for (IndexExpr &vv : vvals) {
+    for (IndexExpr vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
     // Compute a map including the list of affine expressions.
@@ -1228,7 +1228,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   return min(list);
 }
 
-/*static*/ IndexExpr IndexExpr::max(SmallVectorImpl<IndexExpr> &vals) {
+/*static*/ IndexExpr IndexExpr::max(ArrayRef<IndexExpr> vals) {
   // Res is already an literal int, we are reducing into it.
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
     if (aa.isLiteralAndGreaterThan(res))
@@ -1236,13 +1236,13 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
-                            SmallVectorImpl<IndexExpr> &vvals) -> IndexExpr {
+                            ArrayRef<IndexExpr> vvals) -> IndexExpr {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
     // Important to get the affine expressions before getting the
     // dims/symbols.
-    for (IndexExpr &vv : vvals) {
+    for (IndexExpr vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
     // Compute a map including the list of affine expressions.

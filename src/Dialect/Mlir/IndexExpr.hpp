@@ -404,6 +404,7 @@ private:
 //===----------------------------------------------------------------------===//
 
 using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
+using DimsExprRef = mlir::ArrayRef<IndexExpr>;
 
 // Data structure that is the public interface for IndexExpr. It is a shallow
 // data structure that is simply a pointer to the actual data (IndexExprImpl).
@@ -470,8 +471,8 @@ public:
   bool isLiteralAndSmallerThan(double b) const;            // Values smaller.
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values smaller.
   // Test if all element in list are literals.
-  static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
-  static bool isNonNegativeLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
+  static bool isLiteral(mlir::ArrayRef<IndexExpr> list);
+  static bool isNonNegativeLiteral(mlir::ArrayRef<IndexExpr> list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
@@ -564,10 +565,10 @@ public:
   IndexExpr selectOrSelf(IndexExpr const compare, int64_t const trueVal) const;
 
   // Return min or max of a list of IndexExpr.
-  static IndexExpr min(llvm::SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr min(mlir::ArrayRef<IndexExpr> vals);
   static IndexExpr min(IndexExpr const first, IndexExpr const second);
   static IndexExpr min(IndexExpr const first, int64_t const second);
-  static IndexExpr max(llvm::SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr max(mlir::ArrayRef<IndexExpr> vals);
   static IndexExpr max(IndexExpr const first, IndexExpr const second);
   static IndexExpr max(IndexExpr const first, int64_t const second);
 
@@ -598,8 +599,7 @@ protected:
   using F1 = std::function<IndexExpr(IndexExpr const)>;
   using F2 = std::function<IndexExpr(IndexExpr const, IndexExpr const)>;
   using F2Self = std::function<IndexExpr(IndexExpr, IndexExpr const)>;
-  using Flist =
-      std::function<IndexExpr(IndexExpr, llvm::SmallVectorImpl<IndexExpr> &)>;
+  using Flist = std::function<IndexExpr(IndexExpr, mlir::ArrayRef<IndexExpr>)>;
   using F3 = std::function<IndexExpr(
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
@@ -617,8 +617,8 @@ protected:
       mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
   IndexExpr compareOp(
       mlir::arith::CmpFPredicate comparePred, IndexExpr const b) const;
-  static IndexExpr reductionOp(llvm::SmallVectorImpl<IndexExpr> &vals,
-      F2Self litRed, Flist affineRed, F2Self valueRed);
+  static IndexExpr reductionOp(mlir::ArrayRef<IndexExpr> vals, F2Self litRed,
+      Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.
   IndexExprImpl *indexExprObj = nullptr;
 };
