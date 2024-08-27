@@ -173,7 +173,7 @@ add_subdirectory(third_party/rapidcheck)
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   if (ONNX_MLIR_BUILD_INTREE)
-    message(FATAL_ERROR "In tree builds don't support stablehloe yet. "
+    message(FATAL_ERROR "In tree builds don't support stablehlo yet. "
       "Please pass -DONNX_MLIR_ENABLE_STABLEHLO=OFF to cmake or build out-of-tree.")
   endif()
   add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
