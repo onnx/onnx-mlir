@@ -426,9 +426,9 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
   // Create a for loop.
   void forLoop(mlir::Value lowerBound, mlir::Value upperBound, int64_t step,
-      mlir::function_ref<void(SCFBuilder &, mlir::Value)> bodyFn) const;
+      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   // Create a parallel for loop.
-  void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
+  void parallelLoops(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
       mlir::ValueRange steps,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;

@@ -1231,8 +1231,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
-                    [&](SCFBuilder &scf, Value blockLocalInd) {
+                    [&](SCFBuilder &scf, ValueRange loopInd) {
                       MDBuilder create(scf);
+                      Value blockLocalInd = loopInd[0];
                       // Output induction variables: same as the outer loop, but
                       // with the blocked index replaced by the inner index.
                       SmallVector<Value, 4> outLoopInd =

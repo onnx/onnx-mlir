@@ -980,8 +980,9 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
-                    [&](SCFBuilder &scf, Value blockLocalInd) {
+                    [&](SCFBuilder &scf, ValueRange loopInd) {
                       MDBuilder create(scf);
+                      Value blockLocalInd = loopInd[0];
                       generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
                           scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                           meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
