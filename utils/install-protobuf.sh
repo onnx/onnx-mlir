@@ -5,7 +5,7 @@ git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/proto
 cd protobuf
 ./autogen.sh
 ./configure --enable-static=no  --prefix=/usr
-make -j2 install
+sudo make -j2 install
 
 # Doesn't work on Ubuntu, just needed for MacOS?
 #cd python
