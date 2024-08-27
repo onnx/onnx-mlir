@@ -368,23 +368,23 @@ struct MemRefBuilder final : DialectBuilder {
 
   // Create a subview of val.
   mlir::memref::SubViewOp subView(mlir::Value val,
-      llvm::SmallVectorImpl<int64_t> &offsets, // Offset for each val dims.
-      llvm::SmallVectorImpl<int64_t> &sizes,   // Sizes for each val dims.
-      llvm::SmallVectorImpl<int64_t> &strides) // Stride for each val dims.
+      mlir::ArrayRef<int64_t> offsets, // Offset for each val dims.
+      mlir::ArrayRef<int64_t> sizes,   // Sizes for each val dims.
+      mlir::ArrayRef<int64_t> strides) // Stride for each val dims.
       const;
 
   // Create a subview of val.
   mlir::memref::SubViewOp subView(mlir::MemRefType outputType, mlir::Value val,
-      llvm::SmallVectorImpl<int64_t> &offsets, // Offset for each val dims.
-      llvm::SmallVectorImpl<int64_t> &sizes,   // Sizes for each val dims.
-      llvm::SmallVectorImpl<int64_t> &strides) // Stride for each val dims.
+      mlir::ArrayRef<int64_t> offsets, // Offset for each val dims.
+      mlir::ArrayRef<int64_t> sizes,   // Sizes for each val dims.
+      mlir::ArrayRef<int64_t> strides) // Stride for each val dims.
       const;
 
   // Create a subview of val. Size of 1 => remove that dim.
   mlir::memref::SubViewOp subView(mlir::Value val,
-      llvm::SmallVectorImpl<IndexExpr> &offsets, // Offset for each val dims.
-      llvm::SmallVectorImpl<IndexExpr> &sizes,   // Sizes for each val dims.
-      llvm::SmallVectorImpl<IndexExpr> &strides) // Stride for each val dims.
+      mlir::ArrayRef<IndexExpr> offsets, // Offset for each val dims.
+      mlir::ArrayRef<IndexExpr> sizes,   // Sizes for each val dims.
+      mlir::ArrayRef<IndexExpr> strides) // Stride for each val dims.
       const;
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
