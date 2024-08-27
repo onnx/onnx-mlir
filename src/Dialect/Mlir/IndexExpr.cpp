@@ -559,10 +559,12 @@ static bool isIdentical(const IndexExpr litExpr, double dval) {
   return litExpr.isLiteralAndIdenticalTo(ival);
 }
 
-// Used for add/sub/mult/ceilDiv/floorDiv
-IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
-    bool hasNeutralA, bool hasNeutralB, double neutralVal, F2 litFct,
-    F2 affineExprFct, F2 valueFct) const {
+// Used for add/sub/mult/ceilDiv/floorDiv.
+// Add/sub: B does not need to be a literal for the result to be affine.
+// All the other ones (mul, div*, mod) require the B to be a literal.
+IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool propagateIntoMinMax,
+    bool affineWithLitB, bool hasNeutralA, bool hasNeutralB, double neutralVal,
+    F2 litFct, F2 affineExprFct, F2 valueFct) const {
   assert(litFct && "expect lit function");
   assert(valueFct && "expect value function");
   assert(canBeUsedInScope() && "a cannot be used in current scope");
@@ -573,9 +575,10 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
   bool canBeAffine = (affineExprFct != nullptr);
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
-  // Test if we have a neutral value.
-  if (hasNeutralA && isIdentical(*this, neutralVal))
-    return b.deepCopy(); // Copy of the other value (use same questionmark).
+  if (resIsAffine)
+    // Test if we have a neutral value.
+    if (hasNeutralA && isIdentical(*this, neutralVal))
+      return b.deepCopy(); // Copy of the other value (use same questionmark).
   if (hasNeutralB && isIdentical(b, neutralVal)) {
     return deepCopy(); // Copy of the other value (use same questionmark).
   }
@@ -591,6 +594,44 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
   if (resIsAffine)
     // Use affine values.
     return affineExprFct(*this, b);
+  // See if we have a min/max on one side that we can propagate into.
+  bool hasMinMaxA = false, hasMinMaxB = false;
+  if (propagateIntoMinMax) {
+    Value valA = this->getValue();
+    hasMinMaxA = valA.getDefiningOp<affine::AffineMinOp>() ||
+                 valA.getDefiningOp<affine::AffineMaxOp>();
+    Value valB = b.getValue();
+    hasMinMaxB = valB.getDefiningOp<affine::AffineMinOp>() ||
+                 valB.getDefiningOp<affine::AffineMaxOp>();
+    // Can handle only cases where either a or b are min/max and the other one
+    // is affine.
+    if ((hasMinMaxA && !hasMinMaxB && b.isAffine()) ||
+        (!hasMinMaxA && hasMinMaxB && this->isAffine())) {
+      // Of the two inputs, find out the one with the min/max.
+      IndexExpr minMaxIE = hasMinMaxA ? *this : b;
+      // Retrieve the map and list of dim/symbols in the current scope
+      bool isMin;
+      llvm::SmallVector<Value, 8> vals;
+      AffineMap map;
+      assert(minMaxIE.retrieveAffineMinMax(isMin, vals, map) && "expected one");
+      // Perform the affineExprFct for each min/max terms.
+      llvm::SmallVector<IndexExpr, 4> updatedMinMaxExprs;
+      for (AffineExpr affineExpr : map.getResults()) {
+        IndexExpr oldAffineExpr = AffineIndexExpr(affineExpr);
+        IndexExpr newAffineExpr;
+        if (hasMinMaxA)
+          newAffineExpr = affineExprFct(oldAffineExpr, b);
+        else
+          newAffineExpr = affineExprFct(*this, oldAffineExpr);
+        updatedMinMaxExprs.emplace_back(newAffineExpr);
+      }
+      // Create new operation.
+      if (isMin) {
+        return IndexExpr::min(updatedMinMaxExprs);
+      }
+      return IndexExpr::max(updatedMinMaxExprs);
+    }
+  }
   // Use values.
   return valueFct(*this, b);
 }
@@ -669,7 +710,8 @@ IndexExpr IndexExpr::compareOp(
   // Cannot have affine results, disable and pass null lambda function.
   // Ignore possible neutral values.
   assert(!areFloat(b) && "integer compare");
-  return binaryOp(b, false, false, false, 0.0, litFct, nullptr, valueFct);
+  return binaryOp(
+      b, false, false, false, false, 0.0, litFct, nullptr, valueFct);
 }
 
 // Floating point version.
@@ -719,7 +761,7 @@ IndexExpr IndexExpr::compareOp(
   // Ignore possible neutral values.
   assert(areFloat(b) && "float compare");
   return binaryOp(
-      b, false, false, false, 0.0, litFloatFct, nullptr, valueFloatFct);
+      b, false, false, false, false, 0.0, litFloatFct, nullptr, valueFloatFct);
 }
 
 // Conjunction of two conditions: And
@@ -845,8 +887,10 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
   };
   // Neutral value: a + 0 = a, 0 + b = b.
   if (areFloat(b))
-    return binaryOp(b, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(b, false, true, true, 0.0, litFct, affineExprFct, valueFct);
+    return binaryOp(
+        b, true, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
+  return binaryOp(
+      b, true, false, true, true, 0.0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator-(IndexExpr const b) const {
@@ -865,8 +909,10 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
   };
   // Neutral value: a - 0 = a.
   if (areFloat(b))
-    return binaryOp(b, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(b, false, false, true, 0.0, litFct, affineExprFct, valueFct);
+    return binaryOp(
+        b, true, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
+  return binaryOp(
+      b, true, false, false, true, 0.0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator*(IndexExpr const b) const {
@@ -885,12 +931,14 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
   };
   // Neutral value: a * 1 = a, 1 * b = b.
   if (areFloat(b))
-    return binaryOp(b, false, true, true, 1.0, litFloatFct, nullptr, valueFct);
+    return binaryOp(
+        b, false, false, true, true, 1.0, litFloatFct, nullptr, valueFct);
   // For affine, requires one to be a literal, and in "b" (argument).
   if (isLiteral())
     return b.binaryOp(
-        *this, true, true, true, 1.0, litFct, affineExprFct, valueFct);
-  return binaryOp(b, true, true, true, 1.0, litFct, affineExprFct, valueFct);
+        *this, false, true, true, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, true, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Int operator
@@ -917,7 +965,8 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
   assert(!areFloat(b) && "floor div only supports int");
-  return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Int operator
@@ -941,7 +990,8 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
   assert(!areFloat(b) && "ceil div only supports int");
-  return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Int operator
@@ -965,7 +1015,8 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: ignore here that x % x = 0.
   assert(!areFloat(b) && "mod only supports int");
-  return binaryOp(b, true, false, false, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, false, false, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Float operator
@@ -980,7 +1031,9 @@ IndexExpr IndexExpr::operator/(IndexExpr const b) const {
   };
   // Neutral value: x / 1 = x.
   assert(areFloat(b) && "float only; int: use ceilDiv or floorDiv");
-  return binaryOp(b, false, false, true, 1.0, litFct, nullptr, valueFct);
+  // Note: there are no affine functions for float, so affineWithLitB==true or
+  // false is irrelevant.
+  return binaryOp(b, false, false, false, true, 1.0, litFct, nullptr, valueFct);
 }
 
 // Float operator.
@@ -1232,6 +1285,28 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     IndexExpr const first, int64_t const second) {
   SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
   return max(list);
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Ops Derivatives
+//===----------------------------------------------------------------------===//
+
+bool IndexExpr::retrieveAffineMinMax(bool &isMin,
+    llvm::SmallVectorImpl<mlir::Value> &vals, mlir::AffineMap &map) const {
+  Value val = this->getValue();
+  auto minOp = val.getDefiningOp<affine::AffineMinOp>();
+  auto maxOp = val.getDefiningOp<affine::AffineMaxOp>();
+  // Expect here the defining op to be either min or max.
+  if (minOp == nullptr && maxOp == nullptr)
+    return false;
+  isMin = minOp != nullptr;
+  if (isMin)
+    map = minOp.getAffineMap();
+  else
+    map = maxOp.getAffineMap();
+  IndexExprScope &scope = this->getScope();
+  scope.getDimAndSymbolList(vals);
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
