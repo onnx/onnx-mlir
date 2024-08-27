@@ -124,13 +124,16 @@ struct KrnlBuilder : public DialectBuilder {
   // This call is only applicable to loop bodies where every input/output is
   // strided in its innermost dimension. Inputs can also be loop invariant
   // (scalar), in term of the loop being iterated on.
+  //
+  // If useParallel is true, then the blocked SIMD loop is executed in parallel.
 
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
-      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
-      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::function_ref<void(KrnlBuilder &kb,
           mlir::ArrayRef<mlir::Value> inputVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals)>
+          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
           bodyBuilderFn);
 
   void yield(mlir::ValueRange iterArgs) const;

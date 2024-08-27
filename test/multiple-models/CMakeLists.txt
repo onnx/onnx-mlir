@@ -30,3 +30,4 @@ add_custom_target(check-multiple-models
 
 add_dependencies(check-onnx-backend onnx-mlir)
 add_dependencies(check-multiple-models PyRuntimeC)
+add_dependencies(check-multiple-models PyCompileAndRuntimeC)
