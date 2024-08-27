@@ -58,7 +58,7 @@ extern bool OMStatusMessagesEnabled;
 // Misc Macros
 // -----------------------------------------------------------------------------
 
-#define CEIL(a, b) (uint64_t)((a + b - 1) / b) // positive numbers only
+#define CEIL(a, b) (uint64_t)(((a) + (b)-1) / (b)) // positive numbers only
 
 // -----------------------------------------------------------------------------
 // Common structures
@@ -159,7 +159,7 @@ inline void omUnreachable() {
  */
 void checkStatus(zdnn_status status, const char *zdnn_name);
 
-#define CHECK_ZDNN_STATUS(status, zdnn_name) checkStatus(status, zdnn_name)
+#define CHECK_ZDNN_STATUS(status, zdnn_name) checkStatus((status), (zdnn_name))
 
 /**
  * \brief Get the unmapped shape (4D) of ztensor.

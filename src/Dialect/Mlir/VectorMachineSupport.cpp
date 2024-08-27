@@ -54,8 +54,7 @@ namespace onnx_mlir {
   }
   assert(globalVectorMachineSupport &&
          "failed to allocate vector machine support");
-
-  LLVM_DEBUG(llvm::dbgs() << "  use SIMD arch " << getArchName() << ":\n");
+  LLVM_DEBUG(llvm::dbgs() << "use SIMD arch " << getArchName() << "\n");
 }
 
 /*static*/ void VectorMachineSupport::clearGlobalVectorMachineSupport() {
@@ -78,23 +77,24 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   return (simdBitSize / typeBitSize);
 }
 
-/*static*/ double VectorMachineSupport::getAvgArchVectorLength(GenOpsMix GenOps,
+/*static*/ double VectorMachineSupport::getAvgArchVectorLength(GenOpMix &genOps,
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
-  int64_t size = GenOps.size();
+  int64_t size = genOps.size();
   if (!hasSimd()) {
     vectorizedOpNum = 0;
     scalarOpNum = size;
-    return 0;
+    return 1;
   }
   int64_t totProcessedValues = 0.0;
   vectorizedOpNum = 0;
   scalarOpNum = 0;
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
-  for (auto pair : GenOps) {
-    int64_t vl = getArchVectorLength(pair.first, elementType);
-    // If past last value, assume 1; otherwise use actual value.
+  for (auto pair : genOps) {
+    GenericOps genOp = pair.first;
     int64_t num = pair.second;
+    int64_t vl = getArchVectorLength(genOp, elementType);
+    // If past last value, assume 1; otherwise use actual value.
     // Accumulate weighted scalar/vectorized num and vl length.
     if (vl > 0)
       vectorizedOpNum += num;
@@ -107,7 +107,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
   scalarOpNum = size - vectorizedOpNum;
-  return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 0.0;
+  return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 1.0;
 }
 
 // =============================================================================
@@ -122,10 +122,11 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
 
   // Support shared between int and float.
   switch (Gop) {
-    // 1 - 16 byte operations.
+  case GenericOps::ScalarOnlyGop:
+    return 1; // Must be scalar.
   case GenericOps::SelectGop:
   case GenericOps::ShuffleGop:
-    return archVL;
+    return archVL; // 1 - 16 byte operations.
   default:
     // Continue with typed tests.
     break;
@@ -196,10 +197,11 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
 
   // Support shared between int and float.
   switch (Gop) {
-    // 1 - 16 byte operations.
+  case GenericOps::ScalarOnlyGop:
+    return 1; // Must be scalar.
   case GenericOps::SelectGop:
   case GenericOps::ShuffleGop:
-    return archVL;
+    return archVL; //// 1 - 16 byte operations.
   default:
     // Continue with typed tests.
     break;
@@ -281,10 +283,11 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
 
   // Support shared between int and float.
   switch (Gop) {
-    // 1 - 16 byte operations.
+  case GenericOps::ScalarOnlyGop:
+    return 1; // Must be scalar.
   case GenericOps::SelectGop:
   case GenericOps::ShuffleGop:
-    return archVL;
+    return archVL; // 1 - 16 byte operations.
   default:
     // Continue with typed tests.
     break;
@@ -350,6 +353,29 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
     return UNSUPPORTED;
   }
   llvm_unreachable("should have handled all cases above");
+}
+
+// =============================================================================
+// Support for Generic Operation Mix
+
+GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2) {
+  GenOpMix u;
+  // Pick ops from the first mix.
+  for (auto pair : mix1) {
+    GenericOps genOp = pair.first;
+    int64_t num = pair.second;
+    u[genOp] = num;
+  }
+  // Merge entries from the second mix.
+  for (auto pair : mix1) {
+    GenericOps genOp = pair.first;
+    int64_t num = pair.second;
+    if (u.find(genOp) != u.end())
+      u[genOp] += num; // Has this op already, add to it.
+    else
+      u[genOp] = num;
+  }
+  return u;
 }
 
 } // namespace onnx_mlir

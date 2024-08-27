@@ -27,65 +27,61 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
     Value scale, Value zeroPoint, bool enableSIMD, bool enableParallel) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+      rewriter, loc);
 
   // Types
   Type quantizedElementType = quantizedType.getElementType();
   int64_t rank = inputType.getRank();
 
+  // Flatten the input data and outputs
+  DimsExpr inputDims, flatInputDims, flatAllocDims;
+  inputDims = allocDims; // Unput and output have the same shape.
+  Value flatInput =
+      create.mem.reshapeToFlatInnermost(input, inputDims, flatInputDims, rank);
+  Value flatAlloc =
+      create.mem.reshapeToFlatInnermost(alloc, allocDims, flatAllocDims, rank);
+
   // Determine a suitable SIMD vector length for this loop.
   int64_t totVL = 1;
   int64_t simdLoopStaticTripCount = 0;
+  bool simdOnly = false;
   if (enableSIMD) {
-    totVL = VectorBuilder::computeSuitableUnrollFactor(
-        inputType /* use unquantized type*/,
-        1 /* only innermost loop is simdized */,
-        {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
-            {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
-            {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
-            {GenericOps::FloorGop, 2}},
-        simdLoopStaticTripCount);
+    int64_t innermostLoopCollapse = 1; // Only innermost is simdized.
+    bool canOverCompute = false;
+    GenOpMix mix = {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
+        {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
+        {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
+        {GenericOps::FloorGop, 2}};
+    totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
+        innermostLoopCollapse, mix, canOverCompute, simdLoopStaticTripCount,
+        simdOnly);
   }
-  // Has only simd iterations when we have SIMD (totVL > 1), the simd dimensions
-  // is a multiple of a non-zero constant (simdLoopStaticTripCount) iterations,
-  // and simdLoopStaticTripCount % totVL == 0.
-  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (totVL > 1) &&
-                            (simdLoopStaticTripCount % totVL == 0);
 
-  // Generate outer loops
-  ValueRange loopDef = create.krnl.defineLoops(rank - 1);
-  SmallVector<IndexExpr, 4> lbs(rank - 1, LitIE(0));
-  SmallVector<IndexExpr, 4> ubs = allocDims;
-  ubs.pop_back(); // Remove the last dim.
   IndexExpr zero = LitIE(0);
-  create.krnl.iterateIE(
-      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &kb, ValueRange loopInd) {
-        IndexExprScope scope(kb);
-        MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(kb);
-        IndexExpr simdLb = zero;
-        IndexExpr simdUb = SymIE(allocDims[rank - 1]);
-        // Create access functions for input X and output Y.
-        DimsExpr inputAF = SymListIE(loopInd);
-        inputAF.emplace_back(zero);
-        DimsExpr outputAF = SymListIE(loopInd);
-        outputAF.emplace_back(zero);
-        create.krnl.simdIterateIE(simdLb, simdUb, totVL, onlySimdIterations,
-            {input}, {inputAF}, {alloc}, {outputAF},
-            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-                SmallVectorImpl<Value> &resVals) {
-              MultiDialectBuilder<MathBuilder> create(kb);
-              Value x = inputVals[0];
-              // Scale
-              Value scaleX = create.math.div(x, scale);
-              // Round
-              Value roundX = create.math.round(scaleX);
-              // Adjust
-              Value adjustX = create.math.add(roundX, zeroPoint);
-              // Saturate
-              Value saturateX = create.math.clip(adjustX, qMin, qMax);
-              Value res = create.math.cast(quantizedElementType, saturateX);
-              resVals.emplace_back(res);
-            });
+  IndexExpr simdLb = zero;
+  IndexExpr simdUb = flatAllocDims[0];
+  // Create access functions for input X and output Y.
+  DimsExpr inputAF;
+  inputAF.emplace_back(zero);
+  DimsExpr outputAF;
+  outputAF.emplace_back(zero);
+  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
+      {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
+      [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
+          SmallVectorImpl<Value> &resVals, int64_t VL) {
+        MultiDialectBuilder<MathBuilder> create(kb);
+        Value x = inputVals[0];
+        // Scale
+        Value scaleX = create.math.div(x, scale);
+        // Round
+        Value roundX = create.math.round(scaleX);
+        // Adjust
+        Value adjustX = create.math.add(roundX, zeroPoint);
+        // Saturate
+        Value saturateX = create.math.clip(adjustX, qMin, qMax);
+        Value res = create.math.cast(quantizedElementType, saturateX);
+        resVals.emplace_back(res);
       });
   if (totVL > 1)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
