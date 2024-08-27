@@ -159,8 +159,7 @@ mlir::Value foldOrEmitONNXTransposeOpKrnl(
 /// The new view is created using the given 'outputDims'.
 mlir::Value emitMemRefReinterpretCastOp(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
-    mlir::Value data, llvm::SmallVectorImpl<IndexExpr> &outputDims,
-    mlir::Type outputType);
+    mlir::Value data, DimsExpr &outputDims, mlir::Type outputType);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.

@@ -318,8 +318,7 @@ Value foldOrEmitONNXTransposeOpKrnl(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims,
-    Type outputType) {
+    Location loc, Value data, DimsExpr &outputDims, Type outputType) {
   MemRefBuilder createMemRef(rewriter, loc);
   Value newView = createMemRef.reinterpretCast(data, outputDims);
   // Set type to the output type to avoid unrealized_conversion_cast.

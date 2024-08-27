@@ -1132,8 +1132,7 @@ memref::AllocOp MemRefBuilder::alloc(
   return alloc(type, dynSymbols);
 }
 
-memref::AllocOp MemRefBuilder::alloc(
-    MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const {
+memref::AllocOp MemRefBuilder::alloc(MemRefType type, DimsExprRef dims) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return alloc(type, dynSymbols);
@@ -1168,8 +1167,8 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   return alignedAlloc(type, dynSymbols, alignment);
 }
 
-memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t alignment) const {
+memref::AllocOp MemRefBuilder::alignedAlloc(
+    MemRefType type, DimsExprRef dims, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return alignedAlloc(type, dynSymbols, alignment);
@@ -1267,8 +1266,8 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 }
 
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-    IndexExpr &dynSize, int64_t range) const {
+    DimsExprRef dims, int64_t &staticSize, IndexExpr &dynSize,
+    int64_t range) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return getStaticAndDynamicMemSize(
@@ -1353,9 +1352,8 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
   return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
-Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL,
-    int64_t alignment) const {
+Value MemRefBuilder::alignedAllocWithSimdPadding(
+    MemRefType type, DimsExprRef dims, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
@@ -1395,7 +1393,7 @@ memref::ReshapeOp MemRefBuilder::reshape(MemRefType destType,
 }
 
 memref::ReshapeOp MemRefBuilder::reshape(
-    llvm::SmallVectorImpl<IndexExpr> &destDims, Value valToReshape) const {
+    DimsExpr &destDims, Value valToReshape) const {
   // Compute Shape.
   llvm::SmallVector<int64_t, 4> outputShape;
   IndexExpr::getShape(destDims, outputShape);
@@ -1425,9 +1423,7 @@ memref::ReshapeOp MemRefBuilder::reshape(
 // flatten at least 1 dim (which is a noop). Output rank is Rank(input) -
 // dimsToFlatten + 1.
 Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims,
-    llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
-    int64_t dimsToFlatten) const {
+    DimsExprRef dims, DimsExpr &flattenedDims, int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = mlir::cast<MemRefType>(valToReshape.getType());
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
@@ -1439,7 +1435,8 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
   if (dimsToFlatten == 1) {
     // Flattening of the last dim is really no flattening at all. Return
     // original value before doing the actual reshaping, which is unnecessary.
-    flattenedDims = dims;
+    for (IndexExpr d : dims)
+      flattenedDims.emplace_back(d);
     return valToReshape;
   }
   // Compute the dimensions of the flattened array.
@@ -1457,9 +1454,8 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
   return reshape(flattenedDims, valToReshape);
 }
 
-Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims,
-    llvm::SmallVectorImpl<IndexExpr> &flattenedDims, int64_t axis) const {
+Value MemRefBuilder::reshapeToFlat2D(Value valToReshape, DimsExprRef dims,
+    DimsExpr &flattenedDims, int64_t axis) const {
   // Parse input.
   MemRefType inputType = mlir::cast<MemRefType>(valToReshape.getType());
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
@@ -1471,7 +1467,8 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
   assert(axis > 0 && axis < inputRank && "axis is out of range");
   if (inputRank == 2) {
     // Input is already 2D, nothing to do.
-    flattenedDims = dims;
+    for (IndexExpr d : dims)
+      flattenedDims.emplace_back(d);
     return valToReshape;
   }
   // Compute the dimensions of the flattened array.
@@ -1490,8 +1487,8 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
   return reshape(flattenedDims, valToReshape);
 }
 
-memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &outputDims, MemRefType outputType) const {
+memref::ReshapeOp MemRefBuilder::reshapeFromFlat(
+    Value valToReshape, DimsExpr &outputDims, MemRefType outputType) const {
   assert(!hasNonIdentityLayout(outputType) && "MemRef is not normalized");
   return reshape(outputDims, valToReshape);
 }
@@ -1503,14 +1500,13 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b().create<memref::CastOp>(loc(), outputType, input);
 }
 
-Value MemRefBuilder::reinterpretCast(
-    Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
+Value MemRefBuilder::reinterpretCast(Value input, DimsExpr &outputDims) const {
   // IndexExpr zero = LiteralIndexExpr(0);
   return reinterpretCast(input, nullptr, outputDims);
 }
 
 Value MemRefBuilder::reinterpretCast(
-    Value input, Value offset, SmallVectorImpl<IndexExpr> &outputDims) const {
+    Value input, Value offset, DimsExpr &outputDims) const {
   // Compute new sizes and strides.
   int64_t rank = outputDims.size();
   SmallVector<IndexExpr, 4> sizesIE, stridesIE;

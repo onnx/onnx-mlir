@@ -266,9 +266,8 @@ struct MemRefBuilder final : DialectBuilder {
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
       int64_t range = 1000) const;
-  bool getStaticAndDynamicMemSize(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-      IndexExpr &dynSize, int64_t range = 1000) const;
+  bool getStaticAndDynamicMemSize(mlir::MemRefType type, DimsExprRef dims,
+      int64_t &staticSize, IndexExpr &dynSize, int64_t range = 1000) const;
   // Same as above, but does not track of dynamic size.
   static bool getStaticMemSize(
       mlir::MemRefType type, int64_t &staticSize, int64_t range = 1000);
@@ -280,8 +279,7 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
   mlir::memref::AllocOp alloc(
       mlir::Value operandOfSameType, mlir::MemRefType type) const;
-  mlir::memref::AllocOp alloc(
-      mlir::MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const;
+  mlir::memref::AllocOp alloc(mlir::MemRefType type, DimsExprRef dims) const;
 
   // Alloc for static shapes with alignment.
   // Minimum alignment is gDefaultAllocAlign.
@@ -292,8 +290,7 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::ValueRange dynSymbols, int64_t align = defaultAlign) const;
   mlir::memref::AllocOp alignedAlloc(mlir::Value operandOfSameType,
       mlir::MemRefType type, int64_t align = defaultAlign) const;
-  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims,
+  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type, DimsExprRef dims,
       int64_t align = defaultAlign) const;
 
   // Alloc for shapes with alignment and padding for safe full SIMD
@@ -313,8 +310,7 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::MemRefType type, int64_t VL = 1,
       int64_t align = defaultAlign) const;
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL = 1,
-      int64_t align = defaultAlign) const;
+      DimsExprRef dims, int64_t VL = 1, int64_t align = defaultAlign) const;
 
   // The alloca instruction allocates memory on the stack frame of the
   // currently executing function, to be automatically released when this
@@ -331,39 +327,34 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::Value valToReshape, mlir::Value outputShapeStoredInMem) const;
   // Reshape to dimensions passed by destDims. Will create data-structure to
   // hold the dims, save into it, and the perform the actual reshape.
-  mlir::memref::ReshapeOp reshape(llvm::SmallVectorImpl<IndexExpr> &outputDims,
-      mlir::Value valToReshape) const;
+  mlir::memref::ReshapeOp reshape(
+      DimsExpr &outputDims, mlir::Value valToReshape) const;
   // Flatten innermost dimensions of a MemRef. User provide the value to
   // reshape (valToReshape), its dims (dims), and the number of innermost
   // loops to collapse (dimsToFlatten). The function computes the new
   // flattened dimensions (flattenDims) and return the flattened value. Values
   // of dimsToFlatten are in the [1, rank of input] range. Legal only on types
   // with identity layouts.
-  mlir::Value reshapeToFlatInnermost(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &dims,
-      llvm::SmallVectorImpl<IndexExpr> &flattenDims,
-      int64_t dimsToFlatten) const;
+  mlir::Value reshapeToFlatInnermost(mlir::Value valToReshape, DimsExprRef dims,
+      DimsExpr &flattenDims, int64_t dimsToFlatten) const;
   // Flatten to a 2D MemRef, with outer dim including outermost dim to axis
   // -1, and inner dim including the remaining innermost dims. Values of axis
   // are in the [1, rank of input) range. Negative axis values are taken from
   // the back. Legal only on types with identity layouts.
-  mlir::Value reshapeToFlat2D(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &dims,
-      llvm::SmallVectorImpl<IndexExpr> &flattenDims, int64_t axis) const;
+  mlir::Value reshapeToFlat2D(mlir::Value valToReshape, DimsExprRef dims,
+      DimsExpr &flattenDims, int64_t axis) const;
   // Perform the reverse operation; given a flattened value, unflatten it by
   // giving the function its original unflattened dimensions (outputDims) and
   // type (outputType). Legal only on types with identity layouts.
   mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &outputDims,
-      mlir::MemRefType outputType) const;
+      DimsExpr &outputDims, mlir::MemRefType outputType) const;
 
   // Casts.
   mlir::memref::CastOp cast(
       mlir::Value input, mlir::MemRefType outputType) const;
+  mlir::Value reinterpretCast(mlir::Value input, DimsExpr &outputDims) const;
   mlir::Value reinterpretCast(
-      mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
-  mlir::Value reinterpretCast(mlir::Value input, mlir::Value offset,
-      llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+      mlir::Value input, mlir::Value offset, DimsExpr &outputDims) const;
 
   // Does not support layouts at this time. Does only work for values that are
   // then loaded with affine or memref scalar load/store (MLIR limitations).
@@ -408,7 +399,7 @@ private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
   void computeDynSymbols(
       mlir::MemRefType type, // Use type to determine dynamic dimensions.
-      DimsExprRef dims, // Get dyn syms from index expr.
+      DimsExprRef dims,      // Get dyn syms from index expr.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
       const;
   void computeDynSymbols(
