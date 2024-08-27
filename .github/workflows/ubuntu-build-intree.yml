@@ -1,4 +1,4 @@
-name: Build in-tree
+name: In-tree build
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [ main, feature/onnx-to-tosa ]
 
 concurrency:
-  # Build every push to main
+  # Build every push.
   # Only build the newest PR; cancel older builds of a PR
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
