@@ -69,12 +69,14 @@ jobs:
           -DLLVM_ENABLE_PROJECTS=mlir \
           -DLLVM_EXTERNAL_PROJECTS="onnx-mlir" \
           -DONNX_MLIR_ENABLE_STABLEHLO=OFF \
-          -DLLVM_ENABLE_RTTI=ON \
           -DLLVM_EXTERNAL_ONNX_MLIR_SOURCE_DIR=. \
           -DLLVM_TARGETS_TO_BUILD=host \
           -DLLVM_BUILD_TOOLS=OFF \
           -DLLVM_BUILD_UTILS=OFF \
           -DLLVM_BUILD_RUNTIMES=OFF \
+          -DLLVM_ENABLE_ASSERTIONS=ON \
+          -DLLVM_ENABLE_RTTI=ON \
+          -DLLVM_ENABLE_LIBEDIT=OFF \
           -DLLVM_USE_LINKER=lld \
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
