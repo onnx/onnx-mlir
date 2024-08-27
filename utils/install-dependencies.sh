@@ -8,6 +8,7 @@ cd protobuf
 ./autogen.sh
 ./configure --enable-static=no --prefix=/usr
 sudo make -j2 install
+cd ..
 
 python3 -m pip install --upgrade wheel
 python3 -m pip install -r requirements.txt
