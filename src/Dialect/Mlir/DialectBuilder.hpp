@@ -368,7 +368,7 @@ struct MemRefBuilder final : DialectBuilder {
   // Does not support layouts at this time. Does only work for values that are
   // then loaded with affine or memref scalar load/store (MLIR limitations).
   mlir::Value collapseShape(mlir::Value input,
-      llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
+      mlir::ArrayRef<mlir::ReassociationIndices> reassociation);
 
   // Create a view of input value (<byte size>xi8) starting at byteOffset and
   // shaped by outputType.
@@ -478,7 +478,7 @@ struct VectorBuilder final : DialectBuilder {
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
       mlir::ValueRange indices, mlir::ValueRange offsets) const;
   mlir::Value loadIE(mlir::VectorType vecType, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
   // Vector store: memref can be a scalar, will store the vector values.
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
@@ -486,7 +486,7 @@ struct VectorBuilder final : DialectBuilder {
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
       mlir::ValueRange offsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
 
   // Splat: a single value is copied.
   mlir::Value splat(mlir::VectorType vecType, mlir::Value val) const;
@@ -526,14 +526,14 @@ struct GenericAffineBuilder final : DialectBuilder {
   // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
-  mlir::Value loadIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices = {},
+  mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
 
   // Add offsets (if any) to the least significant memref dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices = {},
+      mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
 
   mlir::Operation *prefetch(mlir::Value memref, mlir::AffineMap map,
@@ -543,15 +543,13 @@ struct GenericAffineBuilder final : DialectBuilder {
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
           builderFn) const;
-  void forLoopsIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
-      llvm::SmallVectorImpl<IndexExpr> &ubs,
-      llvm::SmallVectorImpl<int64_t> &steps,
+  void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+      mlir::ArrayRef<int64_t> steps,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
           builderFn) const;
 
   // This if then else construct has no arguments to the blocks.
-  void ifThenElse(IndexExprScope &scope,
-      llvm::SmallVectorImpl<IndexExpr> &conditions,
+  void ifThenElseIE(IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
       mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
       mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
       const;
@@ -563,9 +561,8 @@ struct GenericAffineBuilder final : DialectBuilder {
 
 private:
   // Support for multiple forLoopIE loops.
-  void recursionForLoopsIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
-      llvm::SmallVectorImpl<IndexExpr> &ubs,
-      llvm::SmallVectorImpl<int64_t> &steps,
+  void recursionForLoopsIE(mlir::ArrayRef<IndexExpr> lbs,
+      mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
       llvm::SmallVectorImpl<mlir::Value> &loopIndices,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
           builderFn) const;
@@ -614,7 +611,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // BrOp
   void br(
-      llvm::ArrayRef<mlir::Value> destOperands, mlir::Block *destBlock) const;
+      mlir::ArrayRef<mlir::Value> destOperands, mlir::Block *destBlock) const;
 
   // CallOp
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
@@ -626,8 +623,8 @@ struct LLVMBuilder final : DialectBuilder {
 
   // CondBrOp
   void condBr(mlir::Value cond, mlir::Block *trueBlock,
-      llvm::ArrayRef<mlir::Value> trueOperands, mlir::Block *falseBlock,
-      llvm::ArrayRef<mlir::Value> falseOperands) const;
+      mlir::ArrayRef<mlir::Value> trueOperands, mlir::Block *falseBlock,
+      mlir::ArrayRef<mlir::Value> falseOperands) const;
 
   // ConstantOp
   mlir::Value constant(mlir::Type type, int64_t val) const;
@@ -639,7 +636,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // ExtractValueOp
   mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
-      llvm::ArrayRef<int64_t> position) const;
+      mlir::ArrayRef<int64_t> position) const;
 
   // FuncOp (assume non-variadic functions, otherwise add support like in
   // seen in `call` in this file).
@@ -648,7 +645,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // GEPOp
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Type elemType,
-      mlir::Value base, llvm::ArrayRef<mlir::LLVM::GEPArg> indices) const;
+      mlir::Value base, mlir::ArrayRef<mlir::LLVM::GEPArg> indices) const;
 
   // GlobalOp
   mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
@@ -665,7 +662,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // InsertValueOp
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
-      mlir::Value val, llvm::ArrayRef<int64_t> position) const;
+      mlir::Value val, mlir::ArrayRef<int64_t> position) const;
 
   // Inttoptr
   mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
@@ -717,7 +714,7 @@ struct LLVMBuilder final : DialectBuilder {
   // Get or insert a function declaration at the beginning of the module.
   mlir::FlatSymbolRefAttr getOrInsertSymbolRef(mlir::ModuleOp module,
       llvm::StringRef symName, mlir::Type resultType,
-      llvm::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
+      mlir::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
 
   /// Generate code that looks like "if then with optional else" at LLVM.
   /// The following prototype code will be generated:

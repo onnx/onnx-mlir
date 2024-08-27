@@ -225,7 +225,7 @@ public:
       // SIMD code generator.
       if (matVectorProduct) {
         // clang-format off
-        create.affineKMem.ifThenElse(indexScope, allFullTiles,
+        create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
           /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimdMatVect(createAffine, matmulOp, elementType, aStart, bStart,
             cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
@@ -237,7 +237,7 @@ public:
         // clang-format on
       } else {
         // clang-format off
-        create.affineKMem.ifThenElse(indexScope, allFullTiles,
+        create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
           /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
              cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
@@ -245,7 +245,7 @@ public:
         }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           // Trip regardless of full/partial for N & K
           // Test if SIMD dim (M) is full.
-          createAffine.ifThenElse(indexScope, jFullTiles,
+          createAffine.ifThenElseIE(indexScope, jFullTiles,
             /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
             genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
                cStart, iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
@@ -267,7 +267,7 @@ public:
     } else {
       // Scalar code generator.
       // clang-format off
-      create.affineKMem.ifThenElse(indexScope, allFullTiles,
+      create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
         /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
         genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
