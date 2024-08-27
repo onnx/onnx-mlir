@@ -6,10 +6,10 @@ Backend tests are triggered by `make check-onnx-backend` in the build directory 
 
 You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` variable in your top cmake file.
 
-You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` or linux: `apt -y install python3-pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` or linux: `apt -y install python3-pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install third_party/onnx`) typed in the top directory.
 
  ## Upgrading ONNX in ONNX-MLIR
-``` 
+
 Here are the steps taken to upgrade the ONNX version:
 
 1.	Create your own branch
@@ -18,7 +18,7 @@ Here are the steps taken to upgrade the ONNX version:
 
 3.	"pip uninstall onnx" (remove older version)
 
-4.	In `onnx-mlir/` directory, "pip install -e third_party/onnx" (install onnx from the commit and not online version)
+4.	In `onnx-mlir/` directory, "pip install third_party/onnx" (install onnx from the commit and not online version)
 
 5.	Update `utils/gen_onnx_mlir.py` file with the correct version number
 
@@ -37,8 +37,6 @@ Here are the steps taken to upgrade the ONNX version:
 12.	Update the [Opset documentation for NNPA](https://github.com/onnx/onnx-mlir/blob/main/test/backend/inference_backend.py) and then issue the following command in the `build/` directory: "make onnx_mlir_supported_ops_NNPA"
 
 13.	Ensure the lit tests and backend tests pass successfully and then you are done!
-
-```
 
 
 **Note: Please use `git add <filename>` for files that might have been changed before doing a PR.** 
