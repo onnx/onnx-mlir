@@ -20,6 +20,7 @@ add_onnx_mlir_library(OMKrnlOps
   OMSpecializedKernelOpInterface
 
   LINK_LIBS PUBLIC
+  OMCompilerOptions
   OMONNXOps
   MLIRLLVMCommonConversion
   MLIRAffineDialect

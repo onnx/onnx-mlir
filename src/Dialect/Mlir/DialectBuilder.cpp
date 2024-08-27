@@ -25,6 +25,7 @@
 #include "llvm/Support/Debug.h"
 
 // Please do not add dependences on ONNX or KRNL dialects.
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
@@ -1642,6 +1643,8 @@ Value MemRefBuilder::dim(Value val, Value index) const {
 
 void MemRefBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
     unsigned locality, bool isData) {
+  if (disableMemRefPrefetch)
+    return;
   b().create<memref::PrefetchOp>(
       loc(), memref, indices, isWrite, locality, isData);
 }
@@ -1649,6 +1652,8 @@ void MemRefBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
 void MemRefBuilder::prefetchIE(Value memref,
     llvm::SmallVectorImpl<IndexExpr> &indices, bool isWrite, unsigned locality,
     bool isData) {
+  if (disableMemRefPrefetch)
+    return;
   SmallVector<Value, 4> indexVals;
   IndexExpr::getValues(indices, indexVals);
   prefetch(memref, indexVals, isWrite, locality, isData);

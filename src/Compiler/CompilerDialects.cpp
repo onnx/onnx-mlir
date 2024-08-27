@@ -46,8 +46,8 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   for (auto *accel : accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
 
-  if (useOldBufferization)
-    memref::registerAllocationOpInterfaceExternalModels(registry);
+  memref::registerAllocationOpInterfaceExternalModels(registry);
+  arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
 
   return registry;
 }
