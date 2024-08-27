@@ -12,9 +12,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
-import shutil
 import sys
-import warnings
 import json
 import base64
 import numpy as np
