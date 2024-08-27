@@ -696,8 +696,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
-    auto valueAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-        zhighStickifiedConstOp.getValueAttr());
+    auto valueAttr = zhighStickifiedConstOp.getValueAttr();
 
     // Create a ZLowStickifiedConstantOp.
     // Set nullptr in the valueAttr when it is initialized with zero later.
