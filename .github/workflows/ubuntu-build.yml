@@ -41,15 +41,8 @@ jobs:
         variant: sccache
         create-symlink: true
 
-    - name: install protobuf
-      run: |
-        # Keep in sync with utils/install-protobuf.sh
-        PROTOBUF_VERSION=21.12
-        git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
-        cd protobuf
-        ./autogen.sh
-        ./configure --enable-static=no --prefix=/usr
-        sudo make -j2 install
+    - name: install dependencies
+      run: utils/install-dependencies.sh
 
     - name: clone & build MLIR
       run: |
@@ -57,12 +50,6 @@ jobs:
         export EXTRA_CMAKE_ARGS="-DLLVM_USE_LINKER=lld -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
         sh onnx-mlir/utils/clone-mlir.sh
         sh onnx-mlir/utils/build-mlir.sh
-
-    - name: install python requirements
-      run: |
-        python3 -m pip install --upgrade wheel
-        python3 -m pip install -r requirements.txt
-        pip install onnx==1.15.0
 
     - name: build onnx-mlir
       run: |

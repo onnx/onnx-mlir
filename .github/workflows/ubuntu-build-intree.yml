@@ -29,33 +29,15 @@ jobs:
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1
       with:
-        # A full build of llvm, clang, lld, and lldb takes about 250MB
-        # of ccache space. There's not much reason to have more than this,
-        # because we usually won't need to save cache entries from older
-        # builds.  Also, there is an overall 10GB cache limit, and each
-        # run creates a new cache entry so we want to ensure that we have
-        # enough cache space for all the tests to run at once and still
-        # fit under the 10 GB limit.
-        max-size: 500M
+        # A full build seems to take ~ 250 MB. Leave a bit more room
+        # so we don't run out of cache space in the future.
+        max-size: 400M
         key: sccache-intree
         variant: sccache
         create-symlink: true
 
-    - name: install protobuf
-      run: |
-        # Keep in sync with utils/install-protobuf.sh
-        PROTOBUF_VERSION=21.12
-        git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
-        cd protobuf
-        ./autogen.sh
-        ./configure --enable-static=no --prefix=/usr
-        sudo make -j2 install
-
-    - name: install python requirements
-      run: |
-        python3 -m pip install --upgrade wheel
-        python3 -m pip install -r requirements.txt
-        pip install onnx==1.15.0
+    - name: install dependencies
+      run: utils/install-dependencies.sh
 
     - name: clone llvm-project
       run: sh utils/clone-mlir.sh
