@@ -774,9 +774,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     });
     // Perform reduction of entire vectors.
     IndexExpr izero = LiteralIndexExpr(0);
-    create.affineKMem.forIE(izero, redDim, totVL,
-        [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
+    create.affineKMem.forLoopIE(izero, redDim, totVL,
+        [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
+          Value j = loopInd[0];
           // load X, compute X**2, sum into reductions.
           inlineFor(create, B, [&](int64_t d, Value o) {
             Value ii = create.math.add(i, o);
@@ -828,9 +829,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       invStdDev[d] = create.math.div(oneFloat, stdDev);
     });
     // Normalize of entire vectors.
-    create.affineKMem.forIE(izero, redDim, totVL,
-        [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
+    create.affineKMem.forLoopIE(izero, redDim, totVL,
+        [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
+          Value j = loopInd[0];
           // load X, compute X**2, sum into reductions.
           inlineFor(create, B, [&](int64_t d, Value o) {
             Value ii = create.math.add(i, o);

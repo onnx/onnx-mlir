@@ -454,7 +454,7 @@ public:
 #endif
 #endif
 
-          create.affine.forIE(litZero, simdLoopUB, totVL,
+          create.affine.forLoopIE(litZero, simdLoopUB, totVL,
               [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;

@@ -302,11 +302,13 @@ private:
     // For i, j loops.
     LiteralIndexExpr zeroIE(0);
     Value jSaved;
-    createAffine.forIE(
-        zeroIE, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
-          createAffine.forIE(
-              zeroIE, J, 1, [&](AffineBuilderKrnlMem &createAffine, Value j) {
+    createAffine.forLoopIE(zeroIE, I, 1,
+        [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+          Value i = loopInd[0];
+          createAffine.forLoopIE(zeroIE, J, 1,
+              [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
                 MathBuilder createMath(createAffine);
+                Value j = loopInd[0];
                 // Defines induction variables, and possibly initialize C.
                 jSaved = j;
                 // Alloc and init temp c storage.
@@ -315,9 +317,11 @@ private:
                 // TTmpC() = affine_load(C, cAccess);
                 createAffine.store(initVal, TmpC, tmpCAccess);
                 // Sum over k.
-                createAffine.forIE(zeroIE, K, 1,
-                    [&](AffineBuilderKrnlMem &createAffine, Value k) {
+                createAffine.forLoopIE(zeroIE, K, 1,
+                    [&](AffineBuilderKrnlMem &createAffine,
+                        ValueRange loopInd) {
                       MathBuilder createMath(createAffine);
+                      Value k = loopInd[0];
                       Value a = createAffine.loadIE(A, aStart, {i, k});
                       Value b = createAffine.loadIE(B, bStart, {k, j});
                       Value res = createMath.mul(a, b);
@@ -382,9 +386,10 @@ private:
     LiteralIndexExpr zeroIE(0);
     Value iZero = create.math.constantIndex(0);
 
-    create.affineKMem.forIE(
-        zeroIE, K, VL, [&](AffineBuilderKrnlMem &createAffine, Value k) {
+    create.affineKMem.forLoopIE(zeroIE, K, VL,
+        [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
+          Value k = loopInd[0];
           // Iterates over the I indices (K is SIMD dim).
           // First compute A[i,k]*B[k, 1] for i=0..iUnrollFactor explicitly.
           // We reuse B[k][0] vector for each iteration of i.
@@ -463,19 +468,21 @@ private:
     LiteralIndexExpr zeroIE(0);
     Value iZero = create.math.constantIndex(0);
 
-    createAffine.forIE(
-        zeroIE, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
+    createAffine.forLoopIE(zeroIE, I, 1,
+        [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
+          Value i = loopInd[0];
           iSaved = i; // Saved for unroll and jam.
           // Alloca temp vector TmpC and save C(i)/0.0 into it.
           Value initVal = create.vec.loadIE(vecType, C, cStart, {i, iZero});
           Value tmpCAccess = (unrollFactor > 1) ? i : zeroIE.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
-          createAffine.forIE(
-              zeroIE, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
+          createAffine.forLoopIE(zeroIE, K, 1,
+              [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
                 MultiDialectBuilder<MathBuilder, VectorBuilder> create(
                     createAffine);
+                Value k = loopInd[0];
                 kSaved = k;
                 Value a = createAffine.loadIE(A, aStart, {i, k});
                 Value va = create.vec.broadcast(vecType, a);

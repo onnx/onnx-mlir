@@ -58,7 +58,7 @@ public:
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<int64_t, 4> steps(rank, 1);
     // Copy data,
-    create.affineKMem.forIE(lbs, ubs, steps,
+    create.affineKMem.forLoopsIE(lbs, ubs, steps,
         [&](AffineBuilderKrnlMem &createAffine, ValueRange indices) {
           createAffine.store(destVal, destMemRef, indices);
         });

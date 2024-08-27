@@ -523,29 +523,27 @@ struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~GenericAffineBuilder() {}
 
-  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
-  mlir::Value loadIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
-      mlir::ValueRange offsets) const;
+  // Add offsets (if any) to the least significant memref dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  mlir::Value loadIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
 
-  void store(
-      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
+  // Add offsets (if any) to the least significant memref dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      llvm::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
 
   mlir::Operation *prefetch(mlir::Value memref, mlir::AffineMap map,
       mlir::ValueRange indices, bool isWrite, unsigned localityHint,
       bool isDataCache = true);
 
-  void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
-      const;
-  void forIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+          builderFn) const;
+  void forLoopsIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
       llvm::SmallVectorImpl<IndexExpr> &ubs,
       llvm::SmallVectorImpl<int64_t> &steps,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
@@ -564,8 +562,8 @@ struct GenericAffineBuilder final : DialectBuilder {
   void yield() const;
 
 private:
-  // Support for multiple forIE loops.
-  void recursionForIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
+  // Support for multiple forLoopIE loops.
+  void recursionForLoopsIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
       llvm::SmallVectorImpl<IndexExpr> &ubs,
       llvm::SmallVectorImpl<int64_t> &steps,
       llvm::SmallVectorImpl<mlir::Value> &loopIndices,
