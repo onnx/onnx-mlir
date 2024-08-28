@@ -885,7 +885,7 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
   // Neutral value: a + 0 = a, 0 + b = b.
   if (areFloat(b))
     return binaryOp(
-        b, true, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
+        b, false, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
   return binaryOp(
       b, true, false, true, true, 0.0, litFct, affineExprFct, valueFct);
 }
@@ -907,7 +907,7 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
   // Neutral value: a - 0 = a.
   if (areFloat(b))
     return binaryOp(
-        b, true, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
+        b, false, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
   return binaryOp(
       b, true, false, false, true, 0.0, litFct, affineExprFct, valueFct);
 }
