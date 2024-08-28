@@ -234,7 +234,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
     }
     Value castedVal = createMath.castToIndex(val);
     if (makeSymbol)
-      return SymbolIndexExpr(castedVal);
+      return SymIE(castedVal);
     else
       return DimIndexExpr(castedVal);
   }
@@ -381,7 +381,7 @@ IndexExpr IndexExprBuilder::getShapeAsSymbol(
   if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
-    return SymbolIndexExpr(val);
+    return SymIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 

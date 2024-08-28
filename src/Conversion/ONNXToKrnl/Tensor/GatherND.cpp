@@ -154,7 +154,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
           // Access function for 'reshapedData'. The first index is equal to the
           // first loop index.
           DimsExpr reshapedDataAccessFct;
-          IndexExpr ind = SymbolIndexExpr(loopInd[0]);
+          IndexExpr ind = SymIE(loopInd[0]);
           reshapedDataAccessFct.emplace_back(ind);
 
           // The last index of the access function for 'reshapedIndices' is
@@ -213,7 +213,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             ValueRange innerLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(innerLoopDef, innerLoopDef, {zero}, {last},
                 [&](KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
-                  IndexExpr ind = SymbolIndexExpr(innerLoopInd[0]);
+                  IndexExpr ind = SymIE(innerLoopInd[0]);
                   reshapedDataAccessFct.emplace_back(ind);
                   assert((int64_t)reshapedDataAccessFct.size() ==
                              reshapedDataRank &&

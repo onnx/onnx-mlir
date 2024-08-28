@@ -219,7 +219,7 @@ struct ONNXInstanceNormalizationOpLowering
           SmallVector<IndexExpr, 4> lbs(rank - 2, iZero);
           SmallVector<IndexExpr, 4> ubs;
           for (int d = 2; d < rank; ++d)
-            ubs.emplace_back(SymbolIndexExpr(inputBounds[d]));
+            ubs.emplace_back(SymIE(inputBounds[d]));
 
           // First compute the mean: store zero in reduction value, then sum up
           // all of the values in the channel, and divide by the number of
@@ -967,7 +967,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
           Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
-          IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0]);
+          IndexExpr blockedUB = SymIE(XFlatDims[0]);
           IndexExpr isFull = create.krnlIE.isTileFull(
               blockedCurrIndex, LitIE(B), blockedUB);
           Value zero = create.math.constantIndex(0);

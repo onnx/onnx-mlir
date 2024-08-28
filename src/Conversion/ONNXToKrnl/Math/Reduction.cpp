@@ -729,8 +729,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(loopDef, loopDef, {LitIE(0)},
-            {axisShape0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        createKrnl.iterateIE(loopDef, loopDef, {LitIE(0)}, {axisShape0},
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
@@ -1217,10 +1217,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex =
               DimIndexExpr(blockedOutLoopInd[flatOutRank - 1]);
-          IndexExpr blockedUB =
-              SymbolIndexExpr(flatOutDims[flatOutRank - 1].getValue());
-          IndexExpr isFull = create.krnlIE.isTileFull(
-              blockedCurrIndex, LitIE(VL), blockedUB);
+          IndexExpr blockedUB = SymIE(flatOutDims[flatOutRank - 1].getValue());
+          IndexExpr isFull =
+              create.krnlIE.isTileFull(blockedCurrIndex, LitIE(VL), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(

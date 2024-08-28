@@ -58,8 +58,8 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
           SmallVector<IndexExpr, 4> loadIndices, storeIndices;
           for (int ii = 0; ii < outputRank; ++ii) {
             DimIndexExpr inductionIndex(loopInd[ii]);
-            IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
-            IndexExpr step = SymbolIndexExpr(shapeHelper.steps[ii]);
+            IndexExpr start = SymIE(shapeHelper.starts[ii]);
+            IndexExpr step = SymIE(shapeHelper.steps[ii]);
             loadIndices.emplace_back((step * inductionIndex) + start);
             storeIndices.emplace_back(inductionIndex);
           }

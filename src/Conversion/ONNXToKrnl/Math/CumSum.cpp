@@ -147,8 +147,8 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
       nos = create.math.log2(nos);
       nos = create.math.cast(i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
-      // numberOfStep = SymbolIndexExpr(nos);
-      numberOfStep = SymbolIndexExpr(nos) + LitIE(1);
+      // numberOfStep = SymIE(nos);
+      numberOfStep = SymIE(nos) + LitIE(1);
     }
 
     // Input and output have the same shape, so they share the bounds.

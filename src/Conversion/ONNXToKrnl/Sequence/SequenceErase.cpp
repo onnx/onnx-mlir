@@ -55,7 +55,7 @@ struct ONNXSequenceEraseOpLowering
       // Erase the end of the sequence
       positionIE = boundIE - 1;
     } else {
-      positionIE = SymbolIndexExpr(create.krnl.load(adaptor.getPosition()));
+      positionIE = SymIE(create.krnl.load(adaptor.getPosition()));
       // Handle the negative position
       IndexExpr correctionIE = positionIE + boundIE;
       IndexExpr conditionIE = positionIE < 0;

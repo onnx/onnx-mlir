@@ -245,12 +245,12 @@ private:
             // source offset
             DimIndexExpr srcIndex(indices[i]);
             srcOffsetIE =
-                srcOffsetIE + srcIndex * SymbolIndexExpr(inStrides[i]);
+                srcOffsetIE + srcIndex * SymIE(inStrides[i]);
             // destination offset
             DimIndexExpr destIndex(indices[ArrayAttrIntVal(permAttr, i)]);
             // Note: index for outStrides is not the permuted index.
             destOffsetIE =
-                destOffsetIE + destIndex * SymbolIndexExpr(outStrides[i]);
+                destOffsetIE + destIndex * SymIE(outStrides[i]);
           }
           // call memcpy.
           create.krnl.memcpy(outputMemRef, inputMemRef, elemsToCopyI64,

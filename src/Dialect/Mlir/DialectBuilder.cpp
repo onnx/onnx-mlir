@@ -1250,7 +1250,7 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
       if (i >= lb && i < ub) {
         // Keep track of static shape and dynamic sizes only when inbounds.
         staticShape = false;
-        dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim]);
+        dynSize = dynSize * SymIE(dynSymbols[iDim]);
       }
       iDim++;
     } else {

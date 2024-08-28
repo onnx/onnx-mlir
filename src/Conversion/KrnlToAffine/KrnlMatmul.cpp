@@ -168,7 +168,7 @@ public:
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
       aStart.emplace_back(
-          SymbolIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[t]));
+          SymIE(operandAdaptor.getAGlobalIndexMemStart()[t]));
     aStart.emplace_back(
         iGlobalIndexComputeStart -
         DimIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[aRank - 2]));
@@ -178,7 +178,7 @@ public:
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
       bStart.emplace_back(
-          SymbolIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[t]));
+          SymIE(operandAdaptor.getBGlobalIndexMemStart()[t]));
     bStart.emplace_back(
         kGlobalIndexComputeStart -
         DimIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[bRank - 2]));
@@ -188,7 +188,7 @@ public:
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
       cStart.emplace_back(
-          SymbolIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[t]));
+          SymIE(operandAdaptor.getCGlobalIndexMemStart()[t]));
     cStart.emplace_back(
         iGlobalIndexComputeStart -
         DimIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[cRank - 2]));

@@ -59,7 +59,7 @@ struct ONNXSequenceInsertOpLowering
       // ToDo (chentong): backward shape inference may help
       positionIE = boundIE;
     } else {
-      positionIE = SymbolIndexExpr(create.krnl.load(adaptor.getPosition()));
+      positionIE = SymIE(create.krnl.load(adaptor.getPosition()));
       // Handle the negative position
       IndexExpr condIE = positionIE < 0;
       IndexExpr fixedPosition = positionIE + boundIE;

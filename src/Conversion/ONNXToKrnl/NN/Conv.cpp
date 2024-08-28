@@ -96,9 +96,9 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
       // Compute the channel out index "co".
       DimIndexExpr g(outerIndices[1]);
       DimIndexExpr coPerGroup(outerIndices[2]);
-      IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
+      IndexExpr co = g * SymIE(COPerGroup) + coPerGroup;
       // Compute g * CIPerGroup for later use.
-      IndexExpr gTimesCIPerGroup = g * SymbolIndexExpr(CIPerGroup);
+      IndexExpr gTimesCIPerGroup = g * SymIE(CIPerGroup);
       // Determine the bounds for the output spacial dimensions.
       int spacialRank = outputRank - spatialStartIndex;
       ValueRange outputSpacialLoops = create.krnl.defineLoops(spacialRank);
@@ -106,7 +106,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
       for (int i = spatialStartIndex; i < outputRank; ++i) {
         outputSpacialLbs.emplace_back(iZero);
         outputSpacialUbs.emplace_back(
-            SymbolIndexExpr(shapeHelper.getOutputDims()[i]));
+            SymIE(shapeHelper.getOutputDims()[i]));
       }
       // Spacial loops.
       // for ho = 0 .. HO:
@@ -126,7 +126,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
             SmallVector<IndexExpr, 4> redLbs, redUbs, pMinOS;
             // First: loop over channel in per group.
             redLbs.emplace_back(iZero);
-            redUbs.emplace_back(SymbolIndexExpr(CIPerGroup));
+            redUbs.emplace_back(SymIE(CIPerGroup));
             // For each spacial dim, do the following.
             for (int i = 0; i < spacialRank; ++i) {
               // Get data for dis spacial dimension.
@@ -172,7 +172,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
                       inputAccessFct.emplace_back(n);
                       // ci = g * CIPerG + ciPerG
                       DimIndexExpr ciPerG(redIndices[0]);
-                      IndexExpr ci = SymbolIndexExpr(gTimesCIPerGroup) + ciPerG;
+                      IndexExpr ci = SymIE(gTimesCIPerGroup) + ciPerG;
                       inputAccessFct.emplace_back(ci);
                       for (int i = 0; i < spacialRank; ++i) {
                         // for each spacial dims: access is o * s + k * d - p.
@@ -210,7 +210,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
               result = create.math.add(result, bias);
             }
             SmallVector<IndexExpr, 4> resAccessFunc;
-            resAccessFunc.emplace_back(SymbolIndexExpr(outerIndices[0]));
+            resAccessFunc.emplace_back(SymIE(outerIndices[0]));
             resAccessFunc.emplace_back(coInOutputSpacial);
             for (Value o : outputSpatialIndices)
               resAccessFunc.emplace_back(DimIndexExpr(o));

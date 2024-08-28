@@ -359,9 +359,9 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
             // s0, input dim
             ic.emplace_back(create.krnlIE.getShapeAsDim(inputOperand, j));
             // s1, kernel dim
-            ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
+            ic.emplace_back(SymIE(shapeHelper.kernelShape[i]));
             // s2, pad dim
-            ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
+            ic.emplace_back(SymIE(shapeHelper.pads[i]));
             // s3, stride dim
             ic.emplace_back(LitIE(shapeHelper.strides[i]));
             // s4, dilation dim
