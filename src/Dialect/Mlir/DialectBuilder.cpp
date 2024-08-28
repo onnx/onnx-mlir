@@ -1752,28 +1752,19 @@ int64_t VectorBuilder::getArchVectorLength(Value vecValue) const {
   return getArchVectorLength(vecType.getElementType());
 }
 
-Value VectorBuilder::load(
-    VectorType vecType, Value memref, ValueRange indices) const {
-  return b().create<vector::LoadOp>(loc(), vecType, memref, indices);
-}
 mlir::Value VectorBuilder::load(mlir::VectorType vecType, mlir::Value memref,
     mlir::ValueRange indices, mlir::ValueRange offsets) const {
   llvm::SmallVector<mlir::Value, 4> computedIndices;
   MultiDialectBuilder<MathBuilder> create(*this);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(vecType, memref, computedIndices);
+  return b().create<vector::LoadOp>(loc(), vecType, memref, computedIndices);
 }
 
 mlir::Value VectorBuilder::loadIE(mlir::VectorType vecType, mlir::Value memref,
     llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MultiDialectBuilder<MathBuilder> create(*this);
-  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(vecType, memref, computedIndices);
-}
-
-void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
-  b().create<vector::StoreOp>(loc(), val, memref, indices);
+  llvm::SmallVector<mlir::Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return load(vecType, memref, indexValues, offsets);
 }
 
 void VectorBuilder::store(mlir::Value val, mlir::Value memref,
@@ -1781,15 +1772,14 @@ void VectorBuilder::store(mlir::Value val, mlir::Value memref,
   llvm::SmallVector<mlir::Value, 4> computedIndices;
   MultiDialectBuilder<MathBuilder> create(*this);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
+  b().create<vector::StoreOp>(loc(), val, memref, computedIndices);
 }
 
 void VectorBuilder::storeIE(mlir::Value val, mlir::Value memref,
     llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MultiDialectBuilder<MathBuilder> create(*this);
-  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
+  llvm::SmallVector<mlir::Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  store(val, memref, indexValues, offsets);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {

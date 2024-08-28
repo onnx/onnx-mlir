@@ -463,21 +463,19 @@ struct VectorBuilder final : DialectBuilder {
   // Vector load: memref is expected to be scalar, will load a vector's worth
   // of values: e.g. %result = vector.load %base[%i, %j] :
   // memref<100x100xf32>, vector<8xf32>.
+  // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
-      mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
-      mlir::ValueRange indices, mlir::ValueRange offsets) const;
+      mlir::ValueRange indices = {}, mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::VectorType vecType, mlir::Value memref,
-      mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
   // Vector store: memref can be a scalar, will store the vector values.
-  void store(
-      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
+  // Add offsets (if any) to the least significant memref dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
 
   // Splat: a single value is copied.
   mlir::Value splat(mlir::VectorType vecType, mlir::Value val) const;

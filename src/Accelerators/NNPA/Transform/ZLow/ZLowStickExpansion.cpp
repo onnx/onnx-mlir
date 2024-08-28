@@ -244,7 +244,7 @@ public:
                     tripCount - (archVL - 1);
                 create.scf.forLoop(litZero.getValue(),
                     tripCountWithoutPartialLastVL.getValue(), archVL,
-                    [&](SCFBuilder b, ValueRange loopIn) {
+                    [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
                       Value loopIndex = loopInd[0];
