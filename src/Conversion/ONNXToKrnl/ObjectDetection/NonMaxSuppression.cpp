@@ -297,7 +297,7 @@ struct ONNXNonMaxSuppressionOpLowering
     // the first dimension size is larger than necessary.
     // Output shape : [num_selected_indices, 3]
     SmallVector<IndexExpr, 2> outputDims = {
-        numSelectedIndicesIE, LiteralIndexExpr(3)};
+        numSelectedIndicesIE, LitIE(3)};
     SmallVector<int64_t, 2> outputShape;
     if (numSelectedIndicesIE.isLiteral())
       outputShape.emplace_back(numSelectedIndicesIE.getLiteral());
@@ -440,7 +440,7 @@ struct ONNXNonMaxSuppressionOpLowering
     // Insert allocation and deallocation for the final output.
     Value effectiveNSI = create.krnl.load(effectiveNumSelectedIndices);
     SmallVector<IndexExpr, 2> resDims = {
-        DimIndexExpr(effectiveNSI), LiteralIndexExpr(3)};
+        DimIndexExpr(effectiveNSI), LitIE(3)};
     Value resMemRef = create.mem.alignedAlloc(
         MemRefType::get({ShapedType::kDynamic, 3}, elementType), resDims);
 

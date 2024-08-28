@@ -63,8 +63,8 @@ public:
     SmallVector<IndexExpr, 4> dims;
     create.krnlIE.getShapeAsDims(memref, dims);
     // Compute the linear offset using strides.
-    IndexExpr offsetIE = LiteralIndexExpr(0);
-    IndexExpr strideIE = LiteralIndexExpr(1);
+    IndexExpr offsetIE = LitIE(0);
+    IndexExpr strideIE = LitIE(1);
     for (int64_t i = rank - 1; i >= 0; --i) {
       IndexExpr strideOffset = strideIE * DimIndexExpr(indices[i]);
       offsetIE = offsetIE + strideOffset;

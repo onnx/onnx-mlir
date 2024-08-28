@@ -65,7 +65,7 @@ struct ONNXSequenceEraseOpLowering
     // Copy the elements before the position
     KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<IndexExpr, 1> lbs;
-    lbs.emplace_back(LiteralIndexExpr(0));
+    lbs.emplace_back(LitIE(0));
     SmallVector<IndexExpr, 1> ubs;
     ubs.emplace_back(positionIE);
     ValueRange firstLoopDef = createKrnl.defineLoops(1);

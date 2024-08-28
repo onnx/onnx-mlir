@@ -56,7 +56,7 @@ LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   for (int64_t i = 0; i < reducedRank; i++) {
     if (isKeepdims)
       outputDims[i] = (i != axisValue) ? createIE->getShapeAsDim(data, i)
-                                       : LiteralIndexExpr(1);
+                                       : LitIE(1);
     else
       outputDims[i] = (i < axisValue) ? createIE->getShapeAsDim(data, i)
                                       : createIE->getShapeAsDim(data, i + 1);

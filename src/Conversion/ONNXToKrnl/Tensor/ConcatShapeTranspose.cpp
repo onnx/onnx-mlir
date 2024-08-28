@@ -125,7 +125,7 @@ struct ONNXConcatShapeTransposeOpLowering
     // optimization. Difference may come from constant vs. dynamic, or dynamic
     // dim of different inputs.
     SmallVector<IndexExpr, 4> commonUB = outputConcatDims;
-    IndexExpr accumulatedOffset = LiteralIndexExpr(0);
+    IndexExpr accumulatedOffset = LitIE(0);
     for (unsigned int i = 0; i < numInputs; ++i) {
       // Since the accumulatedOffsetValue will be used in a nested
       // IndexExprScope, we get the Value of this IndexExpr and pass it as a
@@ -134,7 +134,7 @@ struct ONNXConcatShapeTransposeOpLowering
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       ValueRange loopDef = create.krnl.defineLoops(rank);
-      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different

@@ -46,7 +46,7 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
     // Kernel shape from attribute, default from Weight's spatial dims.
     if (kernelShapeOpt.has_value()) {
       kernelShape.emplace_back(
-          LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
+          LitIE(ArrayAttrIntVal(kernelShapeOpt, i)));
     } else {
       assert(hasFilter && "no kernel shape and no filter: unkown kernel shape");
       int ii = i + spatialOffset;
@@ -56,7 +56,7 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
   // Pads, at this stage a given compile-time literal or default 0.
   for (int i = 0; i < 2 * spatialRank; ++i) {
     int64_t p = padOpt.has_value() ? ArrayAttrIntVal(padOpt, i) : 0;
-    pads.emplace_back(LiteralIndexExpr(p));
+    pads.emplace_back(LitIE(p));
   }
 
   // Handle output size: start by inserting batch size and output channels.

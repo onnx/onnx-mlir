@@ -465,7 +465,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       IndexExpr &modFactor) const {
     DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex];
     int64_t operandRank = mlir::cast<MemRefType>(operand.getType()).getRank();
-    modFactor = LiteralIndexExpr(1);
+    modFactor = LitIE(1);
 
     // X:     X0  X1  X2 | X3  X4  X5  .
     //        ^          | ^           ^
@@ -773,7 +773,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       create.vec.store(initVec, redMemRef2, {o, zero});
     });
     // Perform reduction of entire vectors.
-    IndexExpr izero = LiteralIndexExpr(0);
+    IndexExpr izero = LitIE(0);
     create.affineKMem.forLoopIE(izero, redDim, totVL,
         [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
@@ -943,12 +943,12 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     MemRefType tmpRedType = MemRefType::get({B, totVL}, elementType);
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
-    IndexExpr zero = LiteralIndexExpr(0);
+    IndexExpr zero = LitIE(0);
     ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
     Value blockedLoopDef = blockedLoopDefs[0];
     if (enableParallel) {
       int64_t parId;
-      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)), ub(1, XFlatDims[0]);
+      SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
       if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
               /*min iter for going parallel*/ 4)) {
         create.krnl.parallel(blockedLoopDef);
@@ -969,7 +969,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
           IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0]);
           IndexExpr isFull = create.krnlIE.isTileFull(
-              blockedCurrIndex, LiteralIndexExpr(B), blockedUB);
+              blockedCurrIndex, LitIE(B), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(

@@ -122,7 +122,7 @@ public:
                             jGlobalUB.getLiteral() == 1;
 
     // Investigate SIMD
-    IndexExpr vectorLen = LiteralIndexExpr(1); // Assume no simd.
+    IndexExpr vectorLen = LitIE(1); // Assume no simd.
     if (simdize) {
       if (matVectorProduct) {
         // Matrix (I x K) times vector (K x 1). We currently vectorize along the
@@ -134,7 +134,7 @@ public:
           uint64_t archVL = create.vec.getArchVectorLength(elementType);
           if (i % archVL == 0 && k % archVL == 0) {
             // Right now, vector length must be archVL.
-            vectorLen = LiteralIndexExpr(archVL);
+            vectorLen = LitIE(archVL);
           } else {
             simdize = false;
             LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with bad sizes: i " << i

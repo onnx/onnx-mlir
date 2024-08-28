@@ -234,7 +234,7 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(
   SmallVector<IndexExpr, 2> endExprs = {end1, end2};
   windowEndExpr = IndexExpr::min(endExprs);
   // kernelOffsetExpr
-  SmallVector<IndexExpr, 2> kernelExprs = {LiteralIndexExpr(0), start2};
+  SmallVector<IndexExpr, 2> kernelExprs = {LitIE(0), start2};
   kernelOffsetExpr = IndexExpr::min(kernelExprs);
 
   return std::vector<IndexExpr>{

@@ -40,7 +40,7 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
   int64_t width = roiAlignOp.getOutputWidth();
 
   DimsExpr outputDims = {batchIndicesDims[0], xDims[1],
-      LiteralIndexExpr(height), LiteralIndexExpr(width)};
+      LitIE(height), LitIE(width)};
 
   // Save the final result.
   setOutputDims(outputDims);

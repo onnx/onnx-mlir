@@ -153,7 +153,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
   Value numerator = create.krnl.load(alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
-    IndexExpr kernelSize = LiteralIndexExpr(1);
+    IndexExpr kernelSize = LitIE(1);
     for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize = kernelSize * kernelShape[i];
     denominator = kernelSize.getValue();
@@ -320,7 +320,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
     //     for ho in range(HO):
     //       for wo in range(WO):
     ValueRange calcLoopDef = create.krnl.defineLoops(outputShape.size());
-    SmallVector<IndexExpr, 4> lbs(outputShape.size(), LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outputShape.size(), LitIE(0));
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(alloc, ubs);
     create.krnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
@@ -363,9 +363,9 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
             // s2, pad dim
             ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
             // s3, stride dim
-            ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
+            ic.emplace_back(LitIE(shapeHelper.strides[i]));
             // s4, dilation dim
-            ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
+            ic.emplace_back(LitIE(shapeHelper.dilations[i]));
             IVExprs.emplace_back(ic);
           }
 

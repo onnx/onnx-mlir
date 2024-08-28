@@ -64,7 +64,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     ValueRange loopDef = create.krnl.defineLoops(3);
     SmallVector<Value, 2> outerLoopDef{loopDef[0], loopDef[1]};
     SmallVector<Value, 1> innerLoopDef{loopDef[2]};
-    SmallVector<IndexExpr, 3> loopLbs(3, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 3> loopLbs(3, LitIE(0));
     IndexExpr outerUb0 = shapeHelper.getOutputDims()[0];
     IndexExpr outerUb1 = shapeHelper.getOutputDims()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];

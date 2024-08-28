@@ -1976,7 +1976,7 @@ struct ONNXElementwiseUnaryOpLowering
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       if (enableParallel) {
@@ -2157,7 +2157,7 @@ struct ONNXElementwiseBinaryOpLowering
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       // TODO adjust in the future
@@ -2332,7 +2332,7 @@ struct ONNXElementwiseVariadicOpLowering
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
@@ -2456,7 +2456,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       if (enableParallel) {

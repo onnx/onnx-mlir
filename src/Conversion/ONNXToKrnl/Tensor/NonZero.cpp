@@ -107,7 +107,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     Value zero = create.math.constant(xElementType, 0);
 
     // Bounds for the input tensor.
-    SmallVector<IndexExpr, 4> xLbs(xRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> xLbs(xRank, LitIE(0));
     SmallVector<IndexExpr, 4> xUbs;
     create.krnlIE.getShapeAsDims(X, xUbs);
 
@@ -162,7 +162,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     // non zero values.
     Value numberOfZeros = create.krnl.load(nonzeroCount);
     SmallVector<IndexExpr, 2> dimExprs;
-    dimExprs.emplace_back(LiteralIndexExpr(xRank));
+    dimExprs.emplace_back(LitIE(xRank));
     dimExprs.emplace_back(DimIndexExpr(numberOfZeros));
     Value resMemRef = create.mem.alignedAlloc(resMemRefType, dimExprs);
 

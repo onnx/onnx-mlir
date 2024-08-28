@@ -1226,7 +1226,7 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
   assert(!(mlir::isa<VectorType>(elementType)) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
   staticSize = 1;                // Multiplication of static sizes.
-  dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
+  dynSize = LitIE(1); // Multiplication of dyn sizes.
   bool staticShape = true;       // Static until proven otherwise.
   int64_t rank = type.getRank();
   // Process with range [lb inclusive, ub exclusive)
@@ -1313,17 +1313,17 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   if (bitWidth % 8 == 0) {
     // We have elements that have sizes of 1 or more bytes.
     int64_t byteWidth = bitWidth / 8;
-    IndexExpr totByteSize = LiteralIndexExpr(staticSize * byteWidth) * dynSize;
-    totPaddedByteSize = totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
+    IndexExpr totByteSize = LitIE(staticSize * byteWidth) * dynSize;
+    totPaddedByteSize = totByteSize + LitIE(paddingSize * byteWidth);
   } else {
     // We have sub-byte element sizes. Need to do precise computations. Namely
     // first compute tot total number of bits (including static/dynamic
     // and padding bit sizes), and then doing a ceil division by
     // 8 (number of bits in a byte).
-    IndexExpr totBitSize = LiteralIndexExpr(staticSize * bitWidth) * dynSize;
+    IndexExpr totBitSize = LitIE(staticSize * bitWidth) * dynSize;
     IndexExpr totPaddedBitSize =
-        totBitSize + LiteralIndexExpr(paddingSize * bitWidth);
-    totPaddedByteSize = totPaddedBitSize.ceilDiv(LiteralIndexExpr(8));
+        totBitSize + LitIE(paddingSize * bitWidth);
+    totPaddedByteSize = totPaddedBitSize.ceilDiv(LitIE(8));
   }
   if (staticShape)
     assert(totPaddedByteSize.isLiteral() && "expected literal padded tot size");
@@ -1445,7 +1445,7 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
   for (int64_t d = 0; d < axis; ++d)
     flattenedDims.emplace_back(dims[d]);
   // Last flatten dim is the product of remaining input dims.
-  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  IndexExpr numOfFlattenedElements = LitIE(1);
   for (int64_t d = axis; d < inputRank; ++d)
     numOfFlattenedElements = numOfFlattenedElements * dims[d];
   flattenedDims.emplace_back(numOfFlattenedElements);
@@ -1473,12 +1473,12 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape, DimsExprRef dims,
   // Compute the dimensions of the flattened array.
   flattenedDims.clear();
   // First output dim: product of input dims until axis (exclusively).
-  IndexExpr numElement1stDim = LiteralIndexExpr(1);
+  IndexExpr numElement1stDim = LitIE(1);
   for (int64_t d = 0; d < axis; ++d)
     numElement1stDim = numElement1stDim * dims[d];
   flattenedDims.emplace_back(numElement1stDim);
   // Second output dim: product of input dims after axis (inclusively).
-  IndexExpr numElement2ndDim = LiteralIndexExpr(1);
+  IndexExpr numElement2ndDim = LitIE(1);
   for (int64_t d = axis; d < inputRank; ++d)
     numElement2ndDim = numElement2ndDim * dims[d];
   flattenedDims.emplace_back(numElement2ndDim);
@@ -1500,7 +1500,6 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
 }
 
 Value MemRefBuilder::reinterpretCast(Value input, DimsExpr &outputDims) const {
-  // IndexExpr zero = LiteralIndexExpr(0);
   return reinterpretCast(input, nullptr, outputDims);
 }
 
@@ -1511,7 +1510,7 @@ Value MemRefBuilder::reinterpretCast(
   SmallVector<IndexExpr, 4> sizesIE, stridesIE;
   sizesIE.resize(rank);
   stridesIE.resize(rank);
-  IndexExpr strideIE = LiteralIndexExpr(1);
+  IndexExpr strideIE = LitIE(1);
   for (int i = rank - 1; i >= 0; --i) {
     sizesIE[i] = outputDims[i];
     stridesIE[i] = strideIE;

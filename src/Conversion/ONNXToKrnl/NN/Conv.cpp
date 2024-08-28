@@ -47,7 +47,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     auto biasOperand = operandAdaptor.getB();
     bool hasBias = !mlir::isa<NoneType>(biasOperand.getType());
     int64_t groupNum = convOp.getGroup();
-    IndexExpr G = LiteralIndexExpr(groupNum);
+    IndexExpr G = LitIE(groupNum);
     Value fZero = create.math.constant(memRefType.getElementType(), 0);
 
     // Bounds for output sizes: [N x CO x HO x WO]:
@@ -71,8 +71,8 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     IndexExpr CIPerGroup = create.krnlIE.getShapeAsSymbol(filterOperand, 1);
 
     // Determine the bounds for the loops over batch & channel out.
-    IndexExpr iZero = LiteralIndexExpr(0);
-    IndexExpr iOne = LiteralIndexExpr(1);
+    IndexExpr iZero = LitIE(0);
+    IndexExpr iOne = LitIE(1);
 
     SmallVector<Value, 3> lbsStorage, ubsStorage, stepsStorage;
     SmallVector<IndexExpr, 3> outerLbs = {iZero, iZero, iZero};

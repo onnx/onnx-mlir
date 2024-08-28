@@ -63,7 +63,7 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
 
     // Main loop.
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr> lbs(rank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(

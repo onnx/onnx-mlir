@@ -67,7 +67,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
       }
     }
   }
-  outputDims.emplace_back(LiteralIndexExpr(2));
+  outputDims.emplace_back(LitIE(2));
 
   // Save the final result.
   setOutputDims(outputDims);

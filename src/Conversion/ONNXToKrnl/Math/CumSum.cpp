@@ -123,14 +123,14 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     IndexExpr axisIE = create.krnlIE.getIntFromArrayAsSymbol(axis, 0);
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
-    axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
+    axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LitIE(rank));
 
     // Insert an allocation and deallocation for the result of this operation.
     Value resMemRef = create.mem.alignedAlloc(X, memRefType);
     Value bufMemRef = create.mem.alignedAlloc(X, memRefType);
 
     // Get the size of dimension 'axis'.
-    IndexExpr axisSize = LiteralIndexExpr(-1);
+    IndexExpr axisSize = LitIE(-1);
     for (uint64_t i = 0; i < rank; ++i)
       axisSize = IndexExpr::select(axisIE == i, xDims[i], axisSize);
 
@@ -139,7 +139,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
       int64_t logN = (int64_t)std::ceil(std::log2(n));
-      numberOfStep = LiteralIndexExpr(logN);
+      numberOfStep = LitIE(logN);
     } else {
       Value nos = create.math.cast(f32Ty, axisSize.getValue());
       // Use this when math::CeilOp is available in MLIR.
@@ -148,7 +148,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
       nos = create.math.cast(i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
       // numberOfStep = SymbolIndexExpr(nos);
-      numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
+      numberOfStep = SymbolIndexExpr(nos) + LitIE(1);
     }
 
     // Input and output have the same shape, so they share the bounds.

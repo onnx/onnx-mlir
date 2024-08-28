@@ -55,7 +55,7 @@ public:
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(destMemRef, ubs);
     int rank = ubs.size();
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
     SmallVector<int64_t, 4> steps(rank, 1);
     // Copy data,
     create.affineKMem.forLoopsIE(lbs, ubs, steps,

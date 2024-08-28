@@ -69,7 +69,7 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     //     output[indices[idx]] = updates[idx]
     //
     ValueRange loopDef = create.krnl.defineLoops(updatesRank);
-    DimsExpr lbs(updatesRank, LiteralIndexExpr(0)), ubs;
+    DimsExpr lbs(updatesRank, LitIE(0)), ubs;
     create.krnlIE.getShapeAsDims(updates, ubs);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -91,7 +91,7 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
           DimsExpr outputAccessFct;
           for (unsigned i = 0; i < dataRank; ++i) {
             if (i < indicesRank - 1) {
-              IndexExpr ind = LiteralIndexExpr(i);
+              IndexExpr ind = LitIE(i);
               DimsExpr indicesAccessFct(indicesAccessFctFirst);
               indicesAccessFct.emplace_back(ind);
               Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);

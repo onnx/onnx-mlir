@@ -133,7 +133,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     // }
     // output.reshape(outputShape)
     ValueRange loopDef = create.krnl.defineLoops(2);
-    DimsExpr lbs(2, LiteralIndexExpr(0)),
+    DimsExpr lbs(2, LitIE(0)),
         ubs = {newIndicesShape[0], newIndicesShape[1]};
 
     if (emitPrintStmts) {
@@ -162,7 +162,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
           // The loaded values from 'reshapedIndices' are the next set of
           // indices to push to the `reshapedDataAccessFct`.
           for (unsigned i = 0; i < indicesLastDim; ++i) {
-            IndexExpr ind = LiteralIndexExpr(i);
+            IndexExpr ind = LitIE(i);
             reshapedIndicesAccessFct.emplace_back(ind);
 
             if (emitPrintStmts)

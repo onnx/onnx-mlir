@@ -47,7 +47,7 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope loopScope(createKrnl);

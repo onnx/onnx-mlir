@@ -78,7 +78,7 @@ struct ONNXSequenceInsertOpLowering
       // the loop will not be reached at runtime.
     } else {
       SmallVector<IndexExpr, 1> lbs;
-      lbs.emplace_back(LiteralIndexExpr(0));
+      lbs.emplace_back(LitIE(0));
       SmallVector<IndexExpr, 1> ubs;
       ubs.emplace_back(positionIE);
       ValueRange firstLoopDef = createKrnl.defineLoops(1);

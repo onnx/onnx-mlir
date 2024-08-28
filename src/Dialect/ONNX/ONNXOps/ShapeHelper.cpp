@@ -102,12 +102,12 @@ static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
 
     // InferredDim is unknown at shape inference: update it.
     if (inferredDims[i].isQuestionmark()) {
-      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      inferredDims[i] = LitIE(existingDims[i]);
       continue;
     }
     // inferredDim is unknown at lowering: use existing dim for efficiency.
     if (!inferredDims[i].isLiteral()) {
-      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      inferredDims[i] = LitIE(existingDims[i]);
       continue;
     }
     // inferredDim is different from existingDim. Believe in existingDim.
@@ -124,7 +124,7 @@ static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
                      << "] the inferred dim (" << inferredDims[i].getLiteral()
                      << ") is different from the existing dim ("
                      << existingDims[i] << "). Use the existing dim instead.\n";
-      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      inferredDims[i] = LitIE(existingDims[i]);
     }
   }
 }
@@ -460,7 +460,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                           << " dim analysis\n");
   // Keep track of cumulative inner dim sizes.
   collapsedLiteralSize = 1;
-  collapsedDynamicSize = LiteralIndexExpr(1);
+  collapsedDynamicSize = LitIE(1);
   // Keep track of ones, scalar, and broadcast per input.
   llvm::SmallBitVector isOne(dimNum, true);
   llvm::SmallBitVector isScalar(dimNum, true);
@@ -708,7 +708,7 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     // Compute access index based on broadcasting rules.
     if (operandDim.isLiteralAndIdenticalTo(1)) {
       // Dim of size 1: access is always 0.
-      operandAccessExprs.emplace_back(LiteralIndexExpr(0));
+      operandAccessExprs.emplace_back(LitIE(0));
     } else if (noBroadcasting || useLoopIndexNoMatterWhat) {
       // No broadcasting or we can use the loop index no matter what -> just use
       // the index.
@@ -764,7 +764,7 @@ bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
   int64_t outputRank = output.size();
   // Keep track of cumulative inner dim sizes.
   collapsedLiteralSize = 1;
-  collapsedDynamicSize = LiteralIndexExpr(1);
+  collapsedDynamicSize = LitIE(1);
   for (int64_t r = 0; r < outputRank; ++r) {
     if (output[r].isLiteral())
       collapsedLiteralSize *= output[r].getLiteral();
@@ -826,7 +826,7 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
       if (ShapedType::isDynamic(d) || d == -1)
         inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else
-        inferredDims.emplace_back(LiteralIndexExpr(d));
+        inferredDims.emplace_back(LitIE(d));
     }
     refineDims(op, inferredDims, val);
     IndexExpr::getShape(inferredDims, inferredShape);

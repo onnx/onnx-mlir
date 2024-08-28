@@ -317,7 +317,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     if (srcTy.getRank() > 0) {
       IndexExprScope childScope(create.krnl);
       ValueRange loopDef = create.krnl.defineLoops(srcTy.getRank());
-      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(src, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -348,7 +348,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       ValueRange loopDef =
           create.krnl.defineLoops(srcTy.getRank() - readPrefix.size());
       SmallVector<IndexExpr, 4> lbs(
-          srcTy.getRank() - readPrefix.size(), LiteralIndexExpr(0));
+          srcTy.getRank() - readPrefix.size(), LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
         ubs.emplace_back(create.krnlIE.getShapeAsDim(src, i));

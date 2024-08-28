@@ -126,8 +126,8 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     if (steps[i].isUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we
       // are fine).
-      starts[i] = LiteralIndexExpr(0);
-      steps[i] = LiteralIndexExpr(1);
+      starts[i] = LitIE(0);
+      steps[i] = LitIE(1);
       DimIndexExpr dimInput = createIE->getShapeAsDim(data, i);
       ends[i] = dimInput;
       outputDims[i] = dimInput;
