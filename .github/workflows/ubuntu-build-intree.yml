@@ -1,0 +1,86 @@
+name: In-tree build
+
+on:
+  pull_request:
+  push:
+    branches: [ main, feature/onnx-to-tosa ]
+
+concurrency:
+  # Build every push.
+  # Only build the newest PR; cancel older builds of a PR
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-intree:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: install tools that are needed for compilation
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc g++ cmake ninja-build
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        # A full build seems to take ~ 250 MB. Leave a bit more room
+        # so we don't run out of cache space in the future.
+        max-size: 400M
+        key: sccache-intree
+        variant: sccache
+        create-symlink: true
+
+    - name: install dependencies
+      run: |
+        utils/install-protobuf.sh
+        utils/install-venv.sh
+
+    - name: clone llvm-project
+      run: sh utils/clone-mlir.sh
+
+    - name: build
+      run: |
+        cmake llvm-project/llvm \
+          -Bbuild \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DLLVM_ENABLE_PROJECTS=mlir \
+          -DLLVM_EXTERNAL_PROJECTS="onnx-mlir" \
+          -DONNX_MLIR_ENABLE_STABLEHLO=OFF \
+          -DLLVM_EXTERNAL_ONNX_MLIR_SOURCE_DIR=. \
+          -DLLVM_TARGETS_TO_BUILD=host \
+          -DLLVM_BUILD_TOOLS=OFF \
+          -DLLVM_BUILD_UTILS=OFF \
+          -DLLVM_BUILD_RUNTIMES=OFF \
+          -DLLVM_ENABLE_ASSERTIONS=ON \
+          -DLLVM_ENABLE_RTTI=ON \
+          -DLLVM_ENABLE_LIBEDIT=OFF \
+          -DLLVM_USE_LINKER=lld \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+        cmake --build build --target onnx-mlir
+
+    - name: run LIT tests
+      run: |
+        export LIT_OPTS=-v
+        cmake --build build --target check-onnx-lit
+
+
+    - name: build and run docs/doc_example tests
+      run: |
+        cd ..
+        sh onnx-mlir/utils/check-doc-example.sh
+
+    - name: build and run unit tests
+      run: |
+        cd ..
+        sh onnx-mlir/utils/check-unittest.sh

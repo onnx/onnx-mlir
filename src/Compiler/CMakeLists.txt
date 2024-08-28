@@ -37,6 +37,8 @@ if (ONNX_MLIR_VENDOR)
 endif()
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+
 add_onnx_mlir_library(OMCompilerOptions
   CompilerOptions.cpp
 
@@ -69,6 +71,7 @@ add_onnx_mlir_library(OMCompilerDialects
   OMONNXOps
   MLIRIR
   MLIROpenMPToLLVMIRTranslation
+  ${dialect_libs}
   )
 
 add_onnx_mlir_library(OMCompilerPasses
@@ -158,6 +161,7 @@ add_onnx_mlir_library(OMCompilerUtils
   ExternalUtil
   llc
   opt
+  ${dialect_libs}
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -171,6 +175,7 @@ add_onnx_mlir_library(OMCompilerUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion
+  ${dialect_libs}
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.

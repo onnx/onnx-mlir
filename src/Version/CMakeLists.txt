@@ -53,6 +53,10 @@ set_source_files_properties("${version_inc}"
              HEADER_FILE_ONLY TRUE
   )
 
+if (ONNX_MLIR_BUILD_INTREE)
+  set(LLVM_PACKAGE_VERSION ${LLVM_VERSION})
+endif()
+
 add_onnx_mlir_library(OMVersion
   Version.cpp
   ${version_inc}
