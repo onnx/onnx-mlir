@@ -254,6 +254,19 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
+  // Add offsets (if any) to the least significant memref dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+
+  // Add offsets (if any) to the least significant memref dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  void storeIE(mlir::Value val, mlir::Value memref,
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+
   // Info: get static and dynamic size of memory in number of elementary type.
   // Array of vector types are not supported at this time.
   //
@@ -394,6 +407,11 @@ struct MemRefBuilder final : DialectBuilder {
       bool isWrite, unsigned locality, bool isData = true);
   void prefetch(mlir::Value memref, mlir::ValueRange indices, bool isWrite,
       unsigned locality, bool isData = true);
+
+  // Queries about memory
+  static bool isNoneValue(mlir::Value value);
+  // Check if "innerDims" innermost dims are scalar (size 1).
+  static bool hasOneElementInInnermostDims(mlir::Value value, int64_t innerDim);
 
 private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
@@ -866,7 +884,9 @@ struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 };
 
 // Include template implementations.
+#ifndef ONNX_MLIR_DIALECT_BUILDER_MLIR_INC
 #include "DialectBuilder.hpp.inc"
+#endif
 
 } // namespace onnx_mlir
 #endif

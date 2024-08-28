@@ -333,7 +333,7 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
       lb, ub, VL, simdOnly, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs,
       initVals,
       /* reduction function */
-      [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
+      [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
           llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
         Type currType = (VL > 1) ? vecType : elementType;
         // First reduction, enqueue result.
@@ -348,7 +348,7 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
         }
       },
       /* post reduction function*/
-      [&](KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+      [&](const KrnlBuilder &kb, ArrayRef<Value> tmpVals,
           llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
         // Perform horizontal reductions.
         Value res1 = create.vec.reduction(
@@ -528,7 +528,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       lb, ub, totVL, simdOnly, inputs, inputAFs, tmps, tmpAFs, outputs,
       outputAFs, initVals,
       /* reduction function */
-      [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
+      [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
           llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
         Type type = (VL > 1) ? vecType : elementType;
         // First reduction, enqueue result.
@@ -543,7 +543,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
         }
       },
       /* post reduction function*/
-      [&](KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+      [&](const KrnlBuilder &kb, ArrayRef<Value> tmpVals,
           llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
         // Perform horizontal reductions.
         Value res1 = create.vec.reduction(
@@ -1126,7 +1126,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         /* output */ {flatAlloc}, {outputAF},
         /* init */ {identity},
         /* reduction simd/scalar */
-        [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
+        [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
             llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
           Value input = inputVals[0];
           Value tmp = tmpVals[0];
@@ -1136,7 +1136,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           resultVals.emplace_back(accumulatedVec);
         },
         /* post processing */
-        [&](KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+        [&](const KrnlBuilder &kb, ArrayRef<Value> tmpVals,
             llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
           Value tmp = tmpVals[0];
           Value accumulatedVal =

@@ -1,10 +1,10 @@
 //===---- DialectBuilder.hpp.inc - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains helper functions for building MLIR operations.
+// This file contains template helper functions for building MLIR operations.
 //
 // Note on usage of template keyword. Since the GenericAffineBuilder is
 // templated, and we use templated functions (such as create<OP>), we must add
@@ -13,40 +13,110 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef ONNX_MLIR_DIALECT_BUILDER_MLIR_H
+// This include is only here to include builder in the editors. Will be skipped
+// when actually compiling.
+#define ONNX_MLIR_DIALECT_BUILDER_MLIR_INC 1
+#include "DialectBuilder.hpp"
+#undef ONNX_MLIR_DIALECT_BUILDER_MLIR_INC
+#endif
+
+//===----------------------------------------------------------------------===//
+// Templates for load / store
+//===----------------------------------------------------------------------===//
+
+namespace impl {
+
+template <class BUILDER, class LOAD_OP>
+mlir::Value load(const BUILDER &b, mlir::Value memref, mlir::ValueRange indices,
+    mlir::ValueRange offsets) {
+  // Handle offsets.
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MultiDialectBuilder<MathBuilder> create(b);
+  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  // Perform load.
+  if (computedIndices.size() == 0) {
+    // case memref<1xdtype>
+    auto type = mlir::cast<mlir::MemRefType>(memref.getType());
+    if (type.getRank() == 1 && type.getShape()[0] == 1) {
+      mlir::Value iZero = create.math.constantIndex(0);
+      return b.getBuilder().template create<LOAD_OP>(
+          b.getLoc(), memref, mlir::ValueRange({iZero}));
+    }
+  }
+  return b.getBuilder().template create<LOAD_OP>(
+      b.getLoc(), memref, computedIndices);
+}
+
+template <class BUILDER, class LOAD_OP>
+mlir::Value loadIE(const BUILDER &b, mlir::Value memref,
+    mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) {
+  llvm::SmallVector<mlir::Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return load<BUILDER, LOAD_OP>(b, memref, indexValues, offsets);
+}
+
+template <class BUILDER, class STORE_OP>
+void store(const BUILDER &b, mlir::Value val, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MultiDialectBuilder<MathBuilder> create(b);
+  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  if (computedIndices.size() == 0) {
+    // case memref<1xdtype>
+    auto type = mlir::cast<mlir::MemRefType>(memref.getType());
+    if (type.getRank() == 1 && type.getShape()[0] == 1) {
+      mlir::Value iZero = create.math.constantIndex(0);
+      b.getBuilder().template create<STORE_OP>(
+          b.getLoc(), val, memref, mlir::ValueRange({iZero}));
+      return;
+    }
+  }
+  b.getBuilder().template create<STORE_OP>(
+      b.getLoc(), val, memref, computedIndices);
+}
+
+template <class BUILDER, class STORE_OP>
+void storeIE(const BUILDER &b, mlir::Value val, mlir::Value memref,
+    mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) {
+  llvm::SmallVector<mlir::Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  store<BUILDER, STORE_OP>(b, val, memref, indexValues, offsets);
+}
+} // namespace impl
+
+//===----------------------------------------------------------------------===//
+// Templates for GenericAffineBuilder
+//===----------------------------------------------------------------------===//
+
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(mlir::Value memref,
     mlir::ValueRange indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return b().template create<LOAD_OP>(loc(), memref, computedIndices);
+  return onnx_mlir::impl::load<GenericAffineBuilder, LOAD_OP>(
+      *this, memref, indices, offsets);
 }
 
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
     mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  return load(memref, indexValues, offsets);
+  return onnx_mlir::impl::loadIE<GenericAffineBuilder, LOAD_OP>(
+      *this, memref, indices, offsets);
 }
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(mlir::Value val,
     mlir::Value memref, mlir::ValueRange indices,
     mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  b().template create<STORE_OP>(loc(), val, memref, computedIndices);
+  onnx_mlir::impl::store<GenericAffineBuilder, STORE_OP>(
+      *this, val, memref, indices, offsets);
 }
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::storeIE(mlir::Value val,
     mlir::Value memref, mlir::ArrayRef<IndexExpr> indices,
     mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  store(val, memref, indexValues, offsets);
+  onnx_mlir::impl::storeIE<GenericAffineBuilder, STORE_OP>(
+      *this, val, memref, indices, offsets);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -183,3 +253,329 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
     b().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
 }
+
+//===----------------------------------------------------------------------===//
+// Templates for SIMD code gen (instantiated for KRNL and SCF builders)
+//===----------------------------------------------------------------------===//
+
+namespace impl {
+
+template <class BUILDER, class MEM_BUILDER>
+void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
+    int64_t VL, bool fullySimd, bool useParallel,
+    mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+    mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+    mlir::function_ref<void(BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals,
+        llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
+        bodyBuilderFn) {
+  int64_t inputNum = inputs.size();
+  assert(inputAFs.size() == inputs.size() && "expected same size");
+  int64_t outputNum = outputs.size();
+  assert(outputAFs.size() == outputs.size() && "expected same size");
+
+  if (VL > 1) {
+    // Want SIMD, execute full SIMD loops blocked by VL.
+
+    // If we are not guaranteed that every iterations are SIMD iterations,
+    // then we need to reduce the trip count by a bit so as to not over
+    // compute. If we are not guaranteed that every iterations are SIMD
+    // iterations, then
+    IndexExpr simdUb = ub;
+    if (!fullySimd)
+      simdUb = simdUb - (VL - 1);
+
+    // Define the loop block
+    auto simdLoopBlock = [&](BUILDER b, mlir::ValueRange loopInd) {
+      IndexExprScope scope(b);
+      VectorBuilder createVec(b);
+      MEM_BUILDER createMem(b);
+      IndexExpr ind = DimIE(loopInd[0]);
+      llvm::SmallVector<mlir::Value, 4> vecInputVals;
+      for (int64_t i = 0; i < inputNum; ++i) {
+        mlir::Value input = inputs[i];
+        if (MemRefBuilder::isNoneValue(input)) {
+          // Simply enqueue the none value.
+          vecInputVals.emplace_back(input);
+          continue;
+        }
+        auto type = mlir::cast<mlir::MemRefType>(input.getType());
+        int64_t rank = type.getRank();
+        DimsExpr AF = SymListIE(inputAFs[i]);
+        assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
+        if (MemRefBuilder::hasOneElementInInnermostDims(input, 1)) {
+          // Has a reference with a scalar innermost dim, just load as a
+          // scalar. No need to add the induction variable.
+          mlir::Value scalarVal = createMem.loadIE(input, AF);
+          vecInputVals.emplace_back(scalarVal);
+        } else {
+          // Have a vector.
+          auto vecType = mlir::VectorType::get({VL}, type.getElementType());
+          AF[rank - 1] = AF[rank - 1] + ind; // Add induction var.
+          mlir::Value vecVal = createVec.loadIE(vecType, input, AF);
+          vecInputVals.emplace_back(vecVal);
+        }
+      }
+      // Call the method to compute the values.
+      llvm::SmallVector<mlir::Value, 4> vecResVals;
+      bodyBuilderFn(b, vecInputVals, vecResVals, VL);
+      assert((int64_t)vecResVals.size() == outputNum &&
+             "loop body with incorrect number of results");
+      // Store all the outputs as vectors of VL values,
+      for (int64_t i = 0; i < outputNum; ++i) {
+        auto type = mlir::cast<mlir::MemRefType>(outputs[i].getType());
+        DimsExpr AF = SymListIE(outputAFs[i]);
+        int64_t rank = type.getRank();
+        assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
+        AF[rank - 1] = AF[rank - 1] + ind;
+        createVec.storeIE(vecResVals[i], outputs[i], AF);
+      }
+    };
+
+    // Invocation of the  (possibly parallel) SIMD loop.
+
+    // Use KRNL interface
+    mlir::ValueRange loopDef = builder.defineLoops(1);
+    mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
+    if (useParallel)
+      builder.parallel({blockedLoopDef[0]});
+    builder.iterateIE(
+        loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBlock);
+
+    if (fullySimd)
+      // Asserted that we only have SIMD iterations, we are done.
+      return;
+    // Account for the loop iterations performed above.
+    IndexExpr tripCount = ub - lb;
+    IndexExpr missingIters = tripCount % VL;
+    IndexExpr completedIters = tripCount - missingIters;
+    if (missingIters.isLiteralAndIdenticalTo(0)) {
+      // Detect that we only have SIMD iterations, we are also done.
+      return;
+    }
+    // We may have additional iterations to perform, adjust lb to skip the
+    // completed iterations.
+    lb = lb + completedIters;
+  }
+  // Handle remaining scalar values (from lb to ub without unrolling).
+  auto scalarLoopBody = [&](BUILDER b, mlir::ValueRange loopInd) {
+    IndexExprScope scope(b);
+    MEM_BUILDER createMem(b);
+
+    IndexExpr ind = DimIE(loopInd[0]);
+    // Load all the inputs as scalar values,
+    llvm::SmallVector<mlir::Value, 4> scalarInputVals;
+    for (int64_t i = 0; i < inputNum; ++i) {
+      mlir::Value input = inputs[i];
+      if (MemRefBuilder::isNoneValue(input)) {
+        // Simply enqueue the none value.
+        scalarInputVals.emplace_back(input);
+        continue;
+      }
+      auto type = mlir::cast<mlir::MemRefType>(input.getType());
+      int64_t rank = type.getRank();
+      DimsExpr AF = SymListIE(inputAFs[i]);
+      if (MemRefBuilder::hasOneElementInInnermostDims(input, 1)) {
+        // Has a reference with a scalar innermost dim, just load as a
+        // scalar. No need to add the induction variable.
+        mlir::Value scalarVal = createMem.loadIE(input, AF);
+        scalarInputVals.emplace_back(scalarVal);
+      } else {
+        AF[rank - 1] = AF[rank - 1] + ind;
+        mlir::Value scalarVal = createMem.loadIE(input, AF);
+        scalarInputVals.emplace_back(scalarVal);
+      }
+    }
+    // Call the method to compute the values.
+    llvm::SmallVector<mlir::Value, 4> scalarResVals;
+    bodyBuilderFn(b, scalarInputVals, scalarResVals, /*VL*/ 1);
+    assert((int64_t)scalarResVals.size() == outputNum &&
+           "loop body with incorrect number of results");
+    // Store all the outputs as vectors of VL values,
+    for (int64_t i = 0; i < outputNum; ++i) {
+      auto type = mlir::cast<mlir::MemRefType>(outputs[i].getType());
+      DimsExpr AF = SymListIE(outputAFs[i]);
+      int64_t rank = type.getRank();
+      assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
+      AF[rank - 1] = AF[rank - 1] + ind; // hi alex, use offset for these
+      createMem.storeIE(scalarResVals[i], outputs[i], AF);
+    }
+  };
+
+  // Invocation of the scalar loop.
+  // Use KRNL dialect.
+  mlir::ValueRange loopDef = builder.defineLoops(1);
+  builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+}
+
+template <class BUILDER, class MEM_BUILDER>
+void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
+    int64_t VL, bool fullySimd,
+    /* in: use [x][n] */
+    mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+    /* tmp: use [y][VL] */
+    mlir::ArrayRef<mlir::Value> tmps, mlir::ArrayRef<DimsExpr> tmpAFs,
+    /* out: gen [z][1] */
+    mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+    /* init val: scalar */
+    mlir::ArrayRef<mlir::Value> initVals,
+    /* reduction function (simd or scalar) */
+    mlir::function_ref<void(const BUILDER &b,
+        mlir::ArrayRef<mlir::Value> inputVals,
+        mlir::ArrayRef<mlir::Value> tmpVals,
+        llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
+        reductionBuilderFn,
+    /* post reduction function (simd to scalar + post processing)*/
+    mlir::function_ref<void(const BUILDER &b,
+        mlir::ArrayRef<mlir::Value> tmpVals,
+        llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
+        postProcessingBuilderFn) {
+
+  MultiDialectBuilder<VectorBuilder> create(builder);
+  MEM_BUILDER createMem(builder);
+
+  int64_t inputSize = inputs.size();
+  int64_t outputSize = outputs.size();
+  assert((int64_t)inputAFs.size() == inputSize && "expect same input size");
+  assert(tmps.size() == tmpAFs.size() && "expect same tmp size");
+  assert((int64_t)outputAFs.size() == outputSize && "expect output same size");
+  assert((int64_t)tmps.size() == outputSize && "expect 1 tmp per output");
+  assert((int64_t)initVals.size() == outputSize && "expect 1 init per output");
+  // Gather element and vector types and perform the inits. Do it in SIMD mode
+  // regardless.
+  llvm::SmallVector<mlir::VectorType, 4> vectorTypes;
+  for (int64_t o = 0; o < outputSize; ++o) {
+    mlir::Value initVal = initVals[o];
+    mlir::Type elementType = initVal.getType();
+    auto vectorType = mlir::VectorType::get({VL}, elementType);
+    vectorTypes.emplace_back(vectorType);
+    mlir::Value initVec = create.vec.splat(vectorType, initVal);
+    create.vec.storeIE(initVec, tmps[o], tmpAFs[o], {});
+  }
+  if (VL > 1) {
+    // Logic: see simdIterateIE.
+    IndexExpr simdUb = ub;
+    if (!fullySimd)
+      simdUb = simdUb - (VL - 1);
+
+    auto simdLoopBody = [&](BUILDER &b, mlir::ValueRange loopInd) {
+      IndexExprScope scope(b);
+      MultiDialectBuilder<VectorBuilder> create(b);
+      // Load inputs in SIMD mode, indexed by loopInd[0] in innermost dim.
+      llvm::SmallVector<mlir::Value, 4> inputVals;
+      for (int64_t i = 0; i < inputSize; ++i) {
+        auto inputType = mlir::cast<mlir::MemRefType>(inputs[i].getType());
+        auto vecType = mlir::VectorType::get({VL}, inputType.getElementType());
+        mlir::Value inputVal =
+            create.vec.loadIE(vecType, inputs[i], inputAFs[i], {loopInd[0]});
+        inputVals.emplace_back(inputVal);
+      }
+      // Load tmp value in SIMD mode  (no indexing, same value over & over).
+      llvm::SmallVector<mlir::Value, 4> tmpVals;
+      for (int64_t o = 0; o < outputSize; ++o) {
+        mlir::Value tmpVal =
+            create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
+        tmpVals.emplace_back(tmpVal);
+      }
+      // Call reduction.
+      llvm::SmallVector<mlir::Value, 4> resultVals;
+      reductionBuilderFn(b, inputVals, tmpVals, resultVals, VL);
+      assert((int64_t)resultVals.size() == outputSize &&
+             "expect ouputSize results");
+      // Save tmp values in SIMD mode.
+      for (int64_t o = 0; o < outputSize; ++o) {
+        create.vec.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+      }
+    };
+
+    // Want SIMD, execute full SIMD loops reductions blocked by VL.
+    // Perform SIMD reduction: iterates over all SIMD vectors.
+
+    // Implementation with Krnl
+    mlir::ValueRange loopDef = builder.defineLoops(1);
+    mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
+    builder.iterateIE(
+        loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+
+    if (fullySimd) {
+      // No leftovers, no additional iterations to be done.
+    } else {
+      // Account for the loop iterations performed above.
+      IndexExpr tripCount = ub - lb;
+      IndexExpr missingIters = tripCount % VL;
+      IndexExpr completedIters = tripCount - missingIters;
+      if (missingIters.isLiteralAndIdenticalTo(0)) {
+        // Detected that we have no missing iterations. Ee are done, namely
+        // fullySimd is true.
+        fullySimd = true;
+      } else {
+        // We may have additional iterations to perform, adjust lb to skip the
+        // completed iterations.
+        lb = lb + completedIters;
+      }
+    }
+  } else {
+    // VL was 1, set fullySimd to false so that we execute all iterations
+    // sequentially.
+    fullySimd = false;
+  }
+  if (!fullySimd) {
+    // We have leftover iterations to be done in sequential mode.
+    // Handle remaining scalar values (from lb to ub without unrolling).
+
+    auto scalarLoopBody = [&](BUILDER &b, mlir::ValueRange loopInd) {
+      IndexExprScope scope(b);
+      MEM_BUILDER createMem(b);
+      IndexExpr ind = DimIE(loopInd[0]);
+      // We now perform sequential reduction in the tmps 1st element. Load
+      // inputs in sequential mode indexed by loopInd[0] in innermost dim.
+      llvm::SmallVector<mlir::Value, 4> inputVals;
+      for (int64_t i = 0; i < inputSize; ++i) {
+        mlir::Value inputVal =
+            createMem.loadIE(inputs[i], inputAFs[i], {loopInd[0]});
+        inputVals.emplace_back(inputVal);
+      }
+      // Load tmps in scalar mode (no indexing, same value over & over).
+      llvm::SmallVector<mlir::Value, 4> tmpVals;
+      for (int64_t o = 0; o < outputSize; ++o) {
+        mlir::Value tmpVal = createMem.loadIE(tmps[o], tmpAFs[o], {});
+        tmpVals.emplace_back(tmpVal);
+      }
+      // Call reduction.
+      llvm::SmallVector<mlir::Value, 4> resultVals;
+      reductionBuilderFn(b, inputVals, tmpVals, resultVals, 1);
+      assert((int64_t)resultVals.size() == outputSize &&
+             "expect ouputSize results");
+      // Save tmp values in sequential mode.
+      for (int64_t o = 0; o < outputSize; ++o) {
+        createMem.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+      }
+    };
+
+    // Perform scalar loop.
+
+    // Implementation with Krnl
+    mlir::ValueRange loopDef = builder.defineLoops(1);
+    builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+  }
+
+  // Now perform post processing. Load all tmps.
+  llvm::SmallVector<mlir::Value, 4> tmpVals;
+  for (int64_t o = 0; o < outputSize; ++o) {
+    // Load tmp in vector mode.
+    mlir::Value tmpVal =
+        create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
+    tmpVals.emplace_back(tmpVal);
+  }
+  llvm::SmallVector<mlir::Value, 4> scalarOutputs;
+  // Invoke the post processing operations, which takes each tmp vector and
+  // reduces it to a scalar.
+  postProcessingBuilderFn(builder, tmpVals, scalarOutputs, VL);
+  assert((int64_t)scalarOutputs.size() == outputSize &&
+         "expect outputSize results");
+  // Store the scalar reductions.
+  for (int64_t o = 0; o < outputSize; ++o) {
+    createMem.storeIE(scalarOutputs[o], outputs[o], outputAFs[o]);
+  }
+}
+
+} // namespace impl

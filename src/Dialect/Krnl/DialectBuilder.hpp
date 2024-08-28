@@ -131,7 +131,7 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::function_ref<void(KrnlBuilder &kb,
           mlir::ArrayRef<mlir::Value> inputVals,
           llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          bodyBuilderFn);
+          bodyBuilderFn) const;
 
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       /* in: use [x][n] */
@@ -143,16 +143,16 @@ struct KrnlBuilder : public DialectBuilder {
       /* init val: scalar */
       mlir::ArrayRef<mlir::Value> initVals,
       /* reduction function (simd or scalar) */
-      mlir::function_ref<void(KrnlBuilder &kb,
+      mlir::function_ref<void(const KrnlBuilder &kb,
           mlir::ArrayRef<mlir::Value> inputVals,
           mlir::ArrayRef<mlir::Value> tmpVals,
           llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
           reductionBuilderFn,
       /* post reduction function (simd to scalar + post processing)*/
-      mlir::function_ref<void(KrnlBuilder &kb,
+      mlir::function_ref<void(const KrnlBuilder &kb,
           mlir::ArrayRef<mlir::Value> tmpVals,
           llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
-          postProcessingBuilderFn);
+          postProcessingBuilderFn) const;
 
   void yield(mlir::ValueRange iterArgs) const;
 

@@ -1109,6 +1109,33 @@ void MemRefBuilder::computeDynSymbols(Value operandOfSameType, MemRefType type,
 }
 
 //===----------------------------------------------------------------------===//
+// Load Store ops.
+
+Value MemRefBuilder::load(
+    Value memref, ValueRange indices, ValueRange offsets) const {
+  return onnx_mlir::impl::load<MemRefBuilder, memref::LoadOp>(
+      *this, memref, indices, offsets);
+}
+Value MemRefBuilder::loadIE(
+    Value memref, ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  return onnx_mlir::impl::loadIE<MemRefBuilder, memref::LoadOp>(
+      *this, memref, indices, offsets);
+}
+
+// Add offsets (if any) to the least significant memref dims.
+void MemRefBuilder::store(
+    Value val, Value memref, ValueRange indices, ValueRange offsets) const {
+  onnx_mlir::impl::store<MemRefBuilder, memref::StoreOp>(
+      *this, val, memref, indices, offsets);
+}
+
+void MemRefBuilder::storeIE(Value val, Value memref,
+    ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  onnx_mlir::impl::storeIE<MemRefBuilder, memref::StoreOp>(
+      *this, val, memref, indices, offsets);
+}
+
+//===----------------------------------------------------------------------===//
 // Alloc functions without alignment.
 
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
@@ -1642,6 +1669,26 @@ void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
 }
 
 //===----------------------------------------------------------------------===//
+// Queries
+
+/*static*/ bool MemRefBuilder::isNoneValue(Value value) {
+  return mlir::isa<NoneType>(value.getType());
+}
+
+/*static*/ bool MemRefBuilder::hasOneElementInInnermostDims(
+    Value value, int64_t innerDim) {
+  // Get info.
+  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
+  assert(type && "expected shaped type");
+  int64_t rank = type.getRank();
+  ArrayRef<int64_t> shape = type.getShape();
+  for (int64_t i = std::max((int64_t)0, rank - innerDim); i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF).
 //===----------------------------------------------------------------------===//
 
@@ -1751,6 +1798,7 @@ int64_t VectorBuilder::getArchVectorLength(Value vecValue) const {
 
 Value VectorBuilder::load(VectorType vecType, Value memref, ValueRange indices,
     ValueRange offsets) const {
+  // Cannot use the onnx_mlir::impl::load because we also need to pass the type.
   llvm::SmallVector<Value, 4> computedIndices;
   MultiDialectBuilder<MathBuilder> create(*this);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
@@ -1759,6 +1807,7 @@ Value VectorBuilder::load(VectorType vecType, Value memref, ValueRange indices,
 
 Value VectorBuilder::loadIE(VectorType vecType, Value memref,
     llvm::ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  // Cannot use the onnx_mlir::impl::load because we also need to pass the type.
   llvm::SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   return load(vecType, memref, indexValues, offsets);
@@ -1766,17 +1815,14 @@ Value VectorBuilder::loadIE(VectorType vecType, Value memref,
 
 void VectorBuilder::store(
     Value val, Value memref, ValueRange indices, ValueRange offsets) const {
-  llvm::SmallVector<Value, 4> computedIndices;
-  MultiDialectBuilder<MathBuilder> create(*this);
-  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  b().create<vector::StoreOp>(loc(), val, memref, computedIndices);
+  onnx_mlir::impl::store<VectorBuilder, vector::StoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 void VectorBuilder::storeIE(Value val, Value memref,
     llvm::ArrayRef<IndexExpr> indices, ValueRange offsets) const {
-  llvm::SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  store(val, memref, indexValues, offsets);
+  onnx_mlir::impl::storeIE<VectorBuilder, vector::StoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
