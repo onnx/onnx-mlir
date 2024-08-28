@@ -574,10 +574,9 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool propagateIntoMinMax,
   bool canBeAffine = (affineExprFct != nullptr);
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
-  if (resIsAffine)
-    // Test if we have a neutral value.
-    if (hasNeutralA && isIdentical(*this, neutralVal))
-      return b.deepCopy(); // Copy of the other value (use same questionmark).
+  // Test if we have a neutral value.
+  if (hasNeutralA && isIdentical(*this, neutralVal))
+    return b.deepCopy(); // Copy of the other value (use same questionmark).
   if (hasNeutralB && isIdentical(b, neutralVal)) {
     return deepCopy(); // Copy of the other value (use same questionmark).
   }
