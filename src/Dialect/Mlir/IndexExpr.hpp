@@ -237,8 +237,8 @@ result in a new Dim variable.
     for (int ii = 0; ii < outputRank; ++ii) {
       Value inductionVal = outputLoops.getInductionVar(ii);
       DimIndexExpr inductionIndex(inductionVal);
-      IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
-      IndexExpr step = SymbolIndexExpr(shapeHelper.steps[ii]);
+      IndexExpr start = SymIE(shapeHelper.starts[ii]);
+      IndexExpr step = SymIE(shapeHelper.steps[ii]);
       loadIndices.emplace_back((step * inductionIndex) + start);
       storeIndices.emplace_back(inductionIndex);
     }
@@ -842,7 +842,7 @@ inline IndexExpr operator*(int64_t const a, const IndexExpr &b) {
   return b * a;
 }
 inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
-  return LiteralIndexExpr(a) - b;
+  return LitIE(a) - b;
 }
 
 //===----------------------------------------------------------------------===//
@@ -870,13 +870,13 @@ void getIndexExprList(
 
 inline llvm::SmallVector<IndexExpr, 4> DimListIE(mlir::ValueRange range) {
   llvm::SmallVector<IndexExpr, 4> outputList;
-  getIndexExprList<DimIndexExpr>(range, outputList);
+  getIndexExprList<DimIE>(range, outputList);
   return outputList;
 }
 
 inline llvm::SmallVector<IndexExpr, 4> SymListIE(mlir::ValueRange range) {
   llvm::SmallVector<IndexExpr, 4> outputList;
-  getIndexExprList<SymbolIndexExpr>(range, outputList);
+  getIndexExprList<SymIE>(range, outputList);
   return outputList;
 }
 
@@ -892,14 +892,14 @@ void getIndexExprList(const mlir::ArrayRef<IndexExpr> inputList,
 inline llvm::SmallVector<IndexExpr, 4> DimListIE(
     const mlir::ArrayRef<IndexExpr> inputList) {
   llvm::SmallVector<IndexExpr, 4> outputList;
-  getIndexExprList<DimIndexExpr>(inputList, outputList);
+  getIndexExprList<DimIE>(inputList, outputList);
   return outputList;
 }
 
 inline llvm::SmallVector<IndexExpr, 4> SymListIE(
     const mlir::ArrayRef<IndexExpr> inputList) {
   llvm::SmallVector<IndexExpr, 4> outputList;
-  getIndexExprList<SymbolIndexExpr>(inputList, outputList);
+  getIndexExprList<SymIE>(inputList, outputList);
   return outputList;
 }
 

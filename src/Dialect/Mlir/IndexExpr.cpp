@@ -872,10 +872,10 @@ IndexExpr IndexExpr::operator!() const {
 
 IndexExpr IndexExpr::operator+(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getLiteral() + bb.getLiteral());
+    return LitIE(aa.getLiteral() + bb.getLiteral());
   };
   F2 litFloatFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getFloatLiteral() + bb.getFloatLiteral());
+    return LitIE(aa.getFloatLiteral() + bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     return AffineIndexExpr(aa.getAffineExpr() + bb.getAffineExpr());
@@ -894,10 +894,10 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
 
 IndexExpr IndexExpr::operator-(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getLiteral() - bb.getLiteral());
+    return LitIE(aa.getLiteral() - bb.getLiteral());
   };
   F2 litFloatFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getFloatLiteral() - bb.getFloatLiteral());
+    return LitIE(aa.getFloatLiteral() - bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     return AffineIndexExpr(aa.getAffineExpr() - bb.getAffineExpr());
@@ -916,10 +916,10 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
 
 IndexExpr IndexExpr::operator*(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getLiteral() * bb.getLiteral());
+    return LitIE(aa.getLiteral() * bb.getLiteral());
   };
   F2 litFloatFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getFloatLiteral() * bb.getFloatLiteral());
+    return LitIE(aa.getFloatLiteral() * bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     return AffineIndexExpr(aa.getAffineExpr() * bb.getAffineExpr());
@@ -945,7 +945,7 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval =
         std::floor((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
@@ -972,7 +972,7 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
 IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval = std::ceil((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
@@ -997,7 +997,7 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
 IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval = llvm::mod(aa.getLiteral(), bb.getLiteral());
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
@@ -1022,7 +1022,7 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
 IndexExpr IndexExpr::operator/(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     double rval = aa.getFloatLiteral() / bb.getFloatLiteral();
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1039,7 +1039,7 @@ IndexExpr IndexExpr::operator/(IndexExpr const b) const {
 IndexExpr IndexExpr::ceil() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = std::ceil(aa.getFloatLiteral());
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1055,7 +1055,7 @@ IndexExpr IndexExpr::ceil() const {
 IndexExpr IndexExpr::floor() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = std::floor(aa.getFloatLiteral());
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1072,7 +1072,7 @@ IndexExpr IndexExpr::floor() const {
 IndexExpr IndexExpr::convertToFloat() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = (double)aa.getLiteral();
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1089,7 +1089,7 @@ IndexExpr IndexExpr::convertToFloat() const {
 IndexExpr IndexExpr::convertToIndex() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     int64_t rval = (int64_t)aa.getFloatLiteral();
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1223,7 +1223,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::min(
     IndexExpr const first, int64_t const second) {
-  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  SmallVector<IndexExpr, 2> list = {first, LitIE(second)};
   return min(list);
 }
 
@@ -1282,7 +1282,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::max(
     IndexExpr const first, int64_t const second) {
-  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  SmallVector<IndexExpr, 2> list = {first, LitIE(second)};
   return max(list);
 }
 
@@ -1313,15 +1313,15 @@ bool IndexExpr::retrieveAffineMinMax(
 //===----------------------------------------------------------------------===//
 
 IndexExpr IndexExpr::operator+(int64_t const b) const {
-  return *this + LiteralIndexExpr(b);
+  return *this + LitIE(b);
 }
 
 IndexExpr IndexExpr::operator-(int64_t const b) const {
-  return *this - LiteralIndexExpr(b);
+  return *this - LitIE(b);
 }
 
 IndexExpr IndexExpr::operator*(int64_t const b) const {
-  return *this * LiteralIndexExpr(b);
+  return *this * LitIE(b);
 }
 
 IndexExpr IndexExpr::operator==(IndexExpr const b) const {
@@ -1331,7 +1331,7 @@ IndexExpr IndexExpr::operator==(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator==(int64_t const b) const {
-  return *this == LiteralIndexExpr(b);
+  return *this == LitIE(b);
 }
 
 IndexExpr IndexExpr::operator!=(IndexExpr const b) const {
@@ -1341,7 +1341,7 @@ IndexExpr IndexExpr::operator!=(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator!=(int64_t const b) const {
-  return *this != LiteralIndexExpr(b);
+  return *this != LitIE(b);
 }
 
 IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
@@ -1351,7 +1351,7 @@ IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator<=(int64_t const b) const {
-  return *this <= LiteralIndexExpr(b);
+  return *this <= LitIE(b);
 }
 
 IndexExpr IndexExpr::operator<(IndexExpr const b) const {
@@ -1361,7 +1361,7 @@ IndexExpr IndexExpr::operator<(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator<(int64_t const b) const {
-  return *this < LiteralIndexExpr(b);
+  return *this < LitIE(b);
 }
 
 IndexExpr IndexExpr::operator>=(IndexExpr const b) const {
@@ -1371,7 +1371,7 @@ IndexExpr IndexExpr::operator>=(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator>=(int64_t const b) const {
-  return *this >= LiteralIndexExpr(b);
+  return *this >= LitIE(b);
 }
 
 IndexExpr IndexExpr::operator>(IndexExpr const b) const {
@@ -1381,36 +1381,36 @@ IndexExpr IndexExpr::operator>(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator>(int64_t const b) const {
-  return *this > LiteralIndexExpr(b);
+  return *this > LitIE(b);
 }
 
 IndexExpr IndexExpr::operator%(int64_t const b) const {
-  return *this % LiteralIndexExpr(b);
+  return *this % LitIE(b);
 }
 
 IndexExpr IndexExpr::floorDiv(int64_t const b) const {
-  return this->floorDiv(LiteralIndexExpr(b));
+  return this->floorDiv(LitIE(b));
 }
 
 IndexExpr IndexExpr::ceilDiv(int64_t const b) const {
-  return this->ceilDiv(LiteralIndexExpr(b));
+  return this->ceilDiv(LitIE(b));
 }
 
 IndexExpr IndexExpr::clamp(int64_t min, IndexExpr max) {
-  return clamp(LiteralIndexExpr(min), max);
+  return clamp(LitIE(min), max);
 }
 
 /*static*/ IndexExpr IndexExpr::select(
     IndexExpr const compare, int64_t const trueVal, IndexExpr const falseVal) {
-  return select(compare, LiteralIndexExpr(trueVal), falseVal);
+  return select(compare, LitIE(trueVal), falseVal);
 }
 /*static*/ IndexExpr IndexExpr::select(
     IndexExpr const compare, IndexExpr const trueVal, int64_t const falseVal) {
-  return select(compare, trueVal, LiteralIndexExpr(falseVal));
+  return select(compare, trueVal, LitIE(falseVal));
 }
 /*static*/ IndexExpr IndexExpr::select(
     IndexExpr const compare, int64_t const trueVal, int64_t const falseVal) {
-  return select(compare, LiteralIndexExpr(trueVal), LiteralIndexExpr(falseVal));
+  return select(compare, LitIE(trueVal), LitIE(falseVal));
 }
 
 IndexExpr IndexExpr::selectOrSelf(
@@ -1961,7 +1961,7 @@ void getIndexExprListFromInt(
     ArrayRef<int64_t> inputList, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (int64_t item : inputList)
-    outputList.emplace_back(LiteralIndexExpr(item));
+    outputList.emplace_back(LitIE(item));
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
@@ -1974,7 +1974,7 @@ void getIndexExprListFromShape(
       outputList.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
     else {
       assert(item >= 0 && "expected kDynamic, not -1");
-      outputList.emplace_back(LiteralIndexExpr(item));
+      outputList.emplace_back(LitIE(item));
     }
   }
 }
