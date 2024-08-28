@@ -224,7 +224,7 @@ struct ONNXInstanceNormalizationOpLowering
           // First compute the mean: store zero in reduction value, then sum up
           // all of the values in the channel, and divide by the number of
           // values.
-          create.krnl.store(fZero, tmpMemRef, {});
+          create.krnl.store(fZero, tmpMemRef);
           // Iterate over kernel and add values.
           ValueRange spatial2_loopDef = create.krnl.defineLoops(rank - 2);
           create.krnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
@@ -236,7 +236,7 @@ struct ONNXInstanceNormalizationOpLowering
                 for (int d = 0; d < rank - 2; ++d)
                   inputAccessFct.emplace_back(spatial_loopInd[d]);
                 // tmp += input[n,c, spatial dims]
-                Value oldSum = create.krnl.load(tmpMemRef, {});
+                Value oldSum = create.krnl.load(tmpMemRef);
                 Value val = create.krnl.load(inputMemRef, inputAccessFct);
                 Value newSum = create.math.add(oldSum, val);
                 create.krnl.store(newSum, tmpMemRef);
@@ -244,7 +244,7 @@ struct ONNXInstanceNormalizationOpLowering
           Value sum = create.krnl.load(tmpMemRef);
           Value mean = create.math.div(sum, meanDenom);
           // Second, compute the standard dev: sum of (val - mean)2 / (num-1).
-          create.krnl.store(fZero, tmpMemRef, {});
+          create.krnl.store(fZero, tmpMemRef);
           // Iterate over kernel and add values.
           create.krnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {

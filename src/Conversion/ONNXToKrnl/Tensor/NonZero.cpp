@@ -113,7 +113,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
 
     // Emit a variable for the total number of nonzero values.
     Value nonzeroCount = create.mem.alloca(MemRefType::get({}, indexTy));
-    create.krnl.store(iZero, nonzeroCount, {});
+    create.krnl.store(iZero, nonzeroCount);
 
     // Emit alloc and dealloc for reduction sum along each dimension.
     // MemRefType: [Dxi64] where D is the dimension size.
@@ -146,9 +146,9 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
           Value eqCond = createMath.eq(x, zero);
           Value zeroOrOne = createMath.select(eqCond, iZero, iOne);
           // Count the total number of nonzero values.
-          Value total = createKrnl.load(nonzeroCount, {});
+          Value total = createKrnl.load(nonzeroCount);
           total = createMath.add(total, zeroOrOne);
-          createKrnl.store(total, nonzeroCount, {});
+          createKrnl.store(total, nonzeroCount);
           // Reduction sum of the number of nonzero values for each dimension.
           for (int64_t i = 0; i < xRank; ++i) {
             Value sum = createKrnl.load(rsumMemRefs[i], loopInd[i]);
@@ -160,7 +160,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     // Emit alloc and dealloc for the result of this operation.
     // MemRefType : [RxNxi64] where R is the input's rank, N is the number of
     // non zero values.
-    Value numberOfZeros = create.krnl.load(nonzeroCount, {});
+    Value numberOfZeros = create.krnl.load(nonzeroCount);
     SmallVector<IndexExpr, 2> dimExprs;
     dimExprs.emplace_back(LiteralIndexExpr(xRank));
     dimExprs.emplace_back(DimIndexExpr(numberOfZeros));
@@ -191,8 +191,8 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
             IndexExpr rsumBounds0 =
                 create.krnlIE.getShapeAsDim(rsumBoundsVal, 0);
 
-            create.krnl.store(iMinusOne, pos, {});
-            create.krnl.store(iZero, sum, {});
+            create.krnl.store(iMinusOne, pos);
+            create.krnl.store(iZero, sum);
 
             ValueRange jLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(jLoopDef, jLoopDef, {iZero},
@@ -201,16 +201,16 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
                   MathBuilder createMath(createKrnl);
                   Value j(jLoopInd[0]);
                   Value o = createKrnl.load(rsumMemRefs[axis], {j});
-                  Value s = createKrnl.load(sum, {});
-                  Value p = createKrnl.load(pos, {});
+                  Value s = createKrnl.load(sum);
+                  Value p = createKrnl.load(pos);
                   s = createMath.add(s, o);
                   Value andCond = createMath.andi(
                       createMath.slt(i, s), createMath.eq(p, iMinusOne));
                   p = createMath.select(andCond, j, p);
-                  createKrnl.store(p, pos, {});
-                  createKrnl.store(s, sum, {});
+                  createKrnl.store(p, pos);
+                  createKrnl.store(s, sum);
                 });
-            Value p = create.krnl.load(pos, {});
+            Value p = create.krnl.load(pos);
             p = create.math.cast(resElementType, p);
             create.krnl.store(p, resMemRef, {axisVal, i});
           }

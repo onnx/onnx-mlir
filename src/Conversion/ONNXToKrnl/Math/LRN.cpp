@@ -121,9 +121,9 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
           Value loadVal = create.krnl.load(input, loadIndices);
           Value squareVal = create.math.mul(loadVal, loadVal);
 
-          Value sumValue = create.krnl.load(sumAlloc, ArrayRef<Value>{});
+          Value sumValue = create.krnl.load(sumAlloc);
           sumValue = create.math.add(sumValue, squareVal);
-          create.krnl.store(sumValue, sumAlloc, ArrayRef<Value>{});
+          create.krnl.store(sumValue, sumAlloc);
 
           // Compute and store the output
           // y = x / ((bias + (alpha / nsize) * square_sum) ** beta)

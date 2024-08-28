@@ -56,8 +56,8 @@ static StringRef getFormat(const Type &inputType) {
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-Value KrnlBuilder::load(Value memref, ValueRange indices,
-    ValueRange offsets) const {
+Value KrnlBuilder::load(
+    Value memref, ValueRange indices, ValueRange offsets) const {
   // Handle offsets.
   SmallVector<Value, 4> computedIndices;
   MathBuilder createMath(*this);
@@ -83,8 +83,8 @@ Value KrnlBuilder::loadIE(
   return load(memref, indexValues, offsets);
 }
 
-void KrnlBuilder::store(Value val, Value memref,
-    ValueRange indices, ValueRange offsets) const {
+void KrnlBuilder::store(
+    Value val, Value memref, ValueRange indices, ValueRange offsets) const {
   SmallVector<Value, 4> computedIndices;
   MathBuilder createMath(*this);
   createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
@@ -135,13 +135,11 @@ void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
       loc(), memref, indexValues, isWrite, localityHint, isDataCache);
 }
 
-void KrnlBuilder::seqstore(
-    Value element, Value seq, Value index) const {
+void KrnlBuilder::seqstore(Value element, Value seq, Value index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index);
 }
 
-void KrnlBuilder::seqstore(
-    Value element, Value seq, IndexExpr index) const {
+void KrnlBuilder::seqstore(Value element, Value seq, IndexExpr index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index.getValue());
 }
 
@@ -302,7 +300,7 @@ krnl.iterate(loop i from 0 to 256) {
       MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
       Value aVal = inputVals[0];            // simd or scalar
       Value bVal = inputVals[1];            // simd or scalar
-      Value cVal = create.krnl.load(C, {}); // scalar always
+      Value cVal = create.krnl.load(C); // scalar always
       Value newVal = create.math.add(aVal, bVal); // simd or scalar
       newVal = create.math.add(newVal, cVal); // if newVal is simd, cVal is
                                               // splatted
@@ -388,7 +386,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
               // Have a vector.
               VectorType vecType = VectorType::get({VL}, type.getElementType());
               AF[rank - 1] = AF[rank - 1] + ind; // Add induction var.
-              Value vecVal = create.vec.loadIE(vecType, input, AF, {});
+              Value vecVal = create.vec.loadIE(vecType, input, AF);
               vecInputVals.emplace_back(vecVal);
             }
           }
@@ -404,7 +402,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
             int64_t rank = type.getRank();
             assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
             AF[rank - 1] = AF[rank - 1] + ind;
-            create.vec.storeIE(vecResVals[i], outputs[i], AF, {});
+            create.vec.storeIE(vecResVals[i], outputs[i], AF);
           }
         });
     if (fullySimd)
@@ -604,8 +602,7 @@ ElementsAttr IndexExprBuilderForKrnl::getConst(Value value) {
   if (auto globalOp = dyn_cast_or_null<KrnlGlobalOp>(definingOp)) {
     if (globalOp.getValue().has_value())
       return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
-  } else if (auto globalOp =
-                 dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
+  } else if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (globalOp.getValue().has_value())
       return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
   }
@@ -616,7 +613,7 @@ Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
   uint64_t rank = getShapedTypeRank(intArrayVal);
   if (rank == 0)
-    return create.krnl.load(intArrayVal, {});
+    return create.krnl.load(intArrayVal);
   uint64_t size = getArraySize(intArrayVal);
   assert(i < size && "out of bound reference");
   Value iVal = create.math.constantIndex(i);

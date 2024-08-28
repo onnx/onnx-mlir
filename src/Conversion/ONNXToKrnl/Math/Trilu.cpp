@@ -54,7 +54,7 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
     if (isNoneValue(triluOp.getK()))
       k = create.math.constantIndex(0);
     else
-      k = create.math.castToIndex(create.krnl.load(adaptor.getK(), {}));
+      k = create.math.castToIndex(create.krnl.load(adaptor.getK()));
 
     // Insert an allocation and deallocation for the result of this operation.
     SmallVector<IndexExpr, 4> ubs;

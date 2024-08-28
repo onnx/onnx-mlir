@@ -409,9 +409,9 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     res2 = create.math.div(res2, divisorForMean);
 
   // Save result.
-  create.affineKMem.store(res1, alloc1, {});
+  create.affineKMem.store(res1, alloc1);
   if (hasTwoRed)
-    create.affineKMem.store(res2, alloc2, {});
+    create.affineKMem.store(res2, alloc2);
 
   if (hasTwoRed)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,

@@ -421,7 +421,7 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
   if (mlir::isa<NoneType>(optionalScalar.getType())) {
     return create.math.constant(elementType, defaultValue);
   } else if (mlir::cast<ShapedType>(optionalScalar.getType()).getRank() == 0) {
-    return create.krnl.load(optionalScalar, {});
+    return create.krnl.load(optionalScalar);
   } else {
     Value zero = create.math.constantIndex(0);
     return create.krnl.load(optionalScalar, {zero});

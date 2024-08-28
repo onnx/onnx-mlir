@@ -126,14 +126,14 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Type indexTy = rewriter.getIndexType();
     Value iZero = create.math.constantIndex(0);
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
-    create.krnl.store(iZero, uniqueCount, {});
+    create.krnl.store(iZero, uniqueCount);
     Value noneValue;
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
     //
     // Calculate shapes of output Tensors
     //
-    Value total = create.krnl.load(uniqueCount, {});
+    Value total = create.krnl.load(uniqueCount);
     NonAffineIndexExpr totalDimExpr = DimIndexExpr(total);
     DimsExpr outputYDims;
     DimsExpr outputIndexDims;
@@ -211,7 +211,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     //
     // Emit a Unique call to get the outputs
     //
-    create.krnl.store(iZero, uniqueCount, {});
+    create.krnl.store(iZero, uniqueCount);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverseIndices, counts, /*count_only=*/false);
     if (isNoneValue(indices))
