@@ -183,8 +183,8 @@ bool AreTheSameAxesArrayAttr(
 bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
   assert(cast<ShapedType>(lhs.getType()).getElementType().isInteger(64));
   assert(cast<ShapedType>(rhs.getType()).getElementType().isInteger(64));
-  auto lhsConstOp = dyn_cast_or_null<ONNXConstantOp>(lhs.getDefiningOp());
-  auto rhsConstOp = dyn_cast_or_null<ONNXConstantOp>(rhs.getDefiningOp());
+  auto lhsConstOp = mlir::dyn_cast_or_null<ONNXConstantOp>(lhs.getDefiningOp());
+  auto rhsConstOp = mlir::dyn_cast_or_null<ONNXConstantOp>(rhs.getDefiningOp());
   return lhsConstOp && rhsConstOp &&
          AreTheSameAxesArrayAttr(rank,
              createArrayAttrFromConstantOp(lhsConstOp),
@@ -357,8 +357,8 @@ public:
     assert(op->getNumOperands() == 2 && "op must be binary");
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
-    ShapedType lhsType = cast<ShapedType>(lhs.getType());
-    ShapedType rhsType = cast<ShapedType>(rhs.getType());
+    ShapedType lhsType = mlir::cast<ShapedType>(lhs.getType());
+    ShapedType rhsType = mlir::cast<ShapedType>(rhs.getType());
     if (!lhsType.hasRank() || !rhsType.hasRank()) {
       return failure(); // Cannot apply pattern until ranks are known.
     }
@@ -485,7 +485,7 @@ public:
     Operation *reshapeGenericOp = lhs.getDefiningOp();
     if (!reshapeGenericOp)
       return failure();
-    auto reshapeOp = dyn_cast<ONNXReshapeOp>(reshapeGenericOp);
+    auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(reshapeGenericOp);
     if (!reshapeOp)
       return failure();
     // RHS is a scalar.
@@ -591,8 +591,8 @@ struct PropagateConstantScalingInAttentionLayerPattern
               onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
       });
     } else {
-      auto onnxSubMatOp = cast<ONNXMatMulOp>(matmulOrGemmOp);
-      auto onnxAddOp = cast<ONNXAddOp>(addOp);
+      auto onnxSubMatOp = mlir::cast<ONNXMatMulOp>(matmulOrGemmOp);
+      auto onnxAddOp = mlir::cast<ONNXAddOp>(addOp);
       // Update in place MatMul and Add.
       rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
         rewriter.setInsertionPoint(onnxSubMatOp);
@@ -650,7 +650,7 @@ public:
 
 private:
   bool isEmptyTensor(Value input) const {
-    if (ShapedType shapedType = dyn_cast<ShapedType>(input.getType())) {
+    if (ShapedType shapedType = mlir::dyn_cast<ShapedType>(input.getType())) {
       return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
     } else {
       return false;
@@ -754,7 +754,7 @@ private:
             mlir::cast<ShapedType>(v.getType()).getElementType()) &&
         isa<ONNXConstantOp>(definingOp) &&
         mlir::isa<DenseElementsAttr>(
-            cast<ONNXConstantOp>(definingOp).getValueAttr()))
+            mlir::cast<ONNXConstantOp>(definingOp).getValueAttr()))
       return true;
     return false;
   }
@@ -797,7 +797,7 @@ private:
   int64_t getOneIntegerConstant(Value v) const {
     Operation *definingOp = v.getDefiningOp();
     DenseElementsAttr valueAttr = mlir::cast<DenseElementsAttr>(
-        cast<ONNXConstantOp>(definingOp).getValueAttr());
+        mlir::cast<ONNXConstantOp>(definingOp).getValueAttr());
     return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
   }
 
@@ -874,7 +874,7 @@ private:
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
     //     cond = LessOp(newCounterValue, ubValue)
     //     ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)
-    Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
+    Operation *addOp = mlir::cast<ONNXAddOp>(newCounterValue.getDefiningOp());
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
     // Counter is a block argument and updated at each iteration.
@@ -898,13 +898,14 @@ private:
     if (isInvariantBlockArg(ubValue, yieldOp))
       ubValue = getFedValue(ubValue, loopOp);
     else
-      ubValue = cast<ONNXConstantOp>(rewriter.clone(*ubValue.getDefiningOp()))
-                    .getResult();
+      ubValue =
+          mlir::cast<ONNXConstantOp>(rewriter.clone(*ubValue.getDefiningOp()))
+              .getResult();
     if (isInvariantBlockArg(stepValue, yieldOp))
       stepValue = getFedValue(stepValue, loopOp);
     else
       stepValue =
-          cast<ONNXConstantOp>(rewriter.clone(*stepValue.getDefiningOp()))
+          mlir::cast<ONNXConstantOp>(rewriter.clone(*stepValue.getDefiningOp()))
               .getResult();
 
     // Case 1: the upper bound, lower bound and step are constants.
@@ -1219,7 +1220,7 @@ public:
     // 1. data is from ExpandOp, axes is from ConstantOp.
     if (!definedBy<ONNXExpandOp>(data) || !definedBy<ONNXConstantOp>(axes))
       return failure();
-    auto expandOp = cast<ONNXExpandOp>(data.getDefiningOp());
+    auto expandOp = mlir::cast<ONNXExpandOp>(data.getDefiningOp());
     // 2. ExpandOp's input is a scalar tensor so that it's safe to use a new
     // shape that do not violate the broadcasting rule..
     if (!isScalarTensor(expandOp.getInput()))
@@ -1508,7 +1509,7 @@ struct PropagateBiasIntoLayerNormRewritePattern
     // used.
     if (!yLayerNormOp->hasOneUse())
       return reportFailure("y/layer norm has too many uses");
-    auto lnOp = cast<OP_TYPE>(yLayerNormOp);
+    auto lnOp = mlir::cast<OP_TYPE>(yLayerNormOp);
     if (!onnx_mlir::isNoneValue(lnOp.getB()))
       return reportFailure("layer norm already has a bias");
     // We are fine.

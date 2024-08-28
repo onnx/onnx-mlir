@@ -117,8 +117,8 @@ struct ONNXQuantizeLinearOpLowering
     Value YZeroPoint = qlOp.getYZeroPoint(); // Optional input.
 
     // MemRefType for inputs and outputs.
-    auto xMemRefType = dyn_cast<MemRefType>(X.getType());
-    auto yMemRefType = dyn_cast<MemRefType>(
+    auto xMemRefType = mlir::dyn_cast<MemRefType>(X.getType());
+    auto yMemRefType = mlir::dyn_cast<MemRefType>(
         typeConverter->convertType(qlOp.getResult().getType()));
     MemRefType yScaleMemRefType = mlir::cast<MemRefType>(YScale.getType());
 

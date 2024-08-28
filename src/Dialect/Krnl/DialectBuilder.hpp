@@ -30,19 +30,16 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~KrnlBuilder() {}
 
-  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
-  mlir::Value loadIE(
-      mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
-  void store(
-      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
+  // Add offsets (if any) to the least significant dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+  // Add offsets (if any) to the least significant dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      mlir::ArrayRef<IndexExpr> indices) const;
+      mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets = {}) const;
 
   // Get linear offset for given memref at given index values.
   mlir::Value getLinearOffsetIndex(

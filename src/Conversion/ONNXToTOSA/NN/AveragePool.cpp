@@ -30,7 +30,7 @@ namespace {
 
 void handleIncludePadAttr(
     ConversionPatternRewriter &rewriter, Operation *op, Value input) {
-  mlir::Location loc = op->getLoc();
+  Location loc = op->getLoc();
 
   // Get shape.
   IndexExprBuilderForTosa createTosaIE(rewriter, loc);

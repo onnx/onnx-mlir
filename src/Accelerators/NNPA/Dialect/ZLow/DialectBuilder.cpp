@@ -26,15 +26,13 @@ namespace onnx_mlir {
 // =============================================================================
 
 // Return null if none is found.
-ElementsAttr IndexExprBuilderForZLow::getConst(mlir::Value value) {
-  return nullptr;
-}
+ElementsAttr IndexExprBuilderForZLow::getConst(Value value) { return nullptr; }
 
 Value IndexExprBuilderForZLow::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
   uint64_t rank = getShapedTypeRank(intArrayVal);
   if (rank == 0)
-    return create.affine.load(intArrayVal, {});
+    return create.affine.load(intArrayVal);
   uint64_t size = getArraySize(intArrayVal);
   assert(i < size && "out of bound reference");
   Value iVal = create.math.constantIndex(i);

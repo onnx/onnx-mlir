@@ -83,7 +83,7 @@ public:
       numElemsOnReducedAxis *= inputType.getShape()[axisVal];
     }
     double divScale = 1.0 / static_cast<double>(numElemsOnReducedAxis);
-    mlir::Type reduceElementType = inputType.getElementType();
+    Type reduceElementType = inputType.getElementType();
 
     auto val = onnx_mlir::tosa::convertReduceOpCommon<mlir::tosa::ReduceSumOp>(
         rewriter, op, outputType, input, newAxesAttr, keepDims,

@@ -321,7 +321,7 @@ Value MathBuilder::round(Value x) const {
   return select(rEqualHalf, y2, y1);
 }
 
-Value MathBuilder::copySign(mlir::Value rem, mlir::Value dividend) const {
+Value MathBuilder::copySign(Value rem, Value dividend) const {
   splatToMatch(rem, dividend);
   assert(rem.getType() == dividend.getType() && "expected same type");
   if (isScalarOrVectorFloat(rem))
@@ -644,7 +644,7 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b().create<arith::ConstantOp>(loc(), constantAttr);
 }
 
-TypedAttr MathBuilder::negativeInfAttr(mlir::Type type) const {
+TypedAttr MathBuilder::negativeInfAttr(Type type) const {
   TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
@@ -689,7 +689,7 @@ TypedAttr MathBuilder::negativeInfAttr(mlir::Type type) const {
   return attr;
 }
 
-TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
+TypedAttr MathBuilder::positiveInfAttr(Type type) const {
   TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
@@ -1016,9 +1016,8 @@ Value MathBuilder::castToIndex(Value src) const {
 // Add offsets to least significant values in indices. So if indices has 4
 // values, (i, j, k, l) and offsets has 2 values (K, L), the results will be (i,
 // j, k+K, l+L).
-void MathBuilder::addOffsetToLeastSignificant(mlir::ValueRange indices,
-    mlir::ValueRange offsets,
-    llvm::SmallVectorImpl<mlir::Value> &computedIndices) const {
+void MathBuilder::addOffsetToLeastSignificant(ValueRange indices,
+    ValueRange offsets, llvm::SmallVectorImpl<Value> &computedIndices) const {
   int64_t indexRank = indices.size();
   int64_t offsetRank = offsets.size();
   int64_t firstOffset = indexRank - offsetRank;
@@ -1034,7 +1033,7 @@ void MathBuilder::addOffsetToLeastSignificant(mlir::ValueRange indices,
   }
 }
 
-void MathBuilder::addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
+void MathBuilder::addOffsetToLeastSignificant(ArrayRef<IndexExpr> indices,
     ValueRange offsets, llvm::SmallVectorImpl<Value> &computedIndices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
@@ -1085,8 +1084,7 @@ IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
 // values from the list of index expressions that represent the shape of the
 // memref.
 
-void MemRefBuilder::computeDynSymbols(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims,
+void MemRefBuilder::computeDynSymbols(MemRefType type, DimsExprRef dims,
     llvm::SmallVectorImpl<Value> &dynSymbols) const {
   dynSymbols.clear();
   int64_t rank = type.getRank();
@@ -1134,8 +1132,7 @@ memref::AllocOp MemRefBuilder::alloc(
   return alloc(type, dynSymbols);
 }
 
-memref::AllocOp MemRefBuilder::alloc(
-    MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const {
+memref::AllocOp MemRefBuilder::alloc(MemRefType type, DimsExprRef dims) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return alloc(type, dynSymbols);
@@ -1170,8 +1167,8 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   return alignedAlloc(type, dynSymbols, alignment);
 }
 
-memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t alignment) const {
+memref::AllocOp MemRefBuilder::alignedAlloc(
+    MemRefType type, DimsExprRef dims, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return alignedAlloc(type, dynSymbols, alignment);
@@ -1229,9 +1226,9 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
   Type elementType = type.getElementType();
   assert(!(mlir::isa<VectorType>(elementType)) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
-  staticSize = 1;                // Multiplication of static sizes.
-  dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = true;       // Static until proven otherwise.
+  staticSize = 1;          // Multiplication of static sizes.
+  dynSize = LitIE(1);      // Multiplication of dyn sizes.
+  bool staticShape = true; // Static until proven otherwise.
   int64_t rank = type.getRank();
   // Process with range [lb inclusive, ub exclusive)
   int64_t lb = 0, ub = rank;
@@ -1254,7 +1251,7 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
       if (i >= lb && i < ub) {
         // Keep track of static shape and dynamic sizes only when inbounds.
         staticShape = false;
-        dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim]);
+        dynSize = dynSize * SymIE(dynSymbols[iDim]);
       }
       iDim++;
     } else {
@@ -1269,8 +1266,8 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 }
 
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-    IndexExpr &dynSize, int64_t range) const {
+    DimsExprRef dims, int64_t &staticSize, IndexExpr &dynSize,
+    int64_t range) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return getStaticAndDynamicMemSize(
@@ -1281,7 +1278,7 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 // Alloc functions with alignment and padding for SIMD
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(
-    mlir::MemRefType type, int64_t VL, int64_t alignment) const {
+    MemRefType type, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
@@ -1317,17 +1314,16 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   if (bitWidth % 8 == 0) {
     // We have elements that have sizes of 1 or more bytes.
     int64_t byteWidth = bitWidth / 8;
-    IndexExpr totByteSize = LiteralIndexExpr(staticSize * byteWidth) * dynSize;
-    totPaddedByteSize = totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
+    IndexExpr totByteSize = LitIE(staticSize * byteWidth) * dynSize;
+    totPaddedByteSize = totByteSize + LitIE(paddingSize * byteWidth);
   } else {
     // We have sub-byte element sizes. Need to do precise computations. Namely
     // first compute tot total number of bits (including static/dynamic
     // and padding bit sizes), and then doing a ceil division by
     // 8 (number of bits in a byte).
-    IndexExpr totBitSize = LiteralIndexExpr(staticSize * bitWidth) * dynSize;
-    IndexExpr totPaddedBitSize =
-        totBitSize + LiteralIndexExpr(paddingSize * bitWidth);
-    totPaddedByteSize = totPaddedBitSize.ceilDiv(LiteralIndexExpr(8));
+    IndexExpr totBitSize = LitIE(staticSize * bitWidth) * dynSize;
+    IndexExpr totPaddedBitSize = totBitSize + LitIE(paddingSize * bitWidth);
+    totPaddedByteSize = totPaddedBitSize.ceilDiv(LitIE(8));
   }
   if (staticShape)
     assert(totPaddedByteSize.isLiteral() && "expected literal padded tot size");
@@ -1355,9 +1351,8 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
   return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
-Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL,
-    int64_t alignment) const {
+Value MemRefBuilder::alignedAllocWithSimdPadding(
+    MemRefType type, DimsExprRef dims, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
   return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
@@ -1397,7 +1392,7 @@ memref::ReshapeOp MemRefBuilder::reshape(MemRefType destType,
 }
 
 memref::ReshapeOp MemRefBuilder::reshape(
-    llvm::SmallVectorImpl<IndexExpr> &destDims, Value valToReshape) const {
+    DimsExpr &destDims, Value valToReshape) const {
   // Compute Shape.
   llvm::SmallVector<int64_t, 4> outputShape;
   IndexExpr::getShape(destDims, outputShape);
@@ -1427,9 +1422,7 @@ memref::ReshapeOp MemRefBuilder::reshape(
 // flatten at least 1 dim (which is a noop). Output rank is Rank(input) -
 // dimsToFlatten + 1.
 Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims,
-    llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
-    int64_t dimsToFlatten) const {
+    DimsExprRef dims, DimsExpr &flattenedDims, int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = mlir::cast<MemRefType>(valToReshape.getType());
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
@@ -1441,7 +1434,8 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
   if (dimsToFlatten == 1) {
     // Flattening of the last dim is really no flattening at all. Return
     // original value before doing the actual reshaping, which is unnecessary.
-    flattenedDims = dims;
+    for (IndexExpr d : dims)
+      flattenedDims.emplace_back(d);
     return valToReshape;
   }
   // Compute the dimensions of the flattened array.
@@ -1451,7 +1445,7 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
   for (int64_t d = 0; d < axis; ++d)
     flattenedDims.emplace_back(dims[d]);
   // Last flatten dim is the product of remaining input dims.
-  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  IndexExpr numOfFlattenedElements = LitIE(1);
   for (int64_t d = axis; d < inputRank; ++d)
     numOfFlattenedElements = numOfFlattenedElements * dims[d];
   flattenedDims.emplace_back(numOfFlattenedElements);
@@ -1459,9 +1453,8 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
   return reshape(flattenedDims, valToReshape);
 }
 
-Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims,
-    llvm::SmallVectorImpl<IndexExpr> &flattenedDims, int64_t axis) const {
+Value MemRefBuilder::reshapeToFlat2D(Value valToReshape, DimsExprRef dims,
+    DimsExpr &flattenedDims, int64_t axis) const {
   // Parse input.
   MemRefType inputType = mlir::cast<MemRefType>(valToReshape.getType());
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
@@ -1473,18 +1466,19 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
   assert(axis > 0 && axis < inputRank && "axis is out of range");
   if (inputRank == 2) {
     // Input is already 2D, nothing to do.
-    flattenedDims = dims;
+    for (IndexExpr d : dims)
+      flattenedDims.emplace_back(d);
     return valToReshape;
   }
   // Compute the dimensions of the flattened array.
   flattenedDims.clear();
   // First output dim: product of input dims until axis (exclusively).
-  IndexExpr numElement1stDim = LiteralIndexExpr(1);
+  IndexExpr numElement1stDim = LitIE(1);
   for (int64_t d = 0; d < axis; ++d)
     numElement1stDim = numElement1stDim * dims[d];
   flattenedDims.emplace_back(numElement1stDim);
   // Second output dim: product of input dims after axis (inclusively).
-  IndexExpr numElement2ndDim = LiteralIndexExpr(1);
+  IndexExpr numElement2ndDim = LitIE(1);
   for (int64_t d = axis; d < inputRank; ++d)
     numElement2ndDim = numElement2ndDim * dims[d];
   flattenedDims.emplace_back(numElement2ndDim);
@@ -1492,8 +1486,8 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
   return reshape(flattenedDims, valToReshape);
 }
 
-memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &outputDims, MemRefType outputType) const {
+memref::ReshapeOp MemRefBuilder::reshapeFromFlat(
+    Value valToReshape, DimsExpr &outputDims, MemRefType outputType) const {
   assert(!hasNonIdentityLayout(outputType) && "MemRef is not normalized");
   return reshape(outputDims, valToReshape);
 }
@@ -1505,20 +1499,18 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b().create<memref::CastOp>(loc(), outputType, input);
 }
 
-Value MemRefBuilder::reinterpretCast(
-    Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
-  // IndexExpr zero = LiteralIndexExpr(0);
+Value MemRefBuilder::reinterpretCast(Value input, DimsExpr &outputDims) const {
   return reinterpretCast(input, nullptr, outputDims);
 }
 
 Value MemRefBuilder::reinterpretCast(
-    Value input, Value offset, SmallVectorImpl<IndexExpr> &outputDims) const {
+    Value input, Value offset, DimsExpr &outputDims) const {
   // Compute new sizes and strides.
   int64_t rank = outputDims.size();
   SmallVector<IndexExpr, 4> sizesIE, stridesIE;
   sizesIE.resize(rank);
   stridesIE.resize(rank);
-  IndexExpr strideIE = LiteralIndexExpr(1);
+  IndexExpr strideIE = LitIE(1);
   for (int i = rank - 1; i >= 0; --i) {
     sizesIE[i] = outputDims[i];
     stridesIE[i] = strideIE;
@@ -1589,25 +1581,21 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value val,
-    llvm::SmallVectorImpl<int64_t> &offsets,
-    llvm::SmallVectorImpl<int64_t> &sizes,
-    llvm::SmallVectorImpl<int64_t> &strides) const {
+memref::SubViewOp MemRefBuilder::subView(Value val, ArrayRef<int64_t> offsets,
+    ArrayRef<int64_t> sizes, ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(loc(), val, offsets, sizes, strides);
 }
 
 memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
-    llvm::SmallVectorImpl<int64_t> &offsets,
-    llvm::SmallVectorImpl<int64_t> &sizes,
-    llvm::SmallVectorImpl<int64_t> &strides) const {
+    ArrayRef<int64_t> offsets, ArrayRef<int64_t> sizes,
+    ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(
       loc(), outputType, val, offsets, sizes, strides);
 }
 
 memref::SubViewOp MemRefBuilder::subView(Value input,
-    llvm::SmallVectorImpl<IndexExpr> &offsetsIE,
-    llvm::SmallVectorImpl<IndexExpr> &sizesIE,
-    llvm::SmallVectorImpl<IndexExpr> &stridesIE) const {
+    ArrayRef<IndexExpr> offsetsIE, ArrayRef<IndexExpr> sizesIE,
+    ArrayRef<IndexExpr> stridesIE) const {
   SmallVector<OpFoldResult, 4> offsets, sizes, strides;
   IndexExpr::getOpOrFoldResults(offsetsIE, offsets);
   IndexExpr::getOpOrFoldResults(sizesIE, sizes);
@@ -1649,9 +1637,8 @@ void MemRefBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
       loc(), memref, indices, isWrite, locality, isData);
 }
 
-void MemRefBuilder::prefetchIE(Value memref,
-    llvm::SmallVectorImpl<IndexExpr> &indices, bool isWrite, unsigned locality,
-    bool isData) {
+void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
+    bool isWrite, unsigned locality, bool isData) {
   if (disableMemRefPrefetch)
     return;
   SmallVector<Value, 4> indexVals;
@@ -1693,19 +1680,19 @@ void SCFBuilder::ifThenElse(Value cond,
 }
 
 void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
-    function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
+    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
   MathBuilder createMath(*this);
   Value stepVal = createMath.constantIndex(step);
   b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
       [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
           ValueRange args) {
         SCFBuilder builder(childBuilder, childLoc);
-        bodyFn(builder, inductionVar);
+        bodyFn(builder, {inductionVar});
         yield();
       });
 }
 
-void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
+void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
   // SmallVectorImpl<Value> ivStorage;
@@ -1767,44 +1754,34 @@ int64_t VectorBuilder::getArchVectorLength(Value vecValue) const {
   return getArchVectorLength(vecType.getElementType());
 }
 
-Value VectorBuilder::load(
-    VectorType vecType, Value memref, ValueRange indices) const {
-  return b().create<vector::LoadOp>(loc(), vecType, memref, indices);
-}
-mlir::Value VectorBuilder::load(mlir::VectorType vecType, mlir::Value memref,
-    mlir::ValueRange indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
+Value VectorBuilder::load(VectorType vecType, Value memref, ValueRange indices,
+    ValueRange offsets) const {
+  llvm::SmallVector<Value, 4> computedIndices;
   MultiDialectBuilder<MathBuilder> create(*this);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(vecType, memref, computedIndices);
+  return b().create<vector::LoadOp>(loc(), vecType, memref, computedIndices);
 }
 
-mlir::Value VectorBuilder::loadIE(mlir::VectorType vecType, mlir::Value memref,
-    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
+Value VectorBuilder::loadIE(VectorType vecType, Value memref,
+    llvm::ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  llvm::SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return load(vecType, memref, indexValues, offsets);
+}
+
+void VectorBuilder::store(
+    Value val, Value memref, ValueRange indices, ValueRange offsets) const {
+  llvm::SmallVector<Value, 4> computedIndices;
   MultiDialectBuilder<MathBuilder> create(*this);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(vecType, memref, computedIndices);
+  b().create<vector::StoreOp>(loc(), val, memref, computedIndices);
 }
 
-void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
-  b().create<vector::StoreOp>(loc(), val, memref, indices);
-}
-
-void VectorBuilder::store(mlir::Value val, mlir::Value memref,
-    mlir::ValueRange indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MultiDialectBuilder<MathBuilder> create(*this);
-  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
-}
-
-void VectorBuilder::storeIE(mlir::Value val, mlir::Value memref,
-    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MultiDialectBuilder<MathBuilder> create(*this);
-  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
+void VectorBuilder::storeIE(Value val, Value memref,
+    llvm::ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  llvm::SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  store(val, memref, indexValues, offsets);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
@@ -1958,7 +1935,7 @@ Value VectorBuilder::reduction(
 // For example, when we passe N=VL input vectors, the output has one vector;
 // when we passe N=2VL input vectors, the output has 2 vectors...
 
-void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
+void VectorBuilder::multiReduction(ArrayRef<Value> inputVecArray,
     F2 reductionFct, SmallVectorImpl<Value> &outputVecArray) {
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");

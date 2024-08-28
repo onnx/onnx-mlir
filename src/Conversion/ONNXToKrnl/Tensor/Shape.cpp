@@ -59,7 +59,7 @@ struct ONNXShapeOpLowering : public OpConversionPattern<ONNXShapeOp> {
     for (uint64_t i = 0; i < selectedData.size(); ++i) {
       Value val = selectedData[i].getValue();
       Value intVal = create.math.cast(elementType, val);
-      create.krnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
+      create.krnl.storeIE(intVal, alloc, {LitIE(i)});
     }
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);

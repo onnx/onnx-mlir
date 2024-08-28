@@ -93,7 +93,7 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 std::vector<Type> ONNXConstantOfShapeOp::resultTypeInference() {
   Type elementType;
   if (auto attr = getValueAttr()) {
-    elementType = cast<ElementsAttr>(attr).getElementType();
+    elementType = mlir::cast<ElementsAttr>(attr).getElementType();
   } else {
     elementType = FloatType::getF32(getContext());
   }
@@ -106,7 +106,7 @@ std::vector<Type> ONNXConstantOfShapeOp::resultTypeInference() {
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  ShapedType inputType = cast<ShapedType>(getInput().getType());
+  ShapedType inputType = mlir::cast<ShapedType>(getInput().getType());
   if (!inputType.hasStaticShape())
     return success();
 

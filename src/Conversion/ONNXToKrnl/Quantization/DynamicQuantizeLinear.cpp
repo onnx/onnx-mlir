@@ -94,12 +94,12 @@ struct ONNXDynamicQuantizeLinearOpLowering
     Value X = adaptor.getX();
 
     // MemRefType for inputs and outputs.
-    auto xMemRefType = dyn_cast<MemRefType>(X.getType());
-    auto yMemRefType = dyn_cast<MemRefType>(
+    auto xMemRefType = mlir::dyn_cast<MemRefType>(X.getType());
+    auto yMemRefType = mlir::dyn_cast<MemRefType>(
         typeConverter->convertType(dqlOp.getResult(0).getType()));
-    auto yScaleMemRefType = dyn_cast<MemRefType>(
+    auto yScaleMemRefType = mlir::dyn_cast<MemRefType>(
         typeConverter->convertType(dqlOp.getResult(1).getType()));
-    auto yZeroPointMemRefType = dyn_cast<MemRefType>(
+    auto yZeroPointMemRefType = mlir::dyn_cast<MemRefType>(
         typeConverter->convertType(dqlOp.getResult(2).getType()));
 
     // Types

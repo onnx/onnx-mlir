@@ -31,7 +31,7 @@ bool isRankedShapedType(Type ty) {
 }
 
 /// Check if a type has static shape.
-bool hasStaticShape(mlir::Type ty) {
+bool hasStaticShape(Type ty) {
   if (!isRankedShapedType(ty))
     return false;
   return mlir::cast<ShapedType>(ty).hasStaticShape();
