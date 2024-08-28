@@ -1933,7 +1933,7 @@ Value VectorBuilder::reduction(
 // For example, when we passe N=VL input vectors, the output has one vector;
 // when we passe N=2VL input vectors, the output has 2 vectors...
 
-void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
+void VectorBuilder::multiReduction(ArrayRef<Value> inputVecArray,
     F2 reductionFct, SmallVectorImpl<Value> &outputVecArray) {
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");

@@ -492,7 +492,7 @@ struct VectorBuilder final : DialectBuilder {
   mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value reduction(CombiningKind kind, mlir::Value value) const;
-  void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
+  void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
 private:
