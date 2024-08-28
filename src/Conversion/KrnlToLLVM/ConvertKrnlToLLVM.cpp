@@ -507,8 +507,15 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   });
   // Do not use file if the total size of satisfied constants is <=
   // totalThreshold.
-  if (totalSize <= totalThreshold)
+  if (totalSize <= totalThreshold) {
+    // Set buffer before return.
+    for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
+      ConstantOpInterface op = globalOfInterest[i];
+      ArrayRef<char> rawData = op.getBuffer();
+      op.setBuffer(rawData);
+    }
     return false;
+  }
 
   // Sort constants in the non-descending order of alignment values.
   // Non-alignment is the smallest value (-1), the others are positive.

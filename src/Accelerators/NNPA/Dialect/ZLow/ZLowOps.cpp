@@ -406,8 +406,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
         .Case<DenseElementsAttr>([&](DenseElementsAttr denseAttr) {
           ArrayRef<int64_t> shape = denseAttr.getType().getShape();
           Type elementType = denseAttr.getType().getElementType();
-          int rank = shape.size(); // TOOD: `shape` should be original one, but
-                                   // now normalized one
+          int rank = shape.size();
           // Read attributes's raw data.
           std::vector<char> attrData;
           getRawData(denseAttr, attrData);
