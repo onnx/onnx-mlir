@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_unittest(OMTensorTest
+add_onnx_mlir_unittest(OMTensorTest
   OMTensorTest.c
 
   INCLUDE_DIRS PRIVATE
