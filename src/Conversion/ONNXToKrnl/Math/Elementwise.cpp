@@ -1483,9 +1483,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 //===----------------------------------------------------------------------===//
 
 // Function pointer type for the emitScalarOpFor<T> of elementwise Ops.
-typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
-    mlir::ArrayRef<mlir::Value> scalarOperands);
+typedef Value (*EmitScalarFunc)(ConversionPatternRewriter &rewriter,
+    Location loc, mlir::Operation *op, Type elementType,
+    mlir::ArrayRef<Value> scalarOperands);
 
 // Utility class for Op fusion.
 // Start from the root op, which is being lowered as an Elementwise Op.

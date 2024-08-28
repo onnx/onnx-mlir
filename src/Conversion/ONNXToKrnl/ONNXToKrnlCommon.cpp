@@ -255,7 +255,7 @@ namespace {
 // Returns the DenseElementsAttr of input if it's a krnl.global constant or
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
 // builtin.unrealized_conversion_cast. Otherwise returns a nullptr attribute.
-DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
+DenseElementsAttr getDenseElementAttrFromConstValue(Value value) {
   Operation *definingOp = value.getDefiningOp();
   if (auto castOp = dyn_cast_or_null<UnrealizedConversionCastOp>(definingOp)) {
     if (castOp.getNumOperands() != 1)
@@ -376,7 +376,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   ValueRange loopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
       [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
-        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + oneIE;
+        IndexExpr i1 = DimIE(iLoopInd[axis]) + oneIE;
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
             [&](KrnlBuilder &ck, ValueRange swapLoopInd) {

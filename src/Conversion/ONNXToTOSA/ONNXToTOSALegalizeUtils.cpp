@@ -36,13 +36,13 @@ namespace onnx_mlir {
 namespace tosa {
 
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType, mlir::Attribute encoding) {
+    Type elementType, Attribute encoding) {
   return mlir::RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
 }
 
-mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
-    llvm::ArrayRef<int64_t> onnxPads, mlir::Location loc,
+Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
+    llvm::ArrayRef<int64_t> onnxPads, Location loc,
     const std::initializer_list<int64_t> &initialVals,
     const std::initializer_list<int64_t> &lastVals) {
 

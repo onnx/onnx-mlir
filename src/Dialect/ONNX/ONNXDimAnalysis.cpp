@@ -107,9 +107,9 @@ static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
 /// Given a QuestionMarkIndexExpr representing a dynamic dimension, find the
 /// same dynamic dimensions in the inputs.
 static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
-    mlir::Operation *op, mlir::ValueRange operands,
+    mlir::Operation *op, ValueRange operands,
     DimAnalysis::DimSetT &sameDims) {
-  mlir::Location loc = op->getLoc();
+  Location loc = op->getLoc();
   IndexExprBuilderForAnalysis createIE(loc);
 
   // Cannot process if the question mark is not a specific one.

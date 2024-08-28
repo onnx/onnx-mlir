@@ -281,7 +281,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           // Here loop is assumed to be executed at least once.
           Value firstElement =
               create.krnl.load(output, create.math.constantIndex(0));
-          SmallVector<mlir::Value, 4> allocParams;
+          SmallVector<Value, 4> allocParams;
           SmallVector<int64_t, 4> dims;
           dims.emplace_back(
               mlir::cast<MemRefType>(output.getType()).getShape()[0]);
@@ -328,9 +328,9 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     return success();
   }
 
-  void allocateMemoryForVFinal(mlir::Location loc,
+  void allocateMemoryForVFinal(Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<mlir::Value> &outputs) const {
+      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<Value> &outputs) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &ioPair :
         llvm::zip(adaptor.getVInitial(), loopOp.v_final())) {
@@ -356,9 +356,9 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     }
   }
 
-  void allocateMemoryForScanOutput(mlir::Location loc,
+  void allocateMemoryForScanOutput(Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<mlir::Value> &outputs,
+      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<Value> &outputs,
       bool isWhile = false) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
@@ -380,7 +380,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
         alloc = create.mem.alignedAlloc(memRefType);
       else {
         auto rankedScanOutTy = memRefType;
-        SmallVector<mlir::Value, 4> allocParams;
+        SmallVector<Value, 4> allocParams;
 
         // Check the loop accumulation dimension
         if (rankedScanOutTy.isDynamicDim(0)) {

@@ -154,7 +154,7 @@ public:
    */
   struct Movable {
     std::optional<KrnlMovableOp> movableOp;
-    std::optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
+    std::optional<llvm::SmallVector<Value, 4>> loopsToSkip;
 
     // Movable that stores a KrnlMovableOp.
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
@@ -289,7 +289,7 @@ public:
   }
 
 private:
-  llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
+  llvm::DenseMap<Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
 
 /*!

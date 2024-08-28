@@ -109,7 +109,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
                 writeIndices.emplace_back(loopInd[r]);
               else {
                 IndexExprScope IEScope(&rewriter, loc);
-                IndexExpr writeOffset = DimIndexExpr(loopInd[r]);
+                IndexExpr writeOffset = DimIE(loopInd[r]);
                 IndexExpr accumulatedOffsetIE =
                     SymIE(accumulatedOffsetValue);
                 writeOffset = writeOffset + accumulatedOffsetIE;

@@ -167,7 +167,7 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
 
           // Store result:
           SmallVector<IndexExpr, 4> resultIndices;
-          resultIndices.emplace_back(DimIndexExpr(loopInd[0]));
+          resultIndices.emplace_back(DimIE(loopInd[0]));
           createKrnl.storeIE(result, alloc, resultIndices);
 
           // Increment result:

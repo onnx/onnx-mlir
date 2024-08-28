@@ -268,7 +268,7 @@ public:
     auto outMemRefsType =
         mlir::dyn_cast<LLVM::LLVMStructType>(outMemRefs.getType());
 
-    std::vector<mlir::Value> outMemRefList;
+    std::vector<Value> outMemRefList;
     if (numOutputs == 1) {
       // If only one output tensor exists, the tensor's corresponding memref
       // descriptor will be returned as is.

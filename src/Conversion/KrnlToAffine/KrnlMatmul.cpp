@@ -167,34 +167,31 @@ public:
     // A[i, k];
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
-      aStart.emplace_back(
-          SymIE(operandAdaptor.getAGlobalIndexMemStart()[t]));
+      aStart.emplace_back(SymIE(operandAdaptor.getAGlobalIndexMemStart()[t]));
     aStart.emplace_back(
         iGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[aRank - 2]));
+        DimIE(operandAdaptor.getAGlobalIndexMemStart()[aRank - 2]));
     aStart.emplace_back(
         kGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[aRank - 1]));
+        DimIE(operandAdaptor.getAGlobalIndexMemStart()[aRank - 1]));
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
-      bStart.emplace_back(
-          SymIE(operandAdaptor.getBGlobalIndexMemStart()[t]));
+      bStart.emplace_back(SymIE(operandAdaptor.getBGlobalIndexMemStart()[t]));
     bStart.emplace_back(
         kGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[bRank - 2]));
+        DimIE(operandAdaptor.getBGlobalIndexMemStart()[bRank - 2]));
     bStart.emplace_back(
         jGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[bRank - 1]));
+        DimIE(operandAdaptor.getBGlobalIndexMemStart()[bRank - 1]));
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
-      cStart.emplace_back(
-          SymIE(operandAdaptor.getCGlobalIndexMemStart()[t]));
+      cStart.emplace_back(SymIE(operandAdaptor.getCGlobalIndexMemStart()[t]));
     cStart.emplace_back(
         iGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[cRank - 2]));
+        DimIE(operandAdaptor.getCGlobalIndexMemStart()[cRank - 2]));
     cStart.emplace_back(
         jGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[cRank - 1]));
+        DimIE(operandAdaptor.getCGlobalIndexMemStart()[cRank - 1]));
 
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling

@@ -67,7 +67,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXShapeTransformOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Operation *op = getOperation();
   // If any input is not ranked tensor, do nothing.
   if (!hasShapeAndRank(op))

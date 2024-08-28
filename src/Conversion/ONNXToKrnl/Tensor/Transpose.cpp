@@ -166,7 +166,7 @@ private:
           SmallVector<IndexExpr, 4> storeIndices;
           for (uint64_t i = 0; i < rank; ++i) {
             Value index = indices[ArrayAttrIntVal(permAttr, i)];
-            storeIndices.emplace_back(DimIndexExpr(index));
+            storeIndices.emplace_back(DimIE(index));
           }
           Value loadData = createKrnl.load(inputMemRef, indices);
           createKrnl.storeIE(loadData, outputMemRef, storeIndices);

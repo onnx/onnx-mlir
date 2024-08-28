@@ -318,7 +318,7 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 }
 
 bool getI64ValuesFromONNXConstantOp(
-    mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes) {
+    Value val, mlir::SmallVectorImpl<int64_t> &iRes) {
   ElementsAttr elemsAttr = getElementAttributeFromONNXValue(val);
   if (!elemsAttr)
     return false;
@@ -390,7 +390,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
 
 /// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
 /// tensor<1xdtype>.
-bool isScalarConstantTensor(mlir::Value v) {
+bool isScalarConstantTensor(Value v) {
   if (!hasShapeAndRank(v))
     return false;
 

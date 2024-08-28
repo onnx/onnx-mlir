@@ -906,7 +906,7 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     return;
   }
 
-  std::vector<mlir::Value> operandsVector;
+  std::vector<Value> operandsVector;
   for (auto indexAttr : inputIndexAttrs.value()) {
     operandsVector.push_back(
         inputs[mlir::cast<IntegerAttr>(indexAttr).getInt()]);

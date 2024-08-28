@@ -290,7 +290,7 @@ struct ONNXNonMaxSuppressionOpLowering
       boxes = tryToUnflip(rewriter, loc, boxes);
 
     // The total number of output selected indices.
-    IndexExpr numSelectedIndicesIE = bsIE * csIE * DimIndexExpr(MOPC);
+    IndexExpr numSelectedIndicesIE = bsIE * csIE * DimIE(MOPC);
 
     // Allocate a MemRef for the output. This MemRef is NOT the final output
     // since the number of selected indices has yet not suppressed by IOU. So
@@ -440,7 +440,7 @@ struct ONNXNonMaxSuppressionOpLowering
     // Insert allocation and deallocation for the final output.
     Value effectiveNSI = create.krnl.load(effectiveNumSelectedIndices);
     SmallVector<IndexExpr, 2> resDims = {
-        DimIndexExpr(effectiveNSI), LitIE(3)};
+        DimIE(effectiveNSI), LitIE(3)};
     Value resMemRef = create.mem.alignedAlloc(
         MemRefType::get({ShapedType::kDynamic, 3}, elementType), resDims);
 

@@ -73,7 +73,7 @@ ValueRange splitAlongAxis(
   return splits;
 }
 
-bool isF32ScalarConstantTensor(mlir::Value v) {
+bool isF32ScalarConstantTensor(Value v) {
   if (!isScalarConstantTensor(v))
     return false;
   auto t = dyn_cast<ShapedType>(v.getType());

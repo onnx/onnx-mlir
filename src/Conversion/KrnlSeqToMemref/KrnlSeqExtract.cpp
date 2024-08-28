@@ -62,7 +62,7 @@ public:
         llvm_unreachable(
             "Not implemented: type of onnx seq element is not tensor");
       auto outputType = mlir::cast<MemRefType>(output.getType());
-      SmallVector<mlir::Value, 4> allocParams;
+      SmallVector<Value, 4> allocParams;
       for (size_t i = 0; i < outputType.getShape().size(); i++) {
         if (outputType.isDynamicDim(i)) {
           allocParams.emplace_back(create.mem.dim(output, i));

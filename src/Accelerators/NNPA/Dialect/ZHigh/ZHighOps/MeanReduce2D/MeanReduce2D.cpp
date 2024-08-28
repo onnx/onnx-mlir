@@ -52,7 +52,7 @@ LogicalResult ZHighMeanReduce2DOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighMeanReduce2DOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getInput()))
     return success();
 

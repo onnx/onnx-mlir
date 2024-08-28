@@ -187,8 +187,8 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
                           create.krnl.loadIE(inputOperand, inputAccessFct);
                       // Create access fct for filter: [co, ciPerG, kh, kw].
                       SmallVector<IndexExpr, 4> filterAccessFct;
-                      filterAccessFct.emplace_back(DimIndexExpr(co));
-                      filterAccessFct.emplace_back(DimIndexExpr(ciPerG));
+                      filterAccessFct.emplace_back(DimIE(co));
+                      filterAccessFct.emplace_back(DimIE(ciPerG));
 
                       for (int i = 0; i < spacialRank; ++i) {
                         DimIndexExpr k(redIndices[1 + i]);
@@ -213,7 +213,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
             resAccessFunc.emplace_back(SymIE(outerIndices[0]));
             resAccessFunc.emplace_back(coInOutputSpacial);
             for (Value o : outputSpatialIndices)
-              resAccessFunc.emplace_back(DimIndexExpr(o));
+              resAccessFunc.emplace_back(DimIE(o));
             create.krnl.storeIE(result, alloc, resAccessFunc);
           }); // Output spacial loops.
     };

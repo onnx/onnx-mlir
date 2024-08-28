@@ -163,7 +163,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     Value numberOfZeros = create.krnl.load(nonzeroCount);
     SmallVector<IndexExpr, 2> dimExprs;
     dimExprs.emplace_back(LitIE(xRank));
-    dimExprs.emplace_back(DimIndexExpr(numberOfZeros));
+    dimExprs.emplace_back(DimIE(numberOfZeros));
     Value resMemRef = create.mem.alignedAlloc(resMemRefType, dimExprs);
 
     // Emit code to compute the output for each dimension.

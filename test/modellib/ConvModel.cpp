@@ -101,7 +101,7 @@ bool Conv2DLibBuilder::build() {
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
   convOp.getX().setType(xType); // Use static dims to infer shape.
-  LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
+  LogicalResult res = convOp.inferShapes([](Region &) {});
   if (failed(res))
     return false;
 

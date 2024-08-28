@@ -236,7 +236,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
     if (makeSymbol)
       return SymIE(castedVal);
     else
-      return DimIndexExpr(castedVal);
+      return DimIE(castedVal);
   }
   return QuestionmarkIndexExpr(isFloat);
 }
@@ -390,7 +390,7 @@ IndexExpr IndexExprBuilder::getShapeAsDim(
   if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
-    return DimIndexExpr(val);
+    return DimIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 

@@ -198,10 +198,10 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     return success();
   }
 
-  static void allocateMemoryForVFinal(mlir::Location loc,
+  static void allocateMemoryForVFinal(Location loc,
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
-      SmallVectorImpl<mlir::Value> &outputs) {
+      SmallVectorImpl<Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &ioPair :
         llvm::zip(scanOp.getVInitial(), scanOp.v_final())) {
@@ -223,10 +223,10 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     }
   }
 
-  static void allocateMemoryForScanOutput(mlir::Location loc,
+  static void allocateMemoryForScanOutput(Location loc,
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
-      SmallVectorImpl<mlir::Value> &outputs) {
+      SmallVectorImpl<Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
@@ -248,7 +248,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
         MemRefBuilder createMemRef(rewriter, loc);
         OnnxBuilder onnxBuilder(rewriter, loc);
         auto rankedScanOutTy = memRefType;
-        SmallVector<mlir::Value, 4> allocParams;
+        SmallVector<Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.isDynamicDim(i)) {
             if (i == 0) {
@@ -274,9 +274,9 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     }
   }
 
-  static mlir::Value allocateMemoryForBodyScanInput(mlir::Location loc,
+  static Value allocateMemoryForBodyScanInput(Location loc,
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
-      mlir::Type bodyScanInputTy) {
+      Type bodyScanInputTy) {
     // Convert type to MemRefType.
     Type convertedType = typeConverter->convertType(bodyScanInputTy);
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&

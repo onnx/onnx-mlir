@@ -26,7 +26,7 @@ namespace onnx_mlir {
 // =============================================================================
 
 // Return null if none is found.
-ElementsAttr IndexExprBuilderForZLow::getConst(mlir::Value value) {
+ElementsAttr IndexExprBuilderForZLow::getConst(Value value) {
   return nullptr;
 }
 

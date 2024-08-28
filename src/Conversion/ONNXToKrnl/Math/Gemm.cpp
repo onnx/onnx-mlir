@@ -122,7 +122,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
               DimIndexExpr dim(shapeHelper.cDims[x]);
               cAccess.emplace_back(
-                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
+                  IndexExpr::select(dim > 1, DimIE(outerIndices[x]), 0)
                       .getValue());
             }
             Value c = create.krnl.load(adaptor.getC(), cAccess);
@@ -387,7 +387,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
               DimIndexExpr dim(shapeHelper.cDims[x]);
               cAccess.emplace_back(
-                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
+                  IndexExpr::select(dim > 1, DimIE(outerIndices[x]), 0)
                       .getValue());
             }
             Value c = createKrnl.load(adaptor.getC(), cAccess);

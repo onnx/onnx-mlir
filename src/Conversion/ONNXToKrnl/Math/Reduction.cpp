@@ -1216,7 +1216,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value initVec = create.vec.splat(vecType, identity);
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex =
-              DimIndexExpr(blockedOutLoopInd[flatOutRank - 1]);
+              DimIE(blockedOutLoopInd[flatOutRank - 1]);
           IndexExpr blockedUB = SymIE(flatOutDims[flatOutRank - 1].getValue());
           IndexExpr isFull =
               create.krnlIE.isTileFull(blockedCurrIndex, LitIE(VL), blockedUB);

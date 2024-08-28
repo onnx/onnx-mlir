@@ -44,7 +44,7 @@ void ZHighDLF16ToF32Op::build(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighDLF16ToF32Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 

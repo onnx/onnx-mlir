@@ -139,7 +139,7 @@ LogicalResult ZHighConv2DOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighConv2DOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getInput()) || !hasRankedType(getInputKernel()))
     return success();
 

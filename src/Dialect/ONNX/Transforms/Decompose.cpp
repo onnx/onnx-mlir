@@ -118,7 +118,7 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
 }
 
 Value createSequenceConstructOp(
-    PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
+    PatternRewriter &rewriter, Value seq, OperandRange inputs) {
   Type resType = seq.getType();
   Location loc = seq.getLoc();
   Value position = rewriter.create<ONNXNoneOp>(loc);

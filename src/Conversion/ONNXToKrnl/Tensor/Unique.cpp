@@ -134,7 +134,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     // Calculate shapes of output Tensors
     //
     Value total = create.krnl.load(uniqueCount);
-    NonAffineIndexExpr totalDimExpr = DimIndexExpr(total);
+    NonAffineIndexExpr totalDimExpr = DimIE(total);
     DimsExpr outputYDims;
     DimsExpr outputIndexDims;
     DimsExpr outputInverseIndexDims;

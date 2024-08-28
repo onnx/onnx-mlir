@@ -966,7 +966,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           IndexExprScope innerScope(ck);
           Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
           Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
-          IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
+          IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[0]);
           IndexExpr blockedUB = SymIE(XFlatDims[0]);
           IndexExpr isFull = create.krnlIE.isTileFull(
               blockedCurrIndex, LitIE(B), blockedUB);

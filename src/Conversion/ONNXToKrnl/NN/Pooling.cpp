@@ -334,7 +334,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
           // pixel.
           SmallVector<IndexExpr, 4> outputIndices;
           for (unsigned int i = 0; i < outputShape.size(); ++i)
-            outputIndices.emplace_back(DimIndexExpr(loopInd[i]));
+            outputIndices.emplace_back(DimIE(loopInd[i]));
 
           // 2.1 Emit: output[n][c][ho][wo] = identity
           create.krnl.store(identity, reductionVal);

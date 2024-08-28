@@ -137,7 +137,7 @@ LogicalResult ZHighGRUOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighGRUOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getInput()) || !hasRankedType(getHiddenWeights()))
     return success();
 

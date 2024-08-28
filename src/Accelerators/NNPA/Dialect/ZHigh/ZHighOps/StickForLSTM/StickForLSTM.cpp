@@ -50,7 +50,7 @@ LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickForLSTMOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getFGate()) && !hasRankedType(getIGate()) &&
       !hasRankedType(getCGate()) && !hasRankedType(getOGate()))
     return success();
