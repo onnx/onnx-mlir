@@ -593,7 +593,7 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool propagateIntoMinMax,
     // Use affine values.
     return affineExprFct(*this, b);
   // See if we have a min/max on one side that we can propagate into.
-  if (propagateIntoMinMax) {
+  if (canBeAffine && propagateIntoMinMax) {
     Value valA = this->getValue();
     bool hasMinMaxA = valA.getDefiningOp<affine::AffineMinOp>() ||
                       valA.getDefiningOp<affine::AffineMaxOp>();
