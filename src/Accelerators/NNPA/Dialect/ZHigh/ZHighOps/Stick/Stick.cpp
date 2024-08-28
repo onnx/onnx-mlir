@@ -106,7 +106,7 @@ LogicalResult ZHighStickOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Value input = getIn();
   if (isa<NoneType>(input.getType()) || !hasRankedType(input))
     return success();

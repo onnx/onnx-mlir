@@ -52,7 +52,7 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
         // When shape is also constant, replace questionmark by actual value.
         double dim = xShape[i].getLiteral();
         double scale = valueAttr.getValues<FloatAttr>()[i].getValueAsDouble();
-        outputDims[i] = LiteralIndexExpr((int64_t)(dim * scale));
+        outputDims[i] = LitIE((int64_t)(dim * scale));
       }
     }
   }

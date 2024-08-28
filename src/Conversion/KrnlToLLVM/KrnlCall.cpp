@@ -102,7 +102,7 @@ private:
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
-    if (auto originalMemRef = dyn_cast<MemRefType>(ty)) {
+    if (auto originalMemRef = mlir::dyn_cast<MemRefType>(ty)) {
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = mlir::dyn_cast<LLVM::LLVMStructType>(parameter.getType());
       auto memRefRank = krnl::getRankFromMemRefType(memRefTy);

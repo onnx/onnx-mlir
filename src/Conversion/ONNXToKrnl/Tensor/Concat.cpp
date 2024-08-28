@@ -75,7 +75,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
     // dim of different inputs.
     SmallVector<IndexExpr, 4> commonUB(shapeHelper.getOutputDims());
     // IndexExprScope IEScope(&rewriter, loc);
-    IndexExpr accumulatedOffset = LiteralIndexExpr(0);
+    IndexExpr accumulatedOffset = LitIE(0);
     for (unsigned int i = 0; i < inputNum; ++i) {
       // Since the accumulatedOffsetValue will be used in a nested
       // IndexExprScope, we get the Value of this IndexExpr and pass it as a
@@ -84,7 +84,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       ValueRange loopDef = create.krnl.defineLoops(rank);
-      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different
@@ -109,9 +109,8 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
                 writeIndices.emplace_back(loopInd[r]);
               else {
                 IndexExprScope IEScope(&rewriter, loc);
-                IndexExpr writeOffset = DimIndexExpr(loopInd[r]);
-                IndexExpr accumulatedOffsetIE =
-                    SymbolIndexExpr(accumulatedOffsetValue);
+                IndexExpr writeOffset = DimIE(loopInd[r]);
+                IndexExpr accumulatedOffsetIE = SymIE(accumulatedOffsetValue);
                 writeOffset = writeOffset + accumulatedOffsetIE;
                 writeIndices.emplace_back(writeOffset.getValue());
               }

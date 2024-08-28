@@ -69,7 +69,7 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
         /*ascending=*/ascendingMode);
 
     // Produce the final result.
-    SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr> zeroDims(rank, LitIE(0));
     ValueRange loopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(loopDef, loopDef, zeroDims, resDims,
         [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {

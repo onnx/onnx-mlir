@@ -117,7 +117,7 @@ DenseIntElementsAttr GetI64ElementsAttr(
 namespace {
 // Returns the DenseElementsAttr of input if it's a stablehlo constant or
 // onnx.Constant. Otherwise returns a nullptr attribute.
-DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
+DenseElementsAttr getDenseElementAttrFromConstValue(Value value) {
   Operation *definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<stablehlo::ConstantOp>(definingOp)) {
     return mlir::dyn_cast<DenseElementsAttr>(globalOp.getValueAttr());

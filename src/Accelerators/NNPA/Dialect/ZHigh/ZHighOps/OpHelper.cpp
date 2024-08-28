@@ -217,7 +217,7 @@ bool oneIsOfLayout(Type t1, Type t2,
 
 /// Check if ONNXReshapeOp is reshaping 2D to 4D by tiling each input dimension.
 bool isTiling2DTo4D(Value val) {
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   if (!reshapeOp)
     return false;
 
@@ -246,7 +246,7 @@ bool isTiling2DTo4D(Value val) {
 /// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling the first input
 /// dimension.
 bool isTiling3DTo4D(Value val) {
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   if (!reshapeOp)
     return false;
 
@@ -276,7 +276,7 @@ bool isTiling3DTo4D(Value val) {
 /// Check if a 4D tensor is collapsed into 2D by merging the each two
 /// dimensions.
 bool isCollapsing4DTo2D(Value val) {
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   if (!reshapeOp)
     return false;
 
@@ -305,7 +305,7 @@ bool isCollapsing4DTo2D(Value val) {
 /// Check if a 4D tensor is collapsed into 3D by merging the first two
 /// dimensions.
 bool isCollapsing4DTo3D(Value val) {
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   if (!reshapeOp)
     return false;
 
@@ -336,7 +336,7 @@ AffineMapAttr getTiling2DTo4DMap(OpBuilder &b, Value val) {
   assert(isTiling2DTo4D(val) &&
          "ONNXReshapeOp is not suitable for getting a tiling affine map");
 
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   Value output = reshapeOp.getReshaped();
   Type outputType = output.getType();
   ArrayRef<int64_t> outputShape = getShape(outputType);
@@ -361,7 +361,7 @@ AffineMapAttr getTiling3DTo4DMap(OpBuilder &b, Value val) {
   assert(isTiling3DTo4D(val) &&
          "ONNXReshapeOp is not suitable for getting a tiling affine map");
 
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   Value output = reshapeOp.getReshaped();
   Type outputType = output.getType();
   ArrayRef<int64_t> outputShape = getShape(outputType);
@@ -384,7 +384,7 @@ AffineMapAttr getCollapsing4DTo2DMap(OpBuilder &b, Value val) {
   assert(isCollapsing4DTo2D(val) &&
          "ONNXReshapeOp is not suitable for getting a collapsing affine map");
 
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   Value input = reshapeOp.getData();
   Type inputType = input.getType();
   ArrayRef<int64_t> inputShape = getShape(inputType);
@@ -409,7 +409,7 @@ AffineMapAttr getCollapsing4DTo3DMap(OpBuilder &b, Value val) {
   assert(isCollapsing4DTo3D(val) &&
          "ONNXReshapeOp is not suitable for getting a collapsing affine map");
 
-  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   Value input = reshapeOp.getData();
   Type inputType = input.getType();
   ArrayRef<int64_t> inputShape = getShape(inputType);

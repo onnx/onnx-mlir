@@ -88,7 +88,7 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
       rewriter, loc);
   IndexExprScope childScope(create.krnl);
   ValueRange loopDef = create.krnl.defineLoops(nLoops);
-  SmallVector<IndexExpr, 4> lbs(nLoops, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 4> lbs(nLoops, LitIE(0));
   Value boundVal = (direction == FORWARD || direction == BIDIRECTIONAL)
                        ? forwardHt
                        : reverseHt;

@@ -242,7 +242,7 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
   if ((numOfFuncOp == 1) && (!shapeInformation.empty())) {
     ModelInputShaper modelInputShaper_;
     modelInputShaper_.setShapeInformation(shapeInformation);
-    auto funcType = dyn_cast<FunctionType>(funcOp.getFunctionType());
+    auto funcType = mlir::dyn_cast<FunctionType>(funcOp.getFunctionType());
     ArrayRef<Type> argTypes = funcType.getInputs();
     SmallVector<Type, 4> newArgTypes;
     for (uint64_t i = 0; i < argTypes.size(); ++i) {
@@ -320,13 +320,15 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
           llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
-      llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
+      llvm::ArrayType *AT =
+          mlir::dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
             StringRef("_entry_point_" + std::to_string(i) + tag));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
-              dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
+              mlir::dyn_cast<llvm::ConstantDataSequential>(
+                  entryGV->getInitializer());
           exportedFuncs.emplace_back(entry->getAsCString());
         }
       }

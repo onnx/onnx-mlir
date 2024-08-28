@@ -260,7 +260,7 @@ mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   if (hasMean) {
     DimsExpr meanShape(getOutputDims(0));
     for (int64_t r = axis; r < XRank; ++r)
-      meanShape[r] = LiteralIndexExpr(1);
+      meanShape[r] = LitIE(1);
     setOutputDims(meanShape, 1, false);
   }
 
@@ -268,7 +268,7 @@ mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   if (hasInvStdDev) {
     DimsExpr invStdDevShape(getOutputDims(0));
     for (int64_t r = axis; r < XRank; ++r)
-      invStdDevShape[r] = LiteralIndexExpr(1);
+      invStdDevShape[r] = LitIE(1);
     setOutputDims(invStdDevShape, invStdDevIndex, false);
   }
   return success();

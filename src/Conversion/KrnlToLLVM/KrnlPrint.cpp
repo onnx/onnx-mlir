@@ -34,7 +34,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto printOp = cast<KrnlPrintOp>(op);
+    auto printOp = mlir::cast<KrnlPrintOp>(op);
     Location loc = printOp.getLoc();
     KrnlPrintOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);

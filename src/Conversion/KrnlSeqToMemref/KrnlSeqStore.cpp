@@ -46,7 +46,7 @@ public:
     // Allocate a new tensor and copy input tensor into it
     auto inputType =
         mlir::cast<MemRefType>(operandAdaptor.getInput().getType());
-    SmallVector<mlir::Value, 4> allocParams;
+    SmallVector<Value, 4> allocParams;
     for (size_t i = 0; i < inputType.getShape().size(); i++) {
       if (inputType.isDynamicDim(i)) {
         allocParams.emplace_back(create.mem.dim(operandAdaptor.getInput(), i));

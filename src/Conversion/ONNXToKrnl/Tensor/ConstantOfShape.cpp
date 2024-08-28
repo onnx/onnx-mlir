@@ -80,7 +80,7 @@ struct ONNXConstantOfShapeOpLowering
     if (!hasAllScalarValues({alloc})) {
       IndexExprScope childScope(&rewriter, loc);
       ValueRange loopDef = create.krnl.defineLoops(rank);
-      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

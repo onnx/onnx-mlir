@@ -230,7 +230,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (!isScalarTensor(epsilon))
       return reportFailure("RMS epsilon is expected to be scalar");
     ONNXConstantOp epsilonOp =
-        dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
+        mlir::dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
     if (!epsilonOp)
       return reportFailure("RMS epsilon needs to be a constant");
     epsilonAttr = epsilonOp.getValueFloatAttr();
@@ -266,7 +266,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
     if (hasFullPattern) {
       // Verify that the mReduceOp uses x as well.
-      auto lnOp = cast<ONNXReduceMeanV13Op>(mReduceOp);
+      auto lnOp = mlir::cast<ONNXReduceMeanV13Op>(mReduceOp);
       Value x2 = lnOp.getData();
       if (x1 != x2)
         hasFullPattern = reportFailure(
@@ -304,7 +304,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
 private:
   static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
-    ONNXReduceMeanV13Op reduceOp = cast<ONNXReduceMeanV13Op>(op);
+    ONNXReduceMeanV13Op reduceOp = mlir::cast<ONNXReduceMeanV13Op>(op);
     if (reduceOp.getKeepdims() != 1)
       return reportFailure("need keepdims = 1");
     ArrayAttr axesAttr = reduceOp.getAxesAttr();
@@ -378,8 +378,8 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
         matmulOp, quantizeOp, qlX, 0);
     if (!matchMatMul)
       return false;
-    matA = cast<ONNXMatMulOp>(matmulOp).getA();
-    matB = cast<ONNXMatMulOp>(matmulOp).getB();
+    matA = mlir::cast<ONNXMatMulOp>(matmulOp).getA();
+    matB = mlir::cast<ONNXMatMulOp>(matmulOp).getB();
     // Matching input A of MatMul.
     auto dlOpA = matA.getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dlOpA)

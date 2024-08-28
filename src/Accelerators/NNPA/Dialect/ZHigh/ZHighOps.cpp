@@ -71,10 +71,10 @@ LogicalResult OpTrait::impl::verifySameOperandsAndResultLayout(Operation *op) {
 namespace onnx_mlir {
 namespace zhigh {
 
-std::vector<mlir::Type> getZHighAuxSplitResultType(
+std::vector<Type> getZHighAuxSplitResultType(
     Value input, int64_t axis, ArrayAttr split) {
   Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
-  std::vector<mlir::Type> outputTypes;
+  std::vector<Type> outputTypes;
   if (split.size() == 0) {
     llvm_unreachable("Unsupported split (size==0)");
   } else {
