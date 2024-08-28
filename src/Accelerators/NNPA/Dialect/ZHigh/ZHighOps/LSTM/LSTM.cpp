@@ -51,14 +51,14 @@ LogicalResult ZHighLSTMOpShapeHelper::computeShape() {
   if (isAllTimesteps)
     hnOutputDims.emplace_back(S);
   else
-    hnOutputDims.emplace_back(LiteralIndexExpr(1));
+    hnOutputDims.emplace_back(LitIE(1));
   hnOutputDims.emplace_back(D);
   hnOutputDims.emplace_back(B);
   hnOutputDims.emplace_back(H);
 
   // Shape for cf_ouput : [1, D, B, H]
   DimsExpr cfOutputDims;
-  cfOutputDims.emplace_back(LiteralIndexExpr(1));
+  cfOutputDims.emplace_back(LitIE(1));
   cfOutputDims.emplace_back(D);
   cfOutputDims.emplace_back(B);
   cfOutputDims.emplace_back(H);
@@ -139,7 +139,7 @@ LogicalResult ZHighLSTMOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighLSTMOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getInput()) || !hasRankedType(getHiddenWeights()))
     return success();
 

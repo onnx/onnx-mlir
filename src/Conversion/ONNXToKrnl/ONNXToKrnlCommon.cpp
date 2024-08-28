@@ -255,7 +255,7 @@ namespace {
 // Returns the DenseElementsAttr of input if it's a krnl.global constant or
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
 // builtin.unrealized_conversion_cast. Otherwise returns a nullptr attribute.
-DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
+DenseElementsAttr getDenseElementAttrFromConstValue(Value value) {
   Operation *definingOp = value.getDefiningOp();
   if (auto castOp = dyn_cast_or_null<UnrealizedConversionCastOp>(definingOp)) {
     if (castOp.getNumOperands() != 1)
@@ -318,8 +318,7 @@ Value foldOrEmitONNXTransposeOpKrnl(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims,
-    Type outputType) {
+    Location loc, Value data, DimsExpr &outputDims, Type outputType) {
   MemRefBuilder createMemRef(rewriter, loc);
   Value newView = createMemRef.reinterpretCast(data, outputDims);
   // Set type to the output type to avoid unrealized_conversion_cast.
@@ -377,7 +376,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   ValueRange loopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
       [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
-        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + oneIE;
+        IndexExpr i1 = DimIE(iLoopInd[axis]) + oneIE;
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
             [&](KrnlBuilder &ck, ValueRange swapLoopInd) {
@@ -422,7 +421,7 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
   if (mlir::isa<NoneType>(optionalScalar.getType())) {
     return create.math.constant(elementType, defaultValue);
   } else if (mlir::cast<ShapedType>(optionalScalar.getType()).getRank() == 0) {
-    return create.krnl.load(optionalScalar, {});
+    return create.krnl.load(optionalScalar);
   } else {
     Value zero = create.math.constantIndex(0);
     return create.krnl.load(optionalScalar, {zero});

@@ -39,7 +39,7 @@ LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
   outputDims.emplace_back(xDims[1]);
   // Spatial dimensions are reduced to 1.
   for (int i = 2; i < (int)xDims.size(); ++i)
-    outputDims.emplace_back(LiteralIndexExpr(1));
+    outputDims.emplace_back(LitIE(1));
   // Save the final result.
   setOutputDims(outputDims);
   return success();
@@ -62,7 +62,7 @@ LogicalResult ONNXMaxRoiPoolOpShapeHelper::computeShape() {
 
   // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
   DimsExpr outputDims;
-  outputDims.push_back(LiteralIndexExpr(numRois));
+  outputDims.push_back(LitIE(numRois));
   outputDims.push_back(channel);
   outputDims.push_back(pooledDims[0]);
   outputDims.push_back(pooledDims[1]);

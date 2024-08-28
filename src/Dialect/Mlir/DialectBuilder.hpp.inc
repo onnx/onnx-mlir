@@ -13,35 +13,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Implementation of GenericAffineBuilder
-template <class LOAD_OP, class STORE_OP>
-mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(
-    mlir::Value memref, mlir::ValueRange indices) const {
-  return b().template create<LOAD_OP>(loc(), memref, indices);
-}
-
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(mlir::Value memref,
     mlir::ValueRange indices, mlir::ValueRange offsets) const {
   llvm::SmallVector<mlir::Value, 4> computedIndices;
   MathBuilder createMath(*this);
   createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(memref, computedIndices);
+  return b().template create<LOAD_OP>(loc(), memref, computedIndices);
 }
 
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
-    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(memref, computedIndices);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(
-    mlir::Value val, mlir::Value memref, mlir::ValueRange indices) const {
-  b().template create<STORE_OP>(loc(), val, memref, indices);
+    mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return load(memref, indexValues, offsets);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -51,17 +37,16 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(mlir::Value val,
   llvm::SmallVector<mlir::Value, 4> computedIndices;
   MathBuilder createMath(*this);
   createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
+  b().template create<STORE_OP>(loc(), val, memref, computedIndices);
 }
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::storeIE(mlir::Value val,
-    mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
+    mlir::Value memref, mlir::ArrayRef<IndexExpr> indices,
     mlir::ValueRange offsets) const {
-  llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
+  llvm::SmallVector<mlir::Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  store(val, memref, indexValues, offsets);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -74,10 +59,10 @@ inline mlir::Operation *GenericAffineBuilder<LOAD_OP, STORE_OP>::prefetch(
 }
 
 template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(IndexExpr lb,
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
     IndexExpr ub, int64_t step,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
-    const {
+    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+        builderFn) const {
   // Transform IndexExpressions into value maps and list of operands.
   mlir::AffineMap lbMap, ubMap;
   llvm::SmallVector<mlir::Value, 8> lbOperands, ubOperands;
@@ -89,28 +74,27 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(IndexExpr lb,
       [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
           mlir::ValueRange args) {
         GenericAffineBuilder createAffine(b, loc);
-        builderFn(createAffine, index);
+        builderFn(createAffine, {index});
         createAffine.yield();
       });
 }
 
 template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(
-    llvm::SmallVectorImpl<IndexExpr> &lbs,
-    llvm::SmallVectorImpl<IndexExpr> &ubs,
-    llvm::SmallVectorImpl<int64_t> &steps,
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopsIE(
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    mlir::ArrayRef<int64_t> steps,
     mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
         builderFn) const {
   assert(lbs.size() == ubs.size() && "expected identical sizes");
   assert(lbs.size() == steps.size() && "expected identical sizes");
   llvm::SmallVector<mlir::Value> loopIndices;
-  recursionForIE(lbs, ubs, steps, loopIndices, builderFn);
+  recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
 }
 
 // This if then else construct has no arguments to the blocks.
 template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
-    IndexExprScope &scope, llvm::SmallVectorImpl<IndexExpr> &conditions,
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElseIE(
+    IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
     mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
     mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn) const {
   int64_t rank = conditions.size();
@@ -153,26 +137,31 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
 }
 
 template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
+    mlir::AffineMap map, mlir::ValueRange operands) const {
+  return b().template create<mlir::affine::AffineApplyOp>(loc(), map, operands);
+}
+
+template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
   b().template create<mlir::affine::AffineYieldOp>(loc());
 }
 
-// Support for multiple forIE loops.
+// Support for multiple forLoopIE loops.
 template <class LOAD_OP, class STORE_OP>
-void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForIE(
-    llvm::SmallVectorImpl<IndexExpr> &lbs,
-    llvm::SmallVectorImpl<IndexExpr> &ubs,
-    llvm::SmallVectorImpl<int64_t> &steps,
+void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForLoopsIE(
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    mlir::ArrayRef<int64_t> steps,
     llvm::SmallVectorImpl<mlir::Value> &loopIndices,
     mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
         builderFn) const {
   int d = loopIndices.size();
   if (d < (int)lbs.size()) {
     // Issue a loop and recurse again.
-    forIE(lbs[d], ubs[d], steps[d],
-        [&](GenericAffineBuilder &createAffine, mlir::Value i) {
-          loopIndices.emplace_back(i);
-          recursionForIE(lbs, ubs, steps, loopIndices, builderFn);
+    forLoopIE(lbs[d], ubs[d], steps[d],
+        [&](GenericAffineBuilder &createAffine, mlir::ValueRange loopInd) {
+          loopIndices.emplace_back(loopInd[0]);
+          recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
         });
   } else {
     // Call lambda function
@@ -193,10 +182,4 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
   } else
     b().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
-}
-
-template <class LOAD_OP, class STORE_OP>
-mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
-    mlir::AffineMap map, mlir::ValueRange operands) const {
-  return b().template create<mlir::affine::AffineApplyOp>(loc(), map, operands);
 }

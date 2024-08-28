@@ -74,7 +74,7 @@ struct ONNXScatterElementsOpLowering
     //   output[i][j]..[index]..[n] = val (index used at position axis)
     //
     ValueRange loopDef = create.krnl.defineLoops(updatesRank);
-    DimsExpr lbs(updatesRank, LiteralIndexExpr(0)), ubs;
+    DimsExpr lbs(updatesRank, LitIE(0)), ubs;
     create.krnlIE.getShapeAsDims(updates, ubs);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {

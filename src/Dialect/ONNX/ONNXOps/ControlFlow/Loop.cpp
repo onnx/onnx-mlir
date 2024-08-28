@@ -39,7 +39,7 @@ std::vector<Type> ONNXLoopOp::resultTypeInference() {
       resultTypes.push_back(ty);
     } else { // scan output
       // Erase any rank and shape. Shape inference will add a leading dimension.
-      Type elementType = cast<ShapedType>(ty).getElementType();
+      Type elementType = mlir::cast<ShapedType>(ty).getElementType();
       resultTypes.push_back(UnrankedTensorType::get(elementType));
     }
   }

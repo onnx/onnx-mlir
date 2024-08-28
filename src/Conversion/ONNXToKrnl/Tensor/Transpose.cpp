@@ -143,7 +143,7 @@ private:
       bool enableParallel) const {
     uint64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
     SmallVector<IndexExpr, 4> ubs;
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
@@ -166,7 +166,7 @@ private:
           SmallVector<IndexExpr, 4> storeIndices;
           for (uint64_t i = 0; i < rank; ++i) {
             Value index = indices[ArrayAttrIntVal(permAttr, i)];
-            storeIndices.emplace_back(DimIndexExpr(index));
+            storeIndices.emplace_back(DimIE(index));
           }
           Value loadData = createKrnl.load(inputMemRef, indices);
           createKrnl.storeIE(loadData, outputMemRef, storeIndices);
@@ -192,13 +192,13 @@ private:
     // Strides
     SmallVector<IndexExpr, 4> inStrides, outStrides;
     inStrides.resize_for_overwrite(rank);
-    inStrides[rank - 1] = LiteralIndexExpr(1);
-    IndexExpr strideIE = LiteralIndexExpr(1);
+    inStrides[rank - 1] = LitIE(1);
+    IndexExpr strideIE = LitIE(1);
     for (int i = rank - 2; i >= 0; --i) {
       strideIE = strideIE * inUBs[i + 1];
       inStrides[i] = strideIE;
     }
-    strideIE = LiteralIndexExpr(1);
+    strideIE = LitIE(1);
     outStrides.resize_for_overwrite(rank);
     for (int i = rank - 2; i >= 0; --i) {
       strideIE = strideIE * outUBs[i + 1];
@@ -207,7 +207,7 @@ private:
 
     // The number of elements in a block to copy, computed for the last N
     // dimensions.
-    IndexExpr elemsToCopy = LiteralIndexExpr(1);
+    IndexExpr elemsToCopy = LitIE(1);
     for (uint64_t i = rank - numLastDims; i < rank; ++i)
       elemsToCopy = elemsToCopy * inUBs[i];
     Value elemsToCopyI64 = create->math.cast(i64Ty, elemsToCopy.getValue());
@@ -220,7 +220,7 @@ private:
 
     // Main loop defined over the outer-most dimensions.
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
-    SmallVector<IndexExpr, 4> lbs(outerRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outerRank, LitIE(0));
     if (enableParallel) {
       int64_t parId;
       // Note that if there is only 1 dim, lastExclusiveDim is automatically
@@ -239,18 +239,16 @@ private:
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
           IndexExprScope loopScope(createKrnl);
           // Compute destination and source offsets for memcpy.
-          IndexExpr destOffsetIE = LiteralIndexExpr(0);
-          IndexExpr srcOffsetIE = LiteralIndexExpr(0);
+          IndexExpr destOffsetIE = LitIE(0);
+          IndexExpr srcOffsetIE = LitIE(0);
           for (uint64_t i = 0; i < outerRank; ++i) {
             // source offset
             DimIndexExpr srcIndex(indices[i]);
-            srcOffsetIE =
-                srcOffsetIE + srcIndex * SymbolIndexExpr(inStrides[i]);
+            srcOffsetIE = srcOffsetIE + srcIndex * SymIE(inStrides[i]);
             // destination offset
             DimIndexExpr destIndex(indices[ArrayAttrIntVal(permAttr, i)]);
             // Note: index for outStrides is not the permuted index.
-            destOffsetIE =
-                destOffsetIE + destIndex * SymbolIndexExpr(outStrides[i]);
+            destOffsetIE = destOffsetIE + destIndex * SymIE(outStrides[i]);
           }
           // call memcpy.
           create.krnl.memcpy(outputMemRef, inputMemRef, elemsToCopyI64,

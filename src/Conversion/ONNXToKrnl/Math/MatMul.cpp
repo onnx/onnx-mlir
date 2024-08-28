@@ -59,7 +59,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     int outerLoopNum = shapeHelper.getOutputDims().size();
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
     ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
-    SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LitIE(0));
     SmallVector<IndexExpr, 4> loopUbs; // All getOutputDims, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
@@ -408,7 +408,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (enableParallel) {
       int64_t parId;
       // Could check out more than the outer dim of the broadcasts...
-      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)),
+      SmallVector<IndexExpr, 1> lb(1, LitIE(0)),
           ub(1, shapeHelper.getOutputDims()[0]);
       if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
               /*min iter for going parallel*/ 4)) {

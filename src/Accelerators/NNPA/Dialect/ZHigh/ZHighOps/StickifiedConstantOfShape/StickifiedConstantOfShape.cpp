@@ -92,7 +92,7 @@ LogicalResult ZHighStickifiedConstantOfShapeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickifiedConstantOfShapeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Value shape = getShape();
   if (!hasRankedType(shape))
     return success();

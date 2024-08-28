@@ -466,9 +466,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           IndexExpr t = DimIE(loopInd[0]);
           IndexExpr currLB = t * SymIE(blockSize);
           IndexExpr currUB = currLB + SymIE(blockSize);
-#if 1 // hi alex, causing trouble
           currUB = IndexExpr::min(currUB, SymIE(ub));
-#endif
           emitOneStepOfFullSIMDReduction<ONNXReductionOp1, ONNXReductionOp2>(
               rewriter, op, create, elementType, currLB, currUB, totVL,
               simdOnly, t, tNum, hasTwoRed, flatInput, flatInput, tmp1, tmp2,
@@ -490,7 +488,9 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
         /*simd only*/ false, t, /*thread num */ 1, hasTwoRed, output1, output2,
         tmp1, tmp2, alloc1, alloc2, divisorForMean);
   }
-#else
+
+#else // old approach
+
   // Compute type of small temporary reduction vector.
   MemRefType outputType = MemRefType::get({}, elementType);
   MemRefType redType = MemRefType::get({totVL}, elementType);
@@ -560,6 +560,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
         if (hasTwoRed && divideByMean<ONNXReductionOp2>())
           scalarOutputs[1] = create.math.div(scalarOutputs[1], divisorForMean);
       });
+
 #endif
 
   if (hasTwoRed)
@@ -880,8 +881,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)},
-            {axisShape0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        createKrnl.iterateIE(loopDef, loopDef, {LitIE(0)}, {axisShape0},
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
@@ -942,12 +943,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       // Compute the divisor that is the number of elements participated in
       // reduction, i.e., 'divisor = size of input / size of output'.
       IndexExprScope scope(create.krnl);
-      IndexExpr inputSizeExpr = LiteralIndexExpr(1);
+      IndexExpr inputSizeExpr = LitIE(1);
       for (unsigned i = 0; i < inRank; i++) {
         IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(input, i);
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
-      IndexExpr outputSizeExpr = LiteralIndexExpr(1);
+      IndexExpr outputSizeExpr = LitIE(1);
       for (unsigned i = 0; i < outRank; i++) {
         IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(alloc, i);
         outputSizeExpr = outputSizeExpr * dimExpr;
@@ -1008,7 +1009,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnl.memset(alloc, identity);
 
     ValueRange loop2Def = create.krnl.defineLoops(inRank);
-    SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs2(inRank, LitIE(0));
     SmallVector<IndexExpr, 4> ubs2;
     create.krnlIE.getShapeAsSymbols(input, ubs2);
     Value trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
@@ -1045,7 +1046,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     if (divideByMean<ONNXReductionOp>()) {
       // Compute mean
       ValueRange loop3Def = create.krnl.defineLoops(outRank);
-      SmallVector<IndexExpr, 4> lbs3(outRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs3(outRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
       if (enableParallel) {
@@ -1186,7 +1187,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     MemRefType tmpType = MemRefType::get({1, VL}, elementType);
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
-    SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     if (enableParallel) {
       int64_t parId;
       if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
@@ -1250,7 +1251,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           MDBuilder create(ck);
           // Loop over blocked output loop, block guaranteed to be full.
           for (int64_t i = 0; i < VL; ++i) {
-            IndexExpr offset = LiteralIndexExpr(i);
+            IndexExpr offset = LitIE(i);
             IndexExpr blockLocalIndIE = blockedCurrIndex + offset;
             Value blockLocalInd = blockLocalIndIE.getValue();
             // All of the non-blocked loop, plus the inter tile index of the
@@ -1353,7 +1354,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         firstFew<Value, 4>(outLoopDef, -2);
     optimizedOutLoopDef.emplace_back(blockedOutLoopDef[0]);
     // Iterate only over all but the inner loop of the flattened input.
-    SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     if (enableParallel) {
       int64_t parId;
       if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
@@ -1376,11 +1377,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value initVec = create.vec.splat(vecType, identity);
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex =
-              DimIndexExpr(blockedOutLoopInd[flatOutRank - 1]);
-          IndexExpr blockedUB =
-              SymbolIndexExpr(flatOutDims[flatOutRank - 1].getValue());
-          IndexExpr isFull = create.krnlIE.isTileFull(
-              blockedCurrIndex, LiteralIndexExpr(VL), blockedUB);
+              DimIE(blockedOutLoopInd[flatOutRank - 1]);
+          IndexExpr blockedUB = SymIE(flatOutDims[flatOutRank - 1].getValue());
+          IndexExpr isFull =
+              create.krnlIE.isTileFull(blockedCurrIndex, LitIE(VL), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(
@@ -1391,11 +1391,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
-                    [&](SCFBuilder &scf, Value blockLocalInd) {
+                    [&](SCFBuilder &scf, ValueRange loopInd) {
                       MDBuilder create(scf);
-                      // Output induction variables: same as the outer loop,
-                      // but with the blocked index replaced by the inner
-                      // index.
+                      Value blockLocalInd = loopInd[0];
+                      // Output induction variables: same as the outer loop, but
+                      // with the blocked index replaced by the inner index.
                       SmallVector<Value, 4> outLoopInd =
                           firstFew<Value, 4>(blockedOutLoopInd, -2);
                       outLoopInd.emplace_back(blockLocalInd);

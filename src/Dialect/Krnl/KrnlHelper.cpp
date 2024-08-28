@@ -114,17 +114,14 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr, bool isLb) {
   if (expr.isLiteral())
     pushConstantBound(expr.getLiteral());
   else if (expr.isAffine() && !expr.isPredType()) {
-    fprintf(stderr, "hi alex, pushIEBounds as affine\n");
     AffineMap map;
     SmallVector<Value, 4> list;
     expr.getAffineMapAndOperands(map, list);
     pushAffineMapBound(map, list);
   } else {
-    fprintf(stderr, "hi alex, pushIEBounds as no affine affine\n");
     Value val = expr.getValue();
     if ((val.getDefiningOp<affine::AffineMinOp>() && !isLb) ||
         (val.getDefiningOp<affine::AffineMaxOp>() && isLb)) {
-      fprintf(stderr, "hi alex, pushIEBounds located min/max\n");
       // Have a Affine Min in an upper bound computation, or have an Affine Max
       // in a lower bound computation,  will extract the list of affine min/max
       // for the loop bounds.
@@ -134,8 +131,6 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr, bool isLb) {
       pushAffineMapBound(map, list);
     } else {
       // Assume the expr is loop invariant if there is any outer loop
-      fprintf(stderr, "hi alex, pushIEBounds did not located min/max\n");
-      val.dump();
       pushOperandBound(val);
     }
   }

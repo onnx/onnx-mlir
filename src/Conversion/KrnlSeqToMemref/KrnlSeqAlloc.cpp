@@ -41,7 +41,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     KrnlSeqAllocOpAdaptor operandAdaptor(operands);
-    KrnlSeqAllocOp thisOp = dyn_cast<KrnlSeqAllocOp>(op);
+    KrnlSeqAllocOp thisOp = mlir::dyn_cast<KrnlSeqAllocOp>(op);
     Location loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
