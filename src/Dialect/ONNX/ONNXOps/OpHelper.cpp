@@ -124,8 +124,8 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
 }
 
 bool sameRank(Value tensorOrMemref1, Value tensorOrMemref2) {
-  auto type1 = dyn_cast_or_null<ShapedType>(tensorOrMemref1.getType());
-  auto type2 = dyn_cast_or_null<ShapedType>(tensorOrMemref2.getType());
+  auto type1 = mlir::dyn_cast_or_null<ShapedType>(tensorOrMemref1.getType());
+  auto type2 = mlir::dyn_cast_or_null<ShapedType>(tensorOrMemref2.getType());
   if (!type1 || !type2)
     return false;
   if (!type1.hasRank() || !type2.hasRank())
@@ -314,7 +314,7 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
 
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value) {
-  return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
+  return mlir::dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
 bool getI64ValuesFromONNXConstantOp(
@@ -394,7 +394,7 @@ bool isScalarConstantTensor(Value v) {
   if (!hasShapeAndRank(v))
     return false;
 
-  auto t = dyn_cast<ShapedType>(v.getType());
+  auto t = mlir::dyn_cast<ShapedType>(v.getType());
   int64_t r = t.getRank();
   return isDenseONNXConstant(v) &&
          ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
@@ -438,7 +438,7 @@ bool hasOneUseExceptDimOp(Value val) {
 
 // Create an ArrayAttr from a dense ConstantOp
 ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
-  auto elements = cast<ElementsAttr>(constOp.getValueAttr());
+  auto elements = mlir::cast<ElementsAttr>(constOp.getValueAttr());
   SmallVector<Attribute> values(elements.getValues<Attribute>());
   return ArrayAttr::get(constOp.getContext(), values);
 }
@@ -447,7 +447,7 @@ ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
   auto tensorType = RankedTensorType::get({1}, elementType);
-  auto ftype = cast<FloatType>(elementType);
+  auto ftype = mlir::cast<FloatType>(elementType);
   APFloat f = attr.getValue();
   bool ignored;
   f.convert(ftype.getFloatSemantics(), APFloat::rmNearestTiesToEven, &ignored);
@@ -528,7 +528,7 @@ DenseElementsAttr createDenseElementsAttrFromSize(
 /// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result) {
   ONNXConstantOp constOp =
-      dyn_cast_or_null<ONNXConstantOp>(result.getDefiningOp());
+      mlir::dyn_cast_or_null<ONNXConstantOp>(result.getDefiningOp());
 
   // Must be a constant.
   if (!constOp)

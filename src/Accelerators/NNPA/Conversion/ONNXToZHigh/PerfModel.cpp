@@ -416,44 +416,44 @@ double estimateTimeForUnstickOp(Value oper) {
 bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
     double &cpuEstimatedTime, double &nnpaEstimatedTime) {
   bool opHasModel = true;
-  if (auto addOp = dyn_cast<ONNXAddOp>(op))
+  if (auto addOp = mlir::dyn_cast<ONNXAddOp>(op))
     estimateTimeForOp(addOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto divOp = dyn_cast<ONNXDivOp>(op))
+  else if (auto divOp = mlir::dyn_cast<ONNXDivOp>(op))
     estimateTimeForOp(divOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto maxOp = dyn_cast<ONNXMaxOp>(op))
+  else if (auto maxOp = mlir::dyn_cast<ONNXMaxOp>(op))
     estimateTimeForOp(maxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto minOp = dyn_cast<ONNXMinOp>(op))
+  else if (auto minOp = mlir::dyn_cast<ONNXMinOp>(op))
     estimateTimeForOp(minOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto mulOp = dyn_cast<ONNXMulOp>(op))
+  else if (auto mulOp = mlir::dyn_cast<ONNXMulOp>(op))
     estimateTimeForOp(mulOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto powOp = dyn_cast<ONNXPowOp>(op))
+  else if (auto powOp = mlir::dyn_cast<ONNXPowOp>(op))
     estimateTimeForOp(powOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto subOp = dyn_cast<ONNXSubOp>(op))
+  else if (auto subOp = mlir::dyn_cast<ONNXSubOp>(op))
     estimateTimeForOp(subOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Unary elementwise NNPA candidate ops.
-  else if (auto expOp = dyn_cast<ONNXExpOp>(op))
+  else if (auto expOp = mlir::dyn_cast<ONNXExpOp>(op))
     estimateTimeForOp(expOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto logOp = dyn_cast<ONNXLogOp>(op))
+  else if (auto logOp = mlir::dyn_cast<ONNXLogOp>(op))
     estimateTimeForOp(logOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto reluOp = dyn_cast<ONNXReluOp>(op))
+  else if (auto reluOp = mlir::dyn_cast<ONNXReluOp>(op))
     estimateTimeForOp(reluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto sigmoidOp = dyn_cast<ONNXSigmoidOp>(op))
+  else if (auto sigmoidOp = mlir::dyn_cast<ONNXSigmoidOp>(op))
     estimateTimeForOp(
         sigmoidOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto softmaxOp = dyn_cast<ONNXSoftmaxOp>(op))
+  else if (auto softmaxOp = mlir::dyn_cast<ONNXSoftmaxOp>(op))
     estimateTimeForOp(
         softmaxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto tanhOp = dyn_cast<ONNXTanhOp>(op))
+  else if (auto tanhOp = mlir::dyn_cast<ONNXTanhOp>(op))
     estimateTimeForOp(tanhOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Reduce
-  else if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanV13Op>(op))
+  else if (auto reduceMeanOp = mlir::dyn_cast<ONNXReduceMeanV13Op>(op))
     estimateTimeForOp(
         reduceMeanOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Matmul.
-  else if (auto matMulOp = dyn_cast<ONNXMatMulOp>(op))
+  else if (auto matMulOp = mlir::dyn_cast<ONNXMatMulOp>(op))
     estimateTimeForOp(
         matMulOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
-  else if (auto gemmOp = dyn_cast<ONNXGemmOp>(op))
+  else if (auto gemmOp = mlir::dyn_cast<ONNXGemmOp>(op))
     estimateTimeForOp(gemmOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else
     opHasModel = false;

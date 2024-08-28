@@ -202,7 +202,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<Value> &outputs) {
-    auto scanOp = dyn_cast<ONNXScanOp>(op);
+    auto scanOp = mlir::dyn_cast<ONNXScanOp>(op);
     for (const auto &ioPair :
         llvm::zip(scanOp.getVInitial(), scanOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
@@ -227,7 +227,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<Value> &outputs) {
-    auto scanOp = dyn_cast<ONNXScanOp>(op);
+    auto scanOp = mlir::dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
       Type convertedType = typeConverter->convertType(opScanOutput.getType());

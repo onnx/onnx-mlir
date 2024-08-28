@@ -35,8 +35,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
-mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
-    Type elementType, Attribute encoding) {
+mlir::RankedTensorType reduceAxisToOne(
+    llvm::ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
   return mlir::RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
 }

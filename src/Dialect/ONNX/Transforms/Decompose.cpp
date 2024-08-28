@@ -319,7 +319,7 @@ bool hasUnitStrides(ArrayAttr strides) {
 
 // Check if v's shape N x C x D1 x D2 ... x Dn has static dims D1 ... Dn.
 bool hasStaticSpatialDims(Value v) {
-  ShapedType type = cast<ShapedType>(v.getType());
+  ShapedType type = mlir::cast<ShapedType>(v.getType());
   if (!type.hasRank())
     return false;
   // Shape has the form N x C x D1 x D2 ... x Dn.
@@ -334,7 +334,7 @@ bool hasStaticSpatialDims(Value v) {
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
   ONNXConvTransposeOp op =
-      cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
+      mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 #else

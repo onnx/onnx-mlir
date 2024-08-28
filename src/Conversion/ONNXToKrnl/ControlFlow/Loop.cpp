@@ -331,7 +331,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
   void allocateMemoryForVFinal(Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
       ONNXLoopOpAdaptor adaptor, SmallVectorImpl<Value> &outputs) const {
-    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+    auto loopOp = mlir::dyn_cast<ONNXLoopOp>(op);
     for (const auto &ioPair :
         llvm::zip(adaptor.getVInitial(), loopOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
@@ -360,7 +360,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
       ConversionPatternRewriter &rewriter, Operation *op,
       ONNXLoopOpAdaptor adaptor, SmallVectorImpl<Value> &outputs,
       bool isWhile = false) const {
-    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+    auto loopOp = mlir::dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
       Type convertedType = typeConverter->convertType(opScanOutput.getType());
@@ -481,7 +481,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
   // iteration variable
 
   bool isWhileLoop(Operation *op) const {
-    auto onnxLoopOp = dyn_cast<ONNXLoopOp>(op);
+    auto onnxLoopOp = mlir::dyn_cast<ONNXLoopOp>(op);
 
     // Check whether continue condition is modified or not
     // Code copied from src/Dialect/ONNX/Rewrite.cpp
@@ -517,7 +517,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
   LogicalResult rewriteWithSCFWhile(Operation *op, ValueRange operands,
       ConversionPatternRewriter &rewriter) const {
     Location loc = ONNXLoc<ONNXLoopOp>(op);
-    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+    auto loopOp = mlir::dyn_cast<ONNXLoopOp>(op);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 

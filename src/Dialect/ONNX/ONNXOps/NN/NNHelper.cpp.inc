@@ -45,8 +45,7 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
         dilationOpt.has_value() ? ArrayAttrIntVal(dilationOpt, i) : 1);
     // Kernel shape from attribute, default from Weight's spatial dims.
     if (kernelShapeOpt.has_value()) {
-      kernelShape.emplace_back(
-          LitIE(ArrayAttrIntVal(kernelShapeOpt, i)));
+      kernelShape.emplace_back(LitIE(ArrayAttrIntVal(kernelShapeOpt, i)));
     } else {
       assert(hasFilter && "no kernel shape and no filter: unkown kernel shape");
       int ii = i + spatialOffset;

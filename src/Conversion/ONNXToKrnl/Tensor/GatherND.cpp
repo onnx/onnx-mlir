@@ -133,8 +133,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     // }
     // output.reshape(outputShape)
     ValueRange loopDef = create.krnl.defineLoops(2);
-    DimsExpr lbs(2, LitIE(0)),
-        ubs = {newIndicesShape[0], newIndicesShape[1]};
+    DimsExpr lbs(2, LitIE(0)), ubs = {newIndicesShape[0], newIndicesShape[1]};
 
     if (emitPrintStmts) {
       create.krnl.printTensor("reshapedIndices: ", reshapedIndices);

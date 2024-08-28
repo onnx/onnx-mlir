@@ -39,7 +39,8 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    KrnlCopyFromBufferOp copyFromBufferOp = cast<KrnlCopyFromBufferOp>(op);
+    KrnlCopyFromBufferOp copyFromBufferOp =
+        mlir::cast<KrnlCopyFromBufferOp>(op);
     Location loc = copyFromBufferOp.getLoc();
     MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
         rewriter, loc);

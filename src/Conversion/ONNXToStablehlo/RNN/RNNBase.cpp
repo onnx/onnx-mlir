@@ -34,8 +34,8 @@ Value allocAllHidden(
 }
 
 /// Allocate the hidden or cell output.
-Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
-    Location loc, Value X, Value W, Value R) {
+Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter, Location loc,
+    Value X, Value W, Value R) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   RankedTensorType zeroType = RankedTensorType::get(
       {/*num_directions=*/dimAt(W, 0), /*batch_size=*/dimAt(X, 1),

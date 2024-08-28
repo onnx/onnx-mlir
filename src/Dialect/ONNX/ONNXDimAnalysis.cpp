@@ -80,7 +80,7 @@ static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
     // need to insert it.
     if (isa<ONNXConstantOp>(op))
       okToInsert = false;
-    else if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
+    else if (auto dimOp = mlir::dyn_cast<ONNXDimOp>(op)) {
       // The correct axis is from ONNXDimOp.
       axis = dimOp.getAxis();
       okToInsert = true;
@@ -107,8 +107,7 @@ static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
 /// Given a QuestionMarkIndexExpr representing a dynamic dimension, find the
 /// same dynamic dimensions in the inputs.
 static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
-    mlir::Operation *op, ValueRange operands,
-    DimAnalysis::DimSetT &sameDims) {
+    mlir::Operation *op, ValueRange operands, DimAnalysis::DimSetT &sameDims) {
   Location loc = op->getLoc();
   IndexExprBuilderForAnalysis createIE(loc);
 
@@ -144,7 +143,7 @@ static void exploreSameDimsFromConsumingOperators(
       llvm::dbgs() << " - exploring ";
       op->dump();
     });
-    if (auto concatOp = dyn_cast<ONNXConcatOp>(op)) {
+    if (auto concatOp = mlir::dyn_cast<ONNXConcatOp>(op)) {
       // Dimensions on the same axis (except the concatenating axis) are the
       // same across all inputs.
       int64_t axis = concatOp.getAxis();
@@ -177,7 +176,7 @@ static void exploreSameDimsFromConsumingOperators(
       }
       continue;
     }
-    if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
+    if (auto gemmOp = mlir::dyn_cast<ONNXGemmOp>(op)) {
       Value A = gemmOp.getA();
       Value B = gemmOp.getB();
       if (!hasShapeAndRank(A) || !hasShapeAndRank(B))
@@ -199,7 +198,7 @@ static void exploreSameDimsFromConsumingOperators(
       }
       continue;
     }
-    if (auto gruOp = dyn_cast<ONNXGRUOp>(op)) {
+    if (auto gruOp = mlir::dyn_cast<ONNXGRUOp>(op)) {
       int64_t layout = gruOp.getLayout();
       // In LSTM, sequence_lens and batch_size are potentially dynamic.
       // Only batch_size is used in multiple inputs, so we'll check batch_size.
@@ -237,7 +236,7 @@ static void exploreSameDimsFromConsumingOperators(
       }
       continue;
     }
-    if (auto lstmOp = dyn_cast<ONNXLSTMOp>(op)) {
+    if (auto lstmOp = mlir::dyn_cast<ONNXLSTMOp>(op)) {
       int64_t layout = lstmOp.getLayout();
       // In LSTM, sequence_lens and batch_size are potentially dynamic.
       // Only batch_size is used in multiple inputs, so we'll check batch_size.
@@ -305,7 +304,7 @@ static void exploreSameDimsFromConsumingOperators(
       }
       continue;
     }
-    if (auto rnnOp = dyn_cast<ONNXRNNOp>(op)) {
+    if (auto rnnOp = mlir::dyn_cast<ONNXRNNOp>(op)) {
       int64_t layout = rnnOp.getLayout();
       // In LSTM, sequence_lens and batch_size are potentially dynamic.
       // Only batch_size is used in multiple inputs, so we'll check batch_size.
@@ -425,10 +424,10 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
   // Below are ONNX operations we know that specify the output shape via an
   // operand. Sorted in the alphabetical order.
   Value shapeInput = nullptr;
-  if (auto onnxOp = dyn_cast<ONNXCenterCropPadOp>(op)) {
+  if (auto onnxOp = mlir::dyn_cast<ONNXCenterCropPadOp>(op)) {
     // `shape` stores shape information for dimensions specified by `axes`.
     // `outputDimIndex` must be in `axes` in order to get dim from `shape`.
-    auto outputType = cast<ShapedType>(onnxOp.getResult().getType());
+    auto outputType = mlir::cast<ShapedType>(onnxOp.getResult().getType());
     SmallVector<int64_t, 4> axesInt;
     ArrayAttr axes = onnxOp.getAxesAttr();
     if (axes) {
@@ -450,21 +449,21 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
     }
     if (found)
       shapeInput = onnxOp.getShape();
-  } else if (auto onnxOp = dyn_cast<ONNXConstantOfShapeOp>(op)) {
+  } else if (auto onnxOp = mlir::dyn_cast<ONNXConstantOfShapeOp>(op)) {
     // `input` stores shape information.
     shapeInput = onnxOp.getInput();
-  } else if (auto onnxOp = dyn_cast<ONNXExpandOp>(op)) {
+  } else if (auto onnxOp = mlir::dyn_cast<ONNXExpandOp>(op)) {
     // `shape` stores shape information.
     shapeInput = onnxOp.getShape();
-  } else if (auto onnxOp = dyn_cast<ONNXMaxUnpoolOp>(op)) {
+  } else if (auto onnxOp = mlir::dyn_cast<ONNXMaxUnpoolOp>(op)) {
     // Optional `output_shape` stores shape information.
     if (!isNoneValue(onnxOp.getOutputShape()))
       shapeInput = onnxOp.getOutputShape();
-  } else if (auto onnxOp = dyn_cast<ONNXReshapeOp>(op)) {
+  } else if (auto onnxOp = mlir::dyn_cast<ONNXReshapeOp>(op)) {
     // `shape` stores shape information. Only support `allow_zero == 0`.
     if (onnxOp.getAllowzero() == 0)
       shapeInput = onnxOp.getShape();
-  } else if (auto onnxOp = dyn_cast<ONNXTileOp>(op)) {
+  } else if (auto onnxOp = mlir::dyn_cast<ONNXTileOp>(op)) {
     // If input dimension i is 1, `repeats` i stores shape information.
     Type inputType = onnxOp.getInput().getType();
     ArrayRef<int64_t> inputShape = getShape(inputType);
@@ -503,7 +502,7 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
 
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
-    if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
+    if (auto funcOp = mlir::dyn_cast<func::FuncOp>(op)) {
       // Build dimensions for function arguments and results.
       buildFunctionArgsRes(funcOp);
     } else {
@@ -587,9 +586,9 @@ void DimAnalysis::buildFunctionArgsRes(func::FuncOp funcOp) {
   // Build internal mappings for results.
   Operation *terminator = funcOp.getRegion().back().getTerminator();
   ValueRange resVals;
-  if (auto returnOp = dyn_cast<func::ReturnOp>(terminator))
+  if (auto returnOp = mlir::dyn_cast<func::ReturnOp>(terminator))
     resVals = returnOp.getOperands();
-  else if (auto returnOp = dyn_cast<ONNXReturnOp>(terminator))
+  else if (auto returnOp = mlir::dyn_cast<ONNXReturnOp>(terminator))
     resVals = returnOp.getOperands();
   ArrayAttr resAttrs = funcOp.getResAttrsAttr();
   buildFor(resVals, resAttrs);
@@ -862,14 +861,14 @@ void DimAnalysis::visitDim(
     return;
 
   // DimOp
-  if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
+  if (auto dimOp = mlir::dyn_cast<ONNXDimOp>(op)) {
     DimAnalysis::DimT newSameDim(dimOp.getData(), dimOp.getAxis());
     sameDims.insert(newSameDim);
     return;
   }
 
   // CastOp
-  if (auto castOp = dyn_cast<ONNXCastOp>(op)) {
+  if (auto castOp = mlir::dyn_cast<ONNXCastOp>(op)) {
     if (auto d = insertDimWhenUseful(castOp.getInput(), dimIndex, sameDims))
       LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first
                               << ", " << d.value().second << ")\n");
@@ -933,7 +932,7 @@ void DimAnalysis::visitDim(
   }
 
   // ReshapeOp has some additional cases.
-  if (auto reshapeOp = dyn_cast<ONNXReshapeOp>(op)) {
+  if (auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(op)) {
     if (reshapeOp.getAllowzero() != 0)
       return;
 
@@ -954,8 +953,8 @@ void DimAnalysis::visitDim(
     // inputs.
 
     // Get the dynamic dimension from data.
-    auto dataType = cast<RankedTensorType>(data.getType());
-    auto outputType = cast<RankedTensorType>(output.getType());
+    auto dataType = mlir::cast<RankedTensorType>(data.getType());
+    auto outputType = mlir::cast<RankedTensorType>(output.getType());
     // Check if there is only one dynamic dimension in the data and output.
     bool dataHasOneDynamicDim =
         (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
@@ -1069,7 +1068,7 @@ void ONNXDimAnalysisPass::runOnOperation() {
       } else {
         Operation *op = val.getDefiningOp();
         b.setInsertionPointAfter(op);
-        if (auto dimOp = dyn_cast<ONNXDimOp>(op))
+        if (auto dimOp = mlir::dyn_cast<ONNXDimOp>(op))
           val = dimOp.getData();
       }
       DimAnalysis::DimT dim(val, dimAxis);

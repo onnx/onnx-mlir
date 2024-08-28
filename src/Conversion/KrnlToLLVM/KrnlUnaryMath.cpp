@@ -215,8 +215,8 @@ private:
 
     // Create function declaration.
     // auto llvmF32Ty = FloatType::get(context);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(
-        llvmOutType, ArrayRef<Type>({llvmInType}));
+    auto llvmFnType =
+        LLVM::LLVMFunctionType::get(llvmOutType, ArrayRef<Type>({llvmInType}));
 
     // Insert the unary math function into the body of the parent module.
     PatternRewriter::InsertionGuard insertGuard(rewriter);

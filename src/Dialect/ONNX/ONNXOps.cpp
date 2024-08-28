@@ -28,7 +28,7 @@
 #define UNSUPPORTED_OPS(OP_TYPE)                                               \
   /* shape inference interface method */                                       \
   mlir::LogicalResult mlir::OP_TYPE::inferShapes(                              \
-      std::function<void(Region &)> doShapeInference) {                  \
+      std::function<void(Region &)> doShapeInference) {                        \
     return mlir::success();                                                    \
   }
 

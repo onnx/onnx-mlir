@@ -26,9 +26,7 @@ namespace onnx_mlir {
 // =============================================================================
 
 // Return null if none is found.
-ElementsAttr IndexExprBuilderForZLow::getConst(Value value) {
-  return nullptr;
-}
+ElementsAttr IndexExprBuilderForZLow::getConst(Value value) { return nullptr; }
 
 Value IndexExprBuilderForZLow::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);

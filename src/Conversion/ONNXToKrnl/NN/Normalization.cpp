@@ -968,8 +968,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
           IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[0]);
           IndexExpr blockedUB = SymIE(XFlatDims[0]);
-          IndexExpr isFull = create.krnlIE.isTileFull(
-              blockedCurrIndex, LitIE(B), blockedUB);
+          IndexExpr isFull =
+              create.krnlIE.isTileFull(blockedCurrIndex, LitIE(B), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(

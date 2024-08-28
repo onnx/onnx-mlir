@@ -244,13 +244,11 @@ private:
           for (uint64_t i = 0; i < outerRank; ++i) {
             // source offset
             DimIndexExpr srcIndex(indices[i]);
-            srcOffsetIE =
-                srcOffsetIE + srcIndex * SymIE(inStrides[i]);
+            srcOffsetIE = srcOffsetIE + srcIndex * SymIE(inStrides[i]);
             // destination offset
             DimIndexExpr destIndex(indices[ArrayAttrIntVal(permAttr, i)]);
             // Note: index for outStrides is not the permuted index.
-            destOffsetIE =
-                destOffsetIE + destIndex * SymIE(outStrides[i]);
+            destOffsetIE = destOffsetIE + destIndex * SymIE(outStrides[i]);
           }
           // call memcpy.
           create.krnl.memcpy(outputMemRef, inputMemRef, elemsToCopyI64,

@@ -163,7 +163,8 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (!isNoneValue(axes) && !getONNXConstantOp(axes))
     return success();
 
-  const auto startsType = dyn_cast<RankedTensorType>(getStarts().getType());
+  const auto startsType =
+      mlir::dyn_cast<RankedTensorType>(getStarts().getType());
   assert(startsType != nullptr && "starts type is not a RankedTensorType");
   auto startsDim = startsType.getShape()[0];
   {

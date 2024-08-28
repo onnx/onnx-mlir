@@ -497,8 +497,8 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
 template <>
 void calculateStateWithUnroll<ONNXLSTMOp, LstmState, LstmActivationPack,
     LstmWeightPack, LstmBiasPack>(mlir::ConversionPatternRewriter &rewriter,
-    Location loc, llvm::StringRef direction, int64_t sequenceDimSize,
-    Value X, LstmState &state, LstmActivationPack activationForward,
+    Location loc, llvm::StringRef direction, int64_t sequenceDimSize, Value X,
+    LstmState &state, LstmActivationPack activationForward,
     LstmActivationPack activationReverse, LstmWeightPack weightForward,
     LstmWeightPack weightReverse, LstmBiasPack biasForward,
     LstmBiasPack biasReverse, Value sequenceLens, Value initialH) {
@@ -538,8 +538,8 @@ void calculateStateWithUnroll<ONNXLSTMOp, LstmState, LstmActivationPack,
 template <>
 void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
     LstmWeightPack, LstmBiasPack>(mlir::ConversionPatternRewriter &rewriter,
-    Location loc, llvm::StringRef direction, int64_t sequenceDimSize,
-    Value X, LstmState &state, LstmActivationPack activationForward,
+    Location loc, llvm::StringRef direction, int64_t sequenceDimSize, Value X,
+    LstmState &state, LstmActivationPack activationForward,
     LstmActivationPack activationReverse, LstmWeightPack weightForward,
     LstmWeightPack weightReverse, LstmBiasPack biasForward,
     LstmBiasPack biasReverse, Value sequenceLens, Value initialH) {
@@ -602,8 +602,7 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     Value directionIV =
         create.onnx.constantInt64({(direction == REVERSE) ? 0 : 1});
-    Value reverseSequenceIV =
-        create.onnx.constantInt64({sequenceDimSize - 1});
+    Value reverseSequenceIV = create.onnx.constantInt64({sequenceDimSize - 1});
 
     SmallVector<Value> operands = {
         reverseSequenceIV, state.allHReverse, state.reverseHt, state.reverseCt};

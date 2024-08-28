@@ -33,7 +33,7 @@ void ZHighF32ToDLF16Op::build(OpBuilder &builder, OperationState &state,
   Type elementType = builder.getF16Type();
   Type resType = UnrankedTensorType::get(elementType);
 
-  if (auto inType = dyn_cast<RankedTensorType>(input.getType()))
+  if (auto inType = mlir::dyn_cast<RankedTensorType>(input.getType()))
     resType = RankedTensorType::get(inType.getShape(), elementType);
 
   build(builder, state, resType, input, saturation);

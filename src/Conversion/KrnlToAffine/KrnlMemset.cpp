@@ -35,7 +35,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     // Get info from operands.
-    auto memsetOp = cast<KrnlMemsetOp>(op);
+    auto memsetOp = mlir::cast<KrnlMemsetOp>(op);
     bool delayed = memsetOp.getDelayed();
     KrnlMemsetOpAdaptor operandAdaptor(memsetOp);
     Value destMemRef(operandAdaptor.getDest());

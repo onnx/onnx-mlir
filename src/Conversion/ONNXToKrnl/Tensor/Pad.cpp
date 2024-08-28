@@ -101,8 +101,7 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
           [&](KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
             SmallVector<IndexExpr, 4> resLoopInd;
             for (uint64_t i = 0; i < rank; ++i) {
-              IndexExpr resInd =
-                  DimIE(dataLoopInd[i]) + shapeHelper.pads[i];
+              IndexExpr resInd = DimIE(dataLoopInd[i]) + shapeHelper.pads[i];
               resLoopInd.emplace_back(resInd);
             }
             Value dataValue = createKrnl.load(data, dataLoopInd);

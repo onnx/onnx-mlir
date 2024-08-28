@@ -48,7 +48,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto matmulOp = cast<KrnlMatMulOp>(op);
+    auto matmulOp = mlir::cast<KrnlMatMulOp>(op);
     KrnlMatMulOpAdaptor operandAdaptor(matmulOp);
     // Option.
     bool fullUnrollAndJam = matmulOp.getUnroll();

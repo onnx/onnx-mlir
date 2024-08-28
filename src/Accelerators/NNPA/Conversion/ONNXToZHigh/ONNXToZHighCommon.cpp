@@ -76,7 +76,7 @@ ValueRange splitAlongAxis(
 bool isF32ScalarConstantTensor(Value v) {
   if (!isScalarConstantTensor(v))
     return false;
-  auto t = dyn_cast<ShapedType>(v.getType());
+  auto t = mlir::dyn_cast<ShapedType>(v.getType());
   return t.getElementType().isF32();
 }
 
@@ -93,7 +93,7 @@ Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
     llvm_unreachable("The input must have shape and rank");
 
   OnnxBuilder create(rewriter, loc);
-  auto t = dyn_cast<ShapedType>(x.getType());
+  auto t = mlir::dyn_cast<ShapedType>(x.getType());
   int64_t r = t.getRank();
   SmallVector<Value> dims;
   for (int64_t i = 0; i < r; ++i) {

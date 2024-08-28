@@ -105,8 +105,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
       SmallVector<IndexExpr, 3> outputSpacialLbs, outputSpacialUbs;
       for (int i = spatialStartIndex; i < outputRank; ++i) {
         outputSpacialLbs.emplace_back(iZero);
-        outputSpacialUbs.emplace_back(
-            SymIE(shapeHelper.getOutputDims()[i]));
+        outputSpacialUbs.emplace_back(SymIE(shapeHelper.getOutputDims()[i]));
       }
       // Spacial loops.
       // for ho = 0 .. HO:

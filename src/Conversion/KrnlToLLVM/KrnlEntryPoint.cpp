@@ -202,7 +202,7 @@ public:
     auto *staticEntryPointFunc =
         module.lookupSymbol(staticEntryPointFuncName.lower());
     auto staticEntryPointFuncTy = mlir::cast<LLVM::LLVMFunctionType>(
-        cast<LLVM::LLVMFuncOp>(staticEntryPointFunc).getFunctionType());
+        mlir::cast<LLVM::LLVMFuncOp>(staticEntryPointFunc).getFunctionType());
     LLVM_DEBUG(llvm::dbgs() << "Static entry point function type: "
                             << staticEntryPointFuncTy << "\n");
     // Static entry point is wrapped with prefix `_mlir_ciface` automatically by
@@ -216,7 +216,7 @@ public:
            isa<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
     auto wrappedStaticEntryPointOp =
-        cast<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc);
+        mlir::cast<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc);
     auto wrappedStaticEntryPointTy = mlir::cast<LLVM::LLVMFunctionType>(
         wrappedStaticEntryPointOp.getFunctionType());
 

@@ -1225,9 +1225,9 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
   Type elementType = type.getElementType();
   assert(!(mlir::isa<VectorType>(elementType)) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
-  staticSize = 1;                // Multiplication of static sizes.
-  dynSize = LitIE(1); // Multiplication of dyn sizes.
-  bool staticShape = true;       // Static until proven otherwise.
+  staticSize = 1;          // Multiplication of static sizes.
+  dynSize = LitIE(1);      // Multiplication of dyn sizes.
+  bool staticShape = true; // Static until proven otherwise.
   int64_t rank = type.getRank();
   // Process with range [lb inclusive, ub exclusive)
   int64_t lb = 0, ub = rank;
@@ -1321,8 +1321,7 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     // and padding bit sizes), and then doing a ceil division by
     // 8 (number of bits in a byte).
     IndexExpr totBitSize = LitIE(staticSize * bitWidth) * dynSize;
-    IndexExpr totPaddedBitSize =
-        totBitSize + LitIE(paddingSize * bitWidth);
+    IndexExpr totPaddedBitSize = totBitSize + LitIE(paddingSize * bitWidth);
     totPaddedByteSize = totPaddedBitSize.ceilDiv(LitIE(8));
   }
   if (staticShape)

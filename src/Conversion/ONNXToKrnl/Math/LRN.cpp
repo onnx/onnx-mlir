@@ -83,13 +83,11 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
 
           SmallVector<IndexExpr, 2> lbMaxList;
           lbMaxList.emplace_back(LitIE(0));
-          lbMaxList.emplace_back(
-              cIE - (sizeIE - 1).floorDiv(LitIE(2)));
+          lbMaxList.emplace_back(cIE - (sizeIE - 1).floorDiv(LitIE(2)));
 
           SmallVector<IndexExpr, 2> ubMinList;
           ubMinList.emplace_back(CIE);
-          ubMinList.emplace_back(
-              cIE + 1 + (sizeIE - 1).ceilDiv(LitIE(2)));
+          ubMinList.emplace_back(cIE + 1 + (sizeIE - 1).ceilDiv(LitIE(2)));
 
           // Initialize sum, single scalar, no need for default alignment.
           MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
