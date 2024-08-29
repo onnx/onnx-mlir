@@ -12,11 +12,11 @@ OMTensorList *create_input_list() {
 
   // Construct float arrays filled with 1s or 2s.
   float *x1Data = (float *)malloc(sizeof(float) * num_elements);
-  assert(x1Data && "Failed to allocate memory for input tensor.");
+  assert(x1Data && "Failed to allocate memory for input tensor x1Data.");
   for (int i = 0; i < num_elements; i++)
     x1Data[i] = 1.0;
   float *x2Data = (float *)malloc(sizeof(float) * num_elements);
-  assert(x2Data && "Failed to allocate memory for input tensor.");
+  assert(x2Data && "Failed to allocate memory for input tensor x2Data.");
   for (int i = 0; i < num_elements; i++)
     x2Data[i] = 2.0;
 
