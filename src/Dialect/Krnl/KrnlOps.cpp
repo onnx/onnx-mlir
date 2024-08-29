@@ -805,22 +805,26 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 
 ArrayRef<char> getRawData(KrnlGlobalOp &op) {
   ArrayRef<char> rawData;
-  assert(op.getValue().has_value() && "Krnl Global must always have a value");
-  auto value = op.getValue().value();
-  TypeSwitch<Attribute>(value)
-      .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-        auto blob = mlir::cast<DenseResourceElementsAttr>(value)
-                        .getRawHandle()
-                        .getBlob();
-        assert(blob && "Expecting dense resource with a valid blob");
-        rawData = blob->getData();
-      })
-      .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-        DenseElementsAttr denseAttr =
-            mlir::dyn_cast_or_null<DenseElementsAttr>(value);
-        rawData = denseAttr.getRawData();
-      })
-      .Default([&](Attribute attr) { return; });
+  // llvm::dbgs() << "getRawData op:" << op << "\n";
+  // assert(op.getValue().has_value() && "Krnl Global must always have a
+  // value");
+  if (op.getValueAttr()) {
+    auto value = op.getValue().value();
+    TypeSwitch<Attribute>(value)
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          auto blob = mlir::cast<DenseResourceElementsAttr>(value)
+                          .getRawHandle()
+                          .getBlob();
+          assert(blob && "Expecting dense resource with a valid blob");
+          rawData = blob->getData();
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+          DenseElementsAttr denseAttr =
+              mlir::dyn_cast_or_null<DenseElementsAttr>(value);
+          rawData = denseAttr.getRawData();
+        })
+        .Default([&](Attribute attr) { return; });
+  }
   return rawData;
 }
 

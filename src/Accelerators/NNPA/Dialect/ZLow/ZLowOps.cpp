@@ -454,7 +454,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
         .Default([&](Attribute attr) {
           llvm_unreachable("Unsupported data type.");
         });
-  } else {
+  } else if (zlowStickifiedConstantOp.getInitAttr()) {
     int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
         zlowStickifiedConstantOp.getResult().getType())
                               .value();

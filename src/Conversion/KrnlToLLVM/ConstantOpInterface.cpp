@@ -77,6 +77,11 @@ public:
     LLVM::GlobalOp global;
     // Pointer to the raw data of the global.
     Value dataPtr;
+    ArrayRef<char> rawData = op.getBuffer();
+    if (!rawData.empty()) {
+      op.setBuffer(rawData);
+      op.freeBuffer(rawData);
+    }
 
     if (op.getValue().has_value()) {
       auto value = op.getValue().value();

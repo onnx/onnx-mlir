@@ -194,7 +194,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     ZHighStickifiedConstantOp stickifiedConstant =
         rewriter.create<ZHighStickifiedConstantOp>(loc, resType,
             /*value=*/nullptr,
-            /*layout*/ StringAttr(),
+            /*layout=*/StringAttr(),
+            /*init=*/rewriter.getBoolAttr(true),
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
     res = stickifiedConstant.getResult();
   } else {
@@ -710,6 +711,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             rewriter.getStringAttr(
                 "constant_stickify_" + std::to_string(constantID)),
             /*layout=*/zhighStickifiedConstOp.getLayoutAttr(),
+            /*init=*/zhighStickifiedConstOp.getInitAttr(),
             /*offset=*/rewriter.getI64IntegerAttr(0),
             /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
 

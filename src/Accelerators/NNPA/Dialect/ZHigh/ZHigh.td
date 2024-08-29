@@ -868,6 +868,7 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
                        OptionalAttr<StrAttr>:$layout,
+                       OptionalAttr<BoolAttr>:$init,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
 }
