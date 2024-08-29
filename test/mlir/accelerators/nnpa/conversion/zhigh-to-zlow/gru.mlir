@@ -220,8 +220,8 @@ func.func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf16, #zhigh.layo
 // CHECK:           krnl.store [[VAR_1_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zlow.stickifiedConstant"() {alignment = 4096 : i64, name = "constant_stickify_0", offset = 0 : i64, shape = [1, 3, 1, 1, 32, 64]} : () -> memref<1x3x1x1x32x64xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zlow.stickifiedConstant"() {alignment = 4096 : i64, name = "constant_stickify_1", offset = 0 : i64, shape = [1, 3, 1, 1, 32, 64]} : () -> memref<1x3x1x1x32x64xf16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zlow.stickifiedConstant"() {alignment = 4096 : i64, init = true, name = "constant_stickify_0", offset = 0 : i64, shape = [1, 3, 1, 1, 32, 64]} : () -> memref<1x3x1x1x32x64xf16>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zlow.stickifiedConstant"() {alignment = 4096 : i64, init = true, name = "constant_stickify_1", offset = 0 : i64, shape = [1, 3, 1, 1, 32, 64]} : () -> memref<1x3x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, [[MAP_0_]]>
 // CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, [[MAP_0_]]>
 // CHECK-NOT: separator of consecutive DAGs
