@@ -12,5 +12,6 @@ add_onnx_mlir_library(OMSeqToMemref
   OMSupport
   MLIRTransforms
   MLIRAffineUtils
+  MLIRMathTransforms
   OMONNXToKrnl
   )
