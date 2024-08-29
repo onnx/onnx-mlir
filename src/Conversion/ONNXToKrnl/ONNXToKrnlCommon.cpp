@@ -611,8 +611,8 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // returns true.
 
 bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
-    ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize) {
+    ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
+    int64_t &parDim, int64_t minSize) {
   assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
   if (firstInclusiveDim < 0)
     firstInclusiveDim = 0;
