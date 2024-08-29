@@ -258,7 +258,10 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
 // Templates for SIMD code gen (instantiated for KRNL and SCF builders)
 //===----------------------------------------------------------------------===//
 
-namespace impl {
+// Forward declaration to keep template testing happy.
+struct KrnlBuilder;
+
+namespace impl { // Hide support for SIMD iterate/reduce in impl namespace.
 
 template <class BUILDER, class MEM_BUILDER>
 void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
@@ -285,7 +288,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       simdUb = simdUb - (VL - 1);
 
     // Define the loop block
-    auto simdLoopBlock = [&](BUILDER b, mlir::ValueRange loopInd) {
+    auto simdLoopBody = [&](BUILDER b, mlir::ValueRange loopInd) {
       IndexExprScope scope(b);
       VectorBuilder createVec(b);
       MEM_BUILDER createMem(b);
@@ -332,14 +335,25 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     };
 
     // Invocation of the  (possibly parallel) SIMD loop.
-
-    // Use KRNL interface
-    mlir::ValueRange loopDef = builder.defineLoops(1);
-    mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
-    if (useParallel)
-      builder.parallel({blockedLoopDef[0]});
-    builder.iterateIE(
-        loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBlock);
+    if constexpr (std::is_same<BUILDER, KrnlBuilder>::value) {
+      // Use KRNL interface
+      mlir::ValueRange loopDef = builder.defineLoops(1);
+      mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
+      if (useParallel)
+        builder.parallel({blockedLoopDef[0]});
+      builder.iterateIE(
+          loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+    } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
+      if (useParallel) {
+        IndexExpr litVL = LitIE(VL);
+        builder.parallelLoops({lb.getValue()}, {simdUb.getValue()},
+            {litVL.getValue()}, simdLoopBody);
+      } else {
+        builder.forLoop(lb.getValue(), simdUb.getValue(), VL, simdLoopBody);
+      }
+    } else {
+      llvm_unreachable("BUILDER type not supported\n");
+    }
 
     if (fullySimd)
       // Asserted that we only have SIMD iterations, we are done.
@@ -396,28 +410,29 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       DimsExpr AF = SymListIE(outputAFs[i]);
       int64_t rank = type.getRank();
       assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
-      AF[rank - 1] = AF[rank - 1] + ind; // hi alex, use offset for these
+      AF[rank - 1] = AF[rank - 1] + ind;
       createMem.storeIE(scalarResVals[i], outputs[i], AF);
     }
   };
 
   // Invocation of the scalar loop.
-  // Use KRNL dialect.
-  mlir::ValueRange loopDef = builder.defineLoops(1);
-  builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+  if constexpr (std::is_same<BUILDER, KrnlBuilder>::value) {
+    // Use KRNL dialect.
+    mlir::ValueRange loopDef = builder.defineLoops(1);
+    builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+  } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
+    builder.forLoop(lb.getValue(), ub.getValue(), 1, scalarLoopBody);
+  } else {
+    llvm_unreachable("BUILDER type not supported\n");
+  }
 }
 
 template <class BUILDER, class MEM_BUILDER>
 void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
-    int64_t VL, bool fullySimd,
-    /* in: use [x][n] */
-    mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
-    /* tmp: use [y][VL] */
-    mlir::ArrayRef<mlir::Value> tmps, mlir::ArrayRef<DimsExpr> tmpAFs,
-    /* out: gen [z][1] */
-    mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
-    /* init val: scalar */
-    mlir::ArrayRef<mlir::Value> initVals,
+    int64_t VL, bool fullySimd, mlir::ArrayRef<mlir::Value> inputs,
+    mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> tmps,
+    mlir::ArrayRef<DimsExpr> tmpAFs, mlir::ArrayRef<mlir::Value> outputs,
+    mlir::ArrayRef<DimsExpr> outputAFs, mlir::ArrayRef<mlir::Value> initVals,
     /* reduction function (simd or scalar) */
     mlir::function_ref<void(const BUILDER &b,
         mlir::ArrayRef<mlir::Value> inputVals,
@@ -490,11 +505,18 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     // Want SIMD, execute full SIMD loops reductions blocked by VL.
     // Perform SIMD reduction: iterates over all SIMD vectors.
 
-    // Implementation with Krnl
-    mlir::ValueRange loopDef = builder.defineLoops(1);
-    mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
-    builder.iterateIE(
-        loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+    if constexpr (std::is_same<BUILDER, KrnlBuilder>::value) {
+      // Implementation with Krnl.
+      mlir::ValueRange loopDef = builder.defineLoops(1);
+      mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
+      builder.iterateIE(
+          loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+    } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
+      // Implementation with SCF.
+      builder.forLoop(lb.getValue(), simdUb.getValue(), VL, simdLoopBody);
+    } else {
+      llvm_unreachable("BUILDER type not supported");
+    }
 
     if (fullySimd) {
       // No leftovers, no additional iterations to be done.
@@ -552,10 +574,16 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     };
 
     // Perform scalar loop.
-
-    // Implementation with Krnl
-    mlir::ValueRange loopDef = builder.defineLoops(1);
-    builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+    if constexpr (std::is_same<BUILDER, KrnlBuilder>::value) {
+      // Implementation with Krnl.
+      mlir::ValueRange loopDef = builder.defineLoops(1);
+      builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+    } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
+      // Implementation with SCF.
+      builder.forLoop(lb.getValue(), ub.getValue(), 1, scalarLoopBody);
+    } else {
+      llvm_unreachable("BUILDER type not supported");
+    }
   }
 
   // Now perform post processing. Load all tmps.

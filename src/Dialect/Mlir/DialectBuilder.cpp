@@ -1737,7 +1737,6 @@ void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
 void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
-  // SmallVectorImpl<Value> ivStorage;
   b().create<scf::ParallelOp>(loc(), lowerBounds, upperBounds, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
@@ -1748,6 +1747,36 @@ void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
 }
 
 void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
+
+void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
+    ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs,
+    function_ref<void(SCFBuilder &b, ArrayRef<Value> inputVals,
+        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
+        bodyBuilderFn) const {
+  onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
+      bodyBuilderFn);
+}
+
+void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+    ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
+    /* reduction function (simd or scalar) */
+    function_ref<void(const SCFBuilder &b, ArrayRef<Value> inputVals,
+        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
+        int64_t VL)>
+        reductionBuilderFn,
+    /* post reduction function (simd to scalar + post processing)*/
+    function_ref<void(const SCFBuilder &b, ArrayRef<Value> tmpVals,
+        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
+        postProcessingBuilderFn) const {
+  onnx_mlir::impl::simdReduceIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
+      reductionBuilderFn, postProcessingBuilderFn);
+}
 
 //===----------------------------------------------------------------------===//
 // Vector Builder

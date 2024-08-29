@@ -289,7 +289,8 @@ using MDBuilder =
 // one is needed, then pass ONNXNoneOp in the second slot.
 // Return true if we can optimize the reduction, false otherwise.
 
-template <typename ONNXReductionOp1, typename ONNXReductionOp2>
+template <typename BUILDER, typename ONNXReductionOp1,
+    typename ONNXReductionOp2>
 void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
     Operation *op, MDBuilder &create, Type elementType, IndexExpr lb,
     IndexExpr ub, int64_t VL, bool simdOnly, IndexExpr t, int64_t tNum,
@@ -329,11 +330,12 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
         rewriter, create.getLoc(), elementType));
   }
 
-  create.krnl.simdReduceIE(
+  BUILDER builder(create.vec);
+  builder.simdReduceIE(
       lb, ub, VL, simdOnly, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs,
       initVals,
       /* reduction function */
-      [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
+      [&](const BUILDER &b, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
           llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
         Type currType = (VL > 1) ? vecType : elementType;
         // First reduction, enqueue result.
@@ -348,7 +350,7 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
         }
       },
       /* post reduction function*/
-      [&](const KrnlBuilder &kb, ArrayRef<Value> tmpVals,
+      [&](const BUILDER &b, ArrayRef<Value> tmpVals,
           llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
         // Perform horizontal reductions.
         Value res1 = create.vec.reduction(
@@ -415,8 +417,18 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       computeSuitableUnrollFactor(inputType, collapsedInnermostLoops, mix,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
 #if 1 // new approach that enables parallelism
-  // hi alex
   // Test if loop trip count is long enough for a parallel execution.
+  if (enableParallel) {
+    int64_t parId;
+    if (findSuitableParallelDimension({lb}, {ub}, 0, 1, parId, 32 * totVL)) {
+      onnxToKrnlParallelReport(
+          op, true, parId, lb, ub, "simd reduction to one element");
+    } else {
+      enableParallel = false;
+      onnxToKrnlParallelReport(op, false, -1, -1,
+          "not enough work in simd reduction to one element");
+    }
+  }
   if (!enableParallel) {
     // Allocate temp and output memory
     Value tmp1, tmp2;
@@ -432,9 +444,11 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     }
     int64_t tNum = 1; // No parallelism.
     IndexExpr t = zero;
-    emitOneStepOfFullSIMDReduction<ONNXReductionOp1, ONNXReductionOp2>(rewriter,
-        op, create, elementType, lb, ub, totVL, simdOnly, t, tNum, hasTwoRed,
-        flatInput, flatInput, tmp1, tmp2, alloc1, alloc2, divisorForMean);
+    // OK to use Krnl builder here as we have a simple loop structure.
+    emitOneStepOfFullSIMDReduction<KrnlBuilder, ONNXReductionOp1,
+        ONNXReductionOp2>(rewriter, op, create, elementType, lb, ub, totVL,
+        simdOnly, t, tNum, hasTwoRed, flatInput, flatInput, tmp1, tmp2, alloc1,
+        alloc2, divisorForMean);
   } else {
     // Performs 2 rounds: first round compute a parallel partial reduction
     // where each (possibly virtual) thread is responsible for one chunk.
@@ -458,7 +472,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     IndexExpr blockSize = ub.ceilDiv(tNum);
     bool simdOnly = false; // Refine, but since we are chunking input, safer.
     ValueRange loopDef = create.krnl.defineLoops(1);
-    // create.krnl.parallel(loopDef[0]); // hi alex, enables.
+    create.krnl.parallel(loopDef[0]);
     create.krnl.iterateIE(loopDef, loopDef, {zero}, {tNumIE},
         [&](onnx_mlir::KrnlBuilder &ck, mlir::ValueRange loopInd) {
           IndexExprScope scope(ck);
@@ -467,10 +481,12 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           IndexExpr currLB = t * SymIE(blockSize);
           IndexExpr currUB = currLB + SymIE(blockSize);
           currUB = IndexExpr::min(currUB, SymIE(ub));
-          emitOneStepOfFullSIMDReduction<ONNXReductionOp1, ONNXReductionOp2>(
-              rewriter, op, create, elementType, currLB, currUB, totVL,
-              simdOnly, t, tNum, hasTwoRed, flatInput, flatInput, tmp1, tmp2,
-              output1, output2, nullptr);
+          // Use SCF builder because the partition of outer loop into block
+          // makes the formulas non-affine.
+          emitOneStepOfFullSIMDReduction<SCFBuilder, ONNXReductionOp1,
+              ONNXReductionOp2>(rewriter, op, create, elementType, currLB,
+              currUB, totVL, simdOnly, t, tNum, hasTwoRed, flatInput, flatInput,
+              tmp1, tmp2, output1, output2, nullptr);
           // Result here, each iteration would have generate 1 value in
           // output1 &2,
         });
@@ -483,10 +499,11 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     IndexExpr finalLB = zero;
     IndexExpr finalUB = tNumIE;
     IndexExpr t = zero;
-    emitOneStepOfFullSIMDReduction<ONNXReductionOp1, ONNXReductionOp2>(rewriter,
-        op, create, elementType, finalLB, finalUB, /*VL*/ 1,
-        /*simd only*/ false, t, /*thread num */ 1, hasTwoRed, output1, output2,
-        tmp1, tmp2, alloc1, alloc2, divisorForMean);
+    // Reduction here is straight forward, Krnl builder is fine.
+    emitOneStepOfFullSIMDReduction<KrnlBuilder, ONNXReductionOp1,
+        ONNXReductionOp2>(rewriter, op, create, elementType, finalLB, finalUB,
+        /*VL*/ 1, /*simd only*/ false, t, /*thread num */ 1, hasTwoRed, output1,
+        output2, tmp1, tmp2, alloc1, alloc2, divisorForMean);
   }
 
 #else // old approach
@@ -528,8 +545,9 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       lb, ub, totVL, simdOnly, inputs, inputAFs, tmps, tmpAFs, outputs,
       outputAFs, initVals,
       /* reduction function */
-      [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
-          llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
+      [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals,
+          ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
+          int64_t VL) {
         Type type = (VL > 1) ? vecType : elementType;
         // First reduction, enqueue result.
         Value accumulatedVec1 = emitScalarOpFor<ONNXReductionOp1>(
@@ -1126,8 +1144,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         /* output */ {flatAlloc}, {outputAF},
         /* init */ {identity},
         /* reduction simd/scalar */
-        [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
-            llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
+        [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals,
+            ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
+            int64_t VL) {
           Value input = inputVals[0];
           Value tmp = tmpVals[0];
           Type type = VL > 1 ? vecType : elementType;

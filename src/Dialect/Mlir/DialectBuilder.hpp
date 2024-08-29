@@ -450,6 +450,32 @@ struct SCFBuilder final : DialectBuilder {
       mlir::ValueRange steps,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
+
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::function_ref<void(SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> inputVals,
+          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
+          bodyBuilderFn) const;
+
+  void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<mlir::Value> initVals,
+      /* reduction function (simd or scalar) */
+      mlir::function_ref<void(const SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> inputVals,
+          mlir::ArrayRef<mlir::Value> tmpVals,
+          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
+          reductionBuilderFn,
+      /* post reduction function (simd to scalar + post processing)*/
+      mlir::function_ref<void(const SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> tmpVals,
+          llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
+          postProcessingBuilderFn) const;
 };
 
 //===----------------------------------------------------------------------===//
