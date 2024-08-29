@@ -1,5 +1,6 @@
 #include <OnnxMlirRuntime.h>
 #include <stdio.h>
+#include <assert.h>
 
 OMTensorList *run_main_graph(OMTensorList *);
 
