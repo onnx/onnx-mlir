@@ -62,7 +62,7 @@ namespace onnx_mlir {
 // Values to report the current phase of compilation.
 // Increase TOTAL_COMPILE_PHASE when having more phases.
 uint64_t CURRENT_COMPILE_PHASE = 1;
-uint64_t TOTAL_COMPILE_PHASE = 5;
+uint64_t TOTAL_COMPILE_PHASE = 6;
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -170,22 +170,37 @@ int Command::exec(std::string wdir) const {
 }
 
 void showCompilePhase(std::string msg) {
-  time_t rawtime;
-  struct tm *timeinfo;
+  time_t rawTime;
+  struct tm *timeInfo;
   char buffer[80];
+  // Remember first time.
+  static time_t firstRawTime;
+  static bool hasFirstRawTime = false;
 
   // Get current date.
-  time(&rawtime);
-  timeinfo = localtime(&rawtime);
-  strftime(buffer, 80, "%c", timeinfo);
+  time(&rawTime);
+  timeInfo = localtime(&rawTime);
+  strftime(buffer, 80, "%c", timeInfo);
   std::string currentTime(buffer);
 
+  // Compute time difference in seconds.
+  int diff = 0;
+  if (hasFirstRawTime) {
+    diff = difftime(rawTime, firstRawTime);
+  } else {
+    firstRawTime = rawTime;
+    hasFirstRawTime = true;
+  }
   llvm::outs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
-               << "] " << currentTime << " " << msg << "\n";
+               << "] " << currentTime << " (" << diff << "s) " << msg << "\n";
+  // Flush so that if there are errors, we know where it came from.
+  llvm::outs().flush();
 
   // Reset current phase.
-  if (CURRENT_COMPILE_PHASE > TOTAL_COMPILE_PHASE)
+  if (CURRENT_COMPILE_PHASE > TOTAL_COMPILE_PHASE) {
     CURRENT_COMPILE_PHASE = 1;
+    hasFirstRawTime = false;
+  }
 }
 
 } // namespace onnx_mlir
@@ -227,7 +242,7 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
   if ((numOfFuncOp == 1) && (!shapeInformation.empty())) {
     ModelInputShaper modelInputShaper_;
     modelInputShaper_.setShapeInformation(shapeInformation);
-    auto funcType = dyn_cast<FunctionType>(funcOp.getFunctionType());
+    auto funcType = mlir::dyn_cast<FunctionType>(funcOp.getFunctionType());
     ArrayRef<Type> argTypes = funcType.getInputs();
     SmallVector<Type, 4> newArgTypes;
     for (uint64_t i = 0; i < argTypes.size(); ++i) {
@@ -305,13 +320,15 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
           llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
-      llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
+      llvm::ArrayType *AT =
+          mlir::dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
             StringRef("_entry_point_" + std::to_string(i) + tag));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
-              dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
+              mlir::dyn_cast<llvm::ConstantDataSequential>(
+                  entryGV->getInitializer());
           exportedFuncs.emplace_back(entry->getAsCString());
         }
       }
@@ -811,6 +828,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
   }
   }
+  showCompilePhase("Compilation completed");
+
   return CompilerSuccess;
 } // end anonymous namespace
 

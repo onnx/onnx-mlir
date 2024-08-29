@@ -67,7 +67,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXShapeTransformOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Operation *op = getOperation();
   // If any input is not ranked tensor, do nothing.
   if (!hasShapeAndRank(op))
@@ -93,13 +93,13 @@ LogicalResult ONNXShapeTransformOp::verify() {
     return emitError("Does not support affine_map with symbols");
 
   // Only support static shape at this moment.
-  auto inputType = dyn_cast<ShapedType>(input.getType());
+  auto inputType = mlir::dyn_cast<ShapedType>(input.getType());
   if (inputType && !inputType.hasStaticShape())
     return emitError("Does not support input with dynamic shape");
 
   // If input and output have static shape, check that the same number of
   // elements are the same.
-  if (auto outputType = dyn_cast<ShapedType>(output.getType()))
+  if (auto outputType = mlir::dyn_cast<ShapedType>(output.getType()))
     if (outputType.hasStaticShape()) {
       uint64_t elementsInput = 1;
       for (uint64_t d : inputType.getShape())

@@ -37,7 +37,7 @@ LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
 
   for (int64_t i = 0; i < rank - 1; ++i)
     outputDims.emplace_back(fGateDims[i]);
-  IndexExpr lastDim = fGateDims[rank - 1] * LiteralIndexExpr(4);
+  IndexExpr lastDim = fGateDims[rank - 1] * LitIE(4);
   outputDims.emplace_back(lastDim);
 
   // Save the final result.
@@ -50,7 +50,7 @@ LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickForLSTMOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getFGate()) && !hasRankedType(getIGate()) &&
       !hasRankedType(getCGate()) && !hasRankedType(getOGate()))
     return success();

@@ -154,7 +154,7 @@ public:
    */
   struct Movable {
     std::optional<KrnlMovableOp> movableOp;
-    std::optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
+    std::optional<llvm::SmallVector<Value, 4>> loopsToSkip;
 
     // Movable that stores a KrnlMovableOp.
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
@@ -171,7 +171,7 @@ public:
         // Only skip non-unroll loops.  Loops that are unrolled are by
         // definitions a loop whose loopRef is used by a KrnlUnrollOp.
         if (llvm::all_of(val.getUsers(), [&](Operation *user) {
-              return dyn_cast_or_null<KrnlUnrollOp>(user);
+              return mlir::dyn_cast_or_null<KrnlUnrollOp>(user);
             }))
           values.emplace_back(val);
       }
@@ -265,10 +265,10 @@ public:
 
         // Move iterator to point to the next AffineFor Op.
         while (insertPt != loopBody.end() &&
-               (!dyn_cast_or_null<AffineForOp>(&*insertPt) ||
-                   !dyn_cast_or_null<AffineParallelOp>(&*insertPt)) &&
+               (!mlir::dyn_cast_or_null<AffineForOp>(&*insertPt) ||
+                   !mlir::dyn_cast_or_null<AffineParallelOp>(&*insertPt)) &&
                loopToSkip) {
-          assert(dyn_cast_or_null<KrnlMovableOp>(&*insertPt) &&
+          assert(mlir::dyn_cast_or_null<KrnlMovableOp>(&*insertPt) &&
                  "Expecting a KrnlMovableOp");
           insertPt++;
         }
@@ -289,7 +289,7 @@ public:
   }
 
 private:
-  llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
+  llvm::DenseMap<Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
 
 /*!
@@ -338,7 +338,7 @@ static void markLoopBodyAsMovable(
           movableRegion, builder, delimeterOp->getLoc());
 
       mover.toMoveUnder(LoopBodyMover::Movable(movableOp), root);
-      if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(delimeterOp))
+      if (auto iterateOp = mlir::dyn_cast_or_null<KrnlIterateOp>(delimeterOp))
         mover.toMoveUnder(LoopBodyMover::Movable(iterateOp), root);
 
       movableBeginOp = delimeterOp->getNextNode();
@@ -354,11 +354,12 @@ static void lowerGetInductionVariableValueOp(
   for (const auto &operandAndResult : zippedOperandsResults) {
     auto operand = std::get<0>(operandAndResult);
     auto result = std::get<1>(operandAndResult);
-    if (auto forOp = dyn_cast_or_null<AffineForOp>(loopRefToOp[operand])) {
+    if (auto forOp =
+            mlir::dyn_cast_or_null<AffineForOp>(loopRefToOp[operand])) {
       result.replaceAllUsesWith(forOp.getInductionVar());
     } else {
       auto parallelOp =
-          dyn_cast_or_null<AffineParallelOp>(loopRefToOp[operand]);
+          mlir::dyn_cast_or_null<AffineParallelOp>(loopRefToOp[operand]);
       assert(parallelOp && "expected affine.parallelOp only");
       result.replaceAllUsesWith(parallelOp.getIVs()[0]);
     }
@@ -423,7 +424,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
       // For last optimized loop.
       // yield the iterateOp yield value.
       builder.setInsertionPointToEnd(forOp.getBody());
-      auto Yield = cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
+      auto Yield =
+          mlir::cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
       builder.create<AffineYieldOp>(iterateOp.getLoc(), Yield.getOperands());
 
       // replace use of iterateOp iterArgs with forOp iterArgs.
@@ -554,7 +556,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
       auto innerForOp = newForOps.back();
       auto prevTerm = innerForOp.getBody()->getTerminator();
       builder.setInsertionPointToEnd(innerForOp.getBody());
-      auto iterTerm = cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
+      auto iterTerm =
+          mlir::cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
       builder.create<AffineYieldOp>(iterateOp.getLoc(), iterTerm.getOperands());
       // Remove the old terminator.
       prevTerm->erase();
@@ -569,7 +572,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     // When there's no loop but iterateOp has result.
     else if (!isLoop && iterateHasResult) {
       // Replace use of iteratedOp with the yield value.
-      auto Yield = cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
+      auto Yield =
+          mlir::cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
       for (auto [result, yieldValue] :
           llvm::zip(iterateOp.getResults(), Yield.getOperands())) {
         result.replaceAllUsesWith(yieldValue);
@@ -666,7 +670,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       }
     }
 
-  if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
+  if (auto iterateOp = mlir::dyn_cast_or_null<KrnlIterateOp>(op)) {
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret iterate op " << iterateOp << "\n");
     // If an iterateOp has no unoptimized loop references, then we need to lower
@@ -676,7 +680,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       opsToErase.insert(iterateOp);
     }
     return success();
-  } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
+  } else if (auto blockOp = mlir::dyn_cast_or_null<KrnlBlockOp>(op)) {
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret block op " << blockOp << "\n");
     SmallVector<AffineForOp, 2> tiledLoops;
@@ -709,7 +713,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
     opsToErase.insert(op);
     return success();
-  } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
+  } else if (auto permuteOp = mlir::dyn_cast_or_null<KrnlPermuteOp>(op)) {
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret permute op " << permuteOp << "\n");
     // TODO(tjingrant): call it whenever an operation lowering completes.
@@ -731,7 +735,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
     opsToErase.insert(op);
     return success();
-  } else if (auto parallelOp = dyn_cast_or_null<KrnlParallelOp>(op)) {
+  } else if (auto parallelOp = mlir::dyn_cast_or_null<KrnlParallelOp>(op)) {
     // Parallelism the given loop by transform the tagged affine.for op to
     // affine.parallel
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " interpret parallel op "
@@ -846,7 +850,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
+    moveLoopInvariantCode(
+        mlir::cast<LoopLikeOpInterface>(loopOp.getOperation()));
   });
 
   // We use the end of the function body as a staging area for movable ops.
@@ -879,10 +884,10 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     std::vector<KrnlIterateOp> iterateOps;
     for (auto result : defineOp.getResults())
       for (auto *user : result.getUsers())
-        if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(user))
+        if (auto iterateOp = mlir::dyn_cast_or_null<KrnlIterateOp>(user))
           if (std::find(iterateOps.begin(), iterateOps.end(), iterateOp) ==
               iterateOps.end())
-            iterateOps.push_back(dyn_cast<KrnlIterateOp>(user));
+            iterateOps.push_back(mlir::dyn_cast<KrnlIterateOp>(user));
 
     // Lower iterate operations and record the mapping between loop references
     // and affine for loop operations in loopRefToOp map.
@@ -924,8 +929,9 @@ void ConvertKrnlToAffinePass::runOnOperation() {
         auto &blockOps = block.getOperations();
         for (auto itr = blockOps.begin(); itr != blockOps.end(); ++itr) {
           Operation *genericOp = &(*itr);
-          if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
-                  genericOp)) {
+          if (auto getIVOp =
+                  mlir::dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
+                      genericOp)) {
             lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
             opsToErase.insert(genericOp);
           }
@@ -944,13 +950,14 @@ void ConvertKrnlToAffinePass::runOnOperation() {
 
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
-            dyn_cast<SpecializedKernelOpInterface>(op)) {
+            mlir::dyn_cast<SpecializedKernelOpInterface>(op)) {
       OperandRange loopRefs = kernelOp.getLoopRefs();
       for (auto loopRef : loopRefs)
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
     }
-    if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+    if (auto getIVOp =
+            mlir::dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
       lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
       opsToErase.insert(op);
     }

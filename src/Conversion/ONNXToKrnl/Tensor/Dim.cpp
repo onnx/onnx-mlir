@@ -43,7 +43,7 @@ struct ONNXDimOpLowering : public OpConversionPattern<ONNXDimOp> {
     Type elementType = outputMemRefType.getElementType();
 
     // Output is 1D memref of one element.
-    SmallVector<IndexExpr, 1> outputDims(1, LiteralIndexExpr(1));
+    SmallVector<IndexExpr, 1> outputDims(1, LitIE(1));
     Value alloc = create.mem.alignedAlloc(outputMemRefType, outputDims);
 
     // Write the dimension at axis to the output.

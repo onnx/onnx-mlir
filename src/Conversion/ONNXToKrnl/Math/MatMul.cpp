@@ -59,7 +59,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     int outerLoopNum = shapeHelper.getOutputDims().size();
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
     ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
-    SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LitIE(0));
     SmallVector<IndexExpr, 4> loopUbs; // All getOutputDims, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
@@ -222,7 +222,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     });
   }
 
-  void computeTileSizeForMatVectProduct(Operation *op, int64_t mVL,
+  void computeTileSizeForMatVectProduct(Operation *op, int64_t VL,
       DimIndexExpr dimI, DimIndexExpr dimJ, DimIndexExpr dimK,
       int64_t &iRegTile, int64_t &jRegTile, int64_t &kRegTile,
       bool &simdize) const {
@@ -232,21 +232,21 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           "no simd because disabled for mat * vec");
 
     // Default values.
-    // Right can only tile i and k by (possibly distinct) multiple of mVL.
-    iRegTile = 2 * mVL; // SIMD dim during multi-reduction.
+    // Right can only tile i and k by (possibly distinct) multiple of VL.
+    iRegTile = 2 * VL; // SIMD dim during multi-reduction.
     jRegTile = 1;
-    kRegTile = 16 * mVL; // SIMD dim during multiplication.
+    kRegTile = 16 * VL; // SIMD dim during multiplication.
 
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       // Register tile in the I Dim is really for the reduction. The
-      // computations will be further tiled to a multiple of mVL inside
+      // computations will be further tiled to a multiple of VL inside
       // krnl.matmul.
-      kRegTile = (constK / mVL) * mVL; // largest multiple
-      if (kRegTile > 64 * mVL) {
-        kRegTile = 64 * mVL;
+      kRegTile = (constK / VL) * VL; // largest multiple
+      if (kRegTile > 64 * VL) {
+        kRegTile = 64 * VL;
         LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: cap tiling k\n"; });
-      } else if (kRegTile < mVL) {
+      } else if (kRegTile < VL) {
         // Not enough data, can only support i/k reg tile of 4.
         LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
         simdize = false;
@@ -258,8 +258,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
-        iRegTile = (constI / mVL) * mVL; // largest multiple
-        if (iRegTile < mVL) {
+        iRegTile = (constI / VL) * VL; // largest multiple
+        if (iRegTile < VL) {
           // Not enough data, can only support i/k reg tile of 4.
           LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
           simdize = false;
@@ -307,9 +307,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     bool isMatVectorProduct =
         !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
     if (isMatVectorProduct) {
-      int64_t mVL = create.vec.getMachineVectorLength(elementType);
+      int64_t archVL = create.vec.getArchVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, archVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
           op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
@@ -391,9 +391,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     bool isMatVectorProduct =
         !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
     if (isMatVectorProduct) {
-      int64_t mVL = create.vec.getMachineVectorLength(elementType);
+      int64_t archVL = create.vec.getArchVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, archVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
           op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
@@ -408,7 +408,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (enableParallel) {
       int64_t parId;
       // Could check out more than the outer dim of the broadcasts...
-      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)),
+      SmallVector<IndexExpr, 1> lb(1, LitIE(0)),
           ub(1, shapeHelper.getOutputDims()[0]);
       if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
               /*min iter for going parallel*/ 4)) {

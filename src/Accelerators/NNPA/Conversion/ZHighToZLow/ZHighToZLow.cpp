@@ -140,17 +140,17 @@ static Value insertAllocForWorkAreaForRNNOps(IndexExprBuilderForKrnl &createIE,
   createIE.getShapeAsDims(rnnHiddenWeight, hiddenWeightDims);
 
   IndexExpr timestepExp = inputDims[0];
-  IndexExpr Lit2 = LiteralIndexExpr(2);
-  IndexExpr NumOfGatesLit = LiteralIndexExpr(numOfGates);
+  IndexExpr Lit2 = LitIE(2);
+  IndexExpr NumOfGatesLit = LitIE(numOfGates);
   IndexExpr dim1 = hiddenWeightDims[1];
   IndexExpr dim2 = inputDims[1];
-  IndexExpr dim3 = LiteralIndexExpr(1);
+  IndexExpr dim3 = LitIE(1);
   IndexExpr dim4 = NumOfGatesLit * timestepExp + NumOfGatesLit + Lit2;
 
-  IndexExpr Lit1 = LiteralIndexExpr(1);
-  IndexExpr Lit32 = LiteralIndexExpr(32);
-  IndexExpr Lit64 = LiteralIndexExpr(64);
-  IndexExpr Lit4K = LiteralIndexExpr(4096);
+  IndexExpr Lit1 = LitIE(1);
+  IndexExpr Lit32 = LitIE(32);
+  IndexExpr Lit64 = LitIE(64);
+  IndexExpr Lit4K = LitIE(4096);
   IndexExpr ceilDim2 = (dim2 + Lit32 - Lit1).floorDiv(Lit32);
   IndexExpr ceilDim1 = (dim1 + Lit64 - Lit1).floorDiv(Lit64);
   IndexExpr sizeExpr = dim4 * dim3 * ceilDim2 * ceilDim1 * Lit4K;
@@ -200,6 +200,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     int64_t sizeInBytes =
         affine::getIntOrFloatMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
+    assert(rawData && "failed to allocate memory for stickified data");
     memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
         RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
@@ -232,7 +233,7 @@ Value insertShapeMemRefI64(
   for (uint64_t i = 0; i < originalDims.size(); ++i) {
     Value dim =
         create.math.cast(rewriter.getI64Type(), originalDims[i].getValue());
-    create.krnl.storeIE(dim, shapeMemRef, {LiteralIndexExpr(i)});
+    create.krnl.storeIE(dim, shapeMemRef, {LitIE(i)});
   }
   return shapeMemRef;
 }
@@ -500,7 +501,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickOp stickOp = cast<ZHighStickOp>(op);
+    ZHighStickOp stickOp = mlir::cast<ZHighStickOp>(op);
 
     ZHighStickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.getIn();
@@ -1556,7 +1557,7 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
     Location loc = op->getLoc();
     MDBuilder create(rewriter, loc);
 
-    auto stickOp = cast<ZHighStickifiedConstantOfShapeOp>(op);
+    auto stickOp = mlir::cast<ZHighStickifiedConstantOfShapeOp>(op);
     FloatAttr value = stickOp.getValueAttr();
     Type i16Ty = rewriter.getI16Type();
     Type i64Ty = rewriter.getI64Type();
@@ -1607,7 +1608,7 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
     // inside the loop, and LLVM does not seem to read the f16 value.
     uint64_t rank = mlir::cast<MemRefType>(res.getType()).getRank();
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
     SmallVector<IndexExpr, 4> ubs = shapeHelper.getOutputDims();
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -1652,15 +1653,15 @@ struct ZHighToZLowDataConversionLowering
     int64_t rank = getRank(X.getType());
 
     // SIMD info.
-    // Fixed VL for the conversion instruction: 8 elements per instruction call.
-    // Because the VL of the zlow.conversions are not "virtualized" in lengths,
-    // we manually unroll the loop containing the SIMD operations manually.
+    // Fixed VL for the conversion instruction: 8 elements per instruction
+    // call. Because the VL of the zlow.conversions are not "virtualized" in
+    // lengths, we manually unroll the loop containing the SIMD operations.
     // Experiments on a 1024x1024 tensors shows best results with an unrolling
     // of 8 SIMD vectors.
-    int64_t VL = 8;
-    int64_t VLHalf = VL / 2;
-    int64_t unrollSIMD = 8;             // Manually unroll the SIMD loop.
-    int64_t unrollVL = unrollSIMD * VL; // Total numbers of values unrolled.
+    int64_t archVL = 8; // Vector length as defined by z arch for this type.
+    int64_t archVLHalf = archVL / 2;
+    int64_t unrollVL = 8;              // Manually unroll the SIMD loop.
+    int64_t totVL = unrollVL * archVL; // Total numbers of values unrolled.
 
     // Convert the output type to MemRef.
     Type outputTensorType = convertOp.getResult().getType();
@@ -1670,24 +1671,23 @@ struct ZHighToZLowDataConversionLowering
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
 
-    // Types use the SIMD unrolling VL and VLHalf.
+    // Types use archVL and archVL / 2.
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
-    VectorType vecF16Type = VectorType::get({VL}, f16Type);
-    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+    VectorType vecF16Type = VectorType::get({archVL}, f16Type);
+    VectorType vecF32Type = VectorType::get({archVLHalf}, f32Type);
 
     // Compute output dims.
     DimsExpr outputDims;
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     IndexExprScope allocScope(create.vec, shapeHelper.getScope());
-    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+    getIndexExprList<SymIE>(shapeHelper.getOutputDims(), outputDims);
 
-    // Alloc memory with padding for SIMD. Padding and loop unrolling use
-    // unrollVL.
+    // Alloc memory with padding for SIMD using totVL.
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Value alloc = create.mem.alignedAllocWithSimdPadding(
-        outputMemRefType, outputDims, unrollVL, alignment);
+        outputMemRefType, outputDims, totVL, alignment);
 
     // Flatten the input to 1D.
     int64_t collapsedInnermostLoops = rank;
@@ -1700,18 +1700,18 @@ struct ZHighToZLowDataConversionLowering
     SmallVector<IndexExpr, 4> flattenedOutputDims;
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
-    DimsExpr lbs(1, LiteralIndexExpr(0));
+    DimsExpr lbs(1, LitIE(0));
 
-    // Create loop iteration (flattened to 1D) and block it by unrollVL.
+    // Create loop iteration (flattened to 1D) and block it by totVL.
     ValueRange loopDef = create.krnl.defineLoops(1);
-    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], unrollVL);
+    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], totVL);
     SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
 
     if (enableParallel) {
       int64_t parId;
       int64_t tripCount =
           flattenedOutputDims[0].isLiteral()
-              ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)VL)
+              ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)archVL)
               : -1;
       if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
               /*min iter for going parallel*/ 1024)) {
@@ -1723,7 +1723,7 @@ struct ZHighToZLowDataConversionLowering
             "not enough work for dlf16-f32 conversion");
       }
     }
-    onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+    onnxToKrnlSimdReport(op, /*successful*/ true, archVL,
         flattenedOutputDims[0].isLiteral() ? flattenedOutputDims[0].getLiteral()
                                            : -1,
         "dlf16-f32 conversion fully flattened");
@@ -1731,26 +1731,26 @@ struct ZHighToZLowDataConversionLowering
     create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
         [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
-          // Manually unrolled loop, add VL offset at each iterations.
-          for (int64_t u = 0; u < unrollSIMD; ++u) {
-            Value baseIdx =
-                create.math.add(loopInd[0], create.math.constantIndex(u * VL));
+          // Manually unrolled loop, add archVL offset at each iterations.
+          for (int64_t u = 0; u < unrollVL; ++u) {
+            Value baseIdx = create.math.add(
+                loopInd[0], create.math.constantIndex(u * archVL));
             Value baseIdxNext =
-                create.math.add(baseIdx, create.math.constantIndex(VLHalf));
+                create.math.add(baseIdx, create.math.constantIndex(archVLHalf));
             if (fromF32) {
               // F32 -> DLF16
-              // Load VL f32 values from the input into two vectors each
-              // with VLHalf f32 values.
+              // Load archVL f32 values from the input into two vectors each
+              // with archVLHalf f32 values.
               Value vecF32H = create.vec.load(vecF32Type, flatInput, {baseIdx});
               Value vecF32L =
                   create.vec.load(vecF32Type, flatInput, {baseIdxNext});
               Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
                   loc, vecF32H, vecF32L);
-              // Store VL f16 values back to the output.
+              // Store archVL f16 values back to the output.
               create.vec.store(vecF16, flatOutput, {baseIdx});
             } else {
               // DLF16 -> F32
-              // Load VL f16 values from the input into a register.
+              // Load archVL f16 values from the input into a register.
               Value vecF16 = create.vec.load(vecF16Type, flatInput, {baseIdx});
               auto convertOp =
                   rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);

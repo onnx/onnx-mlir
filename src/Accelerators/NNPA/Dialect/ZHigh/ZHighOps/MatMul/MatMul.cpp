@@ -94,7 +94,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighMatMulOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getX()) || !hasRankedType(getY()))
     return success();
 

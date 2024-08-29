@@ -32,7 +32,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto findIndexOp = cast<KrnlFindIndexOp>(op);
+    auto findIndexOp = mlir::cast<KrnlFindIndexOp>(op);
     MLIRContext *ctx = findIndexOp.getContext();
     Location loc = findIndexOp.getLoc();
     KrnlFindIndexOpAdaptor operandAdaptor(operands);
