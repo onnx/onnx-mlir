@@ -485,7 +485,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickOp stickOp = cast<ZHighStickOp>(op);
+    ZHighStickOp stickOp = mlir::cast<ZHighStickOp>(op);
 
     ZHighStickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.getIn();
@@ -1532,7 +1532,7 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
     Location loc = op->getLoc();
     MDBuilder create(rewriter, loc);
 
-    auto stickOp = cast<ZHighStickifiedConstantOfShapeOp>(op);
+    auto stickOp = mlir::cast<ZHighStickifiedConstantOfShapeOp>(op);
     FloatAttr value = stickOp.getValueAttr();
     Type i16Ty = rewriter.getI16Type();
     Type i64Ty = rewriter.getI64Type();

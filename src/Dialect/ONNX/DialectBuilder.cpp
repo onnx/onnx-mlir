@@ -296,8 +296,8 @@ Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
       toTensor(outputType), toTensor(input), toTensor(shape));
 }
 
-Value OnnxBuilder::reshape(Type outputType, Value input, Value shape,
-    mlir::IntegerAttr allowZero) const {
+Value OnnxBuilder::reshape(
+    Type outputType, Value input, Value shape, IntegerAttr allowZero) const {
   return createTypedOpAndInferShapes<ONNXReshapeOp>(
       toTensor(outputType), toTensor(input), toTensor(shape), allowZero);
 }

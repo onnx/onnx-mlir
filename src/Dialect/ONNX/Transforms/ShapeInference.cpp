@@ -24,17 +24,17 @@ namespace onnx_mlir {
 namespace {
 
 bool hasDynamicOrUnknownShape(Type type) {
-  if (auto tensorType = dyn_cast<TensorType>(type))
+  if (auto tensorType = mlir::dyn_cast<TensorType>(type))
     return !tensorType.hasStaticShape();
 
   if (mlir::isa<NoneType>(type))
     return false;
 
-  if (auto seqType = dyn_cast<SeqType>(type))
+  if (auto seqType = mlir::dyn_cast<SeqType>(type))
     return ShapedType::isDynamic(seqType.getLength()) ||
            hasDynamicOrUnknownShape(seqType.getElementType());
 
-  if (auto optType = dyn_cast<OptType>(type))
+  if (auto optType = mlir::dyn_cast<OptType>(type))
     return hasDynamicOrUnknownShape(optType.getElementType());
 
   llvm_unreachable("unknown type");

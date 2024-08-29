@@ -20,7 +20,7 @@ namespace onnx_mlir {
 namespace zhigh {
 
 LogicalResult ZHighSoftmaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 

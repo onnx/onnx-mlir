@@ -38,8 +38,7 @@ struct ONNXSequenceAtOpLowering : public OpConversionPattern<ONNXSequenceAtOp> {
 
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
-    IndexExpr positionIE =
-        SymbolIndexExpr(create.krnl.load(adaptor.getPosition()));
+    IndexExpr positionIE = SymIE(create.krnl.load(adaptor.getPosition()));
     // Handle the negative position
     IndexExpr condIE = positionIE < 0;
     IndexExpr fixedPosition = positionIE + boundIE;

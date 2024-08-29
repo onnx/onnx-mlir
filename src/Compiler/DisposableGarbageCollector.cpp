@@ -28,7 +28,7 @@ DisposableGarbageCollector::~DisposableGarbageCollector() {}
 void DisposableGarbageCollector::runAfterPass(Pass *pass, Operation *op) {
   if (!disposablePool.isActive())
     return;
-  ModuleOp moduleOp = dyn_cast<ModuleOp>(op);
+  ModuleOp moduleOp = mlir::dyn_cast<ModuleOp>(op);
   if (!moduleOp)
     return;
   disposablePool.garbageCollectUnreachable(

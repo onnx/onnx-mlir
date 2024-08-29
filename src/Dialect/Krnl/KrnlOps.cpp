@@ -598,7 +598,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
-::llvm::SmallVector<mlir::Region *> KrnlIterateOp::getLoopRegions() {
+::llvm::SmallVector<Region *> KrnlIterateOp::getLoopRegions() {
   return {&getBodyRegion()};
 }
 

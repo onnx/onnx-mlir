@@ -94,7 +94,7 @@ template struct ZHighPoolingOpShapeHelper<ZHighAvgPool2DOp>;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighMaxPool2DOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getInput()))
     return success();
 
@@ -110,7 +110,7 @@ LogicalResult ZHighMaxPool2DOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighAvgPool2DOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getInput()))
     return success();
 

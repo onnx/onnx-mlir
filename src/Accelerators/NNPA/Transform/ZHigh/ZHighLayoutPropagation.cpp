@@ -47,7 +47,7 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
       !isa<ZHighUnstickOp>(first.getDefiningOp()))
     return std::make_pair(false, nullptr);
   Value firstStickifiedVal =
-      cast<ZHighUnstickOp>(first.getDefiningOp()).getIn();
+      mlir::cast<ZHighUnstickOp>(first.getDefiningOp()).getIn();
   StringAttr firstLayout = convertZTensorDataLayoutToStringAttr(
       rewriter, getZTensorLayout(firstStickifiedVal.getType()));
 
@@ -56,7 +56,7 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
     using namespace onnx_mlir::zhigh;
     if (mlir::isa<BlockArgument>(v) || !isa<ZHighUnstickOp>(v.getDefiningOp()))
       return false;
-    Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).getIn();
+    Value stickifiedVal = mlir::cast<ZHighUnstickOp>(v.getDefiningOp()).getIn();
     StringAttr nextLayout = convertZTensorDataLayoutToStringAttr(
         rewriter, getZTensorLayout(stickifiedVal.getType()));
     return (nextLayout == firstLayout);
@@ -127,7 +127,7 @@ public:
       return failure();
 
     // Input is a CPU tensor, do nothing.
-    auto unstickOp = dyn_cast<ZHighUnstickOp>(input.getDefiningOp());
+    auto unstickOp = mlir::dyn_cast<ZHighUnstickOp>(input.getDefiningOp());
     if (!unstickOp)
       return failure();
 
@@ -182,8 +182,8 @@ public:
       return failure();
 
     // Input is a CPU tensor, do nothing.
-    auto unstickAOp = dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
-    auto unstickBOp = dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
+    auto unstickAOp = mlir::dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
+    auto unstickBOp = mlir::dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
     if (!unstickAOp || !unstickBOp)
       return failure();
 

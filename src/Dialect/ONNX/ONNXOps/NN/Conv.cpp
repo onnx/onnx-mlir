@@ -388,8 +388,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         dilationOpt.has_value() ? ArrayAttrIntVal(dilationOpt, i) : 1);
     // Kernel shape from attribute, default from Weight's spatial dims.
     if (kernelShapeOpt.has_value()) {
-      kernelShape.emplace_back(
-          LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
+      kernelShape.emplace_back(LitIE(ArrayAttrIntVal(kernelShapeOpt, i)));
     } else {
       int ii = i + spatialOffset;
       kernelShape.emplace_back(createIE->getShapeAsSymbol(wValue, ii));
@@ -402,15 +401,14 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
   // Pads, at this stage a given compile-time literal or default 0.
   for (int i = 0; i < 2 * spatialRank; ++i) {
     int64_t p = padOpt.has_value() ? ArrayAttrIntVal(padOpt, i) : 0;
-    pads.emplace_back(LiteralIndexExpr(p));
+    pads.emplace_back(LitIE(p));
   }
 
   // Handle output size: start by inserting batch size and output channels.
   DimsExpr outputDims;
   outputDims.emplace_back(createIE->getShapeAsDim(xValue, 0));
-  outputDims.emplace_back(
-      createIE->getShapeAsDim(wValue, 1) *
-      LiteralIndexExpr(groupNum)); // CO may be different from CI.
+  outputDims.emplace_back(createIE->getShapeAsDim(wValue, 1) *
+                          LitIE(groupNum)); // CO may be different from CI.
 
   LiteralIndexExpr zeroIE(0);
   LiteralIndexExpr oneIE(1);

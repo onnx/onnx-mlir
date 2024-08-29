@@ -38,7 +38,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto storeOp = cast<KrnlStoreOp>(op);
+    auto storeOp = mlir::cast<KrnlStoreOp>(op);
     KrnlStoreOpAdaptor operandAdaptor(storeOp);
 
     // Prepare inputs.

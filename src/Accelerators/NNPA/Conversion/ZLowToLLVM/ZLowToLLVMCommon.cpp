@@ -364,7 +364,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
           bitcastOp.getArg().getDefiningOp());
       if (addressOfOp) {
         LLVM::GlobalOp globalOp =
-            dyn_cast_or_null<LLVM::GlobalOp>(SymbolTable::lookupSymbolIn(
+            mlir::dyn_cast_or_null<LLVM::GlobalOp>(SymbolTable::lookupSymbolIn(
                 module, addressOfOp.getGlobalNameAttr()));
         if (globalOp) {
           DenseElementsAttr valueAttr =

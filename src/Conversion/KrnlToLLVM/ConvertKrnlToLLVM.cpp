@@ -246,7 +246,7 @@ void PostfixEntrypointNames(ModuleOp &module) {
             .getValue()
             .str();
     func::FuncOp entryPointFunc =
-        dyn_cast<func::FuncOp>(module.lookupSymbol(entryPointFuncName));
+        mlir::dyn_cast<func::FuncOp>(module.lookupSymbol(entryPointFuncName));
     assert(entryPointFunc && "entry point func must exist");
     // Update the function name.
     entryPointFunc.setSymName(
@@ -278,12 +278,12 @@ void recordInputOutputMemRefTypes(ModuleOp &module,
     assert(entryPointFunc && isa<func::FuncOp>(entryPointFunc) &&
            "entry point func must exist and be an llvm func op");
     auto entryPointTy = mlir::dyn_cast<FunctionType>(
-        dyn_cast<func::FuncOp>(entryPointFunc).getFunctionType());
+        mlir::dyn_cast<func::FuncOp>(entryPointFunc).getFunctionType());
     SmallVector<MemRefType, 4> inputTypes, outputTypes;
     for (Type ty : entryPointTy.getInputs())
-      inputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+      inputTypes.emplace_back(mlir::dyn_cast<MemRefType>(ty));
     for (Type ty : entryPointTy.getResults())
-      outputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+      outputTypes.emplace_back(mlir::dyn_cast<MemRefType>(ty));
     inputMemRefTypes.emplace(
         std::make_pair(entryPointFuncName.str(), inputTypes));
     outputMemRefTypes.emplace(

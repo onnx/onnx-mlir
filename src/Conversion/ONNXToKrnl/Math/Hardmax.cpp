@@ -39,7 +39,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   // Allocate and initialize the result.
   // Th result has the same shape as the input except the axis dimension is 1.
   SmallVector<IndexExpr, 4> outputUBS(inputUBS);
-  outputUBS[axis] = LiteralIndexExpr(1);
+  outputUBS[axis] = LitIE(1);
   SmallVector<int64_t, 4> outputShape;
   for (const IndexExpr &dim : outputUBS)
     outputShape.push_back(
@@ -49,7 +49,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   create.krnl.memset(resMemRef, zero);
 
   ValueRange loopDef = create.krnl.defineLoops(rank);
-  SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+  SmallVector<IndexExpr> lbs(rank, LitIE(0));
   create.krnl.iterateIE(loopDef, loopDef, lbs, inputUBS,
       [&](KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
@@ -118,7 +118,7 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
     // Produce the final result.
     // Set value to 1 if index is argmax. Otherwise, 0.
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr> lbs(rank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(

@@ -44,8 +44,8 @@ bool shapeIsSameOrMoreSpecific(ShapedType lhs, ShapedType rhs) {
 
 // True if the types are the same up to shape specificity.
 bool typeIsSameOrMoreSpecific(Type lhs, Type rhs) {
-  ShapedType lhsShaped = dyn_cast<ShapedType>(lhs);
-  ShapedType rhsShaped = dyn_cast<ShapedType>(rhs);
+  ShapedType lhsShaped = mlir::dyn_cast<ShapedType>(lhs);
+  ShapedType rhsShaped = mlir::dyn_cast<ShapedType>(rhs);
 
   if (!lhsShaped && !rhsShaped) {
     return lhs == rhs;
@@ -67,7 +67,7 @@ bool typeIsSameOrMoreSpecific(Type lhs, Type rhs) {
 // Implementation is adapted from mlir/lib/Dialect/Func/IR/FuncOps.cpp
 // relaxing the type check to allow more specific shapes.
 LogicalResult ONNXReturnOp::verify() {
-  auto function = cast<func::FuncOp>((*this)->getParentOp());
+  auto function = mlir::cast<func::FuncOp>((*this)->getParentOp());
 
   // The operand number and types must match the function signature.
   const auto &results = function.getFunctionType().getResults();
