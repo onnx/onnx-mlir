@@ -857,18 +857,12 @@ LogicalResult ONNXGroupNormalizationCommon(
   int64_t spacialRank = inputRank - nonSpacialRank;
   int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
   int64_t numGroups = groupNormOp.getNumGroups();
-  int64_t stashType; // Defauly value is 1
 
   // Rewrite.
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
       rewriter, groupNormOp.getLoc());
   int64_t axis = nonSpacialRank;
   int64_t numInNorm = layerNormRank - axis;
-
-  for (int64_t i = 0; i <= numInNorm; ++i) {
-    biasScaleShape.emplace_back(1);
-    axesList.emplace_back(i);
-  }
 
 //"numgroups" and "C" should have the same dimension index
 llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
@@ -882,7 +876,12 @@ llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
     // Opset21 Uses "C" the number of channels for the scale and bias
     // Unsqueeze scale/bias from [C] to [1 x C x 1 x ... x 1] with numInNorm
     // 1s.
-    biasScaleShape[1] = C
+    biasScaleShape[1] = C;
+  }
+
+  for (int64_t i = 0; i <= numInNorm; ++i) {
+    biasScaleShape.emplace_back(1);
+    axesList.emplace_back(i);
   }
 
   Value axes = create.onnx.constantInt64(axesList);
@@ -1148,5 +1147,5 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target) {
-  return std::make_unique<DecomposeONNXToONNXPass>(target);F
+  return std::make_unique<DecomposeONNXToONNXPass>(target);
 }
