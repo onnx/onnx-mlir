@@ -840,7 +840,8 @@ uint64_t KrnlGlobalOp::getBufferSize() {
   KrnlGlobalOp krnlGlobalOp = mlir::cast<KrnlGlobalOp>(getOperation());
   const Type type = krnlGlobalOp.getResult().getType();
   const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
-  return affine::getIntOrFloatMemRefSizeInBytes(memRefTy).value();
+  auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
+  return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
 }
 
 void KrnlGlobalOp::setBuffer(ArrayRef<char> rawData) { return; }
