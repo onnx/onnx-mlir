@@ -98,31 +98,36 @@ struct KrnlBuilder : public DialectBuilder {
           mlir::ValueRange blockIters)>
           bodyBuilderFn) const;
 
-  // Iterate over a loop executing the loop body in SIMD mode (of vector length
-  // VL) from lb to ub. A scalar loop may execute up to VL-1 loop
-  // iterations when the trip count is not a multiple of VL. If fullySimd is
-  // true, then the call assumes that the trip count is a multiple of VL.
-  //
-  // This call needs be given each of the memref inputs to the loop body, given
-  // as an ordered pair memref value and its corresponding access function. Same
-  // hold for all the memref outputs of the loop body.
-  //
-  // The loop body is given a KRNL builder, a list of loaded input (same order
-  // as the input's memrefs and access functions). It will generate values that
-  // must be placed in the result list in the same order as the output's memrefs
-  // and access functions.
-  //
-  // It will be the responsibility of this call to load each of the inputs and
-  // store each of the outputs. When operating in SIMD mode, every input and
-  // output values are vectors of length VL. In scalar mode, they are simply
-  // scalar values.
-  //
-  // SIMD is exploited in the innermost dimension of each access function.
-  // This call is only applicable to loop bodies where every input/output is
-  // strided in its innermost dimension. Inputs can also be loop invariant
-  // (scalar), in term of the loop being iterated on.
-  //
-  // If useParallel is true, then the blocked SIMD loop is executed in parallel.
+  /*
+     Iterate over a loop executing the loop body in SIMD mode (of vector length
+     VL) from lb to ub. A scalar loop may execute up to VL-1 loop
+     iterations when the trip count is not a multiple of VL. If fullySimd is
+     true, then the call assumes that the trip count is a multiple of VL.
+
+     This call needs be given each of the memref inputs to the loop body, given
+     as an ordered pair memref value and its corresponding access function. Same
+     hold for all the memref outputs of the loop body.
+
+     The loop body is given a KRNL builder, a list of loaded input (same order
+     as the input's memrefs and access functions). It will generate values that
+     must be placed in the result list in the same order as the output's memrefs
+     and access functions.
+
+     It will be the responsibility of this call to load each of the inputs and
+     store each of the outputs. When operating in SIMD mode, every input and
+     output values are vectors of length VL. In scalar mode, they are simply
+     scalar values.
+
+     SIMD is exploited in the innermost dimension of each access function.
+     This call is only applicable to loop bodies where every outputs are
+     strided in its innermost dimension. Inputs can also be loop invariant
+     (scalar), in term of the loop being iterated on.
+
+     If useParallel is true, then the blocked SIMD loop is executed in parallel.
+
+     A detailed example of how to use if found in
+     Dialect/Mlir/DialectBuilder.hpp.inc.
+    */
 
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
@@ -133,6 +138,20 @@ struct KrnlBuilder : public DialectBuilder {
           llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
           bodyBuilderFn) const;
 
+  /*
+     Works similarly as simdIterateIE, but performs a reduction to a single
+     scalar per output value. Inputs must be strided in their innermost
+     dimensions. Temps are used to hold the temporary results (partial results
+     per SIMD lane), and the outputs have the scalar reduction outputs
+     Two functions are given: reductionBuilderFn to perform the partial
+     reductions into the temporary values tmps, finishing with up to VL partial
+     reductions
+     The second function: postProcessingBuilderFn performs the reductions of the
+     up to VL partial reductions into a final scalar reduction to be stored into
+     the outputs (a scalar value). For some reductions, post processing is also
+     needed, for example, mean reduction divide the accumulated sum by the
+     number of elements. That step is also performed here.
+    */
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> tmps, mlir::ArrayRef<DimsExpr> tmpAFs,

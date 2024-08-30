@@ -451,6 +451,7 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
 
+  // For detailed description, see KrnlBuilder.hpp file.
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
@@ -460,6 +461,7 @@ struct SCFBuilder final : DialectBuilder {
           llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
           bodyBuilderFn) const;
 
+  // For detailed description, see KrnlBuilder.hpp file.
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,

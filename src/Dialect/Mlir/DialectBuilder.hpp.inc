@@ -263,6 +263,77 @@ struct KrnlBuilder;
 
 namespace impl { // Hide support for SIMD iterate/reduce in impl namespace.
 
+/*
+Example of how to use the interface:
+
+Say you have a loop of i=0..256, j=0..128 and want to exploit r[i,j] = a[i,j] +
+b[j] + c. For the loops, we will need access functions for a, b, and r.
+
+Say we already have the loop for the outer loop of i
+
+krnl.iterate(loop i from 0 to 256) {
+  ii is the loop index.
+
+  // 1) compute access function for a, b, c
+  // 2) launch simd loop with
+  //     3) simd kernel
+}
+
+1) Access functions
+   Assuming here that we are not blocking the j loop, namely the simd iteration
+   goes over all j values, the access functions should be defined as follows.
+
+   aAF = {ii, 0}
+   bAF = {0}
+   rAF = {ii, 0}
+
+   If the j loop was blocked (say j=0 to 128 by 16), then instead of `0` in the
+   last dim, we would have 'blocked_jj'
+
+2) Launch simd loop
+
+   create.krnl.simdIterateIE(
+     lb=LitIE(0), ub=litIE(128), totVL=8, // loop params
+     fullySimd=true, useParallel=false,   // loop options
+     inputs={A, B}, inputAFs={aAF, bAF},  // inputs
+     outputs={R}, outputAFs={rAF},        // outputs
+     krnl)                                // lambda function for kernel
+
+3) Krnl for SIMD loop
+
+   The kernel functions has 4 inputs:
+   a) krnl builder to further build code
+   b) list of loaded input values, in the same order as in inputs
+   c) list of results values, that must be enqueued by the kernel
+   d) totVL used for the loop (VL for simd, 1 for scalar)
+
+   The same kernel will be used in a SIMD context, in which the inputs and
+   outputs must be vectors of VL elements, or in a scalar context, in which the
+   inputs and outputs must be scalars.
+
+   In our example, the kernel is as follows
+
+   [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
+       SmallVectorImpl<Value> &resVals, int64_t VL) {
+      MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
+      Value aVal = inputVals[0];            // simd or scalar
+      Value bVal = inputVals[1];            // simd or scalar
+      Value cVal = create.krnl.load(C); // scalar always
+      Value newVal = create.math.add(aVal, bVal); // simd or scalar
+      newVal = create.math.add(newVal, cVal); // if newVal is simd, cVal is
+                                              // splatted
+      res.emplace_back(newVal); // Save simd or scalar result.
+    }
+
+    The krnl.simdIterateIE will be in charge of loading and saving the values in
+    memory. The create.math functions have been extended so that when a SIMD
+    value is computed with a scalar, that scalar will be automaticaly splatted
+    (aka promoted to a vector of identical values). As a result, the kernel can
+    be written in a SIMD agnostic value. However, in rare situations, we may
+    want to know if we are in SIMD mode or not. VL will give the totVL used here
+    (either totVL>1 or 1).
+*/
+
 template <class BUILDER, class MEM_BUILDER>
 void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     int64_t VL, bool fullySimd, bool useParallel,
