@@ -30,6 +30,7 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 // #include "src/Interface/ConstantOpInterface.hpp"
 
@@ -397,8 +398,8 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   PatternRewriter rewriter(context);
   ZLowStickifiedConstantOp zlowStickifiedConstantOp =
       mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-  StringAttr layout =
-      zlowStickifiedConstantOp.getLayoutAttr(); // or getLayout() and check
+  StringAttr layout = onnx_mlir::zhigh::getZTensorLayoutAttr(
+      rewriter, zlowStickifiedConstantOp.getResult().getType());
   ArrayRef<char> ret;
   if (zlowStickifiedConstantOp.getValueAttr()) {
     auto dataAttr = zlowStickifiedConstantOp.getValue().value();
@@ -454,7 +455,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
         .Default([&](Attribute attr) {
           llvm_unreachable("Unsupported data type.");
         });
-  } else if (zlowStickifiedConstantOp.getInitAttr()) {
+  } else if (zlowStickifiedConstantOp.getZeroconstAttr()) {
     int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
         zlowStickifiedConstantOp.getResult().getType())
                               .value();
