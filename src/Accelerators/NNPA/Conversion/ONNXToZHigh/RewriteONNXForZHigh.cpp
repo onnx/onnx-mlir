@@ -47,7 +47,7 @@ namespace onnx_mlir {
 /// A = scale / sqrt(var + epsilon)
 Value getSqrtResultBatchNormA(
     Location loc, PatternRewriter &rewriter, Value var, FloatAttr epsilon) {
-  Type elementType = var.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(var.getType()).getElementType();
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
   // epsilon
@@ -195,7 +195,8 @@ bool isDefinedByONNXConstantOp(Value v) {
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
-  RankedTensorType inputType = op.getX().getType().cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::cast<RankedTensorType>(op.getX().getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // dimension of inferenced pads should be 4D
   if (shapeHelper.pads.size() != 4)
@@ -242,9 +243,10 @@ DenseElementsAttr insertZerosForNonPaddedDims(
   int nElements = (nDims + extensionLength) * 2;
   SmallVector<int64_t, 4> pads(nElements, 0);
   for (int i = 0; i < nDims; ++i) {
-    int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    int64_t beginPad =
+        mlir::cast<IntegerAttr>(origAttrs.getValue()[i]).getInt();
     int64_t endPad =
-        origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
+        mlir::cast<IntegerAttr>(origAttrs.getValue()[nDims + i]).getInt();
     pads[i + extensionLength] = beginPad;
     pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
@@ -253,7 +255,8 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 
 DenseElementsAttr createDenseFloatAttrOfValue(
     PatternRewriter &rewriter, Value origValue, float constantValue) {
-  Type elementType = origValue.getType().cast<TensorType>().getElementType();
+  Type elementType =
+      mlir::cast<TensorType>(origValue.getType()).getElementType();
   SmallVector<float, 1> wrapper(1, 0);
   wrapper[0] = constantValue;
   return DenseElementsAttr::get(
@@ -271,13 +274,13 @@ ArrayAttr createArrayAttrOfZeros(
 
 // Create Type for Padded input
 Type CreatePaddedXType(Value x, ArrayAttr pads) {
-  RankedTensorType inputType = x.getType().cast<RankedTensorType>();
+  RankedTensorType inputType = mlir::cast<RankedTensorType>(x.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   Type elementType = inputType.getElementType();
   SmallVector<int64_t, 4> paddingShape(4, 0);
   if (pads) {
     for (int i = 0; i < 4; i++) {
-      paddingShape[i] = pads.getValue()[i].cast<IntegerAttr>().getInt();
+      paddingShape[i] = mlir::cast<IntegerAttr>(pads.getValue()[i]).getInt();
     }
   }
   SmallVector<int64_t, 4> paddedShape = {inputShape[0], inputShape[1],
@@ -305,7 +308,7 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
 ///         ^ |       A2               |     | |           |           |     |
 ///  N-MDIS | |                        |     v |           |           |     |
 ///         v +------------------------+       +-----------+-----------+-----+
-///                                                         
+///
 /// Then,
 /// - for A1, do (A1 * B1), (A1 * B2), (A1 * B3), and concat the results to get (A1*B)
 /// - for A2, do (A2 * B1), (A2 * B2), (A2 * B3), and concat the results to get (A2*B)
@@ -670,7 +673,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
         Value input = op.getInput();
         // std::string message = "The `input` is not reshaped to 3D because it
         // is not ranked tensor type.";
-        if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
+        if (auto shapedType =
+                mlir::dyn_cast<RankedTensorType>(input.getType())) {
           // Check element type.
           if (!isValidElementTypeAndRank(op.getOperation(), input, true))
             return true;

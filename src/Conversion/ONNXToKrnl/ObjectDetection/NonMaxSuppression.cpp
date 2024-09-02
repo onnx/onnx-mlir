@@ -170,8 +170,8 @@ static Value tryToUnflip(
   IndexExpr ss = ubs[1]; // spatial size.
   LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
 
-  Value resMemRef =
-      create.mem.alignedAlloc(boundingBoxes.getType().cast<MemRefType>(), ubs);
+  Value resMemRef = create.mem.alignedAlloc(
+      mlir::cast<MemRefType>(boundingBoxes.getType()), ubs);
 
   ValueRange loopDef = create.krnl.defineLoops(2);
   create.krnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
@@ -225,9 +225,9 @@ struct ONNXNonMaxSuppressionOpLowering
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     // Common information.
     Type elementType = memRefType.getElementType();
@@ -244,7 +244,7 @@ struct ONNXNonMaxSuppressionOpLowering
     Value maxOutputBoxPerClass = getOptionalScalarValue(
         rewriter, loc, adaptor.getMaxOutputBoxesPerClass(), i64Type, 0);
     // Score threshold.
-    Type scoreType = scores.getType().cast<MemRefType>().getElementType();
+    Type scoreType = mlir::cast<MemRefType>(scores.getType()).getElementType();
     Value scoreTH = getOptionalScalarValue(
         rewriter, loc, adaptor.getScoreThreshold(), scoreType, 0);
     // IOU threshold.
@@ -477,50 +477,50 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //         # corners.
 //         y1_min, x1_min, y1_max, x1_max = box1
 //         y2_min, x2_min, y2_max, x2_max = box2
-// 
+//
 //         area1 = (y1_max - y1_min) * (x1_max - x1_min)
 //         area2 = (y2_max - y2_min) * (x2_max - x2_min)
 //     else:
 //         # The box data is supplied as [x_center, y_center, width, height].
 //         x1_center, y1_center, w1, h1 = box1
 //         x2_center, y2_center, w2, h2 = box2
-// 
+//
 //         x1_min = x1_center - w1 / 2
 //         x1_max = x1_center + w1 / 2
 //         x2_min = x2_center - w2 / 2
 //         x2_max = x2_center + w2 / 2
-// 
+//
 //         y1_min = y1_center - h1 / 2
 //         y1_max = y1_center + h1 / 2
 //         y2_min = y2_center - h2 / 2
 //         y2_max = y2_center + h2 / 2
-// 
+//
 //         area1 = h1 * w1
 //         area2 = h2 * w2
-// 
+//
 //     intersection_x_min = max(x1_min, x2_min)
 //     intersection_y_min = max(y1_min, y2_min)
 //     intersection_x_max = min(x1_max, x2_max)
 //     intersection_y_max = min(y1_max, y2_max)
 //     intersection_area = max(intersection_x_max - intersection_x_min, 0) * \
 //         max(intersection_y_max - intersection_y_min, 0)
-// 
+//
 //     union_area = area1 + area2 - intersection_area + 1e-8
 //     return intersection_area / union_area
-// 
-// 
+//
+//
 // '''
 // boxes :: [num_batch, spatial_dimension, 4]
 // scores :: [num_batch, num_class, spatial_dimension]
 // '''
-// 
-// 
+//
+//
 // def nms(boxes, scores, max_output_boxes_per_class, iou_threshold,
 //         score_threshold, center_point_box=0):
 //     batch_size = scores.shape[0]
 //     class_size = scores.shape[1]
 //     spatial_size = boxes.shape[1]
-// 
+//
 //     score_threshold = score_threshold[0]
 //     iou_threshold = iou_threshold[0]
 //     # Suppress by spatial dimension.
@@ -536,7 +536,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //             max_per_class_by_score = max(max_per_class_by_score, topk)
 //     max_output_per_class = min(
 //         max_output_per_class, max_per_class_by_score)
-// 
+//
 //     # Sort scores in the descending order and get the sorted indices.
 //     # order = np.argsort(-scores, axis=2)
 //     order = np.full(scores.shape, -1)
@@ -552,10 +552,10 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //                      yOrd = order[b, c, k]
 //                      if (scores[b, c, xOrd] < scores[b, c, yOrd]):
 //                          tmp = order[b, c, i]
-//                          order[b, c, i] = order[b, c, k] 
-//                          order[b, c, k] = tmp 
-// 
-// 
+//                          order[b, c, i] = order[b, c, k]
+//                          order[b, c, k] = tmp
+//
+//
 //     # Check if the coordinates are flipped. If so, flip them back.
 //     if (center_point_box == 0):
 //         new_boxes = np.empty(boxes.shape)
@@ -574,7 +574,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //                     x1_max = tmp
 //                 new_boxes[b, s] = [y1_min, x1_min, y1_max, x1_max]
 //         boxes = new_boxes
-// 
+//
 //     # Output: [num_selected_indices, 3]
 //     # The selected index format is [batch_index, class_index, box_index].
 //     num_selected_indices = batch_size * max_output_per_class * class_size
@@ -598,17 +598,17 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //                 # Removed, ignore.
 //                 if removed_indices[selected_box_index]:
 //                     continue
-// 
+//
 //                 # Pick the bounding box with the largest score.
 //                 selected_box = boxes[b, selected_box_index, :]
-// 
+//
 //                 # Store the index of the picked box to the output.
 //                 selected_indices[effective_num_selected_indices] = [b, c, selected_box_index]
 //
 //                 # Update counters.
 //                 effective_max_output_per_class += 1
 //                 effective_num_selected_indices += 1
-// 
+//
 //                 # Remove boxes overlapped too much with the selected box, using
 //                 # IOU.
 //                 for o in range(spatial_size):
@@ -618,15 +618,15 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //                         removed_indices[o] = True
 //                     else:
 //                         removed_indices[o] = removed_indices[o]
-// 
+//
 //     # Since we cannot suppress by IOU in advance, so remove redundant score
 //     # now.
 //     res = np.empty((effective_num_selected_indices, 3))
 //     for i in range(effective_num_selected_indices):
 //         res[i] = selected_indices[i]
-//     return res 
-// 
-// 
+//     return res
+//
+//
 // print("testing nonmaxsuppression_center_point_box_format")
 // center_point_box = 1
 // boxes = np.array([[
@@ -645,7 +645,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold, center_point_box)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_flipped_coordinates")
 // boxes = np.array([[
 //     [1.0, 1.0, 0.0, 0.0],
@@ -663,7 +663,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_identical_boxes")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -671,7 +671,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
-// 
+//
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
@@ -687,7 +687,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_limit_output_size")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -705,7 +705,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_single_box")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0]
@@ -718,7 +718,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_suppress_by_IOU")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -736,7 +736,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_suppress_by_IOU_and_scores")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -754,7 +754,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_two_batches")
 // boxes = np.array([[[0.0, 0.0, 1.0, 1.0],
 //                    [0.0, 0.1, 1.0, 1.1],
@@ -778,7 +778,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
+//
 // print("testing nonmaxsuppression_two_classes")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -798,8 +798,8 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-// 
-// 
+//
+//
 // # if __name__ == "__main__":
 // #     main()
 // clang-format on

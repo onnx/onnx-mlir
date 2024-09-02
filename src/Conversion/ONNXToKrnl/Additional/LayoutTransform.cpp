@@ -48,15 +48,15 @@ struct ONNXLayoutTransformOpLowering
 
     // Convert the input type to MemRefType.
     Type inConvertedType = typeConverter->convertType(data.getType());
-    assert(inConvertedType && inConvertedType.isa<MemRefType>() &&
+    assert(inConvertedType && mlir::isa<MemRefType>(inConvertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType inMemRefType = inConvertedType.cast<MemRefType>();
+    MemRefType inMemRefType = mlir::cast<MemRefType>(inConvertedType);
     // Convert the output type to MemRefType.
     Type outputTensorType = *op->result_type_begin();
     Type outConvertedType = typeConverter->convertType(outputTensorType);
-    assert(outConvertedType && outConvertedType.isa<MemRefType>() &&
+    assert(outConvertedType && mlir::isa<MemRefType>(outConvertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
+    MemRefType outMemRefType = mlir::cast<MemRefType>(outConvertedType);
 
     // Note that by definition the input and output of LayoutTransformOp have
     // the same logical rank. The only difference between them should be their

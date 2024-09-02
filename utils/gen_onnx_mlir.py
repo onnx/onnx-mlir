@@ -548,11 +548,11 @@ custom_definition_misc = dict(
             """  let builders = [
   OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
-    auto tensorType = value.cast<TypedAttr>().getType();
+    auto tensorType = mlir::cast<TypedAttr>(value).getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
-    auto tensorType = sparse_value.cast<TypedAttr>().getType();
+    auto tensorType = mlir::cast<TypedAttr>(sparse_value).getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
@@ -1271,20 +1271,18 @@ def gen_op_def(schema, with_version=False):
                 + (", " + elTy if elTy else "")
                 + ");\n"
             )
-            r += (
-                "{indent}auto shapedType = resultType.dyn_cast_or_null<ShapedType>();\n"
-            )
+            r += "{indent}auto shapedType = mlir::dyn_cast_or_null<ShapedType>(resultType);\n"
             r += "{indent}if (!shapedType || !shapedType.hasStaticShape())\n"
             r += (
                 "{indent}  resultType = UnrankedTensorType::get("
-                + (elTy if elTy else "lhsTy.cast<ShapedType>().getElementType()")
+                + (elTy if elTy else "mlir::cast<ShapedType>(lhsTy).getElementType()")
                 + ");\n"
             )
         else:
             numOperands = 1
             r += (
                 "{indent}auto resultType = UnrankedTensorType::get("
-                + "{0}.getType().cast<ShapedType>().getElementType());\n"
+                + "mlir::cast<ShapedType>({0}.getType()).getElementType());\n"
             )
         resultType = r
 

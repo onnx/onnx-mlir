@@ -46,7 +46,7 @@ bool isAxisInRange(int64_t &axis, int64_t rank, bool includeRank) {
 }
 
 bool isAxisInRange(int64_t &axis, Value val, bool includeRank) {
-  ShapedType shapedType = val.getType().cast<ShapedType>();
+  ShapedType shapedType = mlir::cast<ShapedType>(val.getType());
   assert(shapedType && "expected a shaped type to determine the rank for axis");
   return isAxisInRange(axis, shapedType.getRank(), includeRank);
 }
@@ -204,7 +204,7 @@ LogicalResult ONNXOpShapeHelper::setOutputDimsFromLiterals(
 
 LogicalResult ONNXOpShapeHelper::setOutputDimsFromTypeWithConstantShape(
     Type type, int n, bool refineShape) {
-  RankedTensorType rankedType = type.dyn_cast<RankedTensorType>();
+  RankedTensorType rankedType = mlir::dyn_cast<RankedTensorType>(type);
   if (!rankedType)
     return failure();
   DimsExpr outputDims;
@@ -222,12 +222,12 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
   if (failed(computeShape())) {
     return failure();
   }
-  assert((elementType.isa<VectorType>() || !elementType.isa<ShapedType>()) &&
+  assert((isa<VectorType>(elementType) || !isa<ShapedType>(elementType)) &&
          "element type cannot be a shaped type other than vector type");
   uint64_t resNum = op->getNumResults();
   for (uint64_t i = 0; i < resNum; ++i) {
     // If we have an optional type, leave it as is.
-    if (op->getResults()[i].getType().isa<NoneType>())
+    if (mlir::isa<NoneType>(op->getResults()[i].getType()))
       continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
@@ -254,7 +254,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
                          " parameters successfully");
   for (uint64_t i = 0; i < resNum; ++i) {
     // If we have an optional type, leave it as is.
-    if (op->getResults()[i].getType().isa<NoneType>())
+    if (mlir::isa<NoneType>(op->getResults()[i].getType()))
       continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
@@ -443,7 +443,7 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 bool ONNXBroadcastOpShapeHelper::hasRankBroadcast() {
   ValueRange operands = this->operands;
   for (Value operand : operands) {
-    auto operandType = operand.getType().cast<ShapedType>();
+    auto operandType = mlir::cast<ShapedType>(operand.getType());
     if (outputRank != (uint64_t)operandType.getRank())
       return true;
   }
@@ -621,7 +621,7 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   // Get info.
   int64_t loopDepth = loopAccessExprs.size();
   int64_t inputSize = inputsDims.size();
-  int64_t operandRank = operand.getType().cast<ShapedType>().getRank();
+  int64_t operandRank = mlir::cast<ShapedType>(operand.getType()).getRank();
   // Flattened? no more than one loop per dim in output (aka output rank).
   // Not flattened? one loop per dim in output (aka output rank).
   if (flattenedInnerDims)
@@ -827,7 +827,7 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
     elementType = getElementType(val.getType());
 
   // Get encoding.
-  if (auto valType = val.getType().dyn_cast<RankedTensorType>())
+  if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType()))
     if (!encoding)
       encoding = valType.getEncoding();
 
@@ -843,7 +843,7 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
 
 static void resetTypeShapeToQuestionmarks(Value val) {
   // Only deal with ranked tensor types here.
-  RankedTensorType valType = val.getType().dyn_cast<RankedTensorType>();
+  RankedTensorType valType = mlir::dyn_cast<RankedTensorType>(val.getType());
   if (!valType)
     return;
   // Reset any compile time literal to unknown (aka question marks).
@@ -892,7 +892,8 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
 
   std::vector<mlir::Value> operandsVector;
   for (auto indexAttr : inputIndexAttrs.value()) {
-    operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
+    operandsVector.push_back(
+        inputs[mlir::cast<IntegerAttr>(indexAttr).getInt()]);
   }
   setOperands(ValueRange(operandsVector));
 }

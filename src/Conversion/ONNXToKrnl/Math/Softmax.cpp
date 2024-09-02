@@ -25,7 +25,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
     SmallVectorImpl<IndexExpr> &Lbs, SmallVectorImpl<IndexExpr> &Ubs,
     ValueRange outerIndices, Value input, Value alloc, Value zero,
     Value negInfinity, int64_t axis, bool coerced = true) {
-  int64_t rank = alloc.getType().cast<MemRefType>().getRank();
+  int64_t rank = mlir::cast<MemRefType>(alloc.getType()).getRank();
 
   ValueRange maxInits = ValueRange(negInfinity);
   // Compute the maximum value along axis.
@@ -142,7 +142,7 @@ template <>
 void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     Operation *op, Location loc, Value alloc, Value input, Value zero,
     Value negInfinity, int64_t axis, bool enableParallel) {
-  int64_t rank = alloc.getType().cast<MemRefType>().getRank();
+  int64_t rank = mlir::cast<MemRefType>(alloc.getType()).getRank();
 
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
       rewriter, loc);
@@ -215,7 +215,7 @@ template <>
 void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     Operation *op, Location loc, Value alloc, Value input, Value zero,
     Value negInfinity, int64_t axis, bool enableParallel) {
-  int64_t rank = alloc.getType().cast<MemRefType>().getRank();
+  int64_t rank = mlir::cast<MemRefType>(alloc.getType()).getRank();
 
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
       rewriter, loc);
@@ -294,9 +294,9 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
     // Convert the output type to MemRefType.
     Type convertedType =
         this->typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     int64_t rank = memRefType.getRank();
     int64_t axis = adaptor.getAxis();

@@ -47,17 +47,16 @@ public:
     int64_t transB = adaptor.getTransB();
     FloatAttr alpha = adaptor.getAlphaAttr();
     FloatAttr beta = adaptor.getBetaAttr();
-    auto AType = A.getType().cast<TensorType>();
-    auto BType = B.getType().cast<TensorType>();
+    auto AType = mlir::cast<TensorType>(A.getType());
+    auto BType = mlir::cast<TensorType>(B.getType());
     auto shapeA = AType.getShape();
     auto shapeB = BType.getShape();
-    auto resultType = getTypeConverter()
-                          ->convertType(op.getResult().getType())
-                          .cast<TensorType>();
+    auto resultType = mlir::cast<TensorType>(
+        getTypeConverter()->convertType(op.getResult().getType()));
 
     // C is optional, if it's not there, we need to be aware of it for later
     // computations
-    bool isCPresent = C.getType().isa<TensorType>();
+    bool isCPresent = mlir::isa<TensorType>(C.getType());
     // ONNX uses HW matrix as input and output as it runs a matrix
     // multiplication. TOSA implements it as a batch matrix multiplication,
     // meaning the input and output are NHW. As such, there is a need to add
@@ -139,11 +138,12 @@ public:
 
   /// Check if the bias (C) needs broadcasting when we convert GEMM to FC.
   static bool hasCCorrectShape(TensorType A, TensorType B, Value C) {
-    if (!C.getType().isa<mlir::RankedTensorType>())
+    if (!mlir::isa<mlir::RankedTensorType>(C.getType()))
       return false;
     ArrayRef<int64_t> AShape = A.getShape();
     ArrayRef<int64_t> BShape = B.getShape();
-    ArrayRef<int64_t> CShape = C.getType().cast<RankedTensorType>().getShape();
+    ArrayRef<int64_t> CShape =
+        mlir::cast<RankedTensorType>(C.getType()).getShape();
     // In the case of GemmToFC, transB is set meaning that B shapes will be
     // interverted so we check B[0]. Also, C is supposed to be of rank 1 so we
     // only need to check C[0].
@@ -162,14 +162,14 @@ public:
     Value B = op.getB();
     Value C = op.getC();
 
-    auto AType = A.getType().cast<TensorType>();
-    auto BType = B.getType().cast<TensorType>();
+    auto AType = mlir::cast<TensorType>(A.getType());
+    auto BType = mlir::cast<TensorType>(B.getType());
 
-    bool isCPresent = !C.getType().isa<mlir::NoneType>();
+    bool isCPresent = !mlir::isa<mlir::NoneType>(C.getType());
     // If C is present, it can only be of rank 1, if the rank is not 1, return
     // false.
-    if (C.getType().isa<RankedTensorType>() &&
-        C.getType().cast<RankedTensorType>().getRank() != 1)
+    if (mlir::isa<RankedTensorType>(C.getType()) &&
+        mlir::cast<RankedTensorType>(C.getType()).getRank() != 1)
       return false;
 
     // Input tensor must be of rank 2.
@@ -196,7 +196,8 @@ public:
     bool needsBroadcasting = !hasCCorrectShape(AType, BType, C);
     Value dummyC = C;
     if (!isCPresent || needsBroadcasting) {
-      ArrayRef<int64_t> cformat(resultType.cast<TensorType>().getShape()[1]);
+      ArrayRef<int64_t> cformat(
+          mlir::cast<TensorType>(resultType).getShape()[1]);
       std::vector<float> elements = {};
       for (int i = 0; i < cformat[0]; ++i)
         elements.push_back(0.0F);

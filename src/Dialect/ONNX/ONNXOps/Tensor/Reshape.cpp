@@ -31,7 +31,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Get info about input data operand.
   Value data = operandAdaptor.getData();
-  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
+  int64_t dataRank = mlir::cast<ShapedType>(data.getType()).getShape().size();
 
   // Get info about shape operand.
   Value shape = operandAdaptor.getShape();
@@ -141,7 +141,8 @@ LogicalResult ONNXReshapeOp::inferShapes(
   if (!hasShapeAndRank(getData()) && !hasStaticShape(getShape().getType()))
     return success();
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
   ONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

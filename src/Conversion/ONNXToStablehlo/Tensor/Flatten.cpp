@@ -35,7 +35,7 @@ struct ONNXFlattenOpLoweringToStablehlo : public ConversionPattern {
 
     Value input = operandAdaptor.getInput();
     assert(isRankedShapedType(input.getType()) && "Expected Ranked ShapedType");
-    ShapedType inputType = input.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     int64_t rank = inputType.getRank();
     int64_t axis = flattenOp.getAxis();
     assert(axis >= -rank && axis <= rank - 1);

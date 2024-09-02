@@ -179,10 +179,10 @@ public:
     TosaBuilder tosaBuilder(rewriter, loc);
 
     Value input = adaptor.getX();
-    auto inputType = input.getType().dyn_cast<RankedTensorType>();
+    auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
 
     auto resultType =
-        resizeOp.getResult().getType().dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(resizeOp.getResult().getType());
 
     StringRef mode = adaptor.getMode();
     StringRef nearestMode = adaptor.getNearestMode();
@@ -306,7 +306,7 @@ public:
     Type newOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
                                   inputType.getRank(), ShapedType::kDynamic),
-            resultType.cast<ShapedType>().getElementType());
+            mlir::cast<ShapedType>(resultType).getElementType());
 
     Value resize = tosa::CreateOpAndInfer<mlir::tosa::ResizeOp>(rewriter, loc,
         newOutputType, newInput, scale, offset, border, resizeModeAttr);

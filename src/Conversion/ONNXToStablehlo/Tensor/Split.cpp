@@ -36,7 +36,7 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
     Value split = splitOp.getSplit();
     assert(isRankedShapedType(input.getType()) &&
            "data must be ranked Shaped Type");
-    ShapedType inputType = input.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     uint64_t rank = inputType.getRank();
@@ -54,10 +54,10 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t, 4> splitSizes;
     if (auto splitAttr = getElementAttributeFromONNXValue(split)) {
       for (IntegerAttr value : splitAttr.getValues<IntegerAttr>()) {
-        int64_t splitSize = value.cast<IntegerAttr>().getInt();
+        int64_t splitSize = mlir::cast<IntegerAttr>(value).getInt();
         splitSizes.push_back(splitSize);
       }
-    } else if (split.getType().template isa<NoneType>()) {
+    } else if (mlir::isa<NoneType>(split.getType())) {
       assert(!ShapedType::isDynamic(inputDimSize) &&
              "input dim size can't be dynamic");
       int64_t sliceSize = inputDimSize / outputNum;

@@ -55,7 +55,8 @@ LogicalResult ZHighStickForGRUOp::inferShapes(
       !hasRankedType(getHGate()))
     return success();
 
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::ZRH);
 

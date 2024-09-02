@@ -63,14 +63,12 @@ public:
           llvm_unreachable("unexpected inputType");
         });
 
-    Type GType = operandAdaptor.getG()
-                     .getType()
-                     .cast<LLVM::LLVMStructType>()
-                     .getBody()[1];
-    Type VType = operandAdaptor.getV()
-                     .getType()
-                     .cast<LLVM::LLVMStructType>()
-                     .getBody()[1];
+    Type GType =
+        mlir::cast<LLVM::LLVMStructType>(operandAdaptor.getG().getType())
+            .getBody()[1];
+    Type VType =
+        mlir::cast<LLVM::LLVMStructType>(operandAdaptor.getV().getType())
+            .getBody()[1];
 
     // Remaining operands.
     Value extractedGPtr =

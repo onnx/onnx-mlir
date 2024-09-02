@@ -44,7 +44,7 @@ struct ONNXClipOpLoweringToStablehlo : public ConversionPattern {
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     Type elemType = outputShapedType.getElementType();
 
     MathBuilder createMath(rewriter, loc);

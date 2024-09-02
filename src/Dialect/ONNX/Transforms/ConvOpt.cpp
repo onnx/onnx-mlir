@@ -45,8 +45,8 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
     return false;
   if (hasBias && !hasShapeAndRank(B))
     return false;
-  ShapedType xType = X.getType().cast<ShapedType>();
-  ShapedType wType = W.getType().cast<ShapedType>();
+  ShapedType xType = mlir::cast<ShapedType>(X.getType());
+  ShapedType wType = mlir::cast<ShapedType>(W.getType());
   auto xShape = xType.getShape();
   auto wShape = wType.getShape();
   int64_t rank = xShape.size();
@@ -146,8 +146,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     Value W = convOp.getW();
     Value B = convOp.getB();
     bool hasBias = !onnx_mlir::isNoneValue(B);
-    ShapedType xType = X.getType().cast<ShapedType>();
-    ShapedType wType = W.getType().cast<ShapedType>();
+    ShapedType xType = mlir::cast<ShapedType>(X.getType());
+    ShapedType wType = mlir::cast<ShapedType>(W.getType());
     Type elementType = xType.getElementType();
     auto xShape = xType.getShape();
     auto wShape = wType.getShape();

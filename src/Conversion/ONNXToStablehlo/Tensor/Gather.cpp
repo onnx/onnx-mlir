@@ -48,9 +48,9 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
     Value indices = operandAdaptor.getIndices();
     int64_t axisLit = gatherOp.getAxis();
 
-    ShapedType inputType = data.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(data.getType());
     int64_t dataRank = inputType.getRank();
-    ShapedType indicesType = indices.getType().cast<ShapedType>();
+    ShapedType indicesType = mlir::cast<ShapedType>(indices.getType());
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 

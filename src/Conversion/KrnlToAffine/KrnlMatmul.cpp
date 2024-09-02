@@ -54,8 +54,8 @@ public:
     bool fullUnrollAndJam = matmulOp.getUnroll();
 
     // Operands and types.
-    Type elementType =
-        operandAdaptor.getA().getType().cast<MemRefType>().getElementType();
+    Type elementType = mlir::cast<MemRefType>(operandAdaptor.getA().getType())
+                           .getElementType();
     bool simdize = matmulOp.getSimdize();
     // Init scope and emit constants.
     Location loc = matmulOp.getLoc();
@@ -241,7 +241,7 @@ public:
           /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
              cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
-            vectorLen, fullUnrollAndJam); 
+            vectorLen, fullUnrollAndJam);
         }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           // Trip regardless of full/partial for N & K
           // Test if SIMD dim (M) is full.
@@ -271,7 +271,7 @@ public:
         /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
         genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
-          fullUnrollAndJam); 
+          fullUnrollAndJam);
       }, /* else partial */ [&](AffineBuilderKrnlMem &createAffine) {
         genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);

@@ -50,8 +50,8 @@ static int constantFoldStdAllocID = 0;
 
 /// Get a constant value from a ConstantOp.
 static int64_t getConstantValue(arith::ConstantOp constOp) {
-  if (IntegerAttr attr = constOp.getValue().dyn_cast<IntegerAttr>()) {
-    int64_t val = attr.cast<IntegerAttr>().getInt();
+  if (IntegerAttr attr = mlir::dyn_cast<IntegerAttr>(constOp.getValue())) {
+    int64_t val = mlir::cast<IntegerAttr>(attr).getInt();
     return val;
   } else {
     llvm_unreachable("Only support IntegerAttr");
@@ -69,7 +69,7 @@ public:
     Location loc = allocOp.getLoc();
 
     Value memRef = allocOp.getResult();
-    MemRefType memRefType = memRef.getType().dyn_cast<MemRefType>();
+    MemRefType memRefType = mlir::dyn_cast<MemRefType>(memRef.getType());
     Type elementType = memRefType.getElementType();
 
     // 1. Match

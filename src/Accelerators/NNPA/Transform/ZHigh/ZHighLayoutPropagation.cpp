@@ -43,7 +43,8 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
     PatternRewriter &rewriter, ValueRange values) {
   // Check the first value and get its layout.
   Value first = values[0];
-  if (first.isa<BlockArgument>() || !isa<ZHighUnstickOp>(first.getDefiningOp()))
+  if (mlir::isa<BlockArgument>(first) ||
+      !isa<ZHighUnstickOp>(first.getDefiningOp()))
     return std::make_pair(false, nullptr);
   Value firstStickifiedVal =
       cast<ZHighUnstickOp>(first.getDefiningOp()).getIn();
@@ -53,7 +54,7 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
   // Check all values.
   bool allTheSame = llvm::all_of(values, [&](Value v) {
     using namespace onnx_mlir::zhigh;
-    if (v.isa<BlockArgument>() || !isa<ZHighUnstickOp>(v.getDefiningOp()))
+    if (mlir::isa<BlockArgument>(v) || !isa<ZHighUnstickOp>(v.getDefiningOp()))
       return false;
     Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).getIn();
     StringAttr nextLayout = convertZTensorDataLayoutToStringAttr(
@@ -121,7 +122,7 @@ public:
     Value output = unaryOp.getY();
 
     // Input is a block argument, do nothing.
-    if (input.dyn_cast<BlockArgument>())
+    if (mlir::dyn_cast<BlockArgument>(input))
       return failure();
 
     // Input is a CPU tensor, do nothing.
@@ -176,7 +177,7 @@ public:
     Value output = binaryOp.getC();
 
     // Input is a block argument, do nothing.
-    if (A.dyn_cast<BlockArgument>() || B.dyn_cast<BlockArgument>())
+    if (mlir::dyn_cast<BlockArgument>(A) || mlir::dyn_cast<BlockArgument>(B))
       return failure();
 
     // Input is a CPU tensor, do nothing.
@@ -283,9 +284,9 @@ private:
     // for padding.
     // TODO: get this info from affine_map that is used for stickiyfing NHWC.
     return llvm::all_of(values, [&layoutAttr](Value v) {
-      if (v.getType().isa<ShapedType>() &&
-          v.getType().cast<ShapedType>().hasRank()) {
-        ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
+      if (mlir::isa<ShapedType>(v.getType()) &&
+          mlir::cast<ShapedType>(v.getType()).hasRank()) {
+        ArrayRef<int64_t> dims = mlir::cast<ShapedType>(v.getType()).getShape();
         if (isNHWCLayout(layoutAttr))
           // Value is NCHW that will be directly unstickified from NHWC.
           // NCHW, C is at 1.

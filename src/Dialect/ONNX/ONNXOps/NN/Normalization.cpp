@@ -169,7 +169,7 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
     // Won't be able to do any checking at this stage.
     return success();
   }
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
   auto inputShape = inputType.getShape();
   auto inputElementType = inputType.getElementType();
   int64_t spatialRank = inputShape.size() - 2;
@@ -180,7 +180,7 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
   // Check bias B.
   if (hasShapeAndRank(B)) {
     // Can check at this stage.
-    auto bType = B.getType().cast<ShapedType>();
+    auto bType = mlir::cast<ShapedType>(B.getType());
     auto bShape = bType.getShape();
     if (bShape.size() != 1)
       return emitOpError("Bias should have a rank of one");
@@ -195,7 +195,7 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
   // Check scale.
   if (hasShapeAndRank(scale)) {
     // Can check at this stage.
-    auto scaleType = scale.getType().cast<ShapedType>();
+    auto scaleType = mlir::cast<ShapedType>(scale.getType());
     auto scaleShape = scaleType.getShape();
     if (scaleShape.size() != 1)
       return emitOpError("Scale should have a rank of one");
@@ -233,7 +233,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     // Won't be able to do any checking at this stage.
     return success();
   }
-  ShapedType XType = X.getType().cast<ShapedType>();
+  ShapedType XType = mlir::cast<ShapedType>(X.getType());
   ArrayRef<int64_t> XShape = XType.getShape();
   int64_t XRank = XShape.size();
   Type XElementType = XType.getElementType();
@@ -246,7 +246,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
   // Check bias B.
   if (hasShapeAndRank(B)) {
     // Can check at this stage.
-    ShapedType bType = B.getType().cast<ShapedType>();
+    ShapedType bType = mlir::cast<ShapedType>(B.getType());
     ArrayRef<int64_t> bShape = bType.getShape();
     SmallVector<int64_t> BBroadcastShape;
     if (!OpTrait::util::getBroadcastedShape(XShape, bShape, BBroadcastShape))
@@ -262,7 +262,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
   // Check scale.
   if (hasShapeAndRank(scale)) {
     // Can check at this stage.
-    ShapedType scaleType = scale.getType().cast<ShapedType>();
+    ShapedType scaleType = mlir::cast<ShapedType>(scale.getType());
     ArrayRef<int64_t> scaleShape = scaleType.getShape();
     SmallVector<int64_t> scaleBroadcastShape;
     if (!OpTrait::util::getBroadcastedShape(
@@ -288,7 +288,7 @@ mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
 
   // Get rank and axis attribute.
   Value X = operandAdaptor.getX();
-  int64_t XRank = X.getType().cast<ShapedType>().getRank();
+  int64_t XRank = mlir::cast<ShapedType>(X.getType()).getRank();
   int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
 
   // Check optional outputs, with specialization for ONNXLayerNormalizationOp
@@ -351,7 +351,8 @@ LogicalResult ONNXLayerNormalizationOp::inferShapes(
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
       (!isNoneValue(getB()) && !hasShapeAndRank(getB())))
     return success();
-  Type commonType = getX().getType().cast<RankedTensorType>().getElementType();
+  Type commonType =
+      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
   ONNXLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(commonType);
 }
@@ -371,7 +372,8 @@ LogicalResult ONNXRMSLayerNormalizationOp::inferShapes(
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
       (!isNoneValue(getB()) && !hasShapeAndRank(getB())))
     return success();
-  Type commonType = getX().getType().cast<RankedTensorType>().getElementType();
+  Type commonType =
+      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
   ONNXRMSLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(commonType);
 }

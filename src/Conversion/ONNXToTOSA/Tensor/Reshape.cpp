@@ -38,8 +38,8 @@ public:
       return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
 
     Value data = op.getData();
-    Value reshapeOp =
-        tosaBuilder.reshape(data, outputTy.cast<RankedTensorType>().getShape());
+    Value reshapeOp = tosaBuilder.reshape(
+        data, mlir::cast<RankedTensorType>(outputTy).getShape());
     rewriter.replaceOp(op, {reshapeOp});
     return success();
   }

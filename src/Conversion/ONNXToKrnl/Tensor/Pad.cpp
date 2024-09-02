@@ -45,9 +45,9 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+    MemRefType resMemRefType = mlir::cast<MemRefType>(convertedType);
     Type resElementType = resMemRefType.getElementType();
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -69,13 +69,13 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
       // This way is to avoid using `select` in computing indices as doing for
       // 'edge' and 'reflect' modes.
       Value cValue;
-      if (constantValue.getType().isa<NoneType>()) {
+      if (mlir::isa<NoneType>(constantValue.getType())) {
         // Default to 0 if constant_value is not specified.
         cValue = create.math.constant(resElementType, 0);
       } else {
         SmallVector<Value, 1> loadIndices;
         MemRefType constantValueType =
-            constantValue.getType().dyn_cast<MemRefType>();
+            mlir::dyn_cast<MemRefType>(constantValue.getType());
         if (constantValueType.getElementType().isF32() &&
             constantValueType.getRank() == 1) {
           // If the constant_value type is 1xf32 do krnl.load with an index of

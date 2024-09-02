@@ -47,12 +47,12 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(inputType) && "Expected Ranked ShapedType");
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     Type elementType = outputShapedType.getElementType();
     int64_t outputRank = outputShapedType.getRank();
 
     Value ones;
-    if (elementType.isa<IntegerType>())
+    if (mlir::isa<IntegerType>(elementType))
       ones = rewriter.create<stablehlo::ConstantOp>(
           loc, rewriter.getIntegerAttr(elementType, 1));
     else
@@ -69,7 +69,7 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
       broadcastedOnes = rewriter.create<stablehlo::BroadcastInDimOp>(
           loc, broadcastedType, ones, rewriter.getDenseI64ArrayAttr({}));
     } else {
-      ShapedType shapeType = shape.getType().cast<ShapedType>();
+      ShapedType shapeType = mlir::cast<ShapedType>(shape.getType());
       assert(shapeType.getRank() == 1 && shapeType.hasStaticShape() &&
              "expected 1D statically shaped shape tensor");
       int64_t shapeRank = shapeType.getShape()[0];

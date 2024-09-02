@@ -29,13 +29,13 @@ struct ONNXConstantOfShapeOpLowering
     Operation *op = constantOp.getOperation();
     Location loc = ONNXLoc<ONNXConstantOfShapeOp>(op);
 
-    auto valueAttr = adaptor.getValue().value().cast<DenseElementsAttr>();
+    auto valueAttr = mlir::cast<DenseElementsAttr>(adaptor.getValue().value());
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     Type elementType = memRefType.getElementType();
     ArrayRef<int64_t> outputShape = memRefType.getShape();
     size_t rank = outputShape.size();
@@ -65,13 +65,13 @@ struct ONNXConstantOfShapeOpLowering
 
     // Get the constant value from the attribute 'value'.
     Value constantVal;
-    if (elementType.isa<IntegerType>()) {
+    if (mlir::isa<IntegerType>(elementType)) {
       auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
-      auto valueInt = (*valueIt++).cast<IntegerAttr>().getInt();
+      auto valueInt = mlir::cast<IntegerAttr>(*valueIt++).getInt();
       constantVal = create.math.constant(elementType, valueInt);
-    } else if (elementType.isa<FloatType>()) {
+    } else if (mlir::isa<FloatType>(elementType)) {
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-      auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
+      auto valueFloat = mlir::cast<FloatAttr>(*valueIt++).getValueAsDouble();
       constantVal = create.math.constant(elementType, valueFloat);
     } else
       llvm_unreachable("unsupported element type");

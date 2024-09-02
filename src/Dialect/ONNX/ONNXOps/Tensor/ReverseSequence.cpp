@@ -42,10 +42,10 @@ LogicalResult ONNXReverseSequenceOp::verify() {
   ONNXReverseSequenceOpAdaptor operandAdaptor =
       ONNXReverseSequenceOpAdaptor(*this);
 
-  auto sequence_lensTy =
-      operandAdaptor.getSequenceLens().getType().dyn_cast<RankedTensorType>();
+  auto sequence_lensTy = mlir::dyn_cast<RankedTensorType>(
+      operandAdaptor.getSequenceLens().getType());
   auto inputTy =
-      operandAdaptor.getInput().getType().dyn_cast<RankedTensorType>();
+      mlir::dyn_cast<RankedTensorType>(operandAdaptor.getInput().getType());
 
   // sequence_lens should be 1D tensor
   if (sequence_lensTy) {
@@ -81,7 +81,8 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getInput().getType()).getElementType();
   ONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

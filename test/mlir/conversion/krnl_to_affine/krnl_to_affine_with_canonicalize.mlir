@@ -82,7 +82,7 @@ func.func @krnl_get_linear_offset_index_1(%arg0: memref<?x128x256xf32, #map>, %a
   %c10 = arith.constant 10: index
   %0 = memref.alloc(%arg1) : memref<?x128x256xf32, #map>
   %1 = krnl.get_linear_offset_index %arg0 at [%arg2, %c5, %c10] : memref<?x128x256xf32, #map>
-  return %1: index 
+  return %1: index
 
 // CHECK-LABEL:  func.func @krnl_get_linear_offset_index
 // CHECK:           [[VAR_0_:%.+]] = krnl.get_linear_offset_index {{.*}} at {{.*}} : memref<?x128x256xf32, #map>

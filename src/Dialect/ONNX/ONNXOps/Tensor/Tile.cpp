@@ -61,11 +61,12 @@ LogicalResult ONNXTileOp::inferShapes(
     return success();
 
   // 'repeats' tensor is an 1D tensor.
-  auto repeatsTensorTy = getRepeats().getType().cast<RankedTensorType>();
+  auto repeatsTensorTy = mlir::cast<RankedTensorType>(getRepeats().getType());
   if (repeatsTensorTy.getShape().size() != 1)
     return emitError("Repeats tensor must have rank one");
 
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getInput().getType()).getElementType();
   ONNXTileOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

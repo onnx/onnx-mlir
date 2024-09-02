@@ -45,7 +45,7 @@ def Krnl_Dialect : Dialect {
   ];
 }
 
-def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
+def StringType : Type<CPred<"mlir::isa<krnl::StringType>($_self)">, "string type">;
 
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
@@ -56,9 +56,9 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
   let summary = "call operation";
   let description = [{
     The call operation provides a generic way to replace an ONNX Op with a call
-    to an external function at Krnl level. 
-    `funcName` attributes determines which function to call. 
-    `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs 
+    to an external function at Krnl level.
+    `funcName` attributes determines which function to call.
+    `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs
     of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
     The external function is assumed NOT to allocate or free any memory.
     'numOfOutput` attribute to tell how manu outputs Memref in parameters.
@@ -70,7 +70,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
     of the user.
     In Krnl To llvm lowering, the parameters and attributes will be lowered to
     parameters of the llvm function call.
-  
+
     Several builder is defined to help translating an ONNX Op to Krnl.Call.
     User can provides the allocated MemRefs for outputs and the inputs
     separately. The inputs are usually the operands of the ONNX Op.
@@ -638,7 +638,7 @@ def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
 def KrnlLoadOp : Op<Krnl_Dialect, "load",
   [TypesMatchWith<"result type matches element type of 'memref'",
                   "memref", "result",
-                  "$_self.cast<MemRefType>().getElementType()">,
+                  "mlir::cast<MemRefType>($_self).getElementType()">,
                   MemRefsNormalizable]> {
   let summary = "A Krnl operation to load data from the memref.";
 
@@ -657,7 +657,7 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
 
   let builders = [
     OpBuilder<(ins "Value":$memref, CArg<"ValueRange", "{}">:$indices), [{
-      auto memrefType = memref.getType().cast<MemRefType>();
+      auto memrefType = mlir::cast<MemRefType>(memref.getType());
       $_state.addOperands(memref);
       $_state.addOperands(indices);
       $_state.types.push_back(memrefType.getElementType());
@@ -668,7 +668,7 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
   let extraClassDeclaration = [{
     void setMemRef(Value value) { setOperand(0, value); }
     MemRefType getMemRefType() {
-      return getMemref().getType().cast<MemRefType>();
+      return mlir::cast<MemRefType>(getMemref().getType());
     }
   }];
 }
@@ -676,7 +676,7 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
 def KrnlStoreOp : Op<Krnl_Dialect, "store",
      [TypesMatchWith<"type of 'value' matches element type of 'memref'",
                      "memref", "value",
-                     "$_self.cast<MemRefType>().getElementType()">,
+                     "mlir::cast<MemRefType>($_self).getElementType()">,
                      MemRefsNormalizable]> {
   let summary = "A Krnl operation to store data to the memref.";
   let description = [{
@@ -704,7 +704,7 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
   let extraClassDeclaration = [{
       void setMemRef(Value value) { setOperand(1, value); }
       MemRefType getMemRefType() {
-        return getMemref().getType().cast<MemRefType>();
+        return mlir::cast<MemRefType>(getMemref().getType());
       }
   }];
 }
@@ -741,7 +741,7 @@ def KrnlGetLinearOffsetIndexOp : Op<Krnl_Dialect, "get_linear_offset_index",
     void setMemRef(Value value) { setOperand(getMemRefOperandIndex(), value); }
 
     MemRefType getMemRefType() {
-      return getMemref().getType().cast<MemRefType>();
+      return mlir::cast<MemRefType>(getMemref().getType());
     }
 
     /// Returns the affine map used to index the memref for this operation.
@@ -792,7 +792,7 @@ def KrnlPrefetchOp : Op<Krnl_Dialect, "prefetch",
     Value getMemRef() { return getOperand(getMemRefOperandIndex()); }
     void setMemRef(Value value) { setOperand(getMemRefOperandIndex(), value); }
     MemRefType getMemRefType() {
-      return getMemref().getType().cast<MemRefType>();
+      return mlir::cast<MemRefType>(getMemref().getType());
     }
 
     /// Implements the AffineMapAccessInterface.
@@ -1154,10 +1154,10 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
 def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     TypesMatchWith<"type of 'padValue' matches element type of 'source'",
                   "source", "padValue",
-                  "$_self.cast<MemRefType>().getElementType()">,
+                  "mlir::cast<MemRefType>($_self).getElementType()">,
     TypesMatchWith<"type of 'padValue' matches element type of 'buffer'",
                   "buffer", "padValue",
-                   "$_self.cast<MemRefType>().getElementType()">,
+                   "mlir::cast<MemRefType>($_self).getElementType()">,
     MemRefsNormalizable]> {
   let summary = "Copy to buffer.";
   let description = [{
@@ -1279,7 +1279,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     TypesMatchWith<"type of 'value' matches element type of 'dest'",
                    "dest", "value",
-                   "$_self.cast<MemRefType>().getElementType()">]> {
+                   "mlir::cast<MemRefType>($_self).getElementType()">]> {
   let summary = "Set buffer to a given value.";
   let description = [{
     Krnl operation that sets a buffer to a given value.

@@ -47,7 +47,7 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
   SmallVector<Type, 1> outputTys;
   const RuntimeAPI &runtimeAPI = registry.getAPI(apiId);
   auto outputTy = runtimeAPI.outputTy;
-  if (!outputTy.isa<LLVM::LLVMVoidType>())
+  if (!mlir::isa<LLVM::LLVMVoidType>(outputTy))
     outputTys.emplace_back(outputTy);
   return create.llvm.call(ArrayRef<Type>(outputTys),
       registry.getAPI(apiId).symbolRef, ArrayRef<Value>(params));

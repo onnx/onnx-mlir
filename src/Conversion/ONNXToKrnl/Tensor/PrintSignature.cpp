@@ -40,7 +40,7 @@ struct ONNXPrintSignatureLowering
     // Discover the values to print, setting aside the last one.
     llvm::SmallVector<Value, 4> printVal;
     for (Value oper : adaptor.getInput())
-      if (!oper.getType().isa<NoneType>())
+      if (!mlir::isa<NoneType>(oper.getType()))
         printVal.emplace_back(oper);
     int64_t printNum = printVal.size();
     if (printNum == 0) {
