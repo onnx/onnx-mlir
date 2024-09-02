@@ -538,7 +538,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         int64_t axisRank = create.krnlIE.getShapedTypeRank(axesVal);
         assert((axisRank == 0 || axisRank == 1) && "expect rank 0 or 1");
         if (axisRank == 0)
-          axisShape0 = LiteralIndexExpr(1);
+          axisShape0 = LitIE(1);
         else
           axisShape0 = create.krnlIE.getShapeAsDim(axesVal, 0);
 
