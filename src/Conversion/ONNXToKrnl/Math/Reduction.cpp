@@ -534,10 +534,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         // Default value of having no axes.
         hasNoAxes = true;
       } else {
-        // Check it has a rank of 1.
-        assert(
-            create.krnlIE.getShapedTypeRank(axesVal) == 1 && "expect rank 1");
-        axisShape0 = create.krnlIE.getShapeAsDim(axesVal, 0);
+        // Check it has a rank of 0 or 1.
+        int64_t axisRank = create.krnlIE.getShapedTypeRank(axesVal);
+        assert((axisRank == 0 || axisRank == 1) && "expect rank 0 or 1");
+        if (axisRank == 0)
+          axisShape0 = LiteralIndexExpr(1);
+        else
+          axisShape0 = create.krnlIE.getShapeAsDim(axesVal, 0);
 
         if (!axisShape0.isLiteral())
           // Don't even know the shape of the axis... it is dynamic.
