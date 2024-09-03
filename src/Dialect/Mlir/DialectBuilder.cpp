@@ -1110,6 +1110,33 @@ void MemRefBuilder::computeDynSymbols(Value operandOfSameType, MemRefType type,
 }
 
 //===----------------------------------------------------------------------===//
+// Load Store ops.
+
+Value MemRefBuilder::load(
+    Value memref, ValueRange indices, ValueRange offsets) const {
+  return onnx_mlir::impl::load<MemRefBuilder, memref::LoadOp>(
+      *this, memref, indices, offsets);
+}
+Value MemRefBuilder::loadIE(
+    Value memref, ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  return onnx_mlir::impl::loadIE<MemRefBuilder, memref::LoadOp>(
+      *this, memref, indices, offsets);
+}
+
+// Add offsets (if any) to the least significant memref dims.
+void MemRefBuilder::store(
+    Value val, Value memref, ValueRange indices, ValueRange offsets) const {
+  onnx_mlir::impl::store<MemRefBuilder, memref::StoreOp>(
+      *this, val, memref, indices, offsets);
+}
+
+void MemRefBuilder::storeIE(Value val, Value memref,
+    ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  onnx_mlir::impl::storeIE<MemRefBuilder, memref::StoreOp>(
+      *this, val, memref, indices, offsets);
+}
+
+//===----------------------------------------------------------------------===//
 // Alloc functions without alignment.
 
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
@@ -1647,6 +1674,26 @@ void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
 }
 
 //===----------------------------------------------------------------------===//
+// Queries
+
+/*static*/ bool MemRefBuilder::isNoneValue(Value value) {
+  return mlir::isa<NoneType>(value.getType());
+}
+
+/*static*/ bool MemRefBuilder::hasOneElementInInnermostDims(
+    Value value, int64_t innerDim) {
+  // Get info.
+  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
+  assert(type && "expected shaped type");
+  int64_t rank = type.getRank();
+  ArrayRef<int64_t> shape = type.getShape();
+  for (int64_t i = std::max((int64_t)0, rank - innerDim); i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF).
 //===----------------------------------------------------------------------===//
 
@@ -1695,7 +1742,6 @@ void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
 void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
-  // SmallVectorImpl<Value> ivStorage;
   b().create<scf::ParallelOp>(loc(), lowerBounds, upperBounds, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
@@ -1706,6 +1752,36 @@ void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
 }
 
 void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
+
+void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
+    ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs,
+    function_ref<void(SCFBuilder &b, ArrayRef<Value> inputVals,
+        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
+        bodyBuilderFn) const {
+  onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
+      bodyBuilderFn);
+}
+
+void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+    ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
+    /* reduction function (simd or scalar) */
+    function_ref<void(const SCFBuilder &b, ArrayRef<Value> inputVals,
+        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
+        int64_t VL)>
+        reductionBuilderFn,
+    /* post reduction function (simd to scalar + post processing)*/
+    function_ref<void(const SCFBuilder &b, ArrayRef<Value> tmpVals,
+        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
+        postProcessingBuilderFn) const {
+  onnx_mlir::impl::simdReduceIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
+      reductionBuilderFn, postProcessingBuilderFn);
+}
 
 //===----------------------------------------------------------------------===//
 // Vector Builder
@@ -1756,6 +1832,7 @@ int64_t VectorBuilder::getArchVectorLength(Value vecValue) const {
 
 Value VectorBuilder::load(VectorType vecType, Value memref, ValueRange indices,
     ValueRange offsets) const {
+  // Cannot use the onnx_mlir::impl::load because we also need to pass the type.
   llvm::SmallVector<Value, 4> computedIndices;
   MultiDialectBuilder<MathBuilder> create(*this);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
@@ -1764,6 +1841,7 @@ Value VectorBuilder::load(VectorType vecType, Value memref, ValueRange indices,
 
 Value VectorBuilder::loadIE(VectorType vecType, Value memref,
     llvm::ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  // Cannot use the onnx_mlir::impl::load because we also need to pass the type.
   llvm::SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   return load(vecType, memref, indexValues, offsets);
@@ -1771,17 +1849,14 @@ Value VectorBuilder::loadIE(VectorType vecType, Value memref,
 
 void VectorBuilder::store(
     Value val, Value memref, ValueRange indices, ValueRange offsets) const {
-  llvm::SmallVector<Value, 4> computedIndices;
-  MultiDialectBuilder<MathBuilder> create(*this);
-  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  b().create<vector::StoreOp>(loc(), val, memref, computedIndices);
+  onnx_mlir::impl::store<VectorBuilder, vector::StoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 void VectorBuilder::storeIE(Value val, Value memref,
     llvm::ArrayRef<IndexExpr> indices, ValueRange offsets) const {
-  llvm::SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  store(val, memref, indexValues, offsets);
+  onnx_mlir::impl::storeIE<VectorBuilder, vector::StoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {

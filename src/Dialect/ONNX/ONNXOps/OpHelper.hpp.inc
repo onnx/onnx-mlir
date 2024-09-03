@@ -24,7 +24,7 @@ mlir::Location ONNXLoc(mlir::Operation *op) {
 }
 
 inline bool isNoneValue(mlir::Value value) {
-  return llvm::isa<mlir::NoneType>(value.getType());
+  return MemRefBuilder::isNoneValue(value);
 }
 
 /// Check the defining operation of a value.
