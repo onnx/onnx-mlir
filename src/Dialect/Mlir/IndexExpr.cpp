@@ -370,7 +370,7 @@ bool IndexExpr::canBeUsedInScope() const {
   switch (getKind()) {
   case IndexExprKind::NonAffine:
   case IndexExprKind::Predicate:
-    // Its ok to use a nonaffine index expressions from enclosing scopes.
+    // Its ok to use a non-affine index expressions from enclosing scopes.
     assert(hasValue() && "must have value to be used from enclosing scopes");
     return getScope().isEnclosingScope();
     break;
@@ -574,9 +574,10 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool propagateIntoMinMax,
   bool canBeAffine = (affineExprFct != nullptr);
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
-  // Test if we have a neutral value.
-  if (hasNeutralA && isIdentical(*this, neutralVal))
-    return b.deepCopy(); // Copy of the other value (use same questionmark).
+  if (resIsAffine)
+    // Test if we have a neutral value.
+    if (hasNeutralA && isIdentical(*this, neutralVal))
+      return b.deepCopy(); // Copy of the other value (use same questionmark).
   if (hasNeutralB && isIdentical(b, neutralVal)) {
     return deepCopy(); // Copy of the other value (use same questionmark).
   }
