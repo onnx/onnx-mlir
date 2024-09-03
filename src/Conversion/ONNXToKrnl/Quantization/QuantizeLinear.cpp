@@ -126,11 +126,11 @@ struct ONNXQuantizeLinearOpLowering
     Type elementType = xMemRefType.getElementType();
     Type quantizedElementType = yMemRefType.getElementType();
 
-    // Does not support per-axis and i8.
+    // Does not support per-axis and other types rather than i8.
     assert(yScaleMemRefType.getRank() == 0 &&
            "Does not support per-axis quantization");
-    assert(quantizedElementType.isUnsignedInteger() &&
-           "Does not support i8 quantization");
+    assert(quantizedElementType.isInteger(8) &&
+           "Only support i8/ui8 quantization at this moment");
 
     // Get shape.
     ONNXQuantizeLinearOpShapeHelper shapeHelper(op, operands, &create.krnlIE);

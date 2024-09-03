@@ -429,12 +429,16 @@ void IndexExprImpl::getAffineMapAndOperands(
   // will extract the correct info.
   if (auto affineMinOp = getValue().getDefiningOp<affine::AffineMinOp>()) {
     map = affineMinOp.getAffineMap();
+    // Wonder if specialized list is better than all dims and syms
+    // (scope.getDimAndSymbolList(operands)).
     for (Value val : affineMinOp.getMapOperands())
       operands.emplace_back(val);
     return;
   }
   if (auto affineMaxOp = getValue().getDefiningOp<affine::AffineMaxOp>()) {
     map = affineMaxOp.getAffineMap();
+    // Wonder if specialized list is better than all dims and syms
+    // (scope.getDimAndSymbolList(operands)).
     for (Value val : affineMaxOp.getMapOperands())
       operands.emplace_back(val);
     return;
