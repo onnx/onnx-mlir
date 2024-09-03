@@ -452,14 +452,13 @@ struct SCFBuilder final : DialectBuilder {
   void yield() const;
 
   // For detailed description, see KrnlBuilder.hpp file.
+  using SCFBodyBuilderFn = std::function<mlir::Value(SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
-      mlir::function_ref<void(SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          bodyBuilderFn) const;
+      mlir::ArrayRef<SCFBodyBuilderFn> bodyBuilderFnList) const;
 
   // For detailed description, see KrnlBuilder.hpp file.
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,

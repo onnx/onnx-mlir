@@ -1752,12 +1752,10 @@ void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    function_ref<void(SCFBuilder &b, ArrayRef<Value> inputVals,
-        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) const {
+    ArrayRef<SCFBodyBuilderFn> bodyBuilderFnList) const {
   onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
       fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyBuilderFn);
+      bodyBuilderFnList);
 }
 
 void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,

@@ -339,13 +339,16 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     int64_t VL, bool fullySimd, bool useParallel,
     mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
     mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
-    mlir::function_ref<void(BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals,
-        llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) {
+    mlir::ArrayRef<std::function<mlir::Value(
+        BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>>
+        bodyBuilderFnList) {
   int64_t inputNum = inputs.size();
   assert(inputAFs.size() == inputs.size() && "expected same size");
   int64_t outputNum = outputs.size();
   assert(outputAFs.size() == outputs.size() && "expected same size");
+  int64_t fnNum = bodyBuilderFnList.size();
+  assert((int64_t)fnNum == outputNum &&
+         "expect one loop builder function per output");
 
   if (VL > 1) {
     // Want SIMD, execute full SIMD loops blocked by VL.
@@ -391,9 +394,10 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       }
       // Call the method to compute the values.
       llvm::SmallVector<mlir::Value, 4> vecResVals;
-      bodyBuilderFn(b, vecInputVals, vecResVals, VL);
-      assert((int64_t)vecResVals.size() == outputNum &&
-             "loop body with incorrect number of results");
+      for (int64_t f = 0; f < fnNum; ++f) {
+        mlir::Value res = bodyBuilderFnList[f](b, vecInputVals, VL);
+        vecResVals.emplace_back(res);
+      }
       // Store all the outputs as vectors of VL values,
       for (int64_t i = 0; i < outputNum; ++i) {
         auto type = mlir::cast<mlir::MemRefType>(outputs[i].getType());
@@ -472,9 +476,10 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     }
     // Call the method to compute the values.
     llvm::SmallVector<mlir::Value, 4> scalarResVals;
-    bodyBuilderFn(b, scalarInputVals, scalarResVals, /*VL*/ 1);
-    assert((int64_t)scalarResVals.size() == outputNum &&
-           "loop body with incorrect number of results");
+    for (int64_t f = 0; f < fnNum; ++f) {
+      mlir::Value res = bodyBuilderFnList[f](b, scalarInputVals, 1);
+      scalarResVals.emplace_back(res);
+    }
     // Store all the outputs as vectors of VL values,
     for (int64_t i = 0; i < outputNum; ++i) {
       auto type = mlir::cast<mlir::MemRefType>(outputs[i].getType());

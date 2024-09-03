@@ -129,14 +129,13 @@ struct KrnlBuilder : public DialectBuilder {
      Dialect/Mlir/DialectBuilder.hpp.inc.
     */
 
+  using KrnlBodyBuilderFn = std::function<mlir::Value(KrnlBuilder &b,
+          mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
-      mlir::function_ref<void(KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          bodyBuilderFn) const;
+      mlir::ArrayRef<KrnlBodyBuilderFn> bodyBuilderFnList) const;
 
   /*
      Works similarly as simdIterateIE, but performs a reduction to a single

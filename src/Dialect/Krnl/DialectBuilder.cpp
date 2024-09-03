@@ -221,12 +221,10 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    function_ref<void(KrnlBuilder &b, ArrayRef<Value> inputVals,
-        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) const {
+    ArrayRef<KrnlBodyBuilderFn> bodyBuilderFnList) const {
   onnx_mlir::impl::simdIterateIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
       fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyBuilderFn);
+      bodyBuilderFnList);
 }
 
 void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
