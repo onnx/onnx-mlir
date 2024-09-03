@@ -624,13 +624,13 @@ struct ConcatFusePattern : public OpRewritePattern<ONNXConcatOp> {
 // to determine the rank of A.
 //
 // Example of onnx.Custom:
-//
+//  ```
 // "onnx.Custom"(%0, %1) {alpha = 1.250000e-01 : f32,
 //                        domain_name = "com.microsoft",
 //                        function_name = "FusedMatMul",
 //                        transA = 0 : si64, transB = 1 : si64} :
 //              (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
-// 
+// ```
 
 struct CustomOpFuseMatMulPattern : public OpRewritePattern<ONNXCustomOp> {
   using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
@@ -810,7 +810,7 @@ struct InstanceNormIntoLayerNormPattern
     // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm 1s.
     llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
     biasScaleShape.emplace_back(C);
-    for (int64_t i = 0; i <= numInNorm; ++i) {
+    for (int64_t i = 1; i <= numInNorm; ++i) {
       biasScaleShape.emplace_back(1);
       axesList.emplace_back(i);
     }
@@ -866,20 +866,24 @@ LogicalResult ONNXGroupNormalizationCommon(
 
 //"numgroups" and "C" should have the same dimension index
 llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
+
   if constexpr (isNumGroup<OP_TYPE>) {
     // Opset18 Uses "numgroups" the number of groups of channels for the scale
     // and bias
     // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
     // 1s.
-    biasScaleShape[1] = numGroups;
+    llvm::outs() << "Warning: The previous understanding of Opset 18 for GroupNormalization is incorrect."
+                     << "As shown in the following issue: https://github.com/onnx/onnx/issues/5466."
+                     << "Rather, use Opset 21 for GroupNormalization instead.\n";
+    biasScaleShape.emplace_back(numGroups);
   } else {
     // Opset21 Uses "C" the number of channels for the scale and bias
     // Unsqueeze scale/bias from [C] to [1 x C x 1 x ... x 1] with numInNorm
     // 1s.
-    biasScaleShape[1] = C;
+    biasScaleShape.emplace_back(C);
   }
 
-  for (int64_t i = 0; i <= numInNorm; ++i) {
+  for (int64_t i = 1; i <= numInNorm; ++i) {
     biasScaleShape.emplace_back(1);
     axesList.emplace_back(i);
   }
@@ -904,15 +908,16 @@ llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
       layerNormShapeType, {NShape, NGandMin1Shape, spacialShape}, /*axis*/ 0);
   // Compute type of converted input.
   llvm::SmallVector<int64_t, 5> layerNormShapeVal;
-  layerNormShapeVal.emplace_back(inputShapeVal[1]);
-  layerNormShapeVal.emplace_back(C);
+  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2, Dn...
+  layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
+  layerNormShapeVal.emplace_back(numGroups); // NG
   if (C != ShapedType::kDynamic) {
     assert(C % numGroups == 0 && "expected numGroups to divide C");
-    layerNormShapeVal.emplace_back(C / numGroups);
+    layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
   } else
     layerNormShapeVal.emplace_back(ShapedType::kDynamic);
   for (int64_t i = 0; i < spacialRank; ++i)
-    layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]);
+    layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]); // Dn
   RankedTensorType layerNormInputType =
       RankedTensorType::get(layerNormShapeVal, elementType);
   Value layerNormInput =
