@@ -864,17 +864,19 @@ LogicalResult ONNXGroupNormalizationCommon(
   int64_t axis = nonSpacialRank;
   int64_t numInNorm = layerNormRank - axis;
 
-//"numgroups" and "C" should have the same dimension index
-llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
+  //"numgroups" and "C" should have the same dimension index
+  llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
 
   if constexpr (isNumGroup<OP_TYPE>) {
     // Opset18 Uses "numgroups" the number of groups of channels for the scale
     // and bias
     // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
     // 1s.
-    llvm::outs() << "Warning: The previous understanding of Opset 18 for GroupNormalization is incorrect."
-                     << "As shown in the following issue: https://github.com/onnx/onnx/issues/5466."
-                     << "Rather, use Opset 21 for GroupNormalization instead.\n";
+    llvm::outs() << "Warning: The previous understanding of Opset 18 for "
+                    "GroupNormalization is incorrect."
+                 << "As shown in the following issue: "
+                    "https://github.com/onnx/onnx/issues/5466."
+                 << "Rather, use Opset 21 for GroupNormalization instead.\n";
     biasScaleShape.emplace_back(numGroups);
   } else {
     // Opset21 Uses "C" the number of channels for the scale and bias
@@ -908,9 +910,10 @@ llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
       layerNormShapeType, {NShape, NGandMin1Shape, spacialShape}, /*axis*/ 0);
   // Compute type of converted input.
   llvm::SmallVector<int64_t, 5> layerNormShapeVal;
-  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2, Dn...
+  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2,
+  // Dn...
   layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
-  layerNormShapeVal.emplace_back(numGroups); // NG
+  layerNormShapeVal.emplace_back(numGroups);        // NG
   if (C != ShapedType::kDynamic) {
     assert(C % numGroups == 0 && "expected numGroups to divide C");
     layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
