@@ -58,55 +58,26 @@ static StringRef getFormat(const Type &inputType) {
 
 Value KrnlBuilder::load(
     Value memref, ValueRange indices, ValueRange offsets) const {
-  // Handle offsets.
-  SmallVector<Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  // Perform load.
-  if (computedIndices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      return b().create<KrnlLoadOp>(loc(), memref, ValueRange({iZero}));
-    }
-  }
-  return b().create<KrnlLoadOp>(loc(), memref, computedIndices);
+  return onnx_mlir::impl::load<KrnlBuilder, KrnlLoadOp>(
+      *this, memref, indices, offsets);
 }
 
 Value KrnlBuilder::loadIE(
     Value memref, ArrayRef<IndexExpr> indices, ValueRange offsets) const {
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  return load(memref, indexValues, offsets);
+  return onnx_mlir::impl::loadIE<KrnlBuilder, KrnlLoadOp>(
+      *this, memref, indices, offsets);
 }
 
 void KrnlBuilder::store(
     Value val, Value memref, ValueRange indices, ValueRange offsets) const {
-  SmallVector<Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  if (computedIndices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      b().create<KrnlStoreOp>(loc(), val, memref, ValueRange({iZero}));
-      return;
-    }
-  }
-  b().create<KrnlStoreOp>(loc(), val, memref, computedIndices);
+  onnx_mlir::impl::store<KrnlBuilder, KrnlStoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 void KrnlBuilder::storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices,
     ValueRange offsets) const {
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  store(val, memref, indexValues, offsets);
+  onnx_mlir::impl::storeIE<KrnlBuilder, KrnlStoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 Value KrnlBuilder::getLinearOffsetIndex(
@@ -246,228 +217,37 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
       });
 }
 
-/*
-Example of how to use the interface:
-Say you have a loop of i=0..256, j=0..128 and want to exploit r[i,j] = a[i,j] +
-b[j] + c. For the loops, we will need access functions for a, b, and r.
-
-Say we already have the loop for the outer loop of i
-
-krnl.iterate(loop i from 0 to 256) {
-  ii is the loop index.
-
-  // 1) compute access function for a, b, c
-  // 2) launch simd loop with
-  //     3) simd kernel
-}
-
-1) Access functions
-   Assuming here that we are not blocking the j loop, namely the simd iteration
-   goes over all j values, the access functions should be defined as follows.
-
-   aAF = {ii, 0}
-   bAF = {0}
-   rAF = {ii, 0}
-
-   If the j loop was blocked (say j=0 to 128 by 16), then instead of `0` in the
-   last dim, we would have 'blocked_jj'
-
-2) Launch simd loop
-
-   create.krnl.simdIterateIE(
-     lb=LitIE(0), ub=litIE(128), totVL=8, // loop params
-     fullySimd=true, useParallel=false,   // loop options
-     inputs={A, B}, inputAFs={aAF, bAF},  // inputs
-     outputs={R}, outputAFs={rAF},        // outputs
-     krnl)                                // lambda function for kernel
-
-3) Krnl for SIMD loop
-
-   The kernel functions has 4 inputs:
-   a) krnl builder to further build code
-   b) list of loaded input values, in the same order as in inputs
-   c) list of results values, that must be enqueued by the kernel
-   d) totVL used for the loop (VL for simd, 1 for scalar)
-
-   The same kernel will be used in a SIMD context, in which the inputs and
-   outputs must be vectors of VL elements, or in a scalar context, in which the
-   inputs and outputs must be scalars.
-
-   In our example, the kernel is as follows
-
-   [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-       SmallVectorImpl<Value> &resVals, int64_t VL) {
-      MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
-      Value aVal = inputVals[0];            // simd or scalar
-      Value bVal = inputVals[1];            // simd or scalar
-      Value cVal = create.krnl.load(C); // scalar always
-      Value newVal = create.math.add(aVal, bVal); // simd or scalar
-      newVal = create.math.add(newVal, cVal); // if newVal is simd, cVal is
-                                              // splatted
-      res.emplace_back(newVal); // Save simd or scalar result.
-    }
-
-    The krnl.simdIterateIE will be in charge of loading and saving the values in
-    memory. The create.math functions have been extended so that when a SIMD
-    value is computed with a scalar, that scalar will be automaticaly splatted
-    (aka promoted to a vector of identical values). As a result, the kernel can
-    be written in a SIMD agnostic value. However, in rare situations, we may
-    want to know if we are in SIMD mode or not. VL will give the totVL used here
-    (either totVL>1 or 1).
-*/
-
-// Determine if an access has one element from the innermost dimensions up to
-// innerDim.
-bool static hasOneElementInInnermostDims(Value value, int64_t innerDim) {
-  // Get info.
-  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
-  assert(type && "expected shaped type");
-  int64_t rank = type.getRank();
-  ArrayRef<int64_t> shape = type.getShape();
-  for (int64_t i = std::max((int64_t)0, rank - innerDim); i < rank; ++i)
-    if (shape[i] != 1)
-      return false;
-  return true;
-}
-
 void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    function_ref<void(KrnlBuilder &kb, ArrayRef<Value> inputVals,
+    function_ref<void(KrnlBuilder &b, ArrayRef<Value> inputVals,
         llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) {
-  int64_t inputNum = inputs.size();
-  assert(inputAFs.size() == inputs.size() && "expected same size");
-  int64_t outputNum = outputs.size();
-  assert(outputAFs.size() == outputs.size() && "expected same size");
-  MultiDialectBuilder<VectorBuilder> create(*this);
-
-  if (VL > 1) {
-    // Want SIMD, execute full SIMD loops blocked by VL.
-    ValueRange loopDef = defineLoops(1);
-    ValueRange blockedLoopDef = block(loopDef[0], VL);
-    if (useParallel)
-      parallel({blockedLoopDef[0]});
-
-    // If we are not guaranteed that every iterations are SIMD iterations, then
-    // we need to reduce the trip count by a bit so as to not over compute.
-    // If we are not guaranteed that every iterations are SIMD iterations, then
-    IndexExpr simdUb = ub;
-    if (!fullySimd)
-      simdUb = simdUb - (VL - 1);
-    iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
-        [&](KrnlBuilder &ck, ValueRange loopInd) {
-          IndexExprScope scope(ck);
-          MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-          IndexExpr ind = DimIE(loopInd[0]);
-          // Load all the inputs as vectors of VL values, with a few exceptions.
-          // One is if the value is a "none value", leave as is. Another one is
-          // if the innermost dim is a scalar (ie dim[rank-1] == 1), then we
-          // just load the scalar.
-          llvm::SmallVector<Value, 4> vecInputVals;
-          for (int64_t i = 0; i < inputNum; ++i) {
-            Value input = inputs[i];
-            if (isNoneValue(input)) {
-              // Simply enqueue the none value.
-              vecInputVals.emplace_back(input);
-              continue;
-            }
-            MemRefType type = mlir::cast<MemRefType>(input.getType());
-            int64_t rank = type.getRank();
-            DimsExpr AF = SymListIE(inputAFs[i]);
-            assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
-            if (hasOneElementInInnermostDims(input, 1)) {
-              // Has a reference with a scalar innermost dim, just load as a
-              // scalar. No need to add the induction variable.
-              Value scalarVal = create.krnl.loadIE(input, AF);
-              vecInputVals.emplace_back(scalarVal);
-            } else {
-              // Have a vector.
-              VectorType vecType = VectorType::get({VL}, type.getElementType());
-              AF[rank - 1] = AF[rank - 1] + ind; // Add induction var.
-              Value vecVal = create.vec.loadIE(vecType, input, AF);
-              vecInputVals.emplace_back(vecVal);
-            }
-          }
-          // Call the method to compute the values.
-          llvm::SmallVector<Value, 4> vecResVals;
-          bodyBuilderFn(create.krnl, vecInputVals, vecResVals, VL);
-          assert((int64_t)vecResVals.size() == outputNum &&
-                 "loop body with incorrect number of results");
-          // Store all the outputs as vectors of VL values,
-          for (int64_t i = 0; i < outputNum; ++i) {
-            MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
-            DimsExpr AF = SymListIE(outputAFs[i]);
-            int64_t rank = type.getRank();
-            assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
-            AF[rank - 1] = AF[rank - 1] + ind;
-            create.vec.storeIE(vecResVals[i], outputs[i], AF);
-          }
-        });
-    if (fullySimd)
-      // Asserted that we only have SIMD iterations, we are done.
-      return;
-    // Account for the loop iterations performed above.
-    IndexExpr tripCount = ub - lb;
-    IndexExpr missingIters = tripCount % VL;
-    IndexExpr completedIters = tripCount - missingIters;
-    if (missingIters.isLiteralAndIdenticalTo(0)) {
-      // Detect that we only have SIMD iterations, we are also done.
-      return;
-    }
-    // We may have additional iterations to perform, adjust lb to skip the
-    // completed iterations.
-    lb = lb + completedIters;
-  }
-  // Handle remaining scalar values (from lb to ub without unrolling).
-  ValueRange loopDef = defineLoops(1);
-  iterateIE(
-      loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
-        IndexExprScope scope(ck);
-        MultiDialectBuilder<KrnlBuilder> create(ck);
-        IndexExpr ind = DimIE(loopInd[0]);
-        // Load all the inputs as scalar values,
-        llvm::SmallVector<Value, 4> scalarInputVals;
-        for (int64_t i = 0; i < inputNum; ++i) {
-          Value input = inputs[i];
-          if (isNoneValue(input)) {
-            // Simply enqueue the none value.
-            scalarInputVals.emplace_back(input);
-            continue;
-          }
-          MemRefType type = mlir::cast<MemRefType>(input.getType());
-          int64_t rank = type.getRank();
-          DimsExpr AF = SymListIE(inputAFs[i]);
-          if (hasOneElementInInnermostDims(input, 1)) {
-            // Has a reference with a scalar innermost dim, just load as a
-            // scalar. No need to add the induction variable.
-            Value scalarVal = create.krnl.loadIE(input, AF);
-            scalarInputVals.emplace_back(scalarVal);
-          } else {
-            AF[rank - 1] = AF[rank - 1] + ind;
-            Value scalarVal = create.krnl.loadIE(input, AF);
-            scalarInputVals.emplace_back(scalarVal);
-          }
-        }
-        // Call the method to compute the values.
-        llvm::SmallVector<Value, 4> scalarResVals;
-        bodyBuilderFn(create.krnl, scalarInputVals, scalarResVals, /*VL*/ 1);
-        assert((int64_t)scalarResVals.size() == outputNum &&
-               "loop body with incorrect number of results");
-        // Store all the outputs as vectors of VL values,
-        for (int64_t i = 0; i < outputNum; ++i) {
-          MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
-          DimsExpr AF = SymListIE(outputAFs[i]);
-          int64_t rank = type.getRank();
-          assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
-          AF[rank - 1] = AF[rank - 1] + ind;
-          create.krnl.storeIE(scalarResVals[i], outputs[i], AF);
-        }
-      });
+        bodyBuilderFn) const {
+  onnx_mlir::impl::simdIterateIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
+      bodyBuilderFn);
 }
 
-void KrnlBuilder::yield(ValueRange iterArgs) const {
+void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+    ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
+    /* reduction function (simd or scalar) */
+    function_ref<void(const KrnlBuilder &b, ArrayRef<Value> inputVals,
+        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
+        int64_t VL)>
+        reductionBuilderFn,
+    /* post reduction function (simd to scalar + post processing)*/
+    function_ref<void(const KrnlBuilder &b, ArrayRef<Value> tmpVals,
+        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
+        postProcessingBuilderFn) const {
+  onnx_mlir::impl::simdReduceIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
+      reductionBuilderFn, postProcessingBuilderFn);
+}
+
+void KrnlBuilder::yield(mlir::ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
 
@@ -533,8 +313,8 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
   MultiDialectBuilder<MathBuilder> create(*this);
   Value zero = create.math.constantIndex(0);
-  b().create<KrnlMemcpyOp>(
-      loc(), dest, src, numElems, /*dest_offset=*/zero, /*src_offset=*/zero);
+  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems,
+      /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems,
