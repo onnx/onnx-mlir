@@ -465,8 +465,8 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
     }
     zlowStickifiedConstantOp.removeValueAttr();
     zlowStickifiedConstantOp.removeStickifiedAttr();
-  } else if (auto zeroConst = zlowStickifiedConstantOp.getZeroconstAttr()) {
-    if (zeroConst) {
+  } else if (auto allZero = zlowStickifiedConstantOp.getAllzeroAttr()) {
+    if (allZero) {
       int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
           zlowStickifiedConstantOp.getResult().getType())
                                 .value();
@@ -474,7 +474,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
       memset(rawData, 0, sizeInBytes);
       ret = llvm::ArrayRef(rawData, sizeInBytes);
     }
-    zlowStickifiedConstantOp.removeZeroconstAttr();
+    zlowStickifiedConstantOp.removeAllzeroAttr();
   }
   return ret;
 }

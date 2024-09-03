@@ -559,7 +559,7 @@ def ZLowStickifiedConstantOp:ZLow_Op<"stickifiedConstant", [MemRefsNormalizable,
                        OptionalAttr<AnyAttr>:$value,
                        StrAttr:$name,
                        OptionalAttr<BoolAttr>:$stickified,
-                       OptionalAttr<BoolAttr>:$zeroconst,
+                       OptionalAttr<BoolAttr>:$allzero,
                        OptionalAttr<I64Attr>:$offset,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs ZMemRef:$output);
