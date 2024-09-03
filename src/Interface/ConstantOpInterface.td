@@ -23,8 +23,8 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
   }];
 
   let methods = [
-      InterfaceMethod<"Set the constant value to value attribute.",
-          "void", "setBuffer", (ins "::mlir::ArrayRef<char>": $buffer)
+      InterfaceMethod<"Update the constant value to value attribute.",
+          "void", "updateBuffer", (ins )
       >,
       InterfaceMethod<"Get the constant value from value attribute. ",
           "::mlir::ArrayRef<char>", "getBuffer", (ins )

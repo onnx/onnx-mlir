@@ -403,6 +403,8 @@ zdnn_data_types mlirTypeToZDNNType(Type elementType) {
     llvm_unreachable("Unsupported data type.");
 }
 
+/// Create a buffer and set data fron value attribute. Stickified data is
+/// created and set if `stickified` attribute is false.
 ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   MLIRContext *context = getOperation()->getContext();
   PatternRewriter rewriter(context);
@@ -456,9 +458,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
           mlir::cast<DenseResourceElementsAttr>(dataAttr);
       ArrayRef<char> attrData =
           denseResourceAttr.getRawHandle().getBlob()->getData();
-      int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
-          zlowStickifiedConstantOp.getResult().getType())
-                                .value();
+      int64_t sizeInBytes = getBufferSize();
       char *rawData = (char *)malloc(sizeInBytes);
       memcpy(rawData, attrData.data(), sizeInBytes);
       ret = llvm::ArrayRef(rawData, sizeInBytes);
@@ -467,9 +467,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
     zlowStickifiedConstantOp.removeStickifiedAttr();
   } else if (auto allZero = zlowStickifiedConstantOp.getAllzeroAttr()) {
     if (allZero) {
-      int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
-          zlowStickifiedConstantOp.getResult().getType())
-                                .value();
+      int64_t sizeInBytes = getBufferSize();
       char *rawData = (char *)malloc(sizeInBytes);
       memset(rawData, 0, sizeInBytes);
       ret = llvm::ArrayRef(rawData, sizeInBytes);
@@ -479,34 +477,40 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   return ret;
 }
 
+/// Get buffer size from result.
 uint64_t ZLowStickifiedConstantOp::getBufferSize() {
-  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
-      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-  return affine::getIntOrFloatMemRefSizeInBytes(
-      zlowStickifiedConstantOp.getResult().getType())
-      .value();
+  const Type type = getOperation()->getResults()[0].getType();
+  const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
+  auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
+  return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
 }
 
-void ZLowStickifiedConstantOp::setBuffer(ArrayRef<char> rawData) {
-  MLIRContext *context = getOperation()->getContext();
-  PatternRewriter rewriter(context);
-  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
-      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-  int64_t sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(
-      zlowStickifiedConstantOp.getResult().getType())
-                            .value();
-  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-      zlowStickifiedConstantOp.getOperation()
-          ->getDialect()
-          ->getNamespace(), // use the dialect as the blob "hint"
-      HeapAsmResourceBlob::allocateAndCopyWithAlign(rawData, alignof(char)));
-  zlowStickifiedConstantOp.setValueAttr(valueAttr);
-}
-
+/// Free buffer created by getBuffer().
 void ZLowStickifiedConstantOp::freeBuffer(ArrayRef<char> rawData) {
   free(const_cast<char *>(rawData.data()));
   return;
+}
+
+/// Get a buffer, set/copy it to value attribute, and free the buffer.
+void ZLowStickifiedConstantOp::updateBuffer() {
+  ArrayRef<char> rawData = getBuffer();
+  if (!rawData.empty()) {
+    // set buffer to value attribute;
+    MLIRContext *context = getOperation()->getContext();
+    PatternRewriter rewriter(context);
+    ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+        mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+    int64_t sizeInBytes = getBufferSize();
+    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+        zlowStickifiedConstantOp.getOperation()
+            ->getDialect()
+            ->getNamespace(), // use the dialect as the blob "hint"
+        HeapAsmResourceBlob::allocateAndCopyWithAlign(rawData, alignof(char)));
+    zlowStickifiedConstantOp.setValueAttr(valueAttr);
+
+    freeBuffer(rawData);
+  }
 }
 
 } // namespace zlow
