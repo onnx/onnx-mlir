@@ -12,11 +12,16 @@ OMTensorList *create_input_list() {
 
   // Construct float arrays filled with 1s or 2s.
   float *x1Data = (float *)malloc(sizeof(float) * num_elements);
-  assert(x1Data && "Failed to allocate memory for input tensor x1Data");
+  // Check if memory is allocated for generating the data.
+  if(!x1Data) return NULL;
   for (int i = 0; i < num_elements; i++)
     x1Data[i] = 1.0;
   float *x2Data = (float *)malloc(sizeof(float) * num_elements);
-  assert(x2Data && "Failed to allocate memory for input tensor x2Data");
+  // Check if memory is allocated for generating the data.
+  if(!x2Data){
+    free(x1Data);
+    return NULL;
+  }
   for (int i = 0; i < num_elements; i++)
     x2Data[i] = 2.0;
 
@@ -35,7 +40,10 @@ OMTensorList *create_input_list() {
 int main() {
   // Generate input TensorList
   OMTensorList *input_list = create_input_list();
-
+  if(!input_list){
+    // Return 2 for failure to create inputs.
+    return 2;
+  }
   // Call the compiled onnx model function.
   OMTensorList *output_list = run_main_graph(input_list);
   if (!output_list) {
