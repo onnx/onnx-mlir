@@ -1752,10 +1752,10 @@ void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    ArrayRef<SCFBodyBuilderFn> bodyBuilderFnList) const {
+    ArrayRef<SCFSimdIterateBodyFn> bodyFnList) const {
   onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
       fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyBuilderFnList);
+      bodyFnList);
 }
 
 void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
@@ -1763,17 +1763,12 @@ void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
     /* reduction function (simd or scalar) */
-    function_ref<void(const SCFBuilder &b, ArrayRef<Value> inputVals,
-        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
-        int64_t VL)>
-        reductionBuilderFn,
+    mlir::ArrayRef<SCFSimdReductionBodyFn> reductionFnList,
     /* post reduction function (simd to scalar + post processing)*/
-    function_ref<void(const SCFBuilder &b, ArrayRef<Value> tmpVals,
-        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
-        postProcessingBuilderFn) const {
+    mlir::ArrayRef<SCFSimdPostReductionBodyFn> postReductionFnList) const {
   onnx_mlir::impl::simdReduceIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
       fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
-      reductionBuilderFn, postProcessingBuilderFn);
+      reductionFnList, postReductionFnList);
 }
 
 //===----------------------------------------------------------------------===//

@@ -129,13 +129,12 @@ struct KrnlBuilder : public DialectBuilder {
      Dialect/Mlir/DialectBuilder.hpp.inc.
     */
 
-  using KrnlBodyBuilderFn = std::function<mlir::Value(KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
+  using KrnlSimdIterateBodyFn = impl::SimdIterateBodyFn<KrnlBuilder>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
-      mlir::ArrayRef<KrnlBodyBuilderFn> bodyBuilderFnList) const;
+      mlir::ArrayRef<KrnlSimdIterateBodyFn> bodyBuilderFnList) const;
 
   /*
      Works similarly as simdIterateIE, but performs a reduction to a single
@@ -151,22 +150,20 @@ struct KrnlBuilder : public DialectBuilder {
      needed, for example, mean reduction divide the accumulated sum by the
      number of elements. That step is also performed here.
     */
+  using KrnlSimdReductionBodyFn = impl::SimdReductionBodyFn<KrnlBuilder>;
+  using KrnlSimdPostReductionBodyFn =
+      impl::SimdPostReductionBodyFn<KrnlBuilder>;
+
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> tmps, mlir::ArrayRef<DimsExpr> tmpAFs,
       mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::ArrayRef<mlir::Value> initVals,
       /* reduction function (simd or scalar) */
-      mlir::function_ref<void(const KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          reductionBuilderFn,
+      mlir::ArrayRef<KrnlSimdReductionBodyFn> reductionBodyFnList,
       /* post reduction function (simd to scalar + post processing)*/
-      mlir::function_ref<void(const KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
-          postProcessingBuilderFn) const;
+      mlir::ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList)
+      const;
 
   void yield(mlir::ValueRange iterArgs) const;
 

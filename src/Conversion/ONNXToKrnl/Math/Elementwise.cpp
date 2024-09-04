@@ -1445,7 +1445,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 
         create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, simdOnly,
             useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
-            {[&](KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+            {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
               MultiDialectBuilder<MathBuilder> create(kb);
               Type currElementType = outputElementType;
               if (VL > 1)

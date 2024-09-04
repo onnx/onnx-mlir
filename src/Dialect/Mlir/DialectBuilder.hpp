@@ -451,15 +451,22 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
 
+  // Using must match impl::SimdIterateBodyFn<BUILDER>
+  using SCFSimdIterateBodyFn = std::function<mlir::Value(
+      const SCFBuilder &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
   // For detailed description, see KrnlBuilder.hpp file.
-  using SCFBodyBuilderFn = std::function<mlir::Value(SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
-      mlir::ArrayRef<SCFBodyBuilderFn> bodyBuilderFnList) const;
+      mlir::ArrayRef<SCFSimdIterateBodyFn> simdIterateBodyList) const;
 
+  // Using must match impl::SimdReductionBodyFn<BUILDER> and
+  // impl::SimdPostReductionBodyFn<BUILDER>
+  using SCFSimdReductionBodyFn = std::function<mlir::Value(const SCFBuilder &b,
+      mlir::Value inputVal, mlir::Value tmpVal, int64_t VL)>;
+  using SCFSimdPostReductionBodyFn = std::function<mlir::Value(
+      const SCFBuilder &b, mlir::Value tmpVal, int64_t VL)>;
   // For detailed description, see KrnlBuilder.hpp file.
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
@@ -467,16 +474,10 @@ struct SCFBuilder final : DialectBuilder {
       mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::ArrayRef<mlir::Value> initVals,
       /* reduction function (simd or scalar) */
-      mlir::function_ref<void(const SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          reductionBuilderFn,
+      mlir::ArrayRef<SCFSimdReductionBodyFn> simdReductionBodyFnList,
       /* post reduction function (simd to scalar + post processing)*/
-      mlir::function_ref<void(const SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
-          postProcessingBuilderFn) const;
+      mlir::ArrayRef<SCFSimdPostReductionBodyFn> simdPostReductionBodyFnList)
+      const;
 };
 
 //===----------------------------------------------------------------------===//

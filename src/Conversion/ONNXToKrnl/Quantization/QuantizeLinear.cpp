@@ -68,7 +68,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   outputAF.emplace_back(zero);
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
-      {[&](KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
         MultiDialectBuilder<MathBuilder> create(kb);
         Value x = inputVals[0];
         // Scale
