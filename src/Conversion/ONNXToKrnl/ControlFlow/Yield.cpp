@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------- Yield.cpp - Lowering Yield Op --------------------===//
+//===--------------------- Yield.cpp - Lowering Yield Op
+//--------------------===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
@@ -35,12 +36,13 @@ struct ONNXYieldOpLowering : public OpConversionPattern<ONNXYieldOp> {
 
     ValueRange inputs = yieldOp.getOperands();
     llvm::SmallVector<Value> outputs;
-    for(Value input : inputs) {
+    for (Value input : inputs) {
       Type inputType = input.getType();
       Type outputType = typeConverter->convertType(inputType);
-      outputs.emplace_back(typeConverter->materializeTargetConversion(rewriter, loc, outputType, input));
+      outputs.emplace_back(typeConverter->materializeTargetConversion(
+          rewriter, loc, outputType, input));
     }
-    
+
     rewriter.replaceOpWithNewOp<scf::YieldOp>(yieldOp, outputs);
 
     onnxToKrnlSimdReport(op);
