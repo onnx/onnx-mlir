@@ -865,7 +865,7 @@ LogicalResult ONNXGroupNormalizationCommon(
   int64_t numInNorm = layerNormRank - axis;
 
   //"numgroups" and "C" should have the same dimension index
-  llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
+  llvm::SmallVector<int64_t, 2> axesList, biasScaleShape;
 
   if constexpr (isNumGroup<OP_TYPE>) {
     // Opset18 Uses "numgroups" the number of groups of channels for the scale
