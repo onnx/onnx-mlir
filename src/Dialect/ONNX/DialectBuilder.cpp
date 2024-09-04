@@ -164,6 +164,19 @@ Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
           toTensor(bias), axisAttr, epsilon, stashTypeAttr);
   return layerNormOp.getY();
 }
+// In the case of GroupNormalization when stashType can be specified
+Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
+    Value bias, int64_t axis, FloatAttr epsilon, IntegerAttr stashType) const {
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
+  Value noneVal = none();
+  Type noneType = noneVal.getType();
+  ONNXLayerNormalizationOp layerNormOp =
+      createOpAndInferShapes<ONNXLayerNormalizationOp>(
+          /*Y type*/ toTensor(outputType), /*mean type*/ noneType,
+          /*std dev Type*/ noneType, toTensor(input), toTensor(scale),
+          toTensor(bias), axisAttr, epsilon, stashType);
+  return layerNormOp.getY();
+}
 
 Value OnnxBuilder::qlinearMatMul(Type outputType, Value a, Value aScale,
     Value aZeroPoint, Value b, Value bScale, Value bZeroPoint, Value yScale,
