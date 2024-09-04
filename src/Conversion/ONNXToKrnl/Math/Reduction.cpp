@@ -279,7 +279,6 @@ Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
 
 //===----------------------------------------------------------------------===//
 
-// hi alex: check if we need all. move closer to where its used.
 using MDBuilder =
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder>;
@@ -335,94 +334,50 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
   llvm::SmallVector<impl::SimdReductionBodyFn<BUILDER>, 2> redBodyFnList;
   llvm::SmallVector<impl::SimdPostReductionBodyFn<BUILDER>, 2>
       postRedBodyFnList;
-
-  auto firstRedBodyFn = [&](const BUILDER &b, Value inputVal, Value tmpVal,
-                            int64_t VL) {
-    Type currType = (VL > 1) ? vecType : elementType;
-    // Perform reduction of tmp and input.
-    return emitScalarOpFor<ONNXReductionOp1>(
-        rewriter, create.getLoc(), op, currType, {tmpVal, inputVal});
-  };
-  auto firstPostRedBodyFn = [&](const BUILDER &b, Value tmpVal, int64_t VL) {
-    // Perform horizontal reductions.
-    Value scalarVal =
-        create.vec.reduction(getCombiningKind<ONNXReductionOp1>(), tmpVal);
-    if (tNum == 1) { /* parallel: do it for the final iteration only */
-      if (divideByMean<ONNXReductionOp1>())
-        scalarVal = create.math.div(scalarVal, divisorForMean);
-    }
-    return scalarVal;
-  };
-  redBodyFnList.emplace_back(firstRedBodyFn); // hi alex, merge with code def
-  postRedBodyFnList.emplace_back(firstPostRedBodyFn);
-  if (hasTwoRed) {
-    auto secondRedBodyFn = [&](const BUILDER &b, Value inputVal, Value tmpVal,
-                               int64_t VL) {
-      Type currType = (VL > 1) ? vecType : elementType;
-      // Perform reduction of tmp and input.
-      return emitScalarOpFor<ONNXReductionOp2>(
-          rewriter, create.getLoc(), op, currType, {tmpVal, inputVal});
-    };
-    auto secondPostRedBodyFn = [&](const BUILDER &b, Value tmpVal, int64_t VL) {
-      // Perform horizontal reductions.
-      Value scalarVal =
-          create.vec.reduction(getCombiningKind<ONNXReductionOp2>(), tmpVal);
-      if (tNum == 1) { /* parallel: do it for the final iteration only */
-        if (divideByMean<ONNXReductionOp2>())
-          scalarVal = create.math.div(scalarVal, divisorForMean);
-      }
-      return scalarVal;
-    };
-    redBodyFnList.emplace_back(secondRedBodyFn);
-    postRedBodyFnList.emplace_back(secondPostRedBodyFn);
-  }
-
-  BUILDER builder(create.vec);
-#if 1 // hi alex
-  builder.simdReduceIE(lb, ub, VL, simdOnly, inputs, inputAFs, tmps, tmpAFs,
-      outputs, outputAFs, initVals, redBodyFnList, postRedBodyFnList);
-#else
-  builder.simdReduceIE(
-      lb, ub, VL, simdOnly, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs,
-      initVals,
-      /* reduction function */
-      [&](const BUILDER &b, ArrayRef<Value> inputVals, ArrayRef<Value> tmpVals,
-          llvm::SmallVectorImpl<Value> &resultVals, int64_t VL) {
+  // Push functions for the first reduction.
+  redBodyFnList.emplace_back(
+      [&](const BUILDER &b, Value inputVal, Value tmpVal, int64_t VL) {
         Type currType = (VL > 1) ? vecType : elementType;
-        // First reduction, enqueue result.
-        Value accumulatedVec1 = emitScalarOpFor<ONNXReductionOp1>(rewriter,
-            create.getLoc(), op, currType, {tmpVals[0], inputVals[0]});
-        resultVals.emplace_back(accumulatedVec1);
-        if (hasTwoRed) {
-          // Has a second reduction, also enqueue result.
-          Value accumulatedVec2 = emitScalarOpFor<ONNXReductionOp2>(rewriter,
-              create.getLoc(), op, currType, {tmpVals[1], inputVals[1]});
-          resultVals.emplace_back(accumulatedVec2);
-        }
-      },
-      /* post reduction function*/
-      [&](const BUILDER &b, ArrayRef<Value> tmpVals,
-          llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL) {
+        // Perform reduction of tmp and input.
+        return emitScalarOpFor<ONNXReductionOp1>(
+            rewriter, create.getLoc(), op, currType, {tmpVal, inputVal});
+      });
+  postRedBodyFnList.emplace_back(
+      [&](const BUILDER &b, Value tmpVal, int64_t VL) {
         // Perform horizontal reductions.
-        Value res1 = create.vec.reduction(
-            getCombiningKind<ONNXReductionOp1>(), tmpVals[0]);
-        scalarOutputs.emplace_back(res1);
-        if (hasTwoRed) {
-          Value res2 = create.vec.reduction(
-              getCombiningKind<ONNXReductionOp2>(), tmpVals[1]);
-          scalarOutputs.emplace_back(res2);
-        }
-        // Handle means if any.
+        Value scalarVal =
+            create.vec.reduction(getCombiningKind<ONNXReductionOp1>(), tmpVal);
         if (tNum == 1) { /* parallel: do it for the final iteration only */
           if (divideByMean<ONNXReductionOp1>())
-            scalarOutputs[0] =
-                create.math.div(scalarOutputs[0], divisorForMean);
-          if (hasTwoRed && divideByMean<ONNXReductionOp2>())
-            scalarOutputs[1] =
-                create.math.div(scalarOutputs[1], divisorForMean);
+            scalarVal = create.math.div(scalarVal, divisorForMean);
         }
+        return scalarVal;
       });
-#endif
+  if (hasTwoRed) {
+    // Push functions for the second reduction.
+    redBodyFnList.emplace_back(
+        [&](const BUILDER &b, Value inputVal, Value tmpVal, int64_t VL) {
+          Type currType = (VL > 1) ? vecType : elementType;
+          // Perform reduction of tmp and input.
+          return emitScalarOpFor<ONNXReductionOp2>(
+              rewriter, create.getLoc(), op, currType, {tmpVal, inputVal});
+        });
+    postRedBodyFnList.emplace_back(
+        [&](const BUILDER &b, Value tmpVal, int64_t VL) {
+          // Perform horizontal reductions.
+          Value scalarVal = create.vec.reduction(
+              getCombiningKind<ONNXReductionOp2>(), tmpVal);
+          if (tNum == 1) { /* parallel: do it for the final iteration only */
+            if (divideByMean<ONNXReductionOp2>())
+              scalarVal = create.math.div(scalarVal, divisorForMean);
+          }
+          return scalarVal;
+        });
+  }
+  // Call simd reduce.
+  BUILDER builder(create.vec);
+  builder.simdReduceIE(lb, ub, VL, simdOnly, inputs, inputAFs, tmps, tmpAFs,
+      outputs, outputAFs, initVals, redBodyFnList, postRedBodyFnList);
 }
 
 template <typename ONNXReductionOp1, typename ONNXReductionOp2>

@@ -383,21 +383,18 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
         if (MemRefBuilder::hasOneElementInInnermostDims(input, 1)) {
           // Has a reference with a scalar innermost dim, just load as a
           // scalar. No need to add the induction variable.
-          mlir::Value scalarVal = createMem.loadIE(input, AF);
-          vecInputVals.emplace_back(scalarVal);
+          vecInputVals.emplace_back(createMem.loadIE(input, AF));
         } else {
           // Have a vector.
           auto vecType = mlir::VectorType::get({VL}, type.getElementType());
           AF[rank - 1] = AF[rank - 1] + ind; // Add induction var.
-          mlir::Value vecVal = createVec.loadIE(vecType, input, AF);
-          vecInputVals.emplace_back(vecVal);
+          vecInputVals.emplace_back(createVec.loadIE(vecType, input, AF));
         }
       }
       // Call the method to compute the values.
       llvm::SmallVector<mlir::Value, 4> vecResVals;
       for (int64_t f = 0; f < outputNum; ++f) {
-        mlir::Value res = iterateBodyList[f](b, vecInputVals, VL);
-        vecResVals.emplace_back(res);
+        vecResVals.emplace_back(iterateBodyList[f](b, vecInputVals, VL));
       }
       // Store all the outputs as vectors of VL values,
       for (int64_t i = 0; i < outputNum; ++i) {
@@ -467,19 +464,16 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       if (MemRefBuilder::hasOneElementInInnermostDims(input, 1)) {
         // Has a reference with a scalar innermost dim, just load as a
         // scalar. No need to add the induction variable.
-        mlir::Value scalarVal = createMem.loadIE(input, AF);
-        scalarInputVals.emplace_back(scalarVal);
+        scalarInputVals.emplace_back(createMem.loadIE(input, AF));
       } else {
         AF[rank - 1] = AF[rank - 1] + ind;
-        mlir::Value scalarVal = createMem.loadIE(input, AF);
-        scalarInputVals.emplace_back(scalarVal);
+        scalarInputVals.emplace_back(createMem.loadIE(input, AF));
       }
     }
     // Call the method to compute the values.
     llvm::SmallVector<mlir::Value, 4> scalarResVals;
     for (int64_t f = 0; f < outputNum; ++f) {
-      mlir::Value res = iterateBodyList[f](b, scalarInputVals, 1);
-      scalarResVals.emplace_back(res);
+      scalarResVals.emplace_back(iterateBodyList[f](b, scalarInputVals, 1));
     }
     // Store all the outputs as vectors of VL values,
     for (int64_t i = 0; i < outputNum; ++i) {
@@ -521,8 +515,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     /* reduction functions (simd or scalar) */
     mlir::ArrayRef<SimdReductionBodyFn<BUILDER>> reductionBodyFnList,
     /* post reduction functions (simd to scalar + post processing)*/
-    mlir::ArrayRef<SimdPostReductionBodyFn<BUILDER>>
-        postReductionBodyFnList) {
+    mlir::ArrayRef<SimdPostReductionBodyFn<BUILDER>> postReductionBodyFnList) {
 
   MultiDialectBuilder<VectorBuilder> create(builder);
   MEM_BUILDER createMem(builder);
@@ -563,23 +556,20 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       for (int64_t i = 0; i < inputSize; ++i) {
         auto inputType = mlir::cast<mlir::MemRefType>(inputs[i].getType());
         auto vecType = mlir::VectorType::get({VL}, inputType.getElementType());
-        mlir::Value inputVal =
-            create.vec.loadIE(vecType, inputs[i], inputAFs[i], {loopInd[0]});
-        inputVals.emplace_back(inputVal);
+        inputVals.emplace_back(
+            create.vec.loadIE(vecType, inputs[i], inputAFs[i], {loopInd[0]}));
       }
       // Load tmp value in SIMD mode  (no indexing, same value over & over).
       llvm::SmallVector<mlir::Value, 4> tmpVals;
       for (int64_t o = 0; o < outputSize; ++o) {
-        mlir::Value tmpVal =
-            create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
-        tmpVals.emplace_back(tmpVal);
+        tmpVals.emplace_back(
+            create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {}));
       }
       // Call reduction, one per function each with their input and tmp value.
       llvm::SmallVector<mlir::Value, 4> resultVals;
       for (int64_t f = 0; f < outputSize; ++f) {
-        mlir::Value res =
-            reductionBodyFnList[f](b, inputVals[f], tmpVals[f], VL);
-        resultVals.emplace_back(res); // hi alex, merge
+        resultVals.emplace_back(
+            reductionBodyFnList[f](b, inputVals[f], tmpVals[f], VL));
       }
       // Save tmp values in SIMD mode.
       for (int64_t o = 0; o < outputSize; ++o) {
@@ -637,22 +627,19 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       // inputs in sequential mode indexed by loopInd[0] in innermost dim.
       llvm::SmallVector<mlir::Value, 4> inputVals;
       for (int64_t i = 0; i < inputSize; ++i) {
-        mlir::Value inputVal =
-            createMem.loadIE(inputs[i], inputAFs[i], {loopInd[0]});
-        inputVals.emplace_back(inputVal);
+        inputVals.emplace_back(
+            createMem.loadIE(inputs[i], inputAFs[i], {loopInd[0]}));
       }
       // Load tmps in scalar mode (no indexing, same value over & over).
       llvm::SmallVector<mlir::Value, 4> tmpVals;
       for (int64_t o = 0; o < outputSize; ++o) {
-        mlir::Value tmpVal = createMem.loadIE(tmps[o], tmpAFs[o], {});
-        tmpVals.emplace_back(tmpVal);
+        tmpVals.emplace_back(createMem.loadIE(tmps[o], tmpAFs[o], {}));
       }
       // Call reduction.
       llvm::SmallVector<mlir::Value, 4> resultVals;
       for (int64_t f = 0; f < outputSize; ++f) {
-        mlir::Value res =
-            reductionBodyFnList[f](b, inputVals[f], tmpVals[f], 1);
-        resultVals.emplace_back(res); // hi alex, merge
+        resultVals.emplace_back(
+            reductionBodyFnList[f](b, inputVals[f], tmpVals[f], 1));
       }
       // Save tmp values in sequential mode.
       for (int64_t o = 0; o < outputSize; ++o) {
@@ -677,16 +664,15 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   llvm::SmallVector<mlir::Value, 4> tmpVals;
   for (int64_t o = 0; o < outputSize; ++o) {
     // Load tmp in vector mode.
-    mlir::Value tmpVal =
-        create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {});
-    tmpVals.emplace_back(tmpVal);
+    tmpVals.emplace_back(
+        create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {}));
   }
   llvm::SmallVector<mlir::Value, 4> scalarOutputs;
   // Invoke the post processing operations, which takes each tmp vector and
   // reduces it to a scalar.
   for (int64_t f = 0; f < outputSize; ++f) {
-    mlir::Value res = postReductionBodyFnList[f](builder, tmpVals[f], 1);
-    scalarOutputs.emplace_back(res);
+    scalarOutputs.emplace_back(
+        postReductionBodyFnList[f](builder, tmpVals[f], 1));
   }
   // Store the scalar reductions.
   for (int64_t o = 0; o < outputSize; ++o) {
