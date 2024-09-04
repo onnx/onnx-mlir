@@ -451,7 +451,8 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
 
-  // Using must match impl::SimdIterateBodyFn<BUILDER>
+  // Using must match impl::SimdIterateBodyFn<BUILDER>. As they are defined in
+  // the .hpp.inc file, their definition is not yet available here.
   using SCFSimdIterateBodyFn = std::function<mlir::Value(
       const SCFBuilder &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
   // For detailed description, see KrnlBuilder.hpp file.

@@ -297,7 +297,7 @@ krnl.iterate(loop i from 0 to 256) {
      fullySimd=true, useParallel=false,   // loop options
      inputs={A, B}, inputAFs={aAF, bAF},  // inputs
      outputs={R}, outputAFs={rAF},        // outputs
-     krnl)                                // lambda function for kernel
+     {krnl})                              // lambda function for kernel
 
 3) Krnl for SIMD loop
 
@@ -307,14 +307,13 @@ krnl.iterate(loop i from 0 to 256) {
    c) list of results values, that must be enqueued by the kernel
    d) totVL used for the loop (VL for simd, 1 for scalar)
 
-   The same kernel will be used in a SIMD context, in which the inputs and
+   The same kernels will be used in a SIMD context, in which the inputs and
    outputs must be vectors of VL elements, or in a scalar context, in which the
    inputs and outputs must be scalars.
 
    In our example, the kernel is as follows
 
-   [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-       SmallVectorImpl<Value> &resVals, int64_t VL) {
+   [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
       MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
       Value aVal = inputVals[0];            // simd or scalar
       Value bVal = inputVals[1];            // simd or scalar
@@ -322,7 +321,7 @@ krnl.iterate(loop i from 0 to 256) {
       Value newVal = create.math.add(aVal, bVal); // simd or scalar
       newVal = create.math.add(newVal, cVal); // if newVal is simd, cVal is
                                               // splatted
-      res.emplace_back(newVal); // Save simd or scalar result.
+      return newVal; // Save simd or scalar result.
     }
 
     The krnl.simdIterateIE will be in charge of loading and saving the values in
@@ -497,6 +496,21 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     llvm_unreachable("BUILDER type not supported\n");
   }
 }
+
+/*
+  Note that because reductions are always between 2 values, the reduction
+  function takes 1 input and one temp value, where the temp contains the partial
+  result. So if we have 2 reductions (aka 2 outputs), we also need 2 inputs and
+  2 temp. A call to function reductionBodyFnList[k] (namely the kth entry in the
+  list) will be instantiated with the kth input value and the kth temp, and its
+  result is ultimately saved into the kth output.
+
+  This was not the case for simdIterateIE, where all of the inputs are provided
+  to each of the functions computing one output. Here we only pass a pair of
+  input & temp value to each function.
+
+  This is reflected in the Body types below.
+*/
 
 template <class BUILDER>
 using SimdReductionBodyFn = std::function<mlir::Value(

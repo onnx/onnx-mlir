@@ -104,14 +104,19 @@ struct KrnlBuilder : public DialectBuilder {
      iterations when the trip count is not a multiple of VL. If fullySimd is
      true, then the call assumes that the trip count is a multiple of VL.
 
-     This call needs be given each of the memref inputs to the loop body, given
-     as an ordered pair memref value and its corresponding access function. Same
-     hold for all the memref outputs of the loop body.
+     This simdIterateIE needs be given each of the memref inputs to the loop
+     body, given as an ordered pair memref value and its corresponding access
+     function. Same hold for all the memref outputs of the loop body.
 
-     The loop body is given a KRNL builder, a list of loaded input (same order
-     as the input's memrefs and access functions). It will generate values that
-     must be placed in the result list in the same order as the output's memrefs
-     and access functions.
+     The loop body is constructed by calling each of the KrnlSimdIterateBodyFn
+     given in the list. Each function is responsible for returning one output
+     value. The returned values are eventually stored in the output memrefs at a
+     location given by its respective output access function.
+
+     To generate their output, each KrnlSimdIterateBodyFn function is given
+     a KRNL builder, a list of loaded input (same order
+     as the input's memrefs and access functions), and the current VectorLength
+     (VL). VL is either the original VL or 1 (when executing in scalar mode).
 
      It will be the responsibility of this call to load each of the inputs and
      store each of the outputs. When operating in SIMD mode, every input and
@@ -141,14 +146,15 @@ struct KrnlBuilder : public DialectBuilder {
      scalar per output value. Inputs must be strided in their innermost
      dimensions. Temps are used to hold the temporary results (partial results
      per SIMD lane), and the outputs have the scalar reduction outputs
-     Two functions are given: reductionBuilderFn to perform the partial
-     reductions into the temporary values tmps, finishing with up to VL partial
-     reductions
-     The second function: postProcessingBuilderFn performs the reductions of the
-     up to VL partial reductions into a final scalar reduction to be stored into
-     the outputs (a scalar value). For some reductions, post processing is also
-     needed, for example, mean reduction divide the accumulated sum by the
-     number of elements. That step is also performed here.
+
+     Two function lists are given: a list of reductionBodyFn to perform the
+     partial reductions into the temporary values tmps, finishing with up to VL
+     partial reductions The second list of postReductionBodyFn perform the
+     reductions of the up to VL partial reductions into a final scalar reduction
+     to be stored into the outputs (a scalar value). For some reductions, post
+     processing is also needed, for example, mean reduction divide the
+     accumulated sum by the number of elements. That step is also performed
+     here.
     */
   using KrnlSimdReductionBodyFn = impl::SimdReductionBodyFn<KrnlBuilder>;
   using KrnlSimdPostReductionBodyFn =
