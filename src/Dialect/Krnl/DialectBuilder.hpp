@@ -171,6 +171,14 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList)
       const;
 
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      KrnlSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      KrnlSimdPostReductionBodyFn postReductionBodyFn) const;
+
   void yield(mlir::ValueRange iterArgs) const;
 
   void copyToBuffer(

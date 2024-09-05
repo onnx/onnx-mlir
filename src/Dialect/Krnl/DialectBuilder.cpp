@@ -232,15 +232,27 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
     /* reduction function (simd or scalar) */
-    mlir::ArrayRef<KrnlSimdReductionBodyFn> reductionBodyFnList,
+    ArrayRef<KrnlSimdReductionBodyFn> reductionBodyFnList,
     /* post reduction function (simd to scalar + post processing)*/
-    mlir::ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList) const {
+    ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList) const {
   onnx_mlir::impl::simdReduceIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
       fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
       reductionBodyFnList, postReductionBodyFnList);
 }
 
-void KrnlBuilder::yield(mlir::ValueRange iterArgs) const {
+void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, Value input, DimsExpr inputAF, Value tmp, DimsExpr tmpAF,
+    Value output, DimsExpr outputAF, Value initVal,
+    /* reduction functions (simd or scalar) */
+    KrnlSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    KrnlSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, input, inputAF, tmp, tmpAF, output, outputAF, initVal,
+      reductionBodyFn, postReductionBodyFn);
+}
+
+void KrnlBuilder::yield(ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
 

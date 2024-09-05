@@ -510,6 +510,9 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   input & temp value to each function.
 
   This is reflected in the Body types below.
+
+  Allows calls with no outputs and no post-processing functions. In such case,
+  only perform the reductions into the tmps.
 */
 
 template <class BUILDER>
@@ -534,27 +537,29 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   MultiDialectBuilder<VectorBuilder> create(builder);
   MEM_BUILDER createMem(builder);
 
-  int64_t inputSize = inputs.size();
-  int64_t outputSize = outputs.size();
-  int64_t reductionFnSize = reductionBodyFnList.size();
-  int64_t postReductionFnSize = postReductionBodyFnList.size();
-  assert((int64_t)inputAFs.size() == inputSize && "expect same input size");
-  assert(tmps.size() == tmpAFs.size() && "expect same tmp size");
-  assert((int64_t)outputAFs.size() == outputSize && "expect output same size");
-  assert((int64_t)tmps.size() == outputSize && "expect 1 tmp per output");
-  assert((int64_t)initVals.size() == outputSize && "expect 1 init per output");
-  assert(reductionFnSize == outputSize && "expect 1 red fn per output");
-  assert(postReductionFnSize == outputSize && "expect 1 red fn per output");
+  uint64_t inputSize = inputs.size();
+  uint64_t tmpSize = tmps.size();
+  uint64_t outputSize = outputs.size();
+  // Test same number of values & AFs.
+  assert(inputAFs.size() == inputSize && "expect same input size");
+  assert(tmpAFs.size() == tmpSize && "expect same tmps size");
+  assert(outputAFs.size() == outputSize && "expect output same size");
+  // Same number of init, reduction functions, tmps as input.
+  assert(reductionBodyFnList.size() == inputSize && "1 red fn per input");
+  assert(tmpSize == inputSize && "expect 1 tmp per input");
+  assert(initVals.size() == inputSize && "expect 1 init per input");
+  // Same number of post reductions as output.
+  assert(postReductionBodyFnList.size() == outputSize && "1 red fn per output");
   // Gather element and vector types and perform the inits. Do it in SIMD mode
   // regardless.
   llvm::SmallVector<mlir::VectorType, 4> vectorTypes;
-  for (int64_t o = 0; o < outputSize; ++o) {
-    mlir::Value initVal = initVals[o];
+  for (uint64_t i = 0; i < inputSize; ++i) {
+    mlir::Value initVal = initVals[i];
     mlir::Type elementType = initVal.getType();
     auto vectorType = mlir::VectorType::get({VL}, elementType);
     vectorTypes.emplace_back(vectorType);
     mlir::Value initVec = create.vec.splat(vectorType, initVal);
-    create.vec.storeIE(initVec, tmps[o], tmpAFs[o], {});
+    create.vec.storeIE(initVec, tmps[i], tmpAFs[i], {});
   }
   if (VL > 1) {
     // Logic: see simdIterateIE.
@@ -567,7 +572,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       MultiDialectBuilder<VectorBuilder> create(b);
       // Load inputs in SIMD mode, indexed by loopInd[0] in innermost dim.
       llvm::SmallVector<mlir::Value, 4> inputVals;
-      for (int64_t i = 0; i < inputSize; ++i) {
+      for (uint64_t i = 0; i < inputSize; ++i) {
         auto inputType = mlir::cast<mlir::MemRefType>(inputs[i].getType());
         auto vecType = mlir::VectorType::get({VL}, inputType.getElementType());
         inputVals.emplace_back(
@@ -575,19 +580,19 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       }
       // Load tmp value in SIMD mode  (no indexing, same value over & over).
       llvm::SmallVector<mlir::Value, 4> tmpVals;
-      for (int64_t o = 0; o < outputSize; ++o) {
+      for (uint64_t i = 0; i < inputSize; ++i) {
         tmpVals.emplace_back(
-            create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {}));
+            create.vec.loadIE(vectorTypes[i], tmps[i], tmpAFs[i]));
       }
       // Call reduction, one per function each with their input and tmp value.
       llvm::SmallVector<mlir::Value, 4> resultVals;
-      for (int64_t f = 0; f < outputSize; ++f) {
+      for (uint64_t i = 0; i < inputSize; ++i) {
         resultVals.emplace_back(
-            reductionBodyFnList[f](b, inputVals[f], tmpVals[f], VL));
+            reductionBodyFnList[i](b, inputVals[i], tmpVals[i], VL));
       }
       // Save tmp values in SIMD mode.
-      for (int64_t o = 0; o < outputSize; ++o) {
-        create.vec.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+      for (uint64_t i = 0; i < inputSize; ++i) {
+        create.vec.storeIE(resultVals[i], tmps[i], tmpAFs[i], {});
       }
     };
 
@@ -640,24 +645,24 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       // We now perform sequential reduction in the tmps 1st element. Load
       // inputs in sequential mode indexed by loopInd[0] in innermost dim.
       llvm::SmallVector<mlir::Value, 4> inputVals;
-      for (int64_t i = 0; i < inputSize; ++i) {
+      for (uint64_t i = 0; i < inputSize; ++i) {
         inputVals.emplace_back(
             createMem.loadIE(inputs[i], inputAFs[i], {loopInd[0]}));
       }
       // Load tmps in scalar mode (no indexing, same value over & over).
       llvm::SmallVector<mlir::Value, 4> tmpVals;
-      for (int64_t o = 0; o < outputSize; ++o) {
-        tmpVals.emplace_back(createMem.loadIE(tmps[o], tmpAFs[o], {}));
+      for (uint64_t i = 0; i < inputSize; ++i) {
+        tmpVals.emplace_back(createMem.loadIE(tmps[i], tmpAFs[i]));
       }
       // Call reduction.
       llvm::SmallVector<mlir::Value, 4> resultVals;
-      for (int64_t f = 0; f < outputSize; ++f) {
+      for (uint64_t i = 0; i < inputSize; ++i) {
         resultVals.emplace_back(
-            reductionBodyFnList[f](b, inputVals[f], tmpVals[f], 1));
+            reductionBodyFnList[i](b, inputVals[i], tmpVals[i], 1));
       }
       // Save tmp values in sequential mode.
-      for (int64_t o = 0; o < outputSize; ++o) {
-        createMem.storeIE(resultVals[o], tmps[o], tmpAFs[o], {});
+      for (uint64_t i = 0; i < inputSize; ++i) {
+        createMem.storeIE(resultVals[i], tmps[i], tmpAFs[i]);
       }
     };
 
@@ -674,24 +679,96 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     }
   }
 
+  if (outputSize == 0)
+    return; // No outputs, we are done.
+
   // Now perform post processing. Load all tmps.
+  assert(tmpSize == outputSize && "expect one tmp per output");
   llvm::SmallVector<mlir::Value, 4> tmpVals;
-  for (int64_t o = 0; o < outputSize; ++o) {
+  for (uint64_t o = 0; o < outputSize; ++o) {
     // Load tmp in vector mode.
-    tmpVals.emplace_back(
-        create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o], {}));
+    tmpVals.emplace_back(create.vec.loadIE(vectorTypes[o], tmps[o], tmpAFs[o]));
   }
-  llvm::SmallVector<mlir::Value, 4> scalarOutputs;
+  llvm::SmallVector<mlir::Value, 4> finalResults;
   // Invoke the post processing operations, which takes each tmp vector and
   // reduces it to a scalar.
-  for (int64_t f = 0; f < outputSize; ++f) {
-    scalarOutputs.emplace_back(
-        postReductionBodyFnList[f](builder, tmpVals[f], 1));
+  for (uint64_t o = 0; o < outputSize; ++o) {
+    finalResults.emplace_back(
+        postReductionBodyFnList[o](builder, tmpVals[o], 1));
   }
   // Store the scalar reductions.
-  for (int64_t o = 0; o < outputSize; ++o) {
-    createMem.storeIE(scalarOutputs[o], outputs[o], outputAFs[o]);
+  for (uint64_t o = 0; o < outputSize; ++o) {
+    createMem.storeIE(finalResults[o], outputs[o], outputAFs[o]);
   }
 }
+
+#if 1
+
+template <class BUILDER, class MEM_BUILDER>
+void simdReduce2DIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
+    int64_t VL, bool fullySimd, mlir::Value input, DimsExpr inputAF,
+    mlir::Value tmp, DimsExpr tmpAF, mlir::Value output, DimsExpr outputAF,
+    mlir::Value initVal,
+    /* reduction functions (simd or scalar) */
+    SimdReductionBodyFn<BUILDER> reductionBodyFn,
+    /* post reduction functions (simd to scalar + post processing)*/
+    SimdPostReductionBodyFn<BUILDER> postReductionBodyFn) {
+  // Expect 2D or more input and tmp.
+  auto inputType = mlir::cast<mlir::MemRefType>(input.getType());
+  auto tmpType = mlir::cast<mlir::MemRefType>(tmp.getType());
+  uint64_t inputRank = inputType.getRank();
+  uint64_t tmpRank = tmpType.getRank();
+  assert(inputRank == inputAF.size() && "expected same size");
+  assert(tmpRank == tmpAF.size() && "expected same size");
+  assert(inputRank >= 2 && "expected rank 2D+");
+  assert(tmpRank >= 2 && "expected rank 2D+");
+  mlir::Type elementType = inputType.getElementType();
+
+  // Perform a VL x VL reduction along the innermost 2 dimensions.
+  // Reuse the simdReduceIE functionality to do so.
+  llvm::SmallVector<mlir::Value, 8> newInputs(VL, input);
+  llvm::SmallVector<DimsExpr, 8> newInputAFs(VL, inputAF);
+  llvm::SmallVector<mlir::Value, 8> newTmps(VL, tmp);
+  llvm::SmallVector<DimsExpr, 8> newTmpAFs(VL, tmpAF);
+  llvm::SmallVector<mlir::Value, 8> newInitVals(VL, initVal);
+  llvm::SmallVector<SimdReductionBodyFn<BUILDER>, 8> newReductionBodyFnList(
+      VL, reductionBodyFn);
+
+  // Init the new data structures for VL reductions of VL values
+  uint64_t inputM2 = inputRank - 2;
+  uint64_t tmpM2 = tmpRank - 2;
+  for (int64_t v = 0; v < VL; ++v) {
+    // Each inputs/tmp is offset by 1 in the second to last dim;
+    newInputAFs[v][inputM2] = newInputAFs[v][inputM2] + v;
+    newTmpAFs[v][tmpM2] = newTmpAFs[v][tmpM2] + v;
+  }
+  // Step 1: perform the reduction of VL vectors into VL tmps. No output & post
+  // reduction as we will do it here.
+  builder.simdReduceIE(lb, ub, VL, fullySimd, newInputs, newInputAFs, newTmps,
+      newTmpAFs, {}, {}, newInitVals, newReductionBodyFnList, {});
+
+  // Step 2, perform reduction of VL vectors of VL values into 1 vector of VL.
+  // Load all temp vectors.
+  llvm::SmallVector<mlir::Value, 4> redIn, redOut;
+  MultiDialectBuilder<VectorBuilder> create(builder);
+  mlir::VectorType vecType = mlir::VectorType::get({VL}, elementType);
+  for (int64_t v = 0; v < VL; ++v) {
+    redIn.emplace_back(create.vec.loadIE(vecType, newTmps[v], newTmpAFs[v]));
+  }
+  // Reduce all of the temp vectors at once.
+  auto redFct = [&](mlir::Value a, mlir::Value b) -> mlir::Value {
+    return reductionBodyFn(builder, a, b, VL);
+  };
+  create.vec.multiReduction(redIn, redFct, redOut);
+  // The redOut list should have one value with SIMD of VL.
+  assert(redOut.size() == 1 && "expected only one val");
+  mlir::Value accumulatedVal = redOut[0];
+  // Perform post processing (e.g. division by number of elements).
+  accumulatedVal = postReductionBodyFn(builder, accumulatedVal, VL);
+  // Store final values.
+  create.vec.storeIE(accumulatedVal, output, outputAF);
+}
+
+#endif
 
 } // namespace impl
