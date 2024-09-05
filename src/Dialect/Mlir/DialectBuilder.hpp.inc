@@ -702,8 +702,6 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   }
 }
 
-#if 1
-
 template <class BUILDER, class MEM_BUILDER>
 void simdReduce2DIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     int64_t VL, bool fullySimd, mlir::Value input, DimsExpr inputAF,
@@ -768,7 +766,5 @@ void simdReduce2DIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   // Store final values.
   create.vec.storeIE(accumulatedVal, output, outputAF);
 }
-
-#endif
 
 } // namespace impl

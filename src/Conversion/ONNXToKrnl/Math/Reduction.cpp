@@ -1184,7 +1184,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value tmpBlockedAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange blockedOutLoopInd,
       IndexExpr blockedCurrIndex, Value simdUB, int64_t VL) const {
-#if 1
     IndexExpr zero = LitIE(0);
     IndexExpr lb = zero;
     IndexExpr ub = SymIE(simdUB);
@@ -1210,67 +1209,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             return create.math.div(tmpVal, divisorForMean);
           return tmpVal;
         });
-#else
-    // Init temp memory to init values.
-    Value zero = create.math.constantIndex(0);
-    for (int64_t i = 0; i < VL; ++i) {
-      create.vec.store(
-          initVec, tmpBlockedAlloca, {create.math.constantIndex(i), zero});
-    }
-    // First step: blocked simd loop.
-    ValueRange simdLoopDef = create.krnl.defineLoops(1);
-    ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], VL);
-    create.krnl.iterate(simdLoopDef, {blockedSimdLoopDef[0]}, {zero}, {simdUB},
-        [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
-          MDBuilder create(ck);
-          // Loop over blocked output loop, block guaranteed to be full.
-          for (int64_t i = 0; i < VL; ++i) {
-            IndexExpr offset = LitIE(i);
-            IndexExpr blockLocalIndIE = blockedCurrIndex + offset;
-            Value blockLocalInd = blockLocalIndIE.getValue();
-            // All of the non-blocked loop, plus the inter tile index of the
-            // blocked loop, and the blocked simd loop.
-            SmallVector<Value, 4> inAccessVals =
-                firstFew<Value, 4>(blockedOutLoopInd, -2);
-            inAccessVals.emplace_back(blockLocalInd);
-            inAccessVals.emplace_back(simdLoopInd[0]);
-            Value inputVec = create.vec.load(vecType, flatInput, inAccessVals);
-            // The tmpInd value is between 0 and VL-1, and is local index -
-            // blocked index.
-            Value tmpInd = offset.getValue();
-            Value tmpVec =
-                create.vec.load(vecType, tmpBlockedAlloca, {tmpInd, zero});
-            // Sum into redVec
-            Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
-                rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
-            create.vec.store(accumulatedVec, tmpBlockedAlloca, {tmpInd, zero});
-          } /* intra block output loop */
-        }); /* blocked simd loop */
-    // Step 2
-    // Load all temp vectors.
-    SmallVector<Value, 4> redIn, redOut;
-    for (int64_t i = 0; i < VL; ++i) {
-      Value val = create.vec.load(
-          vecType, tmpBlockedAlloca, {create.math.constantIndex(i), zero});
-      redIn.emplace_back(val);
-    }
-    // Reduce all of the temp vectors at once.
-    auto redFct = [&](Value a, Value b) -> Value {
-      return emitScalarOpFor<ONNXReductionOp>(
-          rewriter, create.getLoc(), op, vecType, {a, b});
-    };
-    create.vec.multiReduction(redIn, redFct, redOut);
-    // The redOut list should have one value with SIMD of VL.
-    assert(redOut.size() == 1 && "expected only one val");
-    Value accumulatedVal = redOut[0];
-    // Perform the mean computation if required.
-    if (divideByMean<ONNXReductionOp>()) {
-      Value divisorForMeanVec = create.vec.splat(vecType, divisorForMean);
-      accumulatedVal = create.math.div(accumulatedVal, divisorForMeanVec);
-    }
-    // Store final values.
-    create.vec.store(accumulatedVal, flatAlloc, blockedOutLoopInd);
-#endif
   }
 
   // Solution when there is no horizontal SIMD op support and that shuffle ops
