@@ -51,7 +51,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               python39-wheel tzdata-java zlib-devel && \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
-               Cython pytest==6.2.5 numpy==2.0.1 pytest-forked==1.4.0 \
+               Cython pytest==6.2.5 numpy==1.21.5 pytest-forked==1.4.0 \
                pytest-xdist==2.5.0 typing-extensions==3.10.0.2 && \
           rm -rf /var/cache/dnf/* && \
           echo -e "/usr/local/lib" > /etc/ld.so.conf.d/local.conf; \
