@@ -3,7 +3,7 @@
 # About
 
 ONNX-MLIR is an open-source project for compiling ONNX models into native code
-on x86, P and Z machines (and more). It is built on top of Multi-Level
+on x86, Power, s390x and other architectures. It is built on top of Multi-Level
 Intermediate Representation (MLIR) compiler infrastructure.
 
 # Slack channel
