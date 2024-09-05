@@ -709,6 +709,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
     int64_t totVL = 1;
+    bool simdOnly = false;
     int64_t simdLoopStaticTripCount = 0;
 
     // With dynamic axes, use this
@@ -762,7 +763,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // of the natural SIMD width. Aka, we don't deal with SIMD of
           // partial vectors.
           GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
-          bool simdOnly, canOverCompute = false;
+          bool canOverCompute = false;
           totVL =
               computeSuitableUnrollFactor(memRefInType, innermostLoopCollapse,
                   mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
@@ -772,11 +773,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
             totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
           }
-          // Current code gen scheme only support SIMD only scheme.
+// Current code gen scheme only support SIMD only scheme.
+#if 1
+          // hi alex: currently fails with krnl to affine when #if 0. Should
+          // consider an affine simd iterate/reduce. onnx-mlir
+          // -shapeInformation=0:4x8 reducemean2.mlir -O3 -march=arm64
           if (!simdOnly) {
             totVL =
                 capVLForSimdOnly(memRefInType, totVL, simdLoopStaticTripCount);
           }
+#endif
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, totVL " << totVL << "\n");
           if (totVL <= 1) {
@@ -913,14 +919,14 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     if (horizontalSimd) {
       if (hasHorizontalSimdSupport) {
         genHorizontalSimdReduction(rewriter, create, op, elementOutType, input,
-            alloc, inRank, outRank, totVL, innermostLoopCollapse, isKeepdims,
-            divisorForMean, enableParallel);
+            alloc, inRank, outRank, totVL, simdOnly, innermostLoopCollapse,
+            isKeepdims, divisorForMean, enableParallel);
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             simdLoopStaticTripCount, "horizontal");
       } else {
         genShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
-            input, alloc, inRank, outRank, totVL, innermostLoopCollapse,
-            isKeepdims, divisorForMean, enableParallel);
+            input, alloc, inRank, outRank, totVL, simdOnly,
+            innermostLoopCollapse, isKeepdims, divisorForMean, enableParallel);
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             simdLoopStaticTripCount, "shuffle-horizontal");
       }
@@ -1061,18 +1067,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   void genOneHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
       Value tmpAlloca, Value flatInput, Value flatAlloc, Value initVec,
-      Value divisorForMean, ValueRange outLoopInd, Value simdUB,
-      int64_t VL) const {
+      Value divisorForMean, ValueRange outLoopInd, Value simdUB, int64_t VL,
+      bool simdOnly) const {
     IndexExpr lb = LitIE(0);
     IndexExpr ub = SymIE(simdUB);
-    bool fullySIMD = true;
     SmallVector<IndexExpr, 4> outputAF = SymListIE(outLoopInd);
     SmallVector<IndexExpr, 4> inputAF = outputAF;
     inputAF.emplace_back(lb);
     SmallVector<IndexExpr, 4> tmpAF(2, lb); // tmpAlloc is 2D
     Value identity = getIdentityValue<ONNXReductionOp>(
         rewriter, create.getLoc(), elementType);
-    create.krnl.simdReduceIE(lb, ub, VL, fullySIMD,
+    create.krnl.simdReduceIE(lb, ub, VL, simdOnly,
         /* inputs*/ {flatInput}, {inputAF},
         /* temp */ {tmpAlloca}, {tmpAF},
         /* output */ {flatAlloc}, {outputAF},
@@ -1101,7 +1106,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   // reductions that needs to be performed.
   void genHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
-      Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
+      Value alloc, int64_t inRank, int64_t outRank, int64_t VL, bool simdOnly,
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
     LLVM_DEBUG(llvm::dbgs() << "gen horizontal simd reduction\n");
@@ -1157,7 +1162,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value initVec = create.vec.splat(vecType, identity);
           genOneHorizontalSimdReduction(rewriter, create, op, elementType,
               vecType, tmpAlloca, flatInput, flatAlloc, initVec, divisorForMean,
-              outLoopInd, simdUB, VL);
+              outLoopInd, simdUB, VL, simdOnly);
         });
   }
 
@@ -1183,12 +1188,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
       Value tmpBlockedAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange blockedOutLoopInd,
-      IndexExpr blockedCurrIndex, Value simdUB, int64_t VL) const {
+      IndexExpr blockedCurrIndex, Value simdUB, int64_t VL,
+      bool simdOnly) const {
     IndexExpr zero = LitIE(0);
     IndexExpr lb = zero;
     IndexExpr ub = SymIE(simdUB);
     int64_t rank = blockedOutLoopInd.size();
-    bool fullySimd = true; // hi alex, enable for more cases.
     DimsExpr inputAF = SymListIE(blockedOutLoopInd);
     inputAF[rank - 1] = blockedCurrIndex;
     inputAF.emplace_back(zero);
@@ -1197,7 +1202,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Value identity = getIdentityValue<ONNXReductionOp>(
         rewriter, create.getLoc(), elementType);
     create.krnl.simdReduce2DIE(
-        lb, ub, VL, fullySimd, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
+        lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
         flatAlloc, outputAF, identity,
         [&](const KrnlBuilder &b, Value inputVal, Value tmpVal, int64_t VL) {
           Type type = VL > 1 ? vecType : elementType;
@@ -1223,7 +1228,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
   void genShuffleHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
-      Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
+      Value alloc, int64_t inRank, int64_t outRank, int64_t VL, bool simdOnly,
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
 
@@ -1316,7 +1321,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                       genOneHorizontalSimdReduction(rewriter, create, op,
                           elementType, vecType, tmpBlockedAlloca, flatInput,
                           flatAlloc, initVec, divisorForMean, outLoopInd,
-                          simdUB, VL);
+                          simdUB, VL, simdOnly);
                     }); /* for inside blocked loop */
               },
               [&](SCFBuilder &scf) {
@@ -1325,7 +1330,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,
                     vecType, tmpBlockedAlloca, flatInput, flatAlloc, initVec,
                     divisorForMean, blockedOutLoopInd, blockedCurrIndex, simdUB,
-                    VL);
+                    VL, simdOnly);
               });
         }); /* blocked out loop */
   }
