@@ -1184,6 +1184,33 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value tmpBlockedAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange blockedOutLoopInd,
       IndexExpr blockedCurrIndex, Value simdUB, int64_t VL) const {
+#if 1
+    IndexExpr zero = LitIE(0);
+    IndexExpr lb = zero;
+    IndexExpr ub = SymIE(simdUB);
+    int64_t rank = blockedOutLoopInd.size();
+    bool fullySimd = true; // hi alex, enable for more cases.
+    DimsExpr inputAF = SymListIE(blockedOutLoopInd);
+    inputAF[rank - 1] = blockedCurrIndex;
+    inputAF.emplace_back(zero);
+    DimsExpr tmpAF = {zero, zero};
+    DimsExpr outputAF = SymListIE(blockedOutLoopInd);
+    Value identity = getIdentityValue<ONNXReductionOp>(
+        rewriter, create.getLoc(), elementType);
+    create.krnl.simdReduce2DIE(
+        lb, ub, VL, fullySimd, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
+        flatAlloc, outputAF, identity,
+        [&](const KrnlBuilder &b, Value inputVal, Value tmpVal, int64_t VL) {
+          Type type = VL > 1 ? vecType : elementType;
+          return emitScalarOpFor<ONNXReductionOp>(
+              rewriter, b.getLoc(), op, type, {tmpVal, inputVal});
+        },
+        [&](const KrnlBuilder &b, Value tmpVal, int VL) {
+          if (divideByMean<ONNXReductionOp>())
+            return create.math.div(tmpVal, divisorForMean);
+          return tmpVal;
+        });
+#else
     // Init temp memory to init values.
     Value zero = create.math.constantIndex(0);
     for (int64_t i = 0; i < VL; ++i) {
@@ -1243,6 +1270,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     }
     // Store final values.
     create.vec.store(accumulatedVal, flatAlloc, blockedOutLoopInd);
+#endif
   }
 
   // Solution when there is no horizontal SIMD op support and that shuffle ops
