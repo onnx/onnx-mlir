@@ -856,17 +856,17 @@ LogicalResult ONNXGroupNormalizationCommon(
          "expected instance norm with input ranks > 2");
   int64_t spacialRank = inputRank - nonSpacialRank;
   int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
+  int64_t numInNorm = layerNormRank - axis;
   int64_t numGroups = groupNormOp.getNumGroups();
 
   // Rewrite.
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
       rewriter, groupNormOp.getLoc());
   int64_t axis = nonSpacialRank;
-  int64_t numInNorm;
   Value Y;
 
   //"numgroups" and "C" should have the same dimension index
-  llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
+  llvm::SmallVector<int64_t, 6> axesList, biasScaleShape;
 
   if constexpr (isNumGroup<OP_TYPE>) {
     // Opset18 Uses "numgroups" the number of groups of channels for the scale
@@ -878,15 +878,13 @@ LogicalResult ONNXGroupNormalizationCommon(
                  << "As shown in the following issue: "
                     "https://github.com/onnx/onnx/issues/5466."
                  << "Rather, use Opset 21 for GroupNormalization instead.\n";
+    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
     biasScaleShape.emplace_back(numGroups);
-    numInNorm = layerNormRank - axis;
   } else {
     // Opset21 Uses "C" the number of channels for the scale and bias
     // Unsqueeze scale/bias from [C] to [1 x C x 1 x ... x 1] with numInNorm
     // 1s.
     biasScaleShape.emplace_back(C);
-    // numInNorm = inputRank - axis;
-    numInNorm = layerNormRank - axis;
   }
 
   for (int64_t i = 1; i <= numInNorm; ++i) {
