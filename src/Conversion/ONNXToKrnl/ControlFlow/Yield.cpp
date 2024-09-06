@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------- Yield.cpp - Lowering Yield Op
-//--------------------===//
+//===--------------------- Yield.cpp - Lowering Yield Op ------------------===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
