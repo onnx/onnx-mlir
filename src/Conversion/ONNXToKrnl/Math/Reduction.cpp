@@ -774,8 +774,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
           }
 // Current code gen scheme only support SIMD only scheme.
-#if 1
-          // hi alex: currently fails with krnl to affine when #if 0. Should
+#define REDUCTION_GENERALIZED_TO_NON_MULTIPLE_OF_VL 0
+#if !REDUCTION_GENERALIZED_TO_NON_MULTIPLE_OF_VL
+          // Currently fails with krnl to affine without this. Should
           // consider an affine simd iterate/reduce. onnx-mlir
           // -shapeInformation=0:4x8 reducemean2.mlir -O3 -march=arm64
           if (!simdOnly) {
