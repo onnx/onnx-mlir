@@ -333,9 +333,7 @@ krnl.iterate(loop i from 0 to 256) {
     (either totVL>1 or 1).
 */
 
-template <class BUILDER>
-using SimdIterateBodyFn = std::function<mlir::Value(
-    const BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
+// Definition of SimdIterateBodyFn, see Mlir/DialectBuilder.hpp
 
 template <class BUILDER, class MEM_BUILDER>
 void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
@@ -515,13 +513,8 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   only perform the reductions into the tmps.
 */
 
-template <class BUILDER>
-using SimdReductionBodyFn = std::function<mlir::Value(
-    const BUILDER &b, mlir::Value inputVal, mlir::Value tmpVal, int64_t VL)>;
-
-template <class BUILDER>
-using SimdPostReductionBodyFn = std::function<mlir::Value(
-    const BUILDER &b, mlir::Value tmpVal, int64_t VL)>;
+// Definition of SimdReductionBodyFn & SimdPostReductionBodyFn, see
+// Mlir/DialectBuilder.hpp
 
 template <class BUILDER, class MEM_BUILDER>
 void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,

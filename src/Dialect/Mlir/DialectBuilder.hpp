@@ -428,6 +428,34 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// Functions definitions for SIMD methods (simdIterate & simdReduce)
+//===----------------------------------------------------------------------===//
+
+namespace impl {
+    
+// For simdIterate: given a list of inputs, create one output value.
+template <class BUILDER>
+using SimdIterateBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
+
+// For simdReduce: take one input & one temp reduction value, and generate the
+// new reduction value.
+template <class BUILDER>
+using SimdReductionBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::Value inputVal, mlir::Value tmpVal, int64_t VL)>;
+
+// For simdReduce: take one temp simd reduction value, create a scalar
+// reduction, and possibly apply post processing to it (e.g. div by number of
+// elements).
+//
+// For simdReduce2D: only the post processing. Reduction is done before.
+template <class BUILDER>
+using SimdPostReductionBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::Value tmpVal, int64_t VL)>;
+
+} // namespace impl
+
+//===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF) Builder
 //===----------------------------------------------------------------------===//
 
@@ -451,24 +479,17 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
 
-  // Using must match impl::SimdIterateBodyFn<BUILDER>. As they are defined in
-  // the .hpp.inc file, their definition is not yet available here.
-  using SCFSimdIterateBodyFn = std::function<mlir::Value(
-      const SCFBuilder &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
   // For detailed description, see KrnlBuilder.hpp file.
+  using SCFSimdIterateBodyFn = impl::SimdIterateBodyFn<SCFBuilder>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::ArrayRef<SCFSimdIterateBodyFn> simdIterateBodyList) const;
 
-  // Using must match impl::SimdReductionBodyFn<BUILDER> and
-  // impl::SimdPostReductionBodyFn<BUILDER>
-  using SCFSimdReductionBodyFn = std::function<mlir::Value(const SCFBuilder &b,
-      mlir::Value inputVal, mlir::Value tmpVal, int64_t VL)>;
-  using SCFSimdPostReductionBodyFn = std::function<mlir::Value(
-      const SCFBuilder &b, mlir::Value tmpVal, int64_t VL)>;
   // For detailed description, see KrnlBuilder.hpp file.
+  using SCFSimdReductionBodyFn = impl::SimdReductionBodyFn<SCFBuilder>;
+  using SCFSimdPostReductionBodyFn = impl::SimdPostReductionBodyFn<SCFBuilder>;
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
