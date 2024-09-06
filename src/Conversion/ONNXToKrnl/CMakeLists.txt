@@ -11,6 +11,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
+  ControlFlow/Yield.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
   Math/CumSum.cpp
