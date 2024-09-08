@@ -258,6 +258,8 @@ target_link_libraries(PyCompile
   OMCompiler
   )
 
-install(TARGETS PyCompile
-  DESTINATION lib
-  )
+if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+  install(TARGETS PyCompile
+    DESTINATION lib
+    )
+endif()

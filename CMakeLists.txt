@@ -12,6 +12,9 @@ option(ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE "Enable ONNXConvTransposeOp decomposi
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
+option(ONNX_MLIR_INSTALL_HEADERS "Install onnx-mlir headers" ON)
+option(ONNX_MLIR_INSTALL_LIBS "Install onnx-mlir libraries" ON)
+option(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS "Install onnx-mlir python bindings" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -167,9 +170,9 @@ set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
 set(pybind11_FIND_QUIETLY ON)
-add_subdirectory(third_party/onnx)
+add_subdirectory(third_party/onnx EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/pybind11)
-add_subdirectory(third_party/rapidcheck)
+add_subdirectory(third_party/rapidcheck EXCLUDE_FROM_ALL)
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   if (ONNX_MLIR_BUILD_INTREE)
