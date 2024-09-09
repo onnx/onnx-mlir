@@ -2002,9 +2002,10 @@ struct ONNXElementwiseUnaryOpLowering
 
     // Insert an allocation for the result of this operation.
     Value alloc;
-    if (isBufferReusable(op->getOperands()[0], outputMemRefType)) {
-      alloc = X;
+    int indexToReuse = whichBufferToReuse(elmsOp->getOperands(), outputMemRefType);
+    if (indexToReuse != -1) {
       op->dump();
+      alloc = operands[indexToReuse];
     } else
       alloc = create.mem.alignedAlloc(
           outputMemRefType, shapeHelper.getOutputDims(), alignment);
