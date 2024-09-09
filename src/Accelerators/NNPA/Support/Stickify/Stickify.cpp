@@ -42,7 +42,7 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
 
 #define ZDNN_MAX_DIMS 4 // number of dims in AIU's Tensor Descriptor
 
-#define CEIL(a, b)                                                            \
+#define CEIL(a, b)                                                             \
   static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 #define MAX(a, b) (((a) < (b)) ? (b) : (a))
@@ -656,7 +656,7 @@ uint32_t convert_data_format(void *input_data, zdnn_data_types in_data_fmt,
     switch (in_data_fmt) {
     case FP32:
       num_fields_converted = fp32_to_dlf16(static_cast<float *>(input_data),
-           static_cast<uint16_t *>(output_data), num_fields);
+          static_cast<uint16_t *>(output_data), num_fields);
       break;
     default:
       break; // something really wrong, get out and return 0
@@ -758,7 +758,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             __builtin_prefetch(
                 reinterpret_cast<void *>(
                     reinterpret_cast<uintptr_t>(in_buf) + input_offset),
-                    0);
+                0);
 #endif
             // used for pushing out_offset from w to w+1 (i.e., +
             // AIU_BYTES_PER_STICK)
@@ -970,7 +970,8 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
                 0);
             __builtin_prefetch(
                 reinterpret_cast<void *>(
-                  reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
+                    reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                    output_offset),
                 1);
 #endif
             fields_to_convert = MIN((ztensor->transformed_desc->dim1 - e1x),

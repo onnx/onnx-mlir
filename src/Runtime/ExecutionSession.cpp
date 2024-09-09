@@ -126,7 +126,7 @@ const std::string *ExecutionSession::queryEntryPoints(
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
   return reinterpret_cast<const std::string *>(
-     _queryEntryPointsFunc(numOfEntryPoints));
+      _queryEntryPointsFunc(numOfEntryPoints));
 }
 
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {

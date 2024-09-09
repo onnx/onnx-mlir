@@ -285,9 +285,8 @@ public:
       }
     }
 
-    Value numOutput =
-        create.llvm.constant(
-             int64Ty, static_cast<int64_t>(outMemRefList.size()));
+    Value numOutput = create.llvm.constant(
+        int64Ty, static_cast<int64_t>(outMemRefList.size()));
     // Assume that OMTensor pointer size is 8
     Value outOmtPtrsArr = create.llvm._alloca(
         omTensorPtrAddrTy, opaquePtrTy, numOutput, /*alignment=*/0);
