@@ -172,7 +172,7 @@ int Command::exec(std::string wdir) const {
 void showCompilePhase(std::string msg) {
   time_t rawTime = 0;
   struct tm *timeInfo;
-  char buffer[80] = "";
+  char buffer[80];
   // Remember first time.
   static time_t firstRawTime;
   static bool hasFirstRawTime = false;
