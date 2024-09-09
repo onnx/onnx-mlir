@@ -89,9 +89,11 @@ target_link_libraries(PyRuntimeC
   )
 llvm_update_compile_flags(PyRuntimeC)
 
-install(TARGETS PyRuntimeC
-  DESTINATION lib
-  )
+if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+  install(TARGETS PyRuntimeC
+    DESTINATION lib
+    )
+endif()
 
 pybind11_add_module(PyCompileAndRuntimeC PyOMCompileExecutionSession.cpp)
 add_dependencies(PyCompileAndRuntimeC onnx_proto)
@@ -116,6 +118,8 @@ target_link_libraries(PyCompileAndRuntimeC
   )
 llvm_update_compile_flags(PyCompileAndRuntimeC)
 
-install(TARGETS PyCompileAndRuntimeC
-  DESTINATION lib
-  )
+if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+  install(TARGETS PyCompileAndRuntimeC
+    DESTINATION lib
+    )
+endif()
