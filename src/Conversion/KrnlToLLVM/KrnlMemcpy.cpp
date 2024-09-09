@@ -4,7 +4,7 @@
 
 //===------ KrnlMemcpy.cpp - Lower KrnlMemcpyOp ---------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -91,7 +91,7 @@ public:
     Value sizeInBytes = create.llvm.mul(elemsToCopy, eltSizeInBytes);
 
     // Is volatile (set to false).
-    Value isVolatile = create.llvm.constant(i1Ty, (int64_t)0);
+    Value isVolatile = create.llvm.constant(i1Ty, static_cast<int64_t>(0));
 
     // Memcpy call
     create.llvm.call(
