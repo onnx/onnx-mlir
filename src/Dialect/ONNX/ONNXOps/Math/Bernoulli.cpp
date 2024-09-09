@@ -4,7 +4,7 @@
 
 //===------------------ Bernoulli.cpp - ONNX Operations -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -35,7 +35,7 @@ LogicalResult ONNXBernoulliOp::inferShapes(
   Type elementType;
   if (getDtypeAttr()) {
     elementType = convertONNXTypeToMLIRType(builder,
-        (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
+        static_cast<onnx::TensorProto_DataType>(getDtypeAttr().getValue().getSExtValue()));
   } else {
     elementType =
         mlir::cast<RankedTensorType>(getInput().getType()).getElementType();

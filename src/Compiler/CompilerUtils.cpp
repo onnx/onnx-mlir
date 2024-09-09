@@ -980,7 +980,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     pm.addInstrumentation(std::make_unique<HeapReporter>(
         heapLogFileame, reportHeapBefore, reportHeapAfter));
   }
-  (void)mlir::applyPassManagerCLOptions(pm);
+  static_cast<void>(mlir::applyPassManagerCLOptions(pm));
 
   if (enableTiming) {
     pm.enableTiming(compileModuleTiming);

@@ -4,7 +4,7 @@
 
 //===-------------------- LRN.cpp - Lowering LRN Op -----------------------===//
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -55,7 +55,7 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
     auto f32Type = FloatType::getF32(rewriter.getContext());
     Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
-        create.math.constant(f32Type, alphaLit / (float)sizeLit);
+        create.math.constant(f32Type, alphaLit / static_cast<float>(sizeLit));
     Value betaValue = create.math.constant(f32Type, betaLit);
 
     Value alloc =

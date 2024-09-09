@@ -4,7 +4,7 @@
 
 //===------ KrnlToLLVMHelper.cpp ------------------------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -142,7 +142,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
   // Set ownership, i.e., free after OMTensor is destroyed.
-  Value owning = create.llvm.constant(int64Ty, (int64_t)outOwning);
+  Value owning = create.llvm.constant(int64Ty, static_cast<int64_t>(outOwning));
 
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
@@ -175,7 +175,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr = create.llvm.getElemPtr(getPointerType(context, int64Ty),
-        int64Ty, sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+        int64Ty, sizesArrayPtr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
@@ -253,14 +253,14 @@ FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
 std::string a2e_s(std::string a_s) {
   std::string r(a_s);
   for (unsigned int i = 0; i < r.size(); i++)
-    r[i] = a2e[(int)r[i]];
+    r[i] = a2e[static_cast<int>(r[i])];
   return r;
 }
 
 std::string e2a_s(std::string e_s) {
   std::string r(e_s);
   for (unsigned int i = 0; i < r.size(); i++)
-    r[i] = e2a[(int)r[i]];
+    r[i] = e2a[static_cast<int>(r[i])];
   return r;
 }
 
@@ -274,7 +274,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
       module, StringRef("__errno_location"), int32PtrTy, {});
   Value errNoPos =
       createLLVM.call(int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}));
-  Value errNoVal = createLLVM.constant(int32Ty, (int64_t)errCode);
+  Value errNoVal = createLLVM.constant(int32Ty, static_cast<int64_t>(errCode));
   createLLVM.store(errNoVal, errNoPos);
 }
 

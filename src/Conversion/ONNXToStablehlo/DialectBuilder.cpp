@@ -48,7 +48,7 @@ Value StablehloBuilder::constant(Type type, double val) const {
             b().create<stablehlo::ConstantOp>(loc(), b().getF64FloatAttr(val));
       })
       .Case<IntegerType>([&](IntegerType elementType) {
-        assert(val == (int64_t)val && "value is ambiguous");
+        assert(val == static_cast<int64_t>(val) && "value is ambiguous");
         unsigned width = elementType.getWidth();
 
         if (width == 1)
@@ -58,11 +58,11 @@ Value StablehloBuilder::constant(Type type, double val) const {
           if (elementType.isUnsignedInteger()) {
             constant = b().create<stablehlo::ConstantOp>(
                 loc(), b().getIntegerAttr(
-                           elementType, APInt(width, (uint64_t)val, false)));
+                           elementType, APInt(width, static_cast<uint64_t>(val), false)));
           } else {
             constant = b().create<stablehlo::ConstantOp>(
                 loc(), b().getIntegerAttr(
-                           elementType, APInt(width, (int64_t)val, true)));
+                           elementType, APInt(width, static_cast<int64_t>(val), true)));
           }
         }
       })
