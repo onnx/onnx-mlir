@@ -1771,6 +1771,18 @@ void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
       reductionFnList, postReductionFnList);
 }
 
+void SCFBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, Value input, DimsExpr inputAF, Value tmp, DimsExpr tmpAF,
+    Value output, DimsExpr outputAF, Value initVal,
+    /* reduction functions (simd or scalar) */
+    SCFSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    SCFSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, input, inputAF, tmp, tmpAF, output, outputAF, initVal,
+      reductionBodyFn, postReductionBodyFn);
+}
+
 //===----------------------------------------------------------------------===//
 // Vector Builder
 //===----------------------------------------------------------------------===//

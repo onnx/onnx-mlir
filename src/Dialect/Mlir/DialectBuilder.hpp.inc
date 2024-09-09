@@ -25,7 +25,7 @@
 // Templates for load / store
 //===----------------------------------------------------------------------===//
 
-namespace impl {
+namespace impl { // Hide support for loads / stores in impl namespace.
 
 template <class BUILDER, class LOAD_OP>
 mlir::Value load(const BUILDER &b, mlir::Value memref, mlir::ValueRange indices,
@@ -83,176 +83,8 @@ void storeIE(const BUILDER &b, mlir::Value val, mlir::Value memref,
   IndexExpr::getValues(indices, indexValues);
   store<BUILDER, STORE_OP>(b, val, memref, indexValues, offsets);
 }
+
 } // namespace impl
-
-//===----------------------------------------------------------------------===//
-// Templates for GenericAffineBuilder
-//===----------------------------------------------------------------------===//
-
-template <class LOAD_OP, class STORE_OP>
-mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(mlir::Value memref,
-    mlir::ValueRange indices, mlir::ValueRange offsets) const {
-  return onnx_mlir::impl::load<GenericAffineBuilder, LOAD_OP>(
-      *this, memref, indices, offsets);
-}
-
-template <class LOAD_OP, class STORE_OP>
-mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
-    mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
-  return onnx_mlir::impl::loadIE<GenericAffineBuilder, LOAD_OP>(
-      *this, memref, indices, offsets);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(mlir::Value val,
-    mlir::Value memref, mlir::ValueRange indices,
-    mlir::ValueRange offsets) const {
-  onnx_mlir::impl::store<GenericAffineBuilder, STORE_OP>(
-      *this, val, memref, indices, offsets);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::storeIE(mlir::Value val,
-    mlir::Value memref, mlir::ArrayRef<IndexExpr> indices,
-    mlir::ValueRange offsets) const {
-  onnx_mlir::impl::storeIE<GenericAffineBuilder, STORE_OP>(
-      *this, val, memref, indices, offsets);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline mlir::Operation *GenericAffineBuilder<LOAD_OP, STORE_OP>::prefetch(
-    mlir::Value memref, mlir::AffineMap map, mlir::ValueRange indices,
-    bool isWrite, unsigned localityHint, bool isDataCache) {
-  llvm::SmallVector<mlir::Value> indexArray(indices);
-  return b().template create<mlir::affine::AffinePrefetchOp>(
-      loc(), memref, map, indexArray, isWrite, localityHint, isDataCache);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
-    IndexExpr ub, int64_t step,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-        builderFn) const {
-  // Transform IndexExpressions into value maps and list of operands.
-  mlir::AffineMap lbMap, ubMap;
-  llvm::SmallVector<mlir::Value, 8> lbOperands, ubOperands;
-  lb.getAffineMapAndOperands(lbMap, lbOperands);
-  ub.getAffineMapAndOperands(ubMap, ubOperands);
-  // Create affine for.
-  b().template create<mlir::affine::AffineForOp>(loc(), lbOperands, lbMap,
-      ubOperands, ubMap, step, mlir::ValueRange{},
-      [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
-          mlir::ValueRange args) {
-        GenericAffineBuilder createAffine(b, loc);
-        builderFn(createAffine, {index});
-        createAffine.yield();
-      });
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopsIE(
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    mlir::ArrayRef<int64_t> steps,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-        builderFn) const {
-  assert(lbs.size() == ubs.size() && "expected identical sizes");
-  assert(lbs.size() == steps.size() && "expected identical sizes");
-  llvm::SmallVector<mlir::Value> loopIndices;
-  recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
-}
-
-// This if then else construct has no arguments to the blocks.
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElseIE(
-    IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
-    mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-    mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn) const {
-  int64_t rank = conditions.size();
-  llvm::SmallVector<mlir::AffineExpr, 4> affineCond;
-  bool allTrue = true;
-  bool allFalse = true;
-  for (IndexExpr c : conditions) {
-    assert(c.isAffine() && "conditions expected to be affine");
-    affineCond.emplace_back(c.getAffineExpr());
-    if (c.isLiteral()) {
-      if (c.getLiteral() < 0) // Inequality is expr >= 0, test if false.
-        allTrue = false;
-      if (c.getLiteral() >= 0) // Inequality is expr >= 0, test if true.
-        allFalse = false;
-    } else {
-      allTrue = allFalse = false;
-    }
-  }
-  llvm::SmallVector<bool, 4> isEq(rank, false);
-  auto inset = mlir::IntegerSet::get(
-      scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
-  llvm::SmallVector<mlir::Value, 8> dimAndSymbolList;
-  scope.getDimAndSymbolList(dimAndSymbolList);
-  auto ifOp = b().template create<mlir::affine::AffineIfOp>(
-      loc(), inset, dimAndSymbolList, true);
-  mlir::Block *thenBlock = ifOp.getThenBlock();
-  mlir::Block *elseBlock = ifOp.getElseBlock();
-  if (!allFalse) {
-    appendToBlock(thenBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(b(), loc());
-      thenFn(createAffine);
-    });
-  }
-  if (!allTrue) {
-    appendToBlock(elseBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(b(), loc());
-      elseFn(createAffine);
-    });
-  }
-}
-
-template <class LOAD_OP, class STORE_OP>
-mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
-    mlir::AffineMap map, mlir::ValueRange operands) const {
-  return b().template create<mlir::affine::AffineApplyOp>(loc(), map, operands);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
-  b().template create<mlir::affine::AffineYieldOp>(loc());
-}
-
-// Support for multiple forLoopIE loops.
-template <class LOAD_OP, class STORE_OP>
-void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForLoopsIE(
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    mlir::ArrayRef<int64_t> steps,
-    llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-        builderFn) const {
-  int d = loopIndices.size();
-  if (d < (int)lbs.size()) {
-    // Issue a loop and recurse again.
-    forLoopIE(lbs[d], ubs[d], steps[d],
-        [&](GenericAffineBuilder &createAffine, mlir::ValueRange loopInd) {
-          loopIndices.emplace_back(loopInd[0]);
-          recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
-        });
-  } else {
-    // Call lambda function
-    GenericAffineBuilder createAffine(b(), loc());
-    builderFn(createAffine, loopIndices);
-  }
-}
-
-// Support for adding blocks.
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
-    mlir::Block *block,
-    mlir::function_ref<void(mlir::ValueRange)> builderFn) const {
-  mlir::OpBuilder::InsertionGuard guard(b());
-  if (block->empty() ||
-      !block->back().mightHaveTrait<mlir::OpTrait::IsTerminator>()) {
-    b().setInsertionPointToEnd(block);
-  } else
-    b().setInsertionPoint(&block->back());
-  builderFn(block->getArguments());
-}
 
 //===----------------------------------------------------------------------===//
 // Templates for SIMD code gen (instantiated for KRNL and SCF builders)
@@ -413,6 +245,10 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
         builder.parallel({blockedLoopDef[0]});
       builder.iterateIE(
           loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+    } else if constexpr (std::is_same<BUILDER, AffineBuilder>::value) {
+      // Use AffineBuilderKrnlMem.
+      // hi alex, add parallel.
+      builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
     } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
       if (useParallel) {
         IndexExpr litVL = LitIE(VL);
@@ -488,6 +324,8 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     // Use KRNL dialect.
     mlir::ValueRange loopDef = builder.defineLoops(1);
     builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+  } else if constexpr (std::is_same<BUILDER, AffineBuilder>::value) {
+    builder.forLoopIE(lb, ub, 1, scalarLoopBody);
   } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
     builder.forLoop(lb.getValue(), ub.getValue(), 1, scalarLoopBody);
   } else {
@@ -598,6 +436,9 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
       builder.iterateIE(
           loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+    } else if constexpr (std::is_same<BUILDER, AffineBuilder>::value) {
+      // Implementation with AffineBuilderKrnlMem.
+      builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
     } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
       // Implementation with SCF.
       builder.forLoop(lb.getValue(), simdUb.getValue(), VL, simdLoopBody);
@@ -664,6 +505,9 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       // Implementation with Krnl.
       mlir::ValueRange loopDef = builder.defineLoops(1);
       builder.iterateIE(loopDef, loopDef, {lb}, {ub}, scalarLoopBody);
+    } else if constexpr (std::is_same<BUILDER, AffineBuilder>::value) {
+      // Implementation with AffineBuilderKrnlMem.
+      builder.forLoopIE(lb, ub, 1, scalarLoopBody);
     } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
       // Implementation with SCF.
       builder.forLoop(lb.getValue(), ub.getValue(), 1, scalarLoopBody);
@@ -761,3 +605,215 @@ void simdReduce2DIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
 }
 
 } // namespace impl
+
+//===----------------------------------------------------------------------===//
+// Templates for GenericAffineBuilder
+//===----------------------------------------------------------------------===//
+
+template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  return onnx_mlir::impl::load<GenericAffineBuilder, LOAD_OP>(
+      *this, memref, indices, offsets);
+}
+
+template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
+    mlir::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  return onnx_mlir::impl::loadIE<GenericAffineBuilder, LOAD_OP>(
+      *this, memref, indices, offsets);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(mlir::Value val,
+    mlir::Value memref, mlir::ValueRange indices,
+    mlir::ValueRange offsets) const {
+  onnx_mlir::impl::store<GenericAffineBuilder, STORE_OP>(
+      *this, val, memref, indices, offsets);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::storeIE(mlir::Value val,
+    mlir::Value memref, mlir::ArrayRef<IndexExpr> indices,
+    mlir::ValueRange offsets) const {
+  onnx_mlir::impl::storeIE<GenericAffineBuilder, STORE_OP>(
+      *this, val, memref, indices, offsets);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline mlir::Operation *GenericAffineBuilder<LOAD_OP, STORE_OP>::prefetch(
+    mlir::Value memref, mlir::AffineMap map, mlir::ValueRange indices,
+    bool isWrite, unsigned localityHint, bool isDataCache) {
+  llvm::SmallVector<mlir::Value> indexArray(indices);
+  return b().template create<mlir::affine::AffinePrefetchOp>(
+      loc(), memref, map, indexArray, isWrite, localityHint, isDataCache);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
+    IndexExpr ub, int64_t step,
+    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+        builderFn) const {
+  // Transform IndexExpressions into value maps and list of operands.
+  mlir::AffineMap lbMap, ubMap;
+  llvm::SmallVector<mlir::Value, 8> lbOperands, ubOperands;
+  lb.getAffineMapAndOperands(lbMap, lbOperands);
+  ub.getAffineMapAndOperands(ubMap, ubOperands);
+  // Create affine for.
+  b().template create<mlir::affine::AffineForOp>(loc(), lbOperands, lbMap,
+      ubOperands, ubMap, step, mlir::ValueRange{},
+      [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
+          mlir::ValueRange args) {
+        GenericAffineBuilder createAffine(b, loc);
+        builderFn(createAffine, {index});
+        createAffine.yield();
+      });
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopsIE(
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    mlir::ArrayRef<int64_t> steps,
+    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+        builderFn) const {
+  assert(lbs.size() == ubs.size() && "expected identical sizes");
+  assert(lbs.size() == steps.size() && "expected identical sizes");
+  llvm::SmallVector<mlir::Value> loopIndices;
+  recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::simdIterateIE(IndexExpr lb,
+    IndexExpr ub, int64_t VL, bool fullySimd, bool useParallel,
+    mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+    mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+    mlir::ArrayRef<GenericAffineSimdIterateBodyFn> bodyFnList) const {
+  onnx_mlir::impl::simdIterateIE<GenericAffineBuilder<LOAD_OP, STORE_OP>,
+      MemRefBuilder>(*this, lb, ub, VL, fullySimd, useParallel, inputs,
+      inputAFs, outputs, outputAFs, bodyFnList);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::simdReduceIE(IndexExpr lb,
+    IndexExpr ub, int64_t VL, bool fullySimd,
+    mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+    mlir::ArrayRef<mlir::Value> tmps, mlir::ArrayRef<DimsExpr> tmpAFs,
+    mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+    mlir::ArrayRef<mlir::Value> initVals,
+    /* reduction function (simd or scalar) */
+    mlir::ArrayRef<GenericAffineSimdReductionBodyFn> reductionFnList,
+    /* post reduction function (simd to scalar + post processing)*/
+    mlir::ArrayRef<GenericAffineSimdPostReductionBodyFn> postReductionFnList)
+    const {
+  onnx_mlir::impl::simdReduceIE<GenericAffineBuilder<LOAD_OP, STORE_OP>,
+      MemRefBuilder>(*this, lb, ub, VL, fullySimd, inputs, inputAFs, tmps,
+      tmpAFs, outputs, outputAFs, initVals, reductionFnList,
+      postReductionFnList);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::simdReduce2DIE(
+    IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd, mlir::Value input,
+    DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF, mlir::Value output,
+    DimsExpr outputAF, mlir::Value initVal,
+    /* reduction functions (simd or scalar) */
+    GenericAffineSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    GenericAffineSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<GenericAffineBuilder<LOAD_OP, STORE_OP>,
+      MemRefBuilder>(*this, lb, ub, VL, fullySimd, input, inputAF, tmp, tmpAF,
+      output, outputAF, initVal, reductionBodyFn, postReductionBodyFn);
+}
+
+// This if then else construct has no arguments to the blocks.
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElseIE(
+    IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
+    mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
+    mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn) const {
+  int64_t rank = conditions.size();
+  llvm::SmallVector<mlir::AffineExpr, 4> affineCond;
+  bool allTrue = true;
+  bool allFalse = true;
+  for (IndexExpr c : conditions) {
+    assert(c.isAffine() && "conditions expected to be affine");
+    affineCond.emplace_back(c.getAffineExpr());
+    if (c.isLiteral()) {
+      if (c.getLiteral() < 0) // Inequality is expr >= 0, test if false.
+        allTrue = false;
+      if (c.getLiteral() >= 0) // Inequality is expr >= 0, test if true.
+        allFalse = false;
+    } else {
+      allTrue = allFalse = false;
+    }
+  }
+  llvm::SmallVector<bool, 4> isEq(rank, false);
+  auto inset = mlir::IntegerSet::get(
+      scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
+  llvm::SmallVector<mlir::Value, 8> dimAndSymbolList;
+  scope.getDimAndSymbolList(dimAndSymbolList);
+  auto ifOp = b().template create<mlir::affine::AffineIfOp>(
+      loc(), inset, dimAndSymbolList, true);
+  mlir::Block *thenBlock = ifOp.getThenBlock();
+  mlir::Block *elseBlock = ifOp.getElseBlock();
+  if (!allFalse) {
+    appendToBlock(thenBlock, [&](mlir::ValueRange args) {
+      GenericAffineBuilder createAffine(b(), loc());
+      thenFn(createAffine);
+    });
+  }
+  if (!allTrue) {
+    appendToBlock(elseBlock, [&](mlir::ValueRange args) {
+      GenericAffineBuilder createAffine(b(), loc());
+      elseFn(createAffine);
+    });
+  }
+}
+
+template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
+    mlir::AffineMap map, mlir::ValueRange operands) const {
+  return b().template create<mlir::affine::AffineApplyOp>(loc(), map, operands);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
+  b().template create<mlir::affine::AffineYieldOp>(loc());
+}
+
+// Support for multiple forLoopIE loops.
+template <class LOAD_OP, class STORE_OP>
+void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForLoopsIE(
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    mlir::ArrayRef<int64_t> steps,
+    llvm::SmallVectorImpl<mlir::Value> &loopIndices,
+    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+        builderFn) const {
+  int d = loopIndices.size();
+  if (d < (int)lbs.size()) {
+    // Issue a loop and recurse again.
+    forLoopIE(lbs[d], ubs[d], steps[d],
+        [&](GenericAffineBuilder &createAffine, mlir::ValueRange loopInd) {
+          loopIndices.emplace_back(loopInd[0]);
+          recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
+        });
+  } else {
+    // Call lambda function
+    GenericAffineBuilder createAffine(b(), loc());
+    builderFn(createAffine, loopIndices);
+  }
+}
+
+// Support for adding blocks.
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
+    mlir::Block *block,
+    mlir::function_ref<void(mlir::ValueRange)> builderFn) const {
+  mlir::OpBuilder::InsertionGuard guard(b());
+  if (block->empty() ||
+      !block->back().mightHaveTrait<mlir::OpTrait::IsTerminator>()) {
+    b().setInsertionPointToEnd(block);
+  } else
+    b().setInsertionPoint(&block->back());
+  builderFn(block->getArguments());
+}

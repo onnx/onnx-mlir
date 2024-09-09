@@ -19,7 +19,7 @@
 #include "src/Support/SmallVectorHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
-#define DEBUG_FORCE_SHUFFLE_REDUCTION 0
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 1
 
 using namespace mlir;
 
@@ -279,9 +279,9 @@ Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
 
 //===----------------------------------------------------------------------===//
 
-using MDBuilder =
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
-        MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder>;
+using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+    MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder,
+    AffineBuilder>; // hi alex
 
 //===----------------------------------------------------------------------===//
 // Helper function to perform reduction when an entire tensor is reduced to a
@@ -1202,7 +1202,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     DimsExpr outputAF = SymListIE(blockedOutLoopInd);
     Value identity = getIdentityValue<ONNXReductionOp>(
         rewriter, create.getLoc(), elementType);
-    create.krnl.simdReduce2DIE(
+    create.affine.simdReduce2DIE(
         lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
         flatAlloc, outputAF, identity,
         [&](const KrnlBuilder &b, Value inputVal, Value tmpVal, int64_t VL) {

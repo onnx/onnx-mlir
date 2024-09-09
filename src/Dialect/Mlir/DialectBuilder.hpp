@@ -432,7 +432,7 @@ private:
 //===----------------------------------------------------------------------===//
 
 namespace impl {
-    
+
 // For simdIterate: given a list of inputs, create one output value.
 template <class BUILDER>
 using SimdIterateBodyFn = std::function<mlir::Value(
@@ -500,6 +500,13 @@ struct SCFBuilder final : DialectBuilder {
       /* post reduction function (simd to scalar + post processing)*/
       mlir::ArrayRef<SCFSimdPostReductionBodyFn> simdPostReductionBodyFnList)
       const;
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      SCFSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      SCFSimdPostReductionBodyFn postReductionBodyFn) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -604,6 +611,36 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::ArrayRef<int64_t> steps,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
           builderFn) const;
+
+  using GenericAffineSimdIterateBodyFn =
+      impl::SimdIterateBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<GenericAffineSimdIterateBodyFn> simdIterateBodyList) const;
+      
+  using GenericAffineSimdReductionBodyFn =
+      impl::SimdReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  using GenericAffineSimdPostReductionBodyFn =
+      impl::SimdPostReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<mlir::Value> initVals,
+      /* reduction function (simd or scalar) */
+      mlir::ArrayRef<GenericAffineSimdReductionBodyFn> simdReductionBodyFnList,
+      /* post reduction function (simd to scalar + post processing)*/
+      mlir::ArrayRef<GenericAffineSimdPostReductionBodyFn>
+          simdPostReductionBodyFnList) const;
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      GenericAffineSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      GenericAffineSimdPostReductionBodyFn postReductionBodyFn) const;
 
   // This if then else construct has no arguments to the blocks.
   void ifThenElseIE(IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
