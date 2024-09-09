@@ -29,6 +29,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 bool isBufferReusable(Value x, MemRefType outputType) {
+  if (disableKrnlBufferReuse)
+    return false;
   if (!x.hasOneUse())
     return false;
 
