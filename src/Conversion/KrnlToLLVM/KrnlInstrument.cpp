@@ -5,7 +5,7 @@
 
 //===------ KrnlInstrument.cpp - Lower KrnlInstrumentOp -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -114,7 +114,7 @@ public:
     SET_INSTRUMENT_OP_NAME_LEN(tagWithLen, opNameLen);
     SET_INSTRUMENT_NODE_NAME_LEN(tagWithLen, nodeNameLen);
     Value tag = create.llvm.constant(
-        IntegerType::get(context, 64), (int64_t)tagWithLen);
+        IntegerType::get(context, 64), static_cast<int64_t>(tagWithLen));
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);

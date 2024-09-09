@@ -172,7 +172,7 @@ int Command::exec(std::string wdir) const {
 void showCompilePhase(std::string msg) {
   time_t rawTime = 0;
   struct tm *timeInfo;
-  char buffer[80] = "";
+  char buffer[80];
   // Remember first time.
   static time_t firstRawTime;
   static bool hasFirstRawTime = false;
@@ -980,7 +980,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     pm.addInstrumentation(std::make_unique<HeapReporter>(
         heapLogFileame, reportHeapBefore, reportHeapAfter));
   }
-  (void)mlir::applyPassManagerCLOptions(pm);
+  static_cast<void>(mlir::applyPassManagerCLOptions(pm));
 
   if (enableTiming) {
     pm.enableTiming(compileModuleTiming);

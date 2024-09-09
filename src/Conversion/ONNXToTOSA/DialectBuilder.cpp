@@ -4,7 +4,7 @@
 
 //====------ DialectBuilder.hpp - TOSA dialect builder --------------------===//
 //
-// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2024 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -129,7 +129,7 @@ Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
 
 Value TosaBuilder::transpose(Value &value, llvm::ArrayRef<int32_t> perm) {
   int64_t valueRank = mlir::cast<RankedTensorType>(value.getType()).getRank();
-  assert((valueRank == (int64_t)perm.size()) &&
+  assert((valueRank == static_cast<int64_t>(perm.size())) &&
          "value and perm vector don't have the same rank");
   // Create Permutation Const
   Value permList = this->getConst(perm, {valueRank});

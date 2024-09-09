@@ -4,7 +4,7 @@
 
 //===------------------ Conv.cpp - ONNX Operations ------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -370,7 +370,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
   int64_t groupNum = convTransposeOp.getGroup();
   llvm::StringRef autoPad = convTransposeOp.getAutoPad();
 
-  Value xValue = (Value)operandAdaptor.getX();
+  Value xValue = static_cast<Value>(operandAdaptor.getX());
   Value wValue = operandAdaptor.getW();
 
   // Basic information.
@@ -530,7 +530,7 @@ LogicalResult ONNXConvOp::verify() {
   }
   if (hasShapeAndRank(X)) {
     auto xShape = mlir::cast<ShapedType>(X.getType()).getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
+    if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
       return emitOpError("Input and filter rank mismatch");
     if (xShape[1] != ShapedType::kDynamic && xShape[1] % g != 0)
       return emitOpError(
@@ -617,7 +617,7 @@ LogicalResult ONNXConvTransposeOp::verify() {
 
   if (hasShapeAndRank(X)) {
     auto xShape = mlir::cast<ShapedType>(X.getType()).getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
+    if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
       return emitOpError("Input and filter rank mismatch");
     if (xShape[1] != ShapedType::kDynamic &&
         wShape[0] != ShapedType::kDynamic && xShape[1] != wShape[0]) {

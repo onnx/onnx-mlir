@@ -125,7 +125,8 @@ const std::string *ExecutionSession::queryEntryPoints(
     int64_t *numOfEntryPoints) const {
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
-  return (const std::string *)_queryEntryPointsFunc(numOfEntryPoints);
+  return reinterpret_cast<const std::string *>(
+      _queryEntryPointsFunc(numOfEntryPoints));
 }
 
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
@@ -170,7 +171,8 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
     omts.emplace_back(inOmt.get());
-  auto *wrappedInput = omTensorListCreate(omts.data(), (int64_t)omts.size());
+  auto *wrappedInput =
+      omTensorListCreate(omts.data(), static_cast<int64_t>(omts.size()));
 
   // Run inference.
   auto *wrappedOutput = _entryPointFunc(wrappedInput);

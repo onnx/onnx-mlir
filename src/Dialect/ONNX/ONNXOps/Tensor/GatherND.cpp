@@ -4,7 +4,7 @@
 
 //===------------------ GatherND.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -73,7 +73,7 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
     for (int64_t i = b + indicesLastDim; i < dataRank; ++i)
       outputDims.emplace_back(dataDims[i]);
 
-  assert((int64_t)outputDims.size() == outputRank &&
+  assert(static_cast<int64_t>(outputDims.size()) == outputRank &&
          "Incorrect shape computation");
 
   setOutputDims(outputDims);

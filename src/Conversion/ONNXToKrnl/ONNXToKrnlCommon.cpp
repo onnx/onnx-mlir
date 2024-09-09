@@ -364,7 +364,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     // Emit krnl.Call to call omTensorSort API
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
-    Value valAscending = create.math.constant(intType, (int64_t)ascending);
+    Value valAscending =
+        create.math.constant(intType, static_cast<int64_t>(ascending));
     SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
     rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
@@ -616,7 +617,7 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
   assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
   if (firstInclusiveDim < 0)
     firstInclusiveDim = 0;
-  if (lastExclusiveDim > (int64_t)lb.size())
+  if (lastExclusiveDim > static_cast<int64_t>(lb.size()))
     lastExclusiveDim = lb.size();
   for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
     IndexExpr tripCount = ub[i] - lb[i];
@@ -793,7 +794,7 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
   }
   // Unless otherwise disabled, here is the estimated trip count.
   if (canOverCompute &&
-      collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
+      collapsedInnermostLoops == static_cast<int64_t>(memRefType.getRank())) {
     // Fully collapsed and can add padding to be fine
     simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
     return maxUnrollVL * archVL;
@@ -837,7 +838,8 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-par" : ""), nodeNameStr.c_str(), comment.c_str(),
-      (long long int)loopLevel, (long long int)parallelLoopTripCount);
+      static_cast<long long int>(loopLevel),
+      static_cast<long long int>(parallelLoopTripCount));
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -857,7 +859,8 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
-      (long long int)vectorLength, (long long int)simdLoopTripCount);
+      static_cast<long long int>(vectorLength),
+      static_cast<long long int>(simdLoopTripCount));
 }
 
 } // namespace onnx_mlir
