@@ -135,7 +135,7 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
               llvm::to_vector<4>(llvm::seq<int64_t>(0, paddedRank - 2)),
               llvm::to_vector<4>(llvm::seq<int64_t>(0, paddedRank - 2)),
               {paddedRank - 1 - oneDPadA}, {paddedRank - 2}),
-          nullptr);
+          /*precision_config*/ nullptr, /*algorithm*/ nullptr);
     else {
       dotProduct = rewriter.create<stablehlo::DotOp>(loc,
           op->getResultTypes().front(), broadcastedA, broadcastedB, nullptr);
