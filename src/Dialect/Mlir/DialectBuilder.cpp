@@ -1721,11 +1721,11 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
-    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
+void SCFBuilder::forLoop(
+    Value lb, Value ub, int64_t step, SCFLoopBodyFn bodyFn) const {
   MathBuilder createMath(*this);
   Value stepVal = createMath.constantIndex(step);
-  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+  b().create<scf::ForOp>(loc(), lb, ub, stepVal, std::nullopt,
       [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
           ValueRange args) {
         SCFBuilder builder(childBuilder, childLoc);
@@ -1734,16 +1734,27 @@ void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
       });
 }
 
-void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
-    ValueRange steps,
-    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
-  b().create<scf::ParallelOp>(loc(), lowerBounds, upperBounds, steps,
+void SCFBuilder::forLoopIE(
+    IndexExpr lb, IndexExpr ub, int64_t step, SCFLoopBodyFn bodyFn) const {
+  forLoop(lb.getValue(), ub.getValue(), step, bodyFn);
+}
+
+void SCFBuilder::parallelLoops(ValueRange lbs, ValueRange ubs, ValueRange steps,
+    SCFLoopBodyFn bodyFn) const {
+  b().create<scf::ParallelOp>(loc(), lbs, ubs, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
         SCFBuilder builder(childBuilder, childLoc);
         bodyFn(builder, inductionVars);
         yield();
       });
+}
+
+void SCFBuilder::parallelLoopIE(
+    IndexExpr lb, IndexExpr ub, int64_t step, SCFLoopBodyFn bodyFn) const {
+  MathBuilder createMath(*this);
+  Value stepVal = createMath.constantIndex(step);
+  parallelLoops({lb.getValue()}, {ub.getValue()}, {stepVal}, bodyFn);
 }
 
 void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
@@ -1754,8 +1765,7 @@ void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<DimsExpr> outputAFs,
     ArrayRef<SCFSimdIterateBodyFn> bodyFnList) const {
   onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
-      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyFnList);
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs, bodyFnList);
 }
 
 void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,

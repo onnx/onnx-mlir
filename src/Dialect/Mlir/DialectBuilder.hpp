@@ -470,15 +470,22 @@ struct SCFBuilder final : DialectBuilder {
   void ifThenElse(mlir::Value cond,
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
-  // Create a for loop.
-  void forLoop(mlir::Value lowerBound, mlir::Value upperBound, int64_t step,
+  // Common loop interface (krnl/affine/scf).
+  using SCFLoopBodyFn =
+      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)>;
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
-  // Create a parallel for loop.
-  void parallelLoops(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
-      mlir::ValueRange steps,
-      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
+  void parallelLoopIE(
+      IndexExpr lb, IndexExpr ub, int64_t step, SCFLoopBodyFn bodyFn) const;
+      // Custom interface
+  void forLoop(
+      mlir::Value lb, mlir::Value ub, int64_t step, SCFLoopBodyFn bodyFn) const;
+  void parallelLoops(mlir::ValueRange lbs, mlir::ValueRange ubs,
+      mlir::ValueRange steps, SCFLoopBodyFn bodyFn) const;
+
   void yield() const;
 
+  // Common simd loop interface (krnl/affine/scf).
   // For detailed description, see KrnlBuilder.hpp file.
   using SCFSimdIterateBodyFn = impl::SimdIterateBodyFn<SCFBuilder>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
@@ -604,14 +611,19 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::ValueRange indices, bool isWrite, unsigned localityHint,
       bool isDataCache = true);
 
+  // Common loop interface (krnl/affine/scf).
+  using GenericAffineLoopBodyFn =
+      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>;
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      GenericAffineLoopBodyFn builderFn) const;
+  void parallelLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      GenericAffineLoopBodyFn builderFn) const;
+      
+  // Custom interface
   void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-      mlir::ArrayRef<int64_t> steps,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const;
 
+  // Common simd loop interface (krnl/affine/scf).
   using GenericAffineSimdIterateBodyFn =
       impl::SimdIterateBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
@@ -619,7 +631,7 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::ArrayRef<GenericAffineSimdIterateBodyFn> simdIterateBodyList) const;
-      
+
   using GenericAffineSimdReductionBodyFn =
       impl::SimdReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
   using GenericAffineSimdPostReductionBodyFn =

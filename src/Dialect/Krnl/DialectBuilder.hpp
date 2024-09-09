@@ -70,11 +70,12 @@ struct KrnlBuilder : public DialectBuilder {
   // Iterate over optimized loops given the original loops, lbs and ubs. Lambda
   // function implement the body of the loop, and receive a KRNL builder and the
   // loop indices.
+  using KrnlLoopBodyFn =
+      mlir::function_ref<void(KrnlBuilder &, mlir::ValueRange)>;
+
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
-      mlir::function_ref<void(
-          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
-          bodyBuilderFn) const;
+      KrnlLoopBodyFn bodyBuilderFn) const;
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
       mlir::ValueRange ubs, mlir::ValueRange inits,
@@ -87,10 +88,7 @@ struct KrnlBuilder : public DialectBuilder {
   // Same versions with Index Expressions for bounds.
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
-      mlir::ArrayRef<IndexExpr> ubs,
-      mlir::function_ref<void(
-          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
-          bodyBuilderFn) const;
+      mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ValueRange inits,
@@ -98,6 +96,13 @@ struct KrnlBuilder : public DialectBuilder {
           mlir::ValueRange blockIters)>
           bodyBuilderFn) const;
 
+  // Common loop interface (krnl/affine/scf).
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      KrnlLoopBodyFn builderFn) const;
+  void parallelLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      KrnlLoopBodyFn builderFn) const;
+
+  // Common simd loop interface (krnl/affine/scf).
   /*
      Iterate over a loop executing the loop body in SIMD mode (of vector length
      VL) from lb to ub. A scalar loop may execute up to VL-1 loop

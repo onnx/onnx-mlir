@@ -237,7 +237,26 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     };
 
     // Invocation of the  (possibly parallel) SIMD loop.
+#if 1
+    if constexpr (std::is_same<BUILDER, KrnlBuilder>::value ||
+                  std::is_same<BUILDER, AffineBuilder>::value ||
+                  std::is_same<BUILDER, SCFBuilder>::value) {
+      if (useParallel)
+        builder.parallelLoopIE(lb, simdUb, VL, simdLoopBody);
+      else
+        builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
+    } else {
+      llvm_unreachable("BUILDER type not supported\n");
+    }
+
+#else
     if constexpr (std::is_same<BUILDER, KrnlBuilder>::value) {
+#if 1
+      if (useParallel)
+        builder.parallelLoopIE(lb, simdUb, VL, simdLoopBody);
+      else
+        builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
+#else
       // Use KRNL interface
       mlir::ValueRange loopDef = builder.defineLoops(1);
       mlir::ValueRange blockedLoopDef = builder.block(loopDef[0], VL);
@@ -245,11 +264,22 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
         builder.parallel({blockedLoopDef[0]});
       builder.iterateIE(
           loopDef, {blockedLoopDef[0]}, {lb}, {simdUb}, simdLoopBody);
+#endif
     } else if constexpr (std::is_same<BUILDER, AffineBuilder>::value) {
       // Use AffineBuilderKrnlMem.
       // hi alex, add parallel.
-      builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
+      if (useParallel)
+        builder.parallelLoopIE(lb, simdUb, VL, simdLoopBody);
+      else
+        builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
     } else if constexpr (std::is_same<BUILDER, SCFBuilder>::value) {
+#if 1
+      if (useParallel)
+        builder.parallelLoopIE(lb, simdUb, VL, simdLoopBody);
+      else
+        builder.forLoopIE(lb, simdUb, VL, simdLoopBody);
+
+#else
       if (useParallel) {
         IndexExpr litVL = LitIE(VL);
         builder.parallelLoops({lb.getValue()}, {simdUb.getValue()},
@@ -257,9 +287,11 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       } else {
         builder.forLoop(lb.getValue(), simdUb.getValue(), VL, simdLoopBody);
       }
+#endif
     } else {
       llvm_unreachable("BUILDER type not supported\n");
     }
+#endif
 
     if (fullySimd)
       // Asserted that we only have SIMD iterations, we are done.
@@ -651,9 +683,7 @@ inline mlir::Operation *GenericAffineBuilder<LOAD_OP, STORE_OP>::prefetch(
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
-    IndexExpr ub, int64_t step,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-        builderFn) const {
+    IndexExpr ub, int64_t step, GenericAffineLoopBodyFn builderFn) const {
   // Transform IndexExpressions into value maps and list of operands.
   mlir::AffineMap lbMap, ubMap;
   llvm::SmallVector<mlir::Value, 8> lbOperands, ubOperands;
@@ -673,13 +703,32 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopsIE(
     mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    mlir::ArrayRef<int64_t> steps,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-        builderFn) const {
+    mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const {
   assert(lbs.size() == ubs.size() && "expected identical sizes");
   assert(lbs.size() == steps.size() && "expected identical sizes");
   llvm::SmallVector<mlir::Value> loopIndices;
   recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::parallelLoopIE(
+    IndexExpr lb, IndexExpr ub, int64_t step,
+    GenericAffineLoopBodyFn builderFn) const {
+  // Transform IndexExpressions into value maps and list of operands.
+  mlir::AffineMap lbMap, ubMap;
+  llvm::SmallVector<mlir::Value, 8> lbOperands, ubOperands;
+  lb.getAffineMapAndOperands(lbMap, lbOperands);
+  ub.getAffineMapAndOperands(ubMap, ubOperands);
+  // Create affine for.
+  b().template create<mlir::affine::AffineParallelOp>(loc(), mlir::TypeRange{},
+      mlir::ValueRange{} /*reduction type and atomic ops*/, lbOperands, {lbMap},
+      ubOperands, {ubMap}, {step},
+      [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
+          mlir::ValueRange args) {
+        GenericAffineBuilder createAffine(b, loc);
+        builderFn(createAffine, {index});
+        createAffine.yield();
+      });
 }
 
 template <class LOAD_OP, class STORE_OP>

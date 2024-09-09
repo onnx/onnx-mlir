@@ -217,6 +217,33 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
       });
 }
 
+void KrnlBuilder::forLoopIE(
+    IndexExpr lb, IndexExpr ub, int64_t step, KrnlLoopBodyFn builderFn) const {
+  ValueRange originalLoopDef = defineLoops(1);
+  llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
+  if (step > 1) {
+    // Block loop by step.
+    ValueRange blockedLoopDef = block(originalLoopDef[0], step);
+    optLoopDef[0] = blockedLoopDef[0];
+  }
+  iterateIE(originalLoopDef, optLoopDef, {lb}, {ub}, builderFn);
+}
+
+void KrnlBuilder::parallelLoopIE(
+    IndexExpr lb, IndexExpr ub, int64_t step, KrnlLoopBodyFn builderFn) const {
+  // Same steps as forLoopIE
+  ValueRange originalLoopDef = defineLoops(1);
+  llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
+  if (step > 1) {
+    // Block loop by step.
+    ValueRange blockedLoopDef = block(originalLoopDef[0], step);
+    optLoopDef[0] = blockedLoopDef[0];
+  }
+  // Set optimized loop to be parallel.
+  parallel(optLoopDef[0]);
+  iterateIE(originalLoopDef, optLoopDef, {lb}, {ub}, builderFn);
+}
+
 void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
