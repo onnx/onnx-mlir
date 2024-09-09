@@ -364,7 +364,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     // Emit krnl.Call to call omTensorSort API
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
-    Value valAscending = create.math.constant(intType, static_cast<int64_t>(ascending));
+    Value valAscending =
+        create.math.constant(intType, static_cast<int64_t>(ascending));
     SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
     rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
@@ -837,7 +838,8 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-par" : ""), nodeNameStr.c_str(), comment.c_str(),
-      static_cast<long long int>(loopLevel), static_cast<long long int>(parallelLoopTripCount));
+      static_cast<long long int>(loopLevel),
+      static_cast<long long int>(parallelLoopTripCount));
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -857,7 +859,8 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
-      static_cast<long long int>(vectorLength), static_cast<long long int>(simdLoopTripCount));
+      static_cast<long long int>(vectorLength),
+      static_cast<long long int>(simdLoopTripCount));
 }
 
 } // namespace onnx_mlir

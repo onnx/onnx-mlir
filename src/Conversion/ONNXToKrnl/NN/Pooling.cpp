@@ -445,7 +445,8 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
             { // Construct inputIndices
               for (int i = 0; i < kernelOffset; ++i)
                 inputIndices.emplace_back(outputIndices[i]);
-              for (int i = kernelOffset; i < static_cast<int>(inputShape.size()); ++i) {
+              for (int i = kernelOffset;
+                   i < static_cast<int>(inputShape.size()); ++i) {
                 int j = i - kernelOffset;
                 DimIndexExpr hp(poolingLoopInd[j]);
                 IndexExpr startH = windowStartExprs[j];

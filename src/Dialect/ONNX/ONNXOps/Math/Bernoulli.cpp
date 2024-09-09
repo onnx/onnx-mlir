@@ -34,8 +34,9 @@ LogicalResult ONNXBernoulliOp::inferShapes(
   }
   Type elementType;
   if (getDtypeAttr()) {
-    elementType = convertONNXTypeToMLIRType(builder,
-        static_cast<onnx::TensorProto_DataType>(getDtypeAttr().getValue().getSExtValue()));
+    elementType = convertONNXTypeToMLIRType(
+        builder, static_cast<onnx::TensorProto_DataType>(
+                     getDtypeAttr().getValue().getSExtValue()));
   } else {
     elementType =
         mlir::cast<RankedTensorType>(getInput().getType()).getElementType();

@@ -147,7 +147,8 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert(static_cast<uint64_t>(len) <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
@@ -302,7 +303,8 @@ void IndexExprBuilder::getIntFromArrayAsSymbols(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert(static_cast<uint64_t>(len) <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
   for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
@@ -319,7 +321,8 @@ void IndexExprBuilder::getIntFromArrayAsDims(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert(static_cast<uint64_t>(len) <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
   for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
@@ -336,7 +339,8 @@ void IndexExprBuilder::getFloatFromArrayAsNonAffine(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert(static_cast<uint64_t>(len) <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
   for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {

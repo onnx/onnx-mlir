@@ -431,7 +431,8 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
                "in affine_map generation.");
         assert((hidden_size % 3) == 0 && "wrong concatenated dimension size.");
         int64_t s = hidden_size / 3;
-        int64_t s_pad = ceil(static_cast<float>(s) / 64) * 64; // ((s + 64 - 1) / 64) * 64;
+        int64_t s_pad =
+            ceil(static_cast<float>(s) / 64) * 64; // ((s + 64 - 1) / 64) * 64;
         int64_t pad_size = s_pad - s;
         AffineExpr constExprS = getAffineConstantExpr(s, b.getContext());
         if (rank == 2) {
@@ -1709,10 +1710,10 @@ struct ZHighToZLowDataConversionLowering
 
     if (enableParallel) {
       int64_t parId;
-      int64_t tripCount =
-          flattenedOutputDims[0].isLiteral()
-              ? std::ceil(flattenedOutputDims[0].getLiteral() / static_cast<float>(archVL))
-              : -1;
+      int64_t tripCount = flattenedOutputDims[0].isLiteral()
+                              ? std::ceil(flattenedOutputDims[0].getLiteral() /
+                                          static_cast<float>(archVL))
+                              : -1;
       if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
               /*min iter for going parallel*/ 1024)) {
         create.krnl.parallel(blockedLoopDef[0]);

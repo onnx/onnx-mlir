@@ -57,12 +57,12 @@ Value StablehloBuilder::constant(Type type, double val) const {
         else {
           if (elementType.isUnsignedInteger()) {
             constant = b().create<stablehlo::ConstantOp>(
-                loc(), b().getIntegerAttr(
-                           elementType, APInt(width, static_cast<uint64_t>(val), false)));
+                loc(), b().getIntegerAttr(elementType,
+                           APInt(width, static_cast<uint64_t>(val), false)));
           } else {
             constant = b().create<stablehlo::ConstantOp>(
-                loc(), b().getIntegerAttr(
-                           elementType, APInt(width, static_cast<int64_t>(val), true)));
+                loc(), b().getIntegerAttr(elementType,
+                           APInt(width, static_cast<int64_t>(val), true)));
           }
         }
       })

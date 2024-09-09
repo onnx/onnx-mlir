@@ -184,7 +184,8 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             // When indices.shape[-1] is equal to (rank(data) - b) the
             // `reshapedDataAccessFct` computed so far has the same number of
             // indices as the rank of 'reshapedData'.
-            assert(static_cast<int64_t>(reshapedDataAccessFct.size()) == reshapedDataRank &&
+            assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==
+                       reshapedDataRank &&
                    "Access function should have the same rank as reshapedData");
 
             if (emitPrintStmts)

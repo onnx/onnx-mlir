@@ -168,8 +168,8 @@ public:
         create.llvm.ifThenElse(/*cond=*/
             [&](LLVMBuilder &createLLVM) {
               // Call OMInitCompatibleAccelX.
-              Value versionNumberVal =
-                  createLLVM.constant(int64Ty, static_cast<int64_t>(versionNumberInHex));
+              Value versionNumberVal = createLLVM.constant(
+                  int64Ty, static_cast<int64_t>(versionNumberInHex));
               Value isCompatible = createLLVM.call(
                   int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
               // Condition: if (OMInitCompatibleAccelX() == 0)
@@ -240,8 +240,9 @@ public:
     // Start with param 1 because 0 is the return value.
     for (size_t i = 1; i < wrappedStaticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
-      Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
-          opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i) - 1});
+      Value omTensorPtrAddr =
+          create.llvm.getElemPtr(omTensorPtrAddrTy, opaquePtrTy, omTensorPtrArr,
+              ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i) - 1});
       Value omTensorPtr = create.llvm.load(opaquePtrTy, omTensorPtrAddr);
 
       // Create a (static) memref type corresponding to the i-th memref input to
@@ -285,7 +286,8 @@ public:
     }
 
     Value numOutput =
-        create.llvm.constant(int64Ty, static_cast<int64_t>(outMemRefList.size()));
+        create.llvm.constant(
+             int64Ty, static_cast<int64_t>(outMemRefList.size()));
     // Assume that OMTensor pointer size is 8
     Value outOmtPtrsArr = create.llvm._alloca(
         omTensorPtrAddrTy, opaquePtrTy, numOutput, /*alignment=*/0);
@@ -309,8 +311,9 @@ public:
           origOutputMemRefTypes[i].getElementType(), outOMTensor, outOwning,
           rewriter, loc, apiRegistry, module);
 
-      Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
-          opaquePtrTy, outOmtPtrsArr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
+      Value omTensorPtrAddr =
+          create.llvm.getElemPtr(omTensorPtrAddrTy, opaquePtrTy, outOmtPtrsArr,
+              ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
@@ -462,9 +465,9 @@ private:
         RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
     for (int64_t i = 0; i < inputNum; ++i) {
       // Call API function to retrieve the i-th omTensor.
-      Value omTensorPtrAddr =
-          create.llvm.getElemPtr(getPointerType(context, opaquePtrTy),
-              opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
+      Value omTensorPtrAddr = create.llvm.getElemPtr(
+          getPointerType(context, opaquePtrTy), opaquePtrTy, omTensorPtrArr,
+          ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
       Value omTensorPtr = create.llvm.load(opaquePtrTy, omTensorPtrAddr);
 
       // Verify data type.
@@ -499,9 +502,10 @@ private:
           RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
       for (int d = 0; d < rank; ++d) {
         // Get actual dimension size.
-        Value actualDim = create.llvm.load(int64Ty,
-            create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-                sizesArrayPtr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(d)}));
+        Value actualDim = create.llvm.load(
+            int64Ty, create.llvm.getElemPtr(getPointerType(context, int64Ty),
+                         int64Ty, sizesArrayPtr,
+                         ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(d)}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");
@@ -512,7 +516,8 @@ private:
           // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/
               [&](LLVMBuilder &createLLVM) {
-                Value zero = createLLVM.constant(int64Ty, static_cast<int64_t>(d));
+                Value zero =
+                    createLLVM.constant(int64Ty, static_cast<int64_t>(d));
                 return createLLVM.icmp(
                     LLVM::ICmpPredicate::slt, actualDim, zero);
               }, /*then=*/
@@ -533,7 +538,8 @@ private:
                     create.llvm.null(getI8PointerType(context)));
               });
         } else {
-          Value referenceDim = create.llvm.constant(int64Ty, static_cast<int64_t>(dim));
+          Value referenceDim =
+              create.llvm.constant(int64Ty, static_cast<int64_t>(dim));
           equalOrFailed(module, rewriter, loc, referenceDim, actualDim,
               "Wrong size for the dimension " + std::to_string(d) +
                   " of the input " + std::to_string(i) + ": expect " +

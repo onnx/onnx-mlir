@@ -42,14 +42,16 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
 
 #define ZDNN_MAX_DIMS 4 // number of dims in AIU's Tensor Descriptor
 
-#define CEIL(a, b) static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
+#define CEIL(a, b)                                                            \
+  static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 #define MAX(a, b) (((a) < (b)) ? (b) : (a))
 #define BIT_SIZEOF(a) (sizeof(a) * 8)
 
 // padded = next multiple of AIU_2BYTE_CELLS_PER_STICK
 #define PADDED(x)                                                              \
-  (static_cast<uint32_t>(CEIL((x), AIU_2BYTE_CELLS_PER_STICK)) * AIU_2BYTE_CELLS_PER_STICK)
+  (static_cast<uint32_t>(CEIL((x), AIU_2BYTE_CELLS_PER_STICK)) *               \
+      AIU_2BYTE_CELLS_PER_STICK)
 #define ZDNN_STATUS_OK ZDNN_OK
 
 typedef enum elements_mode {
@@ -243,8 +245,9 @@ void *malloc_aligned_4k(size_t size) {
   }
 
   // find the 4k boundary after ptr
-  void *aligned_ptr = reinterpret_cast<void *>(((reinterpret_cast<uintptr_t>(ptr) + extra_allocation) &
-                               ~(AIU_PAGESIZE_IN_BYTES - 1)));
+  void *aligned_ptr = reinterpret_cast<void *>(
+      ((reinterpret_cast<uintptr_t>(ptr) + extra_allocation) &
+          ~(AIU_PAGESIZE_IN_BYTES - 1)));
   // put the original malloc'd address right before aligned_ptr
   (static_cast<void **>(aligned_ptr))[-1] = ptr;
 
@@ -652,8 +655,8 @@ uint32_t convert_data_format(void *input_data, zdnn_data_types in_data_fmt,
   if (out_data_fmt == ZDNN_DLFLOAT16) {
     switch (in_data_fmt) {
     case FP32:
-      num_fields_converted = fp32_to_dlf16(
-          static_cast<float *>(input_data), static_cast<uint16_t *>(output_data), num_fields);
+      num_fields_converted = fp32_to_dlf16(static_cast<float *>(input_data),
+           static_cast<uint16_t *>(output_data), num_fields);
       break;
     default:
       break; // something really wrong, get out and return 0
@@ -662,8 +665,8 @@ uint32_t convert_data_format(void *input_data, zdnn_data_types in_data_fmt,
   } else if (in_data_fmt == ZDNN_DLFLOAT16) {
     switch (out_data_fmt) {
     case FP32:
-      num_fields_converted = dlf16_to_fp32(
-          static_cast<uint16_t *>(input_data), static_cast<float *>(output_data), num_fields);
+      num_fields_converted = dlf16_to_fp32(static_cast<uint16_t *>(input_data),
+          static_cast<float *>(output_data), num_fields);
       break;
     default:
       break; // something really wrong, get out and return 0
@@ -749,9 +752,13 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
 #if defined(__MVS__)
-            __dcbt(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset));
+            __dcbt(reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(in_buf) + input_offset));
 #else
-            __builtin_prefetch(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset), 0);
+            __builtin_prefetch(
+                reinterpret_cast<void *>(
+                    reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+                    0);
 #endif
             // used for pushing out_offset from w to w+1 (i.e., +
             // AIU_BYTES_PER_STICK)
@@ -764,18 +771,26 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
 #if defined(__MVS__)
-              __dcbtst(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
+              __dcbtst(reinterpret_cast<void *>(
+                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                  output_offset));
 #else
               __builtin_prefetch(
-                  reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset), 1);
+                  reinterpret_cast<void *>(
+                      reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                      output_offset),
+                  1);
 #endif
               fields_to_convert = MIN((ztensor->transformed_desc->dim1 - e1x),
                   AIU_2BYTE_CELLS_PER_STICK);
 
               nbr_fields_converted = convert_data_format(
-                  reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+                  reinterpret_cast<void *>(
+                      reinterpret_cast<uintptr_t>(in_buf) + input_offset),
                   ztensor->pre_transformed_desc->type,
-                  reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
+                  reinterpret_cast<void *>(
+                      reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                      output_offset),
                   ztensor->transformed_desc->type, fields_to_convert);
 
               if (nbr_fields_converted == 0) {
@@ -785,7 +800,9 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
               // Release L1 cacheline for stick. The next "touch" will be
               // from NNPA, and it doesn't need L1 caching.
 #if defined(__MVS__)
-              __dcbf(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
+              __dcbf(reinterpret_cast<void *>(
+                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                  output_offset));
 #else
 // No known equivalent fn without dropping to ASM....
 #endif
@@ -846,15 +863,20 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
 #if defined(__MVS__)
-            __dcbt(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset));
+            __dcbt(reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(in_buf) + input_offset));
 #else
-            __builtin_prefetch(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset), 0);
+            __builtin_prefetch(
+                reinterpret_cast<void *>(
+                    reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+                0);
 #endif
 
-            nbr_fields_converted =
-                convert_data_format(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset),
-                    ztensor->pre_transformed_desc->type, temp_buff,
-                    ztensor->transformed_desc->type, fields_to_convert);
+            nbr_fields_converted = convert_data_format(
+                reinterpret_cast<void *>(
+                    reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+                ztensor->pre_transformed_desc->type, temp_buff,
+                ztensor->transformed_desc->type, fields_to_convert);
 
             if (nbr_fields_converted == 0) {
               return ZDNN_CONVERT_FAILURE;
@@ -867,14 +889,20 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
 #if defined(__MVS__)
-              __dcbtst(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
+              __dcbtst(reinterpret_cast<void *>(
+                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                  output_offset));
 #else
               __builtin_prefetch(
-                  reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset), 1);
+                  reinterpret_cast<void *>(
+                      reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                      output_offset),
+                  1);
 #endif
 
-              *reinterpret_cast<uint16_t *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset) =
-                  temp_buff[w];
+              *reinterpret_cast<uint16_t *>(
+                  reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                  output_offset) = temp_buff[w];
               // go to same C location of the next stick
               output_offset += AIU_BYTES_PER_STICK;
             }
@@ -931,12 +959,19 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // Also, Prefetch the new output offset to write that HW wouldn't
             // know about.
 #if defined(__MVS__)
-            __dcbt(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset));
-            __dcbtst(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
+            __dcbt(reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(in_buf) + input_offset));
+            __dcbtst(reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
 #else
-            __builtin_prefetch(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset), 0);
             __builtin_prefetch(
-                reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset), 1);
+                reinterpret_cast<void *>(
+                    reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+                0);
+            __builtin_prefetch(
+                reinterpret_cast<void *>(
+                  reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
+                1);
 #endif
             fields_to_convert = MIN((ztensor->transformed_desc->dim1 - e1x),
                 AIU_2BYTE_CELLS_PER_STICK);
@@ -944,7 +979,9 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             nbr_fields_converted =
                 convert_data_format((void *)((uintptr_t)in_buf + input_offset),
                     ztensor->pre_transformed_desc->type,
-                    reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
+                    reinterpret_cast<void *>(
+                        reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                        output_offset),
                     ztensor->transformed_desc->type, fields_to_convert);
 
             if (nbr_fields_converted == 0) {
@@ -1040,33 +1077,43 @@ zdnn_status transform_bidir_weight_ztensor(
 
     for (uint32_t e2x = 0; e2x < real_dim2; e2x++) {
 #if defined(__MVS__)
-      __dcbt(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset));
+      __dcbt(reinterpret_cast<void *>(
+          reinterpret_cast<uintptr_t>(in_buf) + input_offset));
 #else
-      __builtin_prefetch(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset), 0);
+      __builtin_prefetch(
+          reinterpret_cast<void *>(
+              reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+          0);
 #endif
       uint64_t out_offset_w = output_offset;
 
       for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
            e1x += AIU_2BYTE_CELLS_PER_STICK) {
 #if defined(__MVS__)
-        __dcbtst(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
+        __dcbtst(reinterpret_cast<void *>(
+            reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
 #else
         __builtin_prefetch(
-            reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset), 1);
+            reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
+            1);
 #endif
         fields_to_convert = MIN(
             (ztensor->transformed_desc->dim1 - e1x), AIU_2BYTE_CELLS_PER_STICK);
 
-        nbr_fields_converted =
-            convert_data_format(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(in_buf) + input_offset),
-                ztensor->pre_transformed_desc->type,
-                reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
-                ztensor->transformed_desc->type, fields_to_convert);
+        nbr_fields_converted = convert_data_format(
+            reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+            ztensor->pre_transformed_desc->type,
+            reinterpret_cast<void *>(
+                reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset),
+            ztensor->transformed_desc->type, fields_to_convert);
 
         if (nbr_fields_converted == 0)
           return ZDNN_CONVERT_FAILURE;
 #if defined(__MVS__)
-        __dcbf(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
+        __dcbf(reinterpret_cast<void *>(
+            reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
 #else
 #endif
         input_offset += (nbr_fields_converted << input_cell_shift);
@@ -1132,7 +1179,8 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
    * b) buffer does not start on a 4k boundary
    * c) buffer_size is smaller than what's needed
    */
-  if (!ztensor->buffer || reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF ||
+  if (!ztensor->buffer ||
+      reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF ||
       ztensor->buffer_size < getsize_ztensor(ztensor->transformed_desc)) {
     return ZDNN_INVALID_BUFFER;
   }
@@ -1290,9 +1338,9 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
       for (uint32_t slice = 0; slice < num_slices; slice++) {
         for (uint8_t gate = 0; gate < num_gates; gate++) {
           // Points to a single slice of a single gate data.
-          const void *gate_data_slice =
-              reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(gate_data[gate]) +
-                       (slice * sliced_gate_data_size));
+          const void *gate_data_slice = reinterpret_cast<void *>(
+              reinterpret_cast<uintptr_t>(gate_data[gate]) +
+              (slice * sliced_gate_data_size));
 
           // Transform the current slice of the current gate into final
           // ztensor
@@ -1310,8 +1358,9 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
           // Increment the temp_ztensor buffer by one sliced gate size
           // so we write to the correct location in the final output
           // ztensor.
-          temp_ztensor.buffer = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(temp_ztensor.buffer) +
-                                         sliced_gate_buffer_size);
+          temp_ztensor.buffer = reinterpret_cast<void *>(
+              reinterpret_cast<uintptr_t>(temp_ztensor.buffer) +
+              sliced_gate_buffer_size);
 
           // Reset temp_ztensor is_transformed so we can recursively
           // call zdnn_transform_ztensor to process each slice of each

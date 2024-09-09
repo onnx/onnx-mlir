@@ -1189,7 +1189,8 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
         return onnxToZHighUnsupportedReport(op, message);
       }
       // height_out restriction.
-      int64_t reqOutputShape = ceil(static_cast<float>(inputDim - kernelDim + 1) / stride);
+      int64_t reqOutputShape =
+          ceil(static_cast<float>(inputDim - kernelDim + 1) / stride);
       if (outputDim != reqOutputShape) {
         std::string message =
             "When the strides (" + std::to_string(stride) +

@@ -925,8 +925,8 @@ public:
       actType = NNPA_SOFTMAX_LOG;
     else
       llvm_unreachable("Unsupported activation function");
-    Value actFunc =
-        create.llvm.constant(rewriter.getI64Type(), static_cast<int64_t>(actType));
+    Value actFunc = create.llvm.constant(
+        rewriter.getI64Type(), static_cast<int64_t>(actType));
 
     // Create the output zTensor.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
@@ -1057,8 +1057,8 @@ public:
       op_type = create.llvm.constant(
           llvmI64Ty, static_cast<int64_t>(NNPA_MATMUL_BCAST_OP_ADDITION));
     else
-      op_type =
-          create.llvm.constant(llvmI64Ty, static_cast<int64_t>(NNPA_MATMUL_OP_ADDITION));
+      op_type = create.llvm.constant(
+          llvmI64Ty, static_cast<int64_t>(NNPA_MATMUL_OP_ADDITION));
     // Output
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     if (stacked || broadcasting)
@@ -1145,10 +1145,12 @@ public:
         convOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(kernelShapeArrayAttr[0]).getInt()));
+        static_cast<int64_t>(
+            mlir::cast<IntegerAttr>(kernelShapeArrayAttr[0]).getInt()));
     // kernel width
     Value KW = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(kernelShapeArrayAttr[1]).getInt()));
+        static_cast<int64_t>(
+            mlir::cast<IntegerAttr>(kernelShapeArrayAttr[1]).getInt()));
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1187,10 +1189,12 @@ public:
 
     // Strides
     ArrayRef<Attribute> strideArrayAttr = convOp.getStrides().getValue();
-    Value strideHeight = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(strideArrayAttr[0]).getInt()));
-    Value strideWidth = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(strideArrayAttr[1]).getInt()));
+    Value strideHeight = create.llvm.constant(
+        llvmI64Ty, static_cast<int64_t>(
+                       mlir::cast<IntegerAttr>(strideArrayAttr[0]).getInt()));
+    Value strideWidth = create.llvm.constant(
+        llvmI64Ty, static_cast<int64_t>(
+                       mlir::cast<IntegerAttr>(strideArrayAttr[1]).getInt()));
 
     // Activation function.
     Value actFunc;
@@ -1293,10 +1297,12 @@ public:
         poolOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(kernelShapeArrayAttr[0]).getInt()));
+        static_cast<int64_t>(
+            mlir::cast<IntegerAttr>(kernelShapeArrayAttr[0]).getInt()));
     // kernel width
     Value KW = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(kernelShapeArrayAttr[1]).getInt()));
+        static_cast<int64_t>(
+            mlir::cast<IntegerAttr>(kernelShapeArrayAttr[1]).getInt()));
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1321,10 +1327,12 @@ public:
 
     // Strides
     ArrayRef<Attribute> strideArrayAttr = poolOp.getStrides().getValue();
-    Value strideHeight = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(strideArrayAttr[0]).getInt()));
-    Value strideWidth = create.llvm.constant(llvmI64Ty,
-        static_cast<int64_t>(mlir::cast<IntegerAttr>(strideArrayAttr[1]).getInt()));
+    Value strideHeight = create.llvm.constant(
+        llvmI64Ty, static_cast<int64_t>(
+                       mlir::cast<IntegerAttr>(strideArrayAttr[0]).getInt()));
+    Value strideWidth = create.llvm.constant(
+        llvmI64Ty, static_cast<int64_t>(
+                       mlir::cast<IntegerAttr>(strideArrayAttr[1]).getInt()));
 
     // Create zTensor for output.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(output);
@@ -1602,8 +1610,10 @@ public:
 
         // Emit code for zero case.
         rewriter.setInsertionPointToEnd(trueBlock);
-        Value cf0 = create.llvm.constant(f32Ty, static_cast<float>(0.000000e+00));
-        Value cfm0 = create.llvm.constant(f32Ty, static_cast<float>(-0.000000e+00));
+        Value cf0 =
+            create.llvm.constant(f32Ty, static_cast<float>(0.000000e+00));
+        Value cfm0 =
+            create.llvm.constant(f32Ty, static_cast<float>(-0.000000e+00));
         Value c32768 = create.llvm.constant(i32Ty, static_cast<int64_t>(32768));
         Value v20 = create.llvm.andi(inputI32, c32768);
         Value v21 = create.llvm.icmp(LLVM::ICmpPredicate::eq, v20, c0);
@@ -1618,7 +1628,8 @@ public:
               condBlock->splitBlock(rewriter.getInsertionPoint());
 
           rewriter.setInsertionPointToEnd(condBlock);
-          Value nan = create.llvm.constant(f32Ty, static_cast<float>(0x7FC00000));
+          Value nan =
+              create.llvm.constant(f32Ty, static_cast<float>(0x7FC00000));
           Value inf = create.llvm.constant(i32Ty, static_cast<int64_t>(32767));
           Value v19Inf = create.llvm.icmp(LLVM::ICmpPredicate::eq, v19, inf);
           // Emit `if (v19 == inf) then endBlock(nan) else defaultBlock`
@@ -1630,9 +1641,12 @@ public:
           Value c16 = create.llvm.constant(i32Ty, static_cast<int64_t>(16));
           Value cm2147483648 =
               create.llvm.constant(i32Ty, static_cast<int64_t>(-2147483648));
-          Value c528482304 = create.llvm.constant(i32Ty, static_cast<int64_t>(528482304));
-          Value c805306368 = create.llvm.constant(i32Ty, static_cast<int64_t>(805306368));
-          Value c8372224 = create.llvm.constant(i32Ty, static_cast<int64_t>(8372224));
+          Value c528482304 =
+              create.llvm.constant(i32Ty, static_cast<int64_t>(528482304));
+          Value c805306368 =
+              create.llvm.constant(i32Ty, static_cast<int64_t>(805306368));
+          Value c8372224 =
+              create.llvm.constant(i32Ty, static_cast<int64_t>(8372224));
           Value v23 = create.llvm.shl(inputI32, c16);
           Value v24 = create.llvm.andi(v23, cm2147483648);
           Value v25 = create.llvm.shl(inputI32, c14);
@@ -1741,10 +1755,14 @@ public:
         Value c32767 = create.llvm.constant(i32Ty, static_cast<int64_t>(32767));
         Value c32768 = create.llvm.constant(i32Ty, static_cast<int64_t>(32768));
         Value c32256 = create.llvm.constant(i32Ty, static_cast<int64_t>(32256));
-        Value c8388607 = create.llvm.constant(i32Ty, static_cast<int64_t>(8388607));
-        Value c8380415 = create.llvm.constant(i32Ty, static_cast<int64_t>(8380415));
-        Value c1342152704 = create.llvm.constant(i32Ty, static_cast<int64_t>(1342152704));
-        Value c2147475456 = create.llvm.constant(i32Ty, static_cast<int64_t>(2147475456));
+        Value c8388607 =
+            create.llvm.constant(i32Ty, static_cast<int64_t>(8388607));
+        Value c8380415 =
+            create.llvm.constant(i32Ty, static_cast<int64_t>(8380415));
+        Value c1342152704 =
+            create.llvm.constant(i32Ty, static_cast<int64_t>(1342152704));
+        Value c2147475456 =
+            create.llvm.constant(i32Ty, static_cast<int64_t>(2147475456));
         Value cm1 = create.llvm.constant(i32Ty, static_cast<int64_t>(-1));
         Value cm95 = create.llvm.constant(i32Ty, static_cast<int64_t>(-95));
         Value cm96 = create.llvm.constant(i32Ty, static_cast<int64_t>(-96));

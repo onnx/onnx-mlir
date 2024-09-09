@@ -1160,9 +1160,10 @@ public:
     ShapedType resultType = mlir::cast<ShapedType>(powOp.getZ().getType());
     Type elementType = getElementType(resultType);
     if (exponent == 0) {
-      Attribute one = isa<FloatType>(elementType)
-                          ? static_cast<Attribute>(rewriter.getFloatAttr(elementType, 1.0))
-                          : static_cast<Attribute>(rewriter.getIntegerAttr(elementType, 1));
+      Attribute one =
+          isa<FloatType>(elementType)
+              ? static_cast<Attribute>(rewriter.getFloatAttr(elementType, 1.0))
+              : static_cast<Attribute>(rewriter.getIntegerAttr(elementType, 1));
       result = create.onnx.constant(DenseElementsAttr::get(resultType, one));
     } else {
       // calculate pow(input,exponent) with "exponentiation by squaring" method
