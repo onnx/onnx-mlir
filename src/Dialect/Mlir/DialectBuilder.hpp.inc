@@ -368,7 +368,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     auto vectorType = mlir::VectorType::get({VL}, elementType);
     vectorTypes.emplace_back(vectorType);
     mlir::Value initVec = create.vec.splat(vectorType, initVal);
-    create.vec.storeIE(initVec, tmps[i], tmpAFs[i], {});
+    create.vec.storeIE(initVec, tmps[i], tmpAFs[i]);
   }
   if (VL > 1) {
     // Logic: see simdIterateIE.
@@ -401,7 +401,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       }
       // Save tmp values in SIMD mode.
       for (uint64_t i = 0; i < inputSize; ++i) {
-        create.vec.storeIE(resultVals[i], tmps[i], tmpAFs[i], {});
+        create.vec.storeIE(resultVals[i], tmps[i], tmpAFs[i]);
       }
     };
 

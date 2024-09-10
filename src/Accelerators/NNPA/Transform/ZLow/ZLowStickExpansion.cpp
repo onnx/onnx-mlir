@@ -261,7 +261,7 @@ public:
                       // Store f32 values back to the (normal layout) output.
                       DimsExpr outputAF = SymListIE(inputAF);
                       outputAF[E1] = outputAF[E1] + l;
-                      create.vec.storeIE(vecF32H, alloc, outputAF, {});
+                      create.vec.storeIE(vecF32H, alloc, outputAF);
                       create.vec.storeIE(
                           vecF32L, alloc, outputAF, {litArchVLHalf.getValue()});
                     });
@@ -277,8 +277,8 @@ public:
                 Value vecF32L = convertOp.getResult(1);
                 // Save into archVL value buffer.
                 Value bufferF32 = create.mem.alignedAlloca(bufferType);
-                create.vec.storeIE(vecF32H, bufferF32, {litZero}, {});
-                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf}, {});
+                create.vec.storeIE(vecF32H, bufferF32, {litZero});
+                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
                 // Save the remaining values as scalars.
                 create.scf.forLoop(litZero.getValue(),
                     remainingScalarValues.getValue(), 1,
