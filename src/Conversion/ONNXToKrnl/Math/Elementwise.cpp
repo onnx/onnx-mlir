@@ -29,8 +29,6 @@ using namespace mlir;
 namespace onnx_mlir {
 
 bool isBufferReusable(Value x, MemRefType outputType) {
-  if (disableKrnlBufferReuse)
-    return false;
   if (!x.hasOneUse())
     return false;
 
@@ -48,13 +46,34 @@ bool isBufferReusable(Value x, MemRefType outputType) {
 }
 
 int whichBufferToReuse(ValueRange values, MemRefType outputType) {
-  for(int i = 0; i < values.size(); i++) {
+  for (size_t i = 0; i < values.size(); i++) {
     if (isBufferReusable(values[i], outputType))
       return i;
   }
   return -1;
 }
-  
+
+Value allocOrReuse(MemRefBuilder &create, Operation *op,
+    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
+    int64_t alignment) {
+  if (disableKrnlBufferReuse)
+    return create.alignedAlloc(outputMemRefType, dims, alignment);
+
+  // Be aware to use the op->getOperands() to check the number of uses.
+  // After buffer reuse, the number of uses of the transformed Value,
+  // generatedOperands, will increase.
+  int indexToReuse = whichBufferToReuse(op->getOperands(), outputMemRefType);
+  if (indexToReuse != -1) {
+    int size = getSizeInBytes(outputMemRefType);
+    LLVM_DEBUG({
+      llvm::dbgs() << "  malloc_size " << size << "\n";
+      op->dump();
+    });
+    return generatedOperands[indexToReuse];
+  } else {
+    return create.alignedAlloc(outputMemRefType, dims, alignment);
+  }
+}
 
 // =============================================================================
 
@@ -2003,19 +2022,9 @@ struct ONNXElementwiseUnaryOpLowering
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
-    Value alloc;
-    int indexToReuse = whichBufferToReuse(elmsOp->getOperands(), outputMemRefType);
-    if (indexToReuse != -1) {
-      op->dump();
-      alloc = operands[indexToReuse];
-    } else
-      alloc = create.mem.alignedAlloc(
-          outputMemRefType, shapeHelper.getOutputDims(), alignment);
-    
-/*
-    Value alloc = create.mem.alignedAlloc(
-        outputMemRefType, shapeHelper.getOutputDims(), alignment);
-*/
+    Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
+        shapeHelper.getOutputDims(), alignment);
+    ;
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
@@ -2195,15 +2204,9 @@ struct ONNXElementwiseBinaryOpLowering
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    int indexToReuse = whichBufferToReuse(elmsOp->getOperands(), outputMemRefType);
-    if (indexToReuse != -1) {
-      op->dump();
-      alloc = operands[indexToReuse];
-    } else {
-      alloc = create.mem.alignedAlloc(
-          outputMemRefType, shapeHelper.getOutputDims(), alignment);
-    }
+    Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
+        shapeHelper.getOutputDims(), alignment);
+    ;
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
@@ -2377,15 +2380,9 @@ struct ONNXElementwiseVariadicOpLowering
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    int indexToReuse = whichBufferToReuse(elmsOp->getOperands(), outputMemRefType);
-    if (indexToReuse != -1) {
-      op->dump();
-      alloc = operands[indexToReuse];
-    } else {
-      alloc = create.mem.alignedAlloc(
-          outputMemRefType, shapeHelper.getOutputDims(), alignment);
-    }
+    Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
+        shapeHelper.getOutputDims(), alignment);
+    ;
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
