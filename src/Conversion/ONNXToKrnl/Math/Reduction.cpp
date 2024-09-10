@@ -20,7 +20,7 @@
 
 #define DEBUG_TYPE "lowering-to-krnl"
 #define DEBUG_FORCE_SHUFFLE_REDUCTION 0 /* should be 0 in repo */
-#define REDUCTION_MULTIPLE_OF_VL_ONLY 0 /* 0: new improved, 1: old, for debug */
+#define REDUCTION_MULTIPLE_OF_VL_ONLY 0 /* 0: improved;1: old, for debug */
 
 using namespace mlir;
 
