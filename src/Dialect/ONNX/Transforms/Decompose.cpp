@@ -887,7 +887,7 @@ LogicalResult ONNXGroupNormalizationCommon(
     // Unsqueeze scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
     // 1s.
     biasScaleShape.emplace_back(numGroups);
-    biasScaleShape.emplace_back(C/numGroups);
+    biasScaleShape.emplace_back(C / numGroups);
 
     for (int64_t i = 2; i <= numInNorm; ++i) {
       biasScaleShape.emplace_back(1);
@@ -919,8 +919,8 @@ LogicalResult ONNXGroupNormalizationCommon(
       0);
   // Compute type of converted input.
   llvm::SmallVector<int64_t, 5> layerNormShapeVal;
-  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2, 
-  // Dn...   
+  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2,
+  // Dn...
   layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
   layerNormShapeVal.emplace_back(numGroups);        // NG
   if (C != ShapedType::kDynamic) {
