@@ -977,13 +977,14 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             fields_to_convert = MIN((ztensor->transformed_desc->dim1 - e1x),
                 AIU_2BYTE_CELLS_PER_STICK);
 
-            nbr_fields_converted =
-                convert_data_format((void *)((uintptr_t)in_buf + input_offset),
-                    ztensor->pre_transformed_desc->type,
-                    reinterpret_cast<void *>(
-                        reinterpret_cast<uintptr_t>(ztensor->buffer) +
-                        output_offset),
-                    ztensor->transformed_desc->type, fields_to_convert);
+            nbr_fields_converted = convert_data_format(
+                reinterpret_cast<void *>(
+                    reinterpret_cast<uintptr_t>(in_buf) + input_offset),
+                ztensor->pre_transformed_desc->type,
+                reinterpret_cast<void *>(
+                    reinterpret_cast<uintptr_t>(ztensor->buffer) +
+                    output_offset),
+                ztensor->transformed_desc->type, fields_to_convert);
 
             if (nbr_fields_converted == 0) {
               return ZDNN_CONVERT_FAILURE;
