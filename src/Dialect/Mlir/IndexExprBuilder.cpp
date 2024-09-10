@@ -4,7 +4,7 @@
 
 //===------------ IndexExprBuilder.cpp - builder for index expressions ----===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -147,10 +147,11 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert((uint64_t)len <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
-  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+  for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
     IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
@@ -163,7 +164,7 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
   assert(len >= 0 && "expect a defined size");
   if (len == 0)
     return;
-  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+  for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
     IndexExpr indexExpr =
         getIntFromArrayAsLiteral(intAttrArray, i, outOfBoundVal);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -197,7 +198,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
       assert(arraySize == size && "expected given size to be the same as the "
                                   "one detected from the array value");
   }
-  if (size == ShapedType::kDynamic || i >= (uint64_t)size) {
+  if (size == ShapedType::kDynamic || i >= static_cast<uint64_t>(size)) {
     return UndefinedIndexExpr();
   }
   if (ElementsAttr elementsAttr = getConst(array)) {
@@ -302,10 +303,11 @@ void IndexExprBuilder::getIntFromArrayAsSymbols(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert((uint64_t)len <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
-  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+  for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
     IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
@@ -319,10 +321,11 @@ void IndexExprBuilder::getIntFromArrayAsDims(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert((uint64_t)len <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
-  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+  for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
     IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
@@ -336,10 +339,11 @@ void IndexExprBuilder::getFloatFromArrayAsNonAffine(
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
-    assert((uint64_t)len <= size && "requesting too many elements");
+    assert(
+        static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
-  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+  for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
     IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);

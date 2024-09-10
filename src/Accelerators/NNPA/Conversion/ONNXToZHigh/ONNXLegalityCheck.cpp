@@ -315,7 +315,7 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
       return onnxToZHighUnsupportedReport(op, message);
     }
     if (paddingType == "SAME_PADDING") {
-      int64_t reqOutputShape = ceil((float)inputShape / strides);
+      int64_t reqOutputShape = ceil(static_cast<float>(inputShape) / strides);
       if (outputShape != reqOutputShape) {
         std::string message =
             "When the strides (" + std::to_string(strides) +
@@ -329,7 +329,7 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
       }
     } else { // VALID_PADDING
       int64_t reqOutputShape =
-          ceil((float)(inputShape - kernelShape + 1) / strides);
+          ceil(static_cast<float>(inputShape - kernelShape + 1) / strides);
       if (outputShape != reqOutputShape) {
         std::string message = "When the strides (" + std::to_string(strides) +
                               ") and the padding type is VALID_PADDING, output "
@@ -1164,7 +1164,7 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     }
     if (paddingType == "SAME_PADDING") {
       // height_out restriction.
-      int64_t reqOutputShape = ceil((float)inputDim / stride);
+      int64_t reqOutputShape = ceil(static_cast<float>(inputDim) / stride);
       if (outputDim != reqOutputShape) {
         std::string message =
             "When the strides (" + std::to_string(stride) +
@@ -1189,7 +1189,8 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
         return onnxToZHighUnsupportedReport(op, message);
       }
       // height_out restriction.
-      int64_t reqOutputShape = ceil((float)(inputDim - kernelDim + 1) / stride);
+      int64_t reqOutputShape =
+          ceil(static_cast<float>(inputDim - kernelDim + 1) / stride);
       if (outputDim != reqOutputShape) {
         std::string message =
             "When the strides (" + std::to_string(stride) +
