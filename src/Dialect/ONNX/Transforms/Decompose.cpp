@@ -856,41 +856,44 @@ LogicalResult ONNXGroupNormalizationCommon(
          "expected instance norm with input ranks > 2");
   int64_t spacialRank = inputRank - nonSpacialRank;
   int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
-  int64_t axis = nonSpacialRank;
   int64_t numGroups = groupNormOp.getNumGroups();
-  int64_t numInNorm;
-  Value Y;
 
   // Rewrite.
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
       rewriter, groupNormOp.getLoc());
+  int64_t axis = nonSpacialRank;
+  int64_t numInNorm = layerNormRank - axis;
 
   //"numgroups" and "C" should have the same dimension index
-  llvm::SmallVector<int64_t, 3> axesList, biasScaleShape;
+  llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
 
   if constexpr (isNumGroup<OP_TYPE>) {
     // Opset18 Uses "numgroups" the number of groups of channels for the scale
     // and bias
-    // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
+    // Unsqueeze scale/bias from [NG] to [NG x 1 x 1 x ... x 1] with numInNorm
     // 1s.
     llvm::outs() << "Warning: The previous understanding of Opset 18 for "
                     "GroupNormalization is incorrect."
                  << "As shown in the following issue: "
                     "https://github.com/onnx/onnx/issues/5466."
                  << "Rather, use Opset 21 for GroupNormalization instead.\n";
-    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
-    numInNorm = layerNormRank - axis;
     biasScaleShape.emplace_back(numGroups);
+    for (int64_t i = 1; i <= numInNorm; ++i) {
+      biasScaleShape.emplace_back(1);
+    }
   } else {
     // Opset21 Uses "C" the number of channels for the scale and bias
-    // Unsqueeze scale/bias from [C] to [1 x C x 1 x ... x 1] with numInNorm
+    // The equivalent of "C" when split is "NG x C/NG"
+    // Unsqueeze scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
     // 1s.
-    numInNorm = inputRank - axis; // We remove the +1 when C is not split
-    biasScaleShape.emplace_back(C);
-  }
+    biasScaleShape.emplace_back(numGroups);
+    biasScaleShape.emplace_back(C/numGroups);
 
+    for (int64_t i = 2; i <= numInNorm; ++i) {
+      biasScaleShape.emplace_back(1);
+    }
+  }
   for (int64_t i = 1; i <= numInNorm; ++i) {
-    biasScaleShape.emplace_back(1);
     axesList.emplace_back(i);
   }
 
@@ -899,54 +902,47 @@ LogicalResult ONNXGroupNormalizationCommon(
   Value newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
   Value newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
 
-  if constexpr (isNumGroup<OP_TYPE>) {
-    // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
-    // First compute the new (possibly dynamic) shape.
-    Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
-    Value NShape = create.onnx.shape(
-        batchShapeType, input, /*start*/ 0, /*exclusive end*/ 1);
-    Value NGandMin1Shape = create.onnx.constantInt64({numGroups, -1});
-    Type spacialShapeType =
-        RankedTensorType::get({spacialRank}, rewriter.getI64Type());
-    Value spacialShape =
-        create.onnx.shape(spacialShapeType, input, /*start*/ nonSpacialRank);
-    Type layerNormShapeType =
-        RankedTensorType::get({layerNormRank}, rewriter.getI64Type());
-    Value layerNormShape = create.onnx.concat(layerNormShapeType,
-        {NShape, NGandMin1Shape, spacialShape}, /*axis*/
-        0);
-    // Compute type of converted input.
-    llvm::SmallVector<int64_t, 5> layerNormShapeVal;
-    // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2,
-    // Dn...
-    layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
-    layerNormShapeVal.emplace_back(numGroups);        // NG
-    if (C != ShapedType::kDynamic) {
-      assert(C % numGroups == 0 && "expected numGroups to divide C");
-      layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
-    } else
-      layerNormShapeVal.emplace_back(ShapedType::kDynamic);
-    for (int64_t i = 0; i < spacialRank; ++i)
-      layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]); // Dn
-    RankedTensorType layerNormInputType =
-        RankedTensorType::get(layerNormShapeVal, elementType);
-    llvm::outs() << "LayerNormInputType " << layerNormInputType << "\n";
-    Value layerNormInput =
-        create.onnx.reshape(layerNormInputType, input, layerNormShape);
-    // Create output using layer norm.
-    Value layerNormY = create.onnx.layerNorm(layerNormInputType, layerNormInput,
-        newScale, newBias, axis, groupNormOp.getEpsilonAttr());
-    // Resize output to original size
-    Type inputShapeType =
-        RankedTensorType::get({inputRank}, rewriter.getI64Type());
-    Value inputShape = create.onnx.shape(inputShapeType, input);
-    Type outputType = groupNormOp.getY().getType();
-    Y = create.onnx.reshape(outputType, layerNormY, inputShape);
-  } else {
-    // Create output using layer norm.
-    Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
-        groupNormOp.getEpsilonAttr(), groupNormOp.getStashTypeAttr());
-  }
+  // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
+  // First compute the new (possibly dynamic) shape.
+  Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
+  Value NShape = create.onnx.shape(
+      batchShapeType, input, /*start*/ 0, /*exclusive end*/ 1);
+  Value NGandMin1Shape = create.onnx.constantInt64({numGroups, -1});
+  Type spacialShapeType =
+      RankedTensorType::get({spacialRank}, rewriter.getI64Type());
+  Value spacialShape =
+      create.onnx.shape(spacialShapeType, input, /*start*/ nonSpacialRank);
+  Type layerNormShapeType =
+      RankedTensorType::get({layerNormRank}, rewriter.getI64Type());
+  Value layerNormShape = create.onnx.concat(layerNormShapeType,
+      {NShape, NGandMin1Shape, spacialShape}, /*axis*/
+      0);
+  // Compute type of converted input.
+  llvm::SmallVector<int64_t, 5> layerNormShapeVal;
+  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2, 
+  // Dn...   
+  layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
+  layerNormShapeVal.emplace_back(numGroups);        // NG
+  if (C != ShapedType::kDynamic) {
+    assert(C % numGroups == 0 && "expected numGroups to divide C");
+    layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
+  } else
+    layerNormShapeVal.emplace_back(ShapedType::kDynamic);
+  for (int64_t i = 0; i < spacialRank; ++i)
+    layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]); // Dn
+  RankedTensorType layerNormInputType =
+      RankedTensorType::get(layerNormShapeVal, elementType);
+  Value layerNormInput =
+      create.onnx.reshape(layerNormInputType, input, layerNormShape);
+  // Create output using layer norm.
+  Value layerNormY = create.onnx.layerNorm(layerNormInputType, layerNormInput,
+      newScale, newBias, axis, groupNormOp.getEpsilonAttr());
+  // Resize output to original size
+  Type inputShapeType =
+      RankedTensorType::get({inputRank}, rewriter.getI64Type());
+  Value inputShape = create.onnx.shape(inputShapeType, input);
+  Type outputType = groupNormOp.getY().getType();
+  Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
   // Set the type of the output to be the same as the output of the original
   // operation we are trying to replace.
   Y.setType(groupNormOp.getResult().getType());
