@@ -36,12 +36,28 @@ bool isBufferReusable(Value x, MemRefType outputType) {
   auto inputType = dyn_cast<ShapedType>(xType);
   if (!inputType)
     return false;
+
+  // ToFix: use DimAnalysis to handle dynamic shape
   if (!hasStaticShape(inputType))
     return false;
   if (!hasStaticShape(outputType))
     return false;
+
   if (getSizeInBytes(inputType) != getSizeInBytes(outputType))
     return false;
+
+  // ToFix: If the shape is not the same, memref.cast can be used.
+  // Currently reuse requires that the shape has to be the same
+  if (getRank(inputType) != getRank(outputType))
+    return false;
+  for(int64_t i = 0; i < getRank(inputType); i++) {
+    if (inputType.getShape()[i] != outputType.getShape()[i])
+      return false; 
+  }
+
+  // ToFix: The simd padding is not checked
+  // We did not record whether the memref is padded or not. How about put the
+  // VL as an attribute?
   return true;
 }
 
@@ -55,9 +71,13 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment) {
+    int64_t alignment, int64_t VL = 1);
+
+Value allocOrReuse(MemRefBuilder &create, Operation *op,
+    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
+    int64_t alignment, int64_t VL) {
   if (disableKrnlBufferReuse)
-    return create.alignedAlloc(outputMemRefType, dims, alignment);
+    return create.alignedAllocWithSimdPadding(outputMemRefType, dims, VL, alignment);
 
   // Be aware to use the op->getOperands() to check the number of uses.
   // After buffer reuse, the number of uses of the transformed Value,
@@ -71,7 +91,7 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
     });
     return generatedOperands[indexToReuse];
   } else {
-    return create.alignedAlloc(outputMemRefType, dims, alignment);
+    return create.alignedAllocWithSimdPadding(outputMemRefType, dims, VL, alignment);
   }
 }
 
@@ -1376,8 +1396,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // multiples of VL * unrollVL, so there should be no padding anyway. This
   // will change if we do partial flattening with non-multiple of VL *
   // unrollVL.
-  Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, outputDims, VL, alignment);
+  Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType, outputDims, alignment, VL);
+  //Value alloc = create.mem.alignedAllocWithSimdPadding(
+      //outputMemRefType, outputDims, VL, alignment);
   // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
