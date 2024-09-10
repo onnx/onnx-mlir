@@ -20,10 +20,12 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -69,7 +71,7 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
   ZHighStickifiedConstantOp stickifiedConstant =
       rewriter.create<ZHighStickifiedConstantOp>(loc, outputType,
           /*value=*/nullptr,
-          /*stickfied=*/nullptr,
+          /*stickified=*/rewriter.getBoolAttr(true),
           /*allzero=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
@@ -85,7 +87,6 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
 
   stickifiedConstant.setValueAttr(valueAttr);
-  stickifiedConstant.setStickifiedAttr(rewriter.getBoolAttr(true));
 
   return stickifiedConstant;
 }
@@ -98,12 +99,50 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
   DenseElementsAttr dataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
       op->getAttrOfType<::mlir::Attribute>("value"));
   assert(dataAttr && "Attribute is null");
-  ZHighStickifiedConstantOp constantOp =
-      rewriter.create<ZHighStickifiedConstantOp>(loc, replacingValue.getType(),
-          /*value=*/dataAttr,
-          /*stickified=*/rewriter.getBoolAttr(false),
-          /*allzero=*/nullptr,
-          /*alignment=*/rewriter.getI64IntegerAttr(4096));
+  ZHighStickifiedConstantOp constantOp;
+  if (storeConstantsToFile && nnpaDelayStickifiedConstGen) {
+    constantOp = rewriter.create<ZHighStickifiedConstantOp>(loc,
+        replacingValue.getType(),
+        /*value=*/dataAttr,
+        /*stickified=*/rewriter.getBoolAttr(false),
+        /*allzero=*/nullptr,
+        /*alignment=*/rewriter.getI64IntegerAttr(4096));
+  } else {
+    ArrayRef<int64_t> shape =
+        mlir::cast<ShapedType>(input.getType()).getShape();
+    Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
+    int rank = shape.size();
+    // Read attributes's raw data.
+    std::vector<char> rawData;
+    getRawData(dataAttr, rawData);
+    // assert((rawData.size() == (uint64_t)getMemRefSizeInBytes(input)) &&
+    //        "Data size mismatched");
+
+    // Call stickify.
+    zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
+    // pre-transformed desc.
+    zdnn_data_layouts zDNNLayout =
+        convertLayoutAttrToZDNNDataLayout(rank, layout);
+    // If zDNNLayout is NHWC, we stickify directly from NCHW.
+    if (zDNNLayout == ZDNN_NHWC)
+      zDNNLayout = ZDNN_NCHW;
+    zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
+    set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
+    // transformed desc.
+    zdnn_status status =
+        generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
+    assert(status == ZDNN_OK);
+    // Stick data using the software stickify.
+    zdnn_ztensor ztensor;
+    init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
+    status = allochelper_ztensor_alloc(&ztensor);
+    assert(status == ZDNN_OK);
+    status = stickify(&ztensor, rawData.data());
+    assert(status == ZDNN_OK);
+    // Emit a constant global in ZHigh dialect.
+    constantOp = emitZHighStickifiedConstant(
+        rewriter, loc, &ztensor, replacingValue.getType());
+  }
   return constantOp;
 }
 
