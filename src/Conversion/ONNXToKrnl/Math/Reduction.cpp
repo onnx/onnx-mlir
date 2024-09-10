@@ -19,8 +19,8 @@
 #include "src/Support/SmallVectorHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
-#define DEBUG_FORCE_SHUFFLE_REDUCTION 1 /* hi alex, should be 0 in repo */
-#define REDUCTION_MULTIPLE_OF_VL_ONLY 0 /* 1: conservative, 0 new */
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 0 /* should be 0 in repo */
+#define REDUCTION_MULTIPLE_OF_VL_ONLY 0 /* 0: new improved, 1: old, for debug */
 
 using namespace mlir;
 
@@ -282,7 +282,7 @@ Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
 
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
     MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder,
-    AffineBuilder>; // hi alex
+    AffineBuilder>;
 
 //===----------------------------------------------------------------------===//
 // Helper function to perform reduction when an entire tensor is reduced to a
