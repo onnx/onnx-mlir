@@ -886,6 +886,7 @@ LogicalResult ONNXGroupNormalizationCommon(
     biasScaleShape.emplace_back(numGroups);
     for (int64_t i = 1; i <= numInNorm; ++i) {
       biasScaleShape.emplace_back(1);
+      axesList.emplace_back(i);
     }
 
     axes = create.onnx.constantInt64(axesList);
