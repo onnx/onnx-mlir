@@ -877,7 +877,7 @@ LogicalResult ONNXGroupNormalizationCommon(
     // Unsqueeze scale/bias from [NG] to [NG x 1 x 1 x ... x 1] with numInNorm
     // 1s.
 
-    // TO-DO Add this to verify and do an assert 
+    // TO-DO Add this to verify and do an assert
     llvm::outs() << "Warning: The previous understanding of Opset 18 for "
                     "GroupNormalization is incorrect."
                  << "As shown in the following issue: "
@@ -905,7 +905,7 @@ LogicalResult ONNXGroupNormalizationCommon(
     } else {
       biasScaleShape.emplace_back(ShapedType::kDynamic);
     }
-    
+
     axesList.emplace_back(2);
     axesList.emplace_back(2);
     for (int64_t i = 2; i <= numInNorm; ++i) {
