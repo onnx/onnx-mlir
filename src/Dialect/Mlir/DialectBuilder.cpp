@@ -1734,9 +1734,15 @@ void SCFBuilder::forLoop(
       });
 }
 
-void SCFBuilder::forLoopIE(
-    IndexExpr lb, IndexExpr ub, int64_t step, SCFLoopBodyFn bodyFn) const {
-  forLoop(lb.getValue(), ub.getValue(), step, bodyFn);
+void SCFBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+    bool useParallel, SCFLoopBodyFn bodyFn) const {
+  if (useParallel) {
+    MathBuilder createMath(*this);
+    Value stepVal = createMath.constantIndex(step);
+    parallelLoops({lb.getValue()}, {ub.getValue()}, {stepVal}, bodyFn);
+  } else {
+    forLoop(lb.getValue(), ub.getValue(), step, bodyFn);
+  }
 }
 
 void SCFBuilder::parallelLoops(ValueRange lbs, ValueRange ubs, ValueRange steps,
@@ -1748,13 +1754,6 @@ void SCFBuilder::parallelLoops(ValueRange lbs, ValueRange ubs, ValueRange steps,
         bodyFn(builder, inductionVars);
         yield();
       });
-}
-
-void SCFBuilder::parallelLoopIE(
-    IndexExpr lb, IndexExpr ub, int64_t step, SCFLoopBodyFn bodyFn) const {
-  MathBuilder createMath(*this);
-  Value stepVal = createMath.constantIndex(step);
-  parallelLoops({lb.getValue()}, {ub.getValue()}, {stepVal}, bodyFn);
 }
 
 void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }

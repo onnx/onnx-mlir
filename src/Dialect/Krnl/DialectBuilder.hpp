@@ -30,12 +30,12 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~KrnlBuilder() {}
 
+  // Common load/store interface (krnl/affine/memref)
   // Add offsets (if any) to the least significant dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
-  // Add offsets (if any) to the least significant dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -97,9 +97,7 @@ struct KrnlBuilder : public DialectBuilder {
           bodyBuilderFn) const;
 
   // Common loop interface (krnl/affine/scf).
-  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      KrnlLoopBodyFn builderFn) const;
-  void parallelLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       KrnlLoopBodyFn builderFn) const;
 
   // Common simd loop interface (krnl/affine/scf).

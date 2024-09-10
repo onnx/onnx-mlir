@@ -19,7 +19,8 @@
 #include "src/Support/SmallVectorHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
-#define DEBUG_FORCE_SHUFFLE_REDUCTION 1
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 1 /* hi alex, should be 0 in repo */
+#define REDUCTION_MULTIPLE_OF_VL_ONLY 0 /* 1: conservative, 0 new */
 
 using namespace mlir;
 
@@ -773,9 +774,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
             totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
           }
-// Current code gen scheme only support SIMD only scheme.
-#define REDUCTION_GENERALIZED_TO_NON_MULTIPLE_OF_VL 0
-#if !REDUCTION_GENERALIZED_TO_NON_MULTIPLE_OF_VL
+#if REDUCTION_MULTIPLE_OF_VL_ONLY
           // Currently fails with krnl to affine without this. Should
           // consider an affine simd iterate/reduce. onnx-mlir
           // -shapeInformation=0:4x8 reducemean2.mlir -O3 -march=arm64
@@ -1202,19 +1201,36 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     DimsExpr outputAF = SymListIE(blockedOutLoopInd);
     Value identity = getIdentityValue<ONNXReductionOp>(
         rewriter, create.getLoc(), elementType);
-    create.affine.simdReduce2DIE(
-        lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
-        flatAlloc, outputAF, identity,
-        [&](const KrnlBuilder &b, Value inputVal, Value tmpVal, int64_t VL) {
-          Type type = VL > 1 ? vecType : elementType;
-          return emitScalarOpFor<ONNXReductionOp>(
-              rewriter, b.getLoc(), op, type, {tmpVal, inputVal});
-        },
-        [&](const KrnlBuilder &b, Value tmpVal, int VL) {
-          if (divideByMean<ONNXReductionOp>())
-            return create.math.div(tmpVal, divisorForMean);
-          return tmpVal;
-        });
+    if (simdOnly) {
+      create.affine.simdReduce2DIE(
+          lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
+          flatAlloc, outputAF, identity,
+          [&](const AffineBuilder &b, Value inputVal, Value tmpVal,
+              int64_t VL) {
+            Type type = VL > 1 ? vecType : elementType;
+            return emitScalarOpFor<ONNXReductionOp>(
+                rewriter, b.getLoc(), op, type, {tmpVal, inputVal});
+          },
+          [&](const AffineBuilder &b, Value tmpVal, int VL) {
+            if (divideByMean<ONNXReductionOp>())
+              return create.math.div(tmpVal, divisorForMean);
+            return tmpVal;
+          });
+    } else {
+      create.scf.simdReduce2DIE( // Affine fails with dynamic shapes.
+          lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
+          flatAlloc, outputAF, identity,
+          [&](const SCFBuilder &b, Value inputVal, Value tmpVal, int64_t VL) {
+            Type type = VL > 1 ? vecType : elementType;
+            return emitScalarOpFor<ONNXReductionOp>(
+                rewriter, b.getLoc(), op, type, {tmpVal, inputVal});
+          },
+          [&](const SCFBuilder &b, Value tmpVal, int VL) {
+            if (divideByMean<ONNXReductionOp>())
+              return create.math.div(tmpVal, divisorForMean);
+            return tmpVal;
+          });
+    }
   }
 
   // Solution when there is no horizontal SIMD op support and that shuffle ops
@@ -1259,8 +1275,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
     // Parallelism only if output is not a scalar.
-    if (flatOutRank == 0)
+    if (flatOutRank == 0 && enableParallel) {
       enableParallel = false;
+      onnxToKrnlParallelReport(
+          op, false, -1, 0, "zero flat out rank for reduction shuffle h-simd");
+    }
 
     // Compute type of small temp vector.
     MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
@@ -1276,11 +1295,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     if (enableParallel) {
       int64_t parId;
-      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
-              /*min iter for going parallel*/ 64 * VL)) {
-        create.krnl.parallel(optimizedOutLoopDef[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
+      if (findSuitableParallelDimension(lbs, flatOutDims, 0, flatOutRank, parId,
+              /*min iter for going parallel*/ 8 * VL)) {
+        create.krnl.parallel(optimizedOutLoopDef[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId],
+            flatOutDims[parId], "reduction shuffle h-simd");
       } else {
         onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
             "not enough work for reduction shuffle h-simd");

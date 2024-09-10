@@ -254,13 +254,12 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
+  // Common load/store interface (krnl/affine/memref)
   // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
-
-  // Add offsets (if any) to the least significant memref dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -473,11 +472,9 @@ struct SCFBuilder final : DialectBuilder {
   // Common loop interface (krnl/affine/scf).
   using SCFLoopBodyFn =
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)>;
-  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
-  void parallelLoopIE(
-      IndexExpr lb, IndexExpr ub, int64_t step, SCFLoopBodyFn bodyFn) const;
-      // Custom interface
+  // Custom interface
   void forLoop(
       mlir::Value lb, mlir::Value ub, int64_t step, SCFLoopBodyFn bodyFn) const;
   void parallelLoops(mlir::ValueRange lbs, mlir::ValueRange ubs,
@@ -594,13 +591,12 @@ struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~GenericAffineBuilder() {}
 
+  // Common load/store interface (krnl/affine/memref)
   // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
-
-  // Add offsets (if any) to the least significant memref dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -614,12 +610,12 @@ struct GenericAffineBuilder final : DialectBuilder {
   // Common loop interface (krnl/affine/scf).
   using GenericAffineLoopBodyFn =
       mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>;
-  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       GenericAffineLoopBodyFn builderFn) const;
-  void parallelLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      GenericAffineLoopBodyFn builderFn) const;
-      
+
   // Custom interface
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      GenericAffineLoopBodyFn builderFn) const; // Sequential only.
   void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
       mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const;
 
@@ -666,7 +662,7 @@ struct GenericAffineBuilder final : DialectBuilder {
   void yield() const;
 
 private:
-  // Support for multiple forLoopIE loops.
+  // Support for multiple for loops.
   void recursionForLoopsIE(mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
       llvm::SmallVectorImpl<mlir::Value> &loopIndices,

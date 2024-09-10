@@ -299,10 +299,10 @@ private:
     // For i, j loops.
     LiteralIndexExpr zeroIE(0);
     Value jSaved;
-    createAffine.forLoopIE(zeroIE, I, 1,
+    createAffine.forLoopIE(zeroIE, I, 1, 
         [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           Value i = loopInd[0];
-          createAffine.forLoopIE(zeroIE, J, 1,
+          createAffine.forLoopIE(zeroIE, J, 1, 
               [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
                 MathBuilder createMath(createAffine);
                 Value j = loopInd[0];
@@ -314,7 +314,7 @@ private:
                 // TTmpC() = affine_load(C, cAccess);
                 createAffine.store(initVal, TmpC, tmpCAccess);
                 // Sum over k.
-                createAffine.forLoopIE(zeroIE, K, 1,
+                createAffine.forLoopIE(zeroIE, K, 1, 
                     [&](AffineBuilderKrnlMem &createAffine,
                         ValueRange loopInd) {
                       MathBuilder createMath(createAffine);
@@ -383,7 +383,7 @@ private:
     LiteralIndexExpr zeroIE(0);
     Value iZero = create.math.constantIndex(0);
 
-    create.affineKMem.forLoopIE(zeroIE, K, VL,
+    create.affineKMem.forLoopIE(zeroIE, K, VL, 
         [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           Value k = loopInd[0];
@@ -465,7 +465,7 @@ private:
     LiteralIndexExpr zeroIE(0);
     Value iZero = create.math.constantIndex(0);
 
-    createAffine.forLoopIE(zeroIE, I, 1,
+    createAffine.forLoopIE(zeroIE, I, 1, 
         [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           Value i = loopInd[0];
@@ -475,7 +475,7 @@ private:
           Value tmpCAccess = (unrollFactor > 1) ? i : zeroIE.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
-          createAffine.forLoopIE(zeroIE, K, 1,
+          createAffine.forLoopIE(zeroIE, K, 1, 
               [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
                 MultiDialectBuilder<MathBuilder, VectorBuilder> create(
                     createAffine);
