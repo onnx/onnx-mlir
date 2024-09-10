@@ -174,6 +174,17 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList)
       const;
 
+  /*
+    Same as simdReduceIE, but perform VL reductions at once. It expect at least
+    VL iterations in the second to last dimension of inputs/outputs.
+
+    Unlike simdReduceIE, the second function is for post processing only. In
+    simdReduceIE, that function was also used to reduce the SIMD temporary
+    reduction into a single scalar.
+
+    Also, at this time, simdReduce2DIE process only one reduction at a time,
+    whereas simdReduceIE could process an arbitrary number of reductions.
+  */
   void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
       mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
