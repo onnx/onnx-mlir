@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -376,7 +376,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
     return false;
 
   int64_t dimensionsOfShape = shapeAttr.getShapedType().getShape()[0];
-  if ((int64_t)valueShape.size() != dimensionsOfShape)
+  if (static_cast<int64_t>(valueShape.size()) != dimensionsOfShape)
     return false;
 
   auto valueIt = shapeAttr.getValues<APInt>().begin();
@@ -556,10 +556,10 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
-    return (RESULT_TYPE)mlir::cast<IntegerAttr>(*valueIt).getInt();
+    return static_cast<RESULT_TYPE>(mlir::cast<IntegerAttr>(*valueIt).getInt());
   } else if (mlir::isa<FloatType>(elementaryType)) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToDouble();
+    return static_cast<RESULT_TYPE>((*valueIt).convertToDouble());
   }
   llvm_unreachable("Unexpected type.");
   return 0;
@@ -723,7 +723,7 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     double floatVal = getScalarValue<double>(elementAttr, elementType);
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
-      exponentValue = (int64_t)floatVal;
+      exponentValue = static_cast<int64_t>(floatVal);
       return true;
     }
   } else if (mlir::isa<IntegerType>(elementType)) {

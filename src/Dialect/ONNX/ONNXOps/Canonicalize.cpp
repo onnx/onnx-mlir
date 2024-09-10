@@ -99,7 +99,7 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
     assert(inpType && "Type is not ShapedType");
     ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
         loc, UnrankedTensorType::get(inpType.getElementType()), inp, permAttr);
-    (void)transposeOp.inferShapes([](Region &region) {});
+    static_cast<void>(transposeOp.inferShapes([](Region &region) {}));
     transposedInputs.emplace_back(transposeOp.getResult());
   }
   return transposedInputs;
@@ -114,7 +114,7 @@ SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
     assert(inpType && "Type is not ShapedType");
     ONNXCastOp castOp = rewriter.create<ONNXCastOp>(loc,
         UnrankedTensorType::get(inpType.getElementType()), inp, saturate, to);
-    (void)castOp.inferShapes([](Region &region) {});
+    static_cast<void>(castOp.inferShapes([](Region &region) {}));
     castInputs.emplace_back(castOp.getResult());
   }
   return castInputs;
@@ -1160,9 +1160,10 @@ public:
     ShapedType resultType = mlir::cast<ShapedType>(powOp.getZ().getType());
     Type elementType = getElementType(resultType);
     if (exponent == 0) {
-      Attribute one = isa<FloatType>(elementType)
-                          ? (Attribute)rewriter.getFloatAttr(elementType, 1.0)
-                          : (Attribute)rewriter.getIntegerAttr(elementType, 1);
+      Attribute one =
+          isa<FloatType>(elementType)
+              ? static_cast<Attribute>(rewriter.getFloatAttr(elementType, 1.0))
+              : static_cast<Attribute>(rewriter.getIntegerAttr(elementType, 1));
       result = create.onnx.constant(DenseElementsAttr::get(resultType, one));
     } else {
       // calculate pow(input,exponent) with "exponentiation by squaring" method
