@@ -892,13 +892,7 @@ LogicalResult ONNXGroupNormalizationCommon(
     // Reshape scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
     // 1s.
     biasScaleVal.emplace_back(numGroups);
-    // C can be a dynamic or a static value, account for that here
-    if (C != ShapedType::kDynamic) {
-      assert(C % numGroups == 0 && "expected numGroups to divide C");
-      biasScaleVal.emplace_back(C / numGroups);
-    } else {
-      biasScaleVal.emplace_back(ShapedType::kDynamic);
-    }
+    biasScaleVal.emplace_back(C / numGroups);
 
     for (int64_t i = 2; i <= numInNorm; ++i) {
       biasScaleVal.emplace_back(1);
