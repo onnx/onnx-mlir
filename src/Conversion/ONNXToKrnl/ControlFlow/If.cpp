@@ -54,14 +54,6 @@ private:
 
     rewriter.eraseBlock(&scfBranch.back());
     scfBranch.takeBody(graph);
-    rewriter.setInsertionPointToEnd(&scfBranch.back());
-
-    Operation *yieldOp = scfBranch.back().getTerminator();
-    llvm::SmallVector<Value> outputs;
-    if (failed(rewriter.getRemappedValues(yieldOp->getOperands(), outputs))) {
-      llvm_unreachable("failed to convert branch return values");
-    }
-    rewriter.replaceOpWithNewOp<scf::YieldOp>(yieldOp, outputs);
   }
 };
 

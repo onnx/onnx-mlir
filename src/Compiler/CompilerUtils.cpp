@@ -170,7 +170,7 @@ int Command::exec(std::string wdir) const {
 }
 
 void showCompilePhase(std::string msg) {
-  time_t rawTime;
+  time_t rawTime = 0;
   struct tm *timeInfo;
   char buffer[80];
   // Remember first time.
@@ -178,10 +178,13 @@ void showCompilePhase(std::string msg) {
   static bool hasFirstRawTime = false;
 
   // Get current date.
-  time(&rawTime);
-  timeInfo = localtime(&rawTime);
-  strftime(buffer, 80, "%c", timeInfo);
-  std::string currentTime(buffer);
+  std::string currentTime("");
+  if (time(&rawTime) == -1 || (timeInfo = localtime(&rawTime)) == NULL ||
+      (strftime(buffer, 80, "%c", timeInfo)) == 0) {
+    currentTime = "Error obtaining current time";
+  } else {
+    currentTime = buffer;
+  }
 
   // Compute time difference in seconds.
   int diff = 0;
@@ -977,7 +980,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     pm.addInstrumentation(std::make_unique<HeapReporter>(
         heapLogFileame, reportHeapBefore, reportHeapAfter));
   }
-  (void)mlir::applyPassManagerCLOptions(pm);
+  static_cast<void>(mlir::applyPassManagerCLOptions(pm));
 
   if (enableTiming) {
     pm.enableTiming(compileModuleTiming);

@@ -4,7 +4,7 @@
 
 //===------------------ Normalization.cpp - ONNX Operations ---------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -191,7 +191,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (!OpTrait::util::getBroadcastedShape(XShape, bShape, BBroadcastShape))
       op->emitOpError(
           "LayerNormalization op with incompatible B shapes (broadcast)");
-    if ((int64_t)BBroadcastShape.size() != XRank)
+    if (static_cast<int64_t>(BBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible B shapes "
                       "(unidirectional broadcast)");
     if (bType.getElementType() != XElementType)
@@ -208,7 +208,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
             XShape, scaleShape, scaleBroadcastShape))
       op->emitOpError(
           "LayerNormalization op with incompatible scale shapes (broadcast)");
-    if ((int64_t)scaleBroadcastShape.size() != XRank)
+    if (static_cast<int64_t>(scaleBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible scale shapes "
                       "(unidirectional broadcast)");
     if (scaleType.getElementType() != XElementType)

@@ -4,7 +4,7 @@
 
 //===-------------------- Scan.cpp - Lowering Scan Op ---------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -343,7 +343,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         builder, loc);
-    if ((size_t)srcTy.getRank() > readIV.size()) {
+    if (static_cast<size_t>(srcTy.getRank()) > readIV.size()) {
       IndexExprScope childScope(create.krnl);
       ValueRange loopDef =
           create.krnl.defineLoops(srcTy.getRank() - readPrefix.size());

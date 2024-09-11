@@ -107,7 +107,7 @@ struct Output : public einsum::Parameter {
   }
 
   void eraseAxis(int64_t a) {
-    assert(0 <= a && a < (int64_t)size() &&
+    assert(0 <= a && a < static_cast<int64_t>(size()) &&
            "axis a should be nonnegative and within range");
     shape.erase(shape.begin() + a);
     subscripts.erase(subscripts.begin() + a);

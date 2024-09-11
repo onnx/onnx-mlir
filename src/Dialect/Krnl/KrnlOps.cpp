@@ -4,7 +4,7 @@
 
 //===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -159,7 +159,7 @@ void KrnlCallOp::getEffects(
         &effects) {
 
   for (size_t i = 0; i < getParameters().size(); i++) {
-    if (i < (size_t)getNumOfOutput())
+    if (i < static_cast<size_t>(getNumOfOutput()))
       effects.emplace_back(MemoryEffects::Write::get(),
           &getParametersMutable()[i], SideEffects::DefaultResource::get());
     else
@@ -669,7 +669,8 @@ void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
   assert(rank >= 2 && "permute needs 2 or more loops");
   assert(odsMap.size() == rank && "loop and size size must be identical");
   for (unsigned int i = 0; i < rank; ++i) {
-    assert(odsMap[i] >= 0 && odsMap[i] < (int64_t)rank && "bad permute");
+    assert(odsMap[i] >= 0 && odsMap[i] < static_cast<int64_t>(rank) &&
+           "bad permute");
     for (unsigned int j = i + 1; j < rank; ++j)
       assert(
           odsMap[i] != odsMap[j] && "map should be a strict permute pattern");

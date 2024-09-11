@@ -199,7 +199,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     // Attribute type: tensor<sizeInBytes x i8>
     int64_t sizeInBytes =
         affine::getIntOrFloatMemRefSizeInBytes(resType).value();
-    char *rawData = (char *)malloc(sizeInBytes);
+    char *rawData = static_cast<char *>(malloc(sizeInBytes));
     assert(rawData && "failed to allocate memory for stickified data");
     memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
@@ -228,7 +228,7 @@ Value insertShapeMemRefI64(
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
       rewriter, loc);
   MemRefType shapeMemRefType = MemRefType::get(
-      {(int64_t)originalDims.size()}, rewriter.getIntegerType(64));
+      {static_cast<int64_t>(originalDims.size())}, rewriter.getIntegerType(64));
   Value shapeMemRef = create.mem.alignedAlloc(shapeMemRefType);
   for (uint64_t i = 0; i < originalDims.size(); ++i) {
     Value dim =
@@ -395,7 +395,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
                "wrong concatenated dimension size");
         int64_t s = shape[rank - 1] / 4;
         // ((s + 64 - 1) / 64) * 64;
-        int64_t s_pad = ceil((double)s / 64) * 64;
+        int64_t s_pad = ceil(static_cast<double>(s) / 64) * 64;
         int64_t pad_size = s_pad - s;
         AffineExpr constExprS = getAffineConstantExpr(s, b.getContext());
         if (rank == 2) {
@@ -431,7 +431,8 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
                "in affine_map generation.");
         assert((hidden_size % 3) == 0 && "wrong concatenated dimension size.");
         int64_t s = hidden_size / 3;
-        int64_t s_pad = ceil((float)s / 64) * 64; // ((s + 64 - 1) / 64) * 64;
+        int64_t s_pad =
+            ceil(static_cast<float>(s) / 64) * 64; // ((s + 64 - 1) / 64) * 64;
         int64_t pad_size = s_pad - s;
         AffineExpr constExprS = getAffineConstantExpr(s, b.getContext());
         if (rank == 2) {
@@ -723,7 +724,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     // Validate the stickified tensor.
     int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
     memRefSizeInBytes *= normalizedType.getNumElements();
-    assert((data.size() == (uint64_t)memRefSizeInBytes) &&
+    assert((data.size() == static_cast<uint64_t>(memRefSizeInBytes)) &&
            "The stickified tensor's buffer size and MemRef's size mismatched");
 
     // Create a KrnlGlobalOp.
@@ -1565,7 +1566,7 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
 
     // Convert the scalar value to dlfloat16.
     // Use uint16_t as container.
-    float valueF32 = (float)value.getValueAsDouble();
+    float valueF32 = static_cast<float>(value.getValueAsDouble());
     uint16_t valueDLF16;
     fp32_to_dlf16(&valueF32, &valueDLF16, 1);
 
@@ -1709,10 +1710,10 @@ struct ZHighToZLowDataConversionLowering
 
     if (enableParallel) {
       int64_t parId;
-      int64_t tripCount =
-          flattenedOutputDims[0].isLiteral()
-              ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)archVL)
-              : -1;
+      int64_t tripCount = flattenedOutputDims[0].isLiteral()
+                              ? std::ceil(flattenedOutputDims[0].getLiteral() /
+                                          static_cast<float>(archVL))
+                              : -1;
       if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
               /*min iter for going parallel*/ 1024)) {
         create.krnl.parallel(blockedLoopDef[0]);
