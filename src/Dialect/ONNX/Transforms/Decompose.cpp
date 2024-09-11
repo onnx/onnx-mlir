@@ -899,14 +899,14 @@ LogicalResult ONNXGroupNormalizationCommon(
     } else {
       biasScaleVal.emplace_back(ShapedType::kDynamic);
     }
-    axesList.emplace_back(2);
-    axesList.emplace_back(2);
+    axesList.emplace_back(numGroups);
+    axesList.emplace_back(C / numGroups);
     for (int64_t i = 2; i <= numInNorm; ++i) {
       biasScaleVal.emplace_back(1);
       axesList.emplace_back(1);
     }
     // Reshape instead of unsqueeze (use biasScaleShape)
-    axes = create.onnx.constantInt64(biasScaleVal);
+    axes = create.onnx.constantInt64(axisList);
     biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
     newScale = create.onnx.reshape(biasScaleType, scale, axes);
     newBias = create.onnx.reshape(biasScaleType, bias, axes);
