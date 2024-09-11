@@ -70,18 +70,23 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 }
 
 // Allocate memref (as before) if no input buffer can be reused.
+// Default VL=0 is used for non SIMD allocation
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment, int64_t VL = 1);
+    int64_t alignment, int64_t VL = 0);
 
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
     int64_t alignment, int64_t VL) {
 
   // By default, disableKrnlBufferReuse is true. Simply allocate a memref.
-  if (disableKrnlBufferReuse)
-    return create.alignedAllocWithSimdPadding(
-        outputMemRefType, dims, VL, alignment);
+  if (disableKrnlBufferReuse) {
+    if (VL == 0)
+      return create.alignedAlloc(outputMemRefType, dims, alignment);
+    else
+      return create.alignedAllocWithSimdPadding(
+          outputMemRefType, dims, VL, alignment);
+  }
 
   // Be aware to use the op->getOperands() to check the number of uses.
   // After buffer reuse, the number of uses of the transformed Value,
@@ -95,8 +100,11 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
     });
     return generatedOperands[indexToReuse];
   } else {
-    return create.alignedAllocWithSimdPadding(
-        outputMemRefType, dims, VL, alignment);
+    if (VL == 0)
+      return create.alignedAlloc(outputMemRefType, dims, alignment);
+    else
+      return create.alignedAllocWithSimdPadding(
+          outputMemRefType, dims, VL, alignment);
   }
 }
 
