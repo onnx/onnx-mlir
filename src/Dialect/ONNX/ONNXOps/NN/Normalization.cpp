@@ -153,7 +153,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
 // GroupNormalizationV18
 //===----------------------------------------------------------------------===//
 LogicalResult ONNXGroupNormalizationV18Op::verify() {
-  ONNXGroupNormalizationV18OpAdaptor operandAdaptor = ONNXGroupNormalizationV18OpAdaptor(*this);
+  ONNXGroupNormalizationV18OpAdaptor operandAdaptor =
+      ONNXGroupNormalizationV18OpAdaptor(*this);
   llvm::outs()
       << "Warning: The previous understanding of Opset 18 for "
          "GroupNormalization "
