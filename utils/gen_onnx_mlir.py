@@ -396,6 +396,7 @@ OpsWithVerifier = [
     "Gelu",
     "Greater",
     "GreaterOrEqual",
+    "GroupNormalizationV18",
     "Hardmax",
     "If",
     "IsInf",

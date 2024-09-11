@@ -3207,6 +3207,7 @@ def ONNXGroupNormalizationV18Op:ONNX_Op<"GroupNormalizationV18",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",

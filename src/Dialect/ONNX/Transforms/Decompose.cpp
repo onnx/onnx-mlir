@@ -876,13 +876,6 @@ LogicalResult ONNXGroupNormalizationCommon(
     // and bias
     // Unsqueeze scale/bias from [NG] to [NG x 1 x 1 x ... x 1] with numInNorm
     // 1s.
-
-    // TO-DO Add this to verify and do an assert
-    llvm::outs() << "Warning: The previous understanding of Opset 18 for "
-                    "GroupNormalization is incorrect."
-                 << "As shown in the following issue: "
-                    "https://github.com/onnx/onnx/issues/5466."
-                 << "Rather, use Opset 21 for GroupNormalization instead.\n";
     biasScaleShape.emplace_back(numGroups);
     for (int64_t i = 1; i <= numInNorm; ++i) {
       biasScaleShape.emplace_back(1);
@@ -899,22 +892,25 @@ LogicalResult ONNXGroupNormalizationCommon(
     // Unsqueeze scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
     // 1s.
     biasScaleShape.emplace_back(numGroups);
-    // C can be a dynamic or static value, account for that here
+    // C can be a dynamic or a static value, account for that here
     if (C != ShapedType::kDynamic) {
       assert(C % numGroups == 0 && "expected numGroups to divide C");
       biasScaleShape.emplace_back(C / numGroups);
+      for (int64_t i = 0; i <= numInNorm - 2; ++i) {
+        axesList.emplace_back(C / numGroups);
+      }
     } else {
       biasScaleShape.emplace_back(ShapedType::kDynamic);
+      for (int64_t i = 0; i <= numInNorm - 2; ++i) {
+        axesList.emplace_back(ShapedType::kDynamic);
+      }
     }
 
-    axesList.emplace_back(2);
-    axesList.emplace_back(2);
     for (int64_t i = 2; i <= numInNorm; ++i) {
       biasScaleShape.emplace_back(1);
       axesList.emplace_back(1);
     }
 
-    // Reshape instead of unsqueeze (use biasScaleShape)
     axes = create.onnx.constantInt64(axesList);
     biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
     newScale = create.onnx.reshape(biasScaleType, scale, axes);
@@ -922,7 +918,7 @@ LogicalResult ONNXGroupNormalizationCommon(
   }
 
   // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
-  // First compute the new (possibly dynamic) shape.
+  // First compute the new (possible dynamic) shape.
   Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
   Value NShape = create.onnx.shape(
       batchShapeType, input, /*start*/ 0, /*exclusive end*/ 1);
