@@ -101,7 +101,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
     else
       scalarOpNum += num;
     // For VL, when an operation is scalar, it still process 1 element
-    int64_t processedValues = std::max((int64_t)1, vl);
+    int64_t processedValues = std::max(static_cast<int64_t>(1), vl);
     totProcessedValues += processedValues * num;
   }
   // Compute final values

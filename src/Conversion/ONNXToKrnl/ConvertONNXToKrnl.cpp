@@ -203,6 +203,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXYieldOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDFTOpPattern(patterns, typeConverter, ctx);
@@ -371,20 +372,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // lowering. ONNXNoneOp will be dangling and removed by calling
   // canonicalization after the lowering.
   target.addLegalOp<::mlir::ONNXNoneOp>();
-
-  // Use krnl.load/store instead of std.load/store and affine.load/store.
-  // krnl.load/store will be lowered to std.load/store and affine.load/store
-  // by `convert-krnl-to-affine` pass.
-  target.addIllegalOp<mlir::memref::LoadOp>();
-  target.addIllegalOp<mlir::affine::AffineLoadOp>();
-  target.addIllegalOp<mlir::memref::StoreOp>();
-  // Memref builder can use affine stores, it would be awkward for it to
-  // generate Krnl stores as mem builder is part of MLIR. Thus the affine
-  // stores should not be illegal here. Since affine loads are still illegal,
-  // the regular krnl lowering will most likely trigger errors if non krnl mem
-  // ops where generally used.
-  //
-  // target.addIllegalOp<mlir::affine::AffineStoreOp>();
 
   // Option`emitDealloc` is deprecated and turned off, make sure we don't have
   // buffer deallocation at this level. Will use MLIR buffer-deallocation for

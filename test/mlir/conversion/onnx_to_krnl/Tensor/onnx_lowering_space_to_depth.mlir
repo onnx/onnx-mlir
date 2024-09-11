@@ -17,6 +17,7 @@ func.func private @test_space_to_depth_dynamic_dims(%arg0 : tensor<1x?x8x?xf32>)
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_0_]] : memref<1x?x8x?xf32> to tensor<1x?x8x?xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<1x?x8x?xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c3_]] : memref<1x?x8x?xf32>
@@ -30,8 +31,7 @@ func.func private @test_space_to_depth_dynamic_dims(%arg0 : tensor<1x?x8x?xf32>)
 // CHECK:           krnl.store [[VAR_c4_]], [[RES_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xindex>
 // CHECK:           krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xindex>
 // CHECK:           krnl.store [[VAR_c4_]], [[RES_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xindex>
-// CHECK-DAG:       [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_0_]] : memref<1x?x8x?xf32> to tensor<1x?x8x?xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = builtin.unrealized_conversion_cast [[RES_]] : memref<6xindex> to tensor<6xi64>
+// CHECK:          [[VAR_6_:%.+]] = builtin.unrealized_conversion_cast [[RES_]] : memref<6xindex> to tensor<6xi64>
 // CHECK:           [[VAR_7_:%.+]] = "onnx.Reshape"([[VAR_5_]], [[VAR_6_]]) {allowzero = 0 : si64} : (tensor<1x?x8x?xf32>, tensor<6xi64>) -> tensor<?x?x?x?x?x?xf32>
 // CHECK:           [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[VAR_7_]] : tensor<?x?x?x?x?x?xf32> to memref<?x?x?x?x?x?xf32>
 // CHECK:           [[VAR_9_:%.+]] = memref.cast [[VAR_8_]] : memref<?x?x?x?x?x?xf32> to memref<1x?x2x4x?x4xf32>

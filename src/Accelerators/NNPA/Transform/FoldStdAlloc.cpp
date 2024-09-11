@@ -1,6 +1,6 @@
 //===-------- FoldStdAlloc.cpp - Fold std.alloc ---------------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -150,9 +150,9 @@ public:
 
     // There must be exactly N stores to N different locations, where N is the
     // number of elements.
-    if ((int)storeOps.size() != numElements)
+    if (static_cast<int>(storeOps.size()) != numElements)
       return failure();
-    if ((int)indexToValueMap.size() != numElements)
+    if (static_cast<int>(indexToValueMap.size()) != numElements)
       return failure();
 
     // 2. Rewrite.
@@ -211,7 +211,8 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<FoldStdAlloc>(&getContext());
 
-    (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
+    static_cast<void>(
+        applyPatternsAndFoldGreedily(function, std::move(patterns)));
   }
 };
 
