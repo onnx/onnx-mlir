@@ -42,6 +42,7 @@ bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
+bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -209,6 +210,13 @@ static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
     llvm::cl::desc("disable op fusion in onnx-to-krnl pass (default=false)\n"
                    "Set to 'true' if you want to disable fusion."),
     llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
+    "disable-memref-prefetch",
+    llvm::cl::desc("disable generation of memref.prefetch (default=false)\n"
+                   "Set to 'true' if you want to disable prefetch."),
+    llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
