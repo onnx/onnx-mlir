@@ -891,18 +891,27 @@ LogicalResult ONNXGroupNormalizationCommon(
     // The equivalent of "C" when split is "NG x C/NG"
     // Reshape scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
     // 1s.
-    biasScaleVal.emplace_back(numGroups);
-    biasScaleVal.emplace_back(C / numGroups);
-
-    for (int64_t i = 2; i <= numInNorm; ++i) {
-      biasScaleVal.emplace_back(1);
+    biasScaleShape.emplace_back(numGroups);
+    // C can be a dynamic or static value, account for that here
+    if (C != ShapedType::kDynamic) {
+      assert(C % numGroups == 0 && "expected numGroups to divide C");
+      biasScaleShape.emplace_back(C / numGroups);
+    } else {
+      biasScaleShape.emplace_back(ShapedType::kDynamic);
     }
-
-    Value biasScaleShape = create.onnx.constantInt64(biasScaleVal);
-    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
-    newScale = create.onnx.reshape(biasScaleType, scale, biasScaleShape);
-    newBias = create.onnx.reshape(biasScaleType, bias, biasScaleShape);
+    axesList.emplace_back(2);
+    axesList.emplace_back(2);
+    for (int64_t i = 2; i <= numInNorm; ++i) {
+      biasScaleShape.emplace_back(1);
+      axesList.emplace_back(1);
+    }
+    // Reshape instead of unsqueeze (use biasScaleShape)
+    axes = create.onnx.constantInt64(axesList);
+    biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
+    newScale = create.onnx.reshape(biasScaleType, scale, axes);
+    newBias = create.onnx.reshape(biasScaleType, bias, axes);
   }
+
   // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
   // First compute the new (possible dynamic) shape.
   Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
