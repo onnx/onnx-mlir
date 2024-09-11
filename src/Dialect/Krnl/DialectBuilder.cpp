@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -94,12 +95,16 @@ Value KrnlBuilder::getLinearOffsetIndexIE(
 
 void KrnlBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
     unsigned localityHint, bool isDataCache) {
+  if (disableMemRefPrefetch)
+    return;
   b().create<KrnlPrefetchOp>(
       loc(), memref, indices, isWrite, localityHint, isDataCache);
 }
 
 void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
     bool isWrite, unsigned localityHint, bool isDataCache) {
+  if (disableMemRefPrefetch)
+    return;
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   b().create<KrnlPrefetchOp>(
