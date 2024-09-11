@@ -70,7 +70,7 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
         int64_t axis = mlir::cast<IntegerAttr>(value).getInt();
         if (axis < 0)
           axis += rank;
-        assert((axis >= 0 && axis < (int64_t)rank) &&
+        assert((axis >= 0 && axis < static_cast<int64_t>(rank)) &&
                "Axes contains an out-of-bound index");
         axesIntLitToIdx[axis] = idx++;
       }

@@ -179,7 +179,7 @@ Subscripts extractSubscripts(StringRef parameterEquation, int64_t rank) {
     }
     appendLetterSubscripts(suffix, subscripts);
   }
-  assert((int64_t)subscripts.size() == rank &&
+  assert(static_cast<int64_t>(subscripts.size()) == rank &&
          "#subscripts == rank after replacing any ellipsis with digits");
   return subscripts;
 }

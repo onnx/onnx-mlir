@@ -4,7 +4,7 @@
 
 //===------------------ Pooling.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -38,7 +38,7 @@ LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
   outputDims.emplace_back(xDims[0]);
   outputDims.emplace_back(xDims[1]);
   // Spatial dimensions are reduced to 1.
-  for (int i = 2; i < (int)xDims.size(); ++i)
+  for (int i = 2; i < static_cast<int>(xDims.size()); ++i)
     outputDims.emplace_back(LitIE(1));
   // Save the final result.
   setOutputDims(outputDims);
@@ -107,7 +107,7 @@ LogicalResult ONNXAveragePoolOp::verify() {
   auto X = operandAdaptor.getX();
   if (hasShapeAndRank(X)) {
     auto xShape = mlir::cast<ShapedType>(X.getType()).getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
+    if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
       return emitOpError("Input and kernel shape rank mismatch");
   }
 

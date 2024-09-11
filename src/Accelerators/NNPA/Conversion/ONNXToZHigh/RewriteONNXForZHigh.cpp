@@ -240,7 +240,7 @@ ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
 // This function is used for padding attribute in Conv.
 DenseElementsAttr insertZerosForNonPaddedDims(
     PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
-  int nDims = (int)origAttrs.getValue().size() / 2;
+  int nDims = static_cast<int>(origAttrs.getValue().size()) / 2;
   int nElements = (nDims + extensionLength) * 2;
   SmallVector<int64_t, 4> pads(nElements, 0);
   for (int i = 0; i < nDims; ++i) {

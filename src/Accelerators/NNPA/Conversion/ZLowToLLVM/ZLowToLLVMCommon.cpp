@@ -109,7 +109,7 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
 
   Type llvmI64Ty = rewriter.getI64Type();
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
-  Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
+  Value one = create.llvm.constant(llvmI64Ty, static_cast<int64_t>(1));
 
   Value preTransformedDescPtr = create.llvm._alloca(
       krnl::getPointerType(context, llvmZTensorDescStructTy),
@@ -120,10 +120,12 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
   // descriptor.
   SmallVector<Value, 4> operands;
   // 1. Data layout.
-  Value dataLayout = create.llvm.constant(llvmI64Ty, (int64_t)zDNNDataLayout);
+  Value dataLayout =
+      create.llvm.constant(llvmI64Ty, static_cast<int64_t>(zDNNDataLayout));
   operands.emplace_back(dataLayout);
   // 2. Data type.
-  Value dataType = create.llvm.constant(llvmI64Ty, (int64_t)zDNNDataType);
+  Value dataType =
+      create.llvm.constant(llvmI64Ty, static_cast<int64_t>(zDNNDataType));
   operands.emplace_back(dataType);
   // 3. Tensor descriptor.
   operands.emplace_back(
@@ -150,7 +152,7 @@ Value ZTensorHelper::getTransformedDescPtr(
 
   Type llvmI64Ty = rewriter.getI64Type();
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
-  Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
+  Value one = create.llvm.constant(llvmI64Ty, static_cast<int64_t>(1));
 
   Value transformedDescPtr = create.llvm._alloca(
       krnl::getPointerType(context, llvmZTensorDescStructTy),
@@ -158,7 +160,8 @@ Value ZTensorHelper::getTransformedDescPtr(
       /*alignment=*/0);
 
   if (isConcat) {
-    Value concatLayout = create.llvm.constant(llvmI64Ty, (int64_t)concatInfo);
+    Value concatLayout =
+        create.llvm.constant(llvmI64Ty, static_cast<int64_t>(concatInfo));
     callApi(rewriter, loc, module, apiRegistry,
         API::ZDNN_GENERATE_TRANSFORMED_DESC_CONCATENATED,
         {toOpaquePtr(rewriter, loc, module, preTransformedDescPtr),
@@ -202,7 +205,8 @@ ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
   // LLVM types for zTensor and zTensor descriptor.
   Type llvmZTensorStructTy = getZTensorStructTy(context);
   // Some frequently used constants.
-  Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
+  Value one =
+      create.llvm.constant(rewriter.getI64Type(), static_cast<int64_t>(1));
 
   // Create a pre transformed descriptor.
   Value preTransformedDescPtr =
@@ -244,7 +248,8 @@ ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
   ZTensor zTensor;
 
   Type llvmZTensorStructTy = getZTensorStructTy(context);
-  Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
+  Value one =
+      create.llvm.constant(rewriter.getI64Type(), static_cast<int64_t>(1));
   Value alloc =
       create.llvm._alloca(krnl::getPointerType(context, llvmZTensorStructTy),
           llvmZTensorStructTy, one,
@@ -385,7 +390,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
   for (int64_t i = 0; i < size; ++i) {
     Value alignedGep =
         create.llvm.getElemPtr(krnl::getPointerType(context, int64Ty), int64Ty,
-            alignedPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+            alignedPtr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
     Value dimI64 = create.llvm.load(int64Ty, alignedGep);
     dims.emplace_back(dimI64);
   }
@@ -540,8 +545,8 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
   create.llvm.store(alignedBuffer, bufferPtr);
 
   // 5. Set is_transformed.
-  Value isTransformedVal =
-      create.llvm.constant(llvmI1Ty, (int64_t)((isTransformed) ? 1 : 0));
+  Value isTransformedVal = create.llvm.constant(
+      llvmI1Ty, static_cast<int64_t>(((isTransformed) ? 1 : 0)));
   Value isTransformedDescPtr = create.llvm.getElemPtr(
       llvmZTensorPtrTy, llvmZTensorTy, zTensor, ArrayRef<LLVM::GEPArg>{0, 4});
   create.llvm.store(isTransformedVal, isTransformedDescPtr);
