@@ -906,7 +906,7 @@ LogicalResult ONNXGroupNormalizationCommon(
       axesList.emplace_back(1);
     }
     // Reshape instead of unsqueeze (use biasScaleShape)
-    axes = create.onnx.constantInt64(axesList);
+    axes = create.onnx.constantInt64(biasScaleVal);
     biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
     newScale = create.onnx.reshape(biasScaleType, scale, axes);
     newBias = create.onnx.reshape(biasScaleType, bias, axes);
