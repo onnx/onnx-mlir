@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMMlirDialects
   OMSpecializedKernelOpInterface
 
   LINK_LIBS PUBLIC
+  OMCompilerOptions
   MLIRMathDialect
   MLIRAffineDialect
   MLIRSCFDialect
