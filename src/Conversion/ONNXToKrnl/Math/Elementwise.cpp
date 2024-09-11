@@ -1282,9 +1282,15 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
   Value scaleFloat = scalarOperands[1];
   Value zeroPointInt = scalarOperands[2];
 
-  Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
   Value xFloat = create.math.cast(elementType, XInt);
-  Value sub = create.math.sub(xFloat, zeroPointFloat);
+
+  Value sub;
+  if (!disableQuantZeroPoint && !isNoneValue(zeroPointInt)) {
+    Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
+    sub = create.math.sub(xFloat, zeroPointFloat);
+  } else {
+    sub = xFloat;
+  }
   Value res = create.math.mul(sub, scaleFloat);
   return res;
 }

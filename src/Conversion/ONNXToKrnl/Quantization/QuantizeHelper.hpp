@@ -23,7 +23,8 @@ void emitQuantizationLinearScalarParameters(
     mlir::Operation *op, mlir::MemRefType inputType,
     mlir::MemRefType quantizedType, mlir::Value alloc, DimsExpr &allocDims,
     mlir::Value input, mlir::Value qMin, mlir::Value qMax, mlir::Value scale,
-    mlir::Value zeroPoint, bool enableSIMD, bool enableParallel);
+    mlir::Value zeroPoint, bool hasZeroPoint, bool enableSIMD,
+    bool enableParallel);
 
 // Scan the input to compute scale, zeroPoint, and quantizedZeroPoint given qMin
 // and qMax.
@@ -32,5 +33,6 @@ void emitDynamicQuantizationLinearScalarParameters(
     mlir::Operation *op, mlir::MemRefType inputType,
     mlir::MemRefType quantizedType, mlir::Value input, mlir::Value qMin,
     mlir::Value qMax, mlir::Value &scale, mlir::Value &zeroPoint,
-    mlir::Value &quantizedZeroPoint, bool enableSIMD, bool enableParallel);
+    mlir::Value &quantizedZeroPoint, bool wantZeroPoint, bool enableSIMD,
+    bool enableParallel);
 } // namespace onnx_mlir
