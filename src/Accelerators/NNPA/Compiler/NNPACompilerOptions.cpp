@@ -104,6 +104,6 @@ llvm::cl::opt<bool> nnpaDelayStickifiedConstGen(
     "nnpa-delay-stickified-const-generation",
     llvm::cl::desc(
         "Generate stickified constants when storing constants to file. This "
-        "will be able to reduce peak memory usage. Default is false."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+        "will be able to reduce peak memory usage. Default is true."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
 } // namespace onnx_mlir
