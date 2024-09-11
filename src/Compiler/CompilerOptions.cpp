@@ -216,7 +216,7 @@ static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
 static llvm::cl::opt<bool, true> disableKrnlBufferReuseOpt(
     "disable-krnl-buffer-reuse",
     llvm::cl::desc("disable buffer reuse within an op in onnx-to-krnl pass"
-                  "(default=true)\n"
+                   "(default=true)\n"
                    "Set to 'false' if you want to enable buffer reuse."
                    "Default value will be false when the functionality becomes"
                    "stable."),
