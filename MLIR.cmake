@@ -211,7 +211,7 @@ function(add_onnx_mlir_library name)
     endif()
   endif()
 
-  if (NOT ARG_NO_INSTALL)
+  if (NOT ARG_NO_INSTALL AND ONNX_MLIR_INSTALL_LIBS)
     install(TARGETS ${name}
       ARCHIVE DESTINATION lib
       LIBRARY DESTINATION lib

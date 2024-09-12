@@ -102,4 +102,6 @@ if (ONNX_MLIR_VENDOR)
   list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
 endif()
 list(APPEND DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
-target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
+# AMD change: Make the definition of ONNX_MLIR_SHA private to avoid recompiling
+# all objects when moving to another commit.
+target_compile_definitions(OMVersion PRIVATE ${DEFINITIONS})

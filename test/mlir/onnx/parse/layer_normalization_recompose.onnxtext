@@ -1,0 +1,24 @@
+// RUN: onnx-mlir --EmitONNXIR --printIR %s | FileCheck %s
+
+<
+   ir_version: 8,
+   opset_import: ["" : 17]
+>
+agraph (float[1,384,768] X, float[768] SCALE, float[768] BIAS) => (float[1,384,768] Y) {
+   EPS = Constant <value: tensor = float value {1e-05}> ()
+   POW_EXPONENT = Constant <value: tensor = float value {2}> ()
+   MEAN = ReduceMean <axes: ints = [-1], keepdims: int = 1> (X)
+   D = Sub (X, MEAN)
+   DD = Pow (D, POW_EXPONENT)
+   VAR = ReduceMean <axes: ints = [-1], keepdims: int = 1> (DD)
+   VAR_EPS = Add (VAR, EPS)
+   STD_DEV = Sqrt (VAR_EPS)
+   NORM = Div (D, STD_DEV)
+   NORM_SCALED = Mul (NORM, SCALE)
+   Y = Add (NORM_SCALED, BIAS)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32> {onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<768xf32> {onnx.name = "SCALE"}, [[PARAM_2_:%.+]]: tensor<768xf32> {onnx.name = "BIAS"}) -> (tensor<1x384x768xf32> {onnx.name = "Y"}) {
+// CHECK:           [[Y_:%.+]], [[Mean_:%.+]], [[InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 9.99999974E-6 : f32, onnx_node_name = "onnx.LayerNormalization_0", stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           return [[Y_]] : tensor<1x384x768xf32>
+// CHECK:         }

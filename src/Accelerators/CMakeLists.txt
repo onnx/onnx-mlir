@@ -51,6 +51,7 @@ add_onnx_mlir_library(OMInitAccelerators
     LLVMSupport
     MLIRIR
   )
+target_compile_options(OMInitAccelerators PUBLIC -Wno-gnu-zero-variadic-macro-arguments)
 
 add_onnx_mlir_library(OMAccelerator
   Accelerator.cpp
@@ -67,3 +68,4 @@ add_onnx_mlir_library(OMAccelerator
     LLVMSupport
     MLIRIR
   )
+target_compile_options(OMAccelerator PUBLIC -Wno-gnu-zero-variadic-macro-arguments)

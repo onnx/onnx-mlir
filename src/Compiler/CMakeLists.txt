@@ -239,11 +239,12 @@ endif()
 
 pybind11_add_module(PyCompile PyOMCompileSession.cpp)
 add_dependencies(PyCompile onnx_proto)
-target_compile_options(PyCompile
-  PRIVATE
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
-  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+  target_compile_options(PyCompile PRIVATE /EHsc /GR)
+elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  target_compile_options(PyCompile PRIVATE -frtti -fexceptions)
+endif()
+
 target_compile_definitions(PyCompile
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
@@ -257,6 +258,8 @@ target_link_libraries(PyCompile
   OMCompiler
   )
 
-install(TARGETS PyCompile
-  DESTINATION lib
-  )
+if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+  install(TARGETS PyCompile
+    DESTINATION lib
+    )
+endif()
