@@ -874,7 +874,7 @@ LogicalResult ONNXGroupNormalizationCommon(
   if constexpr (isNumGroup<OP_TYPE>) {
     // Opset18 Uses "numgroups" the number of groups of channels for the scale
     // and bias
-    // Unsqueeze scale/bias from [NG] to [NG x 1 x 1 x ... x 1] with numInNorm
+    // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
     // 1s.
     biasScaleVal.emplace_back(numGroups);
     for (int64_t i = 1; i <= numInNorm; ++i) {
@@ -893,11 +893,11 @@ LogicalResult ONNXGroupNormalizationCommon(
     // 1s.
     biasScaleVal.emplace_back(numGroups);
     axesList.emplace_back(numGroups);
+    axesList.emplace_back(2);
     // C can be a dynamic or static value, account for that here
     if (C != ShapedType::kDynamic) {
       assert(C % numGroups == 0 && "expected numGroups to divide C");
       biasScaleVal.emplace_back(C / numGroups);
-      axesList.emplace_back(C / numGroups);
     } else {
       biasScaleVal.emplace_back(ShapedType::kDynamic);
       axesList.emplace_back(ShapedType::kDynamic);
