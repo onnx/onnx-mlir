@@ -72,15 +72,12 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_7_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_6_3_]], [[VAR_4_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.icmp "eq" [[VAR_7_1_]], [[VAR_5_4_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_1_]], ^bb1([[VAR_3_5_]] : !llvm.ptr), ^bb2
-// CHECK:         ^bb1([[VAR_9_:%.+]]: !llvm.ptr):  // 2 preds: ^bb0, ^bb2
+// CHECK:         ^bb1([[VAR_9_:%.+]]: !llvm.ptr):  // 3 preds: ^bb0, ^bb2, ^bb2
 // CHECK:           llvm.return [[VAR_9_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_10_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_2_5_]], [[VAR_1_5_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_11_1_:%.+]] = llvm.icmp "eq" [[VAR_10_1_]], [[VAR_5_4_]] : i32
-// CHECK:           llvm.cond_br [[VAR_11_1_]], ^bb1([[VAR_0_7_]] : !llvm.ptr), ^bb3
-// CHECK:         ^bb3:  // pred: ^bb2
-// CHECK:           [[VAR_12_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK:           llvm.return [[VAR_12_1_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_11_1_]], ^bb1([[VAR_0_7_]] : !llvm.ptr)
 // CHECK:         }
 
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
@@ -99,15 +96,12 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_7_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_6_4_]], [[VAR_4_4_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_2_:%.+]] = llvm.icmp "eq" [[VAR_7_2_]], [[VAR_5_5_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_2_]], ^bb1([[VAR_3_6_]] : !llvm.ptr), ^bb2
-// CHECK:         ^bb1([[VAR_9_]]: !llvm.ptr):  // 2 preds: ^bb0, ^bb2
+// CHECK:         ^bb1([[VAR_9_]]: !llvm.ptr):  // 3 preds: ^bb0, ^bb2, ^bb2
 // CHECK:           llvm.return [[VAR_9_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_10_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_2_6_]], [[VAR_1_6_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_11_2_:%.+]] = llvm.icmp "eq" [[VAR_10_2_]], [[VAR_5_5_]] : i32
-// CHECK:           llvm.cond_br [[VAR_11_2_]], ^bb1([[VAR_0_9_]] : !llvm.ptr), ^bb3
-// CHECK:         ^bb3:  // pred: ^bb2
-// CHECK:           [[VAR_12_2_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK:           llvm.return [[VAR_12_2_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_11_2_]], ^bb1([[VAR_0_9_]] : !llvm.ptr)
 // CHECK:         }
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
 // CHECK:           [[VAR_0_9_:%.+]] = llvm.call @omOutputSignature_tag_symbols([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr

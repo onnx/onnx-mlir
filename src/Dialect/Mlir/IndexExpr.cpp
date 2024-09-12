@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.cpp - Index expression---------------------=== //
 //
-// copyright 2020-2023 The IBM Research Authors.
+// copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -22,11 +22,11 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
-#include "mlir/Support/MathExtras.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "index-expr"
 
@@ -947,7 +947,7 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
 // Int operator
 IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    int64_t rval = mlir::mod(aa.getLiteral(), bb.getLiteral());
+    int64_t rval = llvm::mod(aa.getLiteral(), bb.getLiteral());
     return LiteralIndexExpr(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
