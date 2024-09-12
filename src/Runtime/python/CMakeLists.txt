@@ -70,11 +70,11 @@ target_include_directories(OMPyExecutionSessionBase
 # target_include_directories.
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
 add_dependencies(PyRuntimeC onnx_proto)
-target_compile_options(PyRuntimeC
-  PRIVATE
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
-  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+  target_compile_options(PyRuntimeC PRIVATE /EHsc /GR)
+elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  target_compile_options(PyRuntimeC PRIVATE -frtti -fexceptions)
+endif()
 target_compile_definitions(PyRuntimeC
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
@@ -89,17 +89,19 @@ target_link_libraries(PyRuntimeC
   )
 llvm_update_compile_flags(PyRuntimeC)
 
-install(TARGETS PyRuntimeC
-  DESTINATION lib
-  )
+if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+  install(TARGETS PyRuntimeC
+    DESTINATION lib
+    )
+endif()
 
 pybind11_add_module(PyCompileAndRuntimeC PyOMCompileExecutionSession.cpp)
 add_dependencies(PyCompileAndRuntimeC onnx_proto)
-target_compile_options(PyCompileAndRuntimeC
-  PRIVATE
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
-  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+  target_compile_options(PyCompileAndRuntimeC PRIVATE /EHsc /GR)
+elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  target_compile_options(PyCompileAndRuntimeC PRIVATE -frtti -fexceptions)
+endif()
 target_compile_definitions(PyCompileAndRuntimeC
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
@@ -116,6 +118,8 @@ target_link_libraries(PyCompileAndRuntimeC
   )
 llvm_update_compile_flags(PyCompileAndRuntimeC)
 
-install(TARGETS PyCompileAndRuntimeC
-  DESTINATION lib
-  )
+if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+  install(TARGETS PyCompileAndRuntimeC
+    DESTINATION lib
+    )
+endif()
