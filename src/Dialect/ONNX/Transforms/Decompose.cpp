@@ -903,10 +903,17 @@ LogicalResult ONNXGroupNormalizationCommon(
     for (int64_t i = 2; i <= numInNorm; ++i) {
       biasScaleVal.emplace_back(1);
     }
+
+    // Calculate the (possible) dynamic dimensions for biasScaleShape
+    Value NGShape = create.onnx.constantInt64({numGroups});
+    Value oneDimShape = create.onnx.constantInt64({1, 1});
+    Type biasScaleShapeType =
+        RankedTensorType::get({inputRank}, rewriter.getI64Type());
+    Value biasScaleShape = create.onnx.concat(biasScaleShapeType,
+        {NGShape, NGShape, oneDimShape}, /*axis*/
+        0);
+
     // Reshape instead of unsqueeze (use biasScaleShape)
-    Type inputType = RankedTensorType::get({inputRank}, rewriter.getI64Type());
-    Value biasScaleShape = create.onnx.shape(inputType, input);
-    axes = create.onnx.constantInt64(axesList);
     biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
     newScale = create.onnx.reshape(biasScaleType, scale, biasScaleShape);
     newBias = create.onnx.reshape(biasScaleType, bias, biasScaleShape);
