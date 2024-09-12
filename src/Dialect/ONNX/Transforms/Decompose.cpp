@@ -892,26 +892,24 @@ LogicalResult ONNXGroupNormalizationCommon(
     // Reshape scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
     // 1s.
     biasScaleVal.emplace_back(numGroups);
-    axesList.emplace_back(numGroups);
-    axesList.emplace_back(2);
     // C can be a dynamic or static value, account for that here
     if (C != ShapedType::kDynamic) {
       assert(C % numGroups == 0 && "expected numGroups to divide C");
       biasScaleVal.emplace_back(C / numGroups);
     } else {
       biasScaleVal.emplace_back(ShapedType::kDynamic);
-      axesList.emplace_back(ShapedType::kDynamic);
     }
 
     for (int64_t i = 2; i <= numInNorm; ++i) {
       biasScaleVal.emplace_back(1);
-      axesList.emplace_back(1);
     }
     // Reshape instead of unsqueeze (use biasScaleShape)
+    Type inputType = RankedTensorType::get({inputRank}, rewriter.getI64Type());
+    Value biasScaleShape = create.onnx.shape(inputType, input);
     axes = create.onnx.constantInt64(axesList);
     biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
-    newScale = create.onnx.reshape(biasScaleType, scale, axes);
-    newBias = create.onnx.reshape(biasScaleType, bias, axes);
+    newScale = create.onnx.reshape(biasScaleType, scale, biasScaleShape);
+    newBias = create.onnx.reshape(biasScaleType, bias, biasScaleShape);
   }
 
   // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
