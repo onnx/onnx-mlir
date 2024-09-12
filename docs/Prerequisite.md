@@ -26,4 +26,4 @@ Ninja can be installed with apt on Debian/Ubuntu Linux, or brew on MacOS. On RHE
 
 Java SDK can be installed with distro specific package manager on Linux such as yum on RHEL/Fedora, apt on Debian/Ubuntu, or brew on MacOS. Java SDK is only required if you plan to use the onnx-mlir `--EmitJNI` option to compile a model into a jar file for use in a Java environment. Note that the jar file contains native model runtime library called through JNI so it is not portable across different architectures. To check the java version, run `java --version`.
 
-All the `PyPi` package dependencies and their appropriate versions are captured in [requirements.txt](requirements.txt).
+All the `PyPi` package dependencies and their appropriate versions are captured in [requirements.txt](https://github.com/onnx/onnx-mlir/blob/main/requirements.txt).
