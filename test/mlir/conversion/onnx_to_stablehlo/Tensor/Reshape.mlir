@@ -47,7 +47,7 @@ func.func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi
 // CHECK:           [[VAR_22_:%.+]] = arith.select [[VAR_21_]], [[CST_1_]], [[VAR_20_]] : index
 // CHECK-DAG:       [[VAR_23_:%.+]] = arith.muli [[VAR_17_]], [[VAR_22_]] : index
 // CHECK-DAG:       [[VAR_24_:%.+]] = arith.cmpi eq, [[VAR_1_]], [[CST_minus_1_]] : index
-// CHECK:           [[VAR_25_:%.+]] = arith.floordivsi [[CST_800_]], [[VAR_23_]] : index
+// CHECK-DAG:       [[VAR_25_:%.+]] = arith.floordivsi [[CST_800_]], [[VAR_23_]] : index
 // CHECK-DAG:       [[VAR_26_:%.+]] = arith.select [[VAR_24_]], [[VAR_25_]], [[VAR_3_]] : index
 // CHECK-DAG:       [[VAR_27_:%.+]] = arith.cmpi eq, [[VAR_6_]], [[CST_minus_1_]] : index
 // CHECK-NOT: separator of consecutive DAGs

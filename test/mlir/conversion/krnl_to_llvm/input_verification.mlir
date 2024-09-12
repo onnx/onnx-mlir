@@ -33,9 +33,9 @@ module {
 // CHECK-DAG:       [[VAR_17_1_:%.+]] = llvm.mlir.constant(2 : i64) : i64
 // CHECK-DAG:       [[VAR_18_1_:%.+]] = llvm.call @omTensorListGetSize([[arg0_]]) : (!llvm.ptr) -> i64
 // CHECK:           [[VAR_19_1_:%.+]] = llvm.icmp "ne" [[VAR_17_1_]], [[VAR_18_1_]] : i64
-// CHECK:           llvm.cond_br [[VAR_19_1_]], ^bb1([[VAR_16_1_]], [[VAR_18_1_]] : !llvm.ptr, i64), ^bb2
-// CHECK:         ^bb1([[VAR_20_:%.+]]: !llvm.ptr, [[VAR_21_:%.+]]: i64):  // 8 preds: ^bb0, ^bb4, ^bb5, ^bb6, ^bb7, ^bb9, ^bb11, ^bb12
-// CHECK:           llvm.call @printf([[VAR_20_]], [[VAR_21_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.cond_br [[VAR_19_1_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           llvm.call @printf([[VAR_16_1_]], [[VAR_18_1_]]) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_22_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_22_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -44,57 +44,102 @@ module {
 // CHECK:           [[LOAD_VAR_24_MEM_:%.+]] = llvm.load [[VAR_24_]] : !llvm.ptr -> !llvm.ptr
 // CHECK:           [[VAR_26_:%.+]] = llvm.call @omTensorGetDataType([[LOAD_VAR_24_MEM_]]) : (!llvm.ptr) -> i64
 // CHECK:           [[VAR_27_:%.+]] = llvm.icmp "ne" [[VAR_14_1_]], [[VAR_26_]] : i64
-// CHECK:           llvm.cond_br [[VAR_27_]], ^bb3([[VAR_13_1_]] : !llvm.ptr), ^bb4
-// CHECK:         ^bb3([[VAR_28_:%.+]]: !llvm.ptr):  // 3 preds: ^bb2, ^bb8, ^bb10
-// CHECK:           llvm.call @printf([[VAR_28_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.cond_br [[VAR_27_]], ^bb3, ^bb4
+// CHECK:         ^bb3: // pred: ^bb2
+// CHECK:           llvm.call @printf([[VAR_13_1_]]) : (!llvm.ptr) -> ()
 // CHECK:           [[VAR_29_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_29_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
 // CHECK:         ^bb4:  // pred: ^bb2
 // CHECK:           [[VAR_31_:%.+]] = llvm.call @omTensorGetRank([[LOAD_VAR_24_MEM_]]) : (!llvm.ptr) -> i64
-// CHECK:           [[VAR_32_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_31_]] : i64
-// CHECK:           llvm.cond_br [[VAR_32_]], ^bb1([[VAR_11_1_]], [[VAR_31_]] : !llvm.ptr, i64), ^bb5
+// CHECK:           [[VAR_31_1_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_31_]] : i64
+// CHECK:           llvm.cond_br [[VAR_31_1_]], ^bb5, ^bb6
 // CHECK:         ^bb5:  // pred: ^bb4
-// CHECK:           [[VAR_33_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_24_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
-// CHECK:           [[LOAD_VAR_33_MEM_:%.+]] = llvm.load [[VAR_33_]] : !llvm.ptr -> i64
-// CHECK:           [[VAR_35_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[LOAD_VAR_33_MEM_]] : i64
-// CHECK:           llvm.cond_br [[VAR_35_]], ^bb1([[LOAD_arg2_MEM_1_]], [[LOAD_VAR_33_MEM_]] : !llvm.ptr, i64), ^bb6
-// CHECK:         ^bb6:  // pred: ^bb5
-// CHECK:           [[VAR_36_:%.+]] = llvm.getelementptr [[VAR_33_]][1] : (!llvm.ptr) -> !llvm.ptr, i64
-// CHECK:           [[LOAD_VAR_36_MEM_:%.+]] = llvm.load [[VAR_36_]] : !llvm.ptr -> i64
-// CHECK:           [[VAR_38_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_VAR_36_MEM_]] : i64
-// CHECK:           llvm.cond_br [[VAR_38_]], ^bb1([[VAR_8_2_]], [[LOAD_VAR_36_MEM_]] : !llvm.ptr, i64), ^bb7
+// CHECK:           llvm.call @printf([[VAR_11_1_]], [[VAR_31_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_31_2_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_31_2_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb6:  // pred: ^bb4
+// CHECK:           [[VAR_32_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_24_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
+// CHECK:           [[LOAD_VAR_32_MEM_:%.+]] = llvm.load [[VAR_32_]] : !llvm.ptr -> i64
+// CHECK:           [[VAR_32_2_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[LOAD_VAR_32_MEM_]] : i64
+// CHECK:           llvm.cond_br [[VAR_32_2_]], ^bb7, ^bb8
 // CHECK:         ^bb7:  // pred: ^bb6
-// CHECK:           [[VAR_39_:%.+]] = llvm.getelementptr [[VAR_33_]][2] : (!llvm.ptr) -> !llvm.ptr, i64
-// CHECK:           [[LOAD_VAR_39_MEM_:%.+]] = llvm.load [[VAR_39_]] : !llvm.ptr -> i64
-// CHECK:           [[VAR_41_:%.+]] = llvm.icmp "ne" [[VAR_7_2_]], [[LOAD_VAR_39_MEM_]] : i64
-// CHECK:           llvm.cond_br [[VAR_41_]], ^bb1([[VAR_6_2_]], [[LOAD_VAR_39_MEM_]] : !llvm.ptr, i64), ^bb8
-// CHECK:         ^bb8:  // pred: ^bb7
-// CHECK:           [[VAR_42_:%.+]] = llvm.getelementptr [[VAR_24_]][1] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
-// CHECK:           [[LOAD_VAR_42_MEM_:%.+]] = llvm.load [[VAR_42_]] : !llvm.ptr -> !llvm.ptr
-// CHECK:           [[VAR_44_:%.+]] = llvm.call @omTensorGetDataType([[LOAD_VAR_42_MEM_]]) : (!llvm.ptr) -> i64
-// CHECK:           [[VAR_45_:%.+]] = llvm.icmp "ne" [[VAR_14_1_]], [[VAR_44_]] : i64
-// CHECK:           llvm.cond_br [[VAR_45_]], ^bb3([[VAR_5_2_]] : !llvm.ptr), ^bb9
+// CHECK:           llvm.call @printf([[LOAD_arg2_MEM_1_]], [[LOAD_VAR_32_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_32_3_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_32_3_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb8:  // pred: ^bb6
+// CHECK:           [[VAR_37_:%.+]] = llvm.getelementptr [[VAR_32_]][1] : (!llvm.ptr) -> !llvm.ptr, i64
+// CHECK:           [[LOAD_VAR_36_MEM_:%.+]] = llvm.load [[VAR_37_]] : !llvm.ptr -> i64
+// CHECK:           [[VAR_40_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_VAR_36_MEM_]] : i64
+// CHECK:           llvm.cond_br [[VAR_40_]], ^bb9, ^bb10
 // CHECK:         ^bb9:  // pred: ^bb8
-// CHECK:           [[VAR_46_:%.+]] = llvm.call @omTensorGetRank([[LOAD_VAR_42_MEM_]]) : (!llvm.ptr) -> i64
-// CHECK:           [[VAR_47_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_46_]] : i64
-// CHECK:           llvm.cond_br [[VAR_47_]], ^bb1([[VAR_4_2_]], [[VAR_46_]] : !llvm.ptr, i64), ^bb10
-// CHECK:         ^bb10:  // pred: ^bb9
-// CHECK:           [[VAR_48_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_42_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
-// CHECK:           [[LOAD_VAR_48_MEM_:%.+]] = llvm.load [[VAR_48_]] : !llvm.ptr -> i64
-// CHECK:           [[VAR_50_:%.+]] = llvm.icmp "slt" [[LOAD_VAR_48_MEM_]], [[VAR_3_2_]] : i64
-// CHECK:           llvm.cond_br [[VAR_50_]], ^bb3([[VAR_2_2_]] : !llvm.ptr), ^bb11
+// CHECK:           llvm.call @printf([[VAR_8_2_]], [[LOAD_VAR_36_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_41_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_41_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb10:  // pred: ^bb8 
+// CHECK:           [[VAR_42_:%.+]] = llvm.getelementptr [[VAR_32_]][2] : (!llvm.ptr) -> !llvm.ptr, i64
+// CHECK:           [[LOAD_VAR_40_MEM_:%.+]] = llvm.load [[VAR_42_]] : !llvm.ptr -> i64
+// CHECK:           [[VAR_42_0_:%.+]] = llvm.icmp "ne" [[VAR_7_2_]], [[LOAD_VAR_40_MEM_]] : i64
+// CHECK:           llvm.cond_br [[VAR_42_0_]], ^bb11, ^bb12
 // CHECK:         ^bb11:  // pred: ^bb10
-// CHECK:           [[VAR_51_:%.+]] = llvm.getelementptr [[VAR_48_]][1] : (!llvm.ptr) -> !llvm.ptr, i64
-// CHECK:           [[LOAD_VAR_51_MEM_:%.+]] = llvm.load [[VAR_51_]] : !llvm.ptr -> i64
-// CHECK:           [[VAR_53_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_VAR_51_MEM_]] : i64
-// CHECK:           llvm.cond_br [[VAR_53_]], ^bb1([[VAR_1_2_]], [[LOAD_VAR_51_MEM_]] : !llvm.ptr, i64), ^bb12
-// CHECK:         ^bb12:  // pred: ^bb11
-// CHECK:           [[VAR_54_:%.+]] = llvm.getelementptr [[VAR_48_]][2] : (!llvm.ptr) -> !llvm.ptr, i64
-// CHECK:           [[LOAD_VAR_54_MEM_:%.+]] = llvm.load [[VAR_54_]] : !llvm.ptr -> i64
-// CHECK:           [[VAR_56_:%.+]] = llvm.icmp "ne" [[VAR_7_2_]], [[LOAD_VAR_54_MEM_]] : i64
-// CHECK:           llvm.cond_br [[VAR_56_]], ^bb1([[VAR_0_2_]], [[LOAD_VAR_54_MEM_]] : !llvm.ptr, i64), ^bb13
+// CHECK:           llvm.call @printf([[VAR_6_2_]], [[LOAD_VAR_40_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_42_1_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_42_1_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb12:  // pred: ^bb10
+// CHECK:           [[VAR_43_:%.+]] = llvm.getelementptr [[VAR_24_]][1] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
+// CHECK:           [[LOAD_VAR_44_MEM_:%.+]] = llvm.load [[VAR_43_]] : !llvm.ptr -> !llvm.ptr
+// CHECK:           [[VAR_44_:%.+]] = llvm.call @omTensorGetDataType([[LOAD_VAR_44_MEM_]]) : (!llvm.ptr) -> i64
+// CHECK:           [[VAR_45_:%.+]] = llvm.icmp "ne" [[VAR_14_1_]], [[VAR_44_]] : i64
+// CHECK:           llvm.cond_br [[VAR_45_]], ^bb13, ^bb14
 // CHECK:         ^bb13:  // pred: ^bb12
+// CHECK:           llvm.call @printf([[VAR_5_2_]]) : (!llvm.ptr) -> ()
+// CHECK:           [[VAR_47_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_47_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb14:  // pred: ^bb12
+// CHECK:           [[VAR_48_:%.+]] = llvm.call @omTensorGetRank([[LOAD_VAR_44_MEM_]]) : (!llvm.ptr) -> i64
+// CHECK:           [[VAR_49_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_48_]] : i64
+// CHECK:           llvm.cond_br [[VAR_49_]], ^bb15, ^bb16
+// CHECK:         ^bb15:  // pred: ^bb14
+// CHECK:           llvm.call @printf([[VAR_4_2_]], [[VAR_48_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_50_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_50_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb16:  // pred: ^bb14
+// CHECK:           [[VAR_51_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_44_MEM_]]) : (!llvm.ptr) -> !llvm.ptr
+// CHECK:           [[LOAD_VAR_51_MEM_:%.+]] = llvm.load [[VAR_51_]] : !llvm.ptr -> i64
+// CHECK:           [[VAR_53_:%.+]] = llvm.icmp "slt" [[LOAD_VAR_51_MEM_]], [[VAR_3_2_]] : i64
+// CHECK:           llvm.cond_br [[VAR_53_]], ^bb17, ^bb18
+// CHECK:         ^bb17:  // pred: ^bb16
+// CHECK:           llvm.call @printf([[VAR_2_2_]]) : (!llvm.ptr) -> ()
+// CHECK:           [[VAR_54_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_54_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb18:  // pred: ^bb16
+// CHECK:           [[VAR_55_:%.+]] = llvm.getelementptr [[VAR_51_]][1] : (!llvm.ptr) -> !llvm.ptr, i64
+// CHECK:           [[LOAD_VAR_55_MEM_:%.+]] = llvm.load [[VAR_55_]] : !llvm.ptr -> i64
+// CHECK:           [[VAR_55_1_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_VAR_55_MEM_]] : i64
+// CHECK:           llvm.cond_br [[VAR_55_1_]], ^bb19, ^bb20
+// CHECK:         ^bb19:  // pred: ^bb18
+// CHECK:           llvm.call @printf([[VAR_1_2_]], [[LOAD_VAR_55_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_55_2_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_55_2_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb20:  // pred: ^bb18
+// CHECK:           [[VAR_55_3_:%.+]] = llvm.getelementptr [[VAR_51_]][2] : (!llvm.ptr) -> !llvm.ptr, i64
+// CHECK:           [[LOAD_VAR_54_MEM_:%.+]] = llvm.load [[VAR_55_3_]] : !llvm.ptr -> i64
+// CHECK:           [[VAR_55_4_:%.+]] = llvm.icmp "ne" [[VAR_7_2_]], [[LOAD_VAR_54_MEM_]] : i64
+// CHECK:           llvm.cond_br [[VAR_55_4_]], ^bb21, ^bb22
+// CHECK:         ^bb21:  // pred: ^bb20
+// CHECK:           llvm.call @printf([[VAR_0_2_]], [[LOAD_VAR_54_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_56_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_15_1_]], [[VAR_56_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
+// CHECK:         ^bb22:  // pred: ^bb20
 // CHECK-DAG:       [[VAR_57_:%.+]] = llvm.call @omTensorListGetOmtArray([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr
 // CHECK-DAG:       [[VAR_58_:%.+]] = llvm.alloca [[VAR_14_1_]] x !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)> : (i64) -> !llvm.ptr
 // CHECK-NOT: separator of consecutive DAGs

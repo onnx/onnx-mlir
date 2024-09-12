@@ -20,6 +20,7 @@
 
 #include "RegisterPasses.hpp"
 
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 
@@ -163,6 +164,9 @@ void registerMLIRPasses() {
   });
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createFinalizeMemRefToLLVMConversionPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createReconcileUnrealizedCastsPass();
   });
 }
 
