@@ -27,6 +27,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
 include "mlir/Dialect/Affine/IR/AffineMemoryOpInterfaces.td"
 include "src/Interface/SpecializedKernelOpInterface.td"
+include "src/Interface/ConstantOpInterface.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -397,7 +398,8 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable,
                        Index:$dest_offset, Index:$src_offset);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure,
+    DeclareOpInterfaceMethods<ConstantOpInterface>, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a

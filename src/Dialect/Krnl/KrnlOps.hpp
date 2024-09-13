@@ -21,6 +21,7 @@
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlTypes.hpp"
+#include "src/Interface/ConstantOpInterface.hpp"
 #include "src/Interface/SpecializedKernelOpInterface.hpp"
 
 #include "src/Dialect/Krnl/KrnlDialect.hpp.inc"

@@ -12,12 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "mlir/IR/Value.h"
@@ -801,6 +803,51 @@ OpFoldResult KrnlVectorTypeCastOp::fold(FoldAdaptor adaptor) {
 MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
   return getLoopsMutable();
 }
+
+ArrayRef<char> getRawData(KrnlGlobalOp &op) {
+  ArrayRef<char> rawData;
+  // llvm::dbgs() << "getRawData op:" << op << "\n";
+  // assert(op.getValue().has_value() && "Krnl Global must always have a
+  // value");
+  if (op.getValueAttr()) {
+    auto value = op.getValue().value();
+    TypeSwitch<Attribute>(value)
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          auto blob = mlir::cast<DenseResourceElementsAttr>(value)
+                          .getRawHandle()
+                          .getBlob();
+          assert(blob && "Expecting dense resource with a valid blob");
+          rawData = blob->getData();
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+          DenseElementsAttr denseAttr =
+              mlir::dyn_cast_or_null<DenseElementsAttr>(value);
+          rawData = denseAttr.getRawData();
+        })
+        .Default([&](Attribute attr) { return; });
+  }
+  return rawData;
+}
+
+ArrayRef<char> KrnlGlobalOp::getBuffer() {
+  ArrayRef<char> rawData;
+  if (auto krnlGlobalOp = mlir::dyn_cast<KrnlGlobalOp>(getOperation())) {
+    rawData = getRawData(krnlGlobalOp);
+  }
+  return rawData;
+}
+
+uint64_t KrnlGlobalOp::getBufferSize() {
+  const Type type = getOperation()->getResults()[0].getType();
+  const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
+  auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
+  return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
+}
+
+void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {}
+
+void KrnlGlobalOp::updateBuffer() {}
+
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp
