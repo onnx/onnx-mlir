@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_NNPA_LIMIT_H
+#define ONNX_MLIR_NNPA_LIMIT_H
 
 #include <stdint.h>
 
@@ -42,3 +43,4 @@ static constexpr const char *NNPA_Z16 = "z16";
 // and (s=1,e=63,m=510) as the minimum value.
 static constexpr float DLF16_MAX = (1L << 32) * (1.0 + (510.0 / 512.0));
 static constexpr float DLF16_MIN = -1 * (1L << 32) * (1.0 + (510.0 / 512.0));
+#endif

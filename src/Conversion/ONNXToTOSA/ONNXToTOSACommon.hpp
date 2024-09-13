@@ -4,7 +4,7 @@
 
 //====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering --------===//
 //
-// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
+// Copyright 2020-2024 The TensorFlow Authors. All Rights Reserved.
 // Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
@@ -14,7 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_TO_TOSA_H
+#define ONNX_MLIR_ONNX_TO_TOSA_H
 
 #include "DialectBuilder.hpp"
 #include "ONNXToTOSALegalizeUtils.hpp"
@@ -176,3 +177,4 @@ void populateLoweringONNXTransposeOpToTOSAPattern(mlir::ConversionTarget &,
 void populateLoweringONNXEntryPointOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir
+#endif

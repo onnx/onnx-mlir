@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PASSES_H
+#define ONNX_MLIR_PASSES_H
 
 #include <memory>
 #include <string>
@@ -59,7 +60,8 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
-std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
+std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
+    const std::string pattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
@@ -121,3 +123,4 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 } // namespace onnx_mlir
+#endif

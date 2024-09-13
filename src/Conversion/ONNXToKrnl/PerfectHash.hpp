@@ -4,7 +4,7 @@
 
 //====--------------- PerfectHash.hpp - Perfect Hash Table ----------------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PERFECT_HASH_H
+#define ONNX_MLIR_PERFECT_HASH_H
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -57,3 +58,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

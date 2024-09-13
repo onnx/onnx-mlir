@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DIALECT_BUILDER_TOSA_H
+#define ONNX_MLIR_DIALECT_BUILDER_TOSA_H
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Builders.h"
@@ -158,3 +159,4 @@ struct MultiDialectBuilder<IndexExprBuilderForTosa, Ts...>
 };
 
 } // namespace onnx_mlir
+#endif

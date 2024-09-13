@@ -25,7 +25,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DISPOSABLE_POOL_H
+#define ONNX_MLIR_DISPOSABLE_POOL_H
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
@@ -97,3 +98,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

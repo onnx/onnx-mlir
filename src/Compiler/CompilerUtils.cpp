@@ -182,6 +182,10 @@ void showCompilePhase(std::string msg) {
 
   llvm::errs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
                << "] " << currentTime << " " << msg << "\n";
+
+  // Reset current phase.
+  if (CURRENT_COMPILE_PHASE > TOTAL_COMPILE_PHASE)
+    CURRENT_COMPILE_PHASE = 1;
 }
 
 } // namespace onnx_mlir
@@ -929,6 +933,10 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     EmissionTargetType emissionTarget) {
   std::string msg = "Compiling and Optimizing MLIR Module";
+  // There is no importing phase (e.g. the model is .mlir, not .onnx), adjust to
+  // correctly reflect the current phase.
+  if (CURRENT_COMPILE_PHASE == 1)
+    CURRENT_COMPILE_PHASE++;
   showCompilePhase(msg);
   auto compileModuleTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
 

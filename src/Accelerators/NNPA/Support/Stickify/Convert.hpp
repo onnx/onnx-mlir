@@ -4,7 +4,7 @@
 
 //===------- convert.hpp - Data Conversion --------------------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_CONVERT_H
+#define ONNX_MLIR_CONVERT_H
 
 #include <inttypes.h>
 
@@ -21,3 +22,4 @@ uint64_t fp32_to_dlf16(
     float *input_data, uint16_t *output_data, uint64_t nbr_fields_to_convert);
 uint64_t dlf16_to_fp32(
     uint16_t *input_data, float *output_data, uint64_t nbr_fields_to_convert);
+#endif

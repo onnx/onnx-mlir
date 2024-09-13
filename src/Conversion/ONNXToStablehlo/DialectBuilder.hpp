@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DIALECT_BUILDER_STABLEHLO_H
+#define ONNX_MLIR_DIALECT_BUILDER_STABLEHLO_H
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Location.h"
@@ -158,3 +159,4 @@ struct MultiDialectBuilder<IndexExprBuilderForStablehlo, Ts...>
 };
 
 } // namespace onnx_mlir
+#endif

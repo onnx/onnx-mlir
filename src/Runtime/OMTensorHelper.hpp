@@ -4,7 +4,7 @@
 
 //===---------- OMTensorHelper.hpp - OMTensor Helper Func header ----------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_TENSOR_HELPER_H
+#define ONNX_MLIR_TENSOR_HELPER_H
 
 #include <functional>
 #include <iostream>
@@ -180,3 +181,4 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(const OMTensor *omt);
 template <typename T>
 bool omTensorAreTwoOmtsClose(
     const OMTensor *a, const OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
+#endif

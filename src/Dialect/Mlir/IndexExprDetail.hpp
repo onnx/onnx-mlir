@@ -5,7 +5,7 @@
 //===------------- IndexExprDetail.hpp - Index expression details ---------===//
 //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_INDEX_EXPR_DETAIL_H
+#define ONNX_MLIR_INDEX_EXPR_DETAIL_H
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
@@ -124,3 +125,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

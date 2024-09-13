@@ -4,7 +4,7 @@
 
 //===--------------- RNNBase.hpp - Lowering RNN Ops -----------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_RNN_BASE_KRNL_H
+#define ONNX_MLIR_RNN_BASE_KRNL_H
 
 #include "mlir/IR/AffineExpr.h"
 
@@ -228,3 +229,4 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
 };
 
 } // namespace onnx_mlir
+#endif

@@ -4,11 +4,12 @@
 
 //===------------------------- RegisterPasses.hpp -------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_REGISTER_PASSES_H
+#define ONNX_MLIR_REGISTER_PASSES_H
 
 namespace onnx_mlir {
 
@@ -16,3 +17,4 @@ namespace onnx_mlir {
 void registerPasses(int optLevel);
 
 } // namespace onnx_mlir
+#endif
