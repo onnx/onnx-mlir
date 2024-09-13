@@ -39,6 +39,9 @@ class ConstantOpInterfaceLowering
     : public OpInterfaceConversionPattern<ConstantOpInterface> {
 
 public:
+  using OpInterfaceConversionPattern<
+      ConstantOpInterface>::OpInterfaceConversionPattern;
+
   explicit ConstantOpInterfaceLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
       : OpInterfaceConversionPattern(typeConverter, context) {}
