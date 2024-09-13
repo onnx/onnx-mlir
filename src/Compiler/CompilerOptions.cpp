@@ -43,6 +43,7 @@ std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
+bool enableKrnlBufferReuse;                            // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -220,6 +221,14 @@ static llvm::cl::opt<bool, true> disable_quantization_zero_point(
         "Set to 'true' if you want to disable the use of zero-point\n"
         "in dyn/static quantization/dequantization."),
     llvm::cl::location(disableQuantZeroPoint), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
+    "enable-krnl-buffer-reuse",
+    llvm::cl::desc("enable buffer reuse within an op in onnx-to-krnl pass"
+                   "(default=false)\n"
+                   "Set to 'true' if you want to enable buffer reuse."),
+    llvm::cl::location(enableKrnlBufferReuse), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(

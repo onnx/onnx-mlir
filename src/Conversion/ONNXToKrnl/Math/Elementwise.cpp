@@ -28,6 +28,82 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// Check the input, x, can be reused as the output buffer
+bool isBufferReusable(Value x, MemRefType outputType) {
+  if (!x.hasOneUse())
+    return false;
+
+  Type xType = x.getType();
+  auto inputType = dyn_cast<ShapedType>(xType);
+  if (!inputType)
+    return false;
+  // Currently, only static shape could be reused.
+  // ToFix: use DimAnalysis to handle dynamic shape.
+  if (!hasStaticShape(inputType))
+    return false;
+  if (!hasStaticShape(outputType))
+    return false;
+
+  // Currently reuse requires that the shape has to be the same.
+  // ToFix: If the shape is not the same, memref.cast can be used.
+  if (getRank(inputType) != getRank(outputType))
+    return false;
+  for (int64_t i = 0; i < getRank(inputType); i++) {
+    if (inputType.getShape()[i] != outputType.getShape()[i])
+      return false;
+  }
+
+  // ToFix: The simd padding is not checked
+  // We did not record whether the memref is padded or not.
+  // The padding added to the memref the as an attribute, or not needed.
+  return true;
+}
+
+// Traverse the operands to find the candidate for buffer reuse.
+// Return -1, if no candidate is found.
+int whichBufferToReuse(ValueRange values, MemRefType outputType) {
+  for (size_t i = 0; i < values.size(); i++) {
+    if (isBufferReusable(values[i], outputType))
+      return i;
+  }
+  return -1;
+}
+
+// Allocate memref (as before) if no input buffer can be reused.
+// Default VL=0 is used for non SIMD allocation
+Value allocOrReuse(MemRefBuilder &create, Operation *op,
+    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
+    int64_t alignment, int64_t VL = 0);
+
+Value allocOrReuse(MemRefBuilder &create, Operation *op,
+    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
+    int64_t alignment, int64_t VL) {
+
+  int indexToReuse = -1;
+  // By default, enableKrnlBufferReuse is false. Simply allocate a memref.
+  if (enableKrnlBufferReuse) {
+    // Be aware to use the op->getOperands() to check the number of uses.
+    // After buffer reuse, the number of uses of the transformed Value,
+    // generatedOperands, will increase.
+    indexToReuse = whichBufferToReuse(op->getOperands(), outputMemRefType);
+  }
+
+  if (indexToReuse != -1) {
+    int size = getSizeInBytes(outputMemRefType);
+    LLVM_DEBUG({
+      llvm::dbgs() << "  malloc_size " << size << "\n";
+      op->dump();
+    });
+    return generatedOperands[indexToReuse];
+  } else {
+    if (VL == 0)
+      return create.alignedAlloc(outputMemRefType, dims, alignment);
+    else
+      return create.alignedAllocWithSimdPadding(
+          outputMemRefType, dims, VL, alignment);
+  }
+}
+
 // =============================================================================
 
 /// Emit post-processing for variadic element-wise ops.
@@ -1329,14 +1405,14 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   DimsExpr outputDims;
   getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
-  // Alloc memory with padding for SIMD.
+  // Reuse the buffer from the input, or Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
   // multiples of VL * unrollVL, so there should be no padding anyway. This
   // will change if we do partial flattening with non-multiple of VL *
   // unrollVL.
-  Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, outputDims, VL, alignment);
+  Value alloc = allocOrReuse(
+      create.mem, op, operands, outputMemRefType, outputDims, alignment, VL);
   // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
@@ -1981,8 +2057,9 @@ struct ONNXElementwiseUnaryOpLowering
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
-    Value alloc = create.mem.alignedAlloc(
-        outputMemRefType, shapeHelper.getOutputDims(), alignment);
+    Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
+        shapeHelper.getOutputDims(), alignment);
+    ;
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
@@ -2162,8 +2239,9 @@ struct ONNXElementwiseBinaryOpLowering
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = create.mem.alignedAlloc(
-        outputMemRefType, shapeHelper.getOutputDims(), alignment);
+    Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
+        shapeHelper.getOutputDims(), alignment);
+    ;
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
@@ -2337,8 +2415,9 @@ struct ONNXElementwiseVariadicOpLowering
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = create.mem.alignedAlloc(
-        outputMemRefType, shapeHelper.getOutputDims(), alignment);
+    Value alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
+        shapeHelper.getOutputDims(), alignment);
+    ;
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
