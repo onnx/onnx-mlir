@@ -349,7 +349,7 @@ static llvm::cl::opt<bool, true> storeConstantsToFileOpt(
         "constants-to-file-total-threshold can be used to finetune the amount "
         "of constants stored on the file. Windows will be supported soon. "
         "Default is True."),
-    llvm::cl::location(storeConstantsToFile), llvm::cl::init(false),
+    llvm::cl::location(storeConstantsToFile), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<float, true> constantsToFileTotalThresholdOpt(
