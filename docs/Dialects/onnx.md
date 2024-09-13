@@ -3589,6 +3589,63 @@ where the mean and variance are computed per instance per group of channels, and
 groups `num_groups` should be divisible by the number of channels so that there are
 an equal number of channels per group.
 
+The overall computation has two stages: the first stage normalizes the elements to
+have zero mean and unit variance for each instance in each group, and the second
+stage scales and shifts the results of the first stage. The floating-point precision
+used in the first stage is determined by the `stash_type` attribute. For example,
+if `stash_type` is 1, the operator casts all input variables to 32-bit float,
+performs the computation, and finally casts the normalized results back to the
+original type of `X`. The second stage does not depend on `stash_type`.
+
+When the number of groups is the same as the number of channels, this operator is
+equivalent to InstanceNormalization. When there is only one group, this operator
+is equivalent to LayerNormalization.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>epsilon</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>num_groups</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>stash_type</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `scale` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `bias` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
+### `onnx.GroupNormalizationV18` (ONNXGroupNormalizationV18Op)
+
+_ONNX GroupNormalization operation_
+
+A GroupNormalization function. Carries out group normalization as described in
+the paper https://arxiv.org/abs/1803.08494
+
+This operator transforms input according to
+```
+y = scale * (x - mean) / sqrt(variance + epsilon) + bias,
+```
+where the mean and variance are computed per instance per group of channels, and
+`scale` and `bias` should be specified for each group of channels. The number of
+groups `num_groups` should be divisible by the number of channels so that there are
+an equal number of channels per group.
+
 When the number of groups is the same as the number of channels, this operator is
 equivalent to InstanceNormalization. When there is only one group, this operator
 is equivalent to LayerNormalization.
