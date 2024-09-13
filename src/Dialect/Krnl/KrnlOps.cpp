@@ -848,7 +848,6 @@ void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {}
 
 void KrnlGlobalOp::updateBuffer() {}
 
-
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp
 //===----------------------------------------------------------------------===//
