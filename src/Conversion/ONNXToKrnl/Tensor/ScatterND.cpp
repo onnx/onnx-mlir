@@ -80,9 +80,9 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
           // The first (q-1) indexes traverse the iteration space defined by
           // indices.shape[:-1], which corresponds to the first (q-1) induction
           // variable in the loop iteration space.
-          DimsExpr indicesAccessFct;
-          getIndexExprList<DimIndexExpr>(loopInd, indicesAccessFct);
-          indicesAccessFct.truncate(indicesRank - 1);
+          DimsExpr indicesAccessFctFirst;
+          getIndexExprList<DimIndexExpr>(loopInd, indicesAccessFctFirst);
+          indicesAccessFctFirst.truncate(indicesRank - 1);
 
           // Access function for the output. Let r=rank(data), q=rank(indices).
           // The first indices.shape[-1] indexes are given by looking up the
@@ -92,6 +92,7 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
           for (unsigned i = 0; i < dataRank; ++i) {
             if (i < indicesRank - 1) {
               IndexExpr ind = LiteralIndexExpr(i);
+              DimsExpr indicesAccessFct(indicesAccessFctFirst);
               indicesAccessFct.emplace_back(ind);
               Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
               IndexExpr index = NonAffineIndexExpr(indexVal);
