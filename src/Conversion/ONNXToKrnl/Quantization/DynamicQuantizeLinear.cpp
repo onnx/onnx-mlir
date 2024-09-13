@@ -21,6 +21,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
   ONNXDynamicQuantizeLinearOpLowering(
@@ -65,6 +66,8 @@ struct ONNXDynamicQuantizeLinearOpLowering
         create.mem.alignedAlloc(yScaleMemRefType, shapeHelper.getOutputDims(1));
     Value YZeroPoint = create.mem.alignedAlloc(
         yZeroPointMemRefType, shapeHelper.getOutputDims(2));
+
+    // TODO: consider SIMD version of this.
 
     // Equations:
     // y_scale = (max(x) - min(x))/(qmax - qmin)

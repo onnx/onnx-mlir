@@ -500,10 +500,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+    ZHighStickOp stickOp = cast<ZHighStickOp>(op);
 
     ZHighStickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.getIn();
-    StringAttr layout = cast<ZHighStickOp>(op).getLayoutAttr();
+    StringAttr layout = stickOp.getLayoutAttr();
+    IntegerAttr saturation = stickOp.getSaturationAttr();
 
     IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
     ZHighStickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
@@ -521,7 +523,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       layout = getNCHWLayoutAttr(rewriter);
 
     // Else, emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, input, alloc, layout);
+    rewriter.create<ZLowStickOp>(loc, input, alloc, layout, saturation);
     rewriter.replaceOp(op, alloc);
     return success();
   }

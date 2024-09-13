@@ -195,4 +195,10 @@ def GetAxisNHWC : NativeCodeCall<
   "::onnx_mlir::zhigh::getAxisNHWC($0)"
 >;
 
+def NoneIntegerAttr: NativeCodeCall<"IntegerAttr()">;
+
+def GetDefaultSaturation : NativeCodeCall<
+  "::onnx_mlir::zhigh::getDefaultSaturation($_builder)"
+>;
+
 #endif // OP_HELPER
