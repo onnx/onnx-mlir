@@ -29,7 +29,8 @@ llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
 llvm::cl::opt<bool> nnpaClipToDLFloatRange("nnpa-clip-to-dlfloat-range",
     llvm::cl::desc("Clip CPU tensors to dlfloat range before stickification to "
                    "avoid out-of-range. Only clip Softmax inputs at this "
-                   "moment. Default is true."),
+                   "moment. Default is true. This option will be removed and "
+                   "replaced by --nnpa-saturation in the future."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
@@ -55,7 +56,7 @@ llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
     "enable-compiler-stick-unstick",
     llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
                    "stick/unstick code. Default is true."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
     "nnpa-enable-scalar-bcast-binary",
