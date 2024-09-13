@@ -588,7 +588,7 @@ template <>
 double analyzeSimdFor<ONNXHardSigmoidOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::MulGop}, {2, 1}, t, von, son);
+      {GenericOps::ArithmeticGop, GenericOps::MulGop}, {3, 1}, t, von, son);
 }
 
 template <>
@@ -1814,6 +1814,11 @@ bool OpFusionHelper::isControlFlowValidForFusion(
 // function by fold function.
 bool OpFusionHelper::areInputsValidForFusion(
     Operation *useOp, Operation *defOp, DimAnalysis *dimAnalysis) {
+  // Do not fuse ops with scalar tensors.
+  if (llvm::all_of(
+          useOp->getOperands(), [](Value v) { return isScalarTensor(v); }))
+    return false;
+
   // Elementwise unary operation is always fusible
   if (useOp->getOperands().size() == 1)
     return true;

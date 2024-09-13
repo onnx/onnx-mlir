@@ -59,7 +59,8 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
-std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
+std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
+    const std::string pattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();

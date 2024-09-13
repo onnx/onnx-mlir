@@ -48,6 +48,15 @@ namespace onnx_mlir {
 
 void configurePassesNNPA() {
   configureOnnxToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps);
+  // Compiler generated sticks supports saturation, so force its usage.
+  // TODO: remove this if zDNN adds support for saturation.
+  if (nnpaEnableSaturation)
+    nnpaEnableCompilerStickUnstick = true;
+  // Currently nnpaEnableCompilerStickUnstick not supported on zOS.
+  // TODO enable on zOS
+  if (mtriple == "s390x-ibm-zos") {
+    nnpaEnableCompilerStickUnstick = false;
+  }
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
@@ -214,8 +223,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
       // Lower ONNX to Krnl, ZHigh to ZLow.
-      addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true,
-          instrumentONNXSignature, ONNXOpStats);
+      addONNXToKrnlPasses(
+          pm, optLevel, /*enableCSE*/ true, instrumentSignatures, ONNXOpStats);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
