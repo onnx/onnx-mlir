@@ -66,7 +66,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             TEST_ARGS="${TEST_ARGS}" \
             TEST_OPTLEVEL=${TEST_OPTLEVEL} \
             -j${NPROC} \
-            check-onnx-backend \
+            check-onnx-backend-numerical \
     && rm -f Debug/bin/*Test Debug/bin/Perf* Debug/bin/Test* \
 # When building for push event to publish the image, unshallow and
 # rename origin to upstream to make the repo a bit more dev friendly.
