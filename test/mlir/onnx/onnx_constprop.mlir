@@ -2481,3 +2481,16 @@ func.func @test_pow_i32_f32_no_prop(%arg0: tensor<1x2xi32>, %arg1: tensor<f32>) 
   // CHECK: "onnx.Pow"
 }
 
+//===----------------------------------------------------------------------===//
+/// Reciprocal test
+
+// -----
+
+// CHECK-LABEL: @test_reciprocal() -> tensor<1x2xf32>
+func.func @test_reciprocal() -> tensor<1x2xf32> {
+  %0 = onnx.Constant dense<[[-4.0, 16.0]]> : tensor<1x2xf32>
+  %1 = "onnx.Reciprocal"(%0) : (tensor<1x2xf32>) -> tensor<1x2xf32>
+  "onnx.Return"(%1) : (tensor<1x2xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[-2.500000e-01, 6.250000e-02]{{\]}}> : tensor<1x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Reciprocal"{{.*}}
+}
