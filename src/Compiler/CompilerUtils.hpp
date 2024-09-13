@@ -31,6 +31,11 @@ extern mlir::TimingScope rootTimingScope;
 
 namespace onnx_mlir {
 
+// Values to report the current phase of compilation.
+// Increase TOTAL_COMPILE_PHASE when having more phases.
+extern uint64_t CURRENT_COMPILE_PHASE;
+extern uint64_t TOTAL_COMPILE_PHASE;
+
 struct Command {
 
   std::string _path;
@@ -46,6 +51,8 @@ struct Command {
   Command &resetArgs();
   int exec(std::string wdir = "") const;
 };
+
+void showCompilePhase(std::string msg);
 
 // Registers and loads the mlir and onnx-mlir dialects needed to compile
 // end to end. Initializes accelerator(s) if required.
