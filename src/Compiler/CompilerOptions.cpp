@@ -42,7 +42,7 @@ bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
-bool disableKrnlBufferReuse;                           // common for both
+bool enableKrnlBufferReuse;                            // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -213,14 +213,12 @@ static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
     llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
-static llvm::cl::opt<bool, true> disableKrnlBufferReuseOpt(
-    "disable-krnl-buffer-reuse",
-    llvm::cl::desc("disable buffer reuse within an op in onnx-to-krnl pass"
-                   "(default=true)\n"
-                   "Set to 'false' if you want to enable buffer reuse."
-                   "Default value will be false when the functionality becomes"
-                   "stable."),
-    llvm::cl::location(disableKrnlBufferReuse), llvm::cl::init(true),
+static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
+    "enable-krnl-buffer-reuse",
+    llvm::cl::desc("enable buffer reuse within an op in onnx-to-krnl pass"
+                   "(default=false)\n"
+                   "Set to 'true' if you want to enable buffer reuse."),
+    llvm::cl::location(enableKrnlBufferReuse), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(

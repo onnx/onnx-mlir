@@ -79,19 +79,15 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
     int64_t alignment, int64_t VL) {
 
-  // By default, disableKrnlBufferReuse is true. Simply allocate a memref.
-  if (disableKrnlBufferReuse) {
-    if (VL == 0)
-      return create.alignedAlloc(outputMemRefType, dims, alignment);
-    else
-      return create.alignedAllocWithSimdPadding(
-          outputMemRefType, dims, VL, alignment);
+  int indexToReuse = -1;
+  // By default, enableKrnlBufferReuse is false. Simply allocate a memref.
+  if (enableKrnlBufferReuse) {
+    // Be aware to use the op->getOperands() to check the number of uses.
+    // After buffer reuse, the number of uses of the transformed Value,
+    // generatedOperands, will increase.
+    indexToReuse = whichBufferToReuse(op->getOperands(), outputMemRefType);
   }
 
-  // Be aware to use the op->getOperands() to check the number of uses.
-  // After buffer reuse, the number of uses of the transformed Value,
-  // generatedOperands, will increase.
-  int indexToReuse = whichBufferToReuse(op->getOperands(), outputMemRefType);
   if (indexToReuse != -1) {
     int size = getSizeInBytes(outputMemRefType);
     LLVM_DEBUG({
