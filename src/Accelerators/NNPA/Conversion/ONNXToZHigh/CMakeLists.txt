@@ -37,6 +37,8 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   OMONNXOps
   OMONNXToKrnl
   OMZHighOps
+  OMLayoutHelper
+
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
