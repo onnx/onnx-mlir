@@ -180,7 +180,7 @@ void showCompilePhase(std::string msg) {
   strftime(buffer, 80, "%c", timeinfo);
   std::string currentTime(buffer);
 
-  llvm::outs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
+  llvm::errs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
                << "] " << currentTime << " " << msg << "\n";
 }
 
