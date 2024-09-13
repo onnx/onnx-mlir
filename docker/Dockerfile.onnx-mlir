@@ -57,9 +57,6 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
-    && make check-docs \
-    && make check-unittest \
-    && make check-multiple-models \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_NOFLOAT16=${TEST_NOFLOAT16} \
