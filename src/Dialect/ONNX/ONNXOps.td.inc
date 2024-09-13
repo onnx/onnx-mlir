@@ -1873,6 +1873,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   [Pure, OpVersionTrait<19>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX DequantizeLinear operation";
   let description = [{
   The linear dequantization operator. It consumes a quantized tensor, a scale, and a zero point to compute the full precision tensor.

@@ -1720,3 +1720,18 @@ func.func @test_where_with_always_false_3(%arg0: tensor<?x?xi64>) -> tensor<2xi6
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<2xi64>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_dequantize_linear(%arg0: tensor<?x?x768xf32>, %arg1: tensor<f32>, %arg2: tensor<i8>) -> (tensor<?x?x768xf32>) {
+    %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?x?x768xf32>, tensor<f32>, tensor<i8>) -> tensor<?x?x768xi8>
+    %1 = "onnx.DequantizeLinear"(%0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?x?x768xi8>, tensor<f32>, tensor<i8>) -> tensor<?x?x768xf32>
+    return %1: tensor<?x?x768xf32>
+
+// CHECK-LABEL:  func.func @test_dequantize_linear
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xf32>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<i8>) -> tensor<?x?x768xf32> {
+// CHECK-NOT:       "onnx.QuantizeLinear"
+// CHECK-NOT:       "onnx.DequantizeLinear"
+// CHECK:           return [[PARAM_0_]] : tensor<?x?x768xf32>
+// CHECK:         }
+}

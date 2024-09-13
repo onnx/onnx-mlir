@@ -10,7 +10,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
    * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 20.
 
 
-NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Support/NNPALimit.h). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
+NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.hpp](../src/Accelerators/NNPA/Support/NNPALimit.hpp). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
 
 
 | Op |Supported Opsets (inclusive) |Limitations |Notes |
