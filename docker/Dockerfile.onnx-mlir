@@ -63,7 +63,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
             -j${NPROC} \
-            check-onnx-backend-numerical \
+            check-onnx-backend-dynamic \
     && make -j${NPROC} install && ldconfig \
 # Clean up
     && cd ${WORK_DIR} \
