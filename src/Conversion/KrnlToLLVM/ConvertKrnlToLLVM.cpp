@@ -962,6 +962,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringConstantOpInterfacePattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);

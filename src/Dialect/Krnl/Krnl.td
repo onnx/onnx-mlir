@@ -398,8 +398,9 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable,
                        Index:$dest_offset, Index:$src_offset);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure,
-    DeclareOpInterfaceMethods<ConstantOpInterface>, MemRefsNormalizable]> {
+// def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure,
+//    DeclareOpInterfaceMethods<ConstantOpInterface>, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
