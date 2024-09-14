@@ -3145,7 +3145,7 @@ def get_test_models():
         },
         # ==OP== Transpose
         # ==MIN== 1
-        # ==LIM== Does not support int4 and uint4. 
+        # ==LIM== Does not support int4 and uint4.
         "test_transpose_default_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
