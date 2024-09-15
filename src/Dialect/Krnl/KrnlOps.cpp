@@ -829,24 +829,24 @@ ArrayRef<char> getRawData(KrnlGlobalOp &op) {
   return rawData;
 }
 
-// ArrayRef<char> KrnlGlobalOp::getBuffer() {
-//   ArrayRef<char> rawData;
-//   if (auto krnlGlobalOp = mlir::dyn_cast<KrnlGlobalOp>(getOperation())) {
-//     rawData = getRawData(krnlGlobalOp);
-//   }
-//   return rawData;
-// }
-//
-// uint64_t KrnlGlobalOp::getBufferSize() {
-//   const Type type = getOperation()->getResults()[0].getType();
-//   const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
-//   auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
-//   return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
-// }
-//
-// void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {}
-//
-// void KrnlGlobalOp::updateBuffer() {}
+ArrayRef<char> KrnlGlobalOp::getBuffer() {
+  ArrayRef<char> rawData;
+  if (auto krnlGlobalOp = mlir::dyn_cast<KrnlGlobalOp>(getOperation())) {
+    rawData = getRawData(krnlGlobalOp);
+  }
+  return rawData;
+}
+
+uint64_t KrnlGlobalOp::getBufferSize() {
+  const Type type = getOperation()->getResults()[0].getType();
+  const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
+  auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
+  return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
+}
+
+void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {}
+
+void KrnlGlobalOp::updateBuffer() {}
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp

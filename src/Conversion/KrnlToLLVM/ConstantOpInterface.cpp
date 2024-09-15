@@ -37,13 +37,25 @@ extern std::string EXTERNAL_CONSTANT_PREFIX;
 
 class ConstantOpInterfaceLowering
     : public OpInterfaceConversionPattern<ConstantOpInterface> {
+  //    : public OpInterfaceConversionPattern<ConstantOpInterface>,
+  //    ConvertToLLVMPattern {
 public:
   using OpInterfaceConversionPattern<
       ConstantOpInterface>::OpInterfaceConversionPattern;
 
+  //  explicit ConstantOpInterfaceLowering(
+  //      LLVMTypeConverter &typeConverter, MLIRContext *context)
+  //      : ConvertToLLVMPattern(
+  //            ConstantOpInterface::getOperationName(), context, typeConverter)
+  //            {}
+
   explicit ConstantOpInterfaceLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
       : OpInterfaceConversionPattern(typeConverter, context) {}
+  //    : OpInterfaceConversionPattern(typeConverter, context),
+  //    ConvertToLLVMPattern(
+  //            ConstantOpInterface::getOperationName(), context, typeConverter)
+  //            {}
 
   LogicalResult matchAndRewrite(ConstantOpInterface op,
       ArrayRef<Value> operands,
@@ -62,7 +74,8 @@ public:
     const Type type = op.getResult().getType();
     const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
     const Type constantElementType =
-        llvmTypeConverter->convertType(memRefTy.getElementType());
+        typeConverter->convertType(memRefTy.getElementType());
+    //        llvmTypeConverter->convertType(memRefTy.getElementType());
     Type globalType = constantElementType;
 
     // The llvm type of the global (example: [2 x [8 x float]]).
