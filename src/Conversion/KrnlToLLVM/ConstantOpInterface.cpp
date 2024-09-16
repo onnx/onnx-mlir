@@ -37,8 +37,8 @@ extern std::string EXTERNAL_CONSTANT_PREFIX;
 
 class ConstantOpInterfaceLowering
     : public OpInterfaceConversionPattern<ConstantOpInterface> {
-  //    : public OpInterfaceConversionPattern<ConstantOpInterface>,
-  //    ConvertToLLVMPattern {
+  //      : public OpInterfaceConversionPattern<ConstantOpInterface>,
+  //      ConvertToLLVMPattern {
 public:
   using OpInterfaceConversionPattern<
       ConstantOpInterface>::OpInterfaceConversionPattern;
@@ -52,10 +52,11 @@ public:
   explicit ConstantOpInterfaceLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
       : OpInterfaceConversionPattern(typeConverter, context) {}
-  //    : OpInterfaceConversionPattern(typeConverter, context),
-  //    ConvertToLLVMPattern(
-  //            ConstantOpInterface::getOperationName(), context, typeConverter)
-  //            {}
+  //      : OpInterfaceConversionPattern(typeConverter, context),
+  //      ConvertToLLVMPattern(
+  //			   /*ConstantOpInterface::getOperationName()*/
+  //"constantopinterface", context, typeConverter)
+  //              {}
 
   LogicalResult matchAndRewrite(ConstantOpInterface op,
       ArrayRef<Value> operands,
@@ -63,6 +64,8 @@ public:
     Location loc = op->getLoc();
     MLIRContext *context = op->getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    //    const LLVMTypeConverter *llvmTypeConverter =
+    //    ConvertToLLVMPattern::getTypeConverter();
     const LLVMTypeConverter *llvmTypeConverter =
         static_cast<const LLVMTypeConverter *>(getTypeConverter());
 
@@ -74,8 +77,9 @@ public:
     const Type type = op.getResult().getType();
     const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
     const Type constantElementType =
+        //            llvmTypeConverter->convertType(memRefTy.getElementType());
         typeConverter->convertType(memRefTy.getElementType());
-    //        llvmTypeConverter->convertType(memRefTy.getElementType());
+
     Type globalType = constantElementType;
 
     // The llvm type of the global (example: [2 x [8 x float]]).
@@ -118,6 +122,8 @@ public:
     // otherwise use the module datalayout info.
     krnl::setAlignment(global, op.getAlignmentAttr(),
         op->getParentOfType<ModuleOp>(), rewriter, *llvmTypeConverter);
+    //    		       op->getParentOfType<ModuleOp>(), rewriter,
+    //    *getTypeConverter());
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     MemRefDescriptor memRefDescr =
@@ -288,9 +294,13 @@ private:
   MemRefDescriptor createMemRefDescriptor(Value address, MemRefType memRefType,
       Location loc, OpBuilder &builder) const {
     Type elementType = memRefType.getElementType();
+    //    const LLVMTypeConverter &typeConverter = *getTypeConverter();
+    //    const LLVMTypeConverter *llvmTypeConverter =
+    //    ConvertToLLVMPattern::getTypeConverter();
     const LLVMTypeConverter *llvmTypeConverter =
         static_cast<const LLVMTypeConverter *>(getTypeConverter());
-    Type llvmElemType = llvmTypeConverter->convertType(elementType);
+    //    Type llvmElemType = llvmTypeConverter->convertType(elementType);
+    Type llvmElemType = typeConverter->convertType(elementType);
     MLIRContext *context = builder.getContext();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
@@ -385,3 +395,4 @@ void populateLoweringConstantOpInterfacePattern(
 
 } // namespace krnl
 } // namespace onnx_mlir
+
