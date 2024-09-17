@@ -42,6 +42,8 @@ bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
+bool disableQuantZeroPoint;                            // common for both
+bool enableKrnlBufferReuse;                            // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -194,7 +196,7 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> enableONNXHybridPassOpt("onnx-hybrid-pass",
-    llvm::cl::desc("Enable ONNX hybrid pass (default=true)\n"
+    llvm::cl::desc("Enable ONNX hybrid pass (default=true).\n"
                    "Set to 'false' if you want to disable ONNX hybrid pass."),
     llvm::cl::location(enableONNXHybridPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
@@ -207,14 +209,31 @@ static llvm::cl::list<std::string, std::vector<std::string>>
 
 static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
     "disable-krnl-op-fusion",
-    llvm::cl::desc("disable op fusion in onnx-to-krnl pass (default=false)\n"
+    llvm::cl::desc("Disable op fusion in onnx-to-krnl pass (default=false).\n"
                    "Set to 'true' if you want to disable fusion."),
     llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::opt<bool, true> disable_quantization_zero_point(
+    "disable-quantization-zero-point",
+    llvm::cl::desc(
+        "Disable the use of zero-point in quantization (default=false).\n"
+        "Set to 'true' if you want to disable the use of zero-point\n"
+        "in dyn/static quantization/dequantization."),
+    llvm::cl::location(disableQuantZeroPoint), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
+    "enable-krnl-buffer-reuse",
+    llvm::cl::desc("enable buffer reuse within an op in onnx-to-krnl pass"
+                   "(default=false)\n"
+                   "Set to 'true' if you want to enable buffer reuse."),
+    llvm::cl::location(enableKrnlBufferReuse), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
     "disable-memref-prefetch",
-    llvm::cl::desc("disable generation of memref.prefetch (default=false)\n"
+    llvm::cl::desc("Disable generation of memref.prefetch (default=false).\n"
                    "Set to 'true' if you want to disable prefetch."),
     llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
@@ -1136,7 +1155,6 @@ std::string getLibraryPath() {
 // as lrodataScript.
 std::string getToolPath(
     const std::string &tool, bool flag /*false by default*/) {
-
   if (!flag) {
     std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
     llvm::SmallString<8> toolPath(execDir);
