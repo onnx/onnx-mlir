@@ -148,41 +148,42 @@ Value ConstZeroTensor(
 template <typename GetFPConstFunc =
               std::function<APFloat(const llvm::fltSemantics &, bool)>,
     typename GetIntConstFunc = std::function<APInt(unsigned)>>
-Value GetClipConstantOfType(PatternRewriter &rewriter, ShapedType type,
-    Value value, GetFPConstFunc fpConstantFunc, bool isNegative,
+Value getClipConstantOfType(PatternRewriter &rewriter, ShapedType type,
+    Location loc, GetFPConstFunc fpConstantFunc, bool isNegative,
     GetIntConstFunc intConstantFunc) {
+  OnnxBuilder create(rewriter, loc);
   auto elemType = type.getElementType();
   if (auto floatType = dyn_cast<FloatType>(elemType)) {
     auto fpValue =
         fpConstantFunc(floatType.getFloatSemantics(), /*Negative=*/isNegative);
-    return rewriter.create<ONNXConstantOp>(value.getLoc(), Attribute(),
-        DenseElementsAttr::get(type, llvm::ArrayRef(fpValue)));
+    return create.constant(DenseElementsAttr::get(
+        RankedTensorType::get({}, elemType), llvm::ArrayRef(fpValue)));
   }
   auto intValue = intConstantFunc(elemType.getIntOrFloatBitWidth());
-  return rewriter.create<ONNXConstantOp>(value.getLoc(), Attribute(),
-      DenseElementsAttr::get(type, llvm::ArrayRef(intValue)));
+  return create.constant(DenseElementsAttr::get(
+      RankedTensorType::get({}, elemType), llvm::ArrayRef(intValue)));
 }
 
-Value CreateMaximumValueForClip(
+Value createMaximumValueForClip(
     PatternRewriter &rewriter, ShapedType type, Value value) {
 
   // Return 'value' if exists, as there is no need to clip to largest.
   if (!isNoneValue(value))
     return value;
 
-  return GetClipConstantOfType(rewriter, type, value, llvm::APFloat::getLargest,
-      false, llvm::APInt::getMaxValue);
+  return getClipConstantOfType(rewriter, type, value.getLoc(),
+      llvm::APFloat::getLargest, false, llvm::APInt::getMaxValue);
 }
 
-Value CreateMinimumValueForClip(
+Value createMinimumValueForClip(
     PatternRewriter &rewriter, ShapedType type, Value value) {
 
   // Return 'value' if exists, as there is no need to clip to lowest.
   if (!isNoneValue(value))
     return value;
 
-  return GetClipConstantOfType(rewriter, type, value, llvm::APFloat::getLargest,
-      true, llvm::APInt::getMinValue);
+  return getClipConstantOfType(rewriter, type, value.getLoc(),
+      llvm::APFloat::getLargest, true, llvm::APInt::getMinValue);
 }
 
 WideNum asWideNum(double n, Type elemType) {
@@ -485,6 +486,7 @@ template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXErfOp, T, EnableNotBool<T>> {
   static T eval(T val) { return std::erf(val); }
 };
+
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXExpOp, T, EnableFloatingPoint<T>> {
   static T eval(T val) { return std::exp(val); }
@@ -497,7 +499,7 @@ struct ElementWiseUnaryOpImpl<ONNXFloorOp, T, EnableNotBool<T>> {
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXLogOp, T, EnableFloatingPoint<T>> {
-  static T eval(T val) { return log(val); }
+  static T eval(T val) { return std::log(val); }
 };
 
 template <typename T>
