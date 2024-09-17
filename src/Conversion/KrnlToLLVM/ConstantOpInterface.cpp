@@ -37,26 +37,14 @@ extern std::string EXTERNAL_CONSTANT_PREFIX;
 
 class ConstantOpInterfaceLowering
     : public OpInterfaceConversionPattern<ConstantOpInterface> {
-  //      : public OpInterfaceConversionPattern<ConstantOpInterface>,
-  //      ConvertToLLVMPattern {
-public:
-  using OpInterfaceConversionPattern<
-      ConstantOpInterface>::OpInterfaceConversionPattern;
 
-  //  explicit ConstantOpInterfaceLowering(
-  //      LLVMTypeConverter &typeConverter, MLIRContext *context)
-  //      : ConvertToLLVMPattern(
-  //            ConstantOpInterface::getOperationName(), context, typeConverter)
-  //            {}
+public:
+  //  using OpInterfaceConversionPattern<
+  //        ConstantOpInterface>::OpInterfaceConversionPattern;
 
   explicit ConstantOpInterfaceLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
       : OpInterfaceConversionPattern(typeConverter, context) {}
-  //      : OpInterfaceConversionPattern(typeConverter, context),
-  //      ConvertToLLVMPattern(
-  //			   /*ConstantOpInterface::getOperationName()*/
-  //"constantopinterface", context, typeConverter)
-  //              {}
 
   LogicalResult matchAndRewrite(ConstantOpInterface op,
       ArrayRef<Value> operands,
@@ -67,7 +55,7 @@ public:
     //    const LLVMTypeConverter *llvmTypeConverter =
     //    ConvertToLLVMPattern::getTypeConverter();
     const LLVMTypeConverter *llvmTypeConverter =
-        static_cast<const LLVMTypeConverter *>(getTypeConverter());
+        static_cast<const LLVMTypeConverter *>(typeConverter);
 
     // Basic type.
     Type llvmI8Ty = IntegerType::get(context, 8);
@@ -121,6 +109,8 @@ public:
     // Set the global alignment based on the alignment attribute if it exists,
     // otherwise use the module datalayout info.
     krnl::setAlignment(global, op.getAlignmentAttr(),
+        //        op->getParentOfType<ModuleOp>(), rewriter,
+        //        *llvmTypeConverter);
         op->getParentOfType<ModuleOp>(), rewriter, *llvmTypeConverter);
     //    		       op->getParentOfType<ModuleOp>(), rewriter,
     //    *getTypeConverter());
@@ -298,9 +288,8 @@ private:
     //    const LLVMTypeConverter *llvmTypeConverter =
     //    ConvertToLLVMPattern::getTypeConverter();
     const LLVMTypeConverter *llvmTypeConverter =
-        static_cast<const LLVMTypeConverter *>(getTypeConverter());
-    //    Type llvmElemType = llvmTypeConverter->convertType(elementType);
-    Type llvmElemType = typeConverter->convertType(elementType);
+        static_cast<const LLVMTypeConverter *>(typeConverter);
+    Type llvmElemType = llvmTypeConverter->convertType(elementType);
     MLIRContext *context = builder.getContext();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
@@ -395,4 +384,3 @@ void populateLoweringConstantOpInterfacePattern(
 
 } // namespace krnl
 } // namespace onnx_mlir
-
