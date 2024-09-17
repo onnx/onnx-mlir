@@ -155,7 +155,31 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
 }
 
 void KrnlBuilder::parallel(ValueRange loops) const {
-  b().template create<KrnlParallelOp>(loc(), loops);
+  Value noneValue;
+  StringAttr noneStrAttr;
+#if 0 // hi alex
+  MathBuilder createMath(*this);
+  noneValue = createMath.constant(b().getI32Type(), 8);
+  noneStrAttr = b().getStringAttr("spread");
+#endif
+  b().template create<KrnlParallelOp>(loc(), loops, noneValue, noneStrAttr);
+}
+
+void KrnlBuilder::parallel(
+    ValueRange loops, Value numThreads, StringAttr procBind) const {
+  if (procBind.getValue().size() > 0) {
+    std::string str = procBind.getValue().str();
+    assert((str == "primary" || str == "close" || str == "spread") &&
+           "expected primary, close, or spread for proc_bind");
+  }
+  b().template create<KrnlParallelOp>(loc(), loops, numThreads, procBind);
+}
+
+void KrnlBuilder::parallelClause(
+    Value parallelLoopIndex, Value numThreads, StringAttr procBind) const {
+  // No need to check procBind as its value are derived from parallel(...).
+  b().template create<KrnlParallelClauseOp>(
+      loc(), parallelLoopIndex, numThreads, procBind);
 }
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,

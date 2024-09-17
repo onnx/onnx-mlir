@@ -154,7 +154,7 @@ void onnx_mlir::getParallelPrivateScfToScfPatterns(
 }
 
 /*!
- * Create a RecomposeONNX pass.
+ * Create a SCF Parallel Private pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createProcessScfParallelPrivatePass() {
   return std::make_unique<ProcessScfParallelPrivatePass>();
