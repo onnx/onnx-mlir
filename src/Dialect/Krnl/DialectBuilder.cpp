@@ -157,11 +157,6 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
 void KrnlBuilder::parallel(ValueRange loops) const {
   Value noneValue;
   StringAttr noneStrAttr;
-#if 0 // hi alex
-  MathBuilder createMath(*this);
-  noneValue = createMath.constant(b().getI32Type(), 8);
-  noneStrAttr = b().getStringAttr("spread");
-#endif
   b().template create<KrnlParallelOp>(loc(), loops, noneValue, noneStrAttr);
 }
 
