@@ -1881,3 +1881,9 @@ void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
 }
+
+// on the ONNXDequantizeLinearOp.
+void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<QuantizeDequantizePattern>(context);
+}
