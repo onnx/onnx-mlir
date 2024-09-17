@@ -15,6 +15,7 @@ add_onnx_mlir_library(OMScfParallelPrivateRegion
   LINK_LIBS PUBLIC
   OMSupport
   MLIRTransformUtils
+  MLIROpenMPToLLVM
   )
 
 add_onnx_mlir_library(OMInstrument
