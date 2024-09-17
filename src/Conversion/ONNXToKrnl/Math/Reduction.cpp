@@ -283,8 +283,7 @@ Value emitScalarOpFor<ONNXReduceMaxV13Op>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value max = createMath.sgt(lhs, rhs);
-  return createMath.select(max, lhs, rhs);
+  return createMath.max(lhs, rhs);
 }
 
 template <>
@@ -294,8 +293,7 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value max = createMath.sgt(lhs, rhs);
-  return createMath.select(max, lhs, rhs);
+  return createMath.max(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -308,8 +306,7 @@ Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value min = createMath.slt(lhs, rhs);
-  return createMath.select(min, lhs, rhs);
+  return createMath.min(lhs, rhs);
 }
 
 template <>
@@ -319,8 +316,7 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value min = createMath.slt(lhs, rhs);
-  return createMath.select(min, lhs, rhs);
+  return createMath.min(lhs, rhs);
 }
 
 // This duplicated code can be eliminated with if constexpr in c++ 17

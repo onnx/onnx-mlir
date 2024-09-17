@@ -80,7 +80,8 @@ SmallVector<Value, 4> getZTensors(
 Type getZTensorType(
     PatternRewriter &rewriter, Location loc, Value tensor, StringAttr layout) {
   // Borrow ZHighStickOp to infer a zTensor type.
-  ZHighStickOp stickOp = rewriter.create<ZHighStickOp>(loc, tensor, layout);
+  ZHighStickOp stickOp =
+      rewriter.create<ZHighStickOp>(loc, tensor, layout, IntegerAttr());
   (void)stickOp.inferShapes([](Region &region) {});
 
   Type returnType = stickOp.getOut().getType();

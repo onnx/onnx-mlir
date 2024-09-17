@@ -53,10 +53,11 @@ def CreateConstantForStickForGRU : NativeCodeCall<
 >;
 
 // zhigh.Stick (c) = krnl.global(c1), where c1 is stickified data.
+// Always saturate constants.
 def ConstantStickPattern : Pat<
   (ZHighStickOp:$stickOp
      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_),
-     $layout),
+     $layout, $_),
   (CreateConstantForStick $stickOp, $c, $layout),
   [(IsFromDenseONNXConstantOp:$c)]
 >;
