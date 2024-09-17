@@ -51,11 +51,16 @@ namespace onnx_mlir {
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
-/* static */ bool MathBuilder::isVector(Type type) {
-  return mlir::dyn_cast<VectorType>(type) != nullptr;
+/* static */ bool MathBuilder::isVector(Value val) {
+  return mlir::dyn_cast<VectorType>(val.getType()) != nullptr;
 }
 
-/* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
+/* static */ Type MathBuilder::elementTypeOfScalarOrVector(Value val) {
+  return elementTypeOfScalarOrVector(val.getType());
+}
+
+/* static */ Type MathBuilder::elementTypeOfScalarOrVector(
+    Type elementOrVectorType) {
   VectorType vectorType = mlir::dyn_cast<VectorType>(elementOrVectorType);
   if (vectorType)
     return vectorType.getElementType();
@@ -69,56 +74,107 @@ namespace onnx_mlir {
   return elementType;
 }
 
-/* static */ bool MathBuilder::isIntegerWithVector(Type elementOrVectorType) {
-  Type elementType = elementTypeWithVector(elementOrVectorType);
+/* static */ bool MathBuilder::isScalarOrVectorInteger(Value val) {
+  return isScalarOrVectorInteger(val.getType());
+}
+
+/* static */ bool MathBuilder::isScalarOrVectorInteger(
+    Type elementOrVectorType) {
+  Type elementType = elementTypeOfScalarOrVector(elementOrVectorType);
   return mlir::isa<IntegerType>(elementType) ||
          mlir::isa<IndexType>(elementType);
 }
 
-/* static */ bool MathBuilder::isUnsignedIntegerWithVector(
+/* static */ bool MathBuilder::isScalarOrVectorUnsignedInteger(Value val) {
+  return isScalarOrVectorUnsignedInteger(val.getType());
+}
+
+/* static */ bool MathBuilder::isScalarOrVectorUnsignedInteger(
     Type elementOrVectorType) {
-  Type elementType = elementTypeWithVector(elementOrVectorType);
+  Type elementType = elementTypeOfScalarOrVector(elementOrVectorType);
   return elementType.isUnsignedInteger();
 }
 
-/* static */ bool MathBuilder::isFloatWithVector(Type elementOrVectorType) {
-  Type elementType = elementTypeWithVector(elementOrVectorType);
+/* static */ bool MathBuilder::isScalarOrVectorFloat(Value val) {
+  return isScalarOrVectorFloat(val.getType());
+}
+
+/* static */ bool MathBuilder::isScalarOrVectorFloat(Type elementOrVectorType) {
+  Type elementType = elementTypeOfScalarOrVector(elementOrVectorType);
   return mlir::isa<FloatType>(elementType);
 }
 
+bool MathBuilder::splatToMatch(Value &first, Value &second) const {
+  Type firstType = first.getType();
+  Type secondType = second.getType();
+  VectorType firstVectorType = mlir::dyn_cast<VectorType>(firstType);
+  VectorType secondVectorType = mlir::dyn_cast<VectorType>(secondType);
+  VectorBuilder createVec(*this);
+  // Splat first if needed.
+  if (!firstVectorType && secondVectorType) {
+    firstVectorType = VectorType::get(secondVectorType.getShape(), firstType);
+    first = createVec.splat(firstVectorType, first);
+    return true;
+  }
+  // Splat second if needed.
+  if (firstVectorType && !secondVectorType) {
+    secondVectorType = VectorType::get(firstVectorType.getShape(), secondType);
+    second = createVec.splat(secondVectorType, second);
+    return true;
+  }
+  // Otherwise check compatibility.
+  assert(createVec.compatibleTypes(firstType, secondType) &&
+         "expected compatible types");
+  return false;
+}
+
+bool MathBuilder::splatToMatch(
+    Value &first, Value &second, Value &third) const {
+  bool changeIn12 = splatToMatch(first, second);
+  bool changeIn13 = splatToMatch(first, third);
+  if (!changeIn12 && changeIn13)
+    // Have missed changes in 1-2 pair, redo.
+    splatToMatch(first, second);
+  return changeIn12 || changeIn13;
+}
+
 Value MathBuilder::abs(Value val) const {
-  if (isIntegerWithVector(val.getType()))
+  if (isScalarOrVectorInteger(val))
     return b().create<math::AbsIOp>(loc(), val);
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::AbsFOp>(loc(), val);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::andi(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::AndIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
 }
 
 Value MathBuilder::ori(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::OrIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
 }
 
 Value MathBuilder::xori(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::XOrIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType())) {
-    Type elemType = elementTypeWithVector(lhs.getType());
+  if (isScalarOrVectorInteger(lhs)) {
+    Type elemType = elementTypeOfScalarOrVector(lhs);
     if (elemType.isUnsignedInteger()) {
       unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
       Value castLhs = castToSignless(lhs, elemWidth);
@@ -129,24 +185,26 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
     } else
       return b().create<arith::AddIOp>(loc(), lhs, rhs);
   }
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::AddFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sub(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::SubIOp>(loc(), lhs, rhs);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::SubFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::mul(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType())) {
-    Type elemType = elementTypeWithVector(lhs.getType());
+  if (isScalarOrVectorInteger(lhs)) {
+    Type elemType = elementTypeOfScalarOrVector(lhs);
     if (elemType.isUnsignedInteger()) {
       unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
       Value castLhs = castToSignless(lhs, elemWidth);
@@ -157,66 +215,73 @@ Value MathBuilder::mul(Value lhs, Value rhs) const {
     } else
       return b().create<arith::MulIOp>(loc(), lhs, rhs);
   }
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::MulFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::DivFOp>(loc(), lhs, rhs);
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return b().create<arith::DivUIOp>(loc(), lhs, rhs);
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::DivSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::rem(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::RemFOp>(loc(), lhs, rhs);
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return b().create<arith::RemUIOp>(loc(), lhs, rhs);
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::RemSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::copySign(mlir::Value rem, mlir::Value dividend) const {
+  splatToMatch(rem, dividend);
   assert(rem.getType() == dividend.getType() && "expected same type");
-  if (isFloatWithVector(rem.getType()))
+  if (isScalarOrVectorFloat(rem))
     return b().create<math::CopySignOp>(loc(), rem, dividend);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::ceilDiv(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return b().create<arith::CeilDivUIOp>(loc(), lhs, rhs);
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::CeilDivSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
 }
 
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     // Using regular unsigned div is ok as it rounds toward zero.
     return b().create<arith::DivUIOp>(loc(), lhs, rhs);
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::FloorDivSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
 }
 
 // return (lhs * rhs) + acc
 Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  splatToMatch(lhs, rhs, acc);
   assert((lhs.getType() == rhs.getType()) && (rhs.getType() == acc.getType()) &&
          "expected same type");
-  if (isFloatWithVector(lhs.getType()) && !isa<FloatType>(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs) && isVector(lhs)) {
     return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
-  return add(mul(lhs, rhs), acc);
+  }
+  return add(mul(lhs, rhs), acc); // Handle broadcast there.
 }
 
 Value MathBuilder::erf(Value val) const {
@@ -224,192 +289,209 @@ Value MathBuilder::erf(Value val) const {
 }
 
 Value MathBuilder::exp(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::ExpOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::exp2(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::Exp2Op>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::log(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::LogOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::log2(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::Log2Op>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::sqrt(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::SqrtOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::pow(Value base, Value exp) const {
-  if (isFloatWithVector(base.getType()))
+  splatToMatch(base, exp);
+  if (isScalarOrVectorFloat(base))
     return b().create<math::PowFOp>(loc(), base, exp);
   llvm_unreachable("expected base float");
 }
 
 Value MathBuilder::neg(Value val) const {
-  if (isIntegerWithVector(val.getType()))
+  if (isScalarOrVectorInteger(val))
     // Returns 0 - val.
     return sub(constant(val.getType(), 0), val);
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<arith::NegFOp>(loc(), val);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::ceil(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::CeilOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::floor(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::FloorOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::tanh(Value val) const {
-  if (isFloatWithVector(val.getType()))
+  if (isScalarOrVectorFloat(val))
     return b().create<math::TanhOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::MinNumFOp>(loc(), lhs, rhs);
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return b().create<arith::MinUIOp>(loc(), lhs, rhs);
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::MinSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::MaxNumFOp>(loc(), lhs, rhs);
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return b().create<arith::MaxSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sgt);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGT);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sge);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGE);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::slt);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLT);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sle(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sle);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLE);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::ugt(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ugt);
   llvm_unreachable("expected unsigned int");
 }
 
 Value MathBuilder::uge(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::uge);
   llvm_unreachable("expected unsigned int");
 }
 
 Value MathBuilder::ult(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ult);
   llvm_unreachable("expected unsigned int");
 }
 
 Value MathBuilder::ule(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ule);
   llvm_unreachable("expected unsigned int");
 }
 
 Value MathBuilder::gt(Value lhs, Value rhs) const {
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  splatToMatch(lhs, rhs);
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return ugt(lhs, rhs);
   return sgt(lhs, rhs);
 }
 
 Value MathBuilder::ge(Value lhs, Value rhs) const {
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  splatToMatch(lhs, rhs);
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return uge(lhs, rhs);
   return sge(lhs, rhs);
 }
 
 Value MathBuilder::lt(Value lhs, Value rhs) const {
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  splatToMatch(lhs, rhs);
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return ult(lhs, rhs);
   return slt(lhs, rhs);
 }
 
 Value MathBuilder::le(Value lhs, Value rhs) const {
-  if (isUnsignedIntegerWithVector(lhs.getType()))
+  splatToMatch(lhs, rhs);
+  if (isScalarOrVectorUnsignedInteger(lhs))
     return ule(lhs, rhs);
   return sle(lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::eq);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return createArithCmp(lhs, rhs, arith::CmpFPredicate::OEQ);
   llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::neq(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
+  if (isScalarOrVectorInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ne);
-  if (isFloatWithVector(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return createArithCmp(lhs, rhs, arith::CmpFPredicate::ONE);
   llvm_unreachable("expected int or float");
 }
@@ -422,7 +504,7 @@ Value MathBuilder::select(Value cmp, Value trueVal, Value falseVal) const {
 Value MathBuilder::constant(Type type, double val) const {
   Value constant = nullptr;
   // Could be a vector type; look at the element type.
-  Type elementType = elementTypeWithVector(type);
+  Type elementType = elementTypeOfScalarOrVector(type);
   TypeSwitch<Type>(elementType)
       .Case<Float16Type>([&](Type) {
         constant =
@@ -569,7 +651,7 @@ TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
 
 Value MathBuilder::negativeInf(Type type) const {
   // Strip vector type if any.
-  Type elementType = elementTypeWithVector(type);
+  Type elementType = elementTypeOfScalarOrVector(type);
   TypedAttr attr = negativeInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
@@ -584,7 +666,7 @@ Value MathBuilder::negativeInf(Type type) const {
 
 Value MathBuilder::positiveInf(Type type) const {
   // Strip vector type if any.
-  Type elementType = elementTypeWithVector(type);
+  Type elementType = elementTypeOfScalarOrVector(type);
   TypedAttr attr = positiveInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
@@ -601,7 +683,7 @@ Value MathBuilder::createArithCmp(
     Value lhs, Value rhs, arith::CmpIPredicate pred) const {
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
-  assert(isIntegerWithVector(type) && "expected int");
+  assert(isScalarOrVectorInteger(type) && "expected int");
   return b().create<arith::CmpIOp>(loc(), pred, lhs, rhs);
 }
 
@@ -609,7 +691,7 @@ Value MathBuilder::createArithCmp(
     Value lhs, Value rhs, arith::CmpFPredicate pred) const {
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
-  assert(isFloatWithVector(type) && "expected float");
+  assert(isScalarOrVectorFloat(type) && "expected float");
   return b().create<arith::CmpFOp>(loc(), pred, lhs, rhs);
 }
 
@@ -619,7 +701,7 @@ Value MathBuilder::createArithCmp(
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
   Type valType = val.getType();
   VectorType vecType = mlir::dyn_cast<VectorType>(valType);
-  Type valElemType = elementTypeWithVector(valType);
+  Type valElemType = elementTypeOfScalarOrVector(valType);
   assert(mlir::isa<IntegerType>(valElemType) &&
          !valElemType.isSignlessInteger() && "Expecting signed integer type");
   Type destType = getTypeWithVector(vecType, b().getIntegerType(width));
@@ -631,7 +713,7 @@ Value MathBuilder::castToSignless(Value val, int64_t width) const {
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
   Type valType = val.getType();
   VectorType vecType = mlir::dyn_cast<VectorType>(valType);
-  Type valElemType = elementTypeWithVector(valType);
+  Type valElemType = elementTypeOfScalarOrVector(valType);
   assert(mlir::isa<IntegerType>(valElemType) && "Expecting integer type");
   Type destType =
       getTypeWithVector(vecType, b().getIntegerType(width, false /*signed*/));
@@ -646,8 +728,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
   Type srcType = src.getType();
   VectorType srcVecType = mlir::dyn_cast<VectorType>(srcType);
   VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
-  Type srcElemType = elementTypeWithVector(srcType);
-  Type destElemType = elementTypeWithVector(destType);
+  Type srcElemType = elementTypeOfScalarOrVector(srcType);
+  Type destElemType = elementTypeOfScalarOrVector(destType);
   // Make sure we don't mix vector and scalars.
   assert(((srcVecType && destVecType) || (!srcVecType && !destVecType)) &&
          "expect both to be scalars or vectors");
@@ -1480,6 +1562,33 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 // Vector Builder
 //===----------------------------------------------------------------------===//
 
+/*static*/ bool VectorBuilder::compatibleShapes(const Type t1, const Type t2) {
+  // If both are vectors, check that the shapes are identical.
+  VectorType vt1 = mlir::dyn_cast<VectorType>(t1);
+  VectorType vt2 = mlir::dyn_cast<VectorType>(t2);
+  if (vt1 && vt2) {
+    auto shape1 = vt1.getShape();
+    auto shape2 = vt2.getShape();
+    // Different rank, return false.
+    if (shape1.size() != shape2.size())
+      return false;
+    for (int64_t i = 0; i < (int64_t)shape1.size(); ++i)
+      if (shape1[i] != shape2[i])
+        return false;
+    // Same dim and shapes
+    return true;
+  }
+  // Neither is a vector (no shape tests) or only one is a vector (and the other
+  // one can thus be broadcasted to it), we have compatible shapes.
+  return true;
+}
+
+/*static*/ bool VectorBuilder::compatibleTypes(const Type t1, const Type t2) {
+  Type e1 = MathBuilder::elementTypeOfScalarOrVector(t1);
+  Type e2 = MathBuilder::elementTypeOfScalarOrVector(t2);
+  return (e1 == e2) && compatibleShapes(t1, t2);
+}
+
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
@@ -1635,43 +1744,43 @@ Value VectorBuilder::reduction(
         loc(), vector::CombiningKind::MUL, value);
   }
   case CombiningKind::MAX: {
-    if (MathBuilder::isUnsignedIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorUnsignedInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::MAXUI, value);
-    if (MathBuilder::isIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::MAXSI, value);
-    if (MathBuilder::isFloatWithVector(type))
+    if (MathBuilder::isScalarOrVectorFloat(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::MAXNUMF, value);
     llvm_unreachable("unknown type in max");
   }
   case CombiningKind::MIN: {
-    if (MathBuilder::isUnsignedIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorUnsignedInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::MINUI, value);
-    if (MathBuilder::isIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::MINSI, value);
-    if (MathBuilder::isFloatWithVector(type))
+    if (MathBuilder::isScalarOrVectorFloat(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::MINNUMF, value);
     llvm_unreachable("unknown type in min");
   }
   case CombiningKind::AND: {
-    if (MathBuilder::isIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::AND, value);
     llvm_unreachable("unknown type in and");
   }
   case CombiningKind::OR: {
-    if (MathBuilder::isIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::OR, value);
     llvm_unreachable("unknown type in or");
   }
   case CombiningKind::XOR: {
-    if (MathBuilder::isIntegerWithVector(type))
+    if (MathBuilder::isScalarOrVectorInteger(type))
       return b().create<vector::ReductionOp>(
           loc(), vector::CombiningKind::XOR, value);
     llvm_unreachable("unknown type in xor");
