@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -26,7 +27,8 @@ namespace onnx_mlir {
 void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
-    Value scale, Value zeroPoint, bool enableSIMD, bool enableParallel) {
+    Value scale, Value zeroPoint, bool hasZeroPoint, bool enableSIMD,
+    bool enableParallel) {
   MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
       rewriter, loc);
 
@@ -76,7 +78,11 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         // Round
         Value roundX = create.math.round(scaleX);
         // Adjust
-        Value adjustX = create.math.add(roundX, zeroPoint);
+        Value adjustX;
+        if (hasZeroPoint)
+          adjustX = create.math.add(roundX, zeroPoint);
+        else
+          adjustX = roundX;
         // Saturate
         Value saturateX = create.math.clip(adjustX, qMin, qMax);
         Value res = create.math.cast(quantizedElementType, saturateX);
@@ -159,15 +165,21 @@ struct ONNXQuantizeLinearOpLowering
 
     // Load y_zero_point.
     Value zeroPoint;
+    bool hasZeroPoint = false;
     if (!isNoneValue(YZeroPoint)) {
       zeroPoint = create.krnl.load(adaptor.getYZeroPoint());
       zeroPoint = create.math.cast(elementType, zeroPoint);
-    } else
-      zeroPoint = create.math.constant(elementType, 0.0);
-
+      hasZeroPoint = true;
+    }
+    if (disableQuantZeroPoint) {
+      // TODO: should we expect to disable hasZeroPoint forcefully, or generate
+      // an error if we had a zero point? Right now, just forcefully assert we
+      // have no zero point, i.e. ignore one even if we had a zero point.
+      hasZeroPoint = false;
+    }
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
         yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-        zeroPoint, enableSIMD, enableParallel);
+        zeroPoint, hasZeroPoint, enableSIMD, enableParallel);
 
     rewriter.replaceOp(op, {Y});
     onnxToKrnlSimdReport(op);
