@@ -929,6 +929,35 @@ Typically it is used for optional arguments used in KrnlCallop.
 | :----: | ----------- |
 | `none_val` | none type
 
+### `krnl.parallel_clause` (KrnlParallelClauseOp)
+
+_Attach OpenMP clauses to an index varialbe_
+
+
+Syntax:
+
+```
+operation ::= `krnl.parallel_clause` `(` $parallel_loop_index `)` (`,` `num_threads` `(` $num_threads^ `)`)?
+              attr-dict `:` type($parallel_loop_index)
+```
+
+Attach OpenMP clauses to an index variable. That index variable
+is used to uniquely associate a parallel loop with its clauses.
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>proc_bind</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `parallel_loop_index` | index
+| `num_threads` | 32-bit signless integer
+
 ### `krnl.parallel` (KrnlParallelOp)
 
 _Mark Krnl loops as parallel loops_
@@ -937,7 +966,7 @@ _Mark Krnl loops as parallel loops_
 Syntax:
 
 ```
-operation ::= `krnl.parallel` `(` $loops `)` attr-dict `:` type($loops)
+operation ::= `krnl.parallel` `(` $loops `)` (`,` `num_threads` `(` $num_threads^ `)`)? attr-dict `:` type($loops)
 ```
 
 Parallelize the specified loops. When multiple loop specifiers are passed
@@ -945,15 +974,30 @@ as parameters, there loops can be parallelized as a collapsed loop.
 krnl.parallel should be placed as the last operator before krnl.iterate,
 Since we do not want to parallelize the loop until we interpret krnl.block,
 krnl.permute and krnl.unroll.
+
+Optionally, a value may specifiy the number of threads requested for the
+parallel loop. A proc_bind string may also be specified; valid values are
+"primary", "close", or "spread". Default values are used when not specified.
+
 ```
 krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
 ```
+
+Traits: `AttrSizedOperandSegments`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>proc_bind</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
 | `loops` | variadic of any type
+| `num_threads` | 32-bit signless integer
 
 ### `krnl.permute` (KrnlPermuteOp)
 

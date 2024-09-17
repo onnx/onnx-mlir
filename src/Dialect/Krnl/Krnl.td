@@ -523,7 +523,7 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
     Since we do not want to parallelize the loop until we interpret krnl.block,
     krnl.permute and krnl.unroll.
 
-    Optionally, a value may specifiy the number of threads requested for the 
+    Optionally, a value may specifiy the number of threads requested for the
     parallel loop. A proc_bind string may also be specified; valid values are
     "primary", "close", or "spread". Default values are used when not specified.
 
