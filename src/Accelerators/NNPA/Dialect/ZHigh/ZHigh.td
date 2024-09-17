@@ -867,6 +867,8 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
     the output tensor's size.
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
+                       OptionalAttr<BoolAttr>:$stickified,
+                       OptionalAttr<BoolAttr>:$allzero,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
 }

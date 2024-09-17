@@ -19,7 +19,7 @@ add_onnx_mlir_library(OMKrnlOps
   OMKrnlIncGen
   OMSpecializedKernelOpInterface
   OMConstantOpInterface
-  
+
   LINK_LIBS PUBLIC
   OMCompilerOptions
   OMONNXOps

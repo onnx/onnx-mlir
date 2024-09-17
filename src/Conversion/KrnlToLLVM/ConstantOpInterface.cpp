@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlGlobal.cpp - Lower KrnlGlobalOp ---------------------------===//
+//===--------- ConstantOpInterface.cpp - Lower ConstantOpInterface---------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the KrnlGlobalOp operator.
+// This file lowers the ConstantOpInterface.
 //
 //===----------------------------------------------------------------------===//
 
@@ -39,8 +39,8 @@ class ConstantOpInterfaceLowering
     : public OpInterfaceConversionPattern<ConstantOpInterface> {
 
 public:
-  //  using OpInterfaceConversionPattern<
-  //        ConstantOpInterface>::OpInterfaceConversionPattern;
+  using OpInterfaceConversionPattern<
+      ConstantOpInterface>::OpInterfaceConversionPattern;
 
   explicit ConstantOpInterfaceLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)

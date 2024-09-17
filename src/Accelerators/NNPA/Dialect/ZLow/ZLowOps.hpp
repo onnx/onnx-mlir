@@ -24,6 +24,8 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 
+#include "src/Interface/ConstantOpInterface.hpp"
+
 /// Include the auto-generated header files containing the declarations of the
 /// ZLow dialect and operations.
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowDialect.hpp.inc"
