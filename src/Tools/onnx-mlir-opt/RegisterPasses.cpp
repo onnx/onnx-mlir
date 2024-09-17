@@ -101,7 +101,6 @@ void registerOMPasses(int optLevel) {
     return createProcessKrnlParallelClausePass();
   });
 
-
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertSeqToMemrefPass();
   });
