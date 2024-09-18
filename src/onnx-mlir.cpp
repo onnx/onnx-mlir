@@ -13,6 +13,7 @@
 
 #include <regex>
 
+#include "mlir/IR/AsmState.h"
 #include "mlir/Support/Timing.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
