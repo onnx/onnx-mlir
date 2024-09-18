@@ -1289,7 +1289,9 @@ template <>
 GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
       {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
-      {GenericOps::FloorGop, 2}};
+      {GenericOps::FloorGop, 2},
+      {GenericOps::EstimatedVectorRegisterPressure,
+          4 /* Little parallelism in code. */}};
 }
 
 template <>

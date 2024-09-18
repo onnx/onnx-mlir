@@ -54,7 +54,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     GenOpMix mix = {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
         {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
         {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
-        {GenericOps::FloorGop, 2}};
+        {GenericOps::FloorGop, 2},
+        {GenericOps::EstimatedVectorRegisterPressure,
+            8 /* Little parallelism in code. */}};
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
         innermostLoopCollapse, mix, canOverCompute, simdLoopStaticTripCount,
         simdOnly);
@@ -83,7 +85,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
           adjustX = create.math.add(roundX, zeroPoint);
         else
           adjustX = roundX;
-        // Saturate
+        // Saturate: use max into a min.
         Value saturateX = create.math.clip(adjustX, qMin, qMax);
         Value res = create.math.cast(quantizedElementType, saturateX);
         return res;
