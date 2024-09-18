@@ -58,6 +58,13 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
       if (numThreads) {
         LLVM_DEBUG(llvm::dbgs() << "  with a specific num_threads clause\n");
         // Set the numbers of threads as indicated by clause op.
+        // WARNING: by moving the use of numThreads from inside the loop to the
+        // outer OpenMP parallel construct, we may potentially move the use of
+        // numThreads before its definition. However, because numThreads is by
+        // definition loop invariant, it is very unlikely that this case occurs.
+        // Nevertheless, this warning attests that this might be a possibility.
+        // In such case, we would get a compiler warning/error of use before
+        // def.
         MutableOperandRange mutableNumThreads = parOp.getNumThreadsMutable();
         mutableNumThreads.assign(numThreads);
       }
