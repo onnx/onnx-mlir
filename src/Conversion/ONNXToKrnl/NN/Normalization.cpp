@@ -255,7 +255,7 @@ struct ONNXInstanceNormalizationOpLowering
                 for (int d = 0; d < rank - 2; ++d)
                   inputAccessFct.emplace_back(spatial_loopInd[d]);
                 // tmp += input[n,c, spatial dims]
-                Value oldSum = create.krnl.load(tmpMemRef, {});
+                Value oldSum = create.krnl.load(tmpMemRef);
                 Value val = create.krnl.load(inputMemRef, inputAccessFct);
                 val = create.math.sub(val, mean);
                 val = create.math.mul(val, val);

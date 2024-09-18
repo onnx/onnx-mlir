@@ -1726,11 +1726,11 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
-    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
+void SCFBuilder::forLoop(
+    Value lb, Value ub, int64_t step, SCFLoopBodyFn bodyFn) const {
   MathBuilder createMath(*this);
   Value stepVal = createMath.constantIndex(step);
-  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+  b().create<scf::ForOp>(loc(), lb, ub, stepVal, std::nullopt,
       [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
           ValueRange args) {
         SCFBuilder builder(childBuilder, childLoc);
@@ -1739,10 +1739,20 @@ void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
       });
 }
 
-void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
-    ValueRange steps,
-    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
-  b().create<scf::ParallelOp>(loc(), lowerBounds, upperBounds, steps,
+void SCFBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+    bool useParallel, SCFLoopBodyFn bodyFn) const {
+  if (useParallel) {
+    MathBuilder createMath(*this);
+    Value stepVal = createMath.constantIndex(step);
+    parallelLoops({lb.getValue()}, {ub.getValue()}, {stepVal}, bodyFn);
+  } else {
+    forLoop(lb.getValue(), ub.getValue(), step, bodyFn);
+  }
+}
+
+void SCFBuilder::parallelLoops(ValueRange lbs, ValueRange ubs, ValueRange steps,
+    SCFLoopBodyFn bodyFn) const {
+  b().create<scf::ParallelOp>(loc(), lbs, ubs, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
         SCFBuilder builder(childBuilder, childLoc);
@@ -1757,12 +1767,9 @@ void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    function_ref<void(SCFBuilder &b, ArrayRef<Value> inputVals,
-        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) const {
+    ArrayRef<SCFSimdIterateBodyFn> bodyFnList) const {
   onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
-      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyBuilderFn);
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs, bodyFnList);
 }
 
 void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
@@ -1770,17 +1777,24 @@ void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
     /* reduction function (simd or scalar) */
-    function_ref<void(const SCFBuilder &b, ArrayRef<Value> inputVals,
-        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
-        int64_t VL)>
-        reductionBuilderFn,
+    mlir::ArrayRef<SCFSimdReductionBodyFn> reductionFnList,
     /* post reduction function (simd to scalar + post processing)*/
-    function_ref<void(const SCFBuilder &b, ArrayRef<Value> tmpVals,
-        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
-        postProcessingBuilderFn) const {
+    mlir::ArrayRef<SCFSimdPostReductionBodyFn> postReductionFnList) const {
   onnx_mlir::impl::simdReduceIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
       fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
-      reductionBuilderFn, postProcessingBuilderFn);
+      reductionFnList, postReductionFnList);
+}
+
+void SCFBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, Value input, DimsExpr inputAF, Value tmp, DimsExpr tmpAF,
+    Value output, DimsExpr outputAF, Value initVal,
+    /* reduction functions (simd or scalar) */
+    SCFSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    SCFSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, input, inputAF, tmp, tmpAF, output, outputAF, initVal,
+      reductionBodyFn, postReductionBodyFn);
 }
 
 //===----------------------------------------------------------------------===//

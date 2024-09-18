@@ -124,7 +124,7 @@ public:
         // Nothing to write.
       } else {
         // Loop to copy the data.
-        createAffine.forLoopIE(zeroIE, writeUBs[i], 1,
+        createAffine.forLoopIE(zeroIE, writeUBs[i], 1, false /*parallel*/,
             [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
               loopIndices.emplace_back(loopInd[0]);
               genCopyLoops(createAffine, enclosingScope, buffMemref, destMemref,
