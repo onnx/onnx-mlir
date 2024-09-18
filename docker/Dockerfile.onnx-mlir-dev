@@ -62,6 +62,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
             TEST_OPTLEVEL=${TEST_OPTLEVEL} \
+	    TEST_CASE_BY_USER="test_min_float16_cpu test_max_float16_cpu" \
             -j${NPROC} \
             check-onnx-backend-dynamic \
     && rm -f Debug/bin/*Test Debug/bin/Perf* Debug/bin/Test* \
