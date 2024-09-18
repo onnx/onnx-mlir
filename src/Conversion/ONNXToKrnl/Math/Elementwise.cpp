@@ -1527,8 +1527,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 
         create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, simdOnly,
             useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
-            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-                SmallVectorImpl<Value> &resVals, int64_t VL) {
+            {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
               MultiDialectBuilder<MathBuilder> create(kb);
               Type currElementType = outputElementType;
               if (VL > 1)
@@ -1557,9 +1556,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                 res = emitPostProcessingFor<OP_TYPE>(rewriter, create.getLoc(),
                     op, currElementType, accumulated);
               }
-              resVals.emplace_back(res);
-            }); // SIMD kernel.
-      });       // Outer loops.
+              return res;
+            }}); // SIMD kernel.
+      });        // Outer loops.
 
   rewriter.replaceOp(op, alloc);
   return success();

@@ -70,8 +70,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   outputAF.emplace_back(zero);
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
-      [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-          SmallVectorImpl<Value> &resVals, int64_t VL) {
+      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
         MultiDialectBuilder<MathBuilder> create(kb);
         Value x = inputVals[0];
         // Scale
@@ -87,8 +86,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         // Saturate
         Value saturateX = create.math.clip(adjustX, qMin, qMax);
         Value res = create.math.cast(quantizedElementType, saturateX);
-        resVals.emplace_back(res);
-      });
+        return res;
+      }});
   if (totVL > 1)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
         simdLoopStaticTripCount, "quantizationLinear whole tensor");
