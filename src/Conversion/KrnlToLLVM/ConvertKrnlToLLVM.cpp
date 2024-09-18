@@ -210,7 +210,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);
-  arith::populateArithExpandOpsPatterns(patterns);
+  // arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
