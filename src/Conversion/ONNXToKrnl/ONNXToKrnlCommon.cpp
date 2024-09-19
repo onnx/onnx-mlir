@@ -749,6 +749,22 @@ int64_t capVLForMaxUnroll(
   return archVL * unrollVL;
 }
 
+int64_t boostVLForMinUnroll(
+    MemRefType memRefType, MemRefType convertedMemRefType, int64_t totVL) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
+  Type convertedElementType = convertedMemRefType.getElementType();
+  int64_t convertedArchVL =
+      VectorMachineSupport::getArchVectorLength(convertedElementType);
+  if (convertedArchVL > totVL) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  simd enable: boost totVL to " << convertedArchVL
+               << " because of type conversions.\n");
+    return convertedArchVL;
+  }
+  return totVL;
+}
+
 int64_t capVLForSimdOnly(
     MemRefType memRefType, int64_t totVL, int64_t simdLoopStaticTripCount) {
   if (totVL == 1)

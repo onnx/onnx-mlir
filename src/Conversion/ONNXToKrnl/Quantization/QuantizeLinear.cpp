@@ -57,9 +57,17 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         {GenericOps::FloorGop, 2},
         {GenericOps::EstimatedVectorRegisterPressure,
             8 /* Little parallelism in code. */}};
+    // Because quantization transforms, for example, a 4 bytes input type of
+    // float into 1 byte output type of char, and since most of the computations
+    // are in float, we need to provide the float type below to let the function
+    // see that most generic operations are supported for floats. But at the
+    // same time, we need a minimum total unrolling of 16 so as to generate a
+    // single vector of uint8.
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
         innermostLoopCollapse, mix, canOverCompute, simdLoopStaticTripCount,
         simdOnly);
+    MemRefType outputType = llvm::cast<MemRefType>(alloc.getType());
+    totVL = boostVLForMinUnroll(inputType, outputType, totVL);
   }
 
   IndexExpr zero = LitIE(0);
