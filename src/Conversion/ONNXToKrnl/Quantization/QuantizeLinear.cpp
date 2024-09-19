@@ -29,8 +29,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
     Value scale, Value zeroPoint, bool hasZeroPoint, bool enableSIMD,
     bool enableParallel) {
-  MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MemRefBuilder, VectorBuilder, MathBuilder>
+      create(rewriter, loc);
 
   // Types
   Type quantizedElementType = quantizedType.getElementType();
@@ -78,6 +78,45 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   outputAF.emplace_back(zero);
 
 #if 1
+
+  MemRefType outputType = llvm::cast<MemRefType>(alloc.getType());
+  totVL = boostVLForMinUnroll(inputType, outputType, totVL);
+  VectorType quantizedVectorType =
+      VectorType::get({totVL}, quantizedElementType);
+  Value qDummy = create.vec.loadIE(quantizedVectorType, flatAlloc, {zero});
+
+  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
+      {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
+      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+        MultiDialectBuilder<VectorBuilder, MathBuilder> create(kb);
+        Value x = inputVals[0];
+        // Scale
+        Value scaleX = create.math.div(x, scale);
+        // Round
+        Value roundX = create.math.round(scaleX);
+        // Adjust
+        Value adjustX;
+        if (hasZeroPoint)
+          adjustX = create.math.add(roundX, zeroPoint);
+        else
+          adjustX = roundX;
+        // Saturate: use max into a min.
+        Value saturateX = create.math.clip(adjustX, qMin, qMax);
+        Value res;
+        if (VL == 1) {
+          res = create.math.cast(quantizedElementType, saturateX);
+        } else {
+          res = qDummy; //
+          for (int64_t v = 0; v < VL; ++v) {
+            Value element = create.vec.extractElement(saturateX, v);
+            Value resElement = create.math.cast(quantizedElementType, element);
+            res = create.vec.insertElement(res, resElement, v);
+          }
+        }
+        return res;
+      }});
+
+#elif 1
   // Allocate output buffers.
   MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
   Value flatBuffer = create.mem.alignedAlloc(flatBufferType, flatInputDims);
