@@ -81,13 +81,12 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum,
     int64_t &maxVectorRegisterPressure) {
   int64_t size = genOps.size();
+  vectorizedOpNum = maxVectorRegisterPressure = 0;
   if (!hasSimd()) {
-    vectorizedOpNum = maxVectorRegisterPressure = 0;
     scalarOpNum = size;
     return 1;
   }
   int64_t totProcessedValues = 0.0;
-  vectorizedOpNum = maxVectorRegisterPressure = 0;
   scalarOpNum = 0;
   bool hasRegisterPressure = false;
 
@@ -116,7 +115,6 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   }
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
-  scalarOpNum = size - vectorizedOpNum;
   if (!hasRegisterPressure) {
     // Estimate default register pressure as one per 2 vector operation.
     maxVectorRegisterPressure = std::max(vectorizedOpNum / 2, (int64_t)1);
