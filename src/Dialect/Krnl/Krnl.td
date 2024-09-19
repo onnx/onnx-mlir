@@ -514,7 +514,7 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   }];
 }
 
-def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
+def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
   let summary = "Mark Krnl loops as parallel loops";
   let description = [{
     Parallelize the specified loops. When multiple loop specifiers are passed
@@ -522,15 +522,39 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
     krnl.parallel should be placed as the last operator before krnl.iterate,
     Since we do not want to parallelize the loop until we interpret krnl.block,
     krnl.permute and krnl.unroll.
+
+    Optionally, a value may specifiy the number of threads requested for the
+    parallel loop. A proc_bind string may also be specified; valid values are
+    "primary", "close", or "spread". Default values are used when not specified.
+
     ```
     krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
     ```
   }];
 
-  let arguments = (ins Variadic<AnyType>:$loops);
+  let arguments = (ins Variadic<AnyType>:$loops,
+    Optional<I32>:$num_threads,
+    OptionalAttr<StrAttr>:$proc_bind);
 
   let assemblyFormat = [{
-      `(` $loops `)` attr-dict `:` type($loops)
+      `(` $loops `)` (`,` `num_threads` `(` $num_threads^ `)`)? attr-dict `:` type($loops) 
+  }];
+}
+
+def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
+  let summary = "Attach OpenMP clauses to an index varialbe";
+  let description = [{
+    Attach OpenMP clauses to an index variable. That index variable
+    is used to uniquely associate a parallel loop with its clauses.
+  }];
+
+  let arguments = (ins Index: $parallel_loop_index, 
+    Optional<I32>:$num_threads,
+    OptionalAttr<StrAttr>:$proc_bind);
+
+  let assemblyFormat = [{
+      `(` $parallel_loop_index `)` (`,` `num_threads` `(` $num_threads^ `)`)? 
+      attr-dict `:` type($parallel_loop_index) 
   }];
 }
 
