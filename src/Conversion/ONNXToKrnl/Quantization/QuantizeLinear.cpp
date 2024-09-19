@@ -78,7 +78,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   outputAF.emplace_back(zero);
 
 #if 1
-
+ // Insert / extract are slow on z16: 169us for 64K vals.
   MemRefType outputType = llvm::cast<MemRefType>(alloc.getType());
   totVL = boostVLForMinUnroll(inputType, outputType, totVL);
   VectorType quantizedVectorType =
@@ -117,6 +117,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
       }});
 
 #elif 1
+  // faster than original loop on z16, takes 124us for 64k vals
   // Allocate output buffers.
   MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
   Value flatBuffer = create.mem.alignedAlloc(flatBufferType, flatInputDims);
@@ -150,6 +151,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         create.krnl.storeIE(res, flatAlloc, {zero}, {loopInd[0]});
       });
 #else
+  // original, slow on z16 where it takes 158us
   MemRefType outputType = llvm::cast<MemRefType>(alloc.getType());
   totVL = boostVLForMinUnroll(inputType, outputType, totVL);
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
