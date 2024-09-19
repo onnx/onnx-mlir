@@ -268,7 +268,9 @@ def process_line(i, line):
         new_line = process_name(new_line, def1_pat, "BLOCK_TILE_", ",", 1)
         new_line = process_name(new_line, def2_pat, "BLOCK_IN_", " =", 1)
     else:
-        def_qual_pat2 = re.compile(r"((?:%(?:[a-zA-Z0-9][a-zA-Z0-9_\-]*)(?::\d+)?,?\s+)*)=")
+        def_qual_pat2 = re.compile(
+            r"((?:%(?:[a-zA-Z0-9][a-zA-Z0-9_\-]*)(?::\d+)?,?\s+)*)="
+        )
         definitions = def_qual_pat2.findall(new_line)
         for d in definitions:
             arg_def_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?")
