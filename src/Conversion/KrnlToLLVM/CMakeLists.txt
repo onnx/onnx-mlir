@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   ConstantOpInterface.cpp
   KrnlFindIndex.cpp
   KrnlCall.cpp
+  KrnlGlobal.cpp
   KrnlEntryPoint.cpp
   KrnlInstrument.cpp
   KrnlMemcpy.cpp
