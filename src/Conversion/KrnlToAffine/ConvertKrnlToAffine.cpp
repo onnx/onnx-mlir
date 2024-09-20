@@ -742,6 +742,10 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
                             << parallelOp << "\n");
     // ToFix handle multiple parallel loop
     ValueRange loopRefs = parallelOp.getLoops();
+    Value numThreads = parallelOp.getNumThreads();
+    StringAttr procBind = parallelOp.getProcBindAttr();
+    bool needParallelClause =
+        numThreads || (procBind && procBind.getValue().size() > 0);
 
     // Obtain the the reference the loop that needs to be parallelized
     for (Value loopRef : loopRefs) {
@@ -778,6 +782,23 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
       Operation *yieldOp = &parallelLoop.getBody()->back();
       yieldOp->setOperands(reducedValues);
+      if (needParallelClause) {
+        // Use clause only for the first one (expected the outermost one).
+        // Ideally, we would generate here a single, multi-dimensional
+        // AffineParallelOp, and we would not need to reset the flag.
+        needParallelClause = false;
+        // Currently approach: insert after yield and then move before it.
+        PatternRewriter::InsertionGuard insertGuard(builder);
+        builder.setInsertionPointAfter(yieldOp);
+        // Get induction variable.
+        ValueRange optionalLoopIndices = parallelLoop.getIVs();
+        assert(optionalLoopIndices.size() >= 1 &&
+               "expected at least one loop index");
+        Value parallelLoopIndex = optionalLoopIndices[0];
+        Operation *newOp = opBuilder.create<KrnlParallelClauseOp>(
+            loc, parallelLoopIndex, numThreads, procBind);
+        newOp->moveBefore(yieldOp);
+      }
       // Replace the affine.forOp with affine.parallelOp in loopRefToTop
       loopRefToOp[loopRef] = parallelLoop;
       loopToParallel.erase();
@@ -975,6 +996,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
   target.addIllegalOp<KrnlPrefetchOp>();
+  target.addLegalOp<KrnlParallelClauseOp>();
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();

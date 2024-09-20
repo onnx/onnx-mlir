@@ -155,7 +155,26 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
 }
 
 void KrnlBuilder::parallel(ValueRange loops) const {
-  b().template create<KrnlParallelOp>(loc(), loops);
+  Value noneValue;
+  StringAttr noneStrAttr;
+  b().template create<KrnlParallelOp>(loc(), loops, noneValue, noneStrAttr);
+}
+
+void KrnlBuilder::parallel(
+    ValueRange loops, Value numThreads, StringAttr procBind) const {
+  if (procBind.getValue().size() > 0) {
+    std::string str = procBind.getValue().str();
+    assert((str == "primary" || str == "close" || str == "spread") &&
+           "expected primary, close, or spread for proc_bind");
+  }
+  b().template create<KrnlParallelOp>(loc(), loops, numThreads, procBind);
+}
+
+void KrnlBuilder::parallelClause(
+    Value parallelLoopIndex, Value numThreads, StringAttr procBind) const {
+  // No need to check procBind as its value are derived from parallel(...).
+  b().template create<KrnlParallelClauseOp>(
+      loc(), parallelLoopIndex, numThreads, procBind);
 }
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
@@ -222,16 +241,28 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
       });
 }
 
+void KrnlBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+    bool useParallel, KrnlLoopBodyFn builderFn) const {
+  ValueRange originalLoopDef = defineLoops(1);
+  llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
+  if (step > 1) {
+    // Block loop by step.
+    ValueRange blockedLoopDef = block(originalLoopDef[0], step);
+    optLoopDef[0] = blockedLoopDef[0];
+  }
+  if (useParallel)
+    parallel(optLoopDef[0]);
+  iterateIE(originalLoopDef, optLoopDef, {lb}, {ub}, builderFn);
+}
+
 void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    function_ref<void(KrnlBuilder &b, ArrayRef<Value> inputVals,
-        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) const {
+    ArrayRef<KrnlSimdIterateBodyFn> iterateBodyFnList) const {
   onnx_mlir::impl::simdIterateIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
       fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyBuilderFn);
+      iterateBodyFnList);
 }
 
 void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
@@ -239,20 +270,27 @@ void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
     /* reduction function (simd or scalar) */
-    function_ref<void(const KrnlBuilder &b, ArrayRef<Value> inputVals,
-        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
-        int64_t VL)>
-        reductionBuilderFn,
+    ArrayRef<KrnlSimdReductionBodyFn> reductionBodyFnList,
     /* post reduction function (simd to scalar + post processing)*/
-    function_ref<void(const KrnlBuilder &b, ArrayRef<Value> tmpVals,
-        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
-        postProcessingBuilderFn) const {
+    ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList) const {
   onnx_mlir::impl::simdReduceIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
       fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
-      reductionBuilderFn, postProcessingBuilderFn);
+      reductionBodyFnList, postReductionBodyFnList);
 }
 
-void KrnlBuilder::yield(mlir::ValueRange iterArgs) const {
+void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, Value input, DimsExpr inputAF, Value tmp, DimsExpr tmpAF,
+    Value output, DimsExpr outputAF, Value initVal,
+    /* reduction functions (simd or scalar) */
+    KrnlSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    KrnlSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, input, inputAF, tmp, tmpAF, output, outputAF, initVal,
+      reductionBodyFn, postReductionBodyFn);
+}
+
+void KrnlBuilder::yield(ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
 

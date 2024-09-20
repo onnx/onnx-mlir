@@ -30,12 +30,12 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~KrnlBuilder() {}
 
+  // Common load/store interface (krnl/affine/memref)
   // Add offsets (if any) to the least significant dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
-  // Add offsets (if any) to the least significant dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -66,15 +66,20 @@ struct KrnlBuilder : public DialectBuilder {
   void permute(mlir::ValueRange loops, mlir::ArrayRef<int64_t> map) const;
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops) const;
+  void parallel(mlir::ValueRange loops, mlir::Value numThreads,
+      mlir::StringAttr procBind) const;
+  void parallelClause(mlir::Value parallelLoopIndex, mlir::Value numThreads,
+      mlir::StringAttr procBind) const;
 
   // Iterate over optimized loops given the original loops, lbs and ubs. Lambda
   // function implement the body of the loop, and receive a KRNL builder and the
   // loop indices.
+  using KrnlLoopBodyFn =
+      mlir::function_ref<void(KrnlBuilder &, mlir::ValueRange)>;
+
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
-      mlir::function_ref<void(
-          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
-          bodyBuilderFn) const;
+      KrnlLoopBodyFn bodyBuilderFn) const;
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
       mlir::ValueRange ubs, mlir::ValueRange inits,
@@ -87,10 +92,7 @@ struct KrnlBuilder : public DialectBuilder {
   // Same versions with Index Expressions for bounds.
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
-      mlir::ArrayRef<IndexExpr> ubs,
-      mlir::function_ref<void(
-          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
-          bodyBuilderFn) const;
+      mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ValueRange inits,
@@ -98,20 +100,30 @@ struct KrnlBuilder : public DialectBuilder {
           mlir::ValueRange blockIters)>
           bodyBuilderFn) const;
 
+  // Common loop interface (krnl/affine/scf).
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
+      KrnlLoopBodyFn builderFn) const;
+
+  // Common simd loop interface (krnl/affine/scf).
   /*
      Iterate over a loop executing the loop body in SIMD mode (of vector length
      VL) from lb to ub. A scalar loop may execute up to VL-1 loop
      iterations when the trip count is not a multiple of VL. If fullySimd is
      true, then the call assumes that the trip count is a multiple of VL.
 
-     This call needs be given each of the memref inputs to the loop body, given
-     as an ordered pair memref value and its corresponding access function. Same
-     hold for all the memref outputs of the loop body.
+     This simdIterateIE needs be given each of the memref inputs to the loop
+     body, given as an ordered pair memref value and its corresponding access
+     function. Same hold for all the memref outputs of the loop body.
 
-     The loop body is given a KRNL builder, a list of loaded input (same order
-     as the input's memrefs and access functions). It will generate values that
-     must be placed in the result list in the same order as the output's memrefs
-     and access functions.
+     The loop body is constructed by calling each of the KrnlSimdIterateBodyFn
+     given in the list. Each function is responsible for returning one output
+     value. The returned values are eventually stored in the output memrefs at a
+     location given by its respective output access function.
+
+     To generate their output, each KrnlSimdIterateBodyFn function is given
+     a KRNL builder, a list of loaded input (same order
+     as the input's memrefs and access functions), and the current VectorLength
+     (VL). VL is either the original VL or 1 (when executing in scalar mode).
 
      It will be the responsibility of this call to load each of the inputs and
      store each of the outputs. When operating in SIMD mode, every input and
@@ -129,45 +141,61 @@ struct KrnlBuilder : public DialectBuilder {
      Dialect/Mlir/DialectBuilder.hpp.inc.
     */
 
+  using KrnlSimdIterateBodyFn = impl::SimdIterateBodyFn<KrnlBuilder>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
-      mlir::function_ref<void(KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          bodyBuilderFn) const;
+      mlir::ArrayRef<KrnlSimdIterateBodyFn> bodyBuilderFnList) const;
 
   /*
      Works similarly as simdIterateIE, but performs a reduction to a single
      scalar per output value. Inputs must be strided in their innermost
      dimensions. Temps are used to hold the temporary results (partial results
      per SIMD lane), and the outputs have the scalar reduction outputs
-     Two functions are given: reductionBuilderFn to perform the partial
-     reductions into the temporary values tmps, finishing with up to VL partial
-     reductions
-     The second function: postProcessingBuilderFn performs the reductions of the
-     up to VL partial reductions into a final scalar reduction to be stored into
-     the outputs (a scalar value). For some reductions, post processing is also
-     needed, for example, mean reduction divide the accumulated sum by the
-     number of elements. That step is also performed here.
+
+     Two function lists are given: a list of reductionBodyFn to perform the
+     partial reductions into the temporary values tmps, finishing with up to VL
+     partial reductions The second list of postReductionBodyFn perform the
+     reductions of the up to VL partial reductions into a final scalar reduction
+     to be stored into the outputs (a scalar value). For some reductions, post
+     processing is also needed, for example, mean reduction divide the
+     accumulated sum by the number of elements. That step is also performed
+     here.
     */
+  using KrnlSimdReductionBodyFn = impl::SimdReductionBodyFn<KrnlBuilder>;
+  using KrnlSimdPostReductionBodyFn =
+      impl::SimdPostReductionBodyFn<KrnlBuilder>;
+
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> tmps, mlir::ArrayRef<DimsExpr> tmpAFs,
       mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::ArrayRef<mlir::Value> initVals,
       /* reduction function (simd or scalar) */
-      mlir::function_ref<void(const KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          reductionBuilderFn,
+      mlir::ArrayRef<KrnlSimdReductionBodyFn> reductionBodyFnList,
       /* post reduction function (simd to scalar + post processing)*/
-      mlir::function_ref<void(const KrnlBuilder &b,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
-          postProcessingBuilderFn) const;
+      mlir::ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList)
+      const;
+
+  /*
+    Same as simdReduceIE, but perform VL reductions at once. It expect at least
+    VL iterations in the second to last dimension of inputs/outputs.
+
+    Unlike simdReduceIE, the second function is for post processing only. In
+    simdReduceIE, that function was also used to reduce the SIMD temporary
+    reduction into a single scalar.
+
+    Also, at this time, simdReduce2DIE process only one reduction at a time,
+    whereas simdReduceIE could process an arbitrary number of reductions.
+  */
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      KrnlSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      KrnlSimdPostReductionBodyFn postReductionBodyFn) const;
 
   void yield(mlir::ValueRange iterArgs) const;
 
