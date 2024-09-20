@@ -71,48 +71,6 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
-#if 1
-  // Allocate output buffers.
-  MemRefType inputBufferType =
-      MemRefType::get({totVL}, inputType.getElementType());
-  Value inputBuffer = create.mem.alignedAlloc(inputBufferType);
-  MemRefType outputBufferType = MemRefType::get({totVL}, quantizedElementType);
-  VectorType outputVectorType = VectorType::get({totVL}, quantizedElementType);
-  Value outputBuffer = create.mem.alignedAlloc(outputBufferType);
-
-  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
-      {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
-      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
-        MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(kb);
-        Value x = inputVals[0];
-        // Scale
-        Value scaleX = create.math.div(x, scale);
-        // Round
-        Value roundX = create.math.round(scaleX);
-        // Adjust
-        Value adjustX;
-        if (hasZeroPoint)
-          adjustX = create.math.add(roundX, zeroPoint);
-        else
-          adjustX = roundX;
-        // Saturate: use max into a min.
-        Value saturateX = create.math.clip(adjustX, qMin, qMax);
-        if (VL == 1)
-          return create.math.cast(quantizedElementType, saturateX);
-        // Has VL values; first save all VL into buffer.
-        create.vec.storeIE(saturateX, inputBuffer, {zero});
-        // Now process each value in turn
-        for (int64_t v = 0; v < VL; ++v) {
-          IndexExpr vv = LitIE(v);
-          Value scalarSaturateX = create.krnl.loadIE(inputBuffer, {vv});
-          Value scalarRes =
-              create.math.cast(quantizedElementType, scalarSaturateX);
-          create.krnl.storeIE(scalarRes, outputBuffer, {vv});
-        }
-        // Reload the output buffer as one vector.
-        return create.vec.loadIE(outputVectorType, outputBuffer, {zero});
-      }});
-#else
   // faster than original loop on z16, takes 124us for 64k vals
   // Allocate output buffers.
   MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
@@ -146,12 +104,12 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   // compiler's attempt to generate SIMD conversion code. This might not hold
   // with all data types, but is definitely noticeable with uint8.
   //
-  // Todo: we might save the vector to a buffer on the fly (avoiding a second
-  // loop as below), and then reload each value as scalar and then saved them as
-  // scalar (thus avoiding the insert/extract SIMD operations that also do not
-  // perform well). The problem is that the current SIMD scheme expect a return
-  // value, either SIMD in SIMD mode or scalar in scalar mode. Thus that
-  // alternative scheme is not easy to pull off here.
+  // Investigate further: we might save the vector to a buffer on the fly
+  // (avoiding a second loop as below), and then reload each value as scalar and
+  // then saved them as scalar (thus avoiding the insert/extract SIMD operations
+  // that also do not perform well). We can have a SIMD buffer in memory for the
+  // non-quantized and quantized simd values, but then we also need to privatize
+  // it, which is also not easy in this scheme. So ignore this for now.
   create.krnl.forLoopIE(simdLb, simdUb, 1, enableParallel,
       [&](KrnlBuilder &kb, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(kb);
@@ -159,7 +117,6 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         Value res = create.math.cast(quantizedElementType, buffVal);
         create.krnl.storeIE(res, flatAlloc, {zero}, {loopInd[0]});
       });
-#endif
 
   if (totVL > 1)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
