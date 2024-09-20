@@ -33,14 +33,14 @@
 #define CREATE_ACCEL_ENUM(name) name,
 #define DECLARE_ACCEL_INIT_FUNCTION(name) extern Accelerator *create##name();
 #define INVOKE_ACCEL_INIT_FUNCTION(name, kinds)                                \
-  if (!kinds.empty() &&                                                        \
+  if (!(kinds).empty() &&                                                      \
       llvm::is_contained(kinds, accel::Accelerator::Kind::name))               \
     create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
 #define ACCEL_CL_ENUM_FROM_STRING(name, var, str)                              \
-  if (str.compare(std::string(#name)) == 0) {                                  \
-    var = accel::Accelerator::Kind::name;                                      \
+  if ((str).compare(std::string(#name)) == 0) {                                \
+    (var) = accel::Accelerator::Kind::name;                                    \
     return true;                                                               \
   }
 #define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \

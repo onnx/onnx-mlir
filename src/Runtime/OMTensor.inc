@@ -480,10 +480,10 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 /* Helper macros to print data for 1-4D tensors  */
 #define LOOP_1(INDEX, IV, UB)                                                  \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
-    indexes[INDEX] = IV;                                                       \
+    indexes[(INDEX)] = (IV);                                                   \
     int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);   \
     printElement(fout, dataPtr, elemOffset, dataType);                         \
   }                                                                            \
@@ -491,31 +491,31 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_2(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
-    indexes[INDEX] = IV;                                                       \
-    LOOP_1(INDEX + 1, __VA_ARGS__)                                             \
+    indexes[(INDEX)] = (IV);                                                   \
+    LOOP_1((INDEX) + 1, __VA_ARGS__)                                           \
   }                                                                            \
   fprintf(fout, "]");
 
 #define LOOP_3(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
-    indexes[INDEX] = IV;                                                       \
-    LOOP_2(INDEX + 1, __VA_ARGS__)                                             \
+    indexes[(INDEX)] = (IV);                                                   \
+    LOOP_2((INDEX) + 1, __VA_ARGS__)                                           \
   }                                                                            \
   fprintf(fout, "]");
 
 #define LOOP_4(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
-    indexes[INDEX] = IV;                                                       \
-    LOOP_3(INDEX + 1, __VA_ARGS__)                                             \
+    indexes[(INDEX)] = (IV);                                                   \
+    LOOP_3((INDEX) + 1, __VA_ARGS__)                                           \
   }                                                                            \
   fprintf(fout, "]");
 
