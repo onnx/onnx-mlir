@@ -77,7 +77,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
-#if 1
+#if 0
  // Insert / extract are slow on z16: 169us for 64K vals.
   MemRefType outputType = llvm::cast<MemRefType>(alloc.getType());
   totVL = boostVLForMinUnroll(inputType, outputType, totVL);
