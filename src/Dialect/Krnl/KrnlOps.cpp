@@ -156,12 +156,12 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     std::string funcName, int64_t numOfOutput, ValueRange operands) {
-    build(builder, odsState, {}, funcName, numOfOutput, operands);
+  build(builder, odsState, {}, funcName, numOfOutput, operands);
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     StringAttr funcName, IntegerAttr numOfOutput, ValueRange operands) {
-    build(builder, odsState, {}, funcName, numOfOutput, operands);
+  build(builder, odsState, {}, funcName, numOfOutput, operands);
 }
 
 void KrnlCallOp::getEffects(

@@ -94,7 +94,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
   // Only scalar type is supported now.
   // In future, return of memref can be supported with pointer of OMTensor.
   // The returned memref will be created inside the call. 
-  let results = (outs Variadic<AnyTypeOf<[F32, F64, I32, I64]>>:$returnValue);
+  let results = (outs Variadic<AnyTypeOf<[AnyFloat, AnyInteger]>>:$returnValue);
 
   // builders to build KrnlCallOp from op and operands, helping conversion from
   // onnx to krnl.
