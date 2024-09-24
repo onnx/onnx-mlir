@@ -574,6 +574,11 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
+  // Insert and extract.
+  mlir::Value extractElement(mlir::Value vector, int64_t position) const;
+  mlir::Value insertElement(
+      mlir::Value vector, mlir::Value element, int64_t position) const;
+
 private:
   bool isPowerOf2(uint64_t num) const;
   uint64_t getLengthOf1DVector(mlir::Value vec) const;
