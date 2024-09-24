@@ -90,6 +90,13 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       DefaultValuedAttr<SI64Attr, "1">:$numOfOutput,
       Variadic<AnyType>:$parameters);
 
+  // Return Value for the Call.
+  // No return if the type is NoneType (void in llvm)
+  // Only scalar type is supported now.
+  // In future, return of memref can be supported with pointer of OMTensor.
+  // The returned memref will be created inside the call. 
+  let results = (outs Variadic<AnyTypeOf<[AnyFloat, AnyInteger]>>:$returnValue);
+
   // builders to build KrnlCallOp from op and operands, helping conversion from
   // onnx to krnl.
   // The name of function can be determined by the op name and elemnt type of
@@ -97,6 +104,8 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
   // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is
   // true. Or the attribute names can be specified.
   let builders = [
+      OpBuilder<(ins "std::string":$funcNameStr, "int64_t":$numOfOutput, "mlir::ValueRange":$operands)>,
+      OpBuilder<(ins "mlir::StringAttr":$funcNameStr, "IntegerAttr":$numOfOutput, "mlir::ValueRange":$operands)>,
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
     OpBuilder<(ins "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
