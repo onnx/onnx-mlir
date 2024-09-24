@@ -75,7 +75,7 @@ struct KrnlBuilder : public DialectBuilder {
   // function implement the body of the loop, and receive a KRNL builder and the
   // loop indices.
   using KrnlLoopBodyFn =
-      mlir::function_ref<void(const KrnlBuilder &, mlir::ValueRange)>;
+      mlir::function_ref<void(KrnlBuilder &, mlir::ValueRange)>;
 
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,

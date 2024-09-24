@@ -473,7 +473,7 @@ struct SCFBuilder final : DialectBuilder {
   using SCFLoopBodyFn =
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)>;
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
-      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
+      SCFLoopBodyFn bodyFn) const;
   // Custom interface
   void forLoop(
       mlir::Value lb, mlir::Value ub, int64_t step, SCFLoopBodyFn bodyFn) const;

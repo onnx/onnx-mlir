@@ -296,9 +296,10 @@ void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
   IndexExpr zero = LitIE(0);
   if (numThreads.isLiteralAndIdenticalTo(1)) {
     // Noop. Invoke function with (0, lb, ub).
-    SmallVector<Value, 4> params =
-        {zero.getValue(), lb.getValue(), ub.getValue()};
-    builderFn(*this, params);
+    SmallVector<Value, 4> params = {
+        zero.getValue(), lb.getValue(), ub.getValue()};
+    MultiDialectBuilder<KrnlBuilder> create(*this);
+    builderFn(create.krnl, params);
     return;
   }
   if (numThreads.isLiteralAndIdenticalTo(-1)) {
@@ -315,19 +316,20 @@ void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
   ValueRange originalLoopDef = defineLoops(1);
   llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
   mlir::StringAttr procBind;
-  parallel(optLoopDef[0], numThreads, procBind);
+  parallel(optLoopDef[0], numThreads.getValue(), procBind);
   iterateIE(originalLoopDef, optLoopDef, {lb}, {ub},
       [&](KrnlBuilder &kb, ValueRange loopInd) {
         // Compute current LB/UB for this thread.
+        MultiDialectBuilder<KrnlBuilder> create(kb);
         IndexExprScope currScope(kb);
         IndexExpr tid = DimIE(loopInd[0]);
         IndexExpr currLB = tid * SymIE(block);
         IndexExpr currUB = currLB + SymIE(block);
         currUB = IndexExpr::max(currUB, SymIE(ub));
-        SmallVector<Value, 4> params =
-            (tid.getValue(), currLB.getValue(), currUB.getValue());
+        SmallVector<Value, 4> params = {
+            tid.getValue(), currLB.getValue(), currUB.getValue()};
         // Invoke function with (tid, currLB, currUB).
-        builderFn(*this, params);
+        builderFn(create.krnl, params);
       });
 }
 
