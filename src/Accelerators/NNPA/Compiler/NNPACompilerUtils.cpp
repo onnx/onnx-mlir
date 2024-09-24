@@ -90,10 +90,12 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   pm.addPass(onnx_mlir::createONNXToZHighPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createCanonicalizerPass());
+
   // Layout propagation at ZHighIR.
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
@@ -109,14 +111,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
         onnx_mlir::zhigh::createZHighClipToDLFloatPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   }
-
-  // After all optimizations, if there are still light-weight ops (e.g. add,
-  // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
-  // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
-  // these ops, e.g vectorize the computation.
-  if (nnpaEnableZHighToOnnx)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
-
+  
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
   if (enableONNXHybridPass) {
@@ -134,13 +129,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
   pm.addPass(createScrubDisposablePass());
 
-  // Constant propagation at ZHighIR: constant stickify.
-  // Only support BE machines.
-  bool isBE = llvm::endianness::native == llvm::endianness::big;
-  if (isBE)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighConstPropagationPass());
-
   // Experimental feature: Decompose stick/unstick into two phases: layout
   // transform and data conversion. Do some optimizations after decomposing.
   // Then, recompose again layout and data conversion if they are not optimized.
@@ -151,6 +139,20 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass());
   }
+
+  // After all optimizations, if there are still light-weight ops (e.g. add,
+  // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
+  // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
+  // these ops, e.g vectorize the computation.
+  if (nnpaEnableZHighToOnnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
+
+  // Constant propagation at ZHighIR: constant stickify.
+  // Only support BE machines.
+  bool isBE = llvm::endianness::native == llvm::endianness::big;
+  if (isBE)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighConstPropagationPass());
 
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
