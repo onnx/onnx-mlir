@@ -111,7 +111,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
         onnx_mlir::zhigh::createZHighClipToDLFloatPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   }
-  
+
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
   if (enableONNXHybridPass) {
