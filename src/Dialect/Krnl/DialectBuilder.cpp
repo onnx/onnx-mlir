@@ -290,6 +290,47 @@ void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
       reductionBodyFn, postReductionBodyFn);
 }
 
+void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
+    IndexExpr lb, IndexExpr ub, int64_t stepModifier,
+    KrnlLoopBodyFn builderFn) const {
+  IndexExpr zero = LitIE(0);
+  if (numThreads.isLiteralAndIdenticalTo(1)) {
+    // Noop. Invoke function with (0, lb, ub).
+    SmallVector<Value, 4> params =
+        {zero.getValue(), lb.getValue(), ub.getValue()};
+    builderFn(*this, params);
+    return;
+  }
+  if (numThreads.isLiteralAndIdenticalTo(-1)) {
+    // Dynamic, get value from OMP
+    llvm_unreachable("not implemented yet");
+  }
+  IndexExpr trip = ub - lb;
+  if (stepModifier > 1)
+    trip = trip.ceilDiv(stepModifier);
+  IndexExpr block = trip.ceilDiv(numThreads);
+  if (stepModifier > 1)
+    block = block * stepModifier;
+  // Create parallel loop with numThreads.
+  ValueRange originalLoopDef = defineLoops(1);
+  llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
+  mlir::StringAttr procBind;
+  parallel(optLoopDef[0], numThreads, procBind);
+  iterateIE(originalLoopDef, optLoopDef, {lb}, {ub},
+      [&](KrnlBuilder &kb, ValueRange loopInd) {
+        // Compute current LB/UB for this thread.
+        IndexExprScope currScope(kb);
+        IndexExpr tid = DimIE(loopInd[0]);
+        IndexExpr currLB = tid * SymIE(block);
+        IndexExpr currUB = currLB + SymIE(block);
+        currUB = IndexExpr::max(currUB, SymIE(ub));
+        SmallVector<Value, 4> params =
+            (tid.getValue(), currLB.getValue(), currUB.getValue());
+        // Invoke function with (tid, currLB, currUB).
+        builderFn(*this, params);
+      });
+}
+
 void KrnlBuilder::yield(ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }

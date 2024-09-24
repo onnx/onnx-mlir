@@ -75,7 +75,7 @@ struct KrnlBuilder : public DialectBuilder {
   // function implement the body of the loop, and receive a KRNL builder and the
   // loop indices.
   using KrnlLoopBodyFn =
-      mlir::function_ref<void(KrnlBuilder &, mlir::ValueRange)>;
+      mlir::function_ref<void(const KrnlBuilder &, mlir::ValueRange)>;
 
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
@@ -103,6 +103,18 @@ struct KrnlBuilder : public DialectBuilder {
   // Common loop interface (krnl/affine/scf).
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       KrnlLoopBodyFn builderFn) const;
+
+  // Create a parallel loop iterating from tid=0 to tNum. When tNum== -1, the
+  // maximum number of thread is extracted at runtime (via is obtained from
+  // omp_get_num_threads). The parameters passed to the builder functions are
+  // (tid, currLB, currUB) where the currLB and currUB define the work assigned
+  // to a given thread tid. If follows the OpenMP static schedule, assigning
+  // roughly ceil((ub - lb)/tNum) iterations per thread. When stepModifier>1,
+  // assigned chunks are multiple of stepModifier.
+  // When tNum == 1, this is a nop, essentially calling the builder function
+  // with (0, lb, ub).
+  void forExplicitlyParallelLoopIE(IndexExpr threadNum, IndexExpr lb,
+      IndexExpr ub, int64_t stepModifier, KrnlLoopBodyFn builderFn) const;
 
   // Common simd loop interface (krnl/affine/scf).
   /*
