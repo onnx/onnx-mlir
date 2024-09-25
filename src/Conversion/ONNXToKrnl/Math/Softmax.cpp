@@ -33,7 +33,8 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the maximum value along axis.
   ValueRange maxLoops = createKrnl.defineLoops(numberOfLoops);
   auto maxLoop = createKrnl.iterateIE(maxLoops, maxLoops, Lbs, Ubs, maxInits,
-      [&](const KrnlBuilder &createKrnl, ValueRange maxIndices, ValueRange iterArgs) {
+      [&](const KrnlBuilder &createKrnl, ValueRange maxIndices,
+          ValueRange iterArgs) {
         // Get last argument for the iterate body.
         Value iterArg = iterArgs.back();
 
@@ -67,7 +68,8 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the sum of all values along axis.
   ValueRange sumLoops = createKrnl.defineLoops(numberOfLoops);
   auto sumLoop = createKrnl.iterateIE(sumLoops, sumLoops, Lbs, Ubs, sumInits,
-      [&](const KrnlBuilder &createKrnl, ValueRange sumIndices, ValueRange iterArgs) {
+      [&](const KrnlBuilder &createKrnl, ValueRange sumIndices,
+          ValueRange iterArgs) {
         // Get last argument for the iterate body.
         Value iterArg = iterArgs.back();
 

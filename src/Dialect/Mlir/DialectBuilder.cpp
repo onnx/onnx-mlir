@@ -1697,9 +1697,8 @@ void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
 // Structured Control Flow (SCF).
 //===----------------------------------------------------------------------===//
 
-void SCFBuilder::ifThenElse(Value cond,
-    SCFThenElseBodyFn thenFn,
-    SCFThenElseBodyFn elseFn) const {
+void SCFBuilder::ifThenElse(
+    Value cond, SCFThenElseBodyFn thenFn, SCFThenElseBodyFn elseFn) const {
   if (!elseFn) {
     b().create<scf::IfOp>(loc(), cond,
         /* then */

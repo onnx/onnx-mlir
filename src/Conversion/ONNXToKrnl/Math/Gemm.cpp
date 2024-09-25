@@ -250,7 +250,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       }
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
-          {I, J, K}, [&](const KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
+          {I, J, K},
+          [&](const KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
             // If parallel, allocate on stack inside the parallel region.
             if (enableParallel) {
@@ -272,7 +273,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
                   else
                     createKrnl.copyToBuffer(bBuff, B, {k1, j1}, zeroVal, false);
                   createKrnl.iterate({}, {jj2, ii2}, {}, {},
-                      [&](const KrnlBuilder &createKrnl, ValueRange j2_i2_indices) {
+                      [&](const KrnlBuilder &createKrnl,
+                          ValueRange j2_i2_indices) {
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                         ArrayRef<int64_t> empty;
                         createKrnl.matmul(aBuff, {i1, k1}, bBuff, {k1, j1},
@@ -316,7 +318,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // "not currently used ones" like ii here last. Gave an error when ii was
       // listed first.
       create.krnl.iterateIE({jj, kk, ii}, {jj1, kk1}, {zeroIE, zeroIE, zeroIE},
-          {J, K, I}, [&](const KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
+          {J, K, I},
+          [&](const KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
             // If parallel, allocate on stack inside the parallel region.
             if (enableParallel) {
@@ -337,7 +340,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
                   else
                     createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
                   createKrnl.iterate({}, {jj2, ii2}, {}, {},
-                      [&](const KrnlBuilder &createKrnl, ValueRange j2_i2_indices) {
+                      [&](const KrnlBuilder &createKrnl,
+                          ValueRange j2_i2_indices) {
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                         createKrnl.matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R,
                             {z, z},

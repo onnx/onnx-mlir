@@ -1482,8 +1482,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       }
     }
   }
-  create.krnl.iterateIE(
-      loopDef, loopDef, lbs, ubs, [&](const KrnlBuilder &ck, ValueRange loopInd) {
+  create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      [&](const KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder> create(ck);
         // LoopInd has the current indices for all but the innermost dim. Since
         // we expect here the entire innermost loop iteration in one go, the
@@ -1529,7 +1529,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 
         create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, simdOnly,
             useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
-            {[&](const KrnlBuilder  &kb, ArrayRef<Value> inputVals, int64_t VL) {
+            {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
               MultiDialectBuilder<MathBuilder> create(kb);
               Type currElementType = outputElementType;
               if (VL > 1)
