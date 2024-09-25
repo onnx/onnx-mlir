@@ -124,7 +124,7 @@ Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
 }
 
 void KrnlBuilder::region(
-    function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const {
+    function_ref<void(const KrnlBuilder &createKrnl)> bodyBuilderFn) const {
   KrnlBuilder createKrnl(b(), loc());
   KrnlRegionOp regionOp = b().create<KrnlRegionOp>(loc());
   {
@@ -179,20 +179,19 @@ void KrnlBuilder::parallelClause(
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
+    function_ref<void(const KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) const {
-  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
-                                  ValueRange iterArgs) {
+  auto bodyBuilderFnWrapper = [&](const KrnlBuilder &createKrnl,
+                                  ValueRange indices, ValueRange iterArgs) {
     bodyBuilderFn(createKrnl, indices);
   };
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+// Deprecated
 KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
-    function_ref<void(
-        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
-        bodyBuilderFn) const {
+    KrnlLoopBody2Fn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -213,21 +212,18 @@ KrnlIterateOp KrnlBuilder::iterate(
 
 void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
-        bodyBuilderFn) const {
-  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
-                                  ValueRange iterArgs) {
+    KrnlLoopBodyFn bodyBuilderFn) const {
+  auto bodyBuilderFnWrapper = [&](const KrnlBuilder &createKrnl,
+                                  ValueRange indices, ValueRange iterArgs) {
     bodyBuilderFn(createKrnl, indices);
   };
   iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+// Deprecated.
 KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    ValueRange inits,
-    function_ref<void(
-        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
-        bodyBuilderFn) const {
+    ValueRange inits, KrnlLoopBody2Fn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");

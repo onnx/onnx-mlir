@@ -166,7 +166,7 @@ public:
 
         // Emit code for `if (OMInitCompatibleAccelX() == 0) then return NULL`.
         create.llvm.ifThenElse(/*cond=*/
-            [&](LLVMBuilder &createLLVM) {
+            [&](const LLVMBuilder &createLLVM) {
               // Call OMInitCompatibleAccelX.
               Value versionNumberVal = createLLVM.constant(
                   int64Ty, static_cast<int64_t>(versionNumberInHex));
@@ -176,7 +176,7 @@ public:
               return createLLVM.icmp(
                   LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
             }, /*then=*/
-            [&](LLVMBuilder &createLLVM) {
+            [&](const LLVMBuilder &createLLVM) {
               // return NULL.
               createLLVM._return(createLLVM.null(getI8PointerType(context)));
             });
@@ -418,10 +418,10 @@ private:
     MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     create.llvm.ifThenElse(/*cond=*/
-        [&](LLVMBuilder &createLLVM) {
+        [&](const LLVMBuilder &createLLVM) {
           return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
         }, /*then=*/
-        [&](LLVMBuilder &createLLVM) {
+        [&](const LLVMBuilder &createLLVM) {
           MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
           // Print an error message.
           if (appendRHS)
@@ -514,13 +514,13 @@ private:
           // In case that the reference dimension size is unknown, verify that
           // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/
-              [&](LLVMBuilder &createLLVM) {
+              [&](const LLVMBuilder &createLLVM) {
                 Value zero =
                     createLLVM.constant(int64Ty, static_cast<int64_t>(d));
                 return createLLVM.icmp(
                     LLVM::ICmpPredicate::slt, actualDim, zero);
               }, /*then=*/
-              [&](LLVMBuilder &createLLVM) {
+              [&](const LLVMBuilder &createLLVM) {
                 MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(
                     createLLVM);
                 // Print an error message.

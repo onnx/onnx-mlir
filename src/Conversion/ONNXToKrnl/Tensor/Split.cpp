@@ -69,7 +69,7 @@ LogicalResult ONNXSplitOpLoweringCommon(OP_TYPE splitOp, OP_ADAPTOR adaptor,
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(allocs[i], ubs);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           SmallVector<IndexExpr, 4> readIndices;
           for (uint64_t r = 0; r < rank; ++r) {
             DimIndexExpr readIndex(indices[r]);

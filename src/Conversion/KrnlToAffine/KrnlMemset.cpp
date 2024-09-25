@@ -59,7 +59,7 @@ public:
     SmallVector<int64_t, 4> steps(rank, 1);
     // Copy data,
     create.affineKMem.forLoopsIE(lbs, ubs, steps,
-        [&](AffineBuilderKrnlMem &createAffine, ValueRange indices) {
+        [&](const AffineBuilderKrnlMem &createAffine, ValueRange indices) {
           createAffine.store(destVal, destMemRef, indices);
         });
     rewriter.eraseOp(op);

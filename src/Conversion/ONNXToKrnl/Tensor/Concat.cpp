@@ -101,7 +101,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> readIndices, writeIndices;
             for (unsigned int r = 0; r < rank; ++r) {
