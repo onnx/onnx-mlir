@@ -81,9 +81,19 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     llvm_unreachable("unsupported input type");
   IntegerType quantizedIntType = cast<IntegerType>(quantizedElementType);
   bool isSigned = quantizedIntType.isSignless() || quantizedIntType.isSigned();
-  Type quantizedElementTypeInputSized =
-      rewriter.getIntegerType(inputWidth, isSigned);
-
+  Type quantizedElementTypeInputSized;
+  if (isSigned) {
+    // Cannot use getIntegerType(inputWidth, true) as it returns signed ints.
+    if (inputWidth == 64)
+      quantizedElementTypeInputSized = rewriter.getI64Type();
+    else if (inputWidth == 32)
+      quantizedElementTypeInputSized = rewriter.getI32Type();
+    else
+      llvm_unreachable("unsupported input type");
+  } else {
+    // unsigned of the right type
+    quantizedElementTypeInputSized = rewriter.getIntegerType(inputWidth, false);
+  }
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
