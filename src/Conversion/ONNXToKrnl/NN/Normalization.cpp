@@ -941,17 +941,14 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           invStdDevFlatMemRef);
     // Alloc mem for reductions (should be private if parallel)
     MemRefType tmpRedType = MemRefType::get({B, totVL}, elementType);
-    // Iterate over 1st dim by block
-    ValueRange loopDefs = create.krnl.defineLoops(1);
-    IndexExpr zero = LitIE(0);
-    ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
-    Value blockedLoopDef = blockedLoopDefs[0];
+    // Iterate over 1st dim by block B.
+    bool useParallel = false;
     if (enableParallel) {
       int64_t parId;
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
       if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
               /*min iter for going parallel*/ 4)) {
-        create.krnl.parallel(blockedLoopDef);
+        useParallel = true;
         onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "in layer-norm");
       } else {
         onnxToKrnlParallelReport(
@@ -960,8 +957,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     } else {
       onnxToKrnlParallelReport(op, false, -1, -1, "no parallel in layer norm");
     }
-    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef}, {zero},
-        {XFlatDims[0]},
+    create.krnl.forLoopIE(LitIE(0), XFlatDims[0], /*step*/ B, useParallel,
         [&](const KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);

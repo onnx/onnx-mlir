@@ -160,14 +160,13 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       IndexExprScope childScope(create.krnl);
-      mlir::ValueRange loopDef = create.krnl.defineLoops(1);
-      llvm::SmallVector<IndexExpr, 4> lbs(1, LitIE(0));
-      llvm::SmallVector<IndexExpr, 4> ubs;
+      IndexExpr lb = LitIE(0);
+      IndexExpr ub;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
-        ubs.emplace_back(LitIE(sequenceDimSize));
+        ub = LitIE(sequenceDimSize);
       else
-        ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        ub = create.krnlIE.getShapeAsDim(X, 0);
+      create.krnl.forLoopIE(lb, ub, /*step*/ 1, /*par*/ false,
           [&](const KrnlBuilder &createKrnl, mlir::ValueRange loopInd) {
             MathBuilder createMath(createKrnl);
             mlir::Value directionIV =
@@ -185,14 +184,13 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
 
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       IndexExprScope childScope(create.krnl);
-      mlir::ValueRange loopDef = create.krnl.defineLoops(1);
-      llvm::SmallVector<IndexExpr, 4> lbs(1, LitIE(0));
-      llvm::SmallVector<IndexExpr, 4> ubs;
+      IndexExpr lb = LitIE(0);
+      IndexExpr ub;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
-        ubs.emplace_back(LitIE(sequenceDimSize));
+        ub = LitIE(sequenceDimSize);
       else
-        ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        ub = create.krnlIE.getShapeAsDim(X, 0);
+      create.krnl.forLoopIE(lb, ub, /*step*/ 1, /*par*/ false,
           [&](const KrnlBuilder &ck, mlir::ValueRange loopInd) {
             MultiDialectBuilder<MemRefBuilder, MathBuilder> create(ck);
 

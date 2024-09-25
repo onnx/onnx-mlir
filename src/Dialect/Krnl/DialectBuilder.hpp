@@ -106,22 +106,6 @@ struct KrnlBuilder : public DialectBuilder {
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       KrnlLoopBodyFn builderFn) const;
 
-  // Create a parallel loop iterating from tid=0 to tNum. When tNum== -1, the
-  // maximum number of thread is extracted at runtime (via is obtained from
-  // omp_get_num_threads). The parameters passed to the builder functions are
-  // (tid, currLB, currUB) where the currLB and currUB define the work assigned
-  // to a given thread tid. If follows the OpenMP static schedule, assigning
-  // roughly ceil((ub - lb)/tNum) iterations per thread. When stepModifier>1,
-  // assigned chunks are multiple of stepModifier.
-  // When tNum == 1, this is a nop, essentially calling the builder function
-  // with (0, lb, ub).
-  void forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
-      int64_t stepModifier, IndexExpr numThreads,
-      KrnlLoopBodyFn builderFn) const;
-  void forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
-      int64_t stepModifier, IndexExpr numThreads, mlir::StringAttr procBind,
-      KrnlLoopBodyFn builderFn) const;
-
   // Common simd loop interface (krnl/affine/scf).
   /*
      Iterate over a loop executing the loop body in SIMD mode (of vector length

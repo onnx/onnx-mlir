@@ -64,12 +64,7 @@ struct ONNXSequenceEraseOpLowering
 
     // Copy the elements before the position
     KrnlBuilder createKrnl(rewriter, loc);
-    SmallVector<IndexExpr, 1> lbs;
-    lbs.emplace_back(LitIE(0));
-    SmallVector<IndexExpr, 1> ubs;
-    ubs.emplace_back(positionIE);
-    ValueRange firstLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
+    createKrnl.forLoopIE(LitIE(0), positionIE, /*step*/ 1, /*par*/ false,
         [&](const KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           Value element =
               createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
@@ -78,12 +73,7 @@ struct ONNXSequenceEraseOpLowering
         });
 
     // Copy the elements after the position
-    SmallVector<IndexExpr, 1> lbs1;
-    lbs1.emplace_back(positionIE + 1);
-    SmallVector<IndexExpr, 1> ubs1;
-    ubs1.emplace_back(boundIE);
-    ValueRange secondLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
+    createKrnl.forLoopIE(positionIE + 1, boundIE, /*step*/ 1, /*par*/ false,
         [&](const KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           Value element =
               createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);

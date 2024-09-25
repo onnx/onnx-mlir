@@ -60,8 +60,7 @@ struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
     // Now create a loop to iterate over all conditions.
     Value condMemRef = adaptor.getCondition();
     IndexExpr condShapeFirstRank = create.krnlIE.getShapeAsDim(condMemRef, 0);
-    ValueRange loopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(loopDef, loopDef, {zeroIE}, {condShapeFirstRank},
+    create.krnl.forLoopIE(zeroIE, condShapeFirstRank, /*step*/ 1, /*par*/ false,
         [&](const KrnlBuilder createKrnl, ValueRange loopInd) {
           MathBuilder createMath(createKrnl);
           // Load the condition
@@ -215,9 +214,8 @@ struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
         innerLbs.emplace_back(inputLbs[i]);
         innerUbs.emplace_back(inputUbs[i]);
       }
-      ValueRange axisLoopDef = create.krnl.defineLoops(1);
-      create.krnl.iterateIE(axisLoopDef, axisLoopDef, {inputLbs[axisValue]},
-          {inputUbs[axisValue]},
+      create.krnl.forLoopIE(inputLbs[axisValue], inputUbs[axisValue],
+          /*step*/ 1, /*par*/ false,
           [&](const KrnlBuilder createKrnl, ValueRange axisLoopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
                 createKrnl);

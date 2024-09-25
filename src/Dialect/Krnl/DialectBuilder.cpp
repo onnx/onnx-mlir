@@ -286,55 +286,6 @@ void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
       reductionBodyFn, postReductionBodyFn);
 }
 
-void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
-    int64_t stepModifier, IndexExpr numThreads, StringAttr procBind,
-    KrnlLoopBodyFn builderFn) const {
-  IndexExpr zero = LitIE(0);
-  if (numThreads.isLiteralAndIdenticalTo(1)) {
-    // Noop. Invoke function with (0, lb, ub).
-    SmallVector<Value, 4> params = {
-        zero.getValue(), lb.getValue(), ub.getValue()};
-    MultiDialectBuilder<KrnlBuilder> create(*this);
-    builderFn(create.krnl, params);
-    return;
-  }
-  if (numThreads.isLiteralAndIdenticalTo(-1)) {
-    // Dynamic, get value from OMP.
-    llvm_unreachable("not implemented yet"); // hi alex.
-  }
-  IndexExpr trip = ub - lb;
-  if (stepModifier > 1)
-    trip = trip.ceilDiv(stepModifier);
-  IndexExpr block = trip.ceilDiv(numThreads);
-  if (stepModifier > 1)
-    block = block * stepModifier;
-  // Create parallel loop with numThreads.
-  ValueRange originalLoopDef = defineLoops(1);
-  llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
-  parallel(optLoopDef[0], numThreads.getValue(), procBind);
-  iterateIE(originalLoopDef, optLoopDef, {lb}, {ub},
-      [&](const KrnlBuilder &kb, ValueRange loopInd) {
-        // Compute current LB/UB for this thread.
-        IndexExprScope currScope(kb);
-        IndexExpr tid = DimIE(loopInd[0]);
-        IndexExpr currLB = tid * SymIE(block);
-        IndexExpr currUB = currLB + SymIE(block);
-        currUB = IndexExpr::max(currUB, SymIE(ub));
-        SmallVector<Value, 4> params = {
-            tid.getValue(), currLB.getValue(), currUB.getValue()};
-        // Invoke function with (tid, currLB, currUB).
-        builderFn(kb, params);
-      });
-}
-
-void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
-    int64_t stepModifier, IndexExpr numThreads,
-    KrnlLoopBodyFn builderFn) const {
-  StringAttr procBind; // Empty == default, unspecified.
-  forExplicitlyParallelLoopIE(
-      lb, ub, stepModifier, numThreads, procBind, builderFn);
-}
-
 void KrnlBuilder::yield(ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
