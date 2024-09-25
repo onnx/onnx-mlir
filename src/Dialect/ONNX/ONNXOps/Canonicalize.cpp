@@ -1863,6 +1863,4 @@ void ONNXWhereOp::getCanonicalizationPatterns(
 
 // on the ONNXDequantizeLinearOp.
 void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<QuantizeDequantizePattern>(context);
-}
+    RewritePatternSet &result, MLIRContext *context) {}
