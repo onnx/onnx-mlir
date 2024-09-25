@@ -466,12 +466,12 @@ struct SCFBuilder final : DialectBuilder {
 
   /// Create an if then with optional else. Construct does not generate a
   /// result (unlike some scf::if) and introduces the yields automatically.
-  void ifThenElse(mlir::Value cond,
-      mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
-      mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
+  using SCFThenElseBodyFn = mlir::function_ref<void(const SCFBuilder &)>;
+  void ifThenElse(mlir::Value cond, SCFThenElseBodyFn thenFn,
+      SCFThenElseBodyFn elseFn = nullptr) const;
   // Common loop interface (krnl/affine/scf).
   using SCFLoopBodyFn =
-      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)>;
+      mlir::function_ref<void(const SCFBuilder &, mlir::ValueRange)>;
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       SCFLoopBodyFn bodyFn) const;
   // Custom interface
@@ -614,7 +614,7 @@ struct GenericAffineBuilder final : DialectBuilder {
 
   // Common loop interface (krnl/affine/scf).
   using GenericAffineLoopBodyFn =
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>;
+      mlir::function_ref<void(const GenericAffineBuilder &, mlir::ValueRange)>;
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       GenericAffineLoopBodyFn builderFn) const;
 
@@ -656,10 +656,11 @@ struct GenericAffineBuilder final : DialectBuilder {
       GenericAffineSimdPostReductionBodyFn postReductionBodyFn) const;
 
   // This if then else construct has no arguments to the blocks.
+  using GenericAffineThenElseBodyFn =
+      mlir::function_ref<void(const GenericAffineBuilder<LOAD_OP, STORE_OP> &)>;
   void ifThenElseIE(IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
-      mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-      mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
-      const;
+      GenericAffineThenElseBodyFn thenFn,
+      GenericAffineThenElseBodyFn elseFn) const;
 
   // AffineApplyOp
   mlir::Value apply(mlir::AffineMap map, mlir::ValueRange operands) const;
@@ -671,8 +672,7 @@ private:
   void recursionForLoopsIE(mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
       llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      GenericAffineLoopBodyFn builderFn) const;
 
   // Support for adding blocks.
   void appendToBlock(mlir::Block *block,
@@ -691,8 +691,9 @@ using AffineBuilder = GenericAffineBuilder<mlir::affine::AffineLoadOp,
 //===----------------------------------------------------------------------===//
 
 struct LLVMBuilder final : DialectBuilder {
-  using voidFuncRef = mlir::function_ref<void(LLVMBuilder &createLLVM)>;
-  using valueFuncRef = mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)>;
+  using voidFuncRef = mlir::function_ref<void(const LLVMBuilder &createLLVM)>;
+  using valueFuncRef =
+      mlir::function_ref<mlir::Value(const LLVMBuilder &createLLVM)>;
 
   LLVMBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)

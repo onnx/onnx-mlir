@@ -482,7 +482,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     ValueRange loopDef = create.krnl.defineLoops(1);
     create.krnl.parallel(loopDef[0]);
     create.krnl.iterateIE(loopDef, loopDef, {zero}, {tNumIE},
-        [&](onnx_mlir::KrnlBuilder &ck, mlir::ValueRange loopInd) {
+        [&](const KrnlBuilder &ck, mlir::ValueRange loopInd) {
           IndexExprScope scope(ck);
           MDBuilder create(ck);
           IndexExpr t = DimIE(loopInd[0]);
@@ -841,7 +841,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(loopDef, loopDef, {LitIE(0)}, {axisShape0},
-            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
@@ -975,7 +975,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // TODO Temporary disable the 2nd loop parallelism, since its outermost
     // loop could be a reduction loop, where parallelism would not be safe.
     create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
-        [&](KrnlBuilder &kb, ValueRange loopInd) {
+        [&](const KrnlBuilder &kb, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
           Value zeroIndex = create.math.constantIndex(0);
           // Compute accumulator  access function.
@@ -1021,7 +1021,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         }
       }
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
-          [&](KrnlBuilder &kb, ValueRange loopInd) {
+          [&](const KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
             Value loadData = create.krnl.load(alloc, loopInd);
             Value meanVal = create.math.div(loadData, divisorForMean);
@@ -1153,7 +1153,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       }
     }
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
-        [&](KrnlBuilder &ck, ValueRange outLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
           // Allocate temp inside loop (because of parallel).
           Value tmpAlloca = create.mem.alignedAlloca(tmpType);
@@ -1306,7 +1306,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       }
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
-        [&](KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
           MDBuilder create(ck);
           // Create temp inside loop (because of parallel).
           Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
@@ -1323,13 +1323,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(
               isNotFullVal,
-              [&](SCFBuilder &scf) {
+              [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
                 // create.krnl.printf("partial tile\n");
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
-                    [&](SCFBuilder &scf, ValueRange loopInd) {
+                    [&](const SCFBuilder &scf, ValueRange loopInd) {
                       MDBuilder create(scf);
                       Value blockLocalInd = loopInd[0];
                       // Output induction variables: same as the outer loop, but
@@ -1344,7 +1344,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                           simdUB, VL, simdOnly);
                     }); /* for inside blocked loop */
               },
-              [&](SCFBuilder &scf) {
+              [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
                 // create.krnl.printf("full tile\n");
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,

@@ -65,10 +65,10 @@ mlir::Value emitXSliceAt(mlir::ConversionPatternRewriter &rewriter,
 // When a sample reachs the limit of its sequence len, nextHt will be padded
 // with 0 (or initialH), and Ht will keep the last value at the sequence end
 // so that the final value Ht is the last value at their sequence len.
-mlir::Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
-    mlir::Value sequenceLens, mlir::Value initialH, mlir::Value nextHt,
-    mlir::Value sequenceIV, mlir::Value directionIV, mlir::Value bs,
-    mlir::Value hs, mlir::Value Ht);
+mlir::Value handleSequenceLens(const KrnlBuilder &createKrnl,
+    const MathBuilder &createMath, mlir::Value sequenceLens,
+    mlir::Value initialH, mlir::Value nextHt, mlir::Value sequenceIV,
+    mlir::Value directionIV, mlir::Value bs, mlir::Value hs, mlir::Value Ht);
 
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
@@ -168,7 +168,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
       else
         ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, mlir::ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, mlir::ValueRange loopInd) {
             MathBuilder createMath(createKrnl);
             mlir::Value directionIV =
                 createMath.constant(rewriter.getIndexType(), 0);
@@ -193,7 +193,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
       else
         ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &ck, mlir::ValueRange loopInd) {
+          [&](const KrnlBuilder &ck, mlir::ValueRange loopInd) {
             MultiDialectBuilder<MemRefBuilder, MathBuilder> create(ck);
 
             mlir::AffineMap reverseIVMap = mlir::AffineMap::get(1, 1,

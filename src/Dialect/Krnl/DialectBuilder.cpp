@@ -124,7 +124,7 @@ Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
 }
 
 void KrnlBuilder::region(
-    function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const {
+    function_ref<void(const KrnlBuilder &createKrnl)> bodyBuilderFn) const {
   KrnlBuilder createKrnl(b(), loc());
   KrnlRegionOp regionOp = b().create<KrnlRegionOp>(loc());
   {
@@ -179,20 +179,19 @@ void KrnlBuilder::parallelClause(
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
+    function_ref<void(const KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) const {
-  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
-                                  ValueRange iterArgs) {
+  auto bodyBuilderFnWrapper = [&](const KrnlBuilder &createKrnl,
+                                  ValueRange indices, ValueRange iterArgs) {
     bodyBuilderFn(createKrnl, indices);
   };
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+// Deprecated
 KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
-    function_ref<void(
-        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
-        bodyBuilderFn) const {
+    KrnlLoopBody2Fn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -213,21 +212,18 @@ KrnlIterateOp KrnlBuilder::iterate(
 
 void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
-        bodyBuilderFn) const {
-  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
-                                  ValueRange iterArgs) {
+    KrnlLoopBodyFn bodyBuilderFn) const {
+  auto bodyBuilderFnWrapper = [&](const KrnlBuilder &createKrnl,
+                                  ValueRange indices, ValueRange iterArgs) {
     bodyBuilderFn(createKrnl, indices);
   };
   iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+// Deprecated.
 KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    ValueRange inits,
-    function_ref<void(
-        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
-        bodyBuilderFn) const {
+    ValueRange inits, KrnlLoopBody2Fn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -290,8 +286,8 @@ void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
       reductionBodyFn, postReductionBodyFn);
 }
 
-void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
-    IndexExpr lb, IndexExpr ub, int64_t stepModifier,
+void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
+    int64_t stepModifier, IndexExpr numThreads, StringAttr procBind,
     KrnlLoopBodyFn builderFn) const {
   IndexExpr zero = LitIE(0);
   if (numThreads.isLiteralAndIdenticalTo(1)) {
@@ -303,8 +299,8 @@ void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
     return;
   }
   if (numThreads.isLiteralAndIdenticalTo(-1)) {
-    // Dynamic, get value from OMP
-    llvm_unreachable("not implemented yet");
+    // Dynamic, get value from OMP.
+    llvm_unreachable("not implemented yet"); // hi alex.
   }
   IndexExpr trip = ub - lb;
   if (stepModifier > 1)
@@ -315,12 +311,10 @@ void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
   // Create parallel loop with numThreads.
   ValueRange originalLoopDef = defineLoops(1);
   llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
-  mlir::StringAttr procBind;
   parallel(optLoopDef[0], numThreads.getValue(), procBind);
   iterateIE(originalLoopDef, optLoopDef, {lb}, {ub},
-      [&](KrnlBuilder &kb, ValueRange loopInd) {
+      [&](const KrnlBuilder &kb, ValueRange loopInd) {
         // Compute current LB/UB for this thread.
-        MultiDialectBuilder<KrnlBuilder> create(kb);
         IndexExprScope currScope(kb);
         IndexExpr tid = DimIE(loopInd[0]);
         IndexExpr currLB = tid * SymIE(block);
@@ -329,8 +323,16 @@ void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr numThreads,
         SmallVector<Value, 4> params = {
             tid.getValue(), currLB.getValue(), currUB.getValue()};
         // Invoke function with (tid, currLB, currUB).
-        builderFn(create.krnl, params);
+        builderFn(kb, params);
       });
+}
+
+void KrnlBuilder::forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
+    int64_t stepModifier, IndexExpr numThreads,
+    KrnlLoopBodyFn builderFn) const {
+  StringAttr procBind; // Empty == default, unspecified.
+  forExplicitlyParallelLoopIE(
+      lb, ub, stepModifier, numThreads, procBind, builderFn);
 }
 
 void KrnlBuilder::yield(ValueRange iterArgs) const {

@@ -354,7 +354,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   Value order = create.mem.alignedAlloc(type, ubs);
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
         // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
         createKrnl.store(loopInd[axis], order, loopInd);
       });
@@ -376,11 +376,11 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   outerUbs[axis] = ubs[axis] - oneIE;
   ValueRange loopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
-      [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange iLoopInd) {
         IndexExpr i1 = DimIE(iLoopInd[axis]) + oneIE;
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
-            [&](KrnlBuilder &ck, ValueRange swapLoopInd) {
+            [&](const KrnlBuilder &ck, ValueRange swapLoopInd) {
               MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
                   ck);
               SmallVector<Value> kLoopInd(iLoopInd);
@@ -402,7 +402,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
                 cond = create.math.sgt(x, y);
               else
                 cond = create.math.slt(x, y);
-              create.scf.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+              create.scf.ifThenElse(cond, [&](const SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
                 createKrnl.store(kOrd, order, iLoopInd);
                 createKrnl.store(iOrd, order, kLoopInd);

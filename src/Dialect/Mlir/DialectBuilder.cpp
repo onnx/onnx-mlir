@@ -1698,8 +1698,8 @@ void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
 //===----------------------------------------------------------------------===//
 
 void SCFBuilder::ifThenElse(Value cond,
-    function_ref<void(SCFBuilder &createSCF)> thenFn,
-    function_ref<void(SCFBuilder &createSCF)> elseFn) const {
+    SCFThenElseBodyFn thenFn,
+    SCFThenElseBodyFn elseFn) const {
   if (!elseFn) {
     b().create<scf::IfOp>(loc(), cond,
         /* then */

@@ -159,7 +159,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     // Initialize the temporary buffer: copy values from the input.
     ValueRange initLoopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-        [&](KrnlBuilder &ck, ValueRange initLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange initLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
           if (!exclusive) {
             Value x = create.krnl.load(X, initLoopInd);
@@ -192,7 +192,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     // Outer loop iterates over the number of steps.
     ValueRange stepLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
-        [&](KrnlBuilder &ck, ValueRange stepLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange stepLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
 
           // Compute index offset: offset = 2^step.
@@ -210,7 +210,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
           //         y[i,k] = buf[i,k]
           ValueRange sumLoopDef = create.krnl.defineLoops(rank);
           create.krnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
-              [&](KrnlBuilder &ck, ValueRange sumLoopInd) {
+              [&](const KrnlBuilder &ck, ValueRange sumLoopInd) {
                 IndexExprScope ieScope(ck);
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
                 Value axis = axisIE.getValue();
@@ -231,7 +231,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
           // buf = y
           ValueRange bufLoopDef = create.krnl.defineLoops(rank);
           create.krnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
                 Value x = createKrnl.load(resMemRef, bufLoopInd);
                 createKrnl.store(x, bufMemRef, bufLoopInd);
               });

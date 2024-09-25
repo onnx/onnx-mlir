@@ -70,7 +70,7 @@ struct ONNXSequenceEraseOpLowering
     ubs.emplace_back(positionIE);
     ValueRange firstLoopDef = createKrnl.defineLoops(1);
     createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+        [&](const KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           Value element =
               createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
           createKrnl.seqstore(element, alloc, positionIE);
@@ -84,7 +84,7 @@ struct ONNXSequenceEraseOpLowering
     ubs1.emplace_back(boundIE);
     ValueRange secondLoopDef = createKrnl.defineLoops(1);
     createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+        [&](const KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           Value element =
               createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
           Value oneIndex = create.math.constantIndex(1);

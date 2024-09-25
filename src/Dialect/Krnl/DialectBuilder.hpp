@@ -59,7 +59,8 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::Value vectorTypeCast(mlir::Value sourceMemref, int64_t vectorLen) const;
 
   void region(
-      mlir::function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const;
+      mlir::function_ref<void(const KrnlBuilder &createKrnl)> bodyBuilderFn)
+      const;
 
   mlir::ValueRange defineLoops(int64_t originalLoopNum) const;
   mlir::ValueRange block(mlir::Value loop, int64_t blockSize) const;
@@ -75,17 +76,19 @@ struct KrnlBuilder : public DialectBuilder {
   // function implement the body of the loop, and receive a KRNL builder and the
   // loop indices.
   using KrnlLoopBodyFn =
-      mlir::function_ref<void(KrnlBuilder &, mlir::ValueRange)>;
+      mlir::function_ref<void(const KrnlBuilder &, mlir::ValueRange)>;
+  using KrnlLoopBody2Fn = mlir::function_ref<void(
+      const KrnlBuilder &, mlir::ValueRange, mlir::ValueRange)>;
 
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
       KrnlLoopBodyFn bodyBuilderFn) const;
+  // Deprecated.
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
       mlir::ValueRange ubs, mlir::ValueRange inits,
-      mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
-          mlir::ValueRange blockIters)>
-          bodyBuilderFn) const;
+      KrnlLoopBody2Fn bodyBuilderFn) const;
+
   mlir::KrnlIterateOp iterate(
       const krnl::KrnlIterateOperandPack &operands) const;
 
@@ -93,12 +96,11 @@ struct KrnlBuilder : public DialectBuilder {
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
+  // Deprecated.
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ValueRange inits,
-      mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
-          mlir::ValueRange blockIters)>
-          bodyBuilderFn) const;
+      KrnlLoopBody2Fn bodyBuilderFn) const;
 
   // Common loop interface (krnl/affine/scf).
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
@@ -113,8 +115,12 @@ struct KrnlBuilder : public DialectBuilder {
   // assigned chunks are multiple of stepModifier.
   // When tNum == 1, this is a nop, essentially calling the builder function
   // with (0, lb, ub).
-  void forExplicitlyParallelLoopIE(IndexExpr threadNum, IndexExpr lb,
-      IndexExpr ub, int64_t stepModifier, KrnlLoopBodyFn builderFn) const;
+  void forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
+      int64_t stepModifier, IndexExpr numThreads,
+      KrnlLoopBodyFn builderFn) const;
+  void forExplicitlyParallelLoopIE(IndexExpr lb, IndexExpr ub,
+      int64_t stepModifier, IndexExpr numThreads, mlir::StringAttr procBind,
+      KrnlLoopBodyFn builderFn) const;
 
   // Common simd loop interface (krnl/affine/scf).
   /*

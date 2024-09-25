@@ -32,7 +32,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
 
   // Debug function used to emit code to print the supplied 'indices'.
   static void printIndices(
-      StringRef title, const DimsExpr &indices, KrnlBuilder &createKrnl) {
+      StringRef title, const DimsExpr &indices, const KrnlBuilder &createKrnl) {
     llvm::Twine msg(title + ": (");
     createKrnl.printf(msg.str());
     int64_t n = static_cast<int64_t>(indices.size());
@@ -141,7 +141,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     }
 
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
 
@@ -212,7 +212,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             Value last = reshapedDataLastDimExpr.getValue();
             ValueRange innerLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(innerLoopDef, innerLoopDef, {zero}, {last},
-                [&](KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
+                [&](const KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
                   IndexExpr ind = SymIE(innerLoopInd[0]);
                   reshapedDataAccessFct.emplace_back(ind);
                   assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==

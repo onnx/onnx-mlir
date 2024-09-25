@@ -130,7 +130,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
       ValueRange initLoopDef = create.krnl.defineLoops(1);
       create.krnl.iterate(initLoopDef, initLoopDef, {iZero},
           {xBound.getValue()},
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             createKrnl.store(iZero, alloc, loopInd);
           });
       rsumMemRefs.emplace_back(alloc);
@@ -140,7 +140,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     // the reduction sum for each dimension.
     ValueRange rsumLoopDef = create.krnl.defineLoops(xMemRefType.getRank());
     create.krnl.iterateIE(rsumLoopDef, rsumLoopDef, xLbs, xUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MathBuilder createMath(createKrnl);
           Value x = createKrnl.load(X, loopInd);
           Value eqCond = createMath.eq(x, zero);
@@ -180,7 +180,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
     ValueRange iLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
-        [&](KrnlBuilder &ck, ValueRange iLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange iLoopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
               MemRefBuilder>
               create(ck);
@@ -197,7 +197,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
             ValueRange jLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(jLoopDef, jLoopDef, {iZero},
                 {rsumBounds0.getValue()},
-                [&](KrnlBuilder &createKrnl, ValueRange jLoopInd) {
+                [&](const KrnlBuilder &createKrnl, ValueRange jLoopInd) {
                   MathBuilder createMath(createKrnl);
                   Value j(jLoopInd[0]);
                   Value o = createKrnl.load(rsumMemRefs[axis], {j});

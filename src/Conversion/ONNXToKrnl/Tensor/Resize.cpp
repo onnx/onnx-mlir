@@ -122,7 +122,7 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(alloc, ubs);
     create.krnl.iterateIE(
-        loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &ck, ValueRange loopInd) {
+        loopDef, loopDef, lbs, ubs, [&](const KrnlBuilder &ck, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
               create(ck);
           SmallVector<Value, 4> readIndices;

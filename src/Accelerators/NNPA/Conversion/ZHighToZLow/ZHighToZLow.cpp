@@ -1315,7 +1315,7 @@ struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
     Value iZero = create.math.constantIndex(0);
     ValueRange batchLoop = create.krnl.defineLoops(1);
     create.krnl.iterate(batchLoop, batchLoop, {iZero}, {create.mem.dim(Y, 2)},
-        [&](KrnlBuilder &createKrnl, ValueRange batchIndices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange batchIndices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
           Value bs = batchIndices[0];
@@ -1338,7 +1338,7 @@ struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
           rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
           ValueRange loops = create.krnl.defineLoops(yRank - 1);
           create.krnl.iterate(loops, loops, yLbs, yUbs,
-              [&](KrnlBuilder &createKrnl, ValueRange indices) {
+              [&](const KrnlBuilder &createKrnl, ValueRange indices) {
                 Value sequenceIV(indices[0]);
                 Value directionIV(indices[1]);
                 Value hs(indices[2]);
@@ -1366,7 +1366,7 @@ struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
 
     ValueRange loops = create.krnl.defineLoops(yRank);
     create.krnl.iterate(loops, loops, yLbs, yUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder  &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
           Value sequenceIV(indices[0]);
@@ -1435,7 +1435,7 @@ struct ZHighToZLowFixGRUYhOpLowering : public ConversionPattern {
     Value seqSize = create.mem.dim(Y, 0);
     ValueRange loops = create.krnl.defineLoops(htRank);
     create.krnl.iterate(loops, loops, htLbs, htUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
           Value bs(indices[1]), hs(indices[2]);
@@ -1612,7 +1612,7 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
     SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
     SmallVector<IndexExpr, 4> ubs = shapeHelper.getOutputDims();
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           // Keep this load inside the loop to tweak LLVM.
           Value valueF16 = createKrnl.load(memrefF16);
           createKrnl.store(valueF16, res, indices);
@@ -1730,7 +1730,7 @@ struct ZHighToZLowDataConversionLowering
         "dlf16-f32 conversion fully flattened");
 
     create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
-        [&](KrnlBuilder &b, ValueRange loopInd) {
+        [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           // Manually unrolled loop, add archVL offset at each iterations.
           for (int64_t u = 0; u < unrollVL; ++u) {
