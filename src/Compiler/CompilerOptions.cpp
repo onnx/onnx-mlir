@@ -64,6 +64,8 @@ bool VerboseOutput;                                    // onnx-mlir only
 std::vector<std::string> Xopt;                         // onnx-mlir only
 std::vector<std::string> Xllc;                         // onnx-mlir only
 std::string mllvm;                                     // onnx-mlir only
+std::string mllvmopt;                                  // onnx-mlir only
+std::string mllvmllc;                                  // onnx-mlir only
 std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
@@ -424,6 +426,18 @@ static llvm::cl::opt<std::string, true> mllvmOpt("mllvm",
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::location(mllvm), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string, true> mllvmoptOpt("mllvmopt",
+    llvm::cl::desc("Arguments to forward to LLVM's 'opt' processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' option"),
+    llvm::cl::location(mllvmopt), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string, true> mllvmllcOpt("mllvmllc",
+    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'llc' option"),
+    llvm::cl::location(mllvmllc), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::Hidden, llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string, true> instrumentOpsOpt("instrument-ops",
     llvm::cl::desc("Specify operations to be instrumented:\n"
@@ -913,6 +927,32 @@ std::vector<std::string> getXllcOption() {
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
+
+static std::vector<std::string> split(std::string &input) {
+  std::stringstream ss(input);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  std::vector<std::string> vstrings(begin, end);
+  return vstrings;
+}
+
+std::vector<std::string> getLLVMOptions() {
+  if (mllvm == "")
+    return std::vector<std::string>();
+  return split(mllvm);
+}
+
+std::vector<std::string> getLLVMOPTOptions() {
+  if (mllvmopt == "")
+    return std::vector<std::string>();
+  return split(mllvmopt);
+}
+
+std::vector<std::string> getLLVMLLCOptions() {
+  if (mllvmllc == "")
+    return std::vector<std::string>();
+  return split(mllvmllc);
+}
 
 // Support for model tag
 void setModelTag(const std::string &str) { modelTag = str; }

@@ -109,6 +109,8 @@ extern bool VerboseOutput;                                    // onnx-mlir only
 extern std::vector<std::string> Xopt;                         // onnx-mlir only
 extern std::vector<std::string> Xllc;                         // onnx-mlir only
 extern std::string mllvm;                                     // onnx-mlir only
+extern std::string mllvmopt;                                  // onnx-mlir only
+extern std::string mllvmllc;                                  // onnx-mlir only
 extern std::string instrumentOps;                             // onnx-mlir only
 extern unsigned instrumentControlBits;                        // onnx-mlir only
 extern std::string parallelizeOps;                            // onnx-mlir only
@@ -183,6 +185,10 @@ std::vector<std::string> getXllcOption();
 void setLLVMOption(const std::string &flag);
 void clearLLVMOption();
 std::string getLLVMOption();
+// Break down the result of getLLVMOption into substrings
+std::vector<std::string> getLLVMOptions();
+std::vector<std::string> getLLVMOPTOptions();
+std::vector<std::string> getLLVMLLCOptions();
 
 // Options support for OMCompilerOptions.
 using CompilerOptionList =
