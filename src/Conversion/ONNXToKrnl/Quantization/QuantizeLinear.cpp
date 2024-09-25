@@ -71,6 +71,67 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
+#if 1
+  // hi alex: test with 2 loops for easier debugging
+  // Allocate output buffers.
+  MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
+  Value flatBuffer = create.mem.alignedAlloc(flatBufferType, flatInputDims);
+  DimsExpr bufferAF;
+  bufferAF.emplace_back(zero);
+
+  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
+      {flatInput}, {inputAF}, {flatBuffer}, {bufferAF},
+      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+        MultiDialectBuilder<MathBuilder> create(kb);
+        Value x = inputVals[0];
+        // Scale
+        Value scaleX = create.math.div(x, scale);
+        // Round
+        Value roundX = create.math.round(scaleX);
+        // Adjust
+        Value adjustX;
+        if (hasZeroPoint)
+          adjustX = create.math.add(roundX, zeroPoint);
+        else
+          adjustX = roundX;
+        // Saturate: use max into a min.
+        Value saturateX = create.math.clip(adjustX, qMin, qMax);
+        // Old approach.
+        // return create.math.cast(quantizedElementType, saturateX);
+        return saturateX;
+      }});
+
+  // Need transient types.
+  Type inputElementType = flatBufferType.getElementType();
+  unsigned inputWidth;
+  if (isa<Float32Type>(inputElementType))
+    inputWidth = 32;
+  else if (isa<Float64Type>(inputElementType))
+    inputWidth = 64;
+  else
+    llvm_unreachable("unsupported input type");
+  IntegerType quantizedIntType = cast<IntegerType>(quantizedElementType);
+  // hi alex unsigned quantizedWidth = quantizedIntType.getWidth();
+  bool isSignless = quantizedIntType.isSignless();
+  bool isSigned = quantizedIntType.isSigned();
+  Type quantizedElementTypeSameSizeAsInput =
+      rewriter.getIntegerType(inputWidth, isSignless || isSigned);
+
+  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
+      {flatBuffer}, {bufferAF}, {flatAlloc}, {outputAF},
+      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+        MultiDialectBuilder<KrnlBuilder, VectorBuilder, MathBuilder> create(kb);
+        // Convert float* to int*/uint* where * is 32 (64?)
+        Value input = inputVals[0];
+        Value quantizedSameSizeAsInput =
+            create.math.cast(quantizedElementTypeSameSizeAsInput, input);
+        // Convert int32/uint32 to int*/unint* where * is 8, 16...
+        Value quantizedSameSizeAsOutput =
+            create.math.cast(quantizedElementType, quantizedSameSizeAsInput);
+        return quantizedSameSizeAsOutput;
+      }});
+
+#else
   // faster than original loop on z16, takes 124us for 64k vals
   // Allocate output buffers.
   MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
@@ -117,6 +178,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         Value res = create.math.cast(quantizedElementType, buffVal);
         create.krnl.storeIE(res, flatAlloc, {zero}, {loopInd[0]});
       });
+#endif
 
   if (totVL > 1)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
