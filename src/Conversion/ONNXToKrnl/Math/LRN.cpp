@@ -65,7 +65,7 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
     SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
     create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           // Insert computation of square_sum.
           // square_sum[n, c, d1, ..., dk] = sum(X[n, i, d1, ..., dk] ^ 2),
           // where max(0, c - floor((size - 1) / 2)) <= i

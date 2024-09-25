@@ -112,7 +112,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
       //    for wo = 0 .. WO:
       create.krnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
           outputSpacialLbs, outputSpacialUbs,
-          [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
+          [&](const KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
             IndexExprScope outputSpacialScope(createKrnl);
             MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
                 MathBuilder>
@@ -155,7 +155,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
             //     for kw in lb .. ub:
             auto innerIterate =
                 create.krnl.iterateIE(redLoops, redLoops, redLbs, redUbs, inits,
-                    [&](KrnlBuilder &createKrnl, ValueRange redIndices,
+                    [&](const KrnlBuilder &createKrnl, ValueRange redIndices,
                         ValueRange iterArgs) {
                       // Get last argument for the iterate body.
                       Value iterArg = iterArgs.back();
@@ -230,7 +230,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
       }
     }
     create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-        [&](KrnlBuilder &create, ValueRange outerIndices) {
+        [&](const KrnlBuilder &create, ValueRange outerIndices) {
           bodyFunction(outerIndices);
         });
   }
