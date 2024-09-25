@@ -56,7 +56,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
         {GenericOps::FloorGop, 2},
         {GenericOps::EstimatedVectorRegisterPressure,
-            8 /* Little parallelism in code. */}};
+            4 /* Little parallelism in code. */}};
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
         innermostLoopCollapse, mix, canOverCompute, simdLoopStaticTripCount,
         simdOnly);
