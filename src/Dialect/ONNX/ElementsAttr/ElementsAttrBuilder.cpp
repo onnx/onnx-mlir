@@ -361,12 +361,12 @@ template <typename TO, typename FROM>
 WideNum wideCast(WideNum n) {
   return WideNum::widen<toBType<TO>>(
       static_cast<TO>(n.narrow<toBType<FROM>>()));
-};
+}
 
 template <typename FROM>
 double wideToDouble(WideNum n) {
   return static_cast<double>(n.narrow<toBType<FROM>>());
-};
+}
 
 } // namespace
 
