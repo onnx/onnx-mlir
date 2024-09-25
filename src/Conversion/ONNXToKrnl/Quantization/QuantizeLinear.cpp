@@ -73,7 +73,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 
 #if 1
   // hi alex: test with 2 loops for easier debugging
-  // Allocate output buffers.
+  // Allocate output buffers (same type as input).
   MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
   Value flatBuffer = create.mem.alignedAlloc(flatBufferType, flatInputDims);
   DimsExpr bufferAF;
@@ -111,7 +111,6 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   else
     llvm_unreachable("unsupported input type");
   IntegerType quantizedIntType = cast<IntegerType>(quantizedElementType);
-  // hi alex unsigned quantizedWidth = quantizedIntType.getWidth();
   bool isSignless = quantizedIntType.isSignless();
   bool isSigned = quantizedIntType.isSigned();
   Type quantizedElementTypeSameSizeAsInput =
@@ -125,10 +124,23 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         Value input = inputVals[0];
         Value quantizedSameSizeAsInput =
             create.math.cast(quantizedElementTypeSameSizeAsInput, input);
-        // Convert int32/uint32 to int*/unint* where * is 8, 16...
-        Value quantizedSameSizeAsOutput =
+    // Convert int32/uint32 to int*/unint* where * is 8, 16...
+#if 0
+        // Code get normalized to the code below
+        unsigned quantizedWidth = quantizedIntType.getWidth();
+        unsigned currWidth = inputWidth;
+        Value qVal = quantizedSameSizeAsInput;
+        while (currWidth > quantizedWidth) {
+          currWidth = currWidth / 2;
+          Type qType =
+              rewriter.getIntegerType(currWidth, isSignless || isSigned);
+          qVal = create.math.cast(qType, qVal);
+        }
+#else
+        Value qVal =
             create.math.cast(quantizedElementType, quantizedSameSizeAsInput);
-        return quantizedSameSizeAsOutput;
+#endif
+        return qVal;
       }});
 
 #else
@@ -264,9 +276,10 @@ struct ONNXQuantizeLinearOpLowering
       hasZeroPoint = true;
     }
     if (disableQuantZeroPoint) {
-      // TODO: should we expect to disable hasZeroPoint forcefully, or generate
-      // an error if we had a zero point? Right now, just forcefully assert we
-      // have no zero point, i.e. ignore one even if we had a zero point.
+      // TODO: should we expect to disable hasZeroPoint forcefully, or
+      // generate an error if we had a zero point? Right now, just forcefully
+      // assert we have no zero point, i.e. ignore one even if we had a zero
+      // point.
       hasZeroPoint = false;
     }
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
