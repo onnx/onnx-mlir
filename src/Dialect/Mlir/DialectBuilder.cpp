@@ -2073,6 +2073,29 @@ void VectorBuilder::multiReduction(ArrayRef<Value> inputVecArray,
   }
 }
 
+Value VectorBuilder::extractElement(Value vector, int64_t index) const {
+  MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
+  VectorType type = llvm::cast<VectorType>(vector.getType());
+  int64_t VL = type.getShape()[0];
+  assert(type.getRank() == 1 && "expected 1D vector only");
+  assert(index >= 0 && index < VL && "out of range vector index");
+  Value position = create.math.constantIndex(index);
+  return b().create<vector::ExtractElementOp>(loc(), vector, position);
+}
+
+Value VectorBuilder::insertElement(
+    Value vector, Value element, int64_t index) const {
+  MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
+  VectorType type = llvm::cast<VectorType>(vector.getType());
+  int64_t VL = type.getShape()[0];
+  assert(type.getRank() == 1 && "expected 1D vector only");
+  assert(index >= 0 && index < VL && "out of range vector index");
+  Value position = create.math.constantIndex(index);
+  // Unlike LLVM insert element which takes <dest, source, position>, vector
+  // take <source, dest, position>
+  return b().create<vector::InsertElementOp>(loc(), element, vector, position);
+}
+
 //===----------------------------------------------------------------------===//
 // LLVM Builder
 //===----------------------------------------------------------------------===//

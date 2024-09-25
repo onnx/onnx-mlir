@@ -663,6 +663,12 @@ int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
 // Cap totVL so that it is at most maxUnrollVL * archVL.
 int64_t capVLForMaxUnroll(
     mlir::MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL);
+// In some type conversion loops we may have a given totVL based on a given
+// memRef type and gen op mix. But the final result may be converted to a
+// different type, which may requires a minimum unroll to proceed as a single
+// SIMD operation. This call adjust the totVL for that case.
+int64_t boostVLForMinUnroll(mlir::MemRefType memRefType,
+    mlir::MemRefType convertedMemRefType, int64_t totVL);
 // Enabling a simdOnly code generation scheme by capping totVL so that it
 // divides simdLoopStaticTripCount. When not possible (either because
 // there is no totVL that divides simdLoopStaticTripCount or trip count is
