@@ -111,7 +111,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   // non-quantized and quantized simd values, but then we also need to privatize
   // it, which is also not easy in this scheme. So ignore this for now.
   create.krnl.forLoopIE(simdLb, simdUb, 1, enableParallel,
-      [&](KrnlBuilder &kb, ValueRange loopInd) {
+      [&](const KrnlBuilder &kb, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(kb);
         Value buffVal = create.krnl.loadIE(flatBuffer, {zero}, {loopInd[0]});
         Value res = create.math.cast(quantizedElementType, buffVal);

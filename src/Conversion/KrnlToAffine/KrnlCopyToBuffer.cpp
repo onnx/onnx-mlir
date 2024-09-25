@@ -129,7 +129,7 @@ public:
     return success();
   }
 
-  void genCopyLoops(AffineBuilderKrnlMem &createAffine,
+  void genCopyLoops(const AffineBuilderKrnlMem &createAffine,
       IndexExprScope *enclosingScope, Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zeroIE,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
@@ -169,7 +169,7 @@ public:
         // Nothing to read, skip.
       } else {
         createAffine.forLoopIE(zeroIE, readUBs[i], 1,
-            [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+            [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
               loopIndices.emplace_back(loopInd[0]);
               genCopyLoops(createAffine, enclosingScope, buffMemref,
                   sourceMemref, srcLoopMap, padVal, zeroIE, starts, readUBs,
@@ -182,7 +182,7 @@ public:
         // No padding needed.
       } else {
         createAffine.forLoopIE(readUBs[i], padUBs[i], 1,
-            [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+            [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
               loopIndices.emplace_back(loopInd[0]);
               genCopyLoops(createAffine, enclosingScope, buffMemref,
                   sourceMemref, srcLoopMap, padVal, zeroIE, starts, readUBs,

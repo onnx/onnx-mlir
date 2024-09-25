@@ -223,11 +223,11 @@ public:
       if (matVectorProduct) {
         // clang-format off
         create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
-          /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          /* then full tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
           genSimdMatVect(createAffine, matmulOp, elementType, aStart, bStart,
             cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
             vectorLen, fullUnrollAndJam);
-        }, /* else has partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+        }, /* else has partial tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
           genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
             iTrip, jTrip, kTrip, /*unroll*/ false);
         });
@@ -235,18 +235,20 @@ public:
       } else {
         // clang-format off
         create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
-          /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          /* then full tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
           genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
              cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
             vectorLen, fullUnrollAndJam);
-        }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          }, 
+          /* Else has some partial tiles */ 
+          [&](const AffineBuilderKrnlMem &createAffine) {
           // Trip regardless of full/partial for N & K
           // Test if SIMD dim (M) is full.
           createAffine.ifThenElseIE(indexScope, jFullTiles,
-            /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
+            /* full SIMD */ [&](const AffineBuilderKrnlMem &createAffine) {
             genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
                cStart, iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
-          }, /* else partial SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
+          }, /* else partial SIMD */ [&](const AffineBuilderKrnlMem &createAffine) {
             // TODO: evaluate if get performance from partial SIMD
             if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
               // has a known trip count along the simd dimension of at least 2
@@ -265,11 +267,11 @@ public:
       // Scalar code generator.
       // clang-format off
       create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
-        /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
+        /* then full */ [&](const AffineBuilderKrnlMem &createAffine) {
         genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           fullUnrollAndJam);
-      }, /* else partial */ [&](AffineBuilderKrnlMem &createAffine) {
+      }, /* else partial */ [&](const AffineBuilderKrnlMem &createAffine) {
         genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);
       });
@@ -280,7 +282,7 @@ public:
   }
 
 private:
-  void genScalar(AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+  void genScalar(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       bool unrollJam) const {
@@ -300,10 +302,11 @@ private:
     LiteralIndexExpr zeroIE(0);
     Value jSaved;
     createAffine.forLoopIE(zeroIE, I, 1,
-        [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+        [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           Value i = loopInd[0];
           createAffine.forLoopIE(zeroIE, J, 1,
-              [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+              [&](const AffineBuilderKrnlMem &createAffine,
+                  ValueRange loopInd) {
                 MathBuilder createMath(createAffine);
                 Value j = loopInd[0];
                 // Defines induction variables, and possibly initialize C.
@@ -315,7 +318,7 @@ private:
                 createAffine.store(initVal, TmpC, tmpCAccess);
                 // Sum over k.
                 createAffine.forLoopIE(zeroIE, K, 1,
-                    [&](AffineBuilderKrnlMem &createAffine,
+                    [&](const AffineBuilderKrnlMem &createAffine,
                         ValueRange loopInd) {
                       MathBuilder createMath(createAffine);
                       Value k = loopInd[0];
@@ -340,7 +343,7 @@ private:
   }
 
   // Initially, simdize with full K vector length.
-  void genSimdMatVect(AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+  void genSimdMatVect(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
@@ -384,7 +387,7 @@ private:
     Value iZero = create.math.constantIndex(0);
 
     create.affineKMem.forLoopIE(zeroIE, K, VL,
-        [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+        [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           Value k = loopInd[0];
           // Iterates over the I indices (K is SIMD dim).
@@ -431,7 +434,7 @@ private:
   }
 
   // Simdize along J / memory rows in B and C.
-  void genSimdMatMat(AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+  void genSimdMatMat(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
@@ -466,7 +469,7 @@ private:
     Value iZero = create.math.constantIndex(0);
 
     createAffine.forLoopIE(zeroIE, I, 1,
-        [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+        [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           Value i = loopInd[0];
           iSaved = i; // Saved for unroll and jam.
@@ -476,7 +479,8 @@ private:
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
           createAffine.forLoopIE(zeroIE, K, 1,
-              [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+              [&](const AffineBuilderKrnlMem &createAffine,
+                  ValueRange loopInd) {
                 MultiDialectBuilder<MathBuilder, VectorBuilder> create(
                     createAffine);
                 Value k = loopInd[0];

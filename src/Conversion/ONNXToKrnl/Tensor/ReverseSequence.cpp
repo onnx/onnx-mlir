@@ -96,7 +96,7 @@ struct ONNXReverseSequenceOpLowering
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope innerLoopScope(&rewriter, shapeHelper.getScope());
 
           // compute the loop indices for the output

@@ -1482,8 +1482,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       }
     }
   }
-  create.krnl.iterateIE(
-      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &ck, ValueRange loopInd) {
+  create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      [&](const KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder> create(ck);
         // LoopInd has the current indices for all but the innermost dim. Since
         // we expect here the entire innermost loop iteration in one go, the
@@ -2081,7 +2081,7 @@ struct ONNXElementwiseUnaryOpLowering
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value> args;
             Value loadedVal = createKrnl.load(X, loopInd);
             args.emplace_back(loadedVal);
@@ -2264,7 +2264,7 @@ struct ONNXElementwiseBinaryOpLowering
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
@@ -2440,7 +2440,7 @@ struct ONNXElementwiseVariadicOpLowering
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
@@ -2563,7 +2563,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(&rewriter, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);

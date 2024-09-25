@@ -324,7 +324,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(alloc, ubs);
     create.krnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
               MemRefBuilder, MathBuilder>
               create(createKrnl);

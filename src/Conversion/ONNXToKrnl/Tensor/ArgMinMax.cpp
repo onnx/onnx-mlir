@@ -100,7 +100,7 @@ struct ONNXArgMinMaxOpLowering : public OpConversionPattern<ARG_OP> {
     ValueRange initLoopDef = create.krnl.defineLoops(reducedRank);
     SmallVector<IndexExpr, 4> initLbs(reducedRank, LitIE(0));
     create.krnl.iterateIE(initLoopDef, initLoopDef, initLbs, outputDims,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           createKrnl.store(minusOne, alloc, loopInd);
         });
 
@@ -110,7 +110,7 @@ struct ONNXArgMinMaxOpLowering : public OpConversionPattern<ARG_OP> {
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(data, ubs);
     create.krnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Handle the operation:
           SmallVector<Value, 4> inLoopIVs, outLoopIVs, dstLoopIVs;
 

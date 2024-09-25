@@ -208,7 +208,7 @@ struct ONNXInstanceNormalizationOpLowering
     ValueRange n_c_loopDef = create.krnl.defineLoops(2);
     create.krnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
         {inputBounds[0], inputBounds[1]},
-        [&](KrnlBuilder &ck, ValueRange n_c_loopInd) {
+        [&](const KrnlBuilder &ck, ValueRange n_c_loopInd) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               ck);
           IndexExprScope channelScope(ck);
@@ -228,7 +228,7 @@ struct ONNXInstanceNormalizationOpLowering
           // Iterate over kernel and add values.
           ValueRange spatial2_loopDef = create.krnl.defineLoops(rank - 2);
           create.krnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);
                 SmallVector<Value, 6> inputAccessFct = {
@@ -247,7 +247,7 @@ struct ONNXInstanceNormalizationOpLowering
           create.krnl.store(fZero, tmpMemRef);
           // Iterate over kernel and add values.
           create.krnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);
                 SmallVector<Value, 6> inputAccessFct = {
@@ -278,7 +278,7 @@ struct ONNXInstanceNormalizationOpLowering
           // + term.
           ValueRange spatial3_loopDef = create.krnl.defineLoops(rank - 2);
           create.krnl.iterateIE(spatial3_loopDef, spatial3_loopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);
                 SmallVector<Value, 6> accessFct = {n.getValue(), c.getValue()};
@@ -775,7 +775,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Perform reduction of entire vectors.
     IndexExpr izero = LitIE(0);
     create.affineKMem.forLoopIE(izero, redDim, totVL,
-        [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
+        [&](const onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
           Value j = loopInd[0];
           // load X, compute X**2, sum into reductions.
@@ -830,7 +830,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     });
     // Normalize of entire vectors.
     create.affineKMem.forLoopIE(izero, redDim, totVL,
-        [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
+        [&](const onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
           Value j = loopInd[0];
           // load X, compute X**2, sum into reductions.
@@ -941,17 +941,14 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           invStdDevFlatMemRef);
     // Alloc mem for reductions (should be private if parallel)
     MemRefType tmpRedType = MemRefType::get({B, totVL}, elementType);
-    // Iterate over 1st dim by block
-    ValueRange loopDefs = create.krnl.defineLoops(1);
-    IndexExpr zero = LitIE(0);
-    ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
-    Value blockedLoopDef = blockedLoopDefs[0];
+    // Iterate over 1st dim by block B.
+    bool useParallel = false;
     if (enableParallel) {
       int64_t parId;
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
       if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
               /*min iter for going parallel*/ 4)) {
-        create.krnl.parallel(blockedLoopDef);
+        useParallel = true;
         onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "in layer-norm");
       } else {
         onnxToKrnlParallelReport(
@@ -960,8 +957,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     } else {
       onnxToKrnlParallelReport(op, false, -1, -1, "no parallel in layer norm");
     }
-    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef}, {zero},
-        {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
+    create.krnl.forLoopIE(LitIE(0), XFlatDims[0], /*step*/ B, useParallel,
+        [&](const KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
           Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
@@ -974,13 +971,13 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(
               isNotFullVal,
-              [&](SCFBuilder &scf) {
+              [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
                 // create.krnl.printf("partial tile\n");
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
-                    [&](SCFBuilder &scf, ValueRange loopInd) {
+                    [&](const SCFBuilder &scf, ValueRange loopInd) {
                       MDBuilder create(scf);
                       Value blockLocalInd = loopInd[0];
                       generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
@@ -991,7 +988,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                           scaleModFactor, biasModFactor);
                     }); /* for inside blocked loop */
               },
-              [&](SCFBuilder &scf) {
+              [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
                 // create.krnl.printf("full tile\n");
                 generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
