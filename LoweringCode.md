@@ -105,7 +105,7 @@ struct KrnlBuilder : public DialectBuilder {
 
   void iterate(ValueRange originalLoops, ValueRange optimizedLoops,
       ValueRange lbs, ValueRange ubs,
-      function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
+      function_ref<void(const KrnlBuilder &createKrnl, ValueRange indices)>
           bodyBuilderFn);
 };
 ```
@@ -128,7 +128,7 @@ ValueRange loopDef = createKrnl.defineLoops(2);
 
 // Create the loop.
 createKrnl.iterate(loopDef, loopDef, {zero, zero}, {ub0, ub1},
-  [&](KrnlBuilder &createKrnl, ValueRange loopInd){
+  [&](const KrnlBuilder  &createKrnl, ValueRange loopInd){
     // Loop body.
     createKrnl.store(zero, array, loopInd);
   });
@@ -183,7 +183,7 @@ ValueRange loopBlockDef = createKrnl.block(loopDef, 4);
 createKrnl.permute({loopBlockDef[0], loopBlockDef[1], {0,1});
 // Create the loop iterating over the blocks.
 createKrnl.iterate(loopDef, {loopBlockDef[0], loopBlockDef[0]}, {zero}, {ub0},
-  [&](KrnlBuilder &createKrnl, ValueRange blockLoopInd){
+  [&](const KrnlBuilder  &createKrnl, ValueRange blockLoopInd){
     // Loop body.
     createKrnl.store(zero, array, loopInd);
   });
@@ -209,10 +209,10 @@ We now consider tiling our original 2-dimensional example below.
   // Create the loop iterating over the blocks.
   createKrnl.iterate(loopDef, {outerLoopBlockDef[0], innerLoopBlockDef[0]},
     {zero, zero}, {ub0, ub1},
-    [&](KrnlBuilder &createKrnl, ValueRange blockLoopInd){
+    [&](const KrnlBuilder  &createKrnl, ValueRange blockLoopInd){
       // Create the loop iterating inside the blocks.
       createKrnl.iterate({}, {outerLoopBlockDef[1], innerLoopBlockDef[1]},
-        {}, {}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        {}, {}, [&](const KrnlBuilder  &createKrnl, ValueRange loopInd) {
           // Loop body.
           createKrnl.store(zero, array, loopInd);
         });
