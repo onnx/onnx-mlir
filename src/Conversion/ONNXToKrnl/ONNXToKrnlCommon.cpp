@@ -662,22 +662,28 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
     return 1;
   }
   // Gather operation statics
-  int64_t vectorizedOpNum, scalarOpNum;
-  double avgVL = VectorMachineSupport::getAvgArchVectorLength(
-      genOps, elementType, vectorizedOpNum, scalarOpNum);
+  int64_t vectorizedOpNum, scalarOpNum, estimatedMaxVectorRegisterPressure;
+  double avgVL =
+      VectorMachineSupport::getAvgArchVectorLength(genOps, elementType,
+          vectorizedOpNum, scalarOpNum, estimatedMaxVectorRegisterPressure);
   if (avgVL < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: too few SIMD operations with "
                             << avgVL << " avg VL\n");
     return 1;
   }
-  LLVM_DEBUG(llvm::dbgs() << "  simd enable: avg vl " << avgVL << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: avg vl " << avgVL
+                          << ", vec op num " << vectorizedOpNum
+                          << ", max reg pressure "
+                          << estimatedMaxVectorRegisterPressure << "\n");
 
   // Define a target max unroll as a function of register pressure.
   int64_t unrollVL;
   int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
-  if (vectorizedOpNum >= vrNum / 2)
+  if (estimatedMaxVectorRegisterPressure >= vrNum)
+    unrollVL = 1;
+  else if (estimatedMaxVectorRegisterPressure * 2 >= vrNum)
     unrollVL = 2;
-  else if (vectorizedOpNum >= vrNum / 4)
+  else if (estimatedMaxVectorRegisterPressure * 4 >= vrNum)
     unrollVL = 4;
   else
     unrollVL = 8;
@@ -741,6 +747,22 @@ int64_t capVLForMaxUnroll(
     unrollVL = maxUnrollVL;
   }
   return archVL * unrollVL;
+}
+
+int64_t boostVLForMinUnroll(
+    MemRefType memRefType, MemRefType convertedMemRefType, int64_t totVL) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
+  Type convertedElementType = convertedMemRefType.getElementType();
+  int64_t convertedArchVL =
+      VectorMachineSupport::getArchVectorLength(convertedElementType);
+  if (convertedArchVL > totVL) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  simd enable: boost totVL to " << convertedArchVL
+               << " because of type conversions.\n");
+    return convertedArchVL;
+  }
+  return totVL;
 }
 
 int64_t capVLForSimdOnly(
