@@ -1701,13 +1701,10 @@ struct ZHighToZLowDataConversionLowering
     SmallVector<IndexExpr, 4> flattenedOutputDims;
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
-    DimsExpr lbs(1, LitIE(0));
 
     // Create loop iteration (flattened to 1D) and block it by totVL.
-    ValueRange loopDef = create.krnl.defineLoops(1);
-    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], totVL);
-    SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
-
+    DimsExpr lbs = {LitIE(0)};
+    bool useParallel = false;
     if (enableParallel) {
       int64_t parId;
       int64_t tripCount = flattenedOutputDims[0].isLiteral()
@@ -1716,7 +1713,7 @@ struct ZHighToZLowDataConversionLowering
                               : -1;
       if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
               /*min iter for going parallel*/ 1024)) {
-        create.krnl.parallel(blockedLoopDef[0]);
+        useParallel = true;
         onnxToKrnlParallelReport(op, /*successful*/ true, 0, tripCount,
             "dlf16-f32 conversion fully parallelized");
       } else {
@@ -1729,7 +1726,7 @@ struct ZHighToZLowDataConversionLowering
                                            : -1,
         "dlf16-f32 conversion fully flattened");
 
-    create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
+    create.krnl.forLoopIE(lbs[0], flattenedOutputDims[0], totVL, useParallel,
         [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           // Manually unrolled loop, add archVL offset at each iterations.

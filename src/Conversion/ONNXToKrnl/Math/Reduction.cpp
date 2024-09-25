@@ -479,9 +479,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     IndexExpr tNumIE = LitIE(tNum);
     IndexExpr blockSize = ub.ceilDiv(tNum);
     bool simdOnly = false; // Refine, but since we are chunking input, safer.
-    ValueRange loopDef = create.krnl.defineLoops(1);
-    create.krnl.parallel(loopDef[0]);
-    create.krnl.iterateIE(loopDef, loopDef, {zero}, {tNumIE},
+    create.krnl.forLoopIE(zero, tNumIE, /*step*/ 1, /*par*/ true,
         [&](const KrnlBuilder &ck, mlir::ValueRange loopInd) {
           IndexExprScope scope(ck);
           MDBuilder create(ck);
@@ -839,8 +837,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       if (!axisShape0.isLiteral()) {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
-        ValueRange loopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(loopDef, loopDef, {LitIE(0)}, {axisShape0},
+        createKrnl.forLoopIE(LitIE(0), axisShape0, /*step*/ 1, /*par*/ false,
             [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);

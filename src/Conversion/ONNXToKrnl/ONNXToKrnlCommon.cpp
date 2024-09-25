@@ -378,8 +378,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   create.krnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
       [&](const KrnlBuilder &createKrnl, ValueRange iLoopInd) {
         IndexExpr i1 = DimIE(iLoopInd[axis]) + oneIE;
-        ValueRange swapLoopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
+        createKrnl.forLoopIE(i1, ubs[axis], /*step*/ 1, /*parallel*/ false,
             [&](const KrnlBuilder &ck, ValueRange swapLoopInd) {
               MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
                   ck);

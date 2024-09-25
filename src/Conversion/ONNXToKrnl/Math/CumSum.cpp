@@ -190,8 +190,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
         });
 
     // Outer loop iterates over the number of steps.
-    ValueRange stepLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
+    create.krnl.forLoopIE(zeroIE, numberOfStep, /*step*/ 1, /*par*/ false,
         [&](const KrnlBuilder &ck, ValueRange stepLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
 
