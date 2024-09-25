@@ -72,6 +72,46 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   outputAF.emplace_back(zero);
 
 #if 1
+  Type inputElementType = inputType.getElementType();
+  unsigned inputWidth;
+  if (isa<Float32Type>(inputElementType))
+    inputWidth = 32;
+  else if (isa<Float64Type>(inputElementType))
+    inputWidth = 64;
+  else
+    llvm_unreachable("unsupported input type");
+  IntegerType quantizedIntType = cast<IntegerType>(quantizedElementType);
+  bool isSigned = quantizedIntType.isSignless() || quantizedIntType.isSigned();
+  Type quantizedElementTypeInputSized =
+      rewriter.getIntegerType(inputWidth, isSigned);
+
+  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
+      {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
+      {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+        MultiDialectBuilder<MathBuilder> create(kb);
+        Value x = inputVals[0];
+        // Scale
+        Value scaleX = create.math.div(x, scale);
+        // Round
+        Value roundX = create.math.round(scaleX);
+        // Adjust
+        Value adjustX;
+        if (hasZeroPoint)
+          adjustX = create.math.add(roundX, zeroPoint);
+        else
+          adjustX = roundX;
+        // Saturate: use max into a min.
+        Value saturateX = create.math.clip(adjustX, qMin, qMax);
+        // Convert float* to int*/uint* where * is 64/32.
+        Value qSaturateXInputSized =
+            create.math.cast(quantizedElementTypeInputSized, saturateX);
+        // Reduce quantized precision.
+        Value res =
+            create.math.cast(quantizedElementType, qSaturateXInputSized);
+        return res;
+      }});
+
+#elif 1
   // hi alex: test with 2 loops for easier debugging
   // Allocate output buffers (same type as input).
   MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
