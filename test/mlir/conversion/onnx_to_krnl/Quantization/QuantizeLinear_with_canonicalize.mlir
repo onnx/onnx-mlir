@@ -22,8 +22,8 @@ func.func @test_quantize_linear_ui8(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %a
 // CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
 // CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]][] : memref<ui8>
 // CHECK:           [[VAR_2_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_2_MEM_]] : ui8 to i8
-// CHECK-DAG:       [[VAR_3_:%.+]] = arith.uitofp [[VAR_2_]] : i8 to f32
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<6xf32>
+// CHECK:           [[VAR_3_:%.+]] = arith.extui [[VAR_2_]] : i8 to i32
+// CHECK-DAG:       [[VAR_4_:%.+]] = arith.uitofp [[VAR_3_]] : i32 to f32
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 6){
 // CHECK:             [[VAR_6_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
@@ -45,18 +45,13 @@ func.func @test_quantize_linear_ui8(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %a
 // CHECK-DAG:         [[VAR_20_:%.+]] = arith.select [[VAR_18_]], [[VAR_19_]], [[VAR_9_]] : f32
 // CHECK-DAG:         [[VAR_21_:%.+]] = arith.cmpf oeq, [[VAR_10_]], [[CST_5_dot_000000_]] : f32
 // CHECK:             [[VAR_22_:%.+]] = arith.select [[VAR_21_]], [[VAR_20_]], [[VAR_13_]] : f32
-// CHECK:             [[VAR_23_:%.+]] = arith.addf [[VAR_22_]], [[VAR_3_]] : f32
+// CHECK:             [[VAR_23_:%.+]] = arith.addf [[VAR_22_]], [[VAR_4_]] : f32
 // CHECK:             [[VAR_24_:%.+]] = arith.maxnumf [[VAR_23_]], [[CST_0_dot_000000_]] : f32
 // CHECK:             [[VAR_25_:%.+]] = arith.minnumf [[VAR_24_]], [[CST_2_dot_550000_]] : f32
-// CHECK:             krnl.store [[VAR_25_]], [[RES_1_]]{{.}}[[VAR_6_]]{{.}} : memref<6xf32>
-// CHECK:           }
-// CHECK:           [[LOOP_1_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 6){
-// CHECK:             [[VAR_6_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_6_1_]]{{.}} : memref<6xf32>
-// CHECK:             [[VAR_8_1_:%.+]] = arith.fptoui [[LOAD_PARAM_0_MEM_1_]] : f32 to i8
-// CHECK:             [[VAR_9_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_8_1_]] : i8 to ui8
-// CHECK:             krnl.store [[VAR_9_1_]], [[RES_]]{{.}}[[VAR_6_1_]]{{.}} : memref<6xui8>
+// CHECK:             [[VAR_26_:%.+]] = arith.fptoui [[VAR_25_]] : f32 to i32
+// CHECK:             [[VAR_27_:%.+]] = arith.trunci [[VAR_26_]] : i32 to i8
+// CHECK:             [[VAR_28_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]] : i8 to ui8
+// CHECK:             krnl.store [[VAR_28_]], [[RES_]]{{.}}[[VAR_6_]]{{.}} : memref<6xui8>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<6xui8>
 // CHECK:         }
@@ -80,9 +75,8 @@ func.func @test_quantize_linear_i8(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %ar
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<6xi8>
 // CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
 // CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]][] : memref<i8>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = arith.sitofp [[LOAD_PARAM_2_MEM_]] : i8 to f32
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<6xf32>
+// CHECK:           [[VAR_2_:%.+]] = arith.extsi [[LOAD_PARAM_2_MEM_]] : i8 to i32
+// CHECK-DAG:       [[VAR_3_:%.+]] = arith.sitofp [[VAR_2_]] : i32 to f32
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 6){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
@@ -104,17 +98,12 @@ func.func @test_quantize_linear_i8(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %ar
 // CHECK-DAG:         [[VAR_19_:%.+]] = arith.select [[VAR_17_]], [[VAR_18_]], [[VAR_8_]] : f32
 // CHECK-DAG:         [[VAR_20_:%.+]] = arith.cmpf oeq, [[VAR_9_]], [[CST_5_dot_000000_]] : f32
 // CHECK:             [[VAR_21_:%.+]] = arith.select [[VAR_20_]], [[VAR_19_]], [[VAR_12_]] : f32
-// CHECK:             [[VAR_22_:%.+]] = arith.addf [[VAR_21_]], [[VAR_2_]] : f32
+// CHECK:             [[VAR_22_:%.+]] = arith.addf [[VAR_21_]], [[VAR_3_]] : f32
 // CHECK:             [[VAR_23_:%.+]] = arith.maxnumf [[VAR_22_]], [[CST_minus_1_dot_280000_]] : f32
 // CHECK:             [[VAR_24_:%.+]] = arith.minnumf [[VAR_23_]], [[CST_1_dot_270000_]] : f32
-// CHECK:             krnl.store [[VAR_24_]], [[RES_1_]]{{.}}[[VAR_5_]]{{.}} : memref<6xf32>
-// CHECK:           }
-// CHECK:           [[LOOP_1_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 6){
-// CHECK:             [[VAR_5_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_5_1_]]{{.}} : memref<6xf32>
-// CHECK:             [[VAR_7_1_:%.+]] = arith.fptosi [[LOAD_PARAM_0_MEM_1_]] : f32 to i8
-// CHECK:             krnl.store [[VAR_7_1_]], [[RES_]]{{.}}[[VAR_5_1_]]{{.}} : memref<6xi8>
+// CHECK:             [[VAR_25_:%.+]] = arith.fptosi [[VAR_24_]] : f32 to i32
+// CHECK:             [[VAR_26_:%.+]] = arith.trunci [[VAR_25_]] : i32 to i8
+// CHECK:             krnl.store [[VAR_26_]], [[RES_]]{{.}}[[VAR_5_]]{{.}} : memref<6xi8>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<6xi8>
 // CHECK:         }

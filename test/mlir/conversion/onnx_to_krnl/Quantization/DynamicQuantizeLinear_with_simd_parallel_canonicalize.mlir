@@ -141,17 +141,17 @@ func.func @test_dynamic_quantize_linear_simd_only(%arg0: tensor<256x16xf32>) -> 
 // CHECK-DAG:       [[VAR_27_:%.+]] = arith.select [[VAR_25_]], [[VAR_26_]], [[VAR_16_]] : f32
 // CHECK-DAG:       [[VAR_28_:%.+]] = arith.cmpf oeq, [[VAR_17_]], [[CST_5_dot_000000_]] : f32
 // CHECK:           [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[VAR_27_]], [[VAR_20_]] : f32
-// CHECK:           [[VAR_30_:%.+]] = arith.fptoui [[VAR_29_]] : f32 to i8
-// CHECK:           [[VAR_31_:%.+]] = builtin.unrealized_conversion_cast [[VAR_30_]] : i8 to ui8
+// CHECK:           [[VAR_30_:%.+]] = arith.fptoui [[VAR_29_]] : f32 to i32
+// CHECK:           [[VAR_31_:%.+]] = arith.trunci [[VAR_30_]] : i32 to i8
+// CHECK:           [[VAR_32_:%.+]] = builtin.unrealized_conversion_cast [[VAR_31_]] : i8 to ui8
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]][] : memref<f32>
-// CHECK:           krnl.store [[VAR_31_]], [[RES_2_]][] : memref<ui8>
+// CHECK:           krnl.store [[VAR_32_]], [[RES_2_]][] : memref<ui8>
 // CHECK:           [[RES_10_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_4096_]], [[RES_10_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_23_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_10_]]) : (memref<256x16xf32>, memref<1xindex>) -> memref<4096xf32>
 // CHECK-DAG:       [[RES_11_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_4096_]], [[RES_11_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_24) : (memref<256x16xui8>, memref<1xindex>) -> memref<4096xui8>
-// CHECK-DAG:       [[RES_12_:%.+]] = memref.alloc() {{.*}}: memref<4096xf32>
 // CHECK-DAG:       [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_2_]] 16 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           krnl.parallel([[BLOCK_TILE__0_]]) : !krnl.loop
@@ -181,16 +181,10 @@ func.func @test_dynamic_quantize_linear_simd_only(%arg0: tensor<256x16xf32>) -> 
 // CHECK:             [[VAR_53_:%.+]] = arith.addf [[VAR_51_2_]], [[VAR_52_2_]] : vector<16xf32>
 // CHECK:             [[VAR_54_:%.+]] = arith.maxnumf [[VAR_53_]], [[VAR_cst_0_]] : vector<16xf32>
 // CHECK:             [[VAR_55_:%.+]] = arith.minnumf [[VAR_54_]], [[VAR_cst_]] : vector<16xf32>
-// CHECK:             vector.store [[VAR_55_]], [[RES_12_]]{{.}}[[VAR_34_2_]]{{.}} : memref<4096xf32>, vector<16xf32>
-// CHECK:           }
-// CHECK:           [[LOOP_3_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.parallel([[LOOP_3_]]) : !krnl.loop
-// CHECK:           krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_5_:%.+]] = 0 to 4096){
-// CHECK:             [[VAR_34_3_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
-// CHECK:             [[VAR_35_1_1_:%.+]] = krnl.load [[RES_12_]]{{.}}[[VAR_34_3_]]{{.}} : memref<4096xf32>
-// CHECK:             [[VAR_36_3_:%.+]] = arith.fptoui [[VAR_35_1_1_]] : f32 to i8
-// CHECK:             [[VAR_37_2_:%.+]] = builtin.unrealized_conversion_cast [[VAR_36_3_]] : i8 to ui8
-// CHECK:             krnl.store [[VAR_37_2_]], [[VAR_reshape_25_]]{{.}}[[VAR_34_3_]]{{.}} : memref<4096xui8>
+// CHECK:             [[VAR_56_:%.+]] = arith.fptoui [[VAR_55_]] : vector<16xf32> to vector<16xi32>
+// CHECK:             [[VAR_57_:%.+]] = arith.trunci [[VAR_56_]] : vector<16xi32> to vector<16xi8>
+// CHECK:             [[VAR_58_:%.+]] = builtin.unrealized_conversion_cast [[VAR_57_]] : vector<16xi8> to vector<16xui8>
+// CHECK:             vector.store [[VAR_58_]], [[VAR_reshape_25_]]{{.}}[[VAR_34_2_]]{{.}} : memref<4096xui8>, vector<16xui8>
 // CHECK:           }
 // CHECK:           return [[RES_]], [[RES_]]_13, [[RES_]]_14 : memref<256x16xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
@@ -334,17 +328,17 @@ func.func @test_dynamic_quantize_linear_simd_and_scalar(%arg0: tensor<255x17xf32
 // CHECK-DAG:       [[VAR_27_:%.+]] = arith.select [[VAR_25_]], [[VAR_26_]], [[VAR_16_]] : f32
 // CHECK-DAG:       [[VAR_28_:%.+]] = arith.cmpf oeq, [[VAR_17_]], [[CST_5_dot_000000_]] : f32
 // CHECK:           [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[VAR_27_]], [[VAR_20_]] : f32
-// CHECK:           [[VAR_30_:%.+]] = arith.fptoui [[VAR_29_]] : f32 to i8
-// CHECK:           [[VAR_31_:%.+]] = builtin.unrealized_conversion_cast [[VAR_30_]] : i8 to ui8
+// CHECK:           [[VAR_30_:%.+]] = arith.fptoui [[VAR_29_]] : f32 to i32
+// CHECK:           [[VAR_31_:%.+]] = arith.trunci [[VAR_30_]] : i32 to i8
+// CHECK:           [[VAR_32_:%.+]] = builtin.unrealized_conversion_cast [[VAR_31_]] : i8 to ui8
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]][] : memref<f32>
-// CHECK:           krnl.store [[VAR_31_]], [[RES_2_]][] : memref<ui8>
+// CHECK:           krnl.store [[VAR_32_]], [[RES_2_]][] : memref<ui8>
 // CHECK:           [[RES_10_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_4335_]], [[RES_10_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_23_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_10_]]) : (memref<255x17xf32>, memref<1xindex>) -> memref<4335xf32>
 // CHECK-DAG:       [[RES_11_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_4335_]], [[RES_11_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_24) : (memref<255x17xui8>, memref<1xindex>) -> memref<4335xui8>
-// CHECK-DAG:       [[RES_12_:%.+]] = memref.alloc() {{.*}}: memref<4335xf32>
 // CHECK-DAG:       [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_2_]] 16 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           krnl.parallel([[BLOCK_TILE__0_]]) : !krnl.loop
@@ -374,7 +368,10 @@ func.func @test_dynamic_quantize_linear_simd_and_scalar(%arg0: tensor<255x17xf32
 // CHECK:             [[VAR_54_:%.+]] = arith.addf [[VAR_52_2_]], [[VAR_53_2_]] : vector<16xf32>
 // CHECK:             [[VAR_55_:%.+]] = arith.maxnumf [[VAR_54_]], [[VAR_cst_0_]] : vector<16xf32>
 // CHECK:             [[VAR_56_:%.+]] = arith.minnumf [[VAR_55_]], [[VAR_cst_]] : vector<16xf32>
-// CHECK:             vector.store [[VAR_56_]], [[RES_12_]]{{.}}[[VAR_35_2_]]{{.}} : memref<4335xf32>, vector<16xf32>
+// CHECK:             [[VAR_57_:%.+]] = arith.fptoui [[VAR_56_]] : vector<16xf32> to vector<16xi32>
+// CHECK:             [[VAR_58_:%.+]] = arith.trunci [[VAR_57_]] : vector<16xi32> to vector<16xi8>
+// CHECK:             [[VAR_59_:%.+]] = builtin.unrealized_conversion_cast [[VAR_58_]] : vector<16xi8> to vector<16xui8>
+// CHECK:             vector.store [[VAR_59_]], [[VAR_reshape_25_]]{{.}}[[VAR_35_2_]]{{.}} : memref<4335xui8>, vector<16xui8>
 // CHECK:           }
 // CHECK:           [[LOOP_3_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_5_:%.+]] = 4320 to 4335){
@@ -400,16 +397,10 @@ func.func @test_dynamic_quantize_linear_simd_and_scalar(%arg0: tensor<255x17xf32
 // CHECK:             [[VAR_52_3_:%.+]] = arith.addf [[LOAD_RES_6_MEM_1_1_]], [[VAR_29_]] : f32
 // CHECK:             [[VAR_53_3_:%.+]] = arith.maxnumf [[VAR_52_3_]], [[CST_0_dot_000000_]] : f32
 // CHECK:             [[VAR_54_1_:%.+]] = arith.minnumf [[VAR_53_3_]], [[CST_2_dot_550000_]] : f32
-// CHECK:             krnl.store [[VAR_54_1_]], [[RES_12_]]{{.}}[[VAR_35_3_]]{{.}} : memref<4335xf32>
-// CHECK:           }
-// CHECK:           [[LOOP_4_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.parallel([[LOOP_4_]]) : !krnl.loop
-// CHECK:           krnl.iterate([[LOOP_4_]]) with ([[LOOP_4_]] -> [[I_6_:%.+]] = 0 to 4335){
-// CHECK:             [[VAR_35_4_:%.+]] = krnl.get_induction_var_value([[LOOP_4_]]) : (!krnl.loop) -> index
-// CHECK:             [[VAR_36_1_1_:%.+]] = krnl.load [[RES_12_]]{{.}}[[VAR_35_4_]]{{.}} : memref<4335xf32>
-// CHECK:             [[VAR_37_4_:%.+]] = arith.fptoui [[VAR_36_1_1_]] : f32 to i8
-// CHECK:             [[VAR_38_3_:%.+]] = builtin.unrealized_conversion_cast [[VAR_37_4_]] : i8 to ui8
-// CHECK:             krnl.store [[VAR_38_3_]], [[VAR_reshape_25_]]{{.}}[[VAR_35_4_]]{{.}} : memref<4335xui8>
+// CHECK:             [[VAR_55_1_:%.+]] = arith.fptoui [[VAR_54_1_]] : f32 to i32
+// CHECK:             [[VAR_56_1_:%.+]] = arith.trunci [[VAR_55_1_]] : i32 to i8
+// CHECK:             [[VAR_57_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_56_1_]] : i8 to ui8
+// CHECK:             krnl.store [[VAR_57_1_]], [[VAR_reshape_25_]]{{.}}[[VAR_35_3_]]{{.}} : memref<4335xui8>
 // CHECK:           }
 // CHECK:           return [[RES_]], [[RES_]]_13, [[RES_]]_14 : memref<255x17xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
@@ -499,17 +490,17 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK-DAG:       [[VAR_26_:%.+]] = arith.select [[VAR_24_]], [[VAR_25_]], [[VAR_15_]] : f32
 // CHECK-DAG:       [[VAR_27_:%.+]] = arith.cmpf oeq, [[VAR_16_]], [[CST_5_dot_000000_]] : f32
 // CHECK:           [[VAR_28_:%.+]] = arith.select [[VAR_27_]], [[VAR_26_]], [[VAR_19_]] : f32
-// CHECK:           [[VAR_29_:%.+]] = arith.fptoui [[VAR_28_]] : f32 to i8
-// CHECK:           [[VAR_30_:%.+]] = builtin.unrealized_conversion_cast [[VAR_29_]] : i8 to ui8
+// CHECK:           [[VAR_29_:%.+]] = arith.fptoui [[VAR_28_]] : f32 to i32
+// CHECK:           [[VAR_30_:%.+]] = arith.trunci [[VAR_29_]] : i32 to i8
+// CHECK:           [[VAR_31_:%.+]] = builtin.unrealized_conversion_cast [[VAR_30_]] : i8 to ui8
 // CHECK:           krnl.store [[VAR_10_]], [[RES_1_]][] : memref<f32>
-// CHECK:           krnl.store [[VAR_30_]], [[RES_2_]][] : memref<ui8>
+// CHECK:           krnl.store [[VAR_31_]], [[RES_2_]][] : memref<ui8>
 // CHECK:           [[RES_8_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_8_]], [[RES_8_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_19_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_8_]]) : (memref<1x8xf32>, memref<1xindex>) -> memref<8xf32>
 // CHECK-DAG:       [[RES_9_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_8_]], [[RES_9_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_21_:%.+]] = memref.reshape [[RES_]]([[RES_]]_20) : (memref<1x8xui8>, memref<1xindex>) -> memref<8xui8>
-// CHECK-DAG:       [[RES_10_:%.+]] = memref.alloc() {{.*}}: memref<8xf32>
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           [[BLOCK_TILE__1_:%.+]], [[BLOCK_IN__1_:%.+]] = krnl.block [[LOOP_1_]] 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           krnl.parallel([[BLOCK_TILE__1_]]) : !krnl.loop
@@ -539,16 +530,10 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK:             [[VAR_52_:%.+]] = arith.addf [[VAR_50_]], [[VAR_51_]] : vector<8xf32>
 // CHECK:             [[VAR_53_:%.+]] = arith.maxnumf [[VAR_52_]], [[VAR_cst_0_]] : vector<8xf32>
 // CHECK:             [[VAR_54_:%.+]] = arith.minnumf [[VAR_53_]], [[VAR_cst_]] : vector<8xf32>
-// CHECK:             vector.store [[VAR_54_]], [[RES_10_]]{{.}}[[VAR_33_1_]]{{.}} : memref<8xf32>, vector<8xf32>
-// CHECK:           }
-// CHECK:           [[LOOP_2_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.parallel([[LOOP_2_]]) : !krnl.loop
-// CHECK:           krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 8){
-// CHECK:             [[VAR_33_2_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_2_:%.+]] = krnl.load [[RES_10_]]{{.}}[[VAR_33_2_]]{{.}} : memref<8xf32>
-// CHECK:             [[LOAD_VAR_reshape_MEM_1_1_:%.+]] = arith.fptoui [[LOAD_VAR_reshape_MEM_2_]] : f32 to i8
-// CHECK:             [[LOAD_RES_4_MEM_2_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_VAR_reshape_MEM_1_1_]] : i8 to ui8
-// CHECK:             krnl.store [[LOAD_RES_4_MEM_2_]], [[VAR_reshape_21_]]{{.}}[[VAR_33_2_]]{{.}} : memref<8xui8>
+// CHECK:             [[VAR_55_:%.+]] = arith.fptoui [[VAR_54_]] : vector<8xf32> to vector<8xi32>
+// CHECK:             [[VAR_56_:%.+]] = arith.trunci [[VAR_55_]] : vector<8xi32> to vector<8xi8>
+// CHECK:             [[VAR_57_:%.+]] = builtin.unrealized_conversion_cast [[VAR_56_]] : vector<8xi8> to vector<8xui8>
+// CHECK:             vector.store [[VAR_57_]], [[VAR_reshape_21_]]{{.}}[[VAR_33_1_]]{{.}} : memref<8xui8>, vector<8xui8>
 // CHECK:           }
 // CHECK:           return [[RES_]], [[RES_]]_11, [[RES_]]_12 : memref<1x8xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
