@@ -4,7 +4,7 @@
 
 //===-- PyExecutionSessionBase.hpp - PyExecutionSessionBase Declaration ---===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
+#define ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -53,3 +54,4 @@ protected:
   std::string reportPythonError(std::string errorStr) const;
 };
 } // namespace onnx_mlir
+#endif

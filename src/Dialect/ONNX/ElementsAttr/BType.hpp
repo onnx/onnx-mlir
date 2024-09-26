@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_B_TYPE_H
+#define ONNX_MLIR_B_TYPE_H
 
 #include "src/Support/SmallFP.hpp"
 
@@ -268,3 +269,4 @@ auto dispatchByBType(BType btype, Action &&act) {
 }
 
 } // namespace onnx_mlir
+#endif

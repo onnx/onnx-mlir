@@ -4,7 +4,7 @@
 
 //====--------- DialectBuilder.hpp - ZLow Dialect Builder -----------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DIALECT_BUILDER_H
+#define ONNX_MLIR_DIALECT_BUILDER_H
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
@@ -53,3 +54,4 @@ struct MultiDialectBuilder<IndexExprBuilderForZLow, Ts...>
 };
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===--------------------- ImportONNXUtils.hpp ----------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,10 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_IMPORT_UTILS_H
+#define ONNX_MLIR_IMPORT_UTILS_H
 
 #include "onnx/onnx_pb.h"
 
 bool IsTopologicallySorted(const onnx::GraphProto &graph);
 
 bool SortGraph(onnx::GraphProto *graph);
+#endif

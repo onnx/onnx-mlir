@@ -4,7 +4,7 @@
 
 //===------- stickify.hpp - Data Stickify ---------------------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_STICKIFY_H
+#define ONNX_MLIR_STICKIFY_H
 
 #include "zdnn.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -65,3 +66,4 @@ void allochelper_ztensor_free(zdnn_ztensor *ztensor);
 ///          ZDNN_CONVERT_FAILURE
 ///
 zdnn_status stickify(zdnn_ztensor *ztensor, ...);
+#endif

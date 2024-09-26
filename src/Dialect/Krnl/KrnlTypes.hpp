@@ -4,7 +4,7 @@
 
 //===------------------- KrnlTypes.hpp - Krnl Operations ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_KRNL_TYPES_H
+#define ONNX_MLIR_KRNL_TYPES_H
 
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
@@ -79,3 +80,4 @@ void customizeTypeConverter(mlir::LLVMTypeConverter &typeConverter);
 
 } // namespace krnl
 } // namespace onnx_mlir
+#endif

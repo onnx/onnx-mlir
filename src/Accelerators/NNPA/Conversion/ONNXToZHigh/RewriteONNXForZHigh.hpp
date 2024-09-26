@@ -4,14 +4,15 @@
 
 //===--- RewriteONNXForZHigh.hpp - Rewrite ONNX ops for ZHigh lowering ----===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file implements pass for rewriting of ONNX operations to generate
 // combination of ONNX and ZHigh operations.
 
-#pragma once
+#ifndef ONNX_MLIR_REWRITE_ZHIGH_H
+#define ONNX_MLIR_REWRITE_ZHIGH_H
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -28,3 +29,4 @@ void getRewriteONNXForZHighDynamicallyLegal(
     mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis);
 
 } // namespace onnx_mlir
+#endif
