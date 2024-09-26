@@ -124,8 +124,9 @@ func.func @test_fuse_element8(%arg0: tensor<?xf32>, %arg1: tensor<1xf32>) -> ten
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]{{.}} : memref<?xf32>
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xf32>
 // CHECK:             [[VAR_4_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK:             [[VAR_5_:%.+]] = arith.fptosi [[VAR_4_]] : f32 to i8
-// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<?xi8>
+// CHECK:             [[VAR_5_:%.+]] = arith.fptosi [[VAR_4_]] : f32 to i32
+// CHECK:             [[VAR_6_:%.+]] = arith.trunci [[VAR_5_]] : i32 to i8
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<?xi8>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?xi8>
 // CHECK:         }
@@ -322,13 +323,14 @@ func.func @fuse_element_20(%533: tensor<?x?x768xf32>, %537 : tensor<?x?x1xf32>, 
 
 // -----
 
+
 func.func @test_fuse_element21(%arg0: tensor<?xf32>, %arg1: tensor<1xf32>, %arg2 : tensor<1xi8>) -> tensor<?xi8> {
-  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32> 
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
   %1 = "onnx.Cast"(%0) {to = i8} : (tensor<?xf32>) -> tensor<?xi8>
   %2 = "onnx.Add"(%1, %arg2) : (tensor<?xi8>, tensor<1xi8>) -> tensor<?xi8>
   return %2 : tensor<?xi8>
-}
 
+// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func @test_fuse_element21
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xf32>, [[PARAM_1_:%.+]]: memref<1xf32>, [[PARAM_2_:%.+]]: memref<1xi8>) -> memref<?xi8> {
@@ -341,12 +343,13 @@ func.func @test_fuse_element21(%arg0: tensor<?xf32>, %arg1: tensor<1xf32>, %arg2
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]{{.}} : memref<?xf32>
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xf32>
 // CHECK:             [[VAR_4_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.fptosi [[VAR_4_]] : f32 to i8
+// CHECK:             [[VAR_5_:%.+]] = arith.fptosi [[VAR_4_]] : f32 to i32
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.trunci [[VAR_5_]] : i32 to i8
 // CHECK-DAG:         [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[CST_0_]]{{.}} : memref<1xi8>
-// CHECK:             [[VAR_7_:%.+]] = arith.addi [[VAR_5_]], [[LOAD_PARAM_2_MEM_]] : i8
-// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<?xi8>
+// CHECK:             [[VAR_8_:%.+]] = arith.addi [[VAR_6_]], [[LOAD_PARAM_2_MEM_]] : i8
+// CHECK:             krnl.store [[VAR_8_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<?xi8>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?xi8>
 // CHECK:         }
-
+}
 

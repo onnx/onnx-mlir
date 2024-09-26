@@ -71,29 +71,6 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
-  Type inputElementType = inputType.getElementType();
-  unsigned inputWidth;
-  if (isa<Float32Type>(inputElementType))
-    inputWidth = 32;
-  else if (isa<Float64Type>(inputElementType))
-    inputWidth = 64;
-  else
-    llvm_unreachable("unsupported input type");
-  IntegerType quantizedIntType = cast<IntegerType>(quantizedElementType);
-  bool isSigned = quantizedIntType.isSignless() || quantizedIntType.isSigned();
-  Type quantizedElementTypeInputSized;
-  if (isSigned) {
-    // Cannot use getIntegerType(inputWidth, true) as it returns signed ints.
-    if (inputWidth == 64)
-      quantizedElementTypeInputSized = rewriter.getI64Type();
-    else if (inputWidth == 32)
-      quantizedElementTypeInputSized = rewriter.getI32Type();
-    else
-      llvm_unreachable("unsupported input type");
-  } else {
-    // unsigned of the right type
-    quantizedElementTypeInputSized = rewriter.getIntegerType(inputWidth, false);
-  }
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
@@ -111,13 +88,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
           adjustX = roundX;
         // Saturate: use max into a min.
         Value saturateX = create.math.clip(adjustX, qMin, qMax);
-        // Convert float* to int*/uint* where * is 64/32.
-        Value qSaturateXInputSized =
-            create.math.cast(quantizedElementTypeInputSized, saturateX);
-        // Reduce quantized precision.
-        Value res =
-            create.math.cast(quantizedElementType, qSaturateXInputSized);
-        return res;
+        // Convert into quantized type.
+        return create.math.cast(quantizedElementType, saturateX);
       }});
 
   if (totVL > 1)
