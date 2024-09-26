@@ -373,30 +373,6 @@ constexpr auto subCombiner(Type elemType) {
   return elementwiseBinaryOpCombiner<ONNXSubOp>(elemType);
 }
 
-/// Precondition: min values must be less than max values if both exist.
-bool satisfiesMinLessThanMaxRequirement(ShapedType type, Value min, Value max) {
-  if (isNoneValue(min) || isNoneValue(max))
-    return true;
-
-  if (!isDenseONNXConstant(min) || !isDenseONNXConstant(max)) {
-    return false;
-  }
-  auto minValues = getConstValueElements(min);
-  auto maxValues = getConstValueElements(max);
-
-  MLIRContext *ctx = min.getContext();
-  OnnxElementsAttrBuilder elementsBuilder(ctx);
-  ElementsAttr resultElements = elementsBuilder.combine(minValues, maxValues,
-      type.clone(IntegerType::get(ctx, 1)),
-      elementwiseBinaryOpCombiner<ONNXLessOp>(minValues.getElementType()));
-  auto denseElems =
-      OnnxElementsAttrBuilder::toDenseElementsAttr(resultElements);
-
-  if (denseElems.isSplat())
-    return denseElems.getSplatValue<bool>();
-  return false;
-}
-
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseBinaryOp>
@@ -529,7 +505,7 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableFloatingPoint<T>> {
-  static T eval(T val) { return 1 / val; }
+  static T eval(T val) { return (1 / val); }
 };
 
 template <typename T>

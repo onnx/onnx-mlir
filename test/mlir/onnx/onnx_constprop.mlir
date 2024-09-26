@@ -591,30 +591,6 @@ func.func @test_clip_no_max() -> tensor<3x2xbf16> {
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
 
-// CHECK-LABEL:  func @test_clip_multiple_min
-func.func @test_clip_multiple_min() -> tensor<3x2xbf16> {
-  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
-  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
-  %min = onnx.Constant dense<[[5.000, 2.000], [-1.0, 0.0], [0.0, 0.125]]> : tensor<3x2xbf16>
-  %max = onnx.Constant {value = dense<[10.0]> : tensor<1xbf16>} : tensor<1xbf16>
-  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<3x2xbf16>, tensor<1xbf16>) -> tensor<3x2xbf16>
-  return %0 : tensor<3x2xbf16>
-  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[5.000000e+00, 2.000000e+00], [0.000000e+00, 0x7FC0], [0.000000e+00, 1.000000e+01]]>
-  // CHECK-NOT: {{.*}} = "onnx.Clip"
-}
-
-// CHECK-LABEL:  func @test_clip_multiple_max
-func.func @test_clip_multiple_max() -> tensor<3x2xbf16> {
-  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
-  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
-  %min = onnx.Constant {value = dense<-2.0> : tensor<bf16>} : tensor<bf16>
-  %max = onnx.Constant dense<[[5.000, 2.000], [-1.0, 0.0], [0.0, 0.125]]> : tensor<3x2xbf16>
-  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<bf16>, tensor<3x2xbf16>) -> tensor<3x2xbf16>
-  return %0 : tensor<3x2xbf16>
-  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.125000e+00, -2.000000e+00], [-1.000000e+00, 0x7FC0], [-2.000000e+00, 1.250000e-01]]>
-  // CHECK-NOT: {{.*}} = "onnx.Clip"
-}
-
 // CHECK-LABEL:  func @test_clip_no_min_no_max
 func.func @test_clip_no_min_no_max() -> tensor<3x2xbf16> {
   // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
