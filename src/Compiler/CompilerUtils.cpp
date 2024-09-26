@@ -459,13 +459,12 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   setXoptOption({"--code-model", modelSizeStr[modelSize]});
   int rc = optBitcode
                .appendStr(getOptimizationLevelUniqueOption(
-                   {getLLVMOptions(), getLLVMOPTOptions()}))
+                   {getLLVMOptions(), getXoptOption()}))
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
                .appendStr(getTargetCPUOption())
                .appendList(getXoptOption())
                .appendList(getLLVMOptions())
-               .appendList(getLLVMOPTOptions())
                .appendList({"-o", optimizedBitcodeNameWithExt})
                .appendStr(unoptimizedBitcodeNameWithExt)
                .exec();
@@ -484,13 +483,12 @@ static int genModelObject(
   setXllcOption({"--code-model", modelSizeStr[modelSize]});
   int rc = llvmToObj
                .appendStr(getOptimizationLevelUniqueOption(
-                   {getLLVMOptions(), getLLVMLLCOptions()}))
+                   {getLLVMOptions(), getXllcOption()}))
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
                .appendStr(getTargetCPUOption())
                .appendList(getXllcOption())
                .appendList(getLLVMOptions())
-               .appendList(getLLVMLLCOptions())
                .appendStr("-filetype=obj")
                .appendStr("-relocation-model=pic")
                .appendList({"-o", modelObjNameWithExt})

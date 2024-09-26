@@ -109,8 +109,6 @@ extern bool VerboseOutput;                                    // onnx-mlir only
 extern std::vector<std::string> Xopt;                         // onnx-mlir only
 extern std::vector<std::string> Xllc;                         // onnx-mlir only
 extern std::string mllvm;                                     // onnx-mlir only
-extern std::string mllvmopt;                                  // onnx-mlir only
-extern std::string mllvmllc;                                  // onnx-mlir only
 extern std::string instrumentOps;                             // onnx-mlir only
 extern unsigned instrumentControlBits;                        // onnx-mlir only
 extern std::string parallelizeOps;                            // onnx-mlir only

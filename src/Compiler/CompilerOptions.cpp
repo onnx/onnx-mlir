@@ -64,8 +64,6 @@ bool VerboseOutput;                                    // onnx-mlir only
 std::vector<std::string> Xopt;                         // onnx-mlir only
 std::vector<std::string> Xllc;                         // onnx-mlir only
 std::string mllvm;                                     // onnx-mlir only
-std::string mllvmopt;                                  // onnx-mlir only
-std::string mllvmllc;                                  // onnx-mlir only
 std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
@@ -409,13 +407,19 @@ static llvm::cl::opt<bool, true> VerboseOutputOpt("v",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> XoptOpt("Xopt",
-    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'opt' option processing"
+        "Multiple arguments to 'opt' need to be pass with seperate 'Xopt'"
+        "For example, '-Xopt opt1 -Xopt opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
     llvm::cl::location(Xopt), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 static llvm::cl::list<std::string, std::vector<std::string>> XllcOpt("Xllc",
-    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'llc' option processing"
+        "Multiple arguments to 'llc' need to be pass with seperate 'Xllc'"
+        "For example, '-Xllc opt1 -Xllc opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
     llvm::cl::location(Xllc), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
@@ -426,18 +430,6 @@ static llvm::cl::opt<std::string, true> mllvmOpt("mllvm",
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::location(mllvm), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired);
-
-static llvm::cl::opt<std::string, true> mllvmoptOpt("mllvmopt",
-    llvm::cl::desc("Arguments to forward to LLVM's 'opt' processing"),
-    llvm::cl::value_desc("A valid LLVM's 'opt' option"),
-    llvm::cl::location(mllvmopt), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::Hidden, llvm::cl::ValueRequired);
-
-static llvm::cl::opt<std::string, true> mllvmllcOpt("mllvmllc",
-    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
-    llvm::cl::value_desc("A valid LLVM's 'llc' option"),
-    llvm::cl::location(mllvmllc), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::Hidden, llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string, true> instrumentOpsOpt("instrument-ops",
     llvm::cl::desc("Specify operations to be instrumented:\n"
@@ -939,19 +931,8 @@ static std::vector<std::string> split(std::string &input) {
 std::vector<std::string> getLLVMOptions() {
   if (mllvm == "")
     return std::vector<std::string>();
+
   return split(mllvm);
-}
-
-std::vector<std::string> getLLVMOPTOptions() {
-  if (mllvmopt == "")
-    return std::vector<std::string>();
-  return split(mllvmopt);
-}
-
-std::vector<std::string> getLLVMLLCOptions() {
-  if (mllvmllc == "")
-    return std::vector<std::string>();
-  return split(mllvmllc);
 }
 
 // Support for model tag
