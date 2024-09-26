@@ -22,9 +22,10 @@ func.func @test_dequantizelinear_ui8(%arg0: tensor<4xui8>, %arg1: tensor<f32>, %
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]{{.}} : memref<4xui8>
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
 // CHECK:             [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_]] : ui8 to i8
-// CHECK:             [[VAR_5_:%.+]] = arith.uitofp [[VAR_4_]] : i8 to f32
-// CHECK:             [[VAR_6_:%.+]] = arith.mulf [[VAR_5_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<4xf32>
+// CHECK:             [[VAR_5_:%.+]] = arith.extui [[VAR_4_]] : i8 to i32
+// CHECK:             [[VAR_6_:%.+]] = arith.uitofp [[VAR_5_]] : i32 to f32
+// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[VAR_6_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<4xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<4xf32>
 // CHECK:         }
