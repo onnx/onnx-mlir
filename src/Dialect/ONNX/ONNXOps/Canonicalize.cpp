@@ -329,7 +329,15 @@ bool isConstantOpWithNoZeroElements(Value constVal) {
     return false;
 
   ONNXConstantOp constOp = constVal.getDefiningOp<ONNXConstantOp>();
-  auto intElemsAttr = cast<mlir::DenseIntElementsAttr>(constOp.getValueAttr());
+  DenseElementsAttr intElemsAttr;
+  if (auto elms =
+          dyn_cast<mlir::DenseIntElementsAttr>(constOp.getValueAttr())) {
+    intElemsAttr = elms;
+  } else if (auto elms = dyn_cast<mlir::DisposableElementsAttr>(
+                 constOp.getValueAttr())) {
+    intElemsAttr = dyn_cast_or_null<mlir::DenseIntElementsAttr>(
+        elms.toDenseElementsAttr());
+  }
   if (!intElemsAttr)
     return false;
 
