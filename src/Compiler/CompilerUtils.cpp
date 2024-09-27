@@ -72,6 +72,26 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 // flags.
 static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
+// Get optimization level from onnx-mlir only when it is not specified
+std::string getOptimizationLevelUniqueOption(
+    std::vector<std::vector<std::string>> specialOptionsList) {
+  if (std::any_of(specialOptionsList.begin(), specialOptionsList.end(),
+          [](std::vector<std::string> specialOptions) {
+            if (std::any_of(specialOptions.begin(), specialOptions.end(),
+                    [](std::string str) {
+                      std::regex optimization("^-O[0-9]");
+                      std::smatch m;
+                      return std::regex_match(str, m, optimization);
+                    })) // End of one options
+              return true;
+            else
+              return false;
+          }))
+    return std::string();
+  else
+    return getOptimizationLevelOption();
+}
+
 static bool keepFiles(KeepFilesOfType preserve) {
   // When wanting to preserve all files, do it regardless of isBitcode.
   if (overridePreserveFiles == KeepFilesOfType::All)
@@ -437,12 +457,14 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   std::string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/optPath);
   setXoptOption({"--code-model", modelSizeStr[modelSize]});
-  int rc = optBitcode.appendStr(getOptimizationLevelOption())
+  int rc = optBitcode
+               .appendStr(getOptimizationLevelUniqueOption(
+                   {getLLVMOptions(), getXoptOption()}))
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
                .appendStr(getTargetCPUOption())
                .appendList(getXoptOption())
-               .appendStr(getLLVMOption())
+               .appendList(getLLVMOptions())
                .appendList({"-o", optimizedBitcodeNameWithExt})
                .appendStr(unoptimizedBitcodeNameWithExt)
                .exec();
@@ -459,12 +481,14 @@ static int genModelObject(
   std::string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/llcPath);
   setXllcOption({"--code-model", modelSizeStr[modelSize]});
-  int rc = llvmToObj.appendStr(getOptimizationLevelOption())
+  int rc = llvmToObj
+               .appendStr(getOptimizationLevelUniqueOption(
+                   {getLLVMOptions(), getXllcOption()}))
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
                .appendStr(getTargetCPUOption())
                .appendList(getXllcOption())
-               .appendStr(getLLVMOption())
+               .appendList(getLLVMOptions())
                .appendStr("-filetype=obj")
                .appendStr("-relocation-model=pic")
                .appendList({"-o", modelObjNameWithExt})
