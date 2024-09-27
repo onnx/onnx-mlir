@@ -400,6 +400,89 @@ func.func @test_reshape_no_fusion(%arg0: tensor<1x3x1152x1x1344xf32>) -> (tensor
 
 // -----
 
+func.func @reshape_allowzero_to_reshape(%arg0: tensor<1x2048x1x1xbf16>) -> (tensor<1x1x1x2048xbf16>) {
+  %0 = onnx.Constant dense<[1, 1, 1, 2048]> : tensor<4xi64> loc(unknown)
+  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<1x2048x1x1xbf16>, tensor<4xi64>) -> tensor<1x1x1x2048xbf16>
+  return %1: tensor<1x1x1x2048xbf16>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_to_reshape
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 0
+}
+
+// -----
+
+func.func @reshape_allowzero_to_reshape_unranked(%arg0: tensor<*xbf16>, %arg1: tensor<4xi64>) -> (tensor<*xbf16>) {
+  %0 = onnx.Constant dense<[1, 1, 1, 2048]> : tensor<4xi64> loc(unknown)
+  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<*xbf16>, tensor<4xi64>) -> tensor<*xbf16>
+  return %1: tensor<*xbf16>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_to_reshape_unranked
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 0
+}
+
+// -----
+
+func.func @reshape_allowzero_to_reshape_known_input_zero_value(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[80, 0, 2]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<5x5x1x32xf32>, tensor<3xi64>) -> tensor<*xf32>
+  return %1: tensor<*xf32>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_to_reshape_known_input_zero_value
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 1
+}
+
+// -----
+
+func.func @reshape_allowzero_to_reshape_unranked_no_conversion(%arg0: tensor<*xbf16>, %arg1: tensor<4xi64>) -> (tensor<*xbf16>) {
+  %0 = onnx.Constant dense<[1, 1, 0, 2048]> : tensor<4xi64> loc(unknown)
+  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<*xbf16>, tensor<4xi64>) -> tensor<*xbf16>
+  return %1: tensor<*xbf16>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_to_reshape_unranked
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 1
+}
+
+// -----
+
+func.func @reshape_allowzero_no_conversion(%arg0: tensor<1x2048x1x0xbf16>) -> (tensor<1x1x1x0x0x2048xbf16>) {
+  %0 = onnx.Constant dense<[1, 1, 1, 0, 0, 2048]> : tensor<6xi64> loc(unknown)
+  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<1x2048x1x0xbf16>, tensor<6xi64>) -> tensor<1x1x1x0x0x2048xbf16>
+  return %1: tensor<1x1x1x0x0x2048xbf16>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_no_conversion
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 1
+}
+
+// -----
+
+func.func @reshape_allowzero_no_conversion(%arg0: tensor<?x2048x1xbf16>) -> (tensor<*xbf16>) {
+  %0 = onnx.Constant dense<[1, 1, 1, 0, 0, 2048]> : tensor<6xi64> loc(unknown)
+  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<?x2048x1xbf16>, tensor<6xi64>) -> tensor<*xbf16>
+  return %1: tensor<*xbf16>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_no_conversion
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 1
+}
+
+// -----
+
+func.func @reshape_allowzero_to_reshape_dynamic_no_conversion(%arg0: tensor<?x4x2x2xf32>, %arg1: tensor<5xi64>) -> (tensor<?x2x2x2x2xf32>) {
+  %0 = "onnx.Reshape"(%arg0, %arg1) {allowzero = 1 : si64 } : (tensor<?x4x2x2xf32>, tensor<5xi64>) -> tensor<?x2x2x2x2xf32>
+  return %0: tensor<?x2x2x2x2xf32>
+
+// CHECK-LABEL:  func.func @reshape_allowzero_to_reshape_dynamic_no_conversion
+// CHECK:        "onnx.Reshape"
+// CHECK-SAME: allowzero = 1
+}
+
+// -----
+
 // Check the combining of transposes into an identity transpose, which in turns is removed.
 // CHECK-LABEL: func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
 func.func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
