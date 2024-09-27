@@ -145,7 +145,7 @@ krnl.iterate(loop i from 0 to 256) {
 
    In our example, the kernel is as follows
 
-   [&](KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
+   [&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
       MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
       Value aVal = inputVals[0];            // simd or scalar
       Value bVal = inputVals[1];            // simd or scalar
@@ -192,7 +192,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       simdUb = simdUb - (VL - 1);
 
     // Define the loop block
-    auto simdLoopBody = [&](BUILDER b, mlir::ValueRange loopInd) {
+    auto simdLoopBody = [&](const BUILDER b, mlir::ValueRange loopInd) {
       IndexExprScope scope(b);
       VectorBuilder createVec(b);
       MEM_BUILDER createMem(b);
@@ -260,7 +260,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     lb = lb + completedIters;
   }
   // Handle remaining scalar values (from lb to ub without unrolling).
-  auto scalarLoopBody = [&](BUILDER b, mlir::ValueRange loopInd) {
+  auto scalarLoopBody = [&](const BUILDER b, mlir::ValueRange loopInd) {
     IndexExprScope scope(b);
     MEM_BUILDER createMem(b);
 
@@ -376,7 +376,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     if (!fullySimd)
       simdUb = simdUb - (VL - 1);
 
-    auto simdLoopBody = [&](BUILDER &b, mlir::ValueRange loopInd) {
+    auto simdLoopBody = [&](const BUILDER &b, mlir::ValueRange loopInd) {
       IndexExprScope scope(b);
       MultiDialectBuilder<VectorBuilder> create(b);
       // Load inputs in SIMD mode, indexed by loopInd[0] in innermost dim.
@@ -440,7 +440,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     // We have leftover iterations to be done in sequential mode.
     // Handle remaining scalar values (from lb to ub without unrolling).
 
-    auto scalarLoopBody = [&](BUILDER &b, mlir::ValueRange loopInd) {
+    auto scalarLoopBody = [&](const BUILDER &b, mlir::ValueRange loopInd) {
       IndexExprScope scope(b);
       MEM_BUILDER createMem(b);
       IndexExpr ind = DimIE(loopInd[0]);
@@ -719,8 +719,8 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::simdReduce2DIE(
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElseIE(
     IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
-    mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-    mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn) const {
+    GenericAffineThenElseBodyFn thenFn,
+    GenericAffineThenElseBodyFn elseFn) const {
   int64_t rank = conditions.size();
   llvm::SmallVector<mlir::AffineExpr, 4> affineCond;
   bool allTrue = true;
@@ -777,13 +777,13 @@ void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForLoopsIE(
     mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
     mlir::ArrayRef<int64_t> steps,
     llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-    mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-        builderFn) const {
+    GenericAffineLoopBodyFn builderFn) const {
   int d = loopIndices.size();
   if (d < (int)lbs.size()) {
     // Issue a loop and recurse again.
     forLoopIE(lbs[d], ubs[d], steps[d],
-        [&](GenericAffineBuilder &createAffine, mlir::ValueRange loopInd) {
+        [&](const GenericAffineBuilder &createAffine,
+            mlir::ValueRange loopInd) {
           loopIndices.emplace_back(loopInd[0]);
           recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
         });

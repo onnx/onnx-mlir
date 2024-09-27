@@ -349,7 +349,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
 
   ValueRange loops = create.krnl.defineLoops(HtRank);
   create.krnl.iterate(loops, loops, HtLbs, HtUbs,
-      [&](KrnlBuilder &createKrnl, ValueRange indices) {
+      [&](const KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
         Value bs(indices[0]), hs(indices[1]);

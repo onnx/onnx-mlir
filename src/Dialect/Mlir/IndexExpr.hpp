@@ -337,12 +337,12 @@ public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null if we cannot generate code at this time) and location.
   IndexExprScope(mlir::OpBuilder *rewriter, mlir::Location loc);
-  IndexExprScope(DialectBuilder &db);
+  IndexExprScope(const DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is
   // technically not necessary (nullptr can be passed); it is used to allow a
   // user to explicitly name the enclosing scope.
   IndexExprScope(mlir::OpBuilder *rewriter, IndexExprScope *enclosingScope);
-  IndexExprScope(DialectBuilder &db, IndexExprScope *enclosingScope);
+  IndexExprScope(const DialectBuilder &db, IndexExprScope *enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   virtual ~IndexExprScope();
 

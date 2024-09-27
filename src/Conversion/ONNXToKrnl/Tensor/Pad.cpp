@@ -98,7 +98,7 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
       create.krnlIE.getShapeAsDims(data, ubs);
       ValueRange mainLoopDef = create.krnl.defineLoops(rank);
       create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
             SmallVector<IndexExpr, 4> resLoopInd;
             for (uint64_t i = 0; i < rank; ++i) {
               IndexExpr resInd = DimIE(dataLoopInd[i]) + shapeHelper.pads[i];
@@ -116,7 +116,7 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
       // Iterate over the result tensor dimensions.
       ValueRange mainLoopDef = create.krnl.defineLoops(rank);
       create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange resLoopInd) {
             MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
                 createKrnl);
             SmallVector<IndexExpr, 4> dataLoopInd;

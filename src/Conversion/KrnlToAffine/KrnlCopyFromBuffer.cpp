@@ -90,7 +90,7 @@ public:
     return success();
   }
 
-  void genCopyLoops(AffineBuilderKrnlMem &createAffine,
+  void genCopyLoops(const AffineBuilderKrnlMem &createAffine,
       IndexExprScope *enclosingScope, Value buffMemref, Value destMemref,
       IndexExpr zeroIE, SmallVectorImpl<IndexExpr> &starts,
       SmallVectorImpl<IndexExpr> &writeUBs, SmallVectorImpl<Value> &loopIndices,
@@ -125,7 +125,7 @@ public:
       } else {
         // Loop to copy the data.
         createAffine.forLoopIE(zeroIE, writeUBs[i], 1, false /*parallel*/,
-            [&](AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+            [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
               loopIndices.emplace_back(loopInd[0]);
               genCopyLoops(createAffine, enclosingScope, buffMemref, destMemref,
                   zeroIE, starts, writeUBs, loopIndices, i + 1, buffRank);

@@ -71,15 +71,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
-  // faster than original loop on z16, takes 124us for 64k vals
-  // Allocate output buffers.
-  MemRefType flatBufferType = llvm::cast<MemRefType>(flatInput.getType());
-  Value flatBuffer = create.mem.alignedAlloc(flatBufferType, flatInputDims);
-  DimsExpr bufferAF;
-  bufferAF.emplace_back(zero);
-
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
-      {flatInput}, {inputAF}, {flatBuffer}, {bufferAF},
+      {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
         MultiDialectBuilder<MathBuilder> create(kb);
         Value x = inputVals[0];
@@ -95,28 +88,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
           adjustX = roundX;
         // Saturate: use max into a min.
         Value saturateX = create.math.clip(adjustX, qMin, qMax);
-        // Old approach.
-        // return create.math.cast(quantizedElementType, saturateX);
-        return saturateX;
+        // Convert into quantized type.
+        return create.math.cast(quantizedElementType, saturateX);
       }});
-
-  // A second loop that performs scalar float to int performs better than the
-  // compiler's attempt to generate SIMD conversion code. This might not hold
-  // with all data types, but is definitely noticeable with uint8.
-  //
-  // Investigate further: we might save the vector to a buffer on the fly
-  // (avoiding a second loop as below), and then reload each value as scalar and
-  // then saved them as scalar (thus avoiding the insert/extract SIMD operations
-  // that also do not perform well). We can have a SIMD buffer in memory for the
-  // non-quantized and quantized simd values, but then we also need to privatize
-  // it, which is also not easy in this scheme. So ignore this for now.
-  create.krnl.forLoopIE(simdLb, simdUb, 1, enableParallel,
-      [&](KrnlBuilder &kb, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(kb);
-        Value buffVal = create.krnl.loadIE(flatBuffer, {zero}, {loopInd[0]});
-        Value res = create.math.cast(quantizedElementType, buffVal);
-        create.krnl.storeIE(res, flatAlloc, {zero}, {loopInd[0]});
-      });
 
   if (totVL > 1)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -202,9 +176,10 @@ struct ONNXQuantizeLinearOpLowering
       hasZeroPoint = true;
     }
     if (disableQuantZeroPoint) {
-      // TODO: should we expect to disable hasZeroPoint forcefully, or generate
-      // an error if we had a zero point? Right now, just forcefully assert we
-      // have no zero point, i.e. ignore one even if we had a zero point.
+      // TODO: should we expect to disable hasZeroPoint forcefully, or
+      // generate an error if we had a zero point? Right now, just forcefully
+      // assert we have no zero point, i.e. ignore one even if we had a zero
+      // point.
       hasZeroPoint = false;
     }
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,

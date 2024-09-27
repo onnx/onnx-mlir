@@ -161,7 +161,7 @@ private:
     }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           // Compute the indices used by the load operation.
           SmallVector<IndexExpr, 4> storeIndices;
           for (uint64_t i = 0; i < rank; ++i) {
@@ -235,7 +235,7 @@ private:
       }
     }
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
           IndexExprScope loopScope(createKrnl);
           // Compute destination and source offsets for memcpy.

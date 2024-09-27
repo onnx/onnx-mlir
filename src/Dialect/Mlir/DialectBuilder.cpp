@@ -886,6 +886,46 @@ Value MathBuilder::cast(Type destType, Value src) const {
   LLVM_DEBUG(llvm::dbgs() << "srcType: " << srcType << "\n";
              llvm::dbgs() << "destType: " << destType << "\n";);
 
+  // Before we process with the actual cast, there is a special case that we
+  // want to handle here. Cast from float to int that have different width, llvm
+  // generate better patterns if we first cast from float to int of the same
+  // width, and then from int to a different size int.
+  // Skip that optimization if the result is a 1 bit (boolean).
+  if (mlir::isa<FloatType>(srcElemType) &&
+      mlir::isa<IntegerType>(destElemType) && bitTrunc && destElemWidth > 1) {
+    // Quantization: float to smaller int. First determine the intermediary
+    // type, same integer type as destination type, with the same type width as
+    // the source float type.
+    Type step1ElementType;
+    IntegerType destIntType = mlir::cast<IntegerType>(destElemType);
+    bool destIssSigned = destIntType.isSignless() || destIntType.isSigned();
+    if (destIssSigned)
+      step1ElementType = b().getIntegerType(srcElemWidth);
+    else
+      step1ElementType = b().getIntegerType(srcElemWidth, false);
+    // Perform (recursively) the 2 step conversion. Exceptionally ok here to use
+    // element type here as cast will promote it to a vector if src is a vector.
+    Value step1Val = cast(step1ElementType, src);
+    return cast(destType, step1Val);
+  }
+  if (mlir::isa<IntegerType>(srcElemType) &&
+      mlir::isa<FloatType>(destElemType) && bitExtend) {
+    // Dequantization: small int to a float. First determine the intermediary
+    // type,  same integer type as source type, with the same type width as
+    // the destination float type.
+    Type step1ElementType;
+    IntegerType srcIntType = mlir::cast<IntegerType>(srcElemType);
+    bool srcIssSigned = srcIntType.isSignless() || srcIntType.isSigned();
+    if (srcIssSigned)
+      step1ElementType = b().getIntegerType(destElemWidth);
+    else
+      step1ElementType = b().getIntegerType(destElemWidth, false);
+    // Perform (recursively) the 2 step conversion. Exceptionally ok here to use
+    // element type here as cast will promote it to a vector if src is a vector.
+    Value step1Val = cast(step1ElementType, src);
+    return cast(destType, step1Val);
+  }
+
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
   if (srcElemType.isInteger(1)) {
@@ -1697,9 +1737,8 @@ void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
 // Structured Control Flow (SCF).
 //===----------------------------------------------------------------------===//
 
-void SCFBuilder::ifThenElse(Value cond,
-    function_ref<void(SCFBuilder &createSCF)> thenFn,
-    function_ref<void(SCFBuilder &createSCF)> elseFn) const {
+void SCFBuilder::ifThenElse(
+    Value cond, SCFThenElseBodyFn thenFn, SCFThenElseBodyFn elseFn) const {
   if (!elseFn) {
     b().create<scf::IfOp>(loc(), cond,
         /* then */

@@ -159,7 +159,7 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(alloc, ubs);
     create.krnl.iterateIE(loopDef, loopDef, {LitIE(0)}, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Emit body of the loop:
           // output[i] = start + (i * delta);
           // Read value:

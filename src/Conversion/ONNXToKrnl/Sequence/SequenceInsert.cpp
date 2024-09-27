@@ -77,13 +77,8 @@ struct ONNXSequenceInsertOpLowering
       // compilation problem due to the unranked tensor even though
       // the loop will not be reached at runtime.
     } else {
-      SmallVector<IndexExpr, 1> lbs;
-      lbs.emplace_back(LitIE(0));
-      SmallVector<IndexExpr, 1> ubs;
-      ubs.emplace_back(positionIE);
-      ValueRange firstLoopDef = createKrnl.defineLoops(1);
-      createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
-          [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+      createKrnl.forLoopIE(LitIE(0), positionIE, /*step*/ 1, /*par*/ false,
+          [&](const KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
             auto element =
                 createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
             createKrnl.seqstore(element, alloc, positionIE);
@@ -91,13 +86,8 @@ struct ONNXSequenceInsertOpLowering
           });
 
       // Copy the elements after the position
-      SmallVector<IndexExpr, 1> lbs1;
-      lbs1.emplace_back(positionIE + 1);
-      SmallVector<IndexExpr, 1> ubs1;
-      ubs1.emplace_back(boundIE);
-      ValueRange secondLoopDef = createKrnl.defineLoops(1);
-      createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
-          [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+      createKrnl.forLoopIE(positionIE + 1, boundIE, /*step*/ 1, /*par*/ false,
+          [&](const KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
             auto element =
                 createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
             auto oneIndex = create.math.constantIndex(1);

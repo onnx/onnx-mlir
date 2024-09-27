@@ -119,7 +119,7 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 
   ValueRange bcLoopDef = create.krnl.defineLoops(2);
   create.krnl.iterate(bcLoopDef, bcLoopDef, {zero, zero}, {bs, cs},
-      [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
             createKrnl);
         Value b(bcLoopInd[0]), c(bcLoopInd[1]);
@@ -132,7 +132,7 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
         // threshold. Counting is done per class.
         ValueRange sLoopDef = create.krnl.defineLoops(1);
         create.krnl.iterate(sLoopDef, sLoopDef, {zero}, {ss},
-            [&](KrnlBuilder &createKrnl, ValueRange sLoopInd) {
+            [&](const KrnlBuilder &createKrnl, ValueRange sLoopInd) {
               Value s(sLoopInd[0]);
               MathBuilder createMath(createKrnl);
 
@@ -175,7 +175,7 @@ static Value tryToUnflip(
 
   ValueRange loopDef = create.krnl.defineLoops(2);
   create.krnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
-      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
         MathBuilder createMath(createKrnl);
         DimIndexExpr b(loopInd[0]), s(loopInd[1]);
         // Load a bounding box.
@@ -322,7 +322,7 @@ struct ONNXNonMaxSuppressionOpLowering
         create.mem.alloca(MemRefType::get({}, indexType));
     ValueRange bcLoopDef = create.krnl.defineLoops(2);
     create.krnl.iterate(bcLoopDef, bcLoopDef, {zero, zero}, {bs, cs},
-        [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
               createKrnl);
           // Keep trace of the number of output boxes per class.
@@ -340,7 +340,7 @@ struct ONNXNonMaxSuppressionOpLowering
           // Iterate in the descending order of scores.
           ValueRange sLoopDef = create.krnl.defineLoops(1);
           create.krnl.iterate(sLoopDef, sLoopDef, {zero}, {ss},
-              [&](KrnlBuilder &createKrnl, ValueRange sLoopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange sLoopInd) {
                 Value b(bcLoopInd[0]), c(bcLoopInd[1]), s(sLoopInd[0]);
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);
@@ -399,7 +399,7 @@ struct ONNXNonMaxSuppressionOpLowering
                 // using IOU.
                 ValueRange oLoopDef = create.krnl.defineLoops(1);
                 create.krnl.iterate(oLoopDef, oLoopDef, {zero}, {ss},
-                    [&](KrnlBuilder &createKrnl, ValueRange oLoopInd) {
+                    [&](const KrnlBuilder &createKrnl, ValueRange oLoopInd) {
                       Value o(oLoopInd[0]);
                       MathBuilder createMath(createKrnl);
 
@@ -446,7 +446,7 @@ struct ONNXNonMaxSuppressionOpLowering
     ValueRange resLoopDef = create.krnl.defineLoops(2);
     create.krnl.iterate(resLoopDef, resLoopDef, {zero, zero},
         {effectiveNSI, three},
-        [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange resLoopInd) {
           MathBuilder createMath(createKrnl);
           Value load = createKrnl.load(selectedMemRef, resLoopInd);
           Value res = createMath.cast(elementType, load);
