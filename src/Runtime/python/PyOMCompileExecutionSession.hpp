@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PY_OM_COMPILE_SESSION_BASE_H
+#define ONNX_MLIR_PY_OM_COMPILE_SESSION_BASE_H
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -74,3 +75,4 @@ PYBIND11_MODULE(PyCompileAndRuntimeC, m) {
       .def("output_signature",
           &onnx_mlir::PyOMCompileExecutionSession::pyOutputSignature);
 }
+#endif

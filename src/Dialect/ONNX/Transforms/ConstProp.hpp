@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
+#ifndef ONNX_MLIR_CONST_PROP_H
+#define ONNX_MLIR_CONST_PROP_H
 
 #include "mlir/IR/PatternMatch.h"
 
@@ -12,3 +13,4 @@ namespace onnx_mlir {
 void getConstPropONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,7 +17,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DECOMPOSE_H
+#define ONNX_MLIR_DECOMPOSE_H
 
 #include "mlir/IR/PatternMatch.h"
 
@@ -28,3 +29,4 @@ namespace onnx_mlir {
 void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
 
 } // namespace onnx_mlir
+#endif

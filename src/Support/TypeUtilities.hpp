@@ -4,7 +4,7 @@
 
 //====---------- TypeUtilities.hpp - functions related to MLIR Type -------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_TYPE_UTILITIES_H
+#define ONNX_MLIR_TYPE_UTILITIES_H
 
 #include "mlir/IR/BuiltinTypes.h"
 
@@ -40,3 +41,4 @@ bool sameEncodingAttr(mlir::Type t1, mlir::Type t2);
 unsigned getIntOrFloatByteWidth(mlir::Type ty);
 
 } // namespace onnx_mlir
+#endif

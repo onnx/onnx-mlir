@@ -4,7 +4,7 @@
 
 //===-------------------------- Version.hpp -------------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_VERSION_H
+#define ONNX_MLIR_VERSION_H
 
 #include "llvm/Support/raw_ostream.h"
 #include <string>
@@ -66,3 +67,4 @@ std::string getOnnxMlirCommitVersion();
 /// given on the command line.
 void getVersionPrinter(llvm::raw_ostream &os);
 } // namespace onnx_mlir
+#endif

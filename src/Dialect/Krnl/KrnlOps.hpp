@@ -4,7 +4,7 @@
 
 //===--------------------- KrnlOps.hpp - Krnl Operations ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_KRNL_H
+#define ONNX_MLIR_KRNL_H
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.h"
@@ -26,3 +27,4 @@
 
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.hpp.inc"
+#endif

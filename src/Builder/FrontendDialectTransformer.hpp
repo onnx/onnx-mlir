@@ -4,13 +4,14 @@
 
 //===--------- FrontendDialectTransformer.hpp - MLIR Operations -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_FRONTEND_TRANSFORMER_H
+#define ONNX_MLIR_FRONTEND_TRANSFORMER_H
 
 #include <set>
 #include <string>
@@ -109,3 +110,4 @@ void ImportFrontendModel(const onnx::ModelProto &model,
  *  operations specific to other frameworks such as Tensorflow or Pytorch.
  */
 } // namespace onnx_mlir
+#endif

@@ -4,13 +4,14 @@
 
 //===-------- ZHighHelper.hpp - ZHigh Helper Functions --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_OP_HELPER_H
+#define ONNX_MLIR_OP_HELPER_H
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -89,3 +90,4 @@ mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
 
 } // namespace zhigh
 } // namespace onnx_mlir
+#endif

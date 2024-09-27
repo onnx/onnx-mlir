@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_TO_KRNL_H
+#define ONNX_MLIR_ONNX_TO_KRNL_H
 
 #include <map>
 
@@ -668,3 +669,4 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
 }
 
 } // namespace onnx_mlir
+#endif

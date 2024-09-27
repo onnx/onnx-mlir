@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.hpp -------------------------===//
 //
-// Copyright 2022, 2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_COMPILER_OPTIONS_H
+#define ONNX_MLIR_COMPILER_OPTIONS_H
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
@@ -109,7 +110,7 @@ extern std::string mllvm;                                     // onnx-mlir only
 extern std::string instrumentOps;                             // onnx-mlir only
 extern unsigned instrumentControlBits;                        // onnx-mlir only
 extern std::string parallelizeOps;                            // onnx-mlir only
-extern bool instrumentONNXSignature;                          // onnx-mlir only
+extern std::string instrumentSignatures;                      // onnx-mlir only
 extern std::string ONNXOpStats;                               // onnx-mlir only
 extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
@@ -131,6 +132,8 @@ extern OptReport optReport;                                   // onnx-mlir only
 extern bool useOldBufferization;                              // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
+extern bool debugTestCompilerOpt;                             // onnx-mlir only
+
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
 extern bool verify_passes;             // onnx-mlir-opt only
@@ -212,3 +215,4 @@ void removeUnrelatedOptions(
 void initCompilerConfig();
 
 } // namespace onnx_mlir
+#endif

@@ -142,6 +142,13 @@ def compile_model(model, emit):
     command_list.append(model_name)
     command_list.append("-o=" + exec_base)
 
+    # Additional args passed in by TEST_COMPILE_ARGS
+    # Args are separated by ';'
+    additional_args = os.getenv("TEST_COMPILE_ARGS")
+    if additional_args is not None:
+        compile_args = additional_args.split(";")
+        command_list += compile_args
+
     # Call frontend to process model_name.onnx, bit code will be generated.
     dynamic_inputs_dims = determine_dynamic_parameters(name)
     if args.verbose:

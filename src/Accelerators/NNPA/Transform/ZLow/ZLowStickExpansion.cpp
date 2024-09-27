@@ -67,17 +67,23 @@ public:
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
     // Generic way to handle all formats listed below.
+    // Did not add the HWCK as this is typically for constants and want to
+    // preserve the high level constant propagation of constant values into the
+    // Convolution filters.
     StringAttr layout = unstickOp.getLayoutAttr();
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS")) {
+        layout.getValue().equals_insensitive("3DS") ||
+        (layout.getValue().equals_insensitive("NHWC"))) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
+  // The only requirement for this code to generate the proper code is that E1
+  // is been sticked by 64.
   LogicalResult generateUnstickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowUnstickOp unstickOp) const {
     Operation *op = unstickOp.getOperation();
@@ -306,17 +312,23 @@ public:
     StringAttr layout = stickOp.getLayoutAttr();
 
     // Generic way to handle all formats listed below.
+    // Did not add the HWCK as this is typically for constants and want to
+    // preserve the high level constant propagation of constant values into the
+    // Convolution filters.
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS")) {
+        layout.getValue().equals_insensitive("3DS") ||
+        layout.getValue().equals_insensitive("NHWC")) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
-  /* Version without buffer, more like zdnn */
+  // Version without buffer, more like zdnn.
+  // The only requirement for this code to generate the proper code is that E1
+  // is been sticked by 64.
   LogicalResult generateStickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowStickOp stickOp) const {
     Operation *op = stickOp.getOperation();
@@ -342,10 +354,10 @@ public:
     VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
 
     // Define useful literals.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr lit1 = LiteralIndexExpr(1);
-    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr lit64 = LiteralIndexExpr(64);
+    IndexExpr litZero = LitIE(0);
+    IndexExpr lit1 = LitIE(1);
+    IndexExpr litVLHalf = LitIE(VLHalf);
+    IndexExpr lit64 = LitIE(64);
 
     // Values for saturation.
     Value vecDlf16Min, vecDlf16Max;
@@ -366,6 +378,27 @@ public:
     DimsExpr ubs = outputDims;
     IndexExpr T1 = outputDims[E1].ceilDiv(64);
     ubs[E1] = T1; // E1 dim is over tiles.
+
+    // If outputDims[E1] is constant and < 64, then T1 is 1 (ok), and we can
+    // iterate over fewer values in the SIMD loop.
+    IndexExpr simdLoopUB = lit64;
+    int64_t U = 4; // Unrolling of SIMD loop: tried 2 and 8, 4 was best.
+    if (outputDims[E1].isLiteral()) {
+      int64_t d1 = outputDims[E1].getLiteral();
+      if (d1 < 64) {
+        // Shrink U if suitable.
+        if (d1 <= VL)
+          U = 1;
+        else if (d1 <= 2 * VL)
+          U = 2;
+        else if (d1 <= 3 * VL)
+          U = 3;
+        double trip = U * VL;
+        int64_t ub = std::ceil((1.0 * d1) / trip) * trip;
+        simdLoopUB = LitIE(ub);
+      }
+    }
+    assert(U * VL <= 64 && "bad unroll");
 
     // Parallel...
     if (enableParallel) {
@@ -418,9 +451,7 @@ public:
 #endif
 #endif
 
-          const int64_t U = 4; // Tried 2 and 8, 4 was best.
-          assert(U * VL <= 64 && "bad unroll");
-          create.affine.forIE(litZero, lit64, U * VL,
+          create.affine.forIE(litZero, simdLoopUB, U * VL,
               [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;

@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_ELEMENTS_ATTR_H
+#define ONNX_MLIR_ONNX_ELEMENTS_ATTR_H
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
@@ -26,3 +27,4 @@ struct OnnxElementsAttrBuilder : ElementsAttrBuilder {
 };
 
 } // namespace onnx_mlir
+#endif

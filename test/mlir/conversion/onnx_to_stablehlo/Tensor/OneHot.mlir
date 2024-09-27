@@ -16,10 +16,10 @@ func.func @test_onehot(%arg0 : tensor<2x3x4xi64>) -> tensor<*xi64> {
 // CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.broadcast_in_dim [[VAR_0_]], dims = [] : (tensor<i64>) -> tensor<2x3x4x64xi64>
 // CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.broadcast_in_dim [[VAR_1_]], dims = [0] : (tensor<1xi64>) -> tensor<2x3x4x64xi64>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.compare  GE, [[VAR_4_]], [[VAR_5_]],  NOTYPE : (tensor<2x3x4x64xi64>, tensor<2x3x4x64xi64>) -> tensor<2x3x4x64xi1>
+// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.compare  GE, [[VAR_4_]], [[VAR_5_]] : (tensor<2x3x4x64xi64>, tensor<2x3x4x64xi64>) -> tensor<2x3x4x64xi1>
 // CHECK-DAG:       [[VAR_8_:%.+]] = stablehlo.add [[VAR_4_]], [[VAR_6_]] : tensor<2x3x4x64xi64>
 // CHECK:           [[VAR_9_:%.+]] = stablehlo.select [[VAR_7_]], [[VAR_4_]], [[VAR_8_]] : tensor<2x3x4x64xi1>, tensor<2x3x4x64xi64>
-// CHECK-DAG:       [[VAR_10_:%.+]] = stablehlo.compare  EQ, [[VAR_9_]], [[VAR_3_]],  NOTYPE : (tensor<2x3x4x64xi64>, tensor<2x3x4x64xi64>) -> tensor<2x3x4x64xi1>
+// CHECK-DAG:       [[VAR_10_:%.+]] = stablehlo.compare  EQ, [[VAR_9_]], [[VAR_3_]] : (tensor<2x3x4x64xi64>, tensor<2x3x4x64xi64>) -> tensor<2x3x4x64xi1>
 // CHECK-DAG:       [[VAR_11_:%.+]] = stablehlo.slice [[VAR_2_]] [0:1] : (tensor<2xi64>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_12_:%.+]] = stablehlo.slice [[VAR_2_]] [1:2] : (tensor<2xi64>) -> tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs

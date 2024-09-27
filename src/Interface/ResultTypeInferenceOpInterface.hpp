@@ -5,7 +5,7 @@
 //===------------ ResultTypeInferenceOpInterface.hpp --------------===//
 //===------- Infer Data Type for Result of Op Interface Definition -------===//
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_RESULT_TYPE_INFERENCE_H
+#define ONNX_MLIR_RESULT_TYPE_INFERENCE_H
 
 #include <map>
 #include <string>
@@ -27,3 +28,4 @@ namespace mlir {
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp.inc"
 
 } // end namespace mlir
+#endif

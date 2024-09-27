@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_RNN_BASE_STABLEHLO_H
+#define ONNX_MLIR_RNN_BASE_STABLEHLO_H
 
 #include "src/Conversion/ONNXConversionCommon/RNN/RNNBase.hpp"
 #include "src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp"
@@ -177,3 +178,4 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
 } // namespace stablehlo
 
 } // namespace onnx_mlir
+#endif

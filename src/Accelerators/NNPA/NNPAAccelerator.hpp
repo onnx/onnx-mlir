@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPAAccelerator.hpp ----------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // ===========================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===---------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_NNPA_ACCELERATOR_H
+#define ONNX_MLIR_NNPA_ACCELERATOR_H
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "src/Accelerators/Accelerator.hpp"
@@ -79,3 +80,4 @@ public:
 
 } // namespace accel
 } // namespace onnx_mlir
+#endif

@@ -34,7 +34,8 @@
 // DenseElementsAttr::reshape() which always reuses its linear array.
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_STRIDES_H
+#define ONNX_MLIR_STRIDES_H
 
 #include "src/Support/Arrays.hpp"
 
@@ -110,3 +111,4 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
 }
 
 } // namespace onnx_mlir
+#endif
