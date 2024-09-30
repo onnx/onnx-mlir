@@ -72,6 +72,26 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 // flags.
 static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
+// Get optimization level from onnx-mlir only when it is not specified
+std::string getOptimizationLevelUniqueOption(
+    std::vector<std::vector<std::string>> specialOptionsList) {
+  if (std::any_of(specialOptionsList.begin(), specialOptionsList.end(),
+          [](std::vector<std::string> specialOptions) {
+            if (std::any_of(specialOptions.begin(), specialOptions.end(),
+                    [](std::string str) {
+                      std::regex optimization("^-O[0-9]");
+                      std::smatch m;
+                      return std::regex_match(str, m, optimization);
+                    })) // End of one options
+              return true;
+            else
+              return false;
+          }))
+    return std::string();
+  else
+    return getOptimizationLevelOption();
+}
+
 static bool keepFiles(KeepFilesOfType preserve) {
   // When wanting to preserve all files, do it regardless of isBitcode.
   if (overridePreserveFiles == KeepFilesOfType::All)
@@ -437,12 +457,14 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   std::string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/optPath);
   setXoptOption({"--code-model", modelSizeStr[modelSize]});
-  int rc = optBitcode.appendStr(getOptimizationLevelOption())
+  int rc = optBitcode
+               .appendStr(getOptimizationLevelUniqueOption(
+                   {getLLVMOptions(), getXoptOption()}))
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
                .appendStr(getTargetCPUOption())
                .appendList(getXoptOption())
-               .appendStr(getLLVMOption())
+               .appendList(getLLVMOptions())
                .appendList({"-o", optimizedBitcodeNameWithExt})
                .appendStr(unoptimizedBitcodeNameWithExt)
                .exec();
@@ -459,12 +481,14 @@ static int genModelObject(
   std::string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/llcPath);
   setXllcOption({"--code-model", modelSizeStr[modelSize]});
-  int rc = llvmToObj.appendStr(getOptimizationLevelOption())
+  int rc = llvmToObj
+               .appendStr(getOptimizationLevelUniqueOption(
+                   {getLLVMOptions(), getXllcOption()}))
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
                .appendStr(getTargetCPUOption())
                .appendList(getXllcOption())
-               .appendStr(getLLVMOption())
+               .appendList(getLLVMOptions())
                .appendStr("-filetype=obj")
                .appendStr("-relocation-model=pic")
                .appendList({"-o", modelObjNameWithExt})
@@ -558,6 +582,9 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
 
   // Copy javaruntime.jar to model jar.
   llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
+  if (VerboseOutput)
+    llvm::outs() << "cp " << javaRuntimeJarPath << " " << modelJniJarPath
+                 << "\n";
 
   // Add shared library to model jar.
   Command jar(getToolPath("jar", true));
@@ -774,8 +801,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
         return rc;
     }
     if (VerboseOutput)
-      printf(
-          "Object file '%s' has been compiled.\n", modelObjNameWithExt.c_str());
+      llvm::outs() << "Object file '" << modelObjNameWithExt
+                   << "' has been compiled.\n";
   } break;
   case EmitLib: {
     std::string sharedLibNameWithExt;
@@ -789,8 +816,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
         return rc;
     }
     if (VerboseOutput)
-      printf("Shared library '%s' has been compiled.\n",
-          sharedLibNameWithExt.c_str());
+      llvm::outs() << "Shared library '" << sharedLibNameWithExt
+                   << "' has been compiled.\n";
   } break;
   case EmitJNI: {
     int rc = compileModuleToJniJar(module, outputNameNoExt);
@@ -802,16 +829,17 @@ static int emitOutputFiles(std::string outputNameNoExt,
         return rc;
     }
     if (VerboseOutput)
-      printf(
-          "JNI archive '%s.jar' has been compiled.\n", outputNameNoExt.c_str());
+      llvm::outs() << "JNI archive '" << outputNameNoExt
+                   << ".jar' has been compiled.\n";
   } break;
   default: {
     // Emit the version with all constants included.
-    std::string ouputNameWithExt =
+    std::string outputNameWithExt =
         getTargetFilename(outputNameNoExt, emissionTarget);
-    int rc = outputCode(module, ouputNameWithExt);
+    int rc = outputCode(module, outputNameWithExt);
     if (VerboseOutput)
-      printf("Full MLIR code written to: \n\t%s\n\n", ouputNameWithExt.c_str());
+      llvm::outs() << "Full MLIR code written to:\n"
+                   << "\t" << outputNameWithExt << "\n\n";
     if (rc != CompilerSuccess)
       return rc;
 
@@ -821,10 +849,11 @@ static int emitOutputFiles(std::string outputNameNoExt,
       std::string tempNameWithExt = outputNameNoExt + ".tmp";
       int rc = outputCode(module, tempNameWithExt, /*largeElementLimit=*/100);
       if (VerboseOutput) {
-        printf("Constant-free MLIR Code written to: \n\t%s\n\n",
-            tempNameWithExt.c_str());
-        printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
-            ouputNameWithExt.c_str());
+        llvm::outs() << "Constant-free MLIR Code written to:\n"
+                     << "\t" << tempNameWithExt << "\n\n";
+        llvm::outs() << "Use:\n"
+                     << "\t" << outputNameWithExt
+                     << "\nto continue lowering the code to other dialects.\n";
       }
       if (rc != CompilerSuccess)
         return rc;

@@ -407,13 +407,19 @@ static llvm::cl::opt<bool, true> VerboseOutputOpt("v",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> XoptOpt("Xopt",
-    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'opt' option processing"
+        "Multiple arguments to 'opt' need to be pass with seperate 'Xopt'"
+        "For example, '-Xopt opt1 -Xopt opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
     llvm::cl::location(Xopt), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 static llvm::cl::list<std::string, std::vector<std::string>> XllcOpt("Xllc",
-    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'llc' option processing"
+        "Multiple arguments to 'llc' need to be pass with seperate 'Xllc'"
+        "For example, '-Xllc opt1 -Xllc opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
     llvm::cl::location(Xllc), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
@@ -913,6 +919,21 @@ std::vector<std::string> getXllcOption() {
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
+
+static std::vector<std::string> split(std::string &input) {
+  std::stringstream ss(input);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  std::vector<std::string> vstrings(begin, end);
+  return vstrings;
+}
+
+std::vector<std::string> getLLVMOptions() {
+  if (mllvm == "")
+    return std::vector<std::string>();
+
+  return split(mllvm);
+}
 
 // Support for model tag
 void setModelTag(const std::string &str) { modelTag = str; }
