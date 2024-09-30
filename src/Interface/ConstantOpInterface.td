@@ -29,7 +29,7 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
       InterfaceMethod<"Get the constant value from value attribute. ",
           "::mlir::ArrayRef<char>", "getBuffer", (ins )
       >,
-      InterfaceMethod<"Get the size of the constant value.", 
+      InterfaceMethod<"Get the size of the constant value.",
           "uint64_t", "getBufferSize", (ins )
       >,
       InterfaceMethod<"Free the constant value retrieved from value "

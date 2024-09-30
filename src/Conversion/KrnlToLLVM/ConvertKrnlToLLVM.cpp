@@ -210,6 +210,16 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);
+  // `arith.maxnumf/arith.minnumf` can be replaced with
+  // `llvm.intr.maxnum/llvm.intr.minnum` by
+  // populateArithToLLVMConversionPatterns, or with `arith.cmpf` and
+  // `arith.select` by populateArithExpandOpsPatterns. Which is applied for
+  // depends on the order in which the pattterns are  applied. Currently, it
+  // should be replaced with `llvm.intr.maxnum/llvm.intr.minnum` because
+  // `arith.cmpf` and `arith.select do not work in float16 on ppc64le and cannot
+  // use SIMD, but currently there is no way to specify the order. From testing,
+  // following two line generates expected replacement We need to consider to
+  // specify the order, but we use this workaround for now.
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
@@ -478,9 +488,9 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       return WalkResult::advance();
 
     // Ignore constants of bool.
-    // For an unknown reason, enabling constants of bool caused segfault in
-    // the IBM granite.20B model (The model with KV cache) at 1265 input
-    // tokens. See issue https://github.com/onnx/onnx-mlir/issues/2713.
+    // For an unknown reason, enabling constants of bool caused segfault in the
+    // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
+    // See issue https://github.com/onnx/onnx-mlir/issues/2713.
     if (llvm::cast<MemRefType>(op.getResult().getType())
             .getElementType()
             .isInteger(1))

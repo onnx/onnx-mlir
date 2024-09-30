@@ -550,8 +550,7 @@ def ZLowConvertF32ToDLF16VectorOp:ZLow_Op<"vec_f32_to_dlf16", [Pure]> {
 
 def ZLowStickifiedConstantOp:ZLow_Op<"stickifiedConstant", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<ConstantOpInterface>]> {
-// def ZLowStickifiedConstantOp:ZLow_Op<"stickifiedConstant", [MemRefsNormalizable]> {
-  let summary = "ZLow Stickified Constant operation";
+  let summary = "ZLow Stickified Constant operation.";
   let description = [{
 
   }];

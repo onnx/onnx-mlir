@@ -862,6 +862,9 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let summary = "ZHigh Stickified Constant operation";
   let description = [{
     This operator produces a constant tensor to store stickified data.
+    `value` attribute has original constant or stickified constant.
+    `stickified` attribute indicates the `value` is already stickified or not.
+    `allzero` attribute indicates the `value` will be all zero or not.
     Stickified data is opaque and must be 4K-aligned. One who produces
     the stickified data must make sure its size in bytes consistent with
     the output tensor's size.
