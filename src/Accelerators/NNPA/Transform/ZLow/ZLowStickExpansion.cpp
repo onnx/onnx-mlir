@@ -198,6 +198,7 @@ public:
                 const int64_t unrollVL = 4;
                 const int64_t totVL = unrollVL * archVL;
                 assert(totVL <= 64 && "bad unroll");
+                create.krnl.printf("unsitckify: full 64 stick\n");
                 create.scf.forLoop(litZero.getValue(), lit64.getValue(), totVL,
                     [&](const SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
@@ -247,6 +248,7 @@ public:
                     [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
+                      create.krnl.printf("unsitckify: totVL val\n");
                       Value loopIndex = loopInd[0];
                       IndexExpr l = DimIE(loopIndex);
                       // Load f16 values from input via reinterpreted data tile.
@@ -285,6 +287,7 @@ public:
                     [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
+                      create.krnl.printf("unsitckify: 1 val\n");
                       Value loopIndex = loopInd[0];
                       IndexExpr l = DimIE(loopIndex);
                       // Load converted value.
