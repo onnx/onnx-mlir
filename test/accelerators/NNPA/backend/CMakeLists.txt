@@ -366,7 +366,7 @@ set(NNPA_TEST_LIST
     test_inception_v1_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     test_resnet50_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     test_shufflenet_cpu,zdnn_matmul_op_ext,NO_DYNAMIC_SHAPE_TEST
-    # test_squeezenet_cpu,zdnn_conv # got NaN results
+    test_squeezenet_cpu,zdnn_conv,NO_DYNAMIC_SHAPE_TEST # got NaN results
     test_vgg19_cpu,zdnn_conv,NO_DYNAMIC_SHAPE_TEST
 )
 set(ENV_TEST_CASE_BY_USER "")
