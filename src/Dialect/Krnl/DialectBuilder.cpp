@@ -349,6 +349,16 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
       alignment.value_or(nullptr));
 }
 
+//===----------------------------------------------------------------------===//
+// Math style functions.
+
+Value KrnlBuilder::round(Value input) const {
+  return b().create<KrnlRoundOp>(loc(), input.getType(), input);
+}
+
+//===----------------------------------------------------------------------===//
+// C library functions.
+
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
   MultiDialectBuilder<MathBuilder> create(*this);
   Value zero = create.math.constantIndex(0);

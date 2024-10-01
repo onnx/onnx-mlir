@@ -567,6 +567,17 @@ def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
   }];
 }
 
+def KrnlRoundOp : Op<Krnl_Dialect, "round"> {
+  let summary = "Krnl round (to nearest even) operation";
+  let description = [{
+    Krnl round to nearest even operation.  Accept scalar or vector float values.
+    Vector must be 1D of a size that is a multiple of the hardware vector size.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+}
+
 def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let summary = "Krnl erf scalar operation";
   let description = [{
