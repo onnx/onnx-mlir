@@ -103,9 +103,6 @@ def IsMatMulIntegerRhsZero: Constraint<
 def SatisfiesExpansionBound: Constraint<
   CPred<"satisfiesExpansionBound($_self)">>;
 
-def SatisfiesMinLessThanMaxRequirement: Constraint<
-  CPred<"satisfiesMinLessThanMaxRequirement(cast<mlir::ShapedType>($0.getType()), $1, $2)">>;
-
 class IsNotDisabled<string name>: Constraint<
   CPred<"isNotDisabled(\"" # name # "\")">>;
 
@@ -119,11 +116,11 @@ class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
 // Creation helpers:
 
 def CreateMaximumValueForClip: NativeCodeCall<
-  "CreateMaximumValueForClip($_builder, cast<mlir::ShapedType>($0.getType()), $1)"
+  "createMaximumValueForClip($_builder, cast<mlir::ShapedType>($0.getType()), $1)"
 >;
 
 def CreateMinimumValueForClip: NativeCodeCall<
-  "CreateMinimumValueForClip($_builder, cast<mlir::ShapedType>($0.getType()), $1)"
+  "createMinimumValueForClip($_builder, cast<mlir::ShapedType>($0.getType()), $1)"
 >;
 
 def CreateONNXMinOp : NativeCodeCall<"$_builder.create<ONNXMinOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
@@ -852,7 +849,6 @@ def ClipConstProp : NamedPat<"ClipConstProp",
     // Clip constraints
     [(IsFromDenseONNXConstantOp:$input),
      (IsFromDenseONNXConstantOpOrNone:$min), (IsFromDenseONNXConstantOpOrNone:$max),
-     (SatisfiesMinLessThanMaxRequirement $input, $min, $max),
      (SatisfiesExpansionBound:$clipOp)]>;
 
 //===----------------------------------------------------------------------===//
