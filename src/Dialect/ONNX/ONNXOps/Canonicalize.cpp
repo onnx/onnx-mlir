@@ -321,6 +321,31 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
   return true;
 }
 
+// Check if Reshape with allowzero == 1 can be replaced by
+// another one with allowzero == 0. Conditions:
+// - If no value in the 'shape' input is set to zero.
+bool isConstantOpWithNoZeroElements(Value constVal) {
+  if (!isDenseONNXConstant(constVal))
+    return false;
+
+  ONNXConstantOp constOp = constVal.getDefiningOp<ONNXConstantOp>();
+  DenseElementsAttr intElemsAttr;
+  if (auto elms =
+          dyn_cast<mlir::DenseIntElementsAttr>(constOp.getValueAttr())) {
+    intElemsAttr = elms;
+  } else if (auto elms = dyn_cast<mlir::DisposableElementsAttr>(
+                 constOp.getValueAttr())) {
+    intElemsAttr = dyn_cast_or_null<mlir::DenseIntElementsAttr>(
+        elms.toDenseElementsAttr());
+  }
+  if (!intElemsAttr)
+    return false;
+
+  auto isZero = [](int64_t val) { return val == 0; };
+
+  return llvm::none_of(intElemsAttr.getValues<int64_t>(), isZero);
+}
+
 } // namespace onnx_mlir
 
 // =============================================================================
@@ -1734,6 +1759,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
+  result.insert<ReplaceReshapeAllowZeroByReshape>(context);
 }
 
 /// on the ONNXResizeOp.
@@ -1884,6 +1910,4 @@ void ONNXWhereOp::getCanonicalizationPatterns(
 
 // on the ONNXDequantizeLinearOp.
 void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<QuantizeDequantizePattern>(context);
-}
+    RewritePatternSet &result, MLIRContext *context) {}

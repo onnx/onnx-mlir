@@ -300,6 +300,11 @@ class IntegerAttrIsOf<int s> : Constraint<
   "IntegerAttr is of the given value"
   >;
 
+def isConstantOpWithNoZeroElements: Constraint<
+  CPred<"onnx_mlir::isConstantOpWithNoZeroElements($0)">,
+  "Checks this constant has no zero elements."
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -684,6 +689,15 @@ def RemoveIdentityReshapePattern2:  Pat<
   (replaceWithValue $val),
   // Check that val and out have the same static shape.
   [(IsIdentityReshape $out, $val)]>;
+
+def ReplaceReshapeAllowZeroByReshape:  Pat<
+  // Reshape with allowzero == 1
+  (ONNXReshapeOp:$out $val, $shape, $allowzero),
+  // Replace Reshape (allowzero == 1) with Reshape (allowzero == 0)
+  (ONNXReshapeOp $val, $shape, (GetNullIntegerAttr)),
+  // Check that allowzero == 1, and val and out have static and non zero dimensions.
+  [(IntegerAttrIsOf<1> $allowzero),
+   (isConstantOpWithNoZeroElements $shape)]>;
 
 def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
@@ -1076,17 +1090,6 @@ def AlwaysFalseWherePattern : Pat<
  (ONNXWhereOp (ONNXEqualOp (ONNXConcatOp $dims, $_), $negative_constant), $true_val, $false_val),
  (replaceWithValue $false_val),
  [(IsNegativeSplatConstant:$negative_constant), (AreAllDimSizes:$dims)]
->;
-
-//===----------------------------------------------------------------------===//
-// Canonicalization for ONNXDequantizeLinear
-//===----------------------------------------------------------------------===//
-
-// Convert QuantizeLinear+DequantizeLinear to Identity.
-def QuantizeDequantizePattern: Pat<
-  (ONNXDequantizeLinearOp (ONNXQuantizeLinearOp $x, $x_scale, $x_zeropoint, $x_axis, $x_saturate),
-                           $y_scale, $y_zeropoint, $y_axis),
-  (replaceWithValue $x)
 >;
 
 #endif // ONNX_REWRITE
