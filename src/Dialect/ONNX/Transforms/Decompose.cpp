@@ -332,15 +332,10 @@ bool hasStaticSpatialDims(Value v) {
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
-#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
   ONNXConvTransposeOp op =
       cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
-#else
-  // Disable the ONNXConvTransposeOp decomposition patterns.
-  return false;
-#endif
 }
 
 // Split on the specified axis. The length of each output is one.
@@ -1058,7 +1053,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         op, alpha, rankA, rankB);
   });
 
-#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   // ONNXtoStablehlo pass has own rewriting for ConvTranspose Op using
   // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
@@ -1071,7 +1065,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         });
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   }
-#endif
 #endif
 
   RewritePatternSet patterns(context);
