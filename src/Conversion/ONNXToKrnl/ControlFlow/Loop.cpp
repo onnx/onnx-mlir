@@ -100,7 +100,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     ValueRange loopDef = createKrnl.defineLoops(1);
     Value zero = create.math.constantIndex(0);
     createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           OpBuilder::InsertionGuard insertGuard(rewriter);
 
           Value condReg = createKrnl.load(cond);
@@ -281,7 +281,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           // Here loop is assumed to be executed at least once.
           Value firstElement =
               create.krnl.load(output, create.math.constantIndex(0));
-          SmallVector<mlir::Value, 4> allocParams;
+          SmallVector<Value, 4> allocParams;
           SmallVector<int64_t, 4> dims;
           dims.emplace_back(
               mlir::cast<MemRefType>(output.getType()).getShape()[0]);
@@ -303,7 +303,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           KrnlBuilder createKrnl(rewriter, loc);
           ValueRange loopDef = createKrnl.defineLoops(1);
           createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
-              [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
                 // Wrap with KrnlRegionOp because emitCopy uses the result of
                 // SeqExtract for loop bound.
                 KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
@@ -328,10 +328,10 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     return success();
   }
 
-  void allocateMemoryForVFinal(mlir::Location loc,
+  void allocateMemoryForVFinal(Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<mlir::Value> &outputs) const {
-    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<Value> &outputs) const {
+    auto loopOp = mlir::dyn_cast<ONNXLoopOp>(op);
     for (const auto &ioPair :
         llvm::zip(adaptor.getVInitial(), loopOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
@@ -356,11 +356,11 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     }
   }
 
-  void allocateMemoryForScanOutput(mlir::Location loc,
+  void allocateMemoryForScanOutput(Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<mlir::Value> &outputs,
+      ONNXLoopOpAdaptor adaptor, SmallVectorImpl<Value> &outputs,
       bool isWhile = false) const {
-    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+    auto loopOp = mlir::dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
       Type convertedType = typeConverter->convertType(opScanOutput.getType());
@@ -380,7 +380,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
         alloc = create.mem.alignedAlloc(memRefType);
       else {
         auto rankedScanOutTy = memRefType;
-        SmallVector<mlir::Value, 4> allocParams;
+        SmallVector<Value, 4> allocParams;
 
         // Check the loop accumulation dimension
         if (rankedScanOutTy.isDynamicDim(0)) {
@@ -452,11 +452,11 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     if (srcTy.getRank() > 0) {
       IndexExprScope childScope(create.krnl);
       ValueRange loopDef = create.krnl.defineLoops(srcTy.getRank());
-      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(src, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
             writeIV.insert(writeIV.end(), loopInd.begin(), loopInd.end());
@@ -481,7 +481,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
   // iteration variable
 
   bool isWhileLoop(Operation *op) const {
-    auto onnxLoopOp = dyn_cast<ONNXLoopOp>(op);
+    auto onnxLoopOp = mlir::dyn_cast<ONNXLoopOp>(op);
 
     // Check whether continue condition is modified or not
     // Code copied from src/Dialect/ONNX/Rewrite.cpp
@@ -517,7 +517,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
   LogicalResult rewriteWithSCFWhile(Operation *op, ValueRange operands,
       ConversionPatternRewriter &rewriter) const {
     Location loc = ONNXLoc<ONNXLoopOp>(op);
-    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+    auto loopOp = mlir::dyn_cast<ONNXLoopOp>(op);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 

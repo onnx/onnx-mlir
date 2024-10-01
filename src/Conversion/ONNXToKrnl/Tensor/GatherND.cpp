@@ -4,7 +4,7 @@
 
 //===---------------- GatherND.cpp - Lowering GatherND Op -----------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -32,10 +32,10 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
 
   // Debug function used to emit code to print the supplied 'indices'.
   static void printIndices(
-      StringRef title, const DimsExpr &indices, KrnlBuilder &createKrnl) {
+      StringRef title, const DimsExpr &indices, const KrnlBuilder &createKrnl) {
     llvm::Twine msg(title + ": (");
     createKrnl.printf(msg.str());
-    int64_t n = (int64_t)indices.size();
+    int64_t n = static_cast<int64_t>(indices.size());
     for (int64_t i = 0; i < n; ++i) {
       Value val = indices[i].getValue();
       createKrnl.printf(" ", val);
@@ -133,8 +133,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     // }
     // output.reshape(outputShape)
     ValueRange loopDef = create.krnl.defineLoops(2);
-    DimsExpr lbs(2, LiteralIndexExpr(0)),
-        ubs = {newIndicesShape[0], newIndicesShape[1]};
+    DimsExpr lbs(2, LitIE(0)), ubs = {newIndicesShape[0], newIndicesShape[1]};
 
     if (emitPrintStmts) {
       create.krnl.printTensor("reshapedIndices: ", reshapedIndices);
@@ -142,7 +141,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     }
 
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
 
@@ -154,7 +153,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
           // Access function for 'reshapedData'. The first index is equal to the
           // first loop index.
           DimsExpr reshapedDataAccessFct;
-          IndexExpr ind = SymbolIndexExpr(loopInd[0]);
+          IndexExpr ind = SymIE(loopInd[0]);
           reshapedDataAccessFct.emplace_back(ind);
 
           // The last index of the access function for 'reshapedIndices' is
@@ -162,7 +161,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
           // The loaded values from 'reshapedIndices' are the next set of
           // indices to push to the `reshapedDataAccessFct`.
           for (unsigned i = 0; i < indicesLastDim; ++i) {
-            IndexExpr ind = LiteralIndexExpr(i);
+            IndexExpr ind = LitIE(i);
             reshapedIndicesAccessFct.emplace_back(ind);
 
             if (emitPrintStmts)
@@ -185,7 +184,8 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             // When indices.shape[-1] is equal to (rank(data) - b) the
             // `reshapedDataAccessFct` computed so far has the same number of
             // indices as the rank of 'reshapedData'.
-            assert((int64_t)reshapedDataAccessFct.size() == reshapedDataRank &&
+            assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==
+                       reshapedDataRank &&
                    "Access function should have the same rank as reshapedData");
 
             if (emitPrintStmts)
@@ -212,10 +212,10 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             Value last = reshapedDataLastDimExpr.getValue();
             ValueRange innerLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(innerLoopDef, innerLoopDef, {zero}, {last},
-                [&](KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
-                  IndexExpr ind = SymbolIndexExpr(innerLoopInd[0]);
+                [&](const KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
+                  IndexExpr ind = SymIE(innerLoopInd[0]);
                   reshapedDataAccessFct.emplace_back(ind);
-                  assert((int64_t)reshapedDataAccessFct.size() ==
+                  assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==
                              reshapedDataRank &&
                          "Access function should have the same rank as "
                          "reshapedData");

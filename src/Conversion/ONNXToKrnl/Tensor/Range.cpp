@@ -150,7 +150,7 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
 
     // Acc index:
     SmallVector<IndexExpr, 4> accIndex;
-    accIndex.emplace_back(LiteralIndexExpr(0));
+    accIndex.emplace_back(LitIE(0));
 
     // Initialize accumulator with value:
     create.krnl.storeIE(loadedStart, acc, accIndex);
@@ -158,8 +158,8 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
     ValueRange loopDef = create.krnl.defineLoops(1);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(alloc, ubs);
-    create.krnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)}, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+    create.krnl.iterateIE(loopDef, loopDef, {LitIE(0)}, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Emit body of the loop:
           // output[i] = start + (i * delta);
           // Read value:
@@ -167,7 +167,7 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
 
           // Store result:
           SmallVector<IndexExpr, 4> resultIndices;
-          resultIndices.emplace_back(DimIndexExpr(loopInd[0]));
+          resultIndices.emplace_back(DimIE(loopInd[0]));
           createKrnl.storeIE(result, alloc, resultIndices);
 
           // Increment result:

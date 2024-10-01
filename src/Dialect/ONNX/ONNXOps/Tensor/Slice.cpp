@@ -4,7 +4,7 @@
 
 //===------------------ Slice.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -47,7 +47,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
       int64_t axis = val.getLiteral();
       if (axis < 0)
         axis += dataRank;
-      if (!(axis >= 0 && axis < (int64_t)dataRank))
+      if (!(axis >= 0 && axis < static_cast<int64_t>(dataRank)))
         return op->emitError("Axes contains an out-of-bound index");
       axesIntLit.emplace_back(axis);
     }
@@ -126,8 +126,8 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     if (steps[i].isUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we
       // are fine).
-      starts[i] = LiteralIndexExpr(0);
-      steps[i] = LiteralIndexExpr(1);
+      starts[i] = LitIE(0);
+      steps[i] = LitIE(1);
       DimIndexExpr dimInput = createIE->getShapeAsDim(data, i);
       ends[i] = dimInput;
       outputDims[i] = dimInput;
@@ -163,7 +163,8 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (!isNoneValue(axes) && !getONNXConstantOp(axes))
     return success();
 
-  const auto startsType = dyn_cast<RankedTensorType>(getStarts().getType());
+  const auto startsType =
+      mlir::dyn_cast<RankedTensorType>(getStarts().getType());
   assert(startsType != nullptr && "starts type is not a RankedTensorType");
   auto startsDim = startsType.getShape()[0];
   {
@@ -175,7 +176,7 @@ LogicalResult ONNXSliceOp::inferShapes(
     // If axes is not specified, default to [0, ..., ndim-1]
     if (isNoneValue(axes)) {
       SmallVector<int64_t, 1> vals = {};
-      for (size_t s = 0; s < (size_t)startsDim; ++s)
+      for (size_t s = 0; s < static_cast<size_t>(startsDim); ++s)
         vals.emplace_back(s);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));

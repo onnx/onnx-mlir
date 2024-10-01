@@ -69,10 +69,10 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     //     output[indices[idx]] = updates[idx]
     //
     ValueRange loopDef = create.krnl.defineLoops(updatesRank);
-    DimsExpr lbs(updatesRank, LiteralIndexExpr(0)), ubs;
+    DimsExpr lbs(updatesRank, LitIE(0)), ubs;
     create.krnlIE.getShapeAsDims(updates, ubs);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
 
@@ -91,15 +91,15 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
           DimsExpr outputAccessFct;
           for (unsigned i = 0; i < dataRank; ++i) {
             if (i < indicesRank - 1) {
-              IndexExpr ind = LiteralIndexExpr(i);
+              IndexExpr ind = LitIE(i);
               DimsExpr indicesAccessFct(indicesAccessFctFirst);
               indicesAccessFct.emplace_back(ind);
               Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
               IndexExpr index = NonAffineIndexExpr(indexVal);
               outputAccessFct.emplace_back(index);
             } else {
-              IndexExpr index = SymbolIndexExpr(
-                  loopInd[std::min<unsigned>(i, loopInd.size() - 1)]);
+              IndexExpr index =
+                  SymIE(loopInd[std::min<unsigned>(i, loopInd.size() - 1)]);
               outputAccessFct.emplace_back(index);
             }
           }

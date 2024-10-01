@@ -54,7 +54,7 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
     if (isNoneValue(triluOp.getK()))
       k = create.math.constantIndex(0);
     else
-      k = create.math.castToIndex(create.krnl.load(adaptor.getK(), {}));
+      k = create.math.castToIndex(create.krnl.load(adaptor.getK()));
 
     // Insert an allocation and deallocation for the result of this operation.
     SmallVector<IndexExpr, 4> ubs;
@@ -63,9 +63,9 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
 
     // Main loop.
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr> lbs(rank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
               createKrnl);
           Value i = create.math.add(k, loopInd[rank - 2]);

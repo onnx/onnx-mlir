@@ -126,8 +126,8 @@ struct ONNXLayoutTransformOpLowering
     }
 
     //  Outer loop (E1 iterates over tiles of 64 elements).
-    create.krnl.iterateIE(
-        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
+    create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
+        [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl);
           DimsExpr outerIndices;
@@ -154,7 +154,7 @@ struct ONNXLayoutTransformOpLowering
             create.krnl.memcpy(alloc, input, len, allocOffset, inputOffset);
           } else {
             // Compute if we have a last tile.
-            IndexExpr modLit = LiteralIndexExpr(modVal);
+            IndexExpr modLit = LitIE(modVal);
             IndexExpr isFull =
                 create.krnlIE.isTileFull(memAF[E1], modLit, SymIE(ub1));
             IndexExpr isFullLogical = isFull >= 0;
@@ -162,13 +162,13 @@ struct ONNXLayoutTransformOpLowering
                 // Condition
                 isFullLogical.getValue(),
                 // Then (is full).
-                [&](SCFBuilder b) {
+                [&](const SCFBuilder b) {
                   MDBuilder create(b);
                   create.krnl.memcpy(
                       alloc, input, len, allocOffset, inputOffset);
                 },
                 // Else, we don't have a full tile.
-                [&](SCFBuilder b) {
+                [&](const SCFBuilder b) {
                   MDBuilder create(b);
                   IndexExprScope middleScope(b, &outerScope);
                   IndexExpr tripCount = SymIE(ub1) - SymIE(memAF[E1]);
@@ -218,7 +218,7 @@ struct ONNXLayoutTransformOpLowering
     IndexExprScope outerScope(create.krnl);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(data, ubs);
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
 
     // Insert an allocation and deallocation for the result of this
     // operation.
@@ -263,7 +263,7 @@ struct ONNXLayoutTransformOpLowering
       }
     }
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           // Simply copy the input into the output.
           Value val = createKrnl.load(data, indices);
           createKrnl.store(val, alloc, indices);

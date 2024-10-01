@@ -1055,15 +1055,4 @@ def AlwaysFalseWherePattern : Pat<
  [(IsNegativeSplatConstant:$negative_constant), (AreAllDimSizes:$dims)]
 >;
 
-//===----------------------------------------------------------------------===//
-// Canonicalization for ONNXDequantizeLinear
-//===----------------------------------------------------------------------===//
-
-// Convert QuantizeLinear+DequantizeLinear to Identity.
-def QuantizeDequantizePattern: Pat<
-  (ONNXDequantizeLinearOp (ONNXQuantizeLinearOp $x, $x_scale, $x_zeropoint, $x_axis, $x_saturate),
-                           $y_scale, $y_zeropoint, $y_axis),
-  (replaceWithValue $x)
->;
-
 #endif // ONNX_REWRITE

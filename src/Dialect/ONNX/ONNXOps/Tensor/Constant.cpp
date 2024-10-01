@@ -50,9 +50,9 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
 std::vector<Type> ONNXConstantOp::resultTypeInference() {
   ShapedType type;
   if (auto attr = getValueAttr()) {
-    type = cast<ElementsAttr>(attr).getShapedType();
+    type = mlir::cast<ElementsAttr>(attr).getShapedType();
   } else if (auto attr = getSparseValueAttr()) {
-    type = cast<ElementsAttr>(attr).getShapedType();
+    type = mlir::cast<ElementsAttr>(attr).getShapedType();
   } else if (auto attr = getValueFloatAttr()) {
     type = RankedTensorType::get({}, FloatType::getF32(getContext()));
   } else if (auto attr = getValueFloatsAttr()) {

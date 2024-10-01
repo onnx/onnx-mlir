@@ -70,7 +70,7 @@ bool valueFromZTensor(Value tensor) {
     return valueFromZTensor(op->getOperand(0));
 
   // PadOp
-  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
+  if (auto padOp = mlir::dyn_cast<ONNXPadOp>(op)) {
     Value padVal = padOp.getConstantValue();
     // Only support default constant value that is 0 at this moment.
     if (isNoneValue(padVal))
@@ -96,7 +96,7 @@ public:
     Type inputElementType = getElementType(input.getType());
 
     // Only clip if the input is in float > 16 bit.
-    auto floatType = dyn_cast<FloatType>(inputElementType);
+    auto floatType = mlir::dyn_cast<FloatType>(inputElementType);
     if (!floatType)
       return failure();
     if (floatType.getWidth() <= 16)

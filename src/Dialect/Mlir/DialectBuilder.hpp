@@ -92,67 +92,82 @@ struct MathBuilder final : DialectBuilder {
 
   // Support for vectors: we provide queries that work regardless of if we have
   // (1) a scalar or (2) a vector of a basic element type.
+  static bool isVector(mlir::Value val);
   static bool isVector(mlir::Type type);
   // The method belows ignore the vectors part of the type to provide answer on
   // the basic element types alone.
-  static bool isIntegerWithVector(mlir::Type elementOrVectorType);
-  static bool isUnsignedIntegerWithVector(mlir::Type elementOrVectorType);
-  static bool isFloatWithVector(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorInteger(mlir::Value val);
+  static bool isScalarOrVectorInteger(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorUnsignedInteger(mlir::Value val);
+  static bool isScalarOrVectorUnsignedInteger(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorFloat(mlir::Value val);
+  static bool isScalarOrVectorFloat(mlir::Type elementOrVectorType);
   // Return the basic element type regardless of if we are given (1) a scalar or
   // (2) a vector of a basic element type.
-  static mlir::Type elementTypeWithVector(mlir::Type elementOrVectorType);
+  static mlir::Type elementTypeOfScalarOrVector(mlir::Value val);
+  static mlir::Type elementTypeOfScalarOrVector(mlir::Type elementOrVectorType);
   // Return a type of the same vector shape as vectorType with a basic element
-  // type of elementType. When vectorType is null, then the returned type is
-  // simply a scalar of elementType.
+  // type of elementType. When vectorType is not a vector, then the returned
+  // type is simply a scalar of elementType. ElementType should not be a scalar
+  // type.
   static mlir::Type getTypeWithVector(
-      mlir::VectorType vectorType, mlir::Type elementType);
+      mlir::Type vectorType, mlir::Type elementType);
+
+  // "B" below indicates that the operation will splat scalar values if one of
+  // the input value is itself a vector.
+
+  // "B" below indicates that the operation will splat scalar values if one of
+  // the input value is itself a vector.
 
   mlir::Value abs(mlir::Value val) const;
-  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;     // Int only.
-  mlir::Value ceil(mlir::Value val) const;                      // Float only.
-  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
-  mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
-  mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;     // B.
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;    // B/Int only.
+  mlir::Value ceil(mlir::Value val) const;                     // Float only.
+  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
+  mlir::Value clip(mlir::Value val, mlir::Value lb, mlir::Value ub) const; // B.
+  mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // B/Float only.
+  mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;      // B.
   mlir::Value erf(mlir::Value val) const;
   mlir::Value exp(mlir::Value val) const;                       // Float only.
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
-  mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
-  mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
-  mlir::Value log(mlir::Value val) const;  // Float only.
-  mlir::Value log2(mlir::Value val) const; // Float only.
-  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
+  mlir::Value fma(
+      mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const; // B.
+  mlir::Value log(mlir::Value val) const;                       // Float only.
+  mlir::Value log2(mlir::Value val) const;                      // Float only.
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;      // B.
   mlir::Value neg(mlir::Value val) const;
-  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
-  mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
-  mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sqrt(mlir::Value val) const; // Float only.
-  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // B/Int only.
+  mlir::Value pow(mlir::Value base, mlir::Value exp) const; // B/Float only.
+  mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value round(mlir::Value) const;                     // Float only.
+  mlir::Value sqrt(mlir::Value val) const;                  // Float only.
+  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value tanh(mlir::Value val) const;                  // Float only.
-  mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
 
   mlir::Value select(
-      mlir::Value cmp, mlir::Value trueVal, mlir::Value valseVal) const;
-  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;
+      mlir::Value cmp, mlir::Value trueVal, mlir::Value valseVal) const; // B.
+  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;               // B.
   // Signed versions (index/signless/signed int or float)
-  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
-  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
-  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
-  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
+  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
+  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
+  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
   // Unsigned versions
-  mlir::Value ugt(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
-  mlir::Value uge(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
-  mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
-  mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value ugt(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
+  mlir::Value uge(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
+  mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
+  mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
 
-  mlir::Value min(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value max(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value min(mlir::Value lhs, mlir::Value rhs) const; // B.
+  mlir::Value max(mlir::Value lhs, mlir::Value rhs) const; // B.
 
   mlir::Value constant(mlir::Type type, double val) const;
   mlir::Value constantIndex(int64_t val) const;
@@ -173,7 +188,7 @@ struct MathBuilder final : DialectBuilder {
 
   // Cast handle bool/int/float/index elementary types. Do not convert
   // signed/index to unsigned.
-  mlir::Value cast(mlir::Type destType, mlir::Value val) const;
+  mlir::Value cast(mlir::Type destType, mlir::Value val) const; // B.
   mlir::Value castToIndex(mlir::Value val) const;
 
   // Add indexOffsets to the least significant indices. So if indices are (i, j,
@@ -184,6 +199,8 @@ struct MathBuilder final : DialectBuilder {
   void addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
       mlir::ValueRange offsets,
       llvm::SmallVectorImpl<mlir::Value> &computedIndices) const;
+  // Perform splat to match (see below), accepting up to 3 values at most.
+  void splatToMatch(llvm::SmallVectorImpl<mlir::Value> &vals) const;
 
 private:
   mlir::Value createArithCmp(
@@ -192,6 +209,12 @@ private:
       mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpFPredicate pred) const;
   mlir::Value castToSignless(mlir::Value source, int64_t width) const;
   mlir::Value castToUnsigned(mlir::Value source, int64_t width) const;
+
+  // If any of the first, second, or third values are vector types, splat the
+  // other ones to the same VL. Return true if one or more values were splatted.
+  bool splatToMatch(mlir::Value &first, mlir::Value &second) const;
+  bool splatToMatch(
+      mlir::Value &first, mlir::Value &second, mlir::Value &third) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -231,6 +254,18 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
+  // Common load/store interface (krnl/affine/memref)
+  // Add offsets (if any) to the least significant memref dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  void storeIE(mlir::Value val, mlir::Value memref,
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+
   // Info: get static and dynamic size of memory in number of elementary type.
   // Array of vector types are not supported at this time.
   //
@@ -243,9 +278,11 @@ struct MemRefBuilder final : DialectBuilder {
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
       int64_t range = 1000) const;
-  bool getStaticAndDynamicMemSize(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-      IndexExpr &dynSize, int64_t range = 1000) const;
+  bool getStaticAndDynamicMemSize(mlir::MemRefType type, DimsExprRef dims,
+      int64_t &staticSize, IndexExpr &dynSize, int64_t range = 1000) const;
+  // Same as above, but does not track of dynamic size.
+  static bool getStaticMemSize(
+      mlir::MemRefType type, int64_t &staticSize, int64_t range = 1000);
 
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
@@ -254,8 +291,7 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
   mlir::memref::AllocOp alloc(
       mlir::Value operandOfSameType, mlir::MemRefType type) const;
-  mlir::memref::AllocOp alloc(
-      mlir::MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const;
+  mlir::memref::AllocOp alloc(mlir::MemRefType type, DimsExprRef dims) const;
 
   // Alloc for static shapes with alignment.
   // Minimum alignment is gDefaultAllocAlign.
@@ -266,15 +302,14 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::ValueRange dynSymbols, int64_t align = defaultAlign) const;
   mlir::memref::AllocOp alignedAlloc(mlir::Value operandOfSameType,
       mlir::MemRefType type, int64_t align = defaultAlign) const;
-  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims,
+  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type, DimsExprRef dims,
       int64_t align = defaultAlign) const;
 
-  // Alloc for shapes with alignment and padding for safe full SIMD operations.
-  // Padding may be added so that every values in the shape may safely be
-  // computed by a SIMD operation (or possibly multiple ones when simdUnroll>1).
-  // Minimum alignment is gDefaultAllocAlign.
-  // Operation does not support layouts at this time.
+  // Alloc for shapes with alignment and padding for safe full SIMD
+  // operations. Padding may be added so that every values in the shape may
+  // safely be computed by a SIMD operation (or possibly multiple ones if
+  // unrollSIMD>1). Minimum alignment is gDefaultAllocAlign. Operation does
+  // not support layouts at this time.
   //
   // Alloc for static shapes with alignment and SIMD padding.
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type, int64_t VL = 1,
@@ -287,13 +322,12 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::MemRefType type, int64_t VL = 1,
       int64_t align = defaultAlign) const;
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdVLUnroll = 1,
-      int64_t align = defaultAlign) const;
+      DimsExprRef dims, int64_t VL = 1, int64_t align = defaultAlign) const;
 
-  // The alloca instruction allocates memory on the stack frame of the currently
-  // executing function, to be automatically released when this function returns
-  // to its caller. It is strongly suggested to place alloca instructions
-  // outside of a loop.
+  // The alloca instruction allocates memory on the stack frame of the
+  // currently executing function, to be automatically released when this
+  // function returns to its caller. It is strongly suggested to place alloca
+  // instructions outside of a loop.
   mlir::memref::AllocaOp alloca(mlir::MemRefType type) const;
   mlir::memref::AllocaOp alignedAlloca(
       mlir::MemRefType type, int64_t align = defaultAlign) const;
@@ -305,44 +339,39 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::Value valToReshape, mlir::Value outputShapeStoredInMem) const;
   // Reshape to dimensions passed by destDims. Will create data-structure to
   // hold the dims, save into it, and the perform the actual reshape.
-  mlir::memref::ReshapeOp reshape(llvm::SmallVectorImpl<IndexExpr> &outputDims,
-      mlir::Value valToReshape) const;
-  // Flatten innermost dimensions of a MemRef. User provide the value to reshape
-  // (valToReshape), its dims (dims), and the number of innermost loops to
-  // collapse (dimsToFlatten). The function computes the new flattened
-  // dimensions (flattenDims) and return the flattened value. Values of
-  // dimsToFlatten are in the [1, rank of input] range. Legal only on types
+  mlir::memref::ReshapeOp reshape(
+      DimsExpr &outputDims, mlir::Value valToReshape) const;
+  // Flatten innermost dimensions of a MemRef. User provide the value to
+  // reshape (valToReshape), its dims (dims), and the number of innermost
+  // loops to collapse (dimsToFlatten). The function computes the new
+  // flattened dimensions (flattenDims) and return the flattened value. Values
+  // of dimsToFlatten are in the [1, rank of input] range. Legal only on types
   // with identity layouts.
-  mlir::Value reshapeToFlatInnermost(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &dims,
-      llvm::SmallVectorImpl<IndexExpr> &flattenDims,
-      int64_t dimsToFlatten) const;
-  // Flatten to a 2D MemRef, with outer dim including outermost dim to axis -1,
-  // and inner dim including the remaining innermost dims. Values of axis are
-  // in the [1, rank of input) range. Negative axis values are taken from the
-  // back. Legal only on types with identity layouts.
-  mlir::Value reshapeToFlat2D(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &dims,
-      llvm::SmallVectorImpl<IndexExpr> &flattenDims, int64_t axis) const;
+  mlir::Value reshapeToFlatInnermost(mlir::Value valToReshape, DimsExprRef dims,
+      DimsExpr &flattenDims, int64_t dimsToFlatten) const;
+  // Flatten to a 2D MemRef, with outer dim including outermost dim to axis
+  // -1, and inner dim including the remaining innermost dims. Values of axis
+  // are in the [1, rank of input) range. Negative axis values are taken from
+  // the back. Legal only on types with identity layouts.
+  mlir::Value reshapeToFlat2D(mlir::Value valToReshape, DimsExprRef dims,
+      DimsExpr &flattenDims, int64_t axis) const;
   // Perform the reverse operation; given a flattened value, unflatten it by
   // giving the function its original unflattened dimensions (outputDims) and
   // type (outputType). Legal only on types with identity layouts.
   mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &outputDims,
-      mlir::MemRefType outputType) const;
+      DimsExpr &outputDims, mlir::MemRefType outputType) const;
 
   // Casts.
   mlir::memref::CastOp cast(
       mlir::Value input, mlir::MemRefType outputType) const;
+  mlir::Value reinterpretCast(mlir::Value input, DimsExpr &outputDims) const;
   mlir::Value reinterpretCast(
-      mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
-  mlir::Value reinterpretCast(mlir::Value input, mlir::Value offset,
-      llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+      mlir::Value input, mlir::Value offset, DimsExpr &outputDims) const;
 
   // Does not support layouts at this time. Does only work for values that are
   // then loaded with affine or memref scalar load/store (MLIR limitations).
   mlir::Value collapseShape(mlir::Value input,
-      llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
+      mlir::ArrayRef<mlir::ReassociationIndices> reassociation);
 
   // Create a view of input value (<byte size>xi8) starting at byteOffset and
   // shaped by outputType.
@@ -351,38 +380,43 @@ struct MemRefBuilder final : DialectBuilder {
 
   // Create a subview of val.
   mlir::memref::SubViewOp subView(mlir::Value val,
-      llvm::SmallVectorImpl<int64_t> &offsets, // Offset for each val dims.
-      llvm::SmallVectorImpl<int64_t> &sizes,   // Sizes for each val dims.
-      llvm::SmallVectorImpl<int64_t> &strides) // Stride for each val dims.
+      mlir::ArrayRef<int64_t> offsets, // Offset for each val dims.
+      mlir::ArrayRef<int64_t> sizes,   // Sizes for each val dims.
+      mlir::ArrayRef<int64_t> strides) // Stride for each val dims.
       const;
 
   // Create a subview of val.
   mlir::memref::SubViewOp subView(mlir::MemRefType outputType, mlir::Value val,
-      llvm::SmallVectorImpl<int64_t> &offsets, // Offset for each val dims.
-      llvm::SmallVectorImpl<int64_t> &sizes,   // Sizes for each val dims.
-      llvm::SmallVectorImpl<int64_t> &strides) // Stride for each val dims.
+      mlir::ArrayRef<int64_t> offsets, // Offset for each val dims.
+      mlir::ArrayRef<int64_t> sizes,   // Sizes for each val dims.
+      mlir::ArrayRef<int64_t> strides) // Stride for each val dims.
       const;
 
   // Create a subview of val. Size of 1 => remove that dim.
   mlir::memref::SubViewOp subView(mlir::Value val,
-      llvm::SmallVectorImpl<IndexExpr> &offsets, // Offset for each val dims.
-      llvm::SmallVectorImpl<IndexExpr> &sizes,   // Sizes for each val dims.
-      llvm::SmallVectorImpl<IndexExpr> &strides) // Stride for each val dims.
+      mlir::ArrayRef<IndexExpr> offsets, // Offset for each val dims.
+      mlir::ArrayRef<IndexExpr> sizes,   // Sizes for each val dims.
+      mlir::ArrayRef<IndexExpr> strides) // Stride for each val dims.
       const;
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value dim(mlir::Value val, mlir::Value index) const;
 
-  void prefetchIE(mlir::Value memref, llvm::SmallVectorImpl<IndexExpr> &indices,
+  void prefetchIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices,
       bool isWrite, unsigned locality, bool isData = true);
   void prefetch(mlir::Value memref, mlir::ValueRange indices, bool isWrite,
       unsigned locality, bool isData = true);
+
+  // Queries about memory
+  static bool isNoneValue(mlir::Value value);
+  // Check if "innerDims" innermost dims are scalar (size 1).
+  static bool hasOneElementInInnermostDims(mlir::Value value, int64_t innerDim);
 
 private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
   void computeDynSymbols(
       mlir::MemRefType type, // Use type to determine dynamic dimensions.
-      llvm::SmallVectorImpl<IndexExpr> &dims, // Get dyn syms from index expr.
+      DimsExprRef dims,      // Get dyn syms from index expr.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
       const;
   void computeDynSymbols(
@@ -391,6 +425,34 @@ private:
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
       const;
 };
+
+//===----------------------------------------------------------------------===//
+// Functions definitions for SIMD methods (simdIterate & simdReduce)
+//===----------------------------------------------------------------------===//
+
+namespace impl {
+
+// For simdIterate: given a list of inputs, create one output value.
+template <class BUILDER>
+using SimdIterateBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
+
+// For simdReduce: take one input & one temp reduction value, and generate the
+// new reduction value.
+template <class BUILDER>
+using SimdReductionBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::Value inputVal, mlir::Value tmpVal, int64_t VL)>;
+
+// For simdReduce: take one temp simd reduction value, create a scalar
+// reduction, and possibly apply post processing to it (e.g. div by number of
+// elements).
+//
+// For simdReduce2D: only the post processing. Reduction is done before.
+template <class BUILDER>
+using SimdPostReductionBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::Value tmpVal, int64_t VL)>;
+
+} // namespace impl
 
 //===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF) Builder
@@ -402,19 +464,53 @@ struct SCFBuilder final : DialectBuilder {
   SCFBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~SCFBuilder() {}
 
-  /// Create an if then with optional else. Construct does not generate a result
-  /// (unlike some scf::if) and introduces the yields automatically.
-  void ifThenElse(mlir::Value cond,
-      mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
-      mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
-  // Create a for loop.
-  void forLoop(mlir::Value lowerBound, mlir::Value upperBound, int64_t step,
-      mlir::function_ref<void(SCFBuilder &, mlir::Value)> bodyFn) const;
-  // Create a parallel for loop.
-  void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
-      mlir::ValueRange steps,
-      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
+  /// Create an if then with optional else. Construct does not generate a
+  /// result (unlike some scf::if) and introduces the yields automatically.
+  using SCFThenElseBodyFn = mlir::function_ref<void(const SCFBuilder &)>;
+  void ifThenElse(mlir::Value cond, SCFThenElseBodyFn thenFn,
+      SCFThenElseBodyFn elseFn = nullptr) const;
+  // Common loop interface (krnl/affine/scf).
+  using SCFLoopBodyFn =
+      mlir::function_ref<void(const SCFBuilder &, mlir::ValueRange)>;
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
+      SCFLoopBodyFn bodyFn) const;
+  // Custom interface
+  void forLoop(
+      mlir::Value lb, mlir::Value ub, int64_t step, SCFLoopBodyFn bodyFn) const;
+  void parallelLoops(mlir::ValueRange lbs, mlir::ValueRange ubs,
+      mlir::ValueRange steps, SCFLoopBodyFn bodyFn) const;
+
   void yield() const;
+
+  // Common simd loop interface (krnl/affine/scf).
+  // For detailed description, see KrnlBuilder.hpp file.
+  using SCFSimdIterateBodyFn = impl::SimdIterateBodyFn<SCFBuilder>;
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<SCFSimdIterateBodyFn> simdIterateBodyList) const;
+
+  // For detailed description, see KrnlBuilder.hpp file.
+  using SCFSimdReductionBodyFn = impl::SimdReductionBodyFn<SCFBuilder>;
+  using SCFSimdPostReductionBodyFn = impl::SimdPostReductionBodyFn<SCFBuilder>;
+  void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<mlir::Value> initVals,
+      /* reduction function (simd or scalar) */
+      mlir::ArrayRef<SCFSimdReductionBodyFn> simdReductionBodyFnList,
+      /* post reduction function (simd to scalar + post processing)*/
+      mlir::ArrayRef<SCFSimdPostReductionBodyFn> simdPostReductionBodyFnList)
+      const;
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      SCFSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      SCFSimdPostReductionBodyFn postReductionBodyFn) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -431,30 +527,34 @@ struct VectorBuilder final : DialectBuilder {
   using F2 = std::function<mlir::Value(mlir::Value const, mlir::Value const)>;
   enum CombiningKind { ADD, MUL, MAX, MIN, AND, OR, XOR };
 
+  // Check if two types have compatible shapes (assuming that scalar will be
+  // splatted to the proper vector shape),
+  static bool compatibleShapes(const mlir::Type t1, const mlir::Type t2);
+  // Check that the two types have identical elementary types and shapes.
+  static bool compatibleTypes(const mlir::Type t1, const mlir::Type t2);
+
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
-  int64_t getMachineVectorLength(const mlir::Type &elementType) const;
-  int64_t getMachineVectorLength(const mlir::VectorType &vecType) const;
-  int64_t getMachineVectorLength(mlir::Value vecValue) const;
+  int64_t getArchVectorLength(const mlir::Type &elementType) const;
+  int64_t getArchVectorLength(const mlir::VectorType &vecType) const;
+  int64_t getArchVectorLength(mlir::Value vecValue) const;
 
-  // Vector load: memref is expected to be scalar, will load a vector's worth of
-  // values: e.g.
-  // %result = vector.load %base[%i, %j] : memref<100x100xf32>, vector<8xf32>.
+  // Vector load: memref is expected to be scalar, will load a vector's worth
+  // of values: e.g. %result = vector.load %base[%i, %j] :
+  // memref<100x100xf32>, vector<8xf32>.
+  // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
-      mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
-      mlir::ValueRange indices, mlir::ValueRange offsets) const;
+      mlir::ValueRange indices = {}, mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::VectorType vecType, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
   // Vector store: memref can be a scalar, will store the vector values.
-  void store(
-      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
+  // Add offsets (if any) to the least significant memref dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
 
   // Splat: a single value is copied.
   mlir::Value splat(mlir::VectorType vecType, mlir::Value val) const;
@@ -471,28 +571,13 @@ struct VectorBuilder final : DialectBuilder {
   mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value reduction(CombiningKind kind, mlir::Value value) const;
-  void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
+  void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
-  // Compute a suitable SIMD Vector length (which may be a multiple of the
-  // hardware vector length, up to maxSimdUnroll times). If the dims are too
-  // small, return 0 (no suitable simd). The collapsedInnermostLoops parameter
-  // indicates how many inner dimensions of the memref are considered for
-  // vectorization. If all of them are considered and padding is possible, then
-  // we can always generate SIMD code with the maxSIMD unroll factor. Otherwise,
-  // we must ensure that the cumulative static size (dynamic sizes are ignored
-  // here ) of the array is a multiple of the Vector Length associated with this
-  // type. If it is not, then no SIMD code gen is possible (return 0). If it is
-  // possible, return the largest SIMD unroll factor (starting at maxSimdUnroll)
-  // that divide the cumulative static size of the memref being collapsed for
-  // SIMD.
-  // simdLoopStaticTripCount: provide an estimation of the SIMD loop trip
-  // count. If runtime, return -1; if cannot simdize, return 0; if compile time
-  // (or a multiple of a compile time value): return that literal.
-  int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
-      mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
-      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
-      int64_t &simdLoopStaticTripCount) const;
+  // Insert and extract.
+  mlir::Value extractElement(mlir::Value vector, int64_t position) const;
+  mlir::Value insertElement(
+      mlir::Value vector, mlir::Value element, int64_t position) const;
 
 private:
   bool isPowerOf2(uint64_t num) const;
@@ -511,40 +596,71 @@ struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~GenericAffineBuilder() {}
 
-  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
-  mlir::Value loadIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
-      mlir::ValueRange offsets) const;
-
-  void store(
-      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
-  // When ranks of offsets<indices, add offsets to the least significant dims.
-  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
-      mlir::ValueRange offsets) const;
+  // Common load/store interface (krnl/affine/memref)
+  // Add offsets (if any) to the least significant memref dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
-      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
 
   mlir::Operation *prefetch(mlir::Value memref, mlir::AffineMap map,
       mlir::ValueRange indices, bool isWrite, unsigned localityHint,
       bool isDataCache = true);
 
-  void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
-      const;
-  void forIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
-      llvm::SmallVectorImpl<IndexExpr> &ubs,
-      llvm::SmallVectorImpl<int64_t> &steps,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+  // Common loop interface (krnl/affine/scf).
+  using GenericAffineLoopBodyFn =
+      mlir::function_ref<void(const GenericAffineBuilder &, mlir::ValueRange)>;
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
+      GenericAffineLoopBodyFn builderFn) const;
+
+  // Custom interface
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      GenericAffineLoopBodyFn builderFn) const; // Sequential only.
+  void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+      mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const;
+
+  // Common simd loop interface (krnl/affine/scf).
+  using GenericAffineSimdIterateBodyFn =
+      impl::SimdIterateBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<GenericAffineSimdIterateBodyFn> simdIterateBodyList) const;
+
+  using GenericAffineSimdReductionBodyFn =
+      impl::SimdReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  using GenericAffineSimdPostReductionBodyFn =
+      impl::SimdPostReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<mlir::Value> initVals,
+      /* reduction function (simd or scalar) */
+      mlir::ArrayRef<GenericAffineSimdReductionBodyFn> simdReductionBodyFnList,
+      /* post reduction function (simd to scalar + post processing)*/
+      mlir::ArrayRef<GenericAffineSimdPostReductionBodyFn>
+          simdPostReductionBodyFnList) const;
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      GenericAffineSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      GenericAffineSimdPostReductionBodyFn postReductionBodyFn) const;
 
   // This if then else construct has no arguments to the blocks.
-  void ifThenElse(IndexExprScope &scope,
-      llvm::SmallVectorImpl<IndexExpr> &conditions,
-      mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-      mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
-      const;
+  using GenericAffineThenElseBodyFn =
+      mlir::function_ref<void(const GenericAffineBuilder<LOAD_OP, STORE_OP> &)>;
+  void ifThenElseIE(IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
+      GenericAffineThenElseBodyFn thenFn,
+      GenericAffineThenElseBodyFn elseFn) const;
 
   // AffineApplyOp
   mlir::Value apply(mlir::AffineMap map, mlir::ValueRange operands) const;
@@ -552,13 +668,11 @@ struct GenericAffineBuilder final : DialectBuilder {
   void yield() const;
 
 private:
-  // Support for multiple forIE loops.
-  void recursionForIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
-      llvm::SmallVectorImpl<IndexExpr> &ubs,
-      llvm::SmallVectorImpl<int64_t> &steps,
+  // Support for multiple for loops.
+  void recursionForLoopsIE(mlir::ArrayRef<IndexExpr> lbs,
+      mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
       llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      GenericAffineLoopBodyFn builderFn) const;
 
   // Support for adding blocks.
   void appendToBlock(mlir::Block *block,
@@ -567,8 +681,8 @@ private:
 
 // Affine builder uses affine load and store for memory operations. A later
 // definition of AffineBuilderKrnlMem will use Krnl load and store for memory
-// operations. We recommend to use AffineBuilderKrnlMem when converting the Krnl
-// dialect into the affine dialect.
+// operations. We recommend to use AffineBuilderKrnlMem when converting the
+// Krnl dialect into the affine dialect.
 using AffineBuilder = GenericAffineBuilder<mlir::affine::AffineLoadOp,
     mlir::affine::AffineStoreOp>;
 
@@ -577,8 +691,9 @@ using AffineBuilder = GenericAffineBuilder<mlir::affine::AffineLoadOp,
 //===----------------------------------------------------------------------===//
 
 struct LLVMBuilder final : DialectBuilder {
-  using voidFuncRef = mlir::function_ref<void(LLVMBuilder &createLLVM)>;
-  using valueFuncRef = mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)>;
+  using voidFuncRef = mlir::function_ref<void(const LLVMBuilder &createLLVM)>;
+  using valueFuncRef =
+      mlir::function_ref<mlir::Value(const LLVMBuilder &createLLVM)>;
 
   LLVMBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
@@ -604,19 +719,20 @@ struct LLVMBuilder final : DialectBuilder {
 
   // BrOp
   void br(
-      llvm::ArrayRef<mlir::Value> destOperands, mlir::Block *destBlock) const;
+      mlir::ArrayRef<mlir::Value> destOperands, mlir::Block *destBlock) const;
 
   // CallOp
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
-      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
+      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs,
+      bool isVarArg = false) const;
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
-      mlir::FlatSymbolRefAttr funcSymbol,
-      mlir::ArrayRef<mlir::Value> inputs) const;
+      mlir::FlatSymbolRefAttr funcSymbol, mlir::ArrayRef<mlir::Value> inputs,
+      bool isVarArg = false) const;
 
   // CondBrOp
   void condBr(mlir::Value cond, mlir::Block *trueBlock,
-      llvm::ArrayRef<mlir::Value> trueOperands, mlir::Block *falseBlock,
-      llvm::ArrayRef<mlir::Value> falseOperands) const;
+      mlir::ArrayRef<mlir::Value> trueOperands, mlir::Block *falseBlock,
+      mlir::ArrayRef<mlir::Value> falseOperands) const;
 
   // ConstantOp
   mlir::Value constant(mlir::Type type, int64_t val) const;
@@ -628,15 +744,16 @@ struct LLVMBuilder final : DialectBuilder {
 
   // ExtractValueOp
   mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
-      llvm::ArrayRef<int64_t> position) const;
+      mlir::ArrayRef<int64_t> position) const;
 
-  // FuncOp
+  // FuncOp (assume non-variadic functions, otherwise add support like in
+  // seen in `call` in this file).
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type,
       bool createUniqueFunc = false) const;
 
   // GEPOp
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Type elemType,
-      mlir::Value base, llvm::ArrayRef<mlir::LLVM::GEPArg> indices) const;
+      mlir::Value base, mlir::ArrayRef<mlir::LLVM::GEPArg> indices) const;
 
   // GlobalOp
   mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
@@ -653,7 +770,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // InsertValueOp
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
-      mlir::Value val, llvm::ArrayRef<int64_t> position) const;
+      mlir::Value val, mlir::ArrayRef<int64_t> position) const;
 
   // Inttoptr
   mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
@@ -705,7 +822,7 @@ struct LLVMBuilder final : DialectBuilder {
   // Get or insert a function declaration at the beginning of the module.
   mlir::FlatSymbolRefAttr getOrInsertSymbolRef(mlir::ModuleOp module,
       llvm::StringRef symName, mlir::Type resultType,
-      llvm::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
+      mlir::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
 
   /// Generate code that looks like "if then with optional else" at LLVM.
   /// The following prototype code will be generated:
@@ -733,6 +850,12 @@ struct LLVMBuilder final : DialectBuilder {
     }
     return symbol + postfix;
   }
+
+private:
+  // Support for calling vararg functions; add the necessary type.
+  void handleVarArgCall(mlir::LLVM::CallOp &callOp,
+      mlir::ArrayRef<mlir::Type> resultTypes,
+      mlir::ArrayRef<mlir::Value> inputs) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -862,7 +985,9 @@ struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 };
 
 // Include template implementations.
+#ifndef ONNX_MLIR_DIALECT_BUILDER_MLIR_INC
 #include "DialectBuilder.hpp.inc"
+#endif
 
 } // namespace onnx_mlir
 #endif

@@ -47,9 +47,9 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope loopScope(createKrnl);
 
           // Compute indices for the load and store op.
@@ -58,8 +58,8 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
           SmallVector<IndexExpr, 4> loadIndices, storeIndices;
           for (int ii = 0; ii < outputRank; ++ii) {
             DimIndexExpr inductionIndex(loopInd[ii]);
-            IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
-            IndexExpr step = SymbolIndexExpr(shapeHelper.steps[ii]);
+            IndexExpr start = SymIE(shapeHelper.starts[ii]);
+            IndexExpr step = SymIE(shapeHelper.steps[ii]);
             loadIndices.emplace_back((step * inductionIndex) + start);
             storeIndices.emplace_back(inductionIndex);
           }

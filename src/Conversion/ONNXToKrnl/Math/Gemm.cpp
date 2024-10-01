@@ -64,7 +64,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     ValueRange loopDef = create.krnl.defineLoops(3);
     SmallVector<Value, 2> outerLoopDef{loopDef[0], loopDef[1]};
     SmallVector<Value, 1> innerLoopDef{loopDef[2]};
-    SmallVector<IndexExpr, 3> loopLbs(3, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 3> loopLbs(3, LitIE(0));
     IndexExpr outerUb0 = shapeHelper.getOutputDims()[0];
     IndexExpr outerUb1 = shapeHelper.getOutputDims()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
@@ -83,7 +83,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       }
     }
     create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
           // Create temp, single scalar, no need for default alignment.
@@ -92,7 +92,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           create.krnl.store(zeroVal, red);
           // Inner loop.
           create.krnl.iterate({}, innerLoopDef, {}, {},
-              [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
+              [&](const KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value i(outerIndices[0]), j(outerIndices[1]), k(innerIndex[0]);
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);
@@ -122,7 +122,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
               DimIndexExpr dim(shapeHelper.cDims[x]);
               cAccess.emplace_back(
-                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
+                  IndexExpr::select(dim > 1, DimIE(outerIndices[x]), 0)
                       .getValue());
             }
             Value c = create.krnl.load(adaptor.getC(), cAccess);
@@ -250,7 +250,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       }
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
-          {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
+          {I, J, K},
+          [&](const KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
             // If parallel, allocate on stack inside the parallel region.
             if (enableParallel) {
@@ -261,7 +262,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
             }
             createKrnl.copyToBuffer(rBuff, R, {i1, j1}, zeroVal, false);
             createKrnl.iterateIE({}, {kk1}, {}, {},
-                [&](KrnlBuilder &createKrnl, ValueRange k1_index) {
+                [&](const KrnlBuilder &createKrnl, ValueRange k1_index) {
                   Value k1(k1_index[0]);
                   if (aTrans)
                     createKrnl.copyToBuffer(aBuff, A, {k1, i1}, zeroVal, true);
@@ -272,7 +273,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
                   else
                     createKrnl.copyToBuffer(bBuff, B, {k1, j1}, zeroVal, false);
                   createKrnl.iterate({}, {jj2, ii2}, {}, {},
-                      [&](KrnlBuilder &createKrnl, ValueRange j2_i2_indices) {
+                      [&](const KrnlBuilder &createKrnl,
+                          ValueRange j2_i2_indices) {
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                         ArrayRef<int64_t> empty;
                         createKrnl.matmul(aBuff, {i1, k1}, bBuff, {k1, j1},
@@ -316,7 +318,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // "not currently used ones" like ii here last. Gave an error when ii was
       // listed first.
       create.krnl.iterateIE({jj, kk, ii}, {jj1, kk1}, {zeroIE, zeroIE, zeroIE},
-          {J, K, I}, [&](KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
+          {J, K, I},
+          [&](const KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
             // If parallel, allocate on stack inside the parallel region.
             if (enableParallel) {
@@ -330,14 +333,15 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
             else
               createKrnl.copyToBuffer(bBuff, B, {k1, j1}, zeroVal, false);
             createKrnl.iterateIE({}, {ii1}, {}, {},
-                [&](KrnlBuilder &createKrnl, ValueRange i1_index) {
+                [&](const KrnlBuilder &createKrnl, ValueRange i1_index) {
                   Value i1(i1_index[0]);
                   if (aTrans)
                     createKrnl.copyToBuffer(aBuff, A, {k1, i1}, zeroVal, true);
                   else
                     createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
                   createKrnl.iterate({}, {jj2, ii2}, {}, {},
-                      [&](KrnlBuilder &createKrnl, ValueRange j2_i2_indices) {
+                      [&](const KrnlBuilder &createKrnl,
+                          ValueRange j2_i2_indices) {
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                         createKrnl.matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R,
                             {z, z},
@@ -374,7 +378,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       }
     }
     create.krnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
-        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.
           Value res = createKrnl.load(R, outerIndices);
           MathBuilder createMath(createKrnl);
@@ -387,7 +391,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
               DimIndexExpr dim(shapeHelper.cDims[x]);
               cAccess.emplace_back(
-                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
+                  IndexExpr::select(dim > 1, DimIE(outerIndices[x]), 0)
                       .getValue());
             }
             Value c = createKrnl.load(adaptor.getC(), cAccess);

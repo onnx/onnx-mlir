@@ -49,7 +49,7 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(DialectBuilder &db)
+IndexExprScope::IndexExprScope(const DialectBuilder &db)
     : IndexExprScope(&db.getBuilder(), db.getLoc()) {}
 
 // Nested scopes.
@@ -73,7 +73,7 @@ IndexExprScope::IndexExprScope(
 }
 
 IndexExprScope::IndexExprScope(
-    DialectBuilder &innerDb, IndexExprScope *enclosingScope)
+    const DialectBuilder &innerDb, IndexExprScope *enclosingScope)
     : IndexExprScope(&innerDb.getBuilder(), enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {
@@ -338,7 +338,7 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 }
 
 // All element in list are literals.
-/*static*/ bool IndexExpr::isLiteral(SmallVectorImpl<IndexExpr> &list) {
+/*static*/ bool IndexExpr::isLiteral(ArrayRef<IndexExpr> list) {
   for (IndexExpr i : list)
     if (!i.isLiteral())
       return false;
@@ -346,8 +346,7 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 }
 
 // All element in list are literals and non-negative (i.e. >= 0).
-/*static*/ bool IndexExpr::isNonNegativeLiteral(
-    SmallVectorImpl<IndexExpr> &list) {
+/*static*/ bool IndexExpr::isNonNegativeLiteral(ArrayRef<IndexExpr> list) {
   for (IndexExpr i : list)
     if (!i.isLiteral() || i.getLiteral() < 0)
       return false;
@@ -371,7 +370,7 @@ bool IndexExpr::canBeUsedInScope() const {
   switch (getKind()) {
   case IndexExprKind::NonAffine:
   case IndexExprKind::Predicate:
-    // Its ok to use a nonaffine index expressions from enclosing scopes.
+    // Its ok to use a non-affine index expressions from enclosing scopes.
     assert(hasValue() && "must have value to be used from enclosing scopes");
     return getScope().isEnclosingScope();
     break;
@@ -462,7 +461,7 @@ void IndexExpr::debugPrint(const std::string &msg) const {
 }
 
 void IndexExpr::debugPrint(
-    const std::string &msg, const SmallVectorImpl<IndexExpr> &list) {
+    const std::string &msg, const ArrayRef<IndexExpr> list) {
   LLVM_DEBUG({
     int s = list.size();
     llvm::dbgs() << msg.c_str() << " (" << s << " elements)\n";
@@ -525,7 +524,7 @@ void IndexExpr::debugPrint(
 
 /* static*/ void IndexExpr::getAffineMapAndOperands(
     ArrayRef<IndexExpr> indexExprArray, AffineMap &map,
-    SmallVectorImpl<mlir::Value> &operands) {
+    SmallVectorImpl<Value> &operands) {
   assert(indexExprArray.size() > 0 && "expected at least one index expr");
   SmallVector<AffineExpr, 8> affineExprList;
   for (IndexExpr expr : indexExprArray) {
@@ -559,10 +558,12 @@ static bool isIdentical(const IndexExpr litExpr, double dval) {
   return litExpr.isLiteralAndIdenticalTo(ival);
 }
 
-// Used for add/sub/mult/ceilDiv/floorDiv
-IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
-    bool hasNeutralA, bool hasNeutralB, double neutralVal, F2 litFct,
-    F2 affineExprFct, F2 valueFct) const {
+// Used for add/sub/mult/ceilDiv/floorDiv.
+// Add/sub: B does not need to be a literal for the result to be affine.
+// All the other ones (mul, div*, mod) require the B to be a literal.
+IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool propagateIntoMinMax,
+    bool affineWithLitB, bool hasNeutralA, bool hasNeutralB, double neutralVal,
+    F2 litFct, F2 affineExprFct, F2 valueFct) const {
   assert(litFct && "expect lit function");
   assert(valueFct && "expect value function");
   assert(canBeUsedInScope() && "a cannot be used in current scope");
@@ -573,9 +574,10 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
   bool canBeAffine = (affineExprFct != nullptr);
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
-  // Test if we have a neutral value.
-  if (hasNeutralA && isIdentical(*this, neutralVal))
-    return b.deepCopy(); // Copy of the other value (use same questionmark).
+  if (resIsAffine)
+    // Test if we have a neutral value.
+    if (hasNeutralA && isIdentical(*this, neutralVal))
+      return b.deepCopy(); // Copy of the other value (use same questionmark).
   if (hasNeutralB && isIdentical(b, neutralVal)) {
     return deepCopy(); // Copy of the other value (use same questionmark).
   }
@@ -591,6 +593,43 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
   if (resIsAffine)
     // Use affine values.
     return affineExprFct(*this, b);
+  // See if we have a min/max on one side that we can propagate into.
+  if (canBeAffine && propagateIntoMinMax) {
+    Value valA = this->getValue();
+    bool hasMinMaxA = valA.getDefiningOp<affine::AffineMinOp>() ||
+                      valA.getDefiningOp<affine::AffineMaxOp>();
+    Value valB = b.getValue();
+    bool hasMinMaxB = valB.getDefiningOp<affine::AffineMinOp>() ||
+                      valB.getDefiningOp<affine::AffineMaxOp>();
+    // Can handle only cases where either a or b are min/max and the other one
+    // is affine.
+    if ((hasMinMaxA && !hasMinMaxB && b.isAffine()) ||
+        (!hasMinMaxA && hasMinMaxB && this->isAffine())) {
+      // Of the two inputs, find out the one with the min/max.
+      IndexExpr minMaxIE = hasMinMaxA ? *this : b;
+      // Retrieve the map and list of dim/symbols in the current scope
+      bool isMin;
+      llvm::SmallVector<Value, 8> vals;
+      AffineMap map;
+      assert(minMaxIE.retrieveAffineMinMax(isMin, vals, map) && "expected one");
+      // Perform the affineExprFct for each min/max terms.
+      llvm::SmallVector<IndexExpr, 4> updatedMinMaxExprs;
+      for (AffineExpr affineExpr : map.getResults()) {
+        IndexExpr oldAffineExpr = AffineIndexExpr(affineExpr);
+        IndexExpr newAffineExpr;
+        if (hasMinMaxA)
+          newAffineExpr = affineExprFct(oldAffineExpr, b);
+        else
+          newAffineExpr = affineExprFct(*this, oldAffineExpr);
+        updatedMinMaxExprs.emplace_back(newAffineExpr);
+      }
+      // Create new operation.
+      if (isMin) {
+        return IndexExpr::min(updatedMinMaxExprs);
+      }
+      return IndexExpr::max(updatedMinMaxExprs);
+    }
+  }
   // Use values.
   return valueFct(*this, b);
 }
@@ -669,7 +708,8 @@ IndexExpr IndexExpr::compareOp(
   // Cannot have affine results, disable and pass null lambda function.
   // Ignore possible neutral values.
   assert(!areFloat(b) && "integer compare");
-  return binaryOp(b, false, false, false, 0.0, litFct, nullptr, valueFct);
+  return binaryOp(
+      b, false, false, false, false, 0.0, litFct, nullptr, valueFct);
 }
 
 // Floating point version.
@@ -719,7 +759,7 @@ IndexExpr IndexExpr::compareOp(
   // Ignore possible neutral values.
   assert(areFloat(b) && "float compare");
   return binaryOp(
-      b, false, false, false, 0.0, litFloatFct, nullptr, valueFloatFct);
+      b, false, false, false, false, 0.0, litFloatFct, nullptr, valueFloatFct);
 }
 
 // Conjunction of two conditions: And
@@ -778,8 +818,8 @@ IndexExpr IndexExpr::operator!() const {
 
 // The affine reduction lambda function processes the whole list and must init
 // the result. Literal and Values treat one operation at a time
-/* static*/ IndexExpr IndexExpr::reductionOp(SmallVectorImpl<IndexExpr> &vals,
-    F2Self litRed, Flist affineRed, F2Self valueRed) {
+/* static*/ IndexExpr IndexExpr::reductionOp(
+    ArrayRef<IndexExpr> vals, F2Self litRed, Flist affineRed, F2Self valueRed) {
   // If no values, result is undefined.
   int size = vals.size();
   if (size == 0)
@@ -831,10 +871,10 @@ IndexExpr IndexExpr::operator!() const {
 
 IndexExpr IndexExpr::operator+(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getLiteral() + bb.getLiteral());
+    return LitIE(aa.getLiteral() + bb.getLiteral());
   };
   F2 litFloatFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getFloatLiteral() + bb.getFloatLiteral());
+    return LitIE(aa.getFloatLiteral() + bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     return AffineIndexExpr(aa.getAffineExpr() + bb.getAffineExpr());
@@ -845,16 +885,18 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
   };
   // Neutral value: a + 0 = a, 0 + b = b.
   if (areFloat(b))
-    return binaryOp(b, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(b, false, true, true, 0.0, litFct, affineExprFct, valueFct);
+    return binaryOp(
+        b, false, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
+  return binaryOp(
+      b, true, false, true, true, 0.0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator-(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getLiteral() - bb.getLiteral());
+    return LitIE(aa.getLiteral() - bb.getLiteral());
   };
   F2 litFloatFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getFloatLiteral() - bb.getFloatLiteral());
+    return LitIE(aa.getFloatLiteral() - bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     return AffineIndexExpr(aa.getAffineExpr() - bb.getAffineExpr());
@@ -865,16 +907,18 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
   };
   // Neutral value: a - 0 = a.
   if (areFloat(b))
-    return binaryOp(b, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(b, false, false, true, 0.0, litFct, affineExprFct, valueFct);
+    return binaryOp(
+        b, false, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
+  return binaryOp(
+      b, true, false, false, true, 0.0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator*(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getLiteral() * bb.getLiteral());
+    return LitIE(aa.getLiteral() * bb.getLiteral());
   };
   F2 litFloatFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return LiteralIndexExpr(aa.getFloatLiteral() * bb.getFloatLiteral());
+    return LitIE(aa.getFloatLiteral() * bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     return AffineIndexExpr(aa.getAffineExpr() * bb.getAffineExpr());
@@ -885,12 +929,14 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
   };
   // Neutral value: a * 1 = a, 1 * b = b.
   if (areFloat(b))
-    return binaryOp(b, false, true, true, 1.0, litFloatFct, nullptr, valueFct);
+    return binaryOp(
+        b, false, false, true, true, 1.0, litFloatFct, nullptr, valueFct);
   // For affine, requires one to be a literal, and in "b" (argument).
   if (isLiteral())
     return b.binaryOp(
-        *this, true, true, true, 1.0, litFct, affineExprFct, valueFct);
-  return binaryOp(b, true, true, true, 1.0, litFct, affineExprFct, valueFct);
+        *this, false, true, true, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, true, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Int operator
@@ -898,7 +944,7 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval =
         std::floor((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
@@ -917,14 +963,15 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
   assert(!areFloat(b) && "floor div only supports int");
-  return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Int operator
 IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval = std::ceil((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
@@ -941,14 +988,15 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
   assert(!areFloat(b) && "ceil div only supports int");
-  return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Int operator
 IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval = llvm::mod(aa.getLiteral(), bb.getLiteral());
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
@@ -965,14 +1013,15 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: ignore here that x % x = 0.
   assert(!areFloat(b) && "mod only supports int");
-  return binaryOp(b, true, false, false, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, false, true, false, false, 1.0, litFct, affineExprFct, valueFct);
 }
 
 // Float operator
 IndexExpr IndexExpr::operator/(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     double rval = aa.getFloatLiteral() / bb.getFloatLiteral();
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -980,14 +1029,16 @@ IndexExpr IndexExpr::operator/(IndexExpr const b) const {
   };
   // Neutral value: x / 1 = x.
   assert(areFloat(b) && "float only; int: use ceilDiv or floorDiv");
-  return binaryOp(b, false, false, true, 1.0, litFct, nullptr, valueFct);
+  // Note: there are no affine functions for float, so affineWithLitB==true or
+  // false is irrelevant.
+  return binaryOp(b, false, false, false, true, 1.0, litFct, nullptr, valueFct);
 }
 
 // Float operator.
 IndexExpr IndexExpr::ceil() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = std::ceil(aa.getFloatLiteral());
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1003,7 +1054,7 @@ IndexExpr IndexExpr::ceil() const {
 IndexExpr IndexExpr::floor() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = std::floor(aa.getFloatLiteral());
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1020,7 +1071,7 @@ IndexExpr IndexExpr::floor() const {
 IndexExpr IndexExpr::convertToFloat() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = (double)aa.getLiteral();
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1037,7 +1088,7 @@ IndexExpr IndexExpr::convertToFloat() const {
 IndexExpr IndexExpr::convertToIndex() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     int64_t rval = (int64_t)aa.getFloatLiteral();
-    return LiteralIndexExpr(rval);
+    return LitIE(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1116,7 +1167,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   return NonAffineIndexExpr(results);
 }
 
-/*static*/ IndexExpr IndexExpr::min(SmallVectorImpl<IndexExpr> &vals) {
+/*static*/ IndexExpr IndexExpr::min(ArrayRef<IndexExpr> vals) {
   // Res is already an literal int, we are reducing into it.
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
     if (aa.isLiteralAndSmallerThan(res))
@@ -1124,13 +1175,13 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
-                            SmallVectorImpl<IndexExpr> &vvals) -> IndexExpr {
+                            ArrayRef<IndexExpr> vvals) -> IndexExpr {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
     // Important to get the affine expressions before getting the
     // dims/symbols.
-    for (IndexExpr &vv : vvals) {
+    for (IndexExpr vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
     // Compute a map including the list of affine expressions.
@@ -1171,11 +1222,11 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::min(
     IndexExpr const first, int64_t const second) {
-  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  SmallVector<IndexExpr, 2> list = {first, LitIE(second)};
   return min(list);
 }
 
-/*static*/ IndexExpr IndexExpr::max(SmallVectorImpl<IndexExpr> &vals) {
+/*static*/ IndexExpr IndexExpr::max(ArrayRef<IndexExpr> vals) {
   // Res is already an literal int, we are reducing into it.
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
     if (aa.isLiteralAndGreaterThan(res))
@@ -1183,13 +1234,13 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
-                            SmallVectorImpl<IndexExpr> &vvals) -> IndexExpr {
+                            ArrayRef<IndexExpr> vvals) -> IndexExpr {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
     // Important to get the affine expressions before getting the
     // dims/symbols.
-    for (IndexExpr &vv : vvals) {
+    for (IndexExpr vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
     // Compute a map including the list of affine expressions.
@@ -1230,7 +1281,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::max(
     IndexExpr const first, int64_t const second) {
-  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  SmallVector<IndexExpr, 2> list = {first, LitIE(second)};
   return max(list);
 }
 
@@ -1238,16 +1289,38 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 // IndexExpr Ops Derivatives
 //===----------------------------------------------------------------------===//
 
+bool IndexExpr::retrieveAffineMinMax(
+    bool &isMin, llvm::SmallVectorImpl<Value> &vals, AffineMap &map) const {
+  Value val = this->getValue();
+  auto minOp = val.getDefiningOp<affine::AffineMinOp>();
+  auto maxOp = val.getDefiningOp<affine::AffineMaxOp>();
+  // Expect here the defining op to be either min or max.
+  if (minOp == nullptr && maxOp == nullptr)
+    return false;
+  isMin = minOp != nullptr;
+  if (isMin)
+    map = minOp.getAffineMap();
+  else
+    map = maxOp.getAffineMap();
+  IndexExprScope &scope = this->getScope();
+  scope.getDimAndSymbolList(vals);
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Ops Derivatives
+//===----------------------------------------------------------------------===//
+
 IndexExpr IndexExpr::operator+(int64_t const b) const {
-  return *this + LiteralIndexExpr(b);
+  return *this + LitIE(b);
 }
 
 IndexExpr IndexExpr::operator-(int64_t const b) const {
-  return *this - LiteralIndexExpr(b);
+  return *this - LitIE(b);
 }
 
 IndexExpr IndexExpr::operator*(int64_t const b) const {
-  return *this * LiteralIndexExpr(b);
+  return *this * LitIE(b);
 }
 
 IndexExpr IndexExpr::operator==(IndexExpr const b) const {
@@ -1257,7 +1330,7 @@ IndexExpr IndexExpr::operator==(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator==(int64_t const b) const {
-  return *this == LiteralIndexExpr(b);
+  return *this == LitIE(b);
 }
 
 IndexExpr IndexExpr::operator!=(IndexExpr const b) const {
@@ -1267,7 +1340,7 @@ IndexExpr IndexExpr::operator!=(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator!=(int64_t const b) const {
-  return *this != LiteralIndexExpr(b);
+  return *this != LitIE(b);
 }
 
 IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
@@ -1277,7 +1350,7 @@ IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator<=(int64_t const b) const {
-  return *this <= LiteralIndexExpr(b);
+  return *this <= LitIE(b);
 }
 
 IndexExpr IndexExpr::operator<(IndexExpr const b) const {
@@ -1287,7 +1360,7 @@ IndexExpr IndexExpr::operator<(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator<(int64_t const b) const {
-  return *this < LiteralIndexExpr(b);
+  return *this < LitIE(b);
 }
 
 IndexExpr IndexExpr::operator>=(IndexExpr const b) const {
@@ -1297,7 +1370,7 @@ IndexExpr IndexExpr::operator>=(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator>=(int64_t const b) const {
-  return *this >= LiteralIndexExpr(b);
+  return *this >= LitIE(b);
 }
 
 IndexExpr IndexExpr::operator>(IndexExpr const b) const {
@@ -1307,36 +1380,36 @@ IndexExpr IndexExpr::operator>(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::operator>(int64_t const b) const {
-  return *this > LiteralIndexExpr(b);
+  return *this > LitIE(b);
 }
 
 IndexExpr IndexExpr::operator%(int64_t const b) const {
-  return *this % LiteralIndexExpr(b);
+  return *this % LitIE(b);
 }
 
 IndexExpr IndexExpr::floorDiv(int64_t const b) const {
-  return this->floorDiv(LiteralIndexExpr(b));
+  return this->floorDiv(LitIE(b));
 }
 
 IndexExpr IndexExpr::ceilDiv(int64_t const b) const {
-  return this->ceilDiv(LiteralIndexExpr(b));
+  return this->ceilDiv(LitIE(b));
 }
 
 IndexExpr IndexExpr::clamp(int64_t min, IndexExpr max) {
-  return clamp(LiteralIndexExpr(min), max);
+  return clamp(LitIE(min), max);
 }
 
 /*static*/ IndexExpr IndexExpr::select(
     IndexExpr const compare, int64_t const trueVal, IndexExpr const falseVal) {
-  return select(compare, LiteralIndexExpr(trueVal), falseVal);
+  return select(compare, LitIE(trueVal), falseVal);
 }
 /*static*/ IndexExpr IndexExpr::select(
     IndexExpr const compare, IndexExpr const trueVal, int64_t const falseVal) {
-  return select(compare, trueVal, LiteralIndexExpr(falseVal));
+  return select(compare, trueVal, LitIE(falseVal));
 }
 /*static*/ IndexExpr IndexExpr::select(
     IndexExpr const compare, int64_t const trueVal, int64_t const falseVal) {
-  return select(compare, LiteralIndexExpr(trueVal), LiteralIndexExpr(falseVal));
+  return select(compare, LitIE(trueVal), LitIE(falseVal));
 }
 
 IndexExpr IndexExpr::selectOrSelf(
@@ -1887,7 +1960,7 @@ void getIndexExprListFromInt(
     ArrayRef<int64_t> inputList, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (int64_t item : inputList)
-    outputList.emplace_back(LiteralIndexExpr(item));
+    outputList.emplace_back(LitIE(item));
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
@@ -1900,7 +1973,7 @@ void getIndexExprListFromShape(
       outputList.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
     else {
       assert(item >= 0 && "expected kDynamic, not -1");
-      outputList.emplace_back(LiteralIndexExpr(item));
+      outputList.emplace_back(LitIE(item));
     }
   }
 }

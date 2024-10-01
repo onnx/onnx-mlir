@@ -37,7 +37,7 @@ LogicalResult ZHighStickForGRUOpShapeHelper::computeShape() {
 
   for (int64_t i = 0; i < rank - 1; ++i)
     outputDims.emplace_back(zGateDims[i]);
-  IndexExpr lastDim = zGateDims[rank - 1] * LiteralIndexExpr(3);
+  IndexExpr lastDim = zGateDims[rank - 1] * LitIE(3);
   outputDims.emplace_back(lastDim);
 
   // Save the final result.
@@ -50,7 +50,7 @@ LogicalResult ZHighStickForGRUOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickForGRUOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getZGate()) && !hasRankedType(getRGate()) &&
       !hasRankedType(getHGate()))
     return success();

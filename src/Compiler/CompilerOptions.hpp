@@ -87,6 +87,9 @@ extern bool enableONNXHybridPass;                             // common for both
 extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
 extern bool disableKrnlOpFusion;                              // common for both
+extern bool disableQuantZeroPoint;                            // common for both
+extern bool enableKrnlBufferReuse;                            // common for both
+extern bool disableMemRefPrefetch;                            // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
@@ -180,6 +183,10 @@ std::vector<std::string> getXllcOption();
 void setLLVMOption(const std::string &flag);
 void clearLLVMOption();
 std::string getLLVMOption();
+// Break down the result of getLLVMOption into substrings
+std::vector<std::string> getLLVMOptions();
+std::vector<std::string> getLLVMOPTOptions();
+std::vector<std::string> getLLVMLLCOptions();
 
 // Options support for OMCompilerOptions.
 using CompilerOptionList =

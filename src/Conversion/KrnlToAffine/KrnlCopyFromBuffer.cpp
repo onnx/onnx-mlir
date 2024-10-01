@@ -39,7 +39,8 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    KrnlCopyFromBufferOp copyFromBufferOp = cast<KrnlCopyFromBufferOp>(op);
+    KrnlCopyFromBufferOp copyFromBufferOp =
+        mlir::cast<KrnlCopyFromBufferOp>(op);
     Location loc = copyFromBufferOp.getLoc();
     MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
         rewriter, loc);
@@ -89,7 +90,7 @@ public:
     return success();
   }
 
-  void genCopyLoops(AffineBuilderKrnlMem &createAffine,
+  void genCopyLoops(const AffineBuilderKrnlMem &createAffine,
       IndexExprScope *enclosingScope, Value buffMemref, Value destMemref,
       IndexExpr zeroIE, SmallVectorImpl<IndexExpr> &starts,
       SmallVectorImpl<IndexExpr> &writeUBs, SmallVectorImpl<Value> &loopIndices,
@@ -123,9 +124,9 @@ public:
         // Nothing to write.
       } else {
         // Loop to copy the data.
-        createAffine.forIE(zeroIE, writeUBs[i], 1,
-            [&](AffineBuilderKrnlMem &createAffine, Value index) {
-              loopIndices.emplace_back(index);
+        createAffine.forLoopIE(zeroIE, writeUBs[i], 1, false /*parallel*/,
+            [&](const AffineBuilderKrnlMem &createAffine, ValueRange loopInd) {
+              loopIndices.emplace_back(loopInd[0]);
               genCopyLoops(createAffine, enclosingScope, buffMemref, destMemref,
                   zeroIE, starts, writeUBs, loopIndices, i + 1, buffRank);
               loopIndices.pop_back_n(1);

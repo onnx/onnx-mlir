@@ -4,7 +4,7 @@
 
 //===-------------------- LRN.cpp - Lowering LRN Op -----------------------===//
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -55,17 +55,17 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
     auto f32Type = FloatType::getF32(rewriter.getContext());
     Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
-        create.math.constant(f32Type, alphaLit / (float)sizeLit);
+        create.math.constant(f32Type, alphaLit / static_cast<float>(sizeLit));
     Value betaValue = create.math.constant(f32Type, betaLit);
 
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
     create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           // Insert computation of square_sum.
           // square_sum[n, c, d1, ..., dk] = sum(X[n, i, d1, ..., dk] ^ 2),
           // where max(0, c - floor((size - 1) / 2)) <= i
@@ -79,17 +79,15 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
           constexpr int loopIndexForC = 1;
           DimIndexExpr cIE(outputLoopInd[loopIndexForC]);
           DimIndexExpr CIE = create.krnlIE.getShapeAsDim(input, loopIndexForC);
-          SymbolIndexExpr sizeIE = LiteralIndexExpr(sizeLit);
+          SymbolIndexExpr sizeIE = LitIE(sizeLit);
 
           SmallVector<IndexExpr, 2> lbMaxList;
-          lbMaxList.emplace_back(LiteralIndexExpr(0));
-          lbMaxList.emplace_back(
-              cIE - (sizeIE - 1).floorDiv(LiteralIndexExpr(2)));
+          lbMaxList.emplace_back(LitIE(0));
+          lbMaxList.emplace_back(cIE - (sizeIE - 1).floorDiv(LitIE(2)));
 
           SmallVector<IndexExpr, 2> ubMinList;
           ubMinList.emplace_back(CIE);
-          ubMinList.emplace_back(
-              cIE + 1 + (sizeIE - 1).ceilDiv(LiteralIndexExpr(2)));
+          ubMinList.emplace_back(cIE + 1 + (sizeIE - 1).ceilDiv(LitIE(2)));
 
           // Initialize sum, single scalar, no need for default alignment.
           MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
@@ -121,9 +119,9 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
           Value loadVal = create.krnl.load(input, loadIndices);
           Value squareVal = create.math.mul(loadVal, loadVal);
 
-          Value sumValue = create.krnl.load(sumAlloc, ArrayRef<Value>{});
+          Value sumValue = create.krnl.load(sumAlloc);
           sumValue = create.math.add(sumValue, squareVal);
-          create.krnl.store(sumValue, sumAlloc, ArrayRef<Value>{});
+          create.krnl.store(sumValue, sumAlloc);
 
           // Compute and store the output
           // y = x / ((bias + (alpha / nsize) * square_sum) ** beta)

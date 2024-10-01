@@ -4,7 +4,7 @@
 
 //====-------------- DialectBuilder.cpp - Krnl Dialect Builder ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,6 +14,8 @@
 
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -55,83 +57,28 @@ static StringRef getFormat(const Type &inputType) {
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-Value KrnlBuilder::load(Value memref, ValueRange indices) const {
-  if (indices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      return b().create<KrnlLoadOp>(loc(), memref, ValueRange({iZero}));
-    }
-  }
-  return b().create<KrnlLoadOp>(loc(), memref, indices);
+Value KrnlBuilder::load(
+    Value memref, ValueRange indices, ValueRange offsets) const {
+  return onnx_mlir::impl::load<KrnlBuilder, KrnlLoadOp>(
+      *this, memref, indices, offsets);
 }
 
-mlir::Value KrnlBuilder::load(mlir::Value memref, mlir::ValueRange indices,
-    mlir::ValueRange offsets) const {
-  SmallVector<Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(memref, computedIndices);
+Value KrnlBuilder::loadIE(
+    Value memref, ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  return onnx_mlir::impl::loadIE<KrnlBuilder, KrnlLoadOp>(
+      *this, memref, indices, offsets);
 }
 
-Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
-  if (indices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      return b().create<KrnlLoadOp>(loc(), memref, ValueRange({iZero}));
-    }
-  }
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  return b().create<KrnlLoadOp>(loc(), memref, indexValues);
+void KrnlBuilder::store(
+    Value val, Value memref, ValueRange indices, ValueRange offsets) const {
+  onnx_mlir::impl::store<KrnlBuilder, KrnlStoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
-void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
-  if (indices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      b().create<KrnlStoreOp>(loc(), val, memref, ValueRange({iZero}));
-      return;
-    }
-  }
-  b().create<KrnlStoreOp>(loc(), val, memref, indices);
-}
-
-void KrnlBuilder::store(mlir::Value val, mlir::Value memref,
-    mlir::ValueRange indices, mlir::ValueRange offsets) const {
-  SmallVector<Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
-}
-
-void KrnlBuilder::storeIE(
-    Value val, Value memref, ArrayRef<IndexExpr> indices) const {
-  if (indices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      b().create<KrnlStoreOp>(loc(), val, memref, ValueRange({iZero}));
-      return;
-    }
-  }
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  b().create<KrnlStoreOp>(loc(), val, memref, indexValues);
+void KrnlBuilder::storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices,
+    ValueRange offsets) const {
+  onnx_mlir::impl::storeIE<KrnlBuilder, KrnlStoreOp>(
+      *this, val, memref, indices, offsets);
 }
 
 Value KrnlBuilder::getLinearOffsetIndex(
@@ -148,25 +95,27 @@ Value KrnlBuilder::getLinearOffsetIndexIE(
 
 void KrnlBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
     unsigned localityHint, bool isDataCache) {
+  if (disableMemRefPrefetch)
+    return;
   b().create<KrnlPrefetchOp>(
       loc(), memref, indices, isWrite, localityHint, isDataCache);
 }
 
 void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
     bool isWrite, unsigned localityHint, bool isDataCache) {
+  if (disableMemRefPrefetch)
+    return;
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   b().create<KrnlPrefetchOp>(
       loc(), memref, indexValues, isWrite, localityHint, isDataCache);
 }
 
-void KrnlBuilder::seqstore(
-    mlir::Value element, mlir::Value seq, mlir::Value index) const {
+void KrnlBuilder::seqstore(Value element, Value seq, Value index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index);
 }
 
-void KrnlBuilder::seqstore(
-    mlir::Value element, mlir::Value seq, IndexExpr index) const {
+void KrnlBuilder::seqstore(Value element, Value seq, IndexExpr index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index.getValue());
 }
 
@@ -175,7 +124,7 @@ Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
 }
 
 void KrnlBuilder::region(
-    function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const {
+    function_ref<void(const KrnlBuilder &createKrnl)> bodyBuilderFn) const {
   KrnlBuilder createKrnl(b(), loc());
   KrnlRegionOp regionOp = b().create<KrnlRegionOp>(loc());
   {
@@ -206,25 +155,43 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
 }
 
 void KrnlBuilder::parallel(ValueRange loops) const {
-  b().template create<KrnlParallelOp>(loc(), loops);
+  Value noneValue;
+  StringAttr noneStrAttr;
+  b().template create<KrnlParallelOp>(loc(), loops, noneValue, noneStrAttr);
+}
+
+void KrnlBuilder::parallel(
+    ValueRange loops, Value numThreads, StringAttr procBind) const {
+  if (procBind.getValue().size() > 0) {
+    std::string str = procBind.getValue().str();
+    assert((str == "primary" || str == "close" || str == "spread") &&
+           "expected primary, close, or spread for proc_bind");
+  }
+  b().template create<KrnlParallelOp>(loc(), loops, numThreads, procBind);
+}
+
+void KrnlBuilder::parallelClause(
+    Value parallelLoopIndex, Value numThreads, StringAttr procBind) const {
+  // No need to check procBind as its value are derived from parallel(...).
+  b().template create<KrnlParallelClauseOp>(
+      loc(), parallelLoopIndex, numThreads, procBind);
 }
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
+    function_ref<void(const KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) const {
-  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
-                                  ValueRange iterArgs) {
+  auto bodyBuilderFnWrapper = [&](const KrnlBuilder &createKrnl,
+                                  ValueRange indices, ValueRange iterArgs) {
     bodyBuilderFn(createKrnl, indices);
   };
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
-mlir::KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
+// Deprecated
+KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
-    function_ref<void(
-        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
-        bodyBuilderFn) const {
+    KrnlLoopBody2Fn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -245,21 +212,18 @@ KrnlIterateOp KrnlBuilder::iterate(
 
 void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
-        bodyBuilderFn) const {
-  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
-                                  ValueRange iterArgs) {
+    KrnlLoopBodyFn bodyBuilderFn) const {
+  auto bodyBuilderFnWrapper = [&](const KrnlBuilder &createKrnl,
+                                  ValueRange indices, ValueRange iterArgs) {
     bodyBuilderFn(createKrnl, indices);
   };
   iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
-mlir::KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
+// Deprecated.
+KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    mlir::ValueRange inits,
-    function_ref<void(
-        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
-        bodyBuilderFn) const {
+    ValueRange inits, KrnlLoopBody2Fn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -273,7 +237,56 @@ mlir::KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
       });
 }
 
-void KrnlBuilder::yield(mlir::ValueRange iterArgs) const {
+void KrnlBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+    bool useParallel, KrnlLoopBodyFn builderFn) const {
+  ValueRange originalLoopDef = defineLoops(1);
+  llvm::SmallVector<Value, 1> optLoopDef(1, originalLoopDef[0]);
+  if (step > 1) {
+    // Block loop by step.
+    ValueRange blockedLoopDef = block(originalLoopDef[0], step);
+    optLoopDef[0] = blockedLoopDef[0];
+  }
+  if (useParallel)
+    parallel(optLoopDef[0]);
+  iterateIE(originalLoopDef, optLoopDef, {lb}, {ub}, builderFn);
+}
+
+void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
+    ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs,
+    ArrayRef<KrnlSimdIterateBodyFn> iterateBodyFnList) const {
+  onnx_mlir::impl::simdIterateIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
+      iterateBodyFnList);
+}
+
+void KrnlBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+    ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
+    ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
+    /* reduction function (simd or scalar) */
+    ArrayRef<KrnlSimdReductionBodyFn> reductionBodyFnList,
+    /* post reduction function (simd to scalar + post processing)*/
+    ArrayRef<KrnlSimdPostReductionBodyFn> postReductionBodyFnList) const {
+  onnx_mlir::impl::simdReduceIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
+      reductionBodyFnList, postReductionBodyFnList);
+}
+
+void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, Value input, DimsExpr inputAF, Value tmp, DimsExpr tmpAF,
+    Value output, DimsExpr outputAF, Value initVal,
+    /* reduction functions (simd or scalar) */
+    KrnlSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    KrnlSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<KrnlBuilder, KrnlBuilder>(*this, lb, ub, VL,
+      fullySimd, input, inputAF, tmp, tmpAF, output, outputAF, initVal,
+      reductionBodyFn, postReductionBodyFn);
+}
+
+void KrnlBuilder::yield(ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
 
@@ -339,8 +352,8 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
   MultiDialectBuilder<MathBuilder> create(*this);
   Value zero = create.math.constantIndex(0);
-  b().create<KrnlMemcpyOp>(
-      loc(), dest, src, numElems, /*dest_offset=*/zero, /*src_offset=*/zero);
+  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems,
+      /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems,
@@ -403,13 +416,12 @@ void KrnlBuilder::printf(
 // =============================================================================
 
 // Return null if none is found.
-ElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
+ElementsAttr IndexExprBuilderForKrnl::getConst(Value value) {
   auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+  if (auto globalOp = dyn_cast_or_null<KrnlGlobalOp>(definingOp)) {
     if (globalOp.getValue().has_value())
       return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
-  } else if (auto globalOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+  } else if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (globalOp.getValue().has_value())
       return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
   }
@@ -420,7 +432,7 @@ Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
   uint64_t rank = getShapedTypeRank(intArrayVal);
   if (rank == 0)
-    return create.krnl.load(intArrayVal, {});
+    return create.krnl.load(intArrayVal);
   uint64_t size = getArraySize(intArrayVal);
   assert(i < size && "out of bound reference");
   Value iVal = create.math.constantIndex(i);

@@ -26,7 +26,7 @@ namespace onnx_mlir {
 
 namespace {
 bool isEmptyTensor(Value input) {
-  if (ShapedType shapedType = dyn_cast<ShapedType>(input.getType())) {
+  if (ShapedType shapedType = mlir::dyn_cast<ShapedType>(input.getType())) {
     return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
   } else {
     return false;
@@ -94,12 +94,13 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  // Cannot verify if scales or sizes have unknown shapes.
-  if (auto scalesShapedType = dyn_cast<ShapedType>(getScales().getType())) {
+  // Cannot verify if scales or sizes have unknown sha∑pes.
+  if (auto scalesShapedType =
+          mlir::dyn_cast<ShapedType>(getScales().getType())) {
     if (!scalesShapedType.hasStaticShape())
       return success();
   }
-  if (auto sizesShapedType = dyn_cast<ShapedType>(getSizes().getType())) {
+  if (auto sizesShapedType = mlir::dyn_cast<ShapedType>(getSizes().getType())) {
     if (!sizesShapedType.hasStaticShape())
       return success();
   }

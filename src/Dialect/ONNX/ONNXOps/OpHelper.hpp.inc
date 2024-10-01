@@ -4,7 +4,7 @@
 
 //===----- ONNXOpsHelper.hpp.inc - Helper functions for ONNX dialects -----===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -24,7 +24,7 @@ mlir::Location ONNXLoc(mlir::Operation *op) {
 }
 
 inline bool isNoneValue(mlir::Value value) {
-  return llvm::isa<mlir::NoneType>(value.getType());
+  return MemRefBuilder::isNoneValue(value);
 }
 
 /// Check the defining operation of a value.

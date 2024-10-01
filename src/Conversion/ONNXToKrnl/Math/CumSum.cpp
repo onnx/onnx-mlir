@@ -4,7 +4,7 @@
 
 //===-------------- CumSum.cpp - Lowering CumSum Ops ----------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -123,14 +123,14 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     IndexExpr axisIE = create.krnlIE.getIntFromArrayAsSymbol(axis, 0);
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
-    axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
+    axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LitIE(rank));
 
     // Insert an allocation and deallocation for the result of this operation.
     Value resMemRef = create.mem.alignedAlloc(X, memRefType);
     Value bufMemRef = create.mem.alignedAlloc(X, memRefType);
 
     // Get the size of dimension 'axis'.
-    IndexExpr axisSize = LiteralIndexExpr(-1);
+    IndexExpr axisSize = LitIE(-1);
     for (uint64_t i = 0; i < rank; ++i)
       axisSize = IndexExpr::select(axisIE == i, xDims[i], axisSize);
 
@@ -138,8 +138,8 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      int64_t logN = (int64_t)std::ceil(std::log2(n));
-      numberOfStep = LiteralIndexExpr(logN);
+      int64_t logN = static_cast<int64_t>(std::ceil(std::log2(n)));
+      numberOfStep = LitIE(logN);
     } else {
       Value nos = create.math.cast(f32Ty, axisSize.getValue());
       // Use this when math::CeilOp is available in MLIR.
@@ -147,8 +147,8 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
       nos = create.math.log2(nos);
       nos = create.math.cast(i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
-      // numberOfStep = SymbolIndexExpr(nos);
-      numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
+      // numberOfStep = SymIE(nos);
+      numberOfStep = SymIE(nos) + LitIE(1);
     }
 
     // Input and output have the same shape, so they share the bounds.
@@ -159,7 +159,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     // Initialize the temporary buffer: copy values from the input.
     ValueRange initLoopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-        [&](KrnlBuilder &ck, ValueRange initLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange initLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
           if (!exclusive) {
             Value x = create.krnl.load(X, initLoopInd);
@@ -190,9 +190,8 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
         });
 
     // Outer loop iterates over the number of steps.
-    ValueRange stepLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
-        [&](KrnlBuilder &ck, ValueRange stepLoopInd) {
+    create.krnl.forLoopIE(zeroIE, numberOfStep, /*step*/ 1, /*par*/ false,
+        [&](const KrnlBuilder &ck, ValueRange stepLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
 
           // Compute index offset: offset = 2^step.
@@ -210,7 +209,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
           //         y[i,k] = buf[i,k]
           ValueRange sumLoopDef = create.krnl.defineLoops(rank);
           create.krnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
-              [&](KrnlBuilder &ck, ValueRange sumLoopInd) {
+              [&](const KrnlBuilder &ck, ValueRange sumLoopInd) {
                 IndexExprScope ieScope(ck);
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
                 Value axis = axisIE.getValue();
@@ -231,7 +230,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
           // buf = y
           ValueRange bufLoopDef = create.krnl.defineLoops(rank);
           create.krnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
                 Value x = createKrnl.load(resMemRef, bufLoopInd);
                 createKrnl.store(x, bufMemRef, bufLoopInd);
               });

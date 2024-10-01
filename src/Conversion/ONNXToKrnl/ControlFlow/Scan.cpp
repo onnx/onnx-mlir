@@ -4,7 +4,7 @@
 
 //===-------------------- Scan.cpp - Lowering Scan Op ---------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -198,11 +198,11 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     return success();
   }
 
-  static void allocateMemoryForVFinal(mlir::Location loc,
+  static void allocateMemoryForVFinal(Location loc,
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
-      SmallVectorImpl<mlir::Value> &outputs) {
-    auto scanOp = dyn_cast<ONNXScanOp>(op);
+      SmallVectorImpl<Value> &outputs) {
+    auto scanOp = mlir::dyn_cast<ONNXScanOp>(op);
     for (const auto &ioPair :
         llvm::zip(scanOp.getVInitial(), scanOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
@@ -223,11 +223,11 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     }
   }
 
-  static void allocateMemoryForScanOutput(mlir::Location loc,
+  static void allocateMemoryForScanOutput(Location loc,
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
-      SmallVectorImpl<mlir::Value> &outputs) {
-    auto scanOp = dyn_cast<ONNXScanOp>(op);
+      SmallVectorImpl<Value> &outputs) {
+    auto scanOp = mlir::dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
       Type convertedType = typeConverter->convertType(opScanOutput.getType());
@@ -248,7 +248,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
         MemRefBuilder createMemRef(rewriter, loc);
         OnnxBuilder onnxBuilder(rewriter, loc);
         auto rankedScanOutTy = memRefType;
-        SmallVector<mlir::Value, 4> allocParams;
+        SmallVector<Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.isDynamicDim(i)) {
             if (i == 0) {
@@ -274,9 +274,9 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     }
   }
 
-  static mlir::Value allocateMemoryForBodyScanInput(mlir::Location loc,
+  static Value allocateMemoryForBodyScanInput(Location loc,
       ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
-      mlir::Type bodyScanInputTy) {
+      Type bodyScanInputTy) {
     // Convert type to MemRefType.
     Type convertedType = typeConverter->convertType(bodyScanInputTy);
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
@@ -317,11 +317,11 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     if (srcTy.getRank() > 0) {
       IndexExprScope childScope(create.krnl);
       ValueRange loopDef = create.krnl.defineLoops(srcTy.getRank());
-      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(src, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
             writeIV.insert(writeIV.end(), loopInd.begin(), loopInd.end());
@@ -343,17 +343,17 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         builder, loc);
-    if ((size_t)srcTy.getRank() > readIV.size()) {
+    if (static_cast<size_t>(srcTy.getRank()) > readIV.size()) {
       IndexExprScope childScope(create.krnl);
       ValueRange loopDef =
           create.krnl.defineLoops(srcTy.getRank() - readPrefix.size());
       SmallVector<IndexExpr, 4> lbs(
-          srcTy.getRank() - readPrefix.size(), LiteralIndexExpr(0));
+          srcTy.getRank() - readPrefix.size(), LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
         ubs.emplace_back(create.krnlIE.getShapeAsDim(src, i));
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             readIV.insert(readIV.end(), loopInd.begin(), loopInd.end());
             Value val = createKrnl.load(src, readIV);
             createKrnl.store(val, dest, loopInd);

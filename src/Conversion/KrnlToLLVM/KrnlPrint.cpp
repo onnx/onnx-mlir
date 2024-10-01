@@ -34,7 +34,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto printOp = cast<KrnlPrintOp>(op);
+    auto printOp = mlir::cast<KrnlPrintOp>(op);
     Location loc = printOp.getLoc();
     KrnlPrintOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
@@ -55,9 +55,10 @@ public:
     Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
 
     if (input)
-      create.llvm.call({}, printfFuncRef, {formatSpecPtr, input});
+      create.llvm.call(
+          {}, printfFuncRef, {formatSpecPtr, input}, /*isVarArg*/ true);
     else
-      create.llvm.call({}, printfFuncRef, {formatSpecPtr});
+      create.llvm.call({}, printfFuncRef, {formatSpecPtr}, /*isVarArg*/ true);
 
     rewriter.eraseOp(op);
     return success();

@@ -113,7 +113,7 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   assert(start <= end && "Start must not be greater than end");
 
   // Output is the actual number of values (1D)
-  setOutputDims({LiteralIndexExpr(end - start)}, 0);
+  setOutputDims({LitIE(end - start)}, 0);
 
   // For the transpose
   DimsExpr outputTransposeDims(commonRank);

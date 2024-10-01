@@ -73,9 +73,9 @@ struct ONNXGatherElementsOpLowering
     //   output[i][j]...[n] = data[i][j]..[index]..[n] (index used at axis dim.)
     //
     ValueRange loopDef = create.krnl.defineLoops(indicesRank);
-    DimsExpr lbs(indicesRank, LiteralIndexExpr(0));
+    DimsExpr lbs(indicesRank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, indicesDims,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
 

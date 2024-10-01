@@ -4,7 +4,7 @@
 
 //===-------------- KrnlCall.cpp - Lower KrnlCallOp -----------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -68,10 +68,27 @@ public:
           rewriter, op, namedAttr.getValue(), parameterTypeList, parameterList);
     }
 
-    FlatSymbolRefAttr callRef =
-        create.llvm.getOrInsertSymbolRef(module, krnlCallOp.getFuncName(),
-            LLVM::LLVMVoidType::get(module.getContext()), parameterTypeList);
-    create.llvm.call({}, callRef, parameterList);
+    ValueRange returns = op->getResults();
+    if (returns.size() == 0) {
+      // There is no return
+      FlatSymbolRefAttr callRef =
+          create.llvm.getOrInsertSymbolRef(module, krnlCallOp.getFuncName(),
+              LLVM::LLVMVoidType::get(module.getContext()), parameterTypeList);
+      create.llvm.call({}, callRef, parameterList);
+
+      rewriter.eraseOp(op);
+    } else {
+      assert(returns.size() == 1 &&
+             "Only one return value is allowed for krnl.call now");
+      Type llvmReturnType =
+          llvmTypeConverter->convertType(returns[0].getType());
+
+      FlatSymbolRefAttr callRef = create.llvm.getOrInsertSymbolRef(
+          module, krnlCallOp.getFuncName(), llvmReturnType, parameterTypeList);
+      auto llvmCall =
+          create.llvm.call({llvmReturnType}, callRef, parameterList);
+      rewriter.replaceOp(op, llvmCall.getDefiningOp()->getResults()[0]);
+    }
 
     // Destroy OMTensor wrappers of parameters.
     const auto &apiRegistry =
@@ -81,7 +98,6 @@ public:
           rewriter, loc, apiRegistry, RuntimeAPI::API::DESTROY_OMTENSOR, {omt});
     }
 
-    rewriter.eraseOp(op);
     return success();
   }
 
@@ -102,11 +118,12 @@ private:
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
-    if (auto originalMemRef = dyn_cast<MemRefType>(ty)) {
+    if (auto originalMemRef = mlir::dyn_cast<MemRefType>(ty)) {
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = mlir::dyn_cast<LLVM::LLVMStructType>(parameter.getType());
       auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-      auto memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
+      auto memRefRankVal =
+          create.llvm.constant(int64Ty, static_cast<int64_t>(memRefRank));
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
@@ -190,7 +207,7 @@ private:
           auto int64Ty = IntegerType::get(context, 64);
           auto memRefRank = memRefTy.getRank();
           auto memRefRankVal =
-              create.llvm.constant(int64Ty, (int64_t)memRefRank);
+              create.llvm.constant(int64Ty, static_cast<int64_t>(memRefRank));
           Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 

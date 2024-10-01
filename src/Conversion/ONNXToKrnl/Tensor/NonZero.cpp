@@ -107,13 +107,13 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     Value zero = create.math.constant(xElementType, 0);
 
     // Bounds for the input tensor.
-    SmallVector<IndexExpr, 4> xLbs(xRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> xLbs(xRank, LitIE(0));
     SmallVector<IndexExpr, 4> xUbs;
     create.krnlIE.getShapeAsDims(X, xUbs);
 
     // Emit a variable for the total number of nonzero values.
     Value nonzeroCount = create.mem.alloca(MemRefType::get({}, indexTy));
-    create.krnl.store(iZero, nonzeroCount, {});
+    create.krnl.store(iZero, nonzeroCount);
 
     // Emit alloc and dealloc for reduction sum along each dimension.
     // MemRefType: [Dxi64] where D is the dimension size.
@@ -130,7 +130,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
       ValueRange initLoopDef = create.krnl.defineLoops(1);
       create.krnl.iterate(initLoopDef, initLoopDef, {iZero},
           {xBound.getValue()},
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             createKrnl.store(iZero, alloc, loopInd);
           });
       rsumMemRefs.emplace_back(alloc);
@@ -140,15 +140,15 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     // the reduction sum for each dimension.
     ValueRange rsumLoopDef = create.krnl.defineLoops(xMemRefType.getRank());
     create.krnl.iterateIE(rsumLoopDef, rsumLoopDef, xLbs, xUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MathBuilder createMath(createKrnl);
           Value x = createKrnl.load(X, loopInd);
           Value eqCond = createMath.eq(x, zero);
           Value zeroOrOne = createMath.select(eqCond, iZero, iOne);
           // Count the total number of nonzero values.
-          Value total = createKrnl.load(nonzeroCount, {});
+          Value total = createKrnl.load(nonzeroCount);
           total = createMath.add(total, zeroOrOne);
-          createKrnl.store(total, nonzeroCount, {});
+          createKrnl.store(total, nonzeroCount);
           // Reduction sum of the number of nonzero values for each dimension.
           for (int64_t i = 0; i < xRank; ++i) {
             Value sum = createKrnl.load(rsumMemRefs[i], loopInd[i]);
@@ -160,10 +160,10 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     // Emit alloc and dealloc for the result of this operation.
     // MemRefType : [RxNxi64] where R is the input's rank, N is the number of
     // non zero values.
-    Value numberOfZeros = create.krnl.load(nonzeroCount, {});
+    Value numberOfZeros = create.krnl.load(nonzeroCount);
     SmallVector<IndexExpr, 2> dimExprs;
-    dimExprs.emplace_back(LiteralIndexExpr(xRank));
-    dimExprs.emplace_back(DimIndexExpr(numberOfZeros));
+    dimExprs.emplace_back(LitIE(xRank));
+    dimExprs.emplace_back(DimIE(numberOfZeros));
     Value resMemRef = create.mem.alignedAlloc(resMemRefType, dimExprs);
 
     // Emit code to compute the output for each dimension.
@@ -180,7 +180,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
     ValueRange iLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
-        [&](KrnlBuilder &ck, ValueRange iLoopInd) {
+        [&](const KrnlBuilder &ck, ValueRange iLoopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
               MemRefBuilder>
               create(ck);
@@ -191,26 +191,26 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
             IndexExpr rsumBounds0 =
                 create.krnlIE.getShapeAsDim(rsumBoundsVal, 0);
 
-            create.krnl.store(iMinusOne, pos, {});
-            create.krnl.store(iZero, sum, {});
+            create.krnl.store(iMinusOne, pos);
+            create.krnl.store(iZero, sum);
 
             ValueRange jLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(jLoopDef, jLoopDef, {iZero},
                 {rsumBounds0.getValue()},
-                [&](KrnlBuilder &createKrnl, ValueRange jLoopInd) {
+                [&](const KrnlBuilder &createKrnl, ValueRange jLoopInd) {
                   MathBuilder createMath(createKrnl);
                   Value j(jLoopInd[0]);
                   Value o = createKrnl.load(rsumMemRefs[axis], {j});
-                  Value s = createKrnl.load(sum, {});
-                  Value p = createKrnl.load(pos, {});
+                  Value s = createKrnl.load(sum);
+                  Value p = createKrnl.load(pos);
                   s = createMath.add(s, o);
                   Value andCond = createMath.andi(
                       createMath.slt(i, s), createMath.eq(p, iMinusOne));
                   p = createMath.select(andCond, j, p);
-                  createKrnl.store(p, pos, {});
-                  createKrnl.store(s, sum, {});
+                  createKrnl.store(p, pos);
+                  createKrnl.store(s, sum);
                 });
-            Value p = create.krnl.load(pos, {});
+            Value p = create.krnl.load(pos);
             p = create.math.cast(resElementType, p);
             create.krnl.store(p, resMemRef, {axisVal, i});
           }

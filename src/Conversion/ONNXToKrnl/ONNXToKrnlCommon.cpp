@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -140,20 +140,6 @@ bool hasOneElement(Value value) {
   return true;
 }
 
-// Same as above, but from the innermost dimensions up to innerDim.
-bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
-  if (isScalarValue(value))
-    return true;
-  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
-  assert(type && "expected shaped type");
-  mlir::ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = type.getRank();
-  for (int64_t i = rank - innerDim; i < rank; ++i)
-    if (shape[i] != 1)
-      return false;
-  return true;
-}
-
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(Value indices) {
@@ -269,7 +255,7 @@ namespace {
 // Returns the DenseElementsAttr of input if it's a krnl.global constant or
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
 // builtin.unrealized_conversion_cast. Otherwise returns a nullptr attribute.
-DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
+DenseElementsAttr getDenseElementAttrFromConstValue(Value value) {
   Operation *definingOp = value.getDefiningOp();
   if (auto castOp = dyn_cast_or_null<UnrealizedConversionCastOp>(definingOp)) {
     if (castOp.getNumOperands() != 1)
@@ -332,8 +318,7 @@ Value foldOrEmitONNXTransposeOpKrnl(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims,
-    Type outputType) {
+    Location loc, Value data, DimsExpr &outputDims, Type outputType) {
   MemRefBuilder createMemRef(rewriter, loc);
   Value newView = createMemRef.reinterpretCast(data, outputDims);
   // Set type to the output type to avoid unrealized_conversion_cast.
@@ -369,7 +354,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   Value order = create.mem.alignedAlloc(type, ubs);
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
         // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
         createKrnl.store(loopInd[axis], order, loopInd);
       });
@@ -379,7 +364,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     // Emit krnl.Call to call omTensorSort API
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
-    Value valAscending = create.math.constant(intType, (int64_t)ascending);
+    Value valAscending =
+        create.math.constant(intType, static_cast<int64_t>(ascending));
     SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
     rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
@@ -390,11 +376,10 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   outerUbs[axis] = ubs[axis] - oneIE;
   ValueRange loopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
-      [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
-        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + oneIE;
-        ValueRange swapLoopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
-            [&](KrnlBuilder &ck, ValueRange swapLoopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange iLoopInd) {
+        IndexExpr i1 = DimIE(iLoopInd[axis]) + oneIE;
+        createKrnl.forLoopIE(i1, ubs[axis], /*step*/ 1, /*parallel*/ false,
+            [&](const KrnlBuilder &ck, ValueRange swapLoopInd) {
               MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
                   ck);
               SmallVector<Value> kLoopInd(iLoopInd);
@@ -416,7 +401,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
                 cond = create.math.sgt(x, y);
               else
                 cond = create.math.slt(x, y);
-              create.scf.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+              create.scf.ifThenElse(cond, [&](const SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
                 createKrnl.store(kOrd, order, iLoopInd);
                 createKrnl.store(iOrd, order, kLoopInd);
@@ -436,7 +421,7 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
   if (mlir::isa<NoneType>(optionalScalar.getType())) {
     return create.math.constant(elementType, defaultValue);
   } else if (mlir::cast<ShapedType>(optionalScalar.getType()).getRank() == 0) {
-    return create.krnl.load(optionalScalar, {});
+    return create.krnl.load(optionalScalar);
   } else {
     Value zero = create.math.constantIndex(0);
     return create.krnl.load(optionalScalar, {zero});
@@ -625,13 +610,13 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // requirement by definition. If found one, it is parDim and the function
 // returns true.
 
-bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
-    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize) {
+bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
+    ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
+    int64_t &parDim, int64_t minSize) {
   assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
   if (firstInclusiveDim < 0)
     firstInclusiveDim = 0;
-  if (lastExclusiveDim > (int64_t)lb.size())
+  if (lastExclusiveDim > static_cast<int64_t>(lb.size()))
     lastExclusiveDim = lb.size();
   for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
     IndexExpr tripCount = ub[i] - lb[i];
@@ -642,6 +627,222 @@ bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
     }
   }
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for simd.
+//===----------------------------------------------------------------------===//
+
+// New style.
+int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+    int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
+    int64_t &simdLoopStaticTripCount, bool &simdOnly) {
+  // Default return values for no simd.
+  simdLoopStaticTripCount = 0;
+  simdOnly = false;
+
+  // Analyze size of SIMD iterations.
+  int64_t staticSimdSize;
+  bool isStatic = MemRefBuilder::getStaticMemSize(
+      memRefType, staticSimdSize, -collapsedInnermostLoops);
+
+  Type elementType = memRefType.getElementType();
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd archVL is " << archVL << "\n");
+
+  // Element type does nt support SIMD.
+  if (archVL <= 1) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd for this type\n");
+    return 1;
+  }
+  if (isStatic && staticSimdSize < archVL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: static trip count "
+                            << staticSimdSize << " too short for a VL\n");
+    return 1;
+  }
+  // Gather operation statics
+  int64_t vectorizedOpNum, scalarOpNum, estimatedMaxVectorRegisterPressure;
+  double avgVL =
+      VectorMachineSupport::getAvgArchVectorLength(genOps, elementType,
+          vectorizedOpNum, scalarOpNum, estimatedMaxVectorRegisterPressure);
+  if (avgVL < 1.5) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: too few SIMD operations with "
+                            << avgVL << " avg VL\n");
+    return 1;
+  }
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: avg vl " << avgVL
+                          << ", vec op num " << vectorizedOpNum
+                          << ", max reg pressure "
+                          << estimatedMaxVectorRegisterPressure << "\n");
+
+  // Define a target max unroll as a function of register pressure.
+  int64_t unrollVL;
+  int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
+  if (estimatedMaxVectorRegisterPressure >= vrNum)
+    unrollVL = 1;
+  else if (estimatedMaxVectorRegisterPressure * 2 >= vrNum)
+    unrollVL = 2;
+  else if (estimatedMaxVectorRegisterPressure * 4 >= vrNum)
+    unrollVL = 4;
+  else
+    unrollVL = 8;
+  int64_t totVL = archVL * unrollVL;
+  // Refine unrolling factor so that it is suitable for short loops.
+  if (isStatic && (staticSimdSize < unrollVL * archVL)) {
+    int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * archVL));
+    LLVM_DEBUG(llvm::dbgs() << "  simd enable: size " << staticSimdSize
+                            << " , archVL " << archVL << ", unroll " << unrollVL
+                            << ", reduced to " << newUnroll << "\n");
+    unrollVL = newUnroll;
+    totVL = archVL * unrollVL;
+    if (canOverCompute && staticSimdSize % totVL != 0) {
+      // Does not divide; since we can over compute, increase unrollVL by 1.
+      LLVM_DEBUG(
+          llvm::dbgs() << "  simd enable: can over compute, boost unrollVL\n");
+      ++unrollVL;
+      totVL = archVL * unrollVL;
+    }
+    // Size control: if no ILP (unrollVL==1) or little ILP (unrollVL==2) with a
+    // leftover scalar loop, don't bother.
+    if (unrollVL == 1) {
+      LLVM_DEBUG(llvm::dbgs() << "  simd disable: too small unrollVL (1)\n");
+      return 1;
+    }
+    if (!canOverCompute && unrollVL == 2 && staticSimdSize % totVL != 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  simd disable: small unrollVL (2) with leftovers\n");
+      return 1;
+    }
+  }
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: unrollVL " << unrollVL << "\n");
+  // Fill in the output values. Now that we have SIMD, simdLoopStaticTripCount
+  // is either the static simd size if the trip is not runtime, or -1 if its
+  // runtime.
+  simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
+  // Now that we have SIMD, we have SIMD only if the static component of the
+  // SIMD loop is positive and a multiple of VL.
+  simdOnly = (staticSimdSize > 1) && (staticSimdSize % totVL == 0);
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: totVL " << totVL << ", simd-only "
+                          << simdOnly << "\n");
+  if (canOverCompute && !simdOnly) {
+    LLVM_DEBUG(
+        llvm::dbgs() << "  simd enable: can over compute, force simdOnly\n");
+    simdOnly = true;
+  }
+  return archVL * unrollVL;
+}
+
+int64_t capVLForMaxUnroll(
+    MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
+  Type elementType = memRefType.getElementType();
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
+  int64_t unrollVL = totVL / archVL;
+  assert(archVL * unrollVL == totVL && "expected archVL to divide totVL");
+  if (unrollVL > maxUnrollVL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd enable: unrollVL " << unrollVL
+                            << " capped at " << maxUnrollVL << "\n");
+    unrollVL = maxUnrollVL;
+  }
+  return archVL * unrollVL;
+}
+
+int64_t boostVLForMinUnroll(
+    MemRefType memRefType, MemRefType convertedMemRefType, int64_t totVL) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
+  Type convertedElementType = convertedMemRefType.getElementType();
+  int64_t convertedArchVL =
+      VectorMachineSupport::getArchVectorLength(convertedElementType);
+  if (convertedArchVL > totVL) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  simd enable: boost totVL to " << convertedArchVL
+               << " because of type conversions.\n");
+    return convertedArchVL;
+  }
+  return totVL;
+}
+
+int64_t capVLForSimdOnly(
+    MemRefType memRefType, int64_t totVL, int64_t simdLoopStaticTripCount) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
+  if (simdLoopStaticTripCount <= 1) {
+    // There is no static component to simd loop trip count.
+    LLVM_DEBUG(llvm::dbgs() << "  simd disable: dyn trip count, no simdOnly\n");
+    return 1;
+  }
+  int64_t archVL =
+      VectorMachineSupport::getArchVectorLength(memRefType.getElementType());
+  int64_t unrollVL = totVL / archVL;
+  assert(archVL * unrollVL == totVL && "expected archVL to divide totVL");
+  for (int64_t u = unrollVL; u > 0; --u) {
+    totVL = u * archVL;
+    if (simdLoopStaticTripCount % totVL == 0) {
+      // Success.
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  simd enable: simd only with totVL " << totVL << "\n");
+      return totVL;
+    }
+  }
+  // Did not find any unroll factor for which totVL divides static trip count.
+  LLVM_DEBUG(llvm::dbgs() << "  simd disable: no simdONLY for trip count\n");
+  return 1;
+}
+
+// Old style.
+int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+    int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
+    int64_t &simdLoopStaticTripCount) {
+  assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  assert(maxUnrollVL > 0 && "expected positive max simd unroll");
+  simdLoopStaticTripCount = 0; // Initially assume no SIMD.
+  Type elementType = memRefType.getElementType();
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd archVL is " << archVL << "\n");
+  if (archVL <= 1) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
+    return 1;
+  }
+  int64_t staticSize;
+  bool isStaticSize = MemRefBuilder::getStaticMemSize(
+      memRefType, staticSize, -collapsedInnermostLoops);
+  if (isStaticSize && staticSize < archVL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
+                            << " too short for a archVL of " << archVL << "\n");
+    return 1;
+  }
+  // Unless otherwise disabled, here is the estimated trip count.
+  if (canOverCompute &&
+      collapsedInnermostLoops == static_cast<int64_t>(memRefType.getRank())) {
+    // Fully collapsed and can add padding to be fine
+    simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
+    return maxUnrollVL * archVL;
+  }
+  // We have a partially flattened operator. Since we do only simdize entire
+  // loops (i.e. we don't support scalar epilogues at this time), make sure
+  // the static size is a multiple of the VL. Get the VL of the store
+  // (output's element type).
+  if (staticSize % archVL != 0) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  simd disabled: partial flattened dims "
+               << collapsedInnermostLoops << " with size " << staticSize
+               << " is not 0 mod archVL " << archVL << "\n");
+    return 1;
+  }
+  // See if we can get a unroll factor.
+  for (int64_t u = maxUnrollVL; u > 0; --u) {
+    if (staticSize % (u * archVL) == 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  partial flattened dims " << collapsedInnermostLoops
+                 << " with size " << staticSize << " works with VL " << archVL
+                 << " and unroll " << u << "\n");
+      simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
+      return u * archVL;
+    }
+  }
+  llvm_unreachable("should always find u==1 feasible");
 }
 
 //===----------------------------------------------------------------------===//
@@ -658,7 +859,8 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-par" : ""), nodeNameStr.c_str(), comment.c_str(),
-      (long long int)loopLevel, (long long int)parallelLoopTripCount);
+      static_cast<long long int>(loopLevel),
+      static_cast<long long int>(parallelLoopTripCount));
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -678,7 +880,8 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
-      (long long int)vectorLength, (long long int)simdLoopTripCount);
+      static_cast<long long int>(vectorLength),
+      static_cast<long long int>(simdLoopTripCount));
 }
 
 } // namespace onnx_mlir

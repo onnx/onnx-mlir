@@ -4,7 +4,7 @@
 
 //===----- BinaryDecoder.cpp - Decode binary files into typed arrays ------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -63,7 +63,7 @@ llvm::cl::opt<onnx::TensorProto::DataType> DataType(
 
 template <typename T>
 int printBuffer(std::vector<char> buffer) {
-  auto *ptr = (T *)&buffer[0];
+  auto *ptr = reinterpret_cast<T *>(&buffer[0]);
   auto data = std::vector<T>(ptr, ptr + buffer.size() / sizeof(T));
   for (const auto &elem : data)
     std::cout << elem << " ";
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     llvm::sys::fs::remove(Filename);
 
 #define PRINT_BUFFER_FOR_TYPE(ONNX_TYPE, CPP_TYPE)                             \
-  if (DataType == ONNX_TYPE)                                                   \
+  if (DataType == (ONNX_TYPE))                                                 \
     return printBuffer<CPP_TYPE>(buffer);
 
   PRINT_BUFFER_FOR_TYPE(onnx::TensorProto::BOOL, bool);

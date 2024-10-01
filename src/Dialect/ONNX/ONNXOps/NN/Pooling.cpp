@@ -4,7 +4,7 @@
 
 //===------------------ Pooling.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -38,8 +38,8 @@ LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
   outputDims.emplace_back(xDims[0]);
   outputDims.emplace_back(xDims[1]);
   // Spatial dimensions are reduced to 1.
-  for (int i = 2; i < (int)xDims.size(); ++i)
-    outputDims.emplace_back(LiteralIndexExpr(1));
+  for (int i = 2; i < static_cast<int>(xDims.size()); ++i)
+    outputDims.emplace_back(LitIE(1));
   // Save the final result.
   setOutputDims(outputDims);
   return success();
@@ -62,7 +62,7 @@ LogicalResult ONNXMaxRoiPoolOpShapeHelper::computeShape() {
 
   // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
   DimsExpr outputDims;
-  outputDims.push_back(LiteralIndexExpr(numRois));
+  outputDims.push_back(LitIE(numRois));
   outputDims.push_back(channel);
   outputDims.push_back(pooledDims[0]);
   outputDims.push_back(pooledDims[1]);
@@ -107,7 +107,7 @@ LogicalResult ONNXAveragePoolOp::verify() {
   auto X = operandAdaptor.getX();
   if (hasShapeAndRank(X)) {
     auto xShape = mlir::cast<ShapedType>(X.getType()).getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
+    if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
       return emitOpError("Input and kernel shape rank mismatch");
   }
 

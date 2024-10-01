@@ -20,8 +20,8 @@
 
 namespace onnx_mlir {
 
-// Exports the RecomposeONNXToONNXPass patterns. They are all plain rewrite
-// patterns that can be used with any PatternRewriter, not conversion patterns.
+// Exports the patterns. They are all plain rewrite patterns that can be used
+// with any PatternRewriter, not conversion patterns.
 void getParallelPrivateScfToScfPatterns(mlir::RewritePatternSet &patterns);
 
 } // namespace onnx_mlir

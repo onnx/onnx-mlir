@@ -4,7 +4,7 @@
 
 //===------------------ Normalization.cpp - ONNX Operations ---------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -149,6 +149,21 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// GroupNormalizationV18
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXGroupNormalizationV18Op::verify() {
+  ONNXGroupNormalizationV18OpAdaptor(*this);
+  llvm::outs()
+      << "Warning: The previous understanding of Opset 18 for "
+         "GroupNormalization "
+         "is incorrect. As shown in the following issue: "
+         "https://github.com/onnx/onnx/issues/5466.Rather, use Opset 21 for "
+         "GroupNormalization instead."
+      << "/n";
+  return success();
+}
+
 // TODO: should there be a shape inference for this one?
 
 //===----------------------------------------------------------------------===//
@@ -191,7 +206,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (!OpTrait::util::getBroadcastedShape(XShape, bShape, BBroadcastShape))
       op->emitOpError(
           "LayerNormalization op with incompatible B shapes (broadcast)");
-    if ((int64_t)BBroadcastShape.size() != XRank)
+    if (static_cast<int64_t>(BBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible B shapes "
                       "(unidirectional broadcast)");
     if (bType.getElementType() != XElementType)
@@ -208,7 +223,7 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
             XShape, scaleShape, scaleBroadcastShape))
       op->emitOpError(
           "LayerNormalization op with incompatible scale shapes (broadcast)");
-    if ((int64_t)scaleBroadcastShape.size() != XRank)
+    if (static_cast<int64_t>(scaleBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible scale shapes "
                       "(unidirectional broadcast)");
     if (scaleType.getElementType() != XElementType)
@@ -260,7 +275,7 @@ mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   if (hasMean) {
     DimsExpr meanShape(getOutputDims(0));
     for (int64_t r = axis; r < XRank; ++r)
-      meanShape[r] = LiteralIndexExpr(1);
+      meanShape[r] = LitIE(1);
     setOutputDims(meanShape, 1, false);
   }
 
@@ -268,7 +283,7 @@ mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   if (hasInvStdDev) {
     DimsExpr invStdDevShape(getOutputDims(0));
     for (int64_t r = axis; r < XRank; ++r)
-      invStdDevShape[r] = LiteralIndexExpr(1);
+      invStdDevShape[r] = LitIE(1);
     setOutputDims(invStdDevShape, invStdDevIndex, false);
   }
   return success();

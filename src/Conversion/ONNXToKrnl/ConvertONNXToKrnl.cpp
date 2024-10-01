@@ -46,7 +46,8 @@ public:
         ONNXEntryPointOp::getEntryPointFuncAttrName());
     StringRef entryPointName = funcRefAttr.getLeafReference().getValue();
     Operation *entryPointOp = module.lookupSymbol(entryPointName);
-    func::FuncOp entryPointFunc = cast<func::FuncOp>(entryPointOp);
+    assert(entryPointOp && "entry point name not found!");
+    func::FuncOp entryPointFunc = mlir::cast<func::FuncOp>(entryPointOp);
 
     IntegerAttr numInputsAttr =
         rewriter.getI32IntegerAttr(entryPointFunc.getArgumentTypes().size());
@@ -202,6 +203,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXYieldOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDFTOpPattern(patterns, typeConverter, ctx);
@@ -222,8 +224,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Quantization
-  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
@@ -371,20 +373,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // canonicalization after the lowering.
   target.addLegalOp<::mlir::ONNXNoneOp>();
 
-  // Use krnl.load/store instead of std.load/store and affine.load/store.
-  // krnl.load/store will be lowered to std.load/store and affine.load/store
-  // by `convert-krnl-to-affine` pass.
-  target.addIllegalOp<mlir::memref::LoadOp>();
-  target.addIllegalOp<mlir::affine::AffineLoadOp>();
-  target.addIllegalOp<mlir::memref::StoreOp>();
-  // Memref builder can use affine stores, it would be awkward for it to
-  // generate Krnl stores as mem builder is part of MLIR. Thus the affine
-  // stores should not be illegal here. Since affine loads are still illegal,
-  // the regular krnl lowering will most likely trigger errors if non krnl mem
-  // ops where generally used.
-  //
-  // target.addIllegalOp<mlir::affine::AffineStoreOp>();
-
   // Option`emitDealloc` is deprecated and turned off, make sure we don't have
   // buffer deallocation at this level. Will use MLIR buffer-deallocation for
   // this purpose instead. However, since the SequenceErase needs to emit
@@ -490,12 +478,9 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
   if (reportOnSimd) {
     if (!simdIsEnabled) {
       OnnxToKrnlLoweringConfiguration::defaultSimdComment = "simd is disabled";
-    } else {
-      VectorMachineSupport *vms =
-          VectorMachineSupport::getGlobalVectorMachineSupport();
-      if (!vms->hasSimd())
-        OnnxToKrnlLoweringConfiguration::defaultSimdComment =
-            "cpu with unspecified simd ISA";
+    } else if (!VectorMachineSupport::hasSimd()) {
+      OnnxToKrnlLoweringConfiguration::defaultSimdComment =
+          "cpu with unspecified simd ISA";
     }
   }
   if (parallelIsEnabled)

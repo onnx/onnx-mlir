@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -124,8 +124,8 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
 }
 
 bool sameRank(Value tensorOrMemref1, Value tensorOrMemref2) {
-  auto type1 = dyn_cast_or_null<ShapedType>(tensorOrMemref1.getType());
-  auto type2 = dyn_cast_or_null<ShapedType>(tensorOrMemref2.getType());
+  auto type1 = mlir::dyn_cast_or_null<ShapedType>(tensorOrMemref1.getType());
+  auto type2 = mlir::dyn_cast_or_null<ShapedType>(tensorOrMemref2.getType());
   if (!type1 || !type2)
     return false;
   if (!type1.hasRank() || !type2.hasRank())
@@ -234,7 +234,7 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(
   SmallVector<IndexExpr, 2> endExprs = {end1, end2};
   windowEndExpr = IndexExpr::min(endExprs);
   // kernelOffsetExpr
-  SmallVector<IndexExpr, 2> kernelExprs = {LiteralIndexExpr(0), start2};
+  SmallVector<IndexExpr, 2> kernelExprs = {LitIE(0), start2};
   kernelOffsetExpr = IndexExpr::min(kernelExprs);
 
   return std::vector<IndexExpr>{
@@ -314,11 +314,11 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
 
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value) {
-  return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
+  return mlir::dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
 bool getI64ValuesFromONNXConstantOp(
-    mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes) {
+    Value val, mlir::SmallVectorImpl<int64_t> &iRes) {
   ElementsAttr elemsAttr = getElementAttributeFromONNXValue(val);
   if (!elemsAttr)
     return false;
@@ -376,7 +376,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
     return false;
 
   int64_t dimensionsOfShape = shapeAttr.getShapedType().getShape()[0];
-  if ((int64_t)valueShape.size() != dimensionsOfShape)
+  if (static_cast<int64_t>(valueShape.size()) != dimensionsOfShape)
     return false;
 
   auto valueIt = shapeAttr.getValues<APInt>().begin();
@@ -390,11 +390,11 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
 
 /// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
 /// tensor<1xdtype>.
-bool isScalarConstantTensor(mlir::Value v) {
+bool isScalarConstantTensor(Value v) {
   if (!hasShapeAndRank(v))
     return false;
 
-  auto t = dyn_cast<ShapedType>(v.getType());
+  auto t = mlir::dyn_cast<ShapedType>(v.getType());
   int64_t r = t.getRank();
   return isDenseONNXConstant(v) &&
          ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
@@ -438,7 +438,7 @@ bool hasOneUseExceptDimOp(Value val) {
 
 // Create an ArrayAttr from a dense ConstantOp
 ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
-  auto elements = cast<ElementsAttr>(constOp.getValueAttr());
+  auto elements = mlir::cast<ElementsAttr>(constOp.getValueAttr());
   SmallVector<Attribute> values(elements.getValues<Attribute>());
   return ArrayAttr::get(constOp.getContext(), values);
 }
@@ -447,7 +447,7 @@ ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
   auto tensorType = RankedTensorType::get({1}, elementType);
-  auto ftype = cast<FloatType>(elementType);
+  auto ftype = mlir::cast<FloatType>(elementType);
   APFloat f = attr.getValue();
   bool ignored;
   f.convert(ftype.getFloatSemantics(), APFloat::rmNearestTiesToEven, &ignored);
@@ -528,7 +528,7 @@ DenseElementsAttr createDenseElementsAttrFromSize(
 /// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result) {
   ONNXConstantOp constOp =
-      dyn_cast_or_null<ONNXConstantOp>(result.getDefiningOp());
+      mlir::dyn_cast_or_null<ONNXConstantOp>(result.getDefiningOp());
 
   // Must be a constant.
   if (!constOp)
@@ -556,10 +556,10 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
-    return (RESULT_TYPE)mlir::cast<IntegerAttr>(*valueIt).getInt();
+    return static_cast<RESULT_TYPE>(mlir::cast<IntegerAttr>(*valueIt).getInt());
   } else if (mlir::isa<FloatType>(elementaryType)) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToDouble();
+    return static_cast<RESULT_TYPE>((*valueIt).convertToDouble());
   }
   llvm_unreachable("Unexpected type.");
   return 0;
@@ -625,6 +625,8 @@ Type convertONNXTypeToMLIRType(
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT4:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
     llvm_unreachable("Unsupported data type encountered.");
     return nullptr;
@@ -721,7 +723,7 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     double floatVal = getScalarValue<double>(elementAttr, elementType);
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
-      exponentValue = (int64_t)floatVal;
+      exponentValue = static_cast<int64_t>(floatVal);
       return true;
     }
   } else if (mlir::isa<IntegerType>(elementType)) {

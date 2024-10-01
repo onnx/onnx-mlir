@@ -4,7 +4,7 @@
 
 //===------ KrnlPrintTensor.cpp - Lower KrnlPrintTensorOp ----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -34,7 +34,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto printTensorOp = cast<KrnlPrintTensorOp>(op);
+    auto printTensorOp = mlir::cast<KrnlPrintTensorOp>(op);
     MLIRContext *context = printTensorOp.getContext();
     Location loc = printTensorOp.getLoc();
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);
@@ -57,7 +57,8 @@ public:
     auto int64Ty = IntegerType::get(context, 64);
     auto memRefTy = mlir::dyn_cast<LLVM::LLVMStructType>(input.getType());
     auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-    Value memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
+    Value memRefRankVal =
+        create.llvm.constant(int64Ty, static_cast<int64_t>(memRefRank));
     Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 

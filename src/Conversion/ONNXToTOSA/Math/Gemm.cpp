@@ -4,7 +4,7 @@
 
 //===---------------- Gemm.cpp - Gemm Op ----------------------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2024 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -102,7 +102,7 @@ public:
     // A
     if (alpha && alpha.getValueAsDouble() != 1.) {
       Value splattedConstAlpha = tosaBuilder.getSplattedConst(
-          (float)alpha.getValueAsDouble(), newShapeA);
+          static_cast<float>(alpha.getValueAsDouble()), newShapeA);
       alphaMulResult = tosaBuilder.mul(splattedConstAlpha, A, 0);
     }
 
@@ -110,7 +110,7 @@ public:
     // a multiplication for beta * C
     if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
       Value splattedConstBeta = tosaBuilder.getSplattedConst(
-          (float)beta.getValueAsDouble(), newShapeA);
+          static_cast<float>(beta.getValueAsDouble()), newShapeA);
       betaMulResult = tosaBuilder.mul(splattedConstBeta, C, 0);
     }
 

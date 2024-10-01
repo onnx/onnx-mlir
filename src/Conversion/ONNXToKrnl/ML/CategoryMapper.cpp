@@ -144,7 +144,7 @@ struct ONNXCategoryMapperOpLowering
 
     ValueRange loopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Determine the index of 'inputElem' in the perfect hash table
           // 'pHash'. Note: the index might not be valid (this happens
           // when the 'inputElem' is not present in the perfect hash
@@ -253,7 +253,7 @@ private:
   }
 
   Value loadElement(Value memref, ValueRange loopInd, Type elementType,
-      int64_t rank, KrnlBuilder &createKrnl) const {
+      int64_t rank, const KrnlBuilder &createKrnl) const {
     Value inputElem;
     TypeSwitch<Type>(elementType)
         .Case<IntegerType>(

@@ -257,7 +257,7 @@ private:
     onnx::TypeProto onnxType;
     if (mlir::isa<NoneType>(mlirType)) {
       // Done: Uninitialized TypeProto onnxType represents NoneType.
-    } else if (auto mlirTensorType = dyn_cast<TensorType>(mlirType)) {
+    } else if (auto mlirTensorType = mlir::dyn_cast<TensorType>(mlirType)) {
       onnx::TypeProto::Tensor &onnxTensorType = *onnxType.mutable_tensor_type();
       onnxTensorType.set_elem_type(
           mlirTypeToOnnxType(mlirTensorType.getElementType()));
@@ -823,7 +823,7 @@ private:
                "Op contains subgraph attributes but does not "
                "implement HasOnnxSubgraphOpInterface interface.");
         auto opWithSubgraph =
-            cast<HasOnnxSubgraphOpInterface>(op.getOperation());
+            mlir::cast<HasOnnxSubgraphOpInterface>(op.getOperation());
         auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());
         auto &region = op->getRegion(regionIdx);
         region.push_back(new Block);
@@ -839,7 +839,7 @@ private:
       }
     }
     if (auto opWithTypeInference =
-            dyn_cast<ResultTypeInferenceOpInterface>(op.getOperation())) {
+            mlir::dyn_cast<ResultTypeInferenceOpInterface>(op.getOperation())) {
       auto outTypes = opWithTypeInference.resultTypeInference();
       for (int i = 0; i < node.output().size(); i++) {
         OpResult result = op->getResult(i);
@@ -906,10 +906,15 @@ private:
     std::vector<NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
-      auto mlir_type = convertONNXTypeToMLIRType(
-          builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
-      Attribute mlirAttr = TypeAttr::get(mlir_type);
-      attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
+      if (attr.name() == "to") {
+        auto mlir_type = convertONNXTypeToMLIRType(
+            builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
+        Attribute mlirAttr = TypeAttr::get(mlir_type);
+        attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
+      } else {
+        NamedAttribute na = convertOnnxAttributeProtoToMlirNamedAttribute(attr);
+        attributes.push_back(na);
+      }
     }
 
     // If the node has a name, then import it.
@@ -1416,8 +1421,8 @@ private:
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       Type outTy = ImportType(output.type(), dim_params);
       if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
-        outTy =
-            UnrankedTensorType::get(cast<TensorType>(outTy).getElementType());
+        outTy = UnrankedTensorType::get(
+            mlir::cast<TensorType>(outTy).getElementType());
       if (output.type().tensor_type().has_shape()) {
         val.setType(outTy);
       }

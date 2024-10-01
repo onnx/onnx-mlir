@@ -11,8 +11,10 @@
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
+#include <filesystem>
 #include <regex>
 
+#include "mlir/IR/AsmState.h"
 #include "mlir/Support/Timing.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -28,7 +30,6 @@ int main(int argc, char *argv[]) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
-  mlir::registerAsmPrinterCLOptions();
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
@@ -74,7 +75,12 @@ int main(int argc, char *argv[]) {
   }
   loadDialects(context);
   setupTiming.stop();
-  std::string msg = "Importing ONNX Model to MLIR Module";
+  // Add the short inputFilename to the first compile phase printout so that we
+  // may better determine which compilation we are dealing with.
+  std::filesystem::path p(inputFilename);
+  std::string modelShortName = p.filename();
+  std::string msg =
+      "Importing ONNX Model to MLIR Module from \"" + modelShortName + "\"";
   showCompilePhase(msg);
   auto inputFileTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   mlir::OwningOpRef<mlir::ModuleOp> module;

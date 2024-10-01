@@ -219,7 +219,7 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
 // Create an ArrayAttr of IntegerAttr(s) of zero values.
 // This function is used for padding attribute in Conv.
 ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
-  ONNXConvOp op = dyn_cast<ONNXConvOp>(ret.getDefiningOp());
+  ONNXConvOp op = mlir::dyn_cast<ONNXConvOp>(ret.getDefiningOp());
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 4> vals;
@@ -240,7 +240,7 @@ ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
 // This function is used for padding attribute in Conv.
 DenseElementsAttr insertZerosForNonPaddedDims(
     PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
-  int nDims = (int)origAttrs.getValue().size() / 2;
+  int nDims = static_cast<int>(origAttrs.getValue().size()) / 2;
   int nElements = (nDims + extensionLength) * 2;
   SmallVector<int64_t, 4> pads(nElements, 0);
   for (int i = 0; i < nDims; ++i) {
@@ -451,7 +451,7 @@ public:
     if (isa<BlockArgument>(B))
       return false;
     bool BIsZero = false;
-    if (auto expandOp = dyn_cast<ONNXExpandOp>(B.getDefiningOp())) {
+    if (auto expandOp = mlir::dyn_cast<ONNXExpandOp>(B.getDefiningOp())) {
       Value input = expandOp.getInput();
       if (isDenseONNXConstant(input)) {
         // Expand's input is 0?

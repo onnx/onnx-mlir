@@ -39,7 +39,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   // Allocate and initialize the result.
   // Th result has the same shape as the input except the axis dimension is 1.
   SmallVector<IndexExpr, 4> outputUBS(inputUBS);
-  outputUBS[axis] = LiteralIndexExpr(1);
+  outputUBS[axis] = LitIE(1);
   SmallVector<int64_t, 4> outputShape;
   for (const IndexExpr &dim : outputUBS)
     outputShape.push_back(
@@ -49,9 +49,9 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   create.krnl.memset(resMemRef, zero);
 
   ValueRange loopDef = create.krnl.defineLoops(rank);
-  SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+  SmallVector<IndexExpr> lbs(rank, LitIE(0));
   create.krnl.iterateIE(loopDef, loopDef, lbs, inputUBS,
-      [&](KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
             createKrnl);
         // Load the index of the current max value.
@@ -68,7 +68,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
 
         // Compare and update the index for the maximum value.
         Value gt = create.math.sgt(next, maxValue);
-        create.scf.ifThenElse(gt, [&](SCFBuilder &createSCF) {
+        create.scf.ifThenElse(gt, [&](const SCFBuilder &createSCF) {
           KrnlBuilder createKrnl(createSCF);
           createKrnl.store(inputLoopInd[axis], resMemRef, resLoopInd);
         });
@@ -118,9 +118,9 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
     // Produce the final result.
     // Set value to 1 if index is argmax. Otherwise, 0.
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr> lbs(rank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
               createKrnl);
           // Load the index of the current max value.
@@ -132,13 +132,13 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
           Value eq = create.math.eq(maxInd, loopInd[axis]);
           create.scf.ifThenElse(
               eq, /*then*/
-              [&](SCFBuilder &createSCF) {
+              [&](const SCFBuilder &createSCF) {
                 MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
                 Value one = create.math.constant(elementType, 1);
                 create.krnl.store(one, resMemRef, loopInd);
               },
               /*else*/
-              [&](SCFBuilder &createSCF) {
+              [&](const SCFBuilder &createSCF) {
                 MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
                 Value zero = create.math.constant(elementType, 0);
                 create.krnl.store(zero, resMemRef, loopInd);

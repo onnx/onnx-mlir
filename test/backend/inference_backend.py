@@ -6,6 +6,7 @@
 #
 ################################################################################
 from __future__ import absolute_import
+from __future__ import annotations
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
@@ -394,7 +395,7 @@ def get_test_models():
         },
         # ==OP== Cast
         # ==MIN== 6
-        # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16.
+        # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4.
         "test_cast_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -433,7 +434,7 @@ def get_test_models():
         "test_cast_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
         # ==OP== CastLike
         # ==MIN== 19
-        # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
+        # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4.
         "test_castlike_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -614,10 +615,12 @@ def get_test_models():
         },
         # ==OP== Constant
         # ==MIN== 1
+        # ==LIM== Does not support int4 and uint4.
         # By def, no dynamic shapes.
         "test_constant_cpu": {STATIC_SHAPE: {}},
         # ==OP== ConstantOfShape
         # ==MIN== 9
+        # ==LIM== Does not support int4 and uint4.
         # By def, no dynamic shapes.
         "test_constantofshape_float_ones_cpu": {STATIC_SHAPE: {}},
         "test_constantofshape_int_zeros_cpu": {STATIC_SHAPE: {}},
@@ -789,7 +792,7 @@ def get_test_models():
         },
         # ==OP== DequantizeLinear
         # ==MIN== 10
-        # ==LIM== Only support for per-tensor or layer dequantization. No support for per-axis dequantization.
+        # ==LIM== Only support for per-tensor or layer dequantization. No support for per-axis dequantization. Does not support int4 and uint4.
         # "test_dequantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_dequantizelinear_cpu": {
             STATIC_SHAPE: {},
@@ -980,6 +983,7 @@ def get_test_models():
         },
         # ==OP== Flatten
         # ==MIN== 1
+        # ==LIM== Does not support int4 and uint4.
         "test_flatten_axis0_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -1357,7 +1361,7 @@ def get_test_models():
         },
         # ==OP== Identity
         # ==MIN== 16
-        # ==LIM== Sequence identity not supported.
+        # ==LIM== Sequence identity not supported. Does not support int4 and uint4.
         "test_identity_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -1367,7 +1371,7 @@ def get_test_models():
         # "test_identity_opt_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== If
         # ==MIN== 16
-        # ==LIM== Sequence and Optional outputs are not supported.
+        # ==LIM== Sequence and Optional outputs are not supported. Does not support int4 and uint4.
         "test_if_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -1784,7 +1788,7 @@ def get_test_models():
         },
         # ==OP== Loop
         # ==MIN== 1
-        # ==LIM== Input must have static shape.
+        # ==LIM== Input must have static shape. Does not support int4 and uint4.
         "test_loop11_cpu": {
             STATIC_SHAPE: {},
             # Need to enable ConvertSeqToMemrefPass for dynamic test.
@@ -2263,7 +2267,7 @@ def get_test_models():
         },
         # ==OP== Pad
         # ==MIN== 2
-        # ==LIM== axes input not supported
+        # ==LIM== axes input not supported. Does not support int4 and uint4.
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -2316,7 +2320,7 @@ def get_test_models():
         },
         # ==OP== QuantizeLinear
         # ==MIN== 10
-        # ==LIM== Do not support per-axis and i8 quantization.
+        # ==LIM== Does not support per-axis and i8 quantization. Does not support int4 and uint4.
         # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_quantizelinear_cpu": {
             STATIC_SHAPE: {},
@@ -2622,7 +2626,7 @@ def get_test_models():
         },
         # ==OP== Reshape
         # ==MIN== 5
-        # ==LIM== allowzero not supported. Input `shape` must have static dimension.
+        # ==LIM== allowzero not supported. Input `shape` must have static dimension. Does not support int4 and uint4.
         "test_reshape_extended_dims_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -2801,7 +2805,7 @@ def get_test_models():
         },
         # ==OP== Scan
         # ==MIN== 8
-        # ==LIM== Does not support dynamic shapes.
+        # ==LIM== Does not support dynamic shapes. Does not support int4 and uint4.
         # ==TODO== Precision issue with newer opset, maybe just unsupported. Dynamic shape?
         #  "test_scan_sum_cpu": {STATIC_SHAPE:{}},
         "test_scan9_sum_cpu": {STATIC_SHAPE: {}},
@@ -2858,7 +2862,7 @@ def get_test_models():
         # "test_sequence_insert_at_back_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== Shape
         # ==MIN== 15
-        # ==LIM== Does not support start and end attributes.
+        # ==LIM== Does not support start and end attributes. Does not support int4 and uint4.
         "test_shape_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2914,6 +2918,7 @@ def get_test_models():
         },
         # ==OP== Size
         # ==MIN== 13
+        # ==LIM== Does not support int4 and uint4.
         "test_size_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3041,7 +3046,7 @@ def get_test_models():
         },
         # ==OP== Squeeze
         # ==MIN== 1
-        # ==LIM== Does not support static and dynamic shape.
+        # ==LIM== Does not support static and dynamic shape. Does not support int4 and uint4.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_squeeze_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_squeeze_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -3140,6 +3145,7 @@ def get_test_models():
         },
         # ==OP== Transpose
         # ==MIN== 1
+        # ==LIM== Does not support int4 and uint4.
         "test_transpose_default_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3285,7 +3291,7 @@ def get_test_models():
         },
         # ==OP== Unsqueeze
         # ==MIN== 1
-        # ==LIM== Does not support static and dynamic shape.
+        # ==LIM== Does not support static and dynamic shape. Does not support int4 and uint4.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_unsqueeze_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_unsqueeze_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -3619,11 +3625,12 @@ class InferenceBackendTest(BackendTest):
         outputs: Sequence[Any],
         rtol: float,
         atol: float,
+        model_dir: str | None = None,
     ) -> None:
         rtol = float(os.getenv("TEST_RTOL", rtol))
         atol = float(os.getenv("TEST_ATOL", atol))
         super(InferenceBackendTest, cls).assert_similar_outputs(
-            ref_outputs, outputs, rtol, atol
+            ref_outputs, outputs, rtol, atol, model_dir
         )
 
     def _add_onnxmlir_model_test(

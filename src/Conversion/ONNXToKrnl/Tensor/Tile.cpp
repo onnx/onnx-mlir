@@ -78,10 +78,10 @@ struct ONNXTileOpLowering : public OpConversionPattern<ONNXTileOp> {
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
 
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           // Compute the indices used by the input tensor load operation.
           // Note: An alternative implementation can be found at the end of this
           // file.

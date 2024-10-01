@@ -4,7 +4,7 @@
 
 //===----- DialectBuilder.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -164,6 +164,19 @@ Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
           toTensor(bias), axisAttr, epsilon, stashTypeAttr);
   return layerNormOp.getY();
 }
+// In the case of GroupNormalization when stashType can be specified
+Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
+    Value bias, int64_t axis, FloatAttr epsilon, IntegerAttr stashType) const {
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
+  Value noneVal = none();
+  Type noneType = noneVal.getType();
+  ONNXLayerNormalizationOp layerNormOp =
+      createOpAndInferShapes<ONNXLayerNormalizationOp>(
+          /*Y type*/ toTensor(outputType), /*mean type*/ noneType,
+          /*std dev Type*/ noneType, toTensor(input), toTensor(scale),
+          toTensor(bias), axisAttr, epsilon, stashType);
+  return layerNormOp.getY();
+}
 
 Value OnnxBuilder::qlinearMatMul(Type outputType, Value a, Value aScale,
     Value aZeroPoint, Value b, Value bScale, Value bZeroPoint, Value yScale,
@@ -296,8 +309,8 @@ Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
       toTensor(outputType), toTensor(input), toTensor(shape));
 }
 
-Value OnnxBuilder::reshape(Type outputType, Value input, Value shape,
-    mlir::IntegerAttr allowZero) const {
+Value OnnxBuilder::reshape(
+    Type outputType, Value input, Value shape, IntegerAttr allowZero) const {
   return createTypedOpAndInferShapes<ONNXReshapeOp>(
       toTensor(outputType), toTensor(input), toTensor(shape), allowZero);
 }

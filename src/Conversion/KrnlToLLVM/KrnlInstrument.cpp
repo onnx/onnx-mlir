@@ -5,7 +5,7 @@
 
 //===------ KrnlInstrument.cpp - Lower KrnlInstrumentOp -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -82,14 +82,14 @@ public:
       else
         name.pop_back(); // remove last "-"
       Location newLoc = NameLoc::get(rewriter.getStringAttr(name));
-      nodeName = cast<NameLoc>(newLoc).getName();
+      nodeName = mlir::cast<NameLoc>(newLoc).getName();
     } else if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(loc)) {
       std::string filename =
           llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
       std::string name =
           filename + ":" + std::to_string(fileLineColLoc.getLine());
       Location newLoc = NameLoc::get(rewriter.getStringAttr(name));
-      nodeName = cast<NameLoc>(newLoc).getName();
+      nodeName = mlir::cast<NameLoc>(newLoc).getName();
     } else
       nodeName = StringRef("NOTSET");
     LLVM_DEBUG(
@@ -114,7 +114,7 @@ public:
     SET_INSTRUMENT_OP_NAME_LEN(tagWithLen, opNameLen);
     SET_INSTRUMENT_NODE_NAME_LEN(tagWithLen, nodeNameLen);
     Value tag = create.llvm.constant(
-        IntegerType::get(context, 64), (int64_t)tagWithLen);
+        IntegerType::get(context, 64), static_cast<int64_t>(tagWithLen));
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);

@@ -4,7 +4,7 @@
 
 //===------------------ Upsample.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -52,7 +52,7 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
         // When shape is also constant, replace questionmark by actual value.
         double dim = xShape[i].getLiteral();
         double scale = valueAttr.getValues<FloatAttr>()[i].getValueAsDouble();
-        outputDims[i] = LiteralIndexExpr((int64_t)(dim * scale));
+        outputDims[i] = LitIE(static_cast<int64_t>(dim * scale));
       }
     }
   }

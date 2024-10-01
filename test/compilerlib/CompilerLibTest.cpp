@@ -22,12 +22,12 @@ bool compileFromFile = false;
   }
 #define PARSE_ARG(NAME, FLAG)                                                  \
   if (arg.find(FLAG) == 0) {                                                   \
-    NAME = arg.substr(sizeof(FLAG));                                           \
+    (NAME) = arg.substr(sizeof(FLAG));                                         \
     return true;                                                               \
   }
 #define PARSE_FLAG(NAME, FLAG)                                                 \
   if (arg.find(FLAG) == 0) {                                                   \
-    NAME = true;                                                               \
+    (NAME) = true;                                                             \
     return true;                                                               \
   }
 #define PARSE_UNSUPPORTED_FLAG(FLAG)                                           \

@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.15.0"
+current_onnx_version = "1.16.2"
 
 # Check the version of onnx package being used.
 if (
@@ -161,7 +161,7 @@ version_dict = {
     "Greater": [13],
     "GreaterOrEqual": [16],
     "GridSample": [16],
-    "GroupNormalization": [18],
+    "GroupNormalization": [21, 18],
     "HammingWindow": [17],
     "HannWindow": [17],
     "HardSigmoid": [6],
@@ -396,6 +396,7 @@ OpsWithVerifier = [
     "Gelu",
     "Greater",
     "GreaterOrEqual",
+    "GroupNormalizationV18",
     "Hardmax",
     "If",
     "IsInf",

@@ -116,8 +116,6 @@ void checkStatus(zdnn_status status, const char *zdnn_name) {
   }
 }
 
-#define CHECK_ZDNN_STATUS(status, zdnn_name) checkStatus(status, zdnn_name)
-
 void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape) {
   const zdnn_tensor_desc *desc = t->transformed_desc;
   shape->e4 = desc->dim4;
