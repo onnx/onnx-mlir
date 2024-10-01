@@ -51,7 +51,11 @@ add_onnx_mlir_library(OMInitAccelerators
     LLVMSupport
     MLIRIR
   )
-target_compile_options(OMInitAccelerators PUBLIC -Wno-gnu-zero-variadic-macro-arguments)
+
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  target_compile_options(OMInitAccelerators PUBLIC -Wno-gnu-zero-variadic-macro-arguments)
+endif()
+
 
 add_onnx_mlir_library(OMAccelerator
   Accelerator.cpp
@@ -68,4 +72,6 @@ add_onnx_mlir_library(OMAccelerator
     LLVMSupport
     MLIRIR
   )
-target_compile_options(OMAccelerator PUBLIC -Wno-gnu-zero-variadic-macro-arguments)
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  target_compile_options(OMAccelerator PUBLIC -Wno-gnu-zero-variadic-macro-arguments)
+endif()
