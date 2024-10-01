@@ -34,6 +34,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 
   // Types
   Type quantizedElementType = quantizedType.getElementType();
+  Type inputElementType = inputType.getElementType();
   int64_t rank = inputType.getRank();
 
   // Flatten the input data and outputs
@@ -71,13 +72,24 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
+#define ONE_OVER_SCALE 1
+  Value oneOverScale;
+  bool useOneOverScale = ONE_OVER_SCALE && isa<FloatType>(inputElementType);
+  if (useOneOverScale) {
+    Value one = create.math.constant(inputElementType, 1.0);
+    oneOverScale = create.math.div(one, scale);
+  }
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
         MultiDialectBuilder<MathBuilder> create(kb);
         Value x = inputVals[0];
         // Scale
-        Value scaleX = create.math.div(x, scale);
+        Value scaleX;
+        if (useOneOverScale)
+          scaleX = create.math.mul(x, oneOverScale);
+        else
+          scaleX = create.math.div(x, scale);
         // Round
         Value roundX = create.math.round(scaleX);
         // Adjust
