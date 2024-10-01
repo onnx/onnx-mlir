@@ -287,7 +287,6 @@ public:
                     [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
-                      create.krnl.printf("unsitckify: 1 val\n");
                       Value loopIndex = loopInd[0];
                       IndexExpr l = DimIE(loopIndex);
                       // Load converted value.
@@ -296,6 +295,11 @@ public:
                       outputAF[E1] = outputAF[E1] + SymIE(lastL);
                       outputAF[E1] = outputAF[E1] + l;
                       create.krnl.storeIE(f32, alloc, outputAF);
+                      create.krnl.printf("unsitckify: 1 val:");
+                      for (auto af : outputAF)
+                        create.krnl.printf(", ", af.getValue(),
+                            af.getValue().getType(), false);
+                      create.krnl.printf("\n");
                     });
               });
         });
