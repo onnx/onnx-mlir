@@ -193,9 +193,9 @@ public:
           IndexExpr isFullLogical;
           IndexExpr ub1 = SymIE(outputDims[E1]);
           if (hasOnly64) {
-            isFullLogical = litZero < lit1; // True condition.
+            isFullLogical = PredIE(true);
           } else if (neverHas64) {
-            isFullLogical = litZero > lit1; // False condition.
+            isFullLogical = PredIE(false);
           } else {
             IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
             isFullLogical = isFull >= 0;
