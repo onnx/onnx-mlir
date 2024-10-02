@@ -433,6 +433,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[RES_41_:%.+]] = memref.alloc() {{.*}}: memref<2x64x31x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = builtin.unrealized_conversion_cast [[RES_41_]] : memref<2x64x31x3xf32> to tensor<2x64x31x3xf32>
 // CHECK-DAG:       [[RES_42_:%.+]] = memref.alloc() {{.*}}: memref<3xindex>
 // CHECK:           affine.store [[CST_2_]], [[RES_42_]][0] : memref<3xindex>
 // CHECK:           affine.store [[CST_64_]], [[RES_42_]][1] : memref<3xindex>
@@ -467,8 +468,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               krnl.store [[LOAD_VAR_reshape_MEM_6_1_1_1_1_]], [[VAR_reshape_75_]]{{.}}[[VAR_8_5_]]#0, [[VAR_8_5_]]#1, [[VAR_11_12_]]{{.}} : memref<2x64x93xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           [[VAR_7_:%.+]] = builtin.unrealized_conversion_cast [[RES_41_]] : memref<2x64x31x3xf32> to tensor<2x64x31x3xf32>
-// CHECK:           onnx.Return [[VAR_7_]] : tensor<2x64x31x3xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<2x64x31x3xf32>
 // CHECK:         }
 }
 
