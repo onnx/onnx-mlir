@@ -125,8 +125,10 @@ public:
     IndexExpr T1 = outputDims[E1].ceilDiv(64);
     ubs[E1] = T1; // E1 dim is over tiles.
 
+    // Simplify code when these hold true.
     bool neverHas64 = outputDims[E1].isLiteralAndSmallerThan(64);
     bool neverHas8 = outputDims[E1].isLiteralAndSmallerThan(8);
+
     // Parallel...
     if (enableParallel) {
       int64_t parId;
@@ -189,7 +191,7 @@ public:
           IndexExpr isFullLogical;
           IndexExpr ub1 = SymIE(outputDims[E1]);
           if (neverHas64) {
-            isFullLogical = litZero > lit1; // false.
+            isFullLogical = litZero > lit1; // False condition.
           } else {
             IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
             isFullLogical = isFull >= 0;
@@ -204,7 +206,6 @@ public:
                 const int64_t unrollVL = 4;
                 const int64_t totVL = unrollVL * archVL;
                 assert(totVL <= 64 && "bad unroll");
-                // create.krnl.printf("unsitckify: full 64 stick\n");
                 if (!neverHas64) {
                   create.scf.forLoop(litZero.getValue(), lit64.getValue(),
                       totVL, [&](const SCFBuilder b, ValueRange loopInd) {
@@ -258,7 +259,6 @@ public:
                       [&](SCFBuilder b, ValueRange loopInd) {
                         MDBuilder create(b);
                         IndexExprScope innerScope(b, &middleScope);
-                        // create.krnl.printf("unsitckify: totVL val\n");
                         Value loopIndex = loopInd[0];
                         IndexExpr l = DimIE(loopIndex);
                         // Load f16 values from input via reinterpreted data
@@ -307,13 +307,6 @@ public:
                       outputAF[E1] = outputAF[E1] + SymIE(lastL);
                       outputAF[E1] = outputAF[E1] + l;
                       create.krnl.storeIE(f32, alloc, outputAF);
-                      #if 0
-                      create.krnl.printf("unsitckify: 1 val:");
-                      for (auto af : outputAF)
-                        create.krnl.printf(", ", af.getValue(),
-                            af.getValue().getType(), false);
-                      create.krnl.printf("\n");
-                      #endif
                     });
               });
         });
