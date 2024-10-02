@@ -127,7 +127,6 @@ public:
 
     bool neverHas64 = outputDims[E1].isLiteralAndSmallerThan(64);
     bool neverHas8 = outputDims[E1].isLiteralAndSmallerThan(8);
-
     // Parallel...
     if (enableParallel) {
       int64_t parId;
@@ -190,7 +189,7 @@ public:
           IndexExpr isFullLogical;
           IndexExpr ub1 = SymIE(outputDims[E1]);
           if (neverHas64) {
-            isFullLogical = LitIE(-1);
+            isFullLogical = litZero > lit1; // false.
           } else {
             IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
             isFullLogical = isFull >= 0;
