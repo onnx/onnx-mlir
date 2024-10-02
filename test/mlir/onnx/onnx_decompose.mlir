@@ -698,3 +698,15 @@ func.func @test_castlike(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf16>) -> tensor
   // CHECK: onnx.Return [[RES]] : tensor<*xf16>
 }
 
+// -----
+
+func.func @test_sum(%arg0: tensor<64x128x10xf32>, %arg1: tensor<128x10xf32>, %arg2: tensor<10xf32>, %arg3: tensor<64x1x1xf32>) -> tensor<64x128x10xf32> {
+  %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<64x128x10xf32>, tensor<128x10xf32>, tensor<10xf32>, tensor<64x1x1xf32>) -> tensor<64x128x10xf32>
+  onnx.Return %0 : tensor<64x128x10xf32> 
+  // CHECK-LABEL:       func @test_sum
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}}, %[[ARG3:.*]]: {{.*}})
+  // CHECK-NEXT:      %[[SUM0:.*]] = "onnx.Add"(%[[ARG0]], %[[ARG1]])
+  // CHECK-NEXT:      %[[SUM1:.*]] = "onnx.Add"(%[[SUM0]], %[[ARG2]])
+  // CHECK-NEXT:      %[[SUM2:.*]] = "onnx.Add"(%[[SUM1]], %[[ARG3]])
+  // CHECK-NEXT:      onnx.Return %[[SUM2]]
+}
