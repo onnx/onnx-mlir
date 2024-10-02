@@ -131,9 +131,6 @@ public:
     bool hasOnly64 =
         outputDims[E1].isLiteral() && (outputDims[E1].getLiteral() % 64 == 0);
 
-    fprintf(stderr, "hi alex, never 64 %d, never 8 %d\n", (int)neverHas64,
-        (int)neverHas8);
-
     // Parallel...
     if (enableParallel) {
       int64_t parId;
