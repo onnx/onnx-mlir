@@ -125,9 +125,14 @@ public:
     IndexExpr T1 = outputDims[E1].ceilDiv(64);
     ubs[E1] = T1; // E1 dim is over tiles.
 
-    // Simplify code when these hold true.
+    // Predicates used to avoid creating code that is never used.
     bool neverHas64 = outputDims[E1].isLiteralAndSmallerThan(64);
     bool neverHas8 = outputDims[E1].isLiteralAndSmallerThan(8);
+    bool hasOnly64 =
+        outputDims[E1].isLiteral() && (outputDims[E1].getLiteral() % 64 == 0);
+
+    fprintf(stderr, "hi alex, never 64 %d, never 8 %d\n", (int)neverHas64,
+        (int)neverHas8);
 
     // Parallel...
     if (enableParallel) {
@@ -190,7 +195,9 @@ public:
           // not going out of bound, i.e. beyond outputDIms[E1];
           IndexExpr isFullLogical;
           IndexExpr ub1 = SymIE(outputDims[E1]);
-          if (neverHas64) {
+          if (hasOnly64) {
+            isFullLogical = litZero < lit1; // True condition.
+          } else if (neverHas64) {
             isFullLogical = litZero > lit1; // False condition.
           } else {
             IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
@@ -206,47 +213,50 @@ public:
                 const int64_t unrollVL = 4;
                 const int64_t totVL = unrollVL * archVL;
                 assert(totVL <= 64 && "bad unroll");
-                if (!neverHas64) {
-                  create.scf.forLoop(litZero.getValue(), lit64.getValue(),
-                      totVL, [&](const SCFBuilder b, ValueRange loopInd) {
-                        MDBuilder create(b);
-                        IndexExprScope innerScope(b, &outerScope);
-                        Value loopIndex = loopInd[0];
-                        IndexExpr l = DimIE(loopIndex);
-                        Value vecF16[unrollVL], vecF32H[unrollVL],
-                            vecF32L[unrollVL];
-                        // Load f16 values from input via reinterpreted data
-                        // tile.
-                        for (int64_t i = 0; i < unrollVL; ++i) {
-                          vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
-                              {SymIE(inputTileOffset), l + (i * archVL)}, {});
-                        }
-                        // Convert back to f32.
-                        for (int64_t i = 0; i < unrollVL; ++i) {
-                          auto convertOp =
-                              rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
-                                  loc, vecF16[i]);
-                          vecF32H[i] = convertOp.getResult(0);
-                          vecF32L[i] = convertOp.getResult(1);
-                        }
-                        // Store f32 values back to the (normal layout) output.
-                        DimsExpr outputAF = SymListIE(inputAF);
-                        outputAF[E1] = outputAF[E1] + l;
-                        for (int64_t i = 0; i < unrollVL; ++i) {
-                          LitIE iH(i * archVL), iL(i * archVL + archVL / 2);
-                          create.vec.storeIE(
-                              vecF32H[i], alloc, outputAF, {iH.getValue()});
-                          create.vec.storeIE(
-                              vecF32L[i], alloc, outputAF, {iL.getValue()});
-                        }
-                      });
-                } // if cannot exclude having 64 elements.
+                if (neverHas64)
+                  return; // Nothing to do here.
+
+                create.scf.forLoop(litZero.getValue(), lit64.getValue(), totVL,
+                    [&](const SCFBuilder b, ValueRange loopInd) {
+                      MDBuilder create(b);
+                      IndexExprScope innerScope(b, &outerScope);
+                      Value loopIndex = loopInd[0];
+                      IndexExpr l = DimIE(loopIndex);
+                      Value vecF16[unrollVL], vecF32H[unrollVL],
+                          vecF32L[unrollVL];
+                      // Load f16 values from input via reinterpreted data
+                      // tile.
+                      for (int64_t i = 0; i < unrollVL; ++i) {
+                        vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
+                            {SymIE(inputTileOffset), l + (i * archVL)}, {});
+                      }
+                      // Convert back to f32.
+                      for (int64_t i = 0; i < unrollVL; ++i) {
+                        auto convertOp =
+                            rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
+                                loc, vecF16[i]);
+                        vecF32H[i] = convertOp.getResult(0);
+                        vecF32L[i] = convertOp.getResult(1);
+                      }
+                      // Store f32 values back to the (normal layout) output.
+                      DimsExpr outputAF = SymListIE(inputAF);
+                      outputAF[E1] = outputAF[E1] + l;
+                      for (int64_t i = 0; i < unrollVL; ++i) {
+                        LitIE iH(i * archVL), iL(i * archVL + archVL / 2);
+                        create.vec.storeIE(
+                            vecF32H[i], alloc, outputAF, {iH.getValue()});
+                        create.vec.storeIE(
+                            vecF32L[i], alloc, outputAF, {iL.getValue()});
+                      }
+                    });
               },
-              // else, we don't have a full (64 e1) tile.
+              // Else, we don't have a full (64 e1) tile.
               [&](SCFBuilder b) {
                 MDBuilder create(b);
                 IndexExprScope middleScope(b, &outerScope);
                 IndexExpr tripCount = SymIE(ub1) - SymIE(e1);
+                if (hasOnly64)
+                  return;
                 if (!neverHas8) {
                   // Note: if we only have multiple of VL, loop below will
                   // handle all as we subtract (VL-1). Aka if VL=8 and tripCount
