@@ -992,11 +992,13 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
   LogicalResult matchAndRewrite(
       ONNXSumOp sumOp, PatternRewriter &rewriter) const final {
     SmallVector<Value> inputs(sumOp.getData_0());
-    assert(inputs.size() >= 2 && "expected at least two inputs");
+    assert(inputs.size() > 0 && "expected at least one input");
     Value result = inputs[0];
-    inputs.erase(inputs.begin());
-    for (auto input : inputs) {
-      result = rewriter.create<ONNXAddOp>(sumOp.getLoc(), result, input);
+    if (inputs.size() > 1) {
+      inputs.erase(inputs.begin());
+      for (auto input : inputs) {
+        result = rewriter.create<ONNXAddOp>(sumOp.getLoc(), result, input);
+      }
     }
     rewriter.replaceOp(sumOp, result);
     return success();

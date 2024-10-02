@@ -710,3 +710,13 @@ func.func @test_sum(%arg0: tensor<64x128x10xf32>, %arg1: tensor<128x10xf32>, %ar
   // CHECK-NEXT:      %[[SUM2:.*]] = "onnx.Add"(%[[SUM1]], %[[ARG3]])
   // CHECK-NEXT:      onnx.Return %[[SUM2]]
 }
+
+// -----
+
+func.func @test_sum_single_input(%arg0: tensor<64x128x10xf32>) -> tensor<64x128x10xf32> {
+  %0 = "onnx.Sum"(%arg0) : (tensor<64x128x10xf32>) -> tensor<64x128x10xf32>
+  onnx.Return %0 : tensor<64x128x10xf32> 
+  // CHECK-LABEL:       func @test_sum_single_input
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}})
+  // CHECK-NEXT:      onnx.Return %[[ARG0]]
+}
