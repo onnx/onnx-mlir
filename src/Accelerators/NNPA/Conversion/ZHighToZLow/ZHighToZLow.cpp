@@ -724,18 +724,21 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     Value result;
     if (storeConstantsToFile && nnpaDelayStickifiedConstGen) {
       // Create a ZLowStickifiedConstantOp.
+      StringAttr layout =
+          getZTensorLayoutAttr(rewriter, *op->result_type_begin());
       ZLowStickifiedConstantOp constantOp =
           rewriter.create<ZLowStickifiedConstantOp>(loc,
               mlir::cast<MemRefType>(zMemRefType.value),
               /*shape=*/
               rewriter.getI64ArrayAttr(normalizedShape),
-              /*value=*/zhighStickifiedConstOp.getValueAttr(),
               /*name=*/
               rewriter.getStringAttr(
                   "constant_stickify_" + std::to_string(constantID)),
+              /*value=*/zhighStickifiedConstOp.getValueAttr(),
+              /*layout=*/layout,
+              /*offset=*/rewriter.getI64IntegerAttr(0),
               /*stickified=*/zhighStickifiedConstOp.getStickifiedAttr(),
               /*allzero=*/zhighStickifiedConstOp.getAllzeroAttr(),
-              /*offset=*/rewriter.getI64IntegerAttr(0),
               /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
       result = constantOp.getResult();
     } else {

@@ -28,7 +28,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+// #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
@@ -410,11 +410,10 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   PatternRewriter rewriter(context);
   ZLowStickifiedConstantOp zlowStickifiedConstantOp =
       mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-  StringAttr layout = onnx_mlir::zhigh::getZTensorLayoutAttr(
-      rewriter, zlowStickifiedConstantOp.getResult().getType());
   ArrayRef<char> ret;
   if (zlowStickifiedConstantOp.getValueAttr() &&
       zlowStickifiedConstantOp.getStickifiedAttr()) {
+    StringAttr layout = zlowStickifiedConstantOp.getLayoutAttr();
     auto dataAttr = zlowStickifiedConstantOp.getValue().value();
     if (!zlowStickifiedConstantOp.getStickified().value()) {
       // The case which the data in value attribute is still not stickified.
