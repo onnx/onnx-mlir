@@ -1000,6 +1000,10 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
         result = rewriter.create<ONNXAddOp>(sumOp.getLoc(), result, input);
       }
     }
+    auto resultType = mlir::cast<ShapedType>(sumOp.getResult().getType());
+    if (resultType != result.getType())
+      result = rewriter.create<ONNXCastOp>(
+          sumOp.getLoc(), resultType, result, 1, resultType.getElementType());
     rewriter.replaceOp(sumOp, result);
     return success();
   }
