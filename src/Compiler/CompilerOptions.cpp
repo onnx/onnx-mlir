@@ -1246,6 +1246,13 @@ void initCompilerConfig() {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, extraLibs);
     addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, extraLibPaths);
   }
+
+  // Enable aggressive optimization for NNPA with -O3
+  if (OptimizationLevel == OptLevel::O3 &&
+      getTargetAccel().find("NNPA") != std::string::npos &&
+      getLLVMOption().find("enable-unsafe-fp-math") == std::string::npos) {
+    setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
+  }
 }
 
 } // namespace onnx_mlir
