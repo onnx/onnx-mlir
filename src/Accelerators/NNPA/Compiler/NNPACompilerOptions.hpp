@@ -68,7 +68,6 @@ extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
 extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 extern llvm::cl::opt<bool> nnpaEnableSaturation;
-extern llvm::cl::opt<bool> nnpaDelayStickifiedConstGen;
 
 } // namespace onnx_mlir
 #endif
