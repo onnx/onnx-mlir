@@ -828,6 +828,7 @@ private:
 //===----------------------------------------------------------------------===//
 
 using LitIE = LiteralIndexExpr;
+using PredIE = PredicateIndexExpr;
 using SymIE = SymbolIndexExpr;
 using DimIE = DimIndexExpr;
 
