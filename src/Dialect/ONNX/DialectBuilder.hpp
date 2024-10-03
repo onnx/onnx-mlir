@@ -35,11 +35,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
 
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
@@ -86,6 +86,9 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXExpandOp
   mlir::Value expand(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+
+  // ONNXGeluOp
+  mlir::Value gelu(mlir::Value input, mlir::StringAttr approximateAttr) const;
 
   // ONNXLayerNormalizationOp, version with one output only (Y).
   mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,

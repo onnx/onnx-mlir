@@ -579,6 +579,31 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
 template double getScalarValue<double>(ONNXConstantOp constantOp);
 template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 
+/// Checks whether a constant tensor's elements are of type FloatType.
+bool isFloatType(Value constValue) {
+  ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
+  Type elemType = constElements.getElementType();
+  return mlir::isa<FloatType>(elemType);
+}
+
+/// Return the wide type of a value.
+WideNum asWideNum(double n, Type elemType) {
+  return wideZeroDispatch(elemType, [n](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return WideNum::widen<TAG>(static_cast<cpptype>(n));
+  });
+}
+
+/// Checks whether a constant tensor's elements are all equal to a given scalar.
+bool isConstOf(Value constValue, double n) {
+  ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
+  Type elemType = constElements.getElementType();
+  assert(!elemType.isInteger(1) && "booleans are not supported");
+  WideNum w = asWideNum(n, elemType);
+  return ElementsAttrBuilder::allEqual(constElements, w);
+}
+
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
