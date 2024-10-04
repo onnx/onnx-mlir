@@ -395,8 +395,8 @@ struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // Two associative cases depending on which Mul 0.5 belongs to:
     // - 0.5 * (a * b)
     // - (0.5 * a) * b
-    // For each case, we have two communitive cases for the outer Mul (not count
-    // the inner Mul). In total, we handle 4 cases.
+    // For each case, we have four communitive cases: 2 for the outer Mul and 2
+    // for the inner Mul. In total, we handle 8 cases.
     Value lhs = mulOp.getOperand(0);
     Value rhs = mulOp.getOperand(1);
 
