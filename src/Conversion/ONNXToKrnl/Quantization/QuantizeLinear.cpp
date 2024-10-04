@@ -21,6 +21,8 @@
 
 using namespace mlir;
 
+#define DISABLE_FAST_MATH_FOR_QL 0 /* disable reciprocal (for debug) */
+
 namespace onnx_mlir {
 
 // Helper function for quantization.
@@ -72,9 +74,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
-#define ONE_OVER_SCALE 1
   Value oneOverScale;
-  bool useOneOverScale = ONE_OVER_SCALE && isa<FloatType>(inputElementType);
+  bool useOneOverScale =
+      !DISABLE_FAST_MATH_FOR_QL && isa<FloatType>(inputElementType);
   if (useOneOverScale) {
     Value one = create.math.constant(inputElementType, 1.0);
     oneOverScale = create.math.div(one, scale);
