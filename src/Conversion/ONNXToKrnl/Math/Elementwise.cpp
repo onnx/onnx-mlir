@@ -1301,7 +1301,7 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   CheckIfCustomScalarOpIsSupported<ONNXRoundOp>(elementType);
-  return create.math.roundEven(x);
+  return create.math.round(x);
 }
 
 //===----------------------------------------------------------------------===//

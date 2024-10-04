@@ -68,7 +68,7 @@ void emitDynamicQuantizationLinearScalarParameters(
     // Saturate zero point.
     Value saturateZeroPoint = create.math.clip(interZeroPoint, qMin, qMax);
     // Round zero point.
-    zeroPoint = create.math.roundEven(saturateZeroPoint);
+    zeroPoint = create.math.round(saturateZeroPoint);
   } else {
     zeroPoint = zero;
   }

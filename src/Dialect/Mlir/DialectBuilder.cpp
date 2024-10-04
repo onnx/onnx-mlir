@@ -279,16 +279,6 @@ Value MathBuilder::rem(Value lhs, Value rhs) const {
 Value MathBuilder::round(Value x) const {
   Type type = x.getType();
   assert(isScalarOrVectorFloat(type) && "expected float");
-  return b().create<math::RoundOp>(loc(), x);
-}
-
-Value MathBuilder::roundEven(Value x) const {
-  Type type = x.getType();
-  assert(isScalarOrVectorFloat(type) && "expected float");
-#if 1
-  return b().create<math::RoundEvenOp>(loc(), x);
-#endif
-
   // Use algorithm originally posted in ONNXtoKRNL/Math/Elementwise.cpp
   // lowering.
 

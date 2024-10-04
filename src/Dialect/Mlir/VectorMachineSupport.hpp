@@ -56,7 +56,7 @@ enum class GenericOps {
   MulGop,
   PowGop,
   RemGop,
-  RoundToNearestEvenGop, /* FP to FP round to nearest even ONNX */
+  RoundGop,
   ScalarOnlyGop, /* Any ops that are guaranteed to be scalar on any arch. */
   SelectGop,
   ShiftGop,   /* Shift operations: logical/arithmetic. */

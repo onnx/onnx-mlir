@@ -91,7 +91,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         else
           scaleX = create.math.div(x, scale);
         // Round
-        Value roundX = create.math.roundEven(scaleX);
+        Value roundX = create.math.round(scaleX);
         // Adjust
         Value adjustX;
         if (hasZeroPoint)
