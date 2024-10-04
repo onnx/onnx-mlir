@@ -186,23 +186,6 @@ Value createMinimumValueForClip(
       llvm::APFloat::getLargest, true, llvm::APInt::getMinValue);
 }
 
-WideNum asWideNum(double n, Type elemType) {
-  return wideZeroDispatch(elemType, [n](auto wideZero) {
-    using cpptype = decltype(wideZero);
-    constexpr BType TAG = toBType<cpptype>;
-    return WideNum::widen<TAG>(static_cast<cpptype>(n));
-  });
-}
-
-/// Checks whether a constant tensor's elements are all equal to a given scalar.
-bool isConstOf(Value constValue, double n) {
-  ElementsAttr constElements = getConstValueElements(constValue);
-  Type elemType = constElements.getElementType();
-  assert(!elemType.isInteger(1) && "booleans are not supported");
-  WideNum w = asWideNum(n, elemType);
-  return ElementsAttrBuilder::allEqual(constElements, w);
-}
-
 // Extracts number from a scalar constant value.
 WideNum getScalarNum(Value constValue) {
   ElementsAttr elements = getConstValueElements(constValue);
