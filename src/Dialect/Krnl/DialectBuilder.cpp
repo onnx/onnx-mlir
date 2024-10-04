@@ -352,8 +352,8 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 //===----------------------------------------------------------------------===//
 // Math style functions.
 
-Value KrnlBuilder::round(Value input) const {
-  return b().create<KrnlRoundOp>(loc(), input.getType(), input);
+Value KrnlBuilder::roundToNearestEven(Value input) const {
+  return b().create<KrnlRoundToNearestEvenOp>(loc(), input.getType(), input);
 }
 
 //===----------------------------------------------------------------------===//

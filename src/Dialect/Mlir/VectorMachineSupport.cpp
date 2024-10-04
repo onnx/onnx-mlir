@@ -165,6 +165,7 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
+    case GenericOps::RoundToNearestEvenGop: /* no LLVM support, use asm */
     case GenericOps::SqrtGop:
       return archVL;
     default:
@@ -240,7 +241,6 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
-    case GenericOps::RoundGop:
     case GenericOps::SqrtGop:
     case GenericOps::SumAcrossGop:
       return archVL;
@@ -326,7 +326,6 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
-    case GenericOps::RoundGop:
     case GenericOps::SqrtGop:
     case GenericOps::SumAcrossGop:
       return archVL;
