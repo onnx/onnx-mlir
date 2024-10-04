@@ -40,7 +40,7 @@ using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
+// #include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
 
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
@@ -640,7 +640,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     bool isExactGelu;
     bool rewriteToGelu =
         RecomposeGeluFromMulPattern::matchGeluPattern(op, x, isExactGelu);
-    return (!rewriteToLayerNorm && !rewriteToGelu);
+    return (!(rewriteToLayerNorm || rewriteToGelu));
   });
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
@@ -666,7 +666,6 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  populateWithGenerated(patterns);
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
