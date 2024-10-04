@@ -247,9 +247,6 @@ RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 /// Return the wide type of a value.
 WideNum asWideNum(double n, mlir::Type elemType);
 
-/// Checks whether a constant tensor's elements are of type FloatType.
-bool isFloatType(mlir::Value constValue);
-
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(mlir::Value constValue, double n);
 

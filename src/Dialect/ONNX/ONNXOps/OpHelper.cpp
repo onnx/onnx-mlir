@@ -579,13 +579,6 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
 template double getScalarValue<double>(ONNXConstantOp constantOp);
 template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 
-/// Checks whether a constant tensor's elements are of type FloatType.
-bool isFloatType(Value constValue) {
-  ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
-  Type elemType = constElements.getElementType();
-  return mlir::isa<FloatType>(elemType);
-}
-
 /// Return the wide type of a value.
 WideNum asWideNum(double n, Type elemType) {
   return wideZeroDispatch(elemType, [n](auto wideZero) {
