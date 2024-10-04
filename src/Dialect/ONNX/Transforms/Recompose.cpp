@@ -391,108 +391,120 @@ struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return isDenseONNXConstant(v) && isConstOf(v, n);
     };
 
-    // Match A * B * C: 0.5 * x * (+)
-    // Three associative cases depending on the order of Mul:
-    // - (0.5 * x) * (+)
-    // - 0.5 * (x * (+))
-    // - (0.5 * (+)) * x
-    // For each case, we have two communitive cases.
-    // In total, we handle 6 cases.
+    // Match 0.5 * a * b
+    // Two associative cases depending on which Mul 0.5 belongs to:
+    // - 0.5 * (a * b)
+    // - (0.5 * a) * b
+    // For each case, we have two communitive cases for the outer Mul (not count
+    // the inner Mul). In total, we handle 4 cases.
     Value lhs = mulOp.getOperand(0);
     Value rhs = mulOp.getOperand(1);
-    auto lhsMulOp = lhs.getDefiningOp<ONNXMulOp>();
-    auto rhsMulOp = rhs.getDefiningOp<ONNXMulOp>();
-    auto lhsAddOp = lhs.getDefiningOp<ONNXAddOp>();
-    auto rhsAddOp = rhs.getDefiningOp<ONNXAddOp>();
-    bool lhsIsCst = constOf(lhs, 0.5);
-    bool rhsIsCst = constOf(rhs, 0.5);
 
-    // Match to get AddOp and x from 0.5 * x * (+).
-    ONNXAddOp add1Op;
-    if (lhsIsCst && rhsMulOp) {
-      // - 0.5 * (x * (+))
-      if (auto aOp = rhsMulOp.getOperand(0).getDefiningOp<ONNXAddOp>()) {
-        x = rhsMulOp.getOperand(1);
-        add1Op = aOp;
-      } else if (auto aOp = rhsMulOp.getOperand(1).getDefiningOp<ONNXAddOp>()) {
-        x = rhsMulOp.getOperand(0);
-        add1Op = aOp;
-      } else
-        return reportFailure("missing 0.5 * (x * (+))");
-    } else if (lhsMulOp && rhsIsCst) {
-      // - (x * (+)) * 0.5
-      if (auto aOp = lhsMulOp.getOperand(0).getDefiningOp<ONNXAddOp>()) {
-        x = lhsMulOp.getOperand(1);
-        add1Op = aOp;
-      } else if (auto aOp = lhsMulOp.getOperand(1).getDefiningOp<ONNXAddOp>()) {
-        x = lhsMulOp.getOperand(0);
-        add1Op = aOp;
-      } else
-        return reportFailure("missing (x * (+)) * 0.5");
-    } else if (lhsMulOp && rhsAddOp) {
-      // - (0.5 * x) * (+)
-      if (constOf(lhsMulOp.getOperand(0), 0.5)) {
-        x = lhsMulOp.getOperand(1);
-        add1Op = rhsAddOp;
-      } else if (constOf(lhsMulOp.getOperand(1), 0.5)) {
-        x = lhsMulOp.getOperand(0);
-        add1Op = rhsAddOp;
-      } else
-        return reportFailure("missing (0.5 * x) * (+)");
-    } else if (lhsAddOp && rhsMulOp) {
-      // - (+) * (0.5 * x)
-      if (constOf(rhsMulOp.getOperand(0), 0.5)) {
-        x = rhsMulOp.getOperand(1);
-        add1Op = lhsAddOp;
-      } else if (constOf(lhsMulOp.getOperand(1), 0.5)) {
-        x = rhsMulOp.getOperand(0);
-        add1Op = lhsAddOp;
-      } else
-        return reportFailure("missing (+) * (0.5 * x)");
-    } else if (rhsMulOp) {
-      // - (0.5 * (+)) * x
-      if (matchConstAndOp<ONNXAddOp>(
-              rhsMulOp.getOperand(0), rhsMulOp.getOperand(1), 0.5, add1Op))
-        x = lhs;
-      else
-        return reportFailure("missing (0.5 * (+)) * x");
-    } else if (lhsMulOp) {
-      // - x * (0.5 * (+))
-      if (matchConstAndOp<ONNXAddOp>(
-              lhsMulOp.getOperand(0), lhsMulOp.getOperand(1), 0.5, add1Op))
-        x = rhs;
-      else
-        return reportFailure("missing x * (0.5 * (+))");
-    } else {
-      return reportFailure("missing 0.5 * x * (+)");
+    Value fstMulVal, sndMulVal;
+    bool foundHalf = false;
+
+    ONNXMulOp innerMulOp;
+    if (matchConstAndOp<ONNXMulOp>(lhs, rhs, 0.5, innerMulOp)) {
+      // - 0.5 * (a * b) or (a * b) * 0.5
+      fstMulVal = innerMulOp.getOperand(0);
+      sndMulVal = innerMulOp.getOperand(1);
+      foundHalf = true;
     }
+    if (!foundHalf && !constOf(lhs, 0.5) && !constOf(rhs, 0.5)) {
+      if (auto lhsMulOp = lhs.getDefiningOp<ONNXMulOp>()) {
+        // - (0.5 * a) * b
+        Value l = lhsMulOp.getOperand(0);
+        Value r = lhsMulOp.getOperand(1);
+        if (constOf(l, 0.5)) {
+          fstMulVal = r;
+          sndMulVal = rhs;
+          foundHalf = true;
+        } else if (constOf(r, 0.5)) {
+          fstMulVal = l;
+          sndMulVal = rhs;
+          foundHalf = true;
+        }
+      }
+      if (!foundHalf) {
+        if (auto rhsMulOp = rhs.getDefiningOp<ONNXMulOp>()) {
+          // - b * (0.5 * a)
+          Value l = rhsMulOp.getOperand(0);
+          Value r = rhsMulOp.getOperand(1);
+          if (constOf(l, 0.5)) {
+            fstMulVal = lhs;
+            sndMulVal = r;
+            foundHalf = true;
+          } else if (constOf(r, 0.5)) {
+            fstMulVal = lhs;
+            sndMulVal = l;
+            foundHalf = true;
+          }
+        }
+      }
+    }
+    if (!foundHalf)
+      return reportFailure("missing 0.5 * a * b");
 
     // Exact gelu.
     // Match 1 + erf()
+    bool foundErf = false;
     ONNXErfOp erfOp;
-    if (matchConstAndOp<ONNXErfOp>(
-            add1Op.getOperand(0), add1Op.getOperand(1), 1.0, erfOp)) {
+    // Try the first operand.
+    if (auto add1Op = fstMulVal.getDefiningOp<ONNXAddOp>()) {
+      foundErf = matchConstAndOp<ONNXErfOp>(
+          add1Op.getOperand(0), add1Op.getOperand(1), 1.0, erfOp);
+      if (foundErf)
+        x = sndMulVal;
+    }
+    if (!foundErf) {
+      // Try the second operand.
+      if (auto add1Op = sndMulVal.getDefiningOp<ONNXAddOp>()) {
+        foundErf = matchConstAndOp<ONNXErfOp>(
+            add1Op.getOperand(0), add1Op.getOperand(1), 1.0, erfOp);
+        if (foundErf)
+          x = fstMulVal;
+      }
+    }
+    if (foundErf) {
       // gelu(x) = 0.5 * x * (1 + erf(x/1.41421354))
       Value erfInput = erfOp.getOperand();
       auto divOp = erfInput.getDefiningOp<ONNXDivOp>();
       if (!divOp)
         return reportFailure("[Exact] missing div op");
+      if (divOp.getOperand(0) != x)
+        return reportFailure("[Exact] missing x in x/1.41421354");
       if (!constOf(divOp.getOperand(1), 1.41421354))
         return reportFailure("[Exact] missing 1.41421354");
       isExactGelu = true;
       return true;
     } else {
       // Do not return here, we still check the approximate case.
-      reportFailure("[Exact] missing erf op");
+      reportFailure("[Exact] missing (1 + erf)");
     }
 
     // Approximate gelu.
     // gelu(x) = 0.5 * x * (1 + tanh[0.797884583 * (x + 0.044715 * x^3)])
     // Match 1 + tanh()
+    bool foundTanh = false;
     ONNXTanhOp tanhOp;
-    if (!matchConstAndOp<ONNXTanhOp>(
-            add1Op.getOperand(0), add1Op.getOperand(1), 1.0, tanhOp))
-      return reportFailure("[Approximate] missing tanh op");
+    // Try the first operand.
+    if (auto add1Op = fstMulVal.getDefiningOp<ONNXAddOp>()) {
+      foundTanh = matchConstAndOp<ONNXTanhOp>(
+          add1Op.getOperand(0), add1Op.getOperand(1), 1.0, tanhOp);
+      if (foundTanh)
+        x = sndMulVal;
+    }
+    if (!foundTanh) {
+      // Try the second operand.
+      if (auto add1Op = sndMulVal.getDefiningOp<ONNXAddOp>()) {
+        foundTanh = matchConstAndOp<ONNXTanhOp>(
+            add1Op.getOperand(0), add1Op.getOperand(1), 1.0, tanhOp);
+        if (foundTanh)
+          x = fstMulVal;
+      }
+    }
+    if (!foundTanh)
+      return reportFailure("[Approximate] missing (1 + tanh)");
 
     // Match 0.797884583 * (x + 0.044715 * x^3)
     auto mul1Op = tanhOp.getOperand().getDefiningOp<ONNXMulOp>();
@@ -633,14 +645,15 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     FloatAttr epsilon;
     int64_t axis;
     bool isRMSLayerNorm;
-    bool rewriteToLayerNorm =
-        RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
-            op, x, scale, axis, epsilon, isRMSLayerNorm);
+    if (RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
+            op, x, scale, axis, epsilon, isRMSLayerNorm))
+      return false;
 
     bool isExactGelu;
-    bool rewriteToGelu =
-        RecomposeGeluFromMulPattern::matchGeluPattern(op, x, isExactGelu);
-    return (!(rewriteToLayerNorm || rewriteToGelu));
+    if (RecomposeGeluFromMulPattern::matchGeluPattern(op, x, isExactGelu))
+      return false;
+
+    return true;
   });
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
