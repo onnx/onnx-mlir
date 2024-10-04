@@ -117,8 +117,8 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   int64_t totNum = vectorizedOpNum + scalarOpNum;
   if (!hasRegisterPressure) {
     // Estimate default register pressure as one per 2 vector operation.
-    maxVectorRegisterPressure = std::max(vectorizedOpNum / 2,
-        static_cast<int64_t>(1));
+    maxVectorRegisterPressure =
+        std::max(vectorizedOpNum / 2, static_cast<int64_t>(1));
   }
   return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 1.0;
 }
