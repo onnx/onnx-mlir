@@ -37,7 +37,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * this call simply returns NULL.
  */
 #define CHECK_CALL(type, var, call, success, ...)                              \
-  type var = call;                                                             \
+  type(var) = (call);                                                          \
   do {                                                                         \
     if (!(success)) {                                                          \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
@@ -63,7 +63,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     } else if (!(success)) {                                                   \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
       if (ecpt)                                                                \
-        (*env)->ThrowNew(env, ecpt, jnistr[MSG_JNI_CALL_ERROR]);               \
+        (*env)->ThrowNew((env), (ecpt), jnistr[MSG_JNI_CALL_ERROR]);           \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
@@ -72,13 +72,13 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * log error and throw Java exception if the call failed.
  */
 #define JNI_VAR_CALL(env, var, call, success, ecpt, ...)                       \
-  JNI_CALL(env, var = call, success, ecpt, __VA_ARGS__)
+  JNI_CALL((env), (var) = (call), (success), (ecpt), __VA_ARGS__)
 
 /* Declare type var, make a JNI call and assign return value to var,
  * log error and throw Java exception if the call failed.
  */
 #define JNI_TYPE_VAR_CALL(env, type, var, call, success, ecpt, ...)            \
-  JNI_CALL(env, type var = call, success, ecpt, __VA_ARGS__);
+  JNI_CALL((env), type(var) = (call), (success), (ecpt), __VA_ARGS__);
 
 /* Make a native library call, check success condition,
  * log error and throw Java exception if native code failed.
@@ -91,7 +91,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     if (!(success)) {                                                          \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
       if (ecpt)                                                                \
-        (*env)->ThrowNew(env, ecpt, jnistr[MSG_NATIVE_CODE_ERROR]);            \
+        (*env)->ThrowNew((env), (ecpt), jnistr[MSG_NATIVE_CODE_ERROR]);        \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
@@ -101,40 +101,40 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * Also check success condition.
  */
 #define LIB_VAR_CALL(var, call, success, env, ecpt, ...)                       \
-  LIB_CALL(var = call, success, env, ecpt, __VA_ARGS__);
+  LIB_CALL((var) = (call), (success), (env), (ecpt), __VA_ARGS__);
 
 /* Declare type var, make a native library call and assign
  * return value to var, log error and throw Java exception
  * if the call failed. Also check success condition.
  */
 #define LIB_TYPE_VAR_CALL(type, var, call, success, env, ecpt, ...)            \
-  LIB_CALL(type var = call, success, env, ecpt, __VA_ARGS__);
+  LIB_CALL(type(var) = (call), (success), (env), (ecpt), __VA_ARGS__);
 
 /* Debug output of OMTensor fields */
 #define OMT_DEBUG(                                                             \
     i, n, data, shape, strides, dataType, bufferSize, rank, owning)            \
   do {                                                                         \
     char tmp[1024];                                                            \
-    LOG_BUF(dataType, tmp, data, n);                                           \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:data=[%s]", i, tmp);                        \
+    LOG_BUF((dataType), (tmp), (data), (n));                                   \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(data)=[%s]", (i), (tmp));                  \
     tmp[0] = '\0';                                                             \
-    LOG_LONG_BUF(tmp, shape, rank);                                            \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:shape=[%s]", i, tmp);                       \
-    LOG_LONG_BUF(tmp, strides, rank);                                          \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:strides=[%s]", i, tmp);                     \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataType=%d", i, dataType);                 \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:bufferSize=%ld", i, bufferSize);            \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:rank=%ld", i, rank);                        \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:owning=%ld", i, owning);                    \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:numElems=%ld", i, n);                       \
+    LOG_LONG_BUF(tmp, (shape), (rank));                                        \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(shape)=[%s]", (i), tmp);                   \
+    LOG_LONG_BUF(tmp, (strides), (rank));                                      \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(strides)=[%s]", (i), tmp);                 \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(dataType)=%d", (i), (dataType));           \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(bufferSize)=%ld", (i), (bufferSize));      \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(rank)=%ld", (i), (rank));                  \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(owning)=%ld", (i), (owning));              \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:(numElems)=%ld", (i), (n));                 \
   } while (0)
 
 /* Debug output of hex string */
 #define HEX_DEBUG(label, string, n)                                            \
   do {                                                                         \
     char tmp[1024];                                                            \
-    LOG_CHAR_XBUF(tmp, string, n);                                             \
-    LOG_PRINTF(LOG_DEBUG, "%s(%d):[%s]", label, n, tmp);                       \
+    LOG_CHAR_XBUF(tmp, (string), (n));                                         \
+    LOG_PRINTF(LOG_DEBUG, "%s(%d):[%s]", (label), (n), tmp);                   \
   } while (0)
 
 /* Java classes and methods needed for making various JNI API calls */
@@ -759,7 +759,8 @@ Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
    */
   for (int64_t i = 0; i < neps; i++) {
     char ep[32];
-    sprintf(ep, "ep[%lld]", (long long)i);
+    int num_chars_written = sprintf(ep, "ep[%lld]", (long long)i);
+    assert(num_chars_written >= 0 && "sprintf write error to ep");
     HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
     LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
 

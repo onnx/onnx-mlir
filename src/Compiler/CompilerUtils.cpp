@@ -183,6 +183,8 @@ void showCompilePhase(std::string msg) {
 
   llvm::errs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
                << "] " << currentTime << " " << msg << "\n";
+  // Flush so that if there are errors, we know where it came from.
+  llvm::outs().flush();
 
   // Reset current phase.
   if (CURRENT_COMPILE_PHASE > TOTAL_COMPILE_PHASE)

@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     llvm::sys::fs::remove(Filename);
 
 #define PRINT_BUFFER_FOR_TYPE(ONNX_TYPE, CPP_TYPE)                             \
-  if (DataType == ONNX_TYPE)                                                   \
+  if (DataType == (ONNX_TYPE))                                                 \
     return printBuffer<CPP_TYPE>(buffer);
 
   PRINT_BUFFER_FOR_TYPE(onnx::TensorProto::BOOL, bool);
