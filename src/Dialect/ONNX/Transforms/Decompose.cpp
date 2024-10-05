@@ -20,6 +20,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <numeric>
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -484,9 +486,7 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/Transforms/ONNXDecompose.inc"
 
-#ifdef ONNX_MLIR_ENABLE_STABLEHLO
-
-RankedTensorType createResultType(
+RankedTensorType createReducedType(
     Type outputType, int64_t axisValue, bool keepDims) {
   RankedTensorType outputShapeType =
       mlir::dyn_cast<RankedTensorType>(outputType);
@@ -507,6 +507,8 @@ RankedTensorType createResultType(
   return resultType;
 }
 
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
+
 struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   using OpRewritePattern<ONNXSoftmaxOp>::OpRewritePattern;
 
@@ -526,7 +528,7 @@ struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
         rewriter.getIntegerType(64, /*isSigned=*/true), 1);
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
     RankedTensorType resultType =
-        createResultType(inputType, axisValue, /*keepDims=*/true);
+        createReducedType(inputType, axisValue, /*keepDims=*/true);
     Value maxInput = rewriter.create<ONNXReduceMaxV13Op>(
         odsLoc, resultType, input, axisAttr, keepDimsAttr);
     Value subValue =
@@ -986,6 +988,81 @@ struct GroupNormIntoLayerNormPattern2
 };
 
 /// Decompose `onnx.Sum` to a sequence of `onnx.Add`
+struct SoftmaxCrossEntropyPattern
+    : public OpRewritePattern<ONNXSoftmaxCrossEntropyLossOp> {
+  using OpRewritePattern<ONNXSoftmaxCrossEntropyLossOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXSoftmaxCrossEntropyLossOp sceOp,
+      PatternRewriter &rewriter) const final {
+    auto loc = sceOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+    auto scores = sceOp.getScores();
+    auto labels = sceOp.getLabels();
+    auto weights = sceOp.getWeights();
+    auto scoresTy = cast<ShapedType>(scores.getType());
+    auto labelsTy = cast<ShapedType>(labels.getType());
+    SmallVector<int64_t> newLabelsShape(labelsTy.getShape());
+    newLabelsShape.insert(newLabelsShape.begin() + 1, scoresTy.getShape()[1]);
+    auto none = rewriter.create<ONNXNoneOp>(loc);
+    auto numClasses = (scoresTy.isDynamicDim(1))
+                          ? create.dim(scores, 1)
+                          : create.constantInt64({scoresTy.getShape()[1]});
+    auto elemTy = scoresTy.getElementType();
+    auto oneHotValsAttr = DenseIntElementsAttr::get(
+        RankedTensorType::get({2}, rewriter.getI64Type()),
+        ArrayRef<int64_t>{0, 1});
+    auto oneHotVals = create.constant(oneHotValsAttr);
+    auto oneHot = create.cast(
+        rewriter.create<ONNXOneHotOp>(loc,
+            RankedTensorType::get(newLabelsShape, labelsTy.getElementType()),
+            labels, numClasses, oneHotVals, /*axis=*/1),
+        /*saturate=*/
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), 1),
+        TypeAttr::get(elemTy));
+    auto softmax =
+        rewriter.create<ONNXSoftmaxOp>(loc, scoresTy, scores, /*axis=*/1);
+    auto logSoftmax = rewriter.create<ONNXLogOp>(loc, scoresTy, softmax);
+    auto prod = rewriter.create<ONNXMulOp>(loc, logSoftmax, oneHot);
+    if (auto weightTy = dyn_cast<ShapedType>(weights.getType())) {
+      // Unsqueeze scale/bias from [C] to [1 x C x 1 x ... x 1]
+      llvm::SmallVector<int64_t, 4> unsqueezedShape(scoresTy.getRank(), 1);
+      unsqueezedShape[1] = scoresTy.getShape()[1];
+      llvm::SmallVector<int64_t, 4> axesList(scoresTy.getRank() - 1, 0);
+      std::iota(axesList.begin() + 1, axesList.end(), 2);
+      auto axes = create.constantInt64(axesList);
+      weights = create.unsqueeze(
+          RankedTensorType::get(unsqueezedShape, elemTy), weights, axes);
+      prod = rewriter.create<ONNXMulOp>(loc, prod, weights);
+    }
+    auto axes = create.constant(onnx_mlir::createDenseArrayAttr(
+        rewriter, rewriter.getI64ArrayAttr({1})));
+    auto reducedType = createReducedType(scoresTy, 1, /*keepdims=*/true);
+    Value loss = rewriter.create<ONNXReduceSumOp>(loc, reducedType, prod, axes);
+    auto reduction = cast<StringAttr>(sceOp.getReductionAttr()).getValue();
+    if (reduction == "mean") {
+      loss = rewriter.create<ONNXReduceMeanOp>(loc,
+          RankedTensorType::get({}, elemTy), loss, none,
+          /*keepdims=*/0);
+    } else if (reduction == "sum") {
+      loss = rewriter.create<ONNXReduceSumOp>(loc,
+          RankedTensorType::get({}, elemTy), loss, none,
+          /*keepdims=*/0);
+    } else if (reduction == "none") {
+      loss = rewriter.create<ONNXSqueezeOp>(loc,
+          createReducedType(reducedType, 1, /*keepdims=*/false), loss, axes);
+    } else {
+      llvm_unreachable("unexpected reduction type");
+    }
+    loss = rewriter.create<ONNXNegOp>(loc, loss.getType(), loss);
+    if (isa<NoneType>(sceOp.getLogProb().getType()))
+      rewriter.replaceOp(sceOp, {loss, none});
+    else
+      rewriter.replaceOp(sceOp, {loss, logSoftmax});
+    return success();
+  }
+};
+
+/// Decompose `onnx.Sum` to a sequence of `onnx.Add`
 struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
   using OpRewritePattern<ONNXSumOp>::OpRewritePattern;
 
@@ -1114,6 +1191,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXScatterOp>();
   target.addIllegalOp<ONNXSequenceConstructOp>();
+  target.addIllegalOp<ONNXSoftmaxCrossEntropyLossOp>();
   target.addIllegalOp<ONNXSplitV11Op>();
   target.addIllegalOp<ONNXSplitV13Op>();
   target.addIllegalOp<ONNXSqueezeV11Op>();
@@ -1190,6 +1268,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern1>(context);
   patterns.insert<GroupNormIntoLayerNormPattern2>(context);
+  patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
