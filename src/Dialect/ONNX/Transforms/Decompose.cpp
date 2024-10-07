@@ -987,7 +987,19 @@ struct GroupNormIntoLayerNormPattern2
   }
 };
 
-/// Decompose `onnx.Sum` to a sequence of `onnx.Add`
+/// Decompose `onnx.SoftmaxCrossEntropyLoss` to the following sequence:
+/// In the following we assume classes is in dim=1 of scores.
+/// 1. one_hot_encoded = onnx.Castlike(onnx.OneHot(labels, dim=1), scores)
+/// 2. log_softmax = onnx.Log(onnx.Softmax(scores, dim=1))
+/// 3. product = onnx.Mul(log_softmax, one_hot_encoded)
+///    if `weights` arg is nont `none` then we additionally perform
+///    product = onnx.Mul(product, op.Unsqueeze(weights))
+///    where unsqueezing makes the operation broadcastable.
+/// 4. reduce_sum = onnx.ReduceSum(product, dim=1)
+/// 5. loss = onnx.ReduceMean(reduce_sum) if reduciton == "mean"
+///                   onnx.ReduceSum(reduce_sum)  if reduction == "sum"
+///                   onnx.Squeeze(reduce_sum) .  if reduciton == "none"
+///
 struct SoftmaxCrossEntropyPattern
     : public OpRewritePattern<ONNXSoftmaxCrossEntropyLossOp> {
   using OpRewritePattern<ONNXSoftmaxCrossEntropyLossOp>::OpRewritePattern;
@@ -1008,6 +1020,7 @@ struct SoftmaxCrossEntropyPattern
                           ? create.dim(scores, 1)
                           : create.constantInt64({scoresTy.getShape()[1]});
     auto elemTy = scoresTy.getElementType();
+    // Compute one hot encoded labels and cast to `scores` element type.
     auto oneHotValsAttr = DenseIntElementsAttr::get(
         RankedTensorType::get({2}, rewriter.getI64Type()),
         ArrayRef<int64_t>{0, 1});
@@ -1019,12 +1032,15 @@ struct SoftmaxCrossEntropyPattern
         /*saturate=*/
         rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), 1),
         TypeAttr::get(elemTy));
+    // Compute logsoftmax of scores.
     auto softmax =
         rewriter.create<ONNXSoftmaxOp>(loc, scoresTy, scores, /*axis=*/1);
     auto logSoftmax = rewriter.create<ONNXLogOp>(loc, scoresTy, softmax);
     auto prod = rewriter.create<ONNXMulOp>(loc, logSoftmax, oneHot);
+    // Multiply by `weights` if not none.
     if (auto weightTy = dyn_cast<ShapedType>(weights.getType())) {
-      // Unsqueeze scale/bias from [C] to [1 x C x 1 x ... x 1]
+      // Unsqueeze weight from [C] to [1 x C x 1 x ... x 1] to make it
+      // broadcast-compliant.
       llvm::SmallVector<int64_t, 4> unsqueezedShape(scoresTy.getRank(), 1);
       unsqueezedShape[1] = scoresTy.getShape()[1];
       llvm::SmallVector<int64_t, 4> axesList(scoresTy.getRank() - 1, 0);
@@ -1034,10 +1050,13 @@ struct SoftmaxCrossEntropyPattern
           RankedTensorType::get(unsqueezedShape, elemTy), weights, axes);
       prod = rewriter.create<ONNXMulOp>(loc, prod, weights);
     }
+    // Reduction across `class` (dim=1) axis.
     auto axes = create.constant(onnx_mlir::createDenseArrayAttr(
         rewriter, rewriter.getI64ArrayAttr({1})));
     auto reducedType = createReducedType(scoresTy, 1, /*keepdims=*/true);
     Value loss = rewriter.create<ONNXReduceSumOp>(loc, reducedType, prod, axes);
+    // ReduceMean/ReduceSum/Squeeze if reduction = mean/sum/none respectively.
+    // Set `axes=none` to indicate reducing all dims.
     auto reduction = cast<StringAttr>(sceOp.getReductionAttr()).getValue();
     if (reduction == "mean") {
       loss = rewriter.create<ONNXReduceMeanOp>(loc,
@@ -1053,7 +1072,9 @@ struct SoftmaxCrossEntropyPattern
     } else {
       llvm_unreachable("unexpected reduction type");
     }
+    // Negate.
     loss = rewriter.create<ONNXNegOp>(loc, loss.getType(), loss);
+    // Second return value replacement depends if it is `none` or not.
     if (isa<NoneType>(sceOp.getLogProb().getType()))
       rewriter.replaceOp(sceOp, {loss, none});
     else
