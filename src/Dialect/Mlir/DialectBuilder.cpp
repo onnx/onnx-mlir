@@ -2148,6 +2148,51 @@ Value VectorBuilder::insertElement(
   return b().create<vector::InsertElementOp>(loc(), element, vector, position);
 }
 
+// Extract the i-th sub-vector of a vector consisting of n sub-vectors.
+Value VectorBuilder::extractSubVector(
+    Value vector, int64_t i, int64_t VL) const {
+  VectorType vecType = mlir::cast<VectorType>(vector.getType());
+  assert(vecType.getRank() == 1 && "1D vec only");
+  int64_t vecSize = vecType.getShape()[0];
+  assert(vecSize % VL == 0 && "vec size expected to be multiple of VL");
+  assert(i * VL < vecSize && "out of bound index of sub-vector");
+  if (vecSize == VL) {
+    // There is only one sub-vector in the given vector
+    return vector;
+  }
+  // Pick VL consecutive elements starting at position i * VL (beginning of the
+  // ith sub-vector)
+  mlir::SmallVector<int64_t, 4> mask;
+  for (int64_t e = 0; e < VL; ++e)
+    mask.emplace_back(i * VL + e);
+  // Only get values from the "first" vector below, "second" is added for
+  // keeping the shuffle happy.
+  return shuffle(vector, vector, mask);
+}
+
+// Append a new sub-vector to an exiting vector of n sub-vector.
+Value VectorBuilder::appendSubVector(Value vector, Value subVector) const {
+  VectorType subVecType = mlir::cast<VectorType>(subVector.getType());
+  assert(subVecType.getRank() == 1 && "1D vec only");
+  int64_t VL = subVecType.getShape()[0];
+  if (!vector) {
+    // Nothing to append to, the new vector is simply the sub-vector.
+    return subVector;
+  }
+  // Have a vector, make sure its a multiple of sub-vectors.
+  VectorType vecType = mlir::cast<VectorType>(vector.getType());
+  assert(vecType.getRank() == 1 && "1D vec only");
+  int64_t vecSize = vecType.getShape()[0];
+  assert(vecSize % VL == 0 && "vec size expected to be multiple of VL");
+  assert(vecType.getElementType() == subVecType.getElementType() &&
+         "expected same element type");
+  // Pick all vecSize consecutive values of vector, plus the VL new ones
+  mlir::SmallVector<int64_t, 4> mask;
+  for (int64_t e = 0; e < vecSize + VL; ++e)
+    mask.emplace_back(e);
+  return shuffle(vector, subVector, mask);
+}
+
 //===----------------------------------------------------------------------===//
 // LLVM Builder
 //===----------------------------------------------------------------------===//

@@ -576,10 +576,15 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
-  // Insert and extract.
+  // Insert and extract one element (scalar).
   mlir::Value extractElement(mlir::Value vector, int64_t position) const;
   mlir::Value insertElement(
       mlir::Value vector, mlir::Value element, int64_t position) const;
+
+  // Extract the i-th sub-vector of a vector consisting of n sub-vectors.
+  mlir::Value extractSubVector(mlir::Value vector, int64_t i, int64_t VL) const;
+  // Append a new sub-vector to an exiting vector of n sub-vector.
+  mlir::Value appendSubVector(mlir::Value vector, mlir::Value subVector) const;
 
 private:
   bool isPowerOf2(uint64_t num) const;
