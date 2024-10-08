@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlNone.cpp - Lower KrnlRoundEvenOp
-//-------------------------------===//
+//===------ KrnlRoundEven.cpp - Lower KrnlRoundEvenOp ---------------------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
@@ -11,6 +10,7 @@
 //
 // This file lowers the KrnlRoundEvenOp operator.
 //
+// Currently limited to fp32 integers, instructions supports other data types.
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -50,7 +50,9 @@ public:
     int64_t inputBitWidth = inputElemType.getIntOrFloatBitWidth();
     assert(inputBitWidth == 32 && "expected 32bit float");
     VectorType inputVecType = mlir::dyn_cast<VectorType>(inputType);
-
+    assert(VectorMachineSupport::requireCustomASM(
+               GenericOps::roundEvenGop, inputElemType) &&
+           "expected custom requirement");
     // Common between scalar and vector
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     Type i32Ty = rewriter.getI32Type();
@@ -63,7 +65,7 @@ public:
       // Use integer as container for inputs.
       Value inputVecI32 = create.llvm.bitcast(vecTypeI32, input);
       SmallVector<Value> asmVals{inputVecI32};
-      // SIMD ASM op
+      // SIMD ASM round to nearest even (M5=4) op
       const char *asmStr = "VFISB $0,$1,0,4";
       const char *asmConstraints = "=v,v";
       Value outVecI32 =
@@ -84,7 +86,7 @@ public:
       // Scalar types.
       Type typeF32 = rewriter.getF32Type();
       SmallVector<Value> asmVals{input};
-      // SIMD ASM op
+      // Scalar ASM round to the nearest even (M3=4) op.
       const char *asmStr = "FIEBR $0,4,$1";
       const char *asmConstraints = "=f,f";
       Value outF32 =
