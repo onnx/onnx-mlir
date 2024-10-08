@@ -89,7 +89,7 @@ public:
       SmallVector<Value> asmVals{inputI32};
       // SIMD ASM op
       const char *asmStr = "FIEBR $0,$1,4";
-      const char *asmConstraints = "=v,v";
+      const char *asmConstraints = "=f,f";
       Value outI32 =
           rewriter
               .create<LLVM::InlineAsmOp>(loc, typeI32,
