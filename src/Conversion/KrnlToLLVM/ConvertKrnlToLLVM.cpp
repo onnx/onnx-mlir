@@ -971,6 +971,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlUnaryMathOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlStrncmpOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlNoneOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlRoundEvenOpPattern(typeConverter, patterns, ctx);
 }
 
 } // namespace krnl

@@ -127,6 +127,22 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
 // IBM Z servers
 // =============================================================================
 
+bool Z16VectorMachineSupport::needCustomASM(
+    GenericOps genOp, Type elementType) {
+  assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
+  bool isFloat = mlir::isa<FloatType>(elementType);
+  if (isFloat) {
+    switch (genOp) {
+    case GenericOps::roundEvenGop:
+      return true;
+    default:
+      return false;
+    }
+  }
+  // Integer
+  return false;
+}
+
 int64_t Z16VectorMachineSupport::computeArchVectorLength(
     GenericOps genOp, Type elementType) {
   assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
@@ -166,7 +182,7 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
-    case GenericOps::RoundToNearestEvenGop: /* no LLVM support, use asm */
+    case GenericOps::roundEvenGop:
     case GenericOps::SqrtGop:
       return archVL;
     default:
@@ -202,6 +218,12 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
 // INTEL SSE x86 SSE 4.1 & 4.2 with width = 128; AVX2 with width = 256.
 // This may be an approximation of the actual capabilities.
 // =============================================================================
+
+bool SSE42x86VectorMachineSupport::needCustomASM(
+    GenericOps genOp, Type elementType) {
+  assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
+  return false;
+}
 
 int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     GenericOps genOp, Type elementType) {
@@ -242,6 +264,7 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
+    case GenericOps::roundEvenGop:
     case GenericOps::SqrtGop:
     case GenericOps::SumAcrossGop:
       return archVL;
@@ -289,6 +312,12 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
 // This may be an approximation of the actual capabilities.
 // =============================================================================
 
+bool NeonVectorMachineSupport::needCustomASM(
+    GenericOps genOp, Type elementType) {
+  assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
+  return false;
+}
+
 int64_t NeonVectorMachineSupport::computeArchVectorLength(
     GenericOps genOp, Type elementType) {
   assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
@@ -327,6 +356,7 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
+    case GenericOps::roundEvenGop:
     case GenericOps::SqrtGop:
     case GenericOps::SumAcrossGop:
       return archVL;

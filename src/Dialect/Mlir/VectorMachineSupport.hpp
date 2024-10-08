@@ -56,7 +56,7 @@ enum class GenericOps {
   MulGop,
   PowGop,
   RemGop,
-  RoundToNearestEvenGop, /* FP to FP round to nearest even ONNX */
+  roundEvenGop,  /* FP to FP round to nearest even ONNX */
   ScalarOnlyGop, /* Any ops that are guaranteed to be scalar on any arch. */
   SelectGop,
   ShiftGop,   /* Shift operations: logical/arithmetic. */
@@ -106,6 +106,11 @@ public:
   // Determine if the machine has simd. Requires an initialized vector machine
   // support.
   static bool hasSimd() { return getArchVectorRegisterNum() > 0; }
+
+  // Determine if custom asm is needed (aka operation not supported by llvm).
+  static bool requireCustomASM(GenericOps gop, mlir::Type elementType) {
+    return vms()->needCustomASM(gop, elementType);
+  }
 
   // When querying Vector length for machines with unsupported simd, UNSUPPORTED
   // (aka 0) is returned.
@@ -157,6 +162,7 @@ public:
 protected:
   // Virtual functions that do the actual work. Called by the "get" functions.
   virtual std::string computeArchName() = 0;
+  virtual bool needCustomASM(GenericOps gop, mlir::Type elementType) = 0;
   virtual int64_t computeArchVectorRegisterNum() = 0;
   virtual int64_t computeArchVectorBitWidth() = 0;
   virtual int64_t computeArchVectorLength(mlir::Type elementType);
@@ -179,6 +185,9 @@ public:
   virtual ~NoVectorMachineSupport() = default;
 
   std::string computeArchName() override { return "no_vector"; }
+  bool needCustomASM(GenericOps gop, mlir::Type elementType) override {
+    return false;
+  }
   int64_t computeArchVectorRegisterNum() override { return 0; }
   int64_t computeArchVectorBitWidth() override { return 0; }
   int64_t computeArchVectorLength(mlir::Type elementType) override {
@@ -198,6 +207,7 @@ public:
   virtual ~Z16VectorMachineSupport() = default;
 
   std::string computeArchName() override { return "z16"; }
+  bool needCustomASM(GenericOps gop, mlir::Type elementType) override;
   int64_t computeArchVectorRegisterNum() override { return 32; }
   int64_t computeArchVectorBitWidth() override { return 128; }
   int64_t computeArchVectorLength(
@@ -215,6 +225,7 @@ public:
   virtual ~SSE42x86VectorMachineSupport() = default;
 
   std::string computeArchName() override { return "x86-sse4.2"; }
+  bool needCustomASM(GenericOps gop, mlir::Type elementType) override;
   int64_t computeArchVectorRegisterNum() override { return 16; }
   int64_t computeArchVectorBitWidth() override { return 128; }
   int64_t computeArchVectorLength(
@@ -238,6 +249,7 @@ public:
   virtual ~NeonVectorMachineSupport() = default;
 
   std::string computeArchName() override { return "arm64-neon"; }
+  bool needCustomASM(GenericOps gop, mlir::Type elementType) override;
   int64_t computeArchVectorRegisterNum() override { return 32; }
   int64_t computeArchVectorBitWidth() override { return 128; }
   int64_t computeArchVectorLength(

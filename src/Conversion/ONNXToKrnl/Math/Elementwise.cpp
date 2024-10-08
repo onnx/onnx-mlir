@@ -1287,11 +1287,15 @@ struct ScalarOp<ONNXRoundOp> {
 
 template <>
 GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
-      {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
-      {GenericOps::FloorGop, 2},
-      {GenericOps::EstimatedVectorRegisterPressure,
-          4 /* Little parallelism in code. */}};
+  // If using roundEven emulation, cost is as below.
+  // return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 2},
+  //     {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
+  //     {GenericOps::FloorGop, 2},
+  //     {GenericOps::EstimatedVectorRegisterPressure,
+  //         4 /* Little parallelism in code. */}};
+
+  // Assume here that there is a hw op to handle this.
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1299,9 +1303,9 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   Value x = scalarOperands[0];
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
   CheckIfCustomScalarOpIsSupported<ONNXRoundOp>(elementType);
-  return create.math.roundEven(x);
+  return create.krnl.roundEven(x);
 }
 
 //===----------------------------------------------------------------------===//

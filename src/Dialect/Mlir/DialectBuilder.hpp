@@ -143,6 +143,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value round(mlir::Value) const;                     // Float only.
   mlir::Value roundEven(mlir::Value) const;                 // Float only.
+  mlir::Value roundEvenEmulation(mlir::Value) const;        // Float only.
   mlir::Value sqrt(mlir::Value val) const;                  // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value tanh(mlir::Value val) const;                  // Float only.

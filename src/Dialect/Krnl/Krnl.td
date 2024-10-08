@@ -567,15 +567,15 @@ def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
   }];
 }
 
-def KrnlRoundToNearestEvenOp : Op<Krnl_Dialect, "round_to_nearest_even"> {
+def KrnlRoundEvenOp : Op<Krnl_Dialect, "round_even"> {
   let summary = "Krnl round to nearest even operation";
   let description = [{
     Krnl round to nearest even operation.  Accept scalar or vector float values.
     Vector must be 1D of a size that is a multiple of the hardware vector size.
   }];
 
-  let arguments = (ins AnyFloat:$in);
-  let results = (outs AnyFloat:$out);
+  let arguments = (ins FloatLike:$in);
+  let results = (outs FloatLike:$out);
 }
 
 def KrnlErfOp : Op<Krnl_Dialect, "erf"> {

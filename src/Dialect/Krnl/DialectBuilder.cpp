@@ -352,8 +352,45 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 //===----------------------------------------------------------------------===//
 // Math style functions.
 
-Value KrnlBuilder::roundToNearestEven(Value input) const {
-  return b().create<KrnlRoundToNearestEvenOp>(loc(), input.getType(), input);
+Value KrnlBuilder::roundEven(Value input) const {
+  Type elementType = getElementTypeOrSelf(input.getType());
+  MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
+  //  hi alex, may want to generalize support to scalar as well.
+  VectorType inputVecType = mlir::dyn_cast<VectorType>(input.getType());
+  if (inputVecType && VectorMachineSupport::requireCustomASM(
+                          GenericOps::roundEvenGop, elementType)) {
+    // Use Krnl round even op as LLVM does not support roundEven.
+    int64_t archVL = VectorMachineSupport::getArchVectorLength(
+        GenericOps::roundEvenGop, elementType);
+    assert(archVL > 1 && "expected vector with archVL>1");
+    assert(inputVecType.getRank() == 1 && "1D vec only");
+    int64_t vecSize = inputVecType.getShape()[0];
+    assert(vecSize % archVL == 0 && "expected multiple of archVL");
+    if (vecSize == archVL)
+      return b().create<KrnlRoundEvenOp>(loc(), input.getType(), input);
+    // More than one architectural vector, unroll here.
+    Value res;
+    for (int64_t v = 0; v < vecSize / archVL; ++v) {
+      mlir::SmallVector<int64_t, 4> inputMask;
+      for (int64_t i = 0; i < archVL; ++i)
+        inputMask.emplace_back(v * archVL + i);
+      Value oneVecInput = create.vec.shuffle(input, input, inputMask);
+      Value oneVecOutput = b().create<KrnlRoundEvenOp>(
+          loc(), oneVecInput.getType(), oneVecInput);
+      if (v == 0) {
+        res = oneVecOutput;
+      } else {
+        mlir::SmallVector<int64_t, 4> outputMask;
+        for (int64_t i = 0; i < v * archVL + archVL; ++i)
+          outputMask.emplace_back(i);
+        res = create.vec.shuffle(res, oneVecOutput, outputMask);
+      }
+    }
+    return res;
+  }
+  // No need for custom support, use math roundEven. May want to evaluate
+  // whether to use the mlir roundEven or our own emulation.
+  return create.math.roundEven(input);
 }
 
 //===----------------------------------------------------------------------===//
