@@ -113,6 +113,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
     int64_t processedValues = std::max(static_cast<int64_t>(1), vl);
     totProcessedValues += processedValues * num;
   }
+
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
   if (!hasRegisterPressure) {
@@ -411,7 +412,7 @@ GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2) {
     u[genOp] = num;
   }
   // Merge entries from the second mix.
-  for (auto pair : mix1) {
+  for (auto pair : mix2) {
     GenericOps genOp = pair.first;
     int64_t num = pair.second;
     if (u.find(genOp) != u.end()) {

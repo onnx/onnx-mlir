@@ -57,7 +57,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
       mixAdjust = {{GenericOps::ArithmeticGop, 1}};
     GenOpMix mixRound = getGenOpMix<ONNXRoundOp>(inputElementType, op);
     GenOpMix mixOthers = {{GenericOps::DivGop, 1},
-        {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2}};
+        {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
+        {GenericOps::EstimatedVectorRegisterPressure, 8}};
     GenOpMix mix1 = computeGenOpMixUnion(mixAdjust, mixRound);
     GenOpMix mix2 = computeGenOpMixUnion(mix1, mixOthers);
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
