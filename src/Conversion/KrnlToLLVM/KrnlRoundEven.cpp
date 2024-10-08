@@ -82,16 +82,11 @@ public:
       return success();
     } else {
       // Scalar types.
-      Type typeI32 = rewriter.getI32Type();
       Type typeF32 = rewriter.getF32Type();
-      // Use integer as container for inputs.
-      // Value inputI32 = create.llvm.bitcast(typeI32, input);
-      // SmallVector<Value> asmVals{inputI32};
       SmallVector<Value> asmVals{input};
       // SIMD ASM op
       const char *asmStr = "FIEBR $0,4,$1";
       const char *asmConstraints = "=f,f";
-      // Value outI32 =
       Value outF32 =
           rewriter
               .create<LLVM::InlineAsmOp>(loc, typeF32,
@@ -102,8 +97,6 @@ public:
                   /*asm_dialect=*/LLVM::AsmDialectAttr(),
                   /*operand_attrs=*/ArrayAttr())
               .getResult(0);
-      // Cast output back to float.
-      // Value outF32 = create.llvm.bitcast(typeF32, outI32);
       rewriter.replaceOp(op, {outF32});
       return success();
     }
