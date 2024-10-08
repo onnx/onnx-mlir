@@ -89,7 +89,7 @@ public:
       // SmallVector<Value> asmVals{inputI32};
       SmallVector<Value> asmVals{input};
       // SIMD ASM op
-      const char *asmStr = "FIEBR $0,$1,4";
+      const char *asmStr = "FIEBR $0,4,$1";
       const char *asmConstraints = "=f,f";
       // Value outI32 =
       Value outF32 =
