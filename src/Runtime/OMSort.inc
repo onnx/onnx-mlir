@@ -89,7 +89,7 @@ typedef int(
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
 
-#define Load(typeName, to, from) typeName (to) = (from)
+#define Load(typeName, to, from) typeName to = from
 
 // Convert f16 elements to f32 for comparison because we don't have logic to
 // compare f16 elements directly on all platforms.

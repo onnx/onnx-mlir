@@ -261,3 +261,138 @@ func.func @qlinear_matmul(%arg0: tensor<?x?x768xi8>, %arg1: tensor<f32>, %arg2: 
 // CHECK:           return [[VAR_0_]] : tensor<?x?x768xi8>
 // CHECK:         }
 }
+
+// -----
+
+// gelu(x) = [x * (erf(x/1.41421354) + 1)] * 0.5
+func.func @test_gelu_erf_cst_1(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>{
+  %sqrt2 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %half = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %0 = "onnx.Div"(%arg0, %sqrt2) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Erf"(%0) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Add"(%1, %one) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %3 = "onnx.Mul"(%arg0, %2) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %4 = "onnx.Mul"(%3, %half) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  "func.return"(%4) : (tensor<?x?x3072xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_gelu_erf_cst_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) {approximate = "none"} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// gelu(x) = [x * (1 + erf(x/1.41421354))] * 0.5
+func.func @test_gelu_erf_cst_change_add_operand_order(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>{
+  %sqrt2 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %half = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %0 = "onnx.Div"(%arg0, %sqrt2) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Erf"(%0) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Add"(%one, %1) : (tensor<f32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %3 = "onnx.Mul"(%arg0, %2) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %4 = "onnx.Mul"(%3, %half) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  "func.return"(%4) : (tensor<?x?x3072xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_gelu_erf_cst_change_add_operand_order
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) {approximate = "none"} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// gelu(x) = [(erf(x/1.41421354) + 1) * x] * 0.5
+func.func @test_gelu_erf_cst_change_mul_operand_order_1(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>{
+  %sqrt2 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %half = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %0 = "onnx.Div"(%arg0, %sqrt2) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Erf"(%0) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Add"(%1, %one) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %3 = "onnx.Mul"(%2, %arg0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %4 = "onnx.Mul"(%3, %half) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  "func.return"(%4) : (tensor<?x?x3072xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_gelu_erf_cst_change_mul_operand_order_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) {approximate = "none"} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// gelu(x) =  0.5 * [x * (erf(x/1.41421354) + 1) * x]
+func.func @test_gelu_erf_cst_change_mul_operand_order_2(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>{
+  %sqrt2 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %half = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %0 = "onnx.Div"(%arg0, %sqrt2) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Erf"(%0) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Add"(%1, %one) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %3 = "onnx.Mul"(%arg0, %2) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %4 = "onnx.Mul"(%half, %3) : (tensor<f32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  "func.return"(%4) : (tensor<?x?x3072xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_gelu_erf_cst_change_mul_operand_order_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) {approximate = "none"} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// gelu(x) = x * (0.5 * (1 + tanh[0.797884583 * (x + 0.044715 * x^3)]))
+func.func @test_gelu_tanh(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %three = onnx.Constant dense<3.000000e+00> : tensor<f32>
+  %half = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %sqrt2pi = onnx.Constant dense<0.797884583> : tensor<f32>
+  %cst044715 = onnx.Constant dense<4.471500e-02> : tensor<f32>
+  %0 = "onnx.Pow"(%arg0, %three) : (tensor<*xf32>, tensor<f32>) -> tensor<*xf32>
+  %1 = "onnx.Mul"(%cst044715, %0) : (tensor<f32>, tensor<*xf32>) -> tensor<*xf32>
+  %2 = "onnx.Add"(%arg0, %1) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  %3 = "onnx.Mul"(%sqrt2pi, %2) : (tensor<f32>, tensor<*xf32>) -> tensor<*xf32>
+  %4 = "onnx.Tanh"(%3) : (tensor<*xf32>) -> tensor<*xf32>
+  %5 = "onnx.Add"(%one, %4) : (tensor<f32>, tensor<*xf32>) -> tensor<*xf32>
+  %6 = "onnx.Mul"(%half, %5) : (tensor<f32>, tensor<*xf32>) -> tensor<*xf32>
+  %7 = "onnx.Mul"(%arg0, %6) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  return %7 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_gelu_tanh
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) {approximate = "tanh"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           return [[VAR_0_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gelu_erf_two_adds(%arg0: tensor<?x?x3072xf32>, %arg1: tensor<3072x768xf32>) -> tensor<?x?x768xf32> {
+  %0 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %2 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %3 = onnx.Constant dense<3.000000e-01> : tensor<3072xf32>
+  %4 = "onnx.Add"(%arg0, %3) : (tensor<?x?x3072xf32>, tensor<3072xf32>) -> tensor<?x?x3072xf32>
+  %5 = "onnx.Div"(%4, %2) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %6 = "onnx.Erf"(%5) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %7 = "onnx.Add"(%6, %1) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %8 = "onnx.Mul"(%4, %7) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %9 = "onnx.Mul"(%8, %0) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %10 = "onnx.MatMul"(%9, %arg1) : (tensor<?x?x3072xf32>, tensor<3072x768xf32>) -> tensor<?x?x768xf32>
+  return %10 : tensor<?x?x768xf32>
+}
+// CHECK-LABEL:  func.func @test_gelu_erf_two_adds
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>, [[PARAM_1_:%.+]]: tensor<3072x768xf32>) -> tensor<?x?x768xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<3.000000e-01> : tensor<3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?x3072xf32>, tensor<3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Gelu"([[VAR_1_]]) {approximate = "none"} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.MatMul"([[VAR_2_]], [[PARAM_1_]]) : (tensor<?x?x3072xf32>, tensor<3072x768xf32>) -> tensor<?x?x768xf32>
+// CHECK:           return [[VAR_3_]] : tensor<?x?x768xf32>
+// CHECK:         }
