@@ -198,6 +198,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
       patterns, vector::VectorTransformsOptions());
   vector::populateVectorTransposeLoweringPatterns(
       patterns, vector::VectorTransformsOptions());
+  vector::populateVectorShapeCastLoweringPatterns(patterns);
 
   populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);
