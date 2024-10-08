@@ -87,7 +87,7 @@ def define_arch_op_names(arch):
         op_name["vmul"] = "vfm.b"
         op_name["vdiv"] = "vfd"
         # vector conversion between formats (NNPA <-> fp)
-        op_name["vconv"] = "(vclfnh|vclfnl|vcfn|vcrnf|vcnf)"
+        op_name["vconv"] = "(vclfnh|vclfnl|vcfn|vcrnf|vcnf|vclgd|vclfeb|vclgdb)"
         # add | sub| max | min | compare
         op_name["vadd"] = "([vw]fa|[vw]fs|[vw]fmax|[vw]fmin|[vw]f[ck][eh])"
         op_name["load"] = "lg"
