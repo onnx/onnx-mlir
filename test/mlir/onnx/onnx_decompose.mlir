@@ -812,7 +812,9 @@ func.func @sce_mean_with_weight_NCD1D2(%arg0: tensor<64x10x2x3xf32>, %arg1: tens
   // CHECK-NEXT:     %[[WEIGHT_PROD:.*]] = "onnx.Mul"(%[[PROD]], %[[UNSQUEEZE_WEIGHT]])
   // CHECK-NEXT:     %[[REDUCE_AXIS:.*]] = onnx.Constant dense<1> : tensor<1xi64>
   // CHECK-NEXT:     %[[SUM:.*]] = "onnx.ReduceSum"(%[[WEIGHT_PROD]], %[[REDUCE_AXIS]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<64x1x2x3xf32>
-  // CHECK-NEXT:     %[[MEAN:.*]] = "onnx.ReduceMean"(%[[SUM]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[SUML:.*]] = "onnx.ReduceSum"(%[[SUM]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[SUMW:.*]] = "onnx.ReduceSum"(%[[ARG2]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[MEAN:.*]] = "onnx.Div"(%[[SUML]], %[[SUMW]])
   // CHECK-NEXT:     %[[LOSS:.*]] = "onnx.Neg"(%[[MEAN]])
   // CHECK-NEXT:     onnx.Return %[[LOSS]] : tensor<f32>
 }
@@ -837,7 +839,9 @@ func.func @sce_mean_with_weight_NCD1D2_dynamic_num_classes(%arg0: tensor<64x?x2x
   // CHECK-NEXT:     %[[WEIGHT_PROD:.*]] = "onnx.Mul"(%[[PROD]], %[[UNSQUEEZE_WEIGHT]])
   // CHECK-NEXT:     %[[REDUCE_AXIS:.*]] = onnx.Constant dense<1> : tensor<1xi64>
   // CHECK-NEXT:     %[[SUM:.*]] = "onnx.ReduceSum"(%[[WEIGHT_PROD]], %[[REDUCE_AXIS]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<64x1x2x3xf32>
-  // CHECK-NEXT:     %[[MEAN:.*]] = "onnx.ReduceMean"(%[[SUM]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[SUML:.*]] = "onnx.ReduceSum"(%[[SUM]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[SUMW:.*]] = "onnx.ReduceSum"(%[[ARG2]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[MEAN:.*]] = "onnx.Div"(%[[SUML]], %[[SUMW]])
   // CHECK-NEXT:     %[[LOSS:.*]] = "onnx.Neg"(%[[MEAN]])
   // CHECK-NEXT:     onnx.Return %[[LOSS]] : tensor<f32>
 }
@@ -867,6 +871,31 @@ func.func @sce_sum(%arg0: tensor<64x10xf32>, %arg1: tensor<64xi64>) -> tensor<f3
 
 // -----
 
+func.func @sce_sum_with_weight(%arg0: tensor<64x10xf32>, %arg1: tensor<64xi64>, %arg2: tensor<10xf32>) -> tensor<f32> {
+    %output, %log_prob = "onnx.SoftmaxCrossEntropyLoss"(%arg0, %arg1, %arg2) {reduction = "sum"} : (tensor<64x10xf32>, tensor<64xi64>, tensor<10xf32>) -> (tensor<f32>, none)
+    onnx.Return %output : tensor<f32>
+  // CHECK-LABEL:  func @sce_sum_with_weight
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}})
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() {value}
+  // CHECK-DAG:      %[[NUM_CLASSES:.*]] = onnx.Constant dense<10> : tensor<1xi64>
+  // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) {axis = 1 : si64} : ({{.*}}) -> tensor<64x10xi64>
+  // CHECK-NEXT:     %[[ONE_HOT_LABELS_F:.*]] = "onnx.Cast"(%[[ONE_HOT_LABELS]]) {saturate = 1 : si64, to = f32}
+  // CHECK-NEXT:     %[[SOFTMAX:.*]] = "onnx.Softmax"(%[[ARG0]]) {axis = 1 : si64}
+  // CHECK-NEXT:     %[[LOG_SOFTMAX:.*]] = "onnx.Log"(%[[SOFTMAX]])
+  // CHECK-NEXT:     %[[PROD:.*]] = "onnx.Mul"(%[[LOG_SOFTMAX]], %[[ONE_HOT_LABELS_F]])
+  // CHECK-NEXT:     %[[UNSQUEEZE_AXES:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+  // CHECK-NEXT:     %[[UNSQUEEZE_WEIGHT:.*]] = "onnx.Unsqueeze"(%[[ARG2]], %[[UNSQUEEZE_AXES]]) : ({{.*}}) -> tensor<1x10xf32>
+  // CHECK-NEXT:     %[[WEIGHT_PROD:.*]] = "onnx.Mul"(%[[PROD]], %[[UNSQUEEZE_WEIGHT]])
+  // CHECK-NEXT:     %[[REDUCE_AXIS:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+  // CHECK-NEXT:     %[[SUM:.*]] = "onnx.ReduceSum"(%[[WEIGHT_PROD]], %[[REDUCE_AXIS]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<64x1xf32>
+  // CHECK-NEXT:     %[[MEAN:.*]] = "onnx.ReduceSum"(%[[SUM]], %[[NONE]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<f32>
+  // CHECK-NEXT:     %[[LOSS:.*]] = "onnx.Neg"(%[[MEAN]])
+  // CHECK-NEXT:     onnx.Return %[[LOSS]] : tensor<f32>
+}
+
+// -----
+
 func.func @sce_none(%arg0: tensor<64x10x2x3xf32>, %arg1: tensor<64x2x3xi64>) -> tensor<64x2x3xf32> {
     %0 = "onnx.NoValue"() {value, weight} : () -> none
     %output, %log_prob = "onnx.SoftmaxCrossEntropyLoss"(%arg0, %arg1, %0) {reduction = "none"} : (tensor<64x10x2x3xf32>, tensor<64x2x3xi64>, none) -> (tensor<64x2x3xf32>, none)
@@ -884,6 +913,6 @@ func.func @sce_none(%arg0: tensor<64x10x2x3xf32>, %arg1: tensor<64x2x3xi64>) -> 
   // CHECK-NEXT:     %[[REDUCE_AXIS:.*]] = onnx.Constant dense<1> : tensor<1xi64>
   // CHECK-NEXT:     %[[SUM:.*]] = "onnx.ReduceSum"(%[[PROD]], %[[REDUCE_AXIS]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : ({{.*}}) -> tensor<64x1x2x3xf32>
   // CHECK-NEXT:     %[[SQUEEZE:.*]] = "onnx.Squeeze"(%[[SUM]], %[[REDUCE_AXIS]]) : ({{.*}}) -> tensor<64x2x3xf32>
-  // CHECK-NEXT:     %[[LOSS:.*]] = "onnx.Neg"(%[[MEAN]])
+  // CHECK-NEXT:     %[[LOSS:.*]] = "onnx.Neg"(%[[SQUEEZE]])
   // CHECK-NEXT:     onnx.Return %[[LOSS]] : tensor<64x2x3xf32>
 }

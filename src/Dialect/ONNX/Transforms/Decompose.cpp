@@ -997,8 +997,8 @@ struct GroupNormIntoLayerNormPattern2
 ///    where unsqueezing makes the operation broadcastable.
 /// 4. reduce_sum = onnx.ReduceSum(product, dim=1)
 /// 5. loss = onnx.ReduceMean(reduce_sum) if reduciton == "mean"
-///                   onnx.ReduceSum(reduce_sum)  if reduction == "sum"
-///                   onnx.Squeeze(reduce_sum) .  if reduciton == "none"
+///           onnx.ReduceSum(reduce_sum)  if reduction == "sum"
+///           onnx.Squeeze(reduce_sum)    if reduciton == "none"
 ///
 struct SoftmaxCrossEntropyPattern
     : public OpRewritePattern<ONNXSoftmaxCrossEntropyLossOp> {
@@ -1046,9 +1046,9 @@ struct SoftmaxCrossEntropyPattern
       llvm::SmallVector<int64_t, 4> axesList(scoresTy.getRank() - 1, 0);
       std::iota(axesList.begin() + 1, axesList.end(), 2);
       auto axes = create.constantInt64(axesList);
-      weights = create.unsqueeze(
+      auto weightsUnsqueezed = create.unsqueeze(
           RankedTensorType::get(unsqueezedShape, elemTy), weights, axes);
-      prod = rewriter.create<ONNXMulOp>(loc, prod, weights);
+      prod = rewriter.create<ONNXMulOp>(loc, prod, weightsUnsqueezed);
     }
     // Reduction across `class` (dim=1) axis.
     auto axes = create.constant(onnx_mlir::createDenseArrayAttr(
@@ -1059,9 +1059,19 @@ struct SoftmaxCrossEntropyPattern
     // Set `axes=none` to indicate reducing all dims.
     auto reduction = cast<StringAttr>(sceOp.getReductionAttr()).getValue();
     if (reduction == "mean") {
-      loss = rewriter.create<ONNXReduceMeanOp>(loc,
-          RankedTensorType::get({}, elemTy), loss, none,
-          /*keepdims=*/0);
+      if (isa<NoneType>(weights.getType())) {
+        loss = rewriter.create<ONNXReduceMeanOp>(loc,
+            RankedTensorType::get({}, elemTy), loss, none,
+            /*keepdims=*/0);
+      } else {
+        auto sumL = rewriter.create<ONNXReduceSumOp>(loc,
+            RankedTensorType::get({}, elemTy), loss, none,
+            /*keepdims=*/0);
+        auto sumW = rewriter.create<ONNXReduceSumOp>(loc,
+            RankedTensorType::get({}, elemTy), weights, none,
+            /*keepdims=*/0);
+        loss = rewriter.create<ONNXDivOp>(loc, sumL, sumW);
+      }
     } else if (reduction == "sum") {
       loss = rewriter.create<ONNXReduceSumOp>(loc,
           RankedTensorType::get({}, elemTy), loss, none,
