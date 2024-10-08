@@ -451,25 +451,21 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
       ret = llvm::ArrayRef(rawData, sizeInBytes);
       allochelper_ztensor_free(&ztensor);
     } else {
-      DenseResourceElementsAttr denseResourceAttr =
-          mlir::cast<DenseResourceElementsAttr>(dataAttr);
-      ArrayRef<char> attrData =
-          denseResourceAttr.getRawHandle().getBlob()->getData();
       int64_t sizeInBytes = getBufferSize();
       char *rawData = (char *)malloc(sizeInBytes);
-      memcpy(rawData, attrData.data(), sizeInBytes);
-      ret = llvm::ArrayRef(rawData, sizeInBytes);
+      if (auto denseResourceAttr =
+              mlir::dyn_cast<DenseResourceElementsAttr>(dataAttr)) {
+        ArrayRef<char> attrData =
+            denseResourceAttr.getRawHandle().getBlob()->getData();
+        memcpy(rawData, attrData.data(), sizeInBytes);
+      } else if (auto splatElementsAttr =
+                     mlir::dyn_cast<SplatElementsAttr>(dataAttr))
+        memset(rawData, 0, sizeInBytes);
+      else
+        llvm_unreachable("Unsupported data type.");
+      zlowStickifiedConstantOp.removeValueAttr();
+      zlowStickifiedConstantOp.removeStickifiedAttr();
     }
-    zlowStickifiedConstantOp.removeValueAttr();
-    zlowStickifiedConstantOp.removeStickifiedAttr();
-  } else if (auto allZero = zlowStickifiedConstantOp.getAllzeroAttr()) {
-    if (allZero) {
-      int64_t sizeInBytes = getBufferSize();
-      char *rawData = (char *)malloc(sizeInBytes);
-      memset(rawData, 0, sizeInBytes);
-      ret = llvm::ArrayRef(rawData, sizeInBytes);
-    }
-    zlowStickifiedConstantOp.removeAllzeroAttr();
   }
   return ret;
 }
@@ -505,7 +501,6 @@ void ZLowStickifiedConstantOp::updateBuffer() {
             ->getNamespace(), // use the dialect as the blob "hint"
         HeapAsmResourceBlob::allocateAndCopyWithAlign(rawData, alignof(char)));
     zlowStickifiedConstantOp.setValueAttr(valueAttr);
-
     freeBuffer(rawData);
   }
 }

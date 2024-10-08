@@ -190,13 +190,12 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
 
     // Create a ZHighStickifiedConstantOp.
-    ZHighStickifiedConstantOp stickifiedConstant =
-        rewriter.create<ZHighStickifiedConstantOp>(loc, resType,
-            /*value=*/nullptr,
-            /*stickified=*/nullptr,
-            /*allzero=*/rewriter.getBoolAttr(true),
-            /*alignment=*/rewriter.getI64IntegerAttr(4096));
-
+    FloatAttr floatZero = rewriter.getFloatAttr(resType.getElementType(), 0.0);
+    ZHighStickifiedConstantOp stickifiedConstant = rewriter.create<
+        ZHighStickifiedConstantOp>(loc, resType,
+        /*value=*/SplatElementsAttr::get(cast<ShapedType>(resType), floatZero),
+        /*stickified=*/rewriter.getBoolAttr(true),
+        /*alignment=*/rewriter.getI64IntegerAttr(4096));
     res = stickifiedConstant.getResult();
   } else {
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
@@ -713,7 +712,6 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             /*layout=*/layout,
             /*offset=*/rewriter.getI64IntegerAttr(0),
             /*stickified=*/zhighStickifiedConstOp.getStickifiedAttr(),
-            /*allzero=*/zhighStickifiedConstOp.getAllzeroAttr(),
             /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
 
     // Increment constant ID:
