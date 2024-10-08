@@ -588,12 +588,6 @@ struct VectorBuilder final : DialectBuilder {
   mlir::Value insertElement(
       mlir::Value vector, mlir::Value element, int64_t position) const;
 
-  // hi alex, to remove, it did not perform well.
-  // Extract the i-th sub-vector of a vector consisting of n sub-vectors.
-  mlir::Value extractSubVector(mlir::Value vector, int64_t i, int64_t VL) const;
-  // Append a new sub-vector to an exiting vector of n sub-vector.
-  mlir::Value appendSubVector(mlir::Value vector, mlir::Value subVector) const;
-
 private:
   bool isPowerOf2(uint64_t num) const;
   uint64_t getLengthOf1DVector(mlir::Value vec) const;
