@@ -356,23 +356,37 @@ Value KrnlBuilder::roundEven(Value input) const {
   Type elementType = getElementTypeOrSelf(input.getType());
   MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
   //  hi alex, may want to generalize support to scalar as well.
-  VectorType inputVecType = mlir::dyn_cast<VectorType>(input.getType());
-  if (inputVecType && VectorMachineSupport::requireCustomASM(
-                          GenericOps::roundEvenGop, elementType)) {
+  VectorType vecType = mlir::dyn_cast<VectorType>(input.getType());
+  if (vecType && VectorMachineSupport::requireCustomASM(
+                     GenericOps::roundEvenGop, elementType)) {
     // Use Krnl round even op as LLVM does not support roundEven.
     int64_t archVL = VectorMachineSupport::getArchVectorLength(
         GenericOps::roundEvenGop, elementType);
     assert(archVL > 1 && "expected vector with archVL>1");
-    assert(inputVecType.getRank() == 1 && "1D vec only");
-    int64_t vecSize = inputVecType.getShape()[0];
+    assert(vecType.getRank() == 1 && "1D vec only");
+    int64_t vecSize = vecType.getShape()[0];
     assert(vecSize % archVL == 0 && "expected multiple of archVL");
+    int64_t numArchVec = vecSize / archVL;
     Value output;
-    for (int64_t i = 0; i < vecSize / archVL; ++i) {
+#if 1
+    VectorType vecType2D = VectorType::get({numArchVec, archVL}, elementType);
+    Value input2D = create.vec.shapeCast(vecType2D, input);
+    Value output2D = input2D;
+    for (int64_t i = 0; i < numArchVec; ++i) {
+      Value subInput = create.vec.extractFrom2D(input2D, i);
+      Value subOutput =
+          b().create<KrnlRoundEvenOp>(loc(), subInput.getType(), subInput);
+      output2D = create.vec.insertInto2D(subOutput, output2D, i);
+    }
+    output = create.vec.shapeCast(vecType, output2D);
+#else
+    for (int64_t i = 0; i < numArchVec; ++i) {
       Value subInput = create.vec.extractSubVector(input, i, archVL);
       Value subOutput =
           b().create<KrnlRoundEvenOp>(loc(), subInput.getType(), subInput);
       output = create.vec.appendSubVector(output, subOutput);
     }
+#endif
     return output;
   }
   // No need for custom support, use math roundEven. May want to evaluate

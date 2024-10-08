@@ -576,11 +576,19 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
+  // Cast vectors to vectors of different shape (e.g. 1D to 2D and back).
+  mlir::Value shapeCast(mlir::VectorType newType, mlir::Value vector) const;
+  // Extract and insert 1D vector from/to 2D vector.
+  mlir::Value extractFrom2D(mlir::Value vector2D, int64_t position) const;
+  mlir::Value insertInto2D(
+      mlir::Value vector, mlir::Value vector2D, int64_t position) const;
+
   // Insert and extract one element (scalar).
   mlir::Value extractElement(mlir::Value vector, int64_t position) const;
   mlir::Value insertElement(
       mlir::Value vector, mlir::Value element, int64_t position) const;
 
+  // hi alex, to remove, it did not perform well.
   // Extract the i-th sub-vector of a vector consisting of n sub-vectors.
   mlir::Value extractSubVector(mlir::Value vector, int64_t i, int64_t VL) const;
   // Append a new sub-vector to an exiting vector of n sub-vector.

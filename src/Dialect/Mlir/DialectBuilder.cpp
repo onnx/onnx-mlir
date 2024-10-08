@@ -2125,6 +2125,24 @@ void VectorBuilder::multiReduction(ArrayRef<Value> inputVecArray,
   }
 }
 
+// Cast vectors to vectors of different shape (e.g. 1D to 2D and back).
+Value VectorBuilder::shapeCast(VectorType newType, Value vector) const {
+  return b().create<vector::ShapeCastOp>(loc(), newType, vector);
+}
+
+// Extract  1D vector from 2D vector.
+Value VectorBuilder::extractFrom2D(Value vector2D, int64_t position) const {
+  llvm::SmallVector<int64_t> pos = {position};
+  return b().create<vector::ExtractOp>(loc(), vector2D, pos);
+}
+
+// Insert 1D vector into 2D vector.
+Value VectorBuilder::insertInto2D(
+    Value vector, Value vector2D, int64_t position) const {
+  llvm::SmallVector<int64_t> pos = {position};
+  return b().create<vector::InsertOp>(loc(), vector, vector2D, pos);
+}
+
 Value VectorBuilder::extractElement(Value vector, int64_t index) const {
   MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
   VectorType type = llvm::cast<VectorType>(vector.getType());
