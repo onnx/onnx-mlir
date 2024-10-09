@@ -360,29 +360,34 @@ Value KrnlBuilder::roundEven(Value input) const {
   if (VectorMachineSupport::requireCustomASM(
           GenericOps::roundEvenGop, elementType)) {
     // Use Krnl round even op as LLVM does not support roundEven.
-    if (vecType) {
-      // Vector, enable unrolling of multiple archVL.
-      int64_t archVL = VectorMachineSupport::getArchVectorLength(
-          GenericOps::roundEvenGop, elementType);
-      assert(archVL > 1 && "expected vector with archVL>1");
-      assert(vecType.getRank() == 1 && "1D vec only");
-      int64_t vecSize = vecType.getShape()[0];
-      assert(vecSize % archVL == 0 && "expected multiple of archVL");
-      int64_t numArchVec = vecSize / archVL;
-      VectorType vecType2D = VectorType::get({numArchVec, archVL}, elementType);
-      Value input2D = create.vec.shapeCast(vecType2D, input);
-      Value output2D = input2D;
-      for (int64_t i = 0; i < numArchVec; ++i) {
-        Value subInput = create.vec.extractFrom2D(input2D, i);
-        Value subOutput =
-            b().create<KrnlRoundEvenOp>(loc(), subInput.getType(), subInput);
-        output2D = create.vec.insertInto2D(subOutput, output2D, i);
-      }
-      return create.vec.shapeCast(vecType, output2D);
-    } else {
+    if (!vecType)
       // Scalar.
       return b().create<KrnlRoundEvenOp>(loc(), input.getType(), input);
+
+    // Vector, enable unrolling of multiple archVL.
+    int64_t archVL = VectorMachineSupport::getArchVectorLength(
+        GenericOps::roundEvenGop, elementType);
+    assert(archVL > 1 && "expected vector with archVL>1");
+    assert(vecType.getRank() == 1 && "1D vec only");
+    int64_t vecSize = vecType.getShape()[0];
+    assert(vecSize % archVL == 0 && "expected multiple of archVL");
+    int64_t numArchVec = vecSize / archVL;
+    VectorType vecType2D = VectorType::get({numArchVec, archVL}, elementType);
+    // Cast input vector to a vector of chunks (archVL values that can be
+    // handled by one hardware SIMD instruction).
+    Value input2D = create.vec.shapeCast(vecType2D, input);
+    Value output2D = input2D;
+    // Iterates over all hardware SIMD chunks.
+    for (int64_t i = 0; i < numArchVec; ++i) {
+      // Extract one chunk, compute new value, insert result in corresponding
+      // output 2D vector.
+      Value subInput = create.vec.extractFrom2D(input2D, i);
+      Value subOutput =
+          b().create<KrnlRoundEvenOp>(loc(), subInput.getType(), subInput);
+      output2D = create.vec.insertInto2D(subOutput, output2D, i);
     }
+    // Recast output 2D vector into the flat vector (same shape as input).
+    return create.vec.shapeCast(vecType, output2D);
   }
   // No need for custom support, use math roundEven. May want to evaluate
   // whether to use the mlir roundEven or our own emulation.
