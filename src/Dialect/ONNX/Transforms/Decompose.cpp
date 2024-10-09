@@ -1067,8 +1067,13 @@ struct SoftmaxCrossEntropyPattern
         auto sumL = rewriter.create<ONNXReduceSumOp>(loc,
             RankedTensorType::get({}, elemTy), loss, none,
             /*keepdims=*/0);
+        // Perform einsum(one_hot, weights) as a simple way of producing
+        // W[n][d1][d2]...[dk] = weights[labels[i][d1][d2]...[dk]]
+        auto scatteredWeights = rewriter.create<ONNXEinsumOp>(loc,
+            RankedTensorType::get(labelsTy.getShape(), elemTy),
+            ValueRange{oneHot, weights}, "ij...,j->i...");
         auto sumW = rewriter.create<ONNXReduceSumOp>(loc,
-            RankedTensorType::get({}, elemTy), weights, none,
+            RankedTensorType::get({}, elemTy), scatteredWeights, none,
             /*keepdims=*/0);
         loss = rewriter.create<ONNXDivOp>(loc, sumL, sumW);
       }
