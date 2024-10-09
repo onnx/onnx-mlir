@@ -482,5 +482,19 @@ IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
     return IntegerAttr();
 }
 
+/// MLIR type to zDNN type.
+zdnn_data_types mlirTypeToZDNNType(Type elementType) {
+  if (mlir::isa<FloatType>(elementType)) {
+    FloatType floatTy = mlir::cast<FloatType>(elementType);
+    if (floatTy.getWidth() == 16) {
+      return FP16;
+    } else if (floatTy.getWidth() == 32) {
+      return FP32;
+    } else
+      llvm_unreachable("Unsupported data type.");
+  } else
+    llvm_unreachable("Unsupported data type.");
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir

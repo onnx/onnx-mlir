@@ -16,6 +16,7 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 
 namespace onnx_mlir {
 namespace zhigh {
@@ -87,6 +88,9 @@ bool hasNNPAUse(mlir::Value v);
 
 /// Get saturation settings.
 mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
+
+/// MLIR type to zDNN type.
+zdnn_data_types mlirTypeToZDNNType(mlir::Type elementType);
 
 } // namespace zhigh
 } // namespace onnx_mlir

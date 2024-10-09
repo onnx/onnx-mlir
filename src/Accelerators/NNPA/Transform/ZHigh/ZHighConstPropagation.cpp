@@ -21,6 +21,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
@@ -34,33 +35,6 @@ using namespace onnx_mlir::zhigh;
 
 namespace onnx_mlir {
 namespace zhigh {
-
-/// Get raw data from a dense attribute.
-static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
-  if (!denseAttr.isSplat()) {
-    data = denseAttr.getRawData();
-  } else {
-    ShapedType denseShapeType = mlir::cast<ShapedType>(denseAttr.getType());
-    std::vector<char> rawData = denseAttr.getRawData();
-    int64_t numElements = denseShapeType.getNumElements();
-    for (int i = 0; i < numElements; i++)
-      data.insert(data.end(), rawData.begin(), rawData.end());
-  }
-}
-
-/// MLIR type to zDNN type.
-zdnn_data_types mlirTypeToZDNNType(Type elementType) {
-  if (mlir::isa<FloatType>(elementType)) {
-    FloatType floatTy = mlir::cast<FloatType>(elementType);
-    if (floatTy.getWidth() == 16) {
-      return FP16;
-    } else if (floatTy.getWidth() == 32) {
-      return FP32;
-    } else
-      llvm_unreachable("Unsupported data type.");
-  } else
-    llvm_unreachable("Unsupported data type.");
-}
 
 /// Emit a ZHighStikifiedConstant using information from a stickified ztensor.
 ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,

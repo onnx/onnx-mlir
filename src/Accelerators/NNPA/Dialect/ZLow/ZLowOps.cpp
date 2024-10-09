@@ -28,9 +28,11 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 
@@ -364,43 +366,6 @@ void ZLowBatchNormOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-/// Get raw data from a dense attribute.
-static void getRawData(Attribute dataAttr, std::vector<char> &data) {
-  TypeSwitch<Attribute>(dataAttr)
-      .Case<DenseElementsAttr>([&](DenseElementsAttr denseAttr) {
-        if (!denseAttr.isSplat()) {
-          data = denseAttr.getRawData();
-        } else {
-          ShapedType denseShapeType =
-              mlir::cast<ShapedType>(denseAttr.getType());
-          std::vector<char> rawData = denseAttr.getRawData();
-          int64_t numElements = denseShapeType.getNumElements();
-          for (int i = 0; i < numElements; i++)
-            data.insert(data.end(), rawData.begin(), rawData.end());
-        }
-      })
-      .Case<DenseResourceElementsAttr>(
-          [&](DenseResourceElementsAttr denseResourceAttr) {
-            data = denseResourceAttr.getRawHandle().getBlob()->getData();
-          })
-      .Default(
-          [&](Attribute attr) { llvm_unreachable("Unsupported data type."); });
-}
-
-/// MLIR type to zDNN type.
-zdnn_data_types mlirTypeToZDNNType(Type elementType) {
-  if (mlir::isa<FloatType>(elementType)) {
-    FloatType floatTy = mlir::cast<FloatType>(elementType);
-    if (floatTy.getWidth() == 16) {
-      return FP16;
-    } else if (floatTy.getWidth() == 32) {
-      return FP32;
-    } else
-      llvm_unreachable("Unsupported data type.");
-  } else
-    llvm_unreachable("Unsupported data type.");
-}
-
 /// Create a buffer and set data fron value attribute. Stickified data is
 /// created and set if `stickified` attribute is false.
 ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
@@ -430,7 +395,8 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
       // If zDNNLayout is NHWC, we stickify directly from NCHW.
       if (zDNNLayout == ZDNN_NHWC)
         zDNNLayout = ZDNN_NCHW;
-      zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
+      zdnn_data_types zDNNType =
+          onnx_mlir::zhigh::mlirTypeToZDNNType(elementType);
       set_info_pre_transformed_desc(
           &pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
       // transformed desc.
