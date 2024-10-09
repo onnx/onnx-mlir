@@ -391,7 +391,9 @@ Value KrnlBuilder::roundEven(Value input) const {
   }
   // No need for custom support, use math roundEven. May want to evaluate
   // whether to use the mlir roundEven or our own emulation.
-  return create.math.roundEven(input);
+  // Note: MacOS CI has an issue with the roundEven instruction, thus continue
+  // to use emulation. May change in the future.
+  return create.math.roundEvenEmulation(input);
 }
 
 //===----------------------------------------------------------------------===//
