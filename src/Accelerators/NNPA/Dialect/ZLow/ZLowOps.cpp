@@ -463,6 +463,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
         memset(rawData, 0, sizeInBytes);
       else
         llvm_unreachable("Unsupported data type.");
+      ret = llvm::ArrayRef(rawData, sizeInBytes);
       zlowStickifiedConstantOp.removeValueAttr();
       zlowStickifiedConstantOp.removeStickifiedAttr();
     }
