@@ -1300,7 +1300,7 @@ GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
         {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
         {GenericOps::FloorGop, 2},
         {GenericOps::EstimatedVectorRegisterPressure,
-            4 /* Little parallelism in code. */}};
+            8 /* Little parallelism in code. */}};
 
   // Assume here that there is a hw op to handle this.
   return {{GenericOps::ArithmeticGop, 1}};
