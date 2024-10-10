@@ -39,6 +39,10 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   Type inputElementType = inputType.getElementType();
   int64_t rank = inputType.getRank();
 
+  // Use fast math with reciprocal?
+  bool useReciprocal =
+      !DISABLE_FAST_MATH && enableFastMath && isa<FloatType>(inputElementType);
+
   // Flatten the input data and outputs
   DimsExpr inputDims, flatInputDims, flatAllocDims;
   inputDims = allocDims; // Unput and output have the same shape.
@@ -58,9 +62,11 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     if (hasZeroPoint)
       mixAdjust = {{GenericOps::ArithmeticGop, 1}};
     GenOpMix mixRound = getGenOpMix<ONNXRoundOp>(inputElementType, op);
-    GenOpMix mixOthers = {{GenericOps::DivGop, 1},
-        {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
-        {GenericOps::EstimatedVectorRegisterPressure, 8}};
+    GenericOps divOrMulGenOp =
+        useReciprocal ? GenericOps::MulGop : GenericOps::DivGop;
+    GenOpMix mixOthers = {{divOrMulGenOp, 1}, {GenericOps::ConversionGop, 1},
+        {GenericOps::MinMaxGop, 2},
+        {GenericOps::EstimatedVectorRegisterPressure, 4}};
     GenOpMix mix1 = computeGenOpMixUnion(mixAdjust, mixRound);
     GenOpMix mix2 = computeGenOpMixUnion(mix1, mixOthers);
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
@@ -78,9 +84,6 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   outputAF.emplace_back(zero);
 
   Value scaleReciprocal;
-  bool useReciprocal =
-      !DISABLE_FAST_MATH && enableFastMath && isa<FloatType>(inputElementType);
-  fprintf(stderr, "hi alex, use reciprocal %d\n", (int)useReciprocal);
   if (useReciprocal) {
     Value one = create.math.constant(inputElementType, 1.0);
     scaleReciprocal = create.math.div(one, scale);

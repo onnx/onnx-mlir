@@ -86,8 +86,6 @@ void registerOMPasses(int optLevel) {
     return krnl::createConvertKrnlToAffinePass();
   });
 
-  fprintf(stderr, "hi alex, init lower krnl from here\n");
-  // hi alex, refine this? use disable/enable?
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
         /*enableSIMD, should consider disableSimdOption*/ optLevel >= 3,
