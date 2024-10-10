@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
 
