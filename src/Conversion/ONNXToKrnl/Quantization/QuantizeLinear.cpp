@@ -21,7 +21,7 @@
 
 using namespace mlir;
 
-#define DISABLE_FAST_MATH_FOR_QL 0 /* disable reciprocal (for debug) */
+#define DISABLE_FAST_MATH 0 /* disable reciprocal (for debug) */
 
 namespace onnx_mlir {
 
@@ -30,7 +30,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
     Value scale, Value zeroPoint, bool hasZeroPoint, bool enableSIMD,
-    bool enableParallel) {
+    bool enableParallel, bool enableFastMath) {
   MultiDialectBuilder<KrnlBuilder, MemRefBuilder, VectorBuilder, MathBuilder>
       create(rewriter, loc);
 
@@ -77,12 +77,13 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
-  Value oneOverScale;
-  bool useOneOverScale =
-      !DISABLE_FAST_MATH_FOR_QL && isa<FloatType>(inputElementType);
-  if (useOneOverScale) {
+  Value scaleReciprocal;
+  bool useReciprocal =
+      !DISABLE_FAST_MATH && enableFastMath && isa<FloatType>(inputElementType);
+  fprintf(stderr, "hi alex, use reciprocal %d\n", (int)useReciprocal);
+  if (useReciprocal) {
     Value one = create.math.constant(inputElementType, 1.0);
-    oneOverScale = create.math.div(one, scale);
+    scaleReciprocal = create.math.div(one, scale);
   }
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
@@ -91,8 +92,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         Value x = inputVals[0];
         // Scale
         Value scaleX;
-        if (useOneOverScale)
-          scaleX = create.math.mul(x, oneOverScale);
+        if (useReciprocal)
+          scaleX = create.math.mul(x, scaleReciprocal);
         else
           scaleX = create.math.div(x, scale);
         // Round
@@ -120,12 +121,13 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 struct ONNXQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXQuantizeLinearOp> {
   ONNXQuantizeLinearOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableSIMD, bool enableParallel)
+      bool enableSIMD, bool enableParallel, bool enableFastMath)
       : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel), enableFastMath(enableFastMath) {}
 
   bool enableSIMD = false;
   bool enableParallel = false;
+  bool enableFastMath = false;
 
   using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
       IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
@@ -201,7 +203,7 @@ struct ONNXQuantizeLinearOpLowering
     }
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
         yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-        zeroPoint, hasZeroPoint, enableSIMD, enableParallel);
+        zeroPoint, hasZeroPoint, enableSIMD, enableParallel, enableFastMath);
 
     rewriter.replaceOp(op, {Y});
     onnxToKrnlSimdReport(op);
@@ -211,9 +213,9 @@ struct ONNXQuantizeLinearOpLowering
 
 void populateLoweringONNXQuantizeLinearOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel) {
+    bool enableParallel, bool enableFastMath) {
   patterns.insert<ONNXQuantizeLinearOpLowering>(
-      typeConverter, ctx, enableSIMD, enableParallel);
+      typeConverter, ctx, enableSIMD, enableParallel, enableFastMath);
 }
 
 } // namespace onnx_mlir
