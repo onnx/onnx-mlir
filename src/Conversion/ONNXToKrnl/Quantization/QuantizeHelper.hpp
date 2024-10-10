@@ -17,14 +17,15 @@
 namespace onnx_mlir {
 
 // Given an input, scale, zero point, qMin, and qMax, perform a linear
-// quantization and store in alloc.
+// quantization and store in alloc. FastMath enables taking the reciprocal for
+// faster results on machines where mul is faster than div.
 void emitQuantizationLinearScalarParameters(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::Operation *op, mlir::MemRefType inputType,
     mlir::MemRefType quantizedType, mlir::Value alloc, DimsExpr &allocDims,
     mlir::Value input, mlir::Value qMin, mlir::Value qMax, mlir::Value scale,
     mlir::Value zeroPoint, bool hasZeroPoint, bool enableSIMD,
-    bool enableParallel);
+    bool enableParallel, bool enableFastMath);
 
 // Scan the input to compute scale, zeroPoint, and quantizedZeroPoint given qMin
 // and qMax.

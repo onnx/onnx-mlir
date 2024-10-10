@@ -308,7 +308,7 @@ public:
 // For all ONNX operations.
 void populateONNXToKrnlConversionPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
-    bool enableParallel);
+    bool enableParallel, bool enableFastMath);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXIfOpPattern(
@@ -380,10 +380,10 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // `Quantization` directory methods:
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
-    bool enableSIMD, bool enableParallel);
+    bool enableSIMD, bool enableParallel, bool enableFastMath);
 void populateLoweringONNXQuantizeLinearOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
-    bool enableParallel);
+    bool enableParallel, bool enableFastMath);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(

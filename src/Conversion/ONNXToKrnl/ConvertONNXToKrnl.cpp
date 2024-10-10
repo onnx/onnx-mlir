@@ -190,7 +190,7 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel,
-    std::string opsForCall) {
+    bool enableFastMath, std::string opsForCall) {
   // clang-format off
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
@@ -224,8 +224,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Quantization
-  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
-  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel, enableFastMath);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel, enableFastMath);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
@@ -309,12 +309,13 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(bool enableTiling, bool enableSIMD,
-      bool enableParallel, std::string opsForCall) {
+      bool enableParallel, bool enableFastMath, std::string opsForCall) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->enableTiling = enableTiling;
     this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
+    this->enableFastMath = enableFastMath;
     this->opsForCall = opsForCall;
   }
 
@@ -343,6 +344,8 @@ public:
       llvm::cl::desc("Enable SIMD code gen"), llvm::cl::init(false)};
   Option<bool> enableParallel{*this, "enable-parallel",
       llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
+  Option<bool> enableFastMath{*this, "enable-fast-math",
+      llvm::cl::desc("Enable fast math optimizations"), llvm::cl::init(false)};
   Option<std::string> opsForCall{*this, "ops-for-call",
       llvm::cl::desc("Specify ops to be lowered to krnl.call"),
       llvm::cl::init("")};
@@ -430,7 +433,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
       &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel,
-      opsForCall);
+      enableFastMath, opsForCall);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -450,9 +453,9 @@ std::unique_ptr<Pass> createLowerToKrnlPass() {
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(bool enableTiling, bool enableSIMD,
-    bool enableParallel, std::string opsForCall) {
+    bool enableParallel, bool enableFastMath, std::string opsForCall) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
-      enableTiling, enableSIMD, enableParallel, opsForCall);
+      enableTiling, enableSIMD, enableParallel, enableFastMath, opsForCall);
 }
 
 //===----------------------------------------------------------------------===//
