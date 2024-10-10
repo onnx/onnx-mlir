@@ -62,6 +62,7 @@ func.func @test_mean(%arg0: tensor<30xf32>, %arg1: tensor<30xf32>, %arg2: tensor
 
 // -----
 
+
 func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
   %0 = "onnx.Round"(%arg0) : (tensor<15xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -69,35 +70,31 @@ func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @round
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<15xf32>) -> memref<15xf32> {
-// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<5.000000e-01> : vector<16xf32>
-// CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant dense<2.000000e+00> : vector<16xf32>
-// CHECK-DAG:       [[VAR_cst_1_:%.+]] = arith.constant dense<1.000000e+00> : vector<16xf32>
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<64xi8>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<64xi8> to memref<15xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 16 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 15){
-// CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]{{.}} : memref<15xf32>, vector<16xf32>
-// CHECK:             [[VAR_3_:%.+]] = math.floor [[LOAD_PARAM_0_MEM_]] : vector<16xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.subf [[LOAD_PARAM_0_MEM_]], [[VAR_3_]] : vector<16xf32>
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpf ogt, [[VAR_4_]], [[VAR_cst_]] : vector<16xf32>
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.addf [[VAR_3_]], [[VAR_cst_1_]] : vector<16xf32>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[VAR_3_]] : vector<16xi1>, vector<16xf32>
-// CHECK-DAG:         [[VAR_8_:%.+]] = arith.mulf [[VAR_3_]], [[VAR_cst_]] : vector<16xf32>
-// CHECK:             [[VAR_9_:%.+]] = math.floor [[VAR_8_]] : vector<16xf32>
-// CHECK:             [[VAR_10_:%.+]] = arith.mulf [[VAR_9_]], [[VAR_cst_0_]] : vector<16xf32>
-// CHECK:             [[VAR_11_:%.+]] = arith.subf [[VAR_3_]], [[VAR_10_]] : vector<16xf32>
-// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpf oeq, [[VAR_11_]], [[VAR_cst_1_]] : vector<16xf32>
-// CHECK-DAG:         [[VAR_13_:%.+]] = arith.addf [[VAR_3_]], [[VAR_cst_1_]] : vector<16xf32>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_14_:%.+]] = arith.select [[VAR_12_]], [[VAR_13_]], [[VAR_3_]] : vector<16xi1>, vector<16xf32>
-// CHECK-DAG:         [[VAR_15_:%.+]] = arith.cmpf oeq, [[VAR_4_]], [[VAR_cst_]] : vector<16xf32>
-// CHECK:             [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[VAR_14_]], [[VAR_7_]] : vector<16xi1>, vector<16xf32>
-// CHECK:             vector.store [[VAR_16_]], [[VAR_view_]]{{.}}[[VAR_1_]]{{.}} : memref<15xf32>, vector<16xf32>
+// CHECK:           [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<64xi8> to memref<15xf32>
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:             [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 16 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 15){
+// CHECK:               [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]{{.}} : memref<15xf32>, vector<16xf32>
+// CHECK:               [[VAR_3_:%.+]] = vector.shape_cast [[LOAD_PARAM_0_MEM_]] : vector<16xf32> to vector<4x4xf32>
+// CHECK:               [[VAR_4_:%.+]] = vector.extract [[VAR_3_]][0] : vector<4xf32> from vector<4x4xf32>
+// CHECK:               [[VAR_5_:%.+]] = "krnl.round_even"([[VAR_4_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_6_:%.+]] = vector.insert [[VAR_5_]], [[VAR_3_]] [0] : vector<4xf32> into vector<4x4xf32>
+// CHECK-DAG:           [[VAR_7_:%.+]] = vector.extract [[VAR_3_]][1] : vector<4xf32> from vector<4x4xf32>
+// CHECK:               [[VAR_8_:%.+]] = "krnl.round_even"([[VAR_7_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_9_:%.+]] = vector.insert [[VAR_8_]], [[VAR_6_]] [1] : vector<4xf32> into vector<4x4xf32>
+// CHECK-DAG:           [[VAR_10_:%.+]] = vector.extract [[VAR_3_]][2] : vector<4xf32> from vector<4x4xf32>
+// CHECK:               [[VAR_11_:%.+]] = "krnl.round_even"([[VAR_10_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_12_:%.+]] = vector.insert [[VAR_11_]], [[VAR_9_]] [2] : vector<4xf32> into vector<4x4xf32>
+// CHECK-DAG:           [[VAR_13_:%.+]] = vector.extract [[VAR_3_]][3] : vector<4xf32> from vector<4x4xf32>
+// CHECK:               [[VAR_14_:%.+]] = "krnl.round_even"([[VAR_13_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK:               [[VAR_15_:%.+]] = vector.insert [[VAR_14_]], [[VAR_12_]] [3] : vector<4xf32> into vector<4x4xf32>
+// CHECK:               [[VAR_16_:%.+]] = vector.shape_cast [[VAR_15_]] : vector<4x4xf32> to vector<16xf32>
+// CHECK:               vector.store [[VAR_16_]], [[VAR_view_]]{{.}}[[VAR_1_]]{{.}} : memref<15xf32>, vector<16xf32>
+// CHECK:             }
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<15xf32>
 // CHECK:         }
