@@ -814,35 +814,15 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
   return getLoopsMutable();
 }
 
-ArrayRef<char> getRawData(KrnlGlobalOp &op) {
-  ArrayRef<char> rawData;
-  // llvm::dbgs() << "getRawData op:" << op << "\n";
-  // assert(op.getValue().has_value() && "Krnl Global must always have a
-  // value");
-  if (op.getValueAttr()) {
-    auto value = op.getValue().value();
-    TypeSwitch<Attribute>(value)
-        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          auto blob = mlir::cast<DenseResourceElementsAttr>(value)
-                          .getRawHandle()
-                          .getBlob();
-          assert(blob && "Expecting dense resource with a valid blob");
-          rawData = blob->getData();
-        })
-        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          DenseElementsAttr denseAttr =
-              mlir::dyn_cast_or_null<DenseElementsAttr>(value);
-          rawData = denseAttr.getRawData();
-        })
-        .Default([&](Attribute attr) { return; });
-  }
-  return rawData;
-}
-
 ArrayRef<char> KrnlGlobalOp::getBuffer() {
   ArrayRef<char> rawData;
-  if (auto krnlGlobalOp = mlir::dyn_cast<KrnlGlobalOp>(getOperation())) {
-    rawData = getRawData(krnlGlobalOp);
+  std::vector<char> attrData;
+  auto krnlGlobalOp = mlir::cast<KrnlGlobalOp>(*getOperation());
+  if (krnlGlobalOp.getValueAttr()) {
+    auto valueAttr = krnlGlobalOp.getValue().value();
+    getRawData(valueAttr, attrData);
+    int64_t sizeInBytes = getBufferSize();
+    rawData = llvm::ArrayRef(attrData.data(), sizeInBytes);
   }
   return rawData;
 }

@@ -410,7 +410,7 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
       assert(status == ZDNN_OK);
       status = stickify(&ztensor, attrData.data());
       assert(status == ZDNN_OK);
-      std::vector<char>().swap(attrData);
+      // std::vector<char>().swap(attrData);
       int64_t sizeInBytes = ztensor.buffer_size;
       char *rawData = (char *)malloc(sizeInBytes);
       memcpy(rawData, ztensor.buffer, sizeInBytes);
@@ -419,19 +419,10 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
     } else {
       int64_t sizeInBytes = getBufferSize();
       char *rawData = (char *)malloc(sizeInBytes);
-      if (auto denseResourceAttr =
-              mlir::dyn_cast<DenseResourceElementsAttr>(dataAttr)) {
-        ArrayRef<char> attrData =
-            denseResourceAttr.getRawHandle().getBlob()->getData();
-        memcpy(rawData, attrData.data(), sizeInBytes);
-      } else if (auto splatElementsAttr =
-                     mlir::dyn_cast<SplatElementsAttr>(dataAttr))
-        memset(rawData, 0, sizeInBytes);
-      else
-        llvm_unreachable("Unsupported data type.");
+      std::vector<char> attrData;
+      getRawData(dataAttr, attrData);
+      memcpy(rawData, attrData.data(), sizeInBytes);
       ret = llvm::ArrayRef(rawData, sizeInBytes);
-      zlowStickifiedConstantOp.removeValueAttr();
-      zlowStickifiedConstantOp.removeStickifiedAttr();
     }
   }
   return ret;
@@ -453,22 +444,32 @@ void ZLowStickifiedConstantOp::freeBuffer(ArrayRef<char> rawData) {
 
 /// Get a buffer, set/copy it to value attribute, and free the buffer.
 void ZLowStickifiedConstantOp::updateBuffer() {
-  ArrayRef<char> rawData = getBuffer();
-  if (!rawData.empty()) {
-    // set buffer to value attribute;
-    MLIRContext *context = getOperation()->getContext();
-    PatternRewriter rewriter(context);
-    ZLowStickifiedConstantOp zlowStickifiedConstantOp =
-        mlir::cast<ZLowStickifiedConstantOp>(getOperation());
-    int64_t sizeInBytes = getBufferSize();
-    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-        zlowStickifiedConstantOp.getOperation()
-            ->getDialect()
-            ->getNamespace(), // use the dialect as the blob "hint"
-        HeapAsmResourceBlob::allocateAndCopyWithAlign(rawData, alignof(char)));
-    zlowStickifiedConstantOp.setValueAttr(valueAttr);
-    freeBuffer(rawData);
+  MLIRContext *context = getOperation()->getContext();
+  PatternRewriter rewriter(context);
+  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+  // Set buffer when the value attribute is still not stickified or is splat
+  // with dense element attribute.
+  if (zlowStickifiedConstantOp.getValueAttr() &&
+      zlowStickifiedConstantOp.getStickifiedAttr()) {
+    bool isStickified = zlowStickifiedConstantOp.getStickified().value();
+    bool isSplat = false;
+    if (auto denseAttr = mlir::dyn_cast<DenseElementsAttr>(
+            zlowStickifiedConstantOp.getValue().value()))
+      isSplat = denseAttr.isSplat();
+    if (!isStickified || isSplat) {
+      ArrayRef<char> rawData = getBuffer();
+      int64_t sizeInBytes = getBufferSize();
+      DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+          zlowStickifiedConstantOp.getOperation()
+              ->getDialect()
+              ->getNamespace(), // use the dialect as the blob "hint"
+          HeapAsmResourceBlob::allocateAndCopyWithAlign(
+              rawData, alignof(char)));
+      zlowStickifiedConstantOp.setValueAttr(valueAttr);
+      freeBuffer(rawData);
+    }
   }
 }
 
