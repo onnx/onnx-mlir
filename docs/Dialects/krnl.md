@@ -191,6 +191,12 @@ Interfaces: `MemoryEffectOpInterface`
 | :-----: | ----------- |
 | `parameters` | variadic of any type
 
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `returnValue` | variadic of floating-point or integer
+
 ### `krnl.copy_from_tile_buffer` (KrnlCopyFromBufferOp)
 
 _Copy from buffer._
@@ -1192,6 +1198,25 @@ ToFix: current `krnl.region` does not have input and output. You cannot
 create a new memref inside the region and use it outside of the region.
 
 Traits: `AffineScope`, `NoTerminator`, `SingleBlock`
+
+### `krnl.round_even` (KrnlRoundEvenOp)
+
+_Krnl round to nearest even operation_
+
+Krnl round to nearest even operation.  Accept scalar or vector float values.
+Vector must be 1D of a size that is a multiple of the hardware vector size.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `in` | floating-point-like
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `out` | floating-point-like
 
 ### `krnl.seqalloc` (KrnlSeqAllocOp)
 

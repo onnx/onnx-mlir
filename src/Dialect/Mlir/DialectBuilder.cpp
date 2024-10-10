@@ -279,6 +279,19 @@ Value MathBuilder::rem(Value lhs, Value rhs) const {
 Value MathBuilder::round(Value x) const {
   Type type = x.getType();
   assert(isScalarOrVectorFloat(type) && "expected float");
+  return b().create<math::RoundOp>(loc(), x);
+}
+
+Value MathBuilder::roundEven(Value x) const {
+  Type type = x.getType();
+  assert(isScalarOrVectorFloat(type) && "expected float");
+  return b().create<math::RoundEvenOp>(loc(), x);
+}
+
+Value MathBuilder::roundEvenEmulation(Value x) const {
+  Type type = x.getType();
+  assert(isScalarOrVectorFloat(type) && "expected float");
+
   // Use algorithm originally posted in ONNXtoKRNL/Math/Elementwise.cpp
   // lowering.
 
@@ -2110,6 +2123,24 @@ void VectorBuilder::multiReduction(ArrayRef<Value> inputVecArray,
     // Completed the archVL x archVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+// Cast vectors to vectors of different shape (e.g. 1D to 2D and back).
+Value VectorBuilder::shapeCast(VectorType newType, Value vector) const {
+  return b().create<vector::ShapeCastOp>(loc(), newType, vector);
+}
+
+// Extract  1D vector from 2D vector.
+Value VectorBuilder::extractFrom2D(Value vector2D, int64_t position) const {
+  llvm::SmallVector<int64_t> pos = {position};
+  return b().create<vector::ExtractOp>(loc(), vector2D, pos);
+}
+
+// Insert 1D vector into 2D vector.
+Value VectorBuilder::insertInto2D(
+    Value vector, Value vector2D, int64_t position) const {
+  llvm::SmallVector<int64_t> pos = {position};
+  return b().create<vector::InsertOp>(loc(), vector, vector2D, pos);
 }
 
 Value VectorBuilder::extractElement(Value vector, int64_t index) const {

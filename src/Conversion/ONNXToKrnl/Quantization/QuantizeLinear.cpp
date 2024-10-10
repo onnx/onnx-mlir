@@ -54,14 +54,17 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   if (enableSIMD) {
     int64_t innermostLoopCollapse = 1; // Only innermost is simdized.
     bool canOverCompute = false;
-    GenOpMix mix = {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
+    GenOpMix mixAdjust;
+    if (hasZeroPoint)
+      mixAdjust = {{GenericOps::ArithmeticGop, 1}};
+    GenOpMix mixRound = getGenOpMix<ONNXRoundOp>(inputElementType, op);
+    GenOpMix mixOthers = {{GenericOps::DivGop, 1},
         {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
-        {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
-        {GenericOps::FloorGop, 2},
-        {GenericOps::EstimatedVectorRegisterPressure,
-            8 /* Little parallelism in code. */}};
+        {GenericOps::EstimatedVectorRegisterPressure, 8}};
+    GenOpMix mix1 = computeGenOpMixUnion(mixAdjust, mixRound);
+    GenOpMix mix2 = computeGenOpMixUnion(mix1, mixOthers);
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
-        innermostLoopCollapse, mix, canOverCompute, simdLoopStaticTripCount,
+        innermostLoopCollapse, mix2, canOverCompute, simdLoopStaticTripCount,
         simdOnly);
   }
 
@@ -84,7 +87,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
-        MultiDialectBuilder<MathBuilder> create(kb);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
         Value x = inputVals[0];
         // Scale
         Value scaleX;
@@ -93,7 +96,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         else
           scaleX = create.math.div(x, scale);
         // Round
-        Value roundX = create.math.round(scaleX);
+        Value roundX = create.krnl.roundEven(scaleX);
         // Adjust
         Value adjustX;
         if (hasZeroPoint)
