@@ -63,7 +63,7 @@ namespace onnx_mlir {
 // Values to report the current phase of compilation.
 // Increase TOTAL_COMPILE_PHASE when having more phases.
 uint64_t CURRENT_COMPILE_PHASE = 1;
-uint64_t TOTAL_COMPILE_PHASE = 5;
+uint64_t TOTAL_COMPILE_PHASE = 6;
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -171,24 +171,37 @@ int Command::exec(std::string wdir) const {
 }
 
 void showCompilePhase(std::string msg) {
-  time_t rawtime;
-  struct tm *timeinfo;
+  time_t rawTime;
+  struct tm *timeInfo;
   char buffer[80];
+  // Remember first time.
+  static time_t firstRawTime;
+  static bool hasFirstRawTime = false;
 
   // Get current date.
-  time(&rawtime);
-  timeinfo = localtime(&rawtime);
-  strftime(buffer, 80, "%c", timeinfo);
+  time(&rawTime);
+  timeInfo = localtime(&rawTime);
+  strftime(buffer, 80, "%c", timeInfo);
   std::string currentTime(buffer);
 
+  // Compute time difference in seconds.
+  int diff = 0;
+  if (hasFirstRawTime) {
+    diff = difftime(rawTime, firstRawTime);
+  } else {
+    firstRawTime = rawTime;
+    hasFirstRawTime = true;
+  }
   llvm::errs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
-               << "] " << currentTime << " " << msg << "\n";
+               << "] " << currentTime << " (" << diff << "s) " << msg << "\n";
   // Flush so that if there are errors, we know where it came from.
-  llvm::outs().flush();
+  llvm::errs().flush();
 
   // Reset current phase.
-  if (CURRENT_COMPILE_PHASE > TOTAL_COMPILE_PHASE)
+  if (CURRENT_COMPILE_PHASE > TOTAL_COMPILE_PHASE) {
     CURRENT_COMPILE_PHASE = 1;
+    hasFirstRawTime = false;
+  }
 }
 
 } // namespace onnx_mlir
@@ -814,6 +827,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
   }
   }
+  showCompilePhase("Compilation completed");
+
   return CompilerSuccess;
 } // end anonymous namespace
 
