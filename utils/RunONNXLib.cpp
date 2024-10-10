@@ -362,7 +362,8 @@ OMTensorList *omTensorListCreateFromInputSignature(
     }
     // Create a randomly initialized tensor of the right shape.
     OMTensor *tensor = nullptr;
-    if (type.equals("float") || type.equals("f32") || type.equals("i32")) {
+    if (type.compare("float") == 0 || type.compare("f32") == 0 ||
+        type.compare("i32") == 0) {
       // Treat floats/f32 and i32 alike as they take the same memory footprint.
       float *data = nullptr;
       if (dataPtrList) {
@@ -372,8 +373,8 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT, true);
-    } else if (type.equals("double") || type.equals("f64") ||
-               type.equals("i64")) {
+    } else if (type.compare("double") == 0 || type.compare("f64") == 0 ||
+               type.compare("i64") == 0) {
       // Treat floats/f64 and i64 alike as they take the same memory footprint.
       double *data = nullptr;
       if (dataPtrList) {
@@ -383,7 +384,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
-    } else if (type.equals("string")) {
+    } else if (type.compare("string") == 0) {
       // Add the handling of string type. "string" is the type in function
       // signature.
       char **data = nullptr;
