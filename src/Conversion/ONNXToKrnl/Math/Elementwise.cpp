@@ -1294,6 +1294,8 @@ GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
           GenericOps::roundEvenGop, getElementTypeOrSelf(inputType)))
     return {{GenericOps::ArithmeticGop, 1}};
 
+  // Change depending on whether KrnlBuilder use roundEven or
+  // RoundEvenEmulation.
   bool useEmulation = true;
   if (useEmulation)
     return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 2},
