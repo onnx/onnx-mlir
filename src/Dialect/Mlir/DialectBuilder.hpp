@@ -142,6 +142,8 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value pow(mlir::Value base, mlir::Value exp) const; // B/Float only.
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value round(mlir::Value) const;                     // Float only.
+  mlir::Value roundEven(mlir::Value) const;                 // Float only.
+  mlir::Value roundEvenEmulation(mlir::Value) const;        // Float only.
   mlir::Value sqrt(mlir::Value val) const;                  // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value tanh(mlir::Value val) const;                  // Float only.
@@ -574,7 +576,14 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
-  // Insert and extract.
+  // Cast vectors to vectors of different shape (e.g. 1D to 2D and back).
+  mlir::Value shapeCast(mlir::VectorType newType, mlir::Value vector) const;
+  // Extract and insert 1D vector from/to 2D vector.
+  mlir::Value extractFrom2D(mlir::Value vector2D, int64_t position) const;
+  mlir::Value insertInto2D(
+      mlir::Value vector, mlir::Value vector2D, int64_t position) const;
+
+  // Insert and extract one element (scalar).
   mlir::Value extractElement(mlir::Value vector, int64_t position) const;
   mlir::Value insertElement(
       mlir::Value vector, mlir::Value element, int64_t position) const;
