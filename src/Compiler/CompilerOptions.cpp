@@ -73,6 +73,7 @@ int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
+bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
@@ -514,6 +515,13 @@ static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
                    "to disable SIMD at O3."),
     llvm::cl::location(disableSimdOption), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableFastMathOptionOpt("enable-fast-math",
+    llvm::cl::desc(
+        "Enable fast math optimizations (default=false). Set to `true` "
+        "to enable fast math options at O3."),
+    llvm::cl::location(enableFastMathOption), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> enableSimdDataLayoutOpt("simd-data-layout",
@@ -1249,8 +1257,14 @@ void initCompilerConfig() {
 
   // Enable aggressive optimization for NNPA with -O3
   if (OptimizationLevel == OptLevel::O3 &&
-      getTargetAccel().find("NNPA") != std::string::npos &&
+      getTargetAccel().find("NNPA") != std::string::npos) {
+    // Have O3 and NNPA. May enable fast math default in the future.
+  }
+
+  // Enabling unsafe math.
+  if (enableFastMathOption &&
       getLLVMOption().find("enable-unsafe-fp-math") == std::string::npos) {
+    // Fast math option is enabled (in general)
     setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
 }

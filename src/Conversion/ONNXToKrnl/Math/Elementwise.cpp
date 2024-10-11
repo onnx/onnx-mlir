@@ -1285,14 +1285,24 @@ struct ScalarOp<ONNXRoundOp> {
   using IOp = NotSuportedScalarOp;
 };
 
+// Keep in sync with with KrnlBuilder::roundEven algorithm.
 template <>
 GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
-  // If using roundEven emulation, cost is as below.
-  // return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 2},
-  //     {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
-  //     {GenericOps::FloorGop, 2},
-  //     {GenericOps::EstimatedVectorRegisterPressure,
-  //         4 /* Little parallelism in code. */}};
+  // Custom?
+  Type inputType = op->getOperand(0).getType();
+  if (VectorMachineSupport::requireCustomASM(
+          GenericOps::roundEvenGop, getElementTypeOrSelf(inputType)))
+    return {{GenericOps::ArithmeticGop, 1}};
+
+  // Change depending on whether KrnlBuilder use roundEven or
+  // RoundEvenEmulation.
+  bool useEmulation = true;
+  if (useEmulation)
+    return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 2},
+        {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
+        {GenericOps::FloorGop, 2},
+        {GenericOps::EstimatedVectorRegisterPressure,
+            8 /* Little parallelism in code. */}};
 
   // Assume here that there is a hw op to handle this.
   return {{GenericOps::ArithmeticGop, 1}};
@@ -1430,8 +1440,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     DimsExpr operDims, flattenOperDims;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
     // Because we fully fuse 1x1x128xf32 and 128xf32, the
-    // collapsedInnermostLoops may be higher than the rank of this input. Adjust
-    // collapsedInnermostLoops accordingly for the flatten below.
+    // collapsedInnermostLoops may be higher than the rank of this input.
+    // Adjust collapsedInnermostLoops accordingly for the flatten below.
     int64_t currRank = operDims.size();
     int64_t currCollapsedNum = std::min(collapsedInnermostLoops, currRank);
     Value flatOper = create.mem.reshapeToFlatInnermost(
@@ -1447,7 +1457,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   Value flatAlloc = create.mem.reshapeToFlatInnermost(
       alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
 
-  // Create loop iteration, rank-1, all but the flattened innermost [simd] loop.
+  // Create loop iteration, rank-1, all but the flattened innermost [simd]
+  // loop.
   int64_t outerLoopRank = rank - 1;
   ValueRange loopDef = create.krnl.defineLoops(outerLoopRank);
   // Iterate only over the blocks.
@@ -1467,7 +1478,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
             "outer-loop of elementwise simd partially flattened");
       } else {
         onnxToKrnlParallelReport(op, false, -1, -1,
-            "not enough work in outermost-loops of elementwise simd partially "
+            "not enough work in outermost-loops of elementwise simd "
+            "partially "
             "flattened");
       }
     } else {
@@ -1489,13 +1501,15 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
       [&](const KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder> create(ck);
-        // LoopInd has the current indices for all but the innermost dim. Since
-        // we expect here the entire innermost loop iteration in one go, the
-        // innermost loop starts at zero. Add here to the list of Dim symbols.
+        // LoopInd has the current indices for all but the innermost dim.
+        // Since we expect here the entire innermost loop iteration in one go,
+        // the innermost loop starts at zero. Add here to the list of Dim
+        // symbols.
         SmallVector<IndexExpr, 4> outputAccessExprs = DimListIE(loopInd);
         outputAccessExprs.emplace_back(zero);
 
-        // Have to produce the list of input values and their access functions.
+        // Have to produce the list of input values and their access
+        // functions.
         llvm::SmallVector<Value, 4> inputs = flatOperands;
         llvm::SmallVector<DimsExpr, 4> inputAFs;
         for (int64_t i = 0; i < (int64_t)inputs.size(); ++i) {
@@ -1545,8 +1559,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                 res = emitScalarOpFor<OP_TYPE>(
                     rewriter, create.getLoc(), op, currElementType, inputVals);
               } else {
-                // For non-unary ops, each op is a flattened array that need to
-                // be processed; process the two first ones, and then
+                // For non-unary ops, each op is a flattened array that need
+                // to be processed; process the two first ones, and then
                 // "accumulate" one value at a time. Use the first operand as
                 // temporary result.
                 Value accumulated = inputVals[0];
@@ -1588,7 +1602,8 @@ typedef Value (*EmitScalarFunc)(ConversionPatternRewriter &rewriter,
 // loop nest generated for the root Op.
 // Finally the last op is replaced with the allocated memref and the other ops
 // are deleted.
-// ToFix: fusion for a graph structure, not just line, could be added in future.
+// ToFix: fusion for a graph structure, not just line, could be added in
+// future.
 class OpFusionHelper {
 public:
   // Constructor
@@ -1754,10 +1769,10 @@ bool OpFusionHelper::isControlFlowValidForFusion(
 // %2 = "onnx.Add"(%1, %3) : (tensor<16x24xf32>, tensor<24xf32>) -> tensor<16x24xf32>
 // clang-format on
 // In this implementation, no data dependence analysis and
-// code motion for fusion is implemented yet. The only other inputs allowed are
-// block argument and constant to guarantee they are before the root op. It is
-// assumed the canonicalization has hoisted all constant to the beginning of the
-// function by fold function.
+// code motion for fusion is implemented yet. The only other inputs allowed
+// are block argument and constant to guarantee they are before the root op.
+// It is assumed the canonicalization has hoisted all constant to the
+// beginning of the function by fold function.
 bool OpFusionHelper::areInputsValidForFusion(
     Operation *useOp, Operation *defOp, DimAnalysis *dimAnalysis) {
   // Do not fuse ops with scalar tensors.
@@ -1895,11 +1910,11 @@ Value OpFusionHelper::emitFuseOps(
         // In a previous implementation, the original output of defOp is used
         // with 'alloc = defOp->getResult(0)' at the end of the loop.
         // But ONNXBroadcastOpShapeHelper.computeShape() unexpectedly used
-        // this parameter to generate some code (memref.dim) that is not really
-        // needed. Due to this live user, the original op can not be erased.
-        // This error occurred when there were more than one op with dynamic dim
-        // to be fused in the previous implementation.
-        // Therefore, alloc is used for all the fused op.
+        // this parameter to generate some code (memref.dim) that is not
+        // really needed. Due to this live user, the original op can not be
+        // erased. This error occurred when there were more than one op with
+        // dynamic dim to be fused in the previous implementation. Therefore,
+        // alloc is used for all the fused op.
         useOperands.emplace_back(alloc);
     }
     // Use shape helper to generate load index
