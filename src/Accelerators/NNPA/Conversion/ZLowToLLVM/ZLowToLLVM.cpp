@@ -1545,6 +1545,7 @@ public:
         // SIMD instruction in string for z/Linux and z/OS.
         // Convert and lengthen from DLF16: VCLFN(H/L) V1,V2,M3,M4
         // M3 = 2 = FP32, M4 = 0 = DLF16
+        // Note the spaces are required by the z/OS assembler.
         const char *asmStr = "       VCLFNH $0,$2,2,0       \n\t"
                              "       VCLFNL $1,$2,2,0       \n\t";
         const char *asmConstraints = "=&v,=v,v";
@@ -1714,6 +1715,7 @@ public:
         // SIMD instruction in string for z/Linux and z/OS.
         // Convert and round to DLF16: VCRNF V1,V2,V3,M4,M5
         // M4 = 0 = DLF16, M5 = 2 = FP32
+        // Note the spaces are required by the z/OS assembler.
         const char *asmStr = "       VCRNF $0,$1,$2,0,2         \n\t";
         const char *asmConstraints = "=v,v,v";
 
@@ -1866,11 +1868,12 @@ public:
         create.llvm.bitcast(vecTypeI16, operandAdaptor.getInput());
 
     // SIMD instruction in string for z/Linux and z/OS.
-    // Note that this .insn version of asmStr used previously for z/Linux.
+    // Note this .insn version of asmStr was used previously for z/Linux.
     // const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t"
     //                      ".insn vrr,0xe6000000005E,$1,$2,0,2,0,0 \n\t";
     // Convert and lengthen from DLF16: VCLFN(H/L) V1,V2,M3,M4
     // M3 = 2 = FP32, M4 = 0 = DLF16
+    // Note the spaces are required by the z/OS assembler.
     const char *asmStr = "       VCLFNH $0,$2,2,0       \n\t"
                          "       VCLFNL $1,$2,2,0       \n\t";
     const char *asmConstraints = "=&v,=v,v";
@@ -1926,10 +1929,11 @@ public:
     Value vecI32L = create.llvm.bitcast(vecTypeI32, operandAdaptor.getInput2());
 
     // SIMD instruction in string for z/Linux and z/OS.
-    // Note that this .insn version of asmStr used previously for z/Linux.
+    // Note this .insn version of asmStr was used previously for z/Linux.
     // asmStr = ".insn vrr,0xe60000000075,$0,$1,$2,0,2,0";
     // Convert and round to DLF16: VCRNF V1,V2,V3,M4,M5
     // M4 = 0 = DLF16, M5 = 2 = FP32
+    // Note the spaces are required by the z/OS assembler.
     const char *asmStr = "       VCRNF $0,$1,$2,0,2         \n\t";
     const char *asmConstraints = "=v,v,v";
     SmallVector<Value> asmVals{vecI32H, vecI32L};
