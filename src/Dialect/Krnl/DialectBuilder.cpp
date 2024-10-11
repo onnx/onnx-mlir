@@ -352,10 +352,11 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 //===----------------------------------------------------------------------===//
 // Math style functions.
 
+// Keep code gen here in sync with Elementwise.cpp GenOpMix
+// getGenOpMix<ONNXRoundOp>
 Value KrnlBuilder::roundEven(Value input) const {
   Type elementType = getElementTypeOrSelf(input.getType());
   MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
-  //  hi alex, may want to generalize support to scalar as well.
   VectorType vecType = mlir::dyn_cast<VectorType>(input.getType());
   if (VectorMachineSupport::requireCustomASM(
           GenericOps::roundEvenGop, elementType)) {
