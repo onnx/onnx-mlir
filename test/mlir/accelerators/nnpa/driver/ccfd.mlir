@@ -8,6 +8,7 @@ CHECK-LABEL: func.func @main_graph
 CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: memref.alloc
+CHECK-NEXT: zlow.stick
 CHECK-DAG: zlow.stickifiedConstant
 
 CHECK-DAG: zlow.stickifiedConstant
