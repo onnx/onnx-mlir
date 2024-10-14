@@ -56,17 +56,20 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
     Type newSliceWeightType = RankedTensorType::get(kernelSize,
         mlir::cast<ShapedType>(newWeight.getType()).getElementType());
     Value newSliceWeight = rewriter.create<tensor::ExtractSliceOp>(
-        newWeight.getLoc(), newSliceWeightType, newWeight, ValueRange({}), SmallVector<Value>{},
-        ValueRange({}), rewriter.getDenseI64ArrayAttr({i * sizeOfSliceKernel, 0, 0, 0}),
-        rewriter.getDenseI64ArrayAttr(kernelSize), rewriter.getDenseI64ArrayAttr({1, 1, 1, 1}));
+        newWeight.getLoc(), newSliceWeightType, newWeight, ValueRange({}),
+        SmallVector<Value>{}, ValueRange({}),
+        rewriter.getDenseI64ArrayAttr({i * sizeOfSliceKernel, 0, 0, 0}),
+        rewriter.getDenseI64ArrayAttr(kernelSize),
+        rewriter.getDenseI64ArrayAttr({1, 1, 1, 1}));
 
     // Slice bias
     Type newSliceBiasType = RankedTensorType::get({sizeOfSliceKernel},
         mlir::cast<ShapedType>(bias.getType()).getElementType());
-    Value newSliceBias = rewriter.create<tensor::ExtractSliceOp>(
-        bias.getLoc(), newSliceBiasType, bias, ValueRange({}), SmallVector<Value>{},
+    Value newSliceBias = rewriter.create<tensor::ExtractSliceOp>(bias.getLoc(),
+        newSliceBiasType, bias, ValueRange({}), SmallVector<Value>{},
         ValueRange({}), rewriter.getDenseI64ArrayAttr({i * sizeOfSliceKernel}),
-        rewriter.getDenseI64ArrayAttr({sizeOfSliceKernel}), rewriter.getDenseI64ArrayAttr({1}));
+        rewriter.getDenseI64ArrayAttr({sizeOfSliceKernel}),
+        rewriter.getDenseI64ArrayAttr({1}));
 
     // Create conv
     Type newConvOutputType = RankedTensorType::get(
