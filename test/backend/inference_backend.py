@@ -2452,24 +2452,24 @@ def get_test_models():
         # ==OP== ReduceMax
         # ==MIN== 1
         "test_reduce_max_default_axes_keepdim_example_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_max_default_axes_keepdims_random_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_max_do_not_keepdims_example_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_max_do_not_keepdims_random_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_max_keepdims_example_cpu": {
             STATIC_SHAPE: {},
@@ -2521,24 +2521,24 @@ def get_test_models():
         # ==OP== ReduceMin
         # ==MIN== 1
         "test_reduce_min_default_axes_keepdims_example_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_min_default_axes_keepdims_random_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_min_do_not_keepdims_example_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_min_do_not_keepdims_random_cpu": {
-            STATIC_SHAPE:{}, 
-            DYNAMIC_SHAPE:{-1:{-1}}, 
-            CONSTANT_INPUT:{-1}
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
         },
         "test_reduce_min_keepdims_example_cpu": {
             STATIC_SHAPE: {},
