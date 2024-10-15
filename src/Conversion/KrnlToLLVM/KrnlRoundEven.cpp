@@ -66,7 +66,8 @@ public:
       Value inputVecI32 = create.llvm.bitcast(vecTypeI32, input);
       SmallVector<Value> asmVals{inputVecI32};
       // SIMD ASM round to nearest even (M5=4) op
-      const char *asmStr = "VFISB $0,$1,0,4";
+      // Note the spaces are required by the z/OS assembler.
+      const char *asmStr = "       VFISB $0,$1,0,4         \n\t";
       const char *asmConstraints = "=v,v";
       Value outVecI32 =
           rewriter
@@ -87,7 +88,8 @@ public:
       Type typeF32 = rewriter.getF32Type();
       SmallVector<Value> asmVals{input};
       // Scalar ASM round to the nearest even (M3=4) op.
-      const char *asmStr = "FIEBR $0,4,$1";
+      // Note the spaces are required by the z/OS assembler.
+      const char *asmStr = "       FIEBR $0,4,$1         \n\t";
       const char *asmConstraints = "=f,f";
       Value outF32 =
           rewriter
