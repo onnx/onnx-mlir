@@ -12,7 +12,7 @@ There are three ways to use ONNX-MLIR with Docker.
 An easy way to get started with ONNX-MLIR is to use a prebuilt Docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
-Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlir/onnx-mlir](https://hub.docker.com/r/onnxmlir/onnx-mlir) and [onnxmlir/onnx-mlir-dev](https://hub.docker.com/r/onnxmlir/onnx-mlir-dev).
+Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlir/onnx-mlir](https://github.com/users/onnxmlir/packages/container/onnx-mlir) and [onnxmlir/onnx-mlir-dev](https://github.com/users/onnxmlir/packages/container/onnx-mlir-dev).
 To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a Dockerfile.
 
 Here are the differences between the two Docker images.
@@ -53,7 +53,7 @@ The Dockerfile is shown here, and should be modified according to one's need. Th
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
-FROM onnxmlir/onnx-mlir-dev
+FROM ghcr.io/onnxmlir/onnx-mlir-dev
 WORKDIR /workdir
 ENV HOME=/workdir
 
@@ -122,9 +122,9 @@ cd ~/DockerOnnxMlir
 # Edit the Dockerfile.
 vi Dockerfile
 # Build the Docker image.
-docker build --tag onnx-mlir-dev .
+docker build --tag ghcr.io/onnxmlir/onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
-docker run -it onnx-mlir-dev
+docker run -it ghcr.io/onnxmlir/onnx-mlir-dev
 ```
 
 **NOTE:** If you are using a MacBook with the Apple M1 chip, please follow the steps below for configuration:
@@ -135,11 +135,11 @@ cd ~/DockerOnnxMlir
 # Edit the Dockerfile.
 vi Dockerfile
 # Pull the Docker image with the specified platform
-docker pull --platform linux/amd64 onnxmlir/onnx-mlir-dev
+docker pull --platform linux/amd64 ghcr.io/onnxmlir/onnx-mlir-dev
 # Build the Docker image.
-docker build --platform linux/amd64 --tag onnx-mlir-dev .
+docker build --platform linux/amd64 --tag ghcr.io/onnxmlir/onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
-docker run --platform linux/amd64 -it onnx-mlir-dev
+docker run --platform linux/amd64 -it ghcr.io/onnxmlir/onnx-mlir-dev
 ```
 
 Tip: Instead of adding the platform flag for every docker pull, build, and run command. You can set the environment variable `DOCKER_DEFAULT_PLATFORM` and use the first set of steps:

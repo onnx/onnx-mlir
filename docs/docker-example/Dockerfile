@@ -1,4 +1,4 @@
-FROM onnxmlir/onnx-mlir-dev
+FROM ghcr.io/onnxmlir/onnx-mlir-dev
 WORKDIR /workdir
 ENV HOME=/workdir
 
