@@ -305,6 +305,10 @@ def isConstantOpWithNoZeroElements: Constraint<
   "Checks this constant has no zero elements."
 >;
 
+class ValidAxisConstraints<int axis>: Constraint<
+    CPred<"(" # axis # " >= 0) && ( " # axis #  " < mlir::cast<ShapedType>($_self.getType()).getShape().size())">,
+"Axis is within the valid range of shape dimensions">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -388,6 +392,7 @@ def FuseAddConvPattern: Pat<
   [(HasShapeAndRank:$res),
    (NotNoneType $b),
    (AttributeIsNotNull:$denseAttr),
+   (ValidAxisConstraints<1>:$y),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
 >;
