@@ -98,6 +98,13 @@ public:
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);
     int64_t rank = outputDims.size();
 
+    // hi alex:
+    create.krnl.printf("unstick dims:");
+    for(int r=0; r<rank; ++r) {
+      create.krnl.printf(" ", outputDims[r].getValue(), false);
+    }
+    create.krnl.printf("\n");
+
     // Info for SIMD Vector Length (VL) and associated types.
     int64_t archVL = 8;              // FP16 archVL.
     int64_t archVLHalf = archVL / 2; // FP32 archVL.
