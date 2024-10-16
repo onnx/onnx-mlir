@@ -4,8 +4,8 @@
 
 //==== ONNXToTosaLegalizeUtils.hpp - ONNX dialects to TOSA lowering Utils-===//
 //
-// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
+// Copyright 2020-2024 The TensorFlow Authors. All Rights Reserved.
+// Copyright (c) 2022-2024 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -17,7 +17,7 @@
 #ifndef ONNXMLIR_CONVERSION_ONNXTOTOSA_TOSALEGALIZEUTILS_H
 #define ONNXMLIR_CONVERSION_ONNXTOTOSA_TOSALEGALIZEUTILS_H
 
-#include "mlir/Dialect/Quant/QuantTypes.h"        // from @llvm-project
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"     // from @llvm-project
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"         // from @llvm-project
 #include "mlir/Dialect/Tosa/Utils/ShapeUtils.h"   // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"            // from @llvm-project
