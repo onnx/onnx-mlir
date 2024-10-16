@@ -72,7 +72,8 @@ llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
         "have a template for the JSON file, use "
         "--nnpa-save-device-placement-file=cfg.json.\nNote that we can use "
         "regex for "
-        "string values in the JSON file to match operations.\nThe compiler uses "
+        "string values in the JSON file to match operations.\nThe compiler "
+        "uses "
         "C++ std::regex_match function for matching."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
