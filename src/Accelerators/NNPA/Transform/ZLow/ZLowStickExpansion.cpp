@@ -103,7 +103,7 @@ public:
     for(int r=0; r<rank; ++r) {
       create.krnl.printf(" ", outputDims[r].getValue(), false);
     }
-    create.krnl.printf("\n");
+    create.krnl.printf("\n\n\n");
 
     // Info for SIMD Vector Length (VL) and associated types.
     int64_t archVL = 8;              // FP16 archVL.
@@ -379,6 +379,13 @@ public:
     DimsExpr outputDims;
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);
     int64_t rank = outputDims.size();
+
+    // hi alex:
+    create.krnl.printf("stick dims:");
+    for(int r=0; r<rank; ++r) {
+      create.krnl.printf(" ", outputDims[r].getValue(), false);
+    }
+    create.krnl.printf("\n\n\n");
 
     // Info for SIMD Vector Length (VL) and associated types.
     int64_t archVL = 8;              // FP16 archVL.
