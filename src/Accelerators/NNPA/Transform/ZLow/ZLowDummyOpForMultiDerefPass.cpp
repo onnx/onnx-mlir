@@ -58,7 +58,7 @@ public:
               ZLowDialect::getDialectNamespace()) {
             ValueRange operands = op->getOperands();
             llvm::SmallSet<uint64_t, 4> processed;
-            for (uint64_t i = 0; i < operands.size() - 1; ++i) {
+            for (int64_t i = 0; i < (int64_t)operands.size() - 1; ++i) {
               if (processed.contains(i))
                 continue;
               for (uint64_t j = i + 1; j < operands.size(); ++j) {

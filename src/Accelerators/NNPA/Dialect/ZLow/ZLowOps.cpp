@@ -12,19 +12,27 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 
@@ -356,6 +364,113 @@ void ZLowBatchNormOp::getEffects(
       SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Read::get(), &getShapeMutable(),
       SideEffects::DefaultResource::get());
+}
+
+/// Create a buffer and set data fron value attribute. Stickified data is
+/// created and set if `stickified` attribute is false.
+ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
+  MLIRContext *context = getOperation()->getContext();
+  PatternRewriter rewriter(context);
+  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+  ArrayRef<char> ret;
+  if (zlowStickifiedConstantOp.getValueAttr() &&
+      zlowStickifiedConstantOp.getStickifiedAttr()) {
+    StringAttr layout = zlowStickifiedConstantOp.getLayoutAttr();
+    auto dataAttr = zlowStickifiedConstantOp.getValue().value();
+    if (!zlowStickifiedConstantOp.getStickified().value()) {
+      // The case which the data in value attribute is still not stickified.
+      DenseElementsAttr denseAttr = mlir::cast<DenseElementsAttr>(dataAttr);
+      ArrayRef<int64_t> shape = denseAttr.getType().getShape();
+      Type elementType = denseAttr.getType().getElementType();
+      int rank = shape.size();
+      // Read attributes's raw data.
+      std::vector<char> attrData;
+      getRawData(denseAttr, attrData);
+      // Call stickify.
+      zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
+      // pre-transformed desc.
+      zdnn_data_layouts zDNNLayout =
+          convertLayoutAttrToZDNNDataLayout(rank, layout);
+      // If zDNNLayout is NHWC, we stickify directly from NCHW.
+      if (zDNNLayout == ZDNN_NHWC)
+        zDNNLayout = ZDNN_NCHW;
+      zdnn_data_types zDNNType =
+          onnx_mlir::zhigh::mlirTypeToZDNNType(elementType);
+      set_info_pre_transformed_desc(
+          &pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
+      // transformed desc.
+      zdnn_status status =
+          generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
+      assert(status == ZDNN_OK);
+      // Stick data using the software stickify.
+      zdnn_ztensor ztensor;
+      init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
+      status = allochelper_ztensor_alloc(&ztensor);
+      assert(status == ZDNN_OK);
+      status = stickify(&ztensor, attrData.data());
+      assert(status == ZDNN_OK);
+      // std::vector<char>().swap(attrData);
+      int64_t sizeInBytes = ztensor.buffer_size;
+      char *rawData = (char *)malloc(sizeInBytes);
+      memcpy(rawData, ztensor.buffer, sizeInBytes);
+      ret = llvm::ArrayRef(rawData, sizeInBytes);
+      allochelper_ztensor_free(&ztensor);
+    } else {
+      int64_t sizeInBytes = getBufferSize();
+      char *rawData = (char *)malloc(sizeInBytes);
+      std::vector<char> attrData;
+      getRawData(dataAttr, attrData);
+      memcpy(rawData, attrData.data(), sizeInBytes);
+      ret = llvm::ArrayRef(rawData, sizeInBytes);
+    }
+  }
+  return ret;
+}
+
+/// Get buffer size from result.
+uint64_t ZLowStickifiedConstantOp::getBufferSize() {
+  const Type type = getOperation()->getResults()[0].getType();
+  const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
+  auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
+  return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
+}
+
+/// Free buffer created by getBuffer().
+void ZLowStickifiedConstantOp::freeBuffer(ArrayRef<char> rawData) {
+  free(const_cast<char *>(rawData.data()));
+  return;
+}
+
+/// Get a buffer, set/copy it to value attribute, and free the buffer.
+void ZLowStickifiedConstantOp::updateBuffer() {
+  MLIRContext *context = getOperation()->getContext();
+  PatternRewriter rewriter(context);
+  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
+      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
+  // Set buffer when the value attribute is still not stickified or is splat
+  // with dense element attribute.
+  if (zlowStickifiedConstantOp.getValueAttr() &&
+      zlowStickifiedConstantOp.getStickifiedAttr()) {
+    bool isStickified = zlowStickifiedConstantOp.getStickified().value();
+    bool isSplat = false;
+    if (auto denseAttr = mlir::dyn_cast<DenseElementsAttr>(
+            zlowStickifiedConstantOp.getValue().value()))
+      isSplat = denseAttr.isSplat();
+    if (!isStickified || isSplat) {
+      ArrayRef<char> rawData = getBuffer();
+      int64_t sizeInBytes = getBufferSize();
+      DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+          zlowStickifiedConstantOp.getOperation()
+              ->getDialect()
+              ->getNamespace(), // use the dialect as the blob "hint"
+          HeapAsmResourceBlob::allocateAndCopyWithAlign(
+              rawData, alignof(char)));
+      zlowStickifiedConstantOp.setValueAttr(valueAttr);
+      freeBuffer(rawData);
+    }
+  }
 }
 
 } // namespace zlow
