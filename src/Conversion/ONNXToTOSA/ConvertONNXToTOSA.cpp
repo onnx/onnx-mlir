@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -140,8 +139,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
-      mlir::arith::ArithDialect, mlir::shape::ShapeDialect,
-      mlir::tensor::TensorDialect>();
+      mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(

@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -53,23 +52,12 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
         tosaBuilder.slice(newInput, inputSize, {0, 0, 0, i * sizeOfSliceInput});
 
     // Slice kernel
-    Type newSliceWeightType = RankedTensorType::get(kernelSize,
-        mlir::cast<ShapedType>(newWeight.getType()).getElementType());
-    Value newSliceWeight = rewriter.create<tensor::ExtractSliceOp>(
-        newWeight.getLoc(), newSliceWeightType, newWeight, ValueRange({}),
-        SmallVector<Value>{}, ValueRange({}),
-        rewriter.getDenseI64ArrayAttr({i * sizeOfSliceKernel, 0, 0, 0}),
-        rewriter.getDenseI64ArrayAttr(kernelSize),
-        rewriter.getDenseI64ArrayAttr({1, 1, 1, 1}));
+    Value newSliceWeight = tosaBuilder.slice(
+        newWeight, kernelSize, {i * sizeOfSliceKernel, 0, 0, 0});
 
     // Slice bias
-    Type newSliceBiasType = RankedTensorType::get({sizeOfSliceKernel},
-        mlir::cast<ShapedType>(bias.getType()).getElementType());
-    Value newSliceBias = rewriter.create<tensor::ExtractSliceOp>(bias.getLoc(),
-        newSliceBiasType, bias, ValueRange({}), SmallVector<Value>{},
-        ValueRange({}), rewriter.getDenseI64ArrayAttr({i * sizeOfSliceKernel}),
-        rewriter.getDenseI64ArrayAttr({sizeOfSliceKernel}),
-        rewriter.getDenseI64ArrayAttr({1}));
+    Value newSliceBias =
+        tosaBuilder.slice(bias, {sizeOfSliceKernel}, {i * sizeOfSliceKernel});
 
     // Create conv
     Type newConvOutputType = RankedTensorType::get(
@@ -182,7 +170,7 @@ public:
           newPads, strides, dilations);
     } else {
       auto inputChannels = inputType.getDimSize(1);
-      auto outputChannels = cast<ShapedType>(resultType).getDimSize(1);
+      auto outputChannels = resultType.cast<ShapedType>().getDimSize(1);
       if (group == inputChannels && (outputChannels % inputChannels == 0)) {
         // If the group == inputChannels and
         // outputChannels == inputChannels * integerNumber,
@@ -198,7 +186,7 @@ public:
 
         Type newConvOutputType = RankedTensorType::get(
             llvm::SmallVector<int64_t, 4>(4, ShapedType::kDynamic),
-            cast<ShapedType>(resultType).getElementType());
+            resultType.cast<ShapedType>().getElementType());
 
         conv2D = tosa::CreateOpAndInfer<mlir::tosa::DepthwiseConv2DOp>(rewriter,
             convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
