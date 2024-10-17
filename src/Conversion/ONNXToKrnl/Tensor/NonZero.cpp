@@ -112,6 +112,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     create.krnlIE.getShapeAsDims(X, xUbs);
 
     // Emit a variable for the total number of nonzero values.
+    // Scalar, ok to use alloca.
     Value nonzeroCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, nonzeroCount);
 
@@ -176,6 +177,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
     //   out[0][i] = p
     // ```
 
+    // Scalars, ok to use alloca.
     Value pos = create.mem.alloca(MemRefType::get({}, indexTy));
     Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
     ValueRange iLoopDef = create.krnl.defineLoops(1);

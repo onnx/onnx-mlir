@@ -55,6 +55,7 @@ struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
     // Create temp memory for summing up the true value and init to zero.
     Type indexType = rewriter.getIndexType();
     MemRefType indexMemRefType = MemRefType::get({}, indexType);
+    // Scalar, ok to use alloca.
     Value sumMemRef = create.mem.alloca(indexMemRefType);
     create.krnl.store(zeroIE.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
@@ -142,6 +143,7 @@ struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
         }
       }
 
+      // Scalar, ok to use alloca.
       Value readIndexMemRef = create.mem.alloca(indexMemRefType);
       create.krnl.store(zeroIE.getValue(), readIndexMemRef);
 

@@ -111,6 +111,7 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
   Value one = create.llvm.constant(llvmI64Ty, static_cast<int64_t>(1));
 
+  // TODO: evaluate if a heap alloc would not be better.
   Value preTransformedDescPtr = create.llvm._alloca(
       krnl::getPointerType(context, llvmZTensorDescStructTy),
       llvmZTensorDescStructTy, one,
@@ -154,6 +155,7 @@ Value ZTensorHelper::getTransformedDescPtr(
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
   Value one = create.llvm.constant(llvmI64Ty, static_cast<int64_t>(1));
 
+  // TODO: evaluate if a heap alloc would not be better.
   Value transformedDescPtr = create.llvm._alloca(
       krnl::getPointerType(context, llvmZTensorDescStructTy),
       llvmZTensorDescStructTy, one,
@@ -215,6 +217,7 @@ ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
   Value transformedDescPtr =
       getTransformedDescPtr(preTransformedDescPtr, isConcat, concatInfo);
   // Create the input zTensor.
+  // TODO: evaluate if a heap alloc would not be better.
   Value alloc =
       create.llvm._alloca(krnl::getPointerType(context, llvmZTensorStructTy),
           llvmZTensorStructTy, one,
@@ -250,6 +253,7 @@ ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
   Type llvmZTensorStructTy = getZTensorStructTy(context);
   Value one =
       create.llvm.constant(rewriter.getI64Type(), static_cast<int64_t>(1));
+  // TODO: evaluate if a heap alloc would not be better.
   Value alloc =
       create.llvm._alloca(krnl::getPointerType(context, llvmZTensorStructTy),
           llvmZTensorStructTy, one,

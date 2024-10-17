@@ -193,6 +193,7 @@ struct ONNXInstanceNormalizationOpLowering
     create.krnlIE.getShapeAsSymbols(inputMemRef, inputBounds);
     MemRefType tmpType = MemRefType::get({}, elementType);
     Value fZero = create.math.constant(elementType, 0);
+    // Ok to use alloca, just one scalar.
     Value tmpMemRef = create.mem.alloca(tmpType);
 
     // Compute the number of values in a single channel: product of spatial
@@ -957,12 +958,21 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     } else {
       onnxToKrnlParallelReport(op, false, -1, -1, "no parallel in layer norm");
     }
+    Value tmpRedMemRef, tmpRedMemRef2;
+    if (!useParallel) {
+      // Sequential, alloc before loop.
+      tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+      tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+    }
     create.krnl.forLoopIE(LitIE(0), XFlatDims[0], /*step*/ B, useParallel,
         [&](const KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
-          Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
-          Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
+          if (useParallel) {
+            // Parallel, alloc inside parallel loop.
+            tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+            tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+          }
           IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[0]);
           IndexExpr blockedUB = SymIE(XFlatDims[0]);
           IndexExpr isFull =

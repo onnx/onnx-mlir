@@ -330,6 +330,9 @@ struct MemRefBuilder final : DialectBuilder {
   // currently executing function, to be automatically released when this
   // function returns to its caller. It is strongly suggested to place alloca
   // instructions outside of a loop.
+  //
+  // When possible, DO NOT USE ALLOCA except for a few scalars.
+  //
   mlir::memref::AllocaOp alloca(mlir::MemRefType type) const;
   mlir::memref::AllocaOp alignedAlloca(
       mlir::MemRefType type, int64_t align = defaultAlign) const;

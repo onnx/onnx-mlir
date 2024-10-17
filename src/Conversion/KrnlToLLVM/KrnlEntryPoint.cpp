@@ -233,7 +233,7 @@ public:
     // entry point instead of the wrapped static entry point.
     Type memRefOutTy = staticEntryPointFuncTy.getReturnTypes()[0];
     Type memRefOutPtrTy = getPointerType(context, memRefOutTy);
-    Value ptrToOutMemRef =
+    Value ptrToOutMemRef = // alloca ok as there is only one entry point.
         create.llvm._alloca(memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
     staticInputs.emplace_back(ptrToOutMemRef);
 
@@ -250,7 +250,7 @@ public:
       // Original input is shifted by 1 in the iface func.
       Type memRefInTy = typeConverter.convertType(origInputMemRefTypes[i - 1]);
       Type memRefInPtrTy = getPointerType(context, memRefInTy);
-      Value ptrToMemRef =
+      Value ptrToMemRef = // alloca ok as there is only one entry point.
           create.llvm._alloca(memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
@@ -287,7 +287,8 @@ public:
 
     Value numOutput = create.llvm.constant(
         int64Ty, static_cast<int64_t>(outMemRefList.size()));
-    // Assume that OMTensor pointer size is 8
+    // Assume that OMTensor pointer size is 8.
+    // Alloca ok as its only for 1 small data structure per parameters.
     Value outOmtPtrsArr = create.llvm._alloca(
         omTensorPtrAddrTy, opaquePtrTy, numOutput, /*alignment=*/0);
 

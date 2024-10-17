@@ -125,6 +125,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     //
     Type indexTy = rewriter.getIndexType();
     Value iZero = create.math.constantIndex(0);
+    // Scalar, ok to use alloca.
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount);
     Value noneValue;

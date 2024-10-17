@@ -110,6 +110,7 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
   Value zero = create.math.constantIndex(0);
   Value one = create.math.constantIndex(1);
   // Store the number of scores whose value is greater than the threshold.
+  // Scalar, ok to use alloca.
   Value topk = create.mem.alloca(MemRefType::get({}, indexType));
 
   // Compute the effective max output per class.
@@ -272,6 +273,7 @@ struct ONNXNonMaxSuppressionOpLowering
 
     // Refine the number of output boxes per class by suppressing it using
     // spatial dimension size and score threshold.
+    // Scalar, ok to use alloca.
     Value maxOutputPerClass = create.mem.alloca(MemRefType::get({}, indexType));
     // 1. Suppress by using spatial dimension size.
     Value x = create.math.castToIndex(maxOutputBoxPerClass);
@@ -312,6 +314,7 @@ struct ONNXNonMaxSuppressionOpLowering
     // dim of the output, which is suppressed by IOU during computation and
     // cannot be computed in advance.
     // Final output shape : [effective_num_selected_indices, 3]
+    // Scalar, ok to use alloca.
     Value effectiveNumSelectedIndices =
         create.mem.alloca(MemRefType::get({}, indexType));
     create.krnl.store(zero, effectiveNumSelectedIndices);

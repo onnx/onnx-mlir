@@ -372,13 +372,7 @@ private:
     assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
            "alignment of buffers cannot be smaller than the default alignment "
            "(which is set for SIMD correctness");
-    // TODO: alloca is good as it help simplify away this data structures (as it
-    // is only used as local temp, basically extensions of registers). However,
-    // there might be issues with non-removed alloca when they are not in the
-    // innermost loop. Still think its worth it having alloca as we want
-    // eventually all the refs to alloca to be register/spill access, not memory
-    // load/stores.
-    Value TmpProd = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
+    Value TmpProd = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     // Init with zero.
     Value fZero = create.math.constant(elementType, 0);
     Value vFZero = create.vec.broadcast(vecType, fZero);
@@ -455,13 +449,7 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    // TODO: alloca is good as it help simplify away this data structures (as it
-    // is only used as local temp, basically extensions of registers). However,
-    // there might be issues with non-removed alloca when they are not in the
-    // innermost loop. Still think its worth it having alloca as we want
-    // eventually all the refs to alloca to be register/spill access, not memory
-    // load/stores.
-    Value TmpC = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
+    Value TmpC = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
@@ -473,7 +461,7 @@ private:
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           Value i = loopInd[0];
           iSaved = i; // Saved for unroll and jam.
-          // Alloca temp vector TmpC and save C(i)/0.0 into it.
+          // Alloc temp vector TmpC and save C(i)/0.0 into it.
           Value initVal = create.vec.loadIE(vecType, C, cStart, {i, iZero});
           Value tmpCAccess = (unrollFactor > 1) ? i : zeroIE.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
