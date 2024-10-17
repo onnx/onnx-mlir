@@ -395,6 +395,7 @@ def FuseAddConvPattern: Pat<
    (ValidAxisConstraints<1>:$y),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
+   
 >;
 
 //===----------------------------------------------------------------------===//
