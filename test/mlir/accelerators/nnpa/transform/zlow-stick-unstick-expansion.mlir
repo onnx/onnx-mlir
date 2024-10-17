@@ -297,7 +297,8 @@ func.func @test_unstick_expansion_127(%arg0: memref<16x8x127xf16, #map>) -> memr
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             [[VAR_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#2)
 // CHECK:             [[VAR_3_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<16x8x127xf16, #map>
-// CHECK:             [[VAR_4_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#2){{.}}[[VAR_3_]]{{.}}
+// CHECK-DAG:         [[VAR_4_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#2){{.}}[[VAR_3_]]{{.}}
+// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<8xf32>
 // CHECK:             krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, read, locality<1>, data : memref<16x8x127xf16, #map>
 // CHECK:             krnl.prefetch [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, write, locality<1>, data : memref<16x8x127xf32>
 // CHECK:             [[VAR_5_:%.+]] = affine.apply [[MAP_3_]]([[VAR_1_]]#2){{.}}[[VAR_3_]]{{.}}
@@ -314,41 +315,40 @@ func.func @test_unstick_expansion_127(%arg0: memref<16x8x127xf16, #map>) -> memr
 // CHECK-DAG:             [[VAR_12_:%.+]] = affine.apply [[MAP_6_]]([[I_3_]])
 // CHECK:                 [[LOAD_VAR_reinterpret_cast_MEM_3_:%.+]] = vector.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_12_]]{{.}} : memref<2x64xf16>, vector<8xf16>
 // CHECK:                 [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
-// CHECK:                 [[VAR_output1_0_:%.+]], [[VAR_output2_1_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_1_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
-// CHECK:                 [[VAR_output1_2_:%.+]], [[VAR_output2_3_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_2_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
-// CHECK:                 [[VAR_output1_4_:%.+]], [[VAR_output2_5_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_3_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
+// CHECK:                 [[VAR_output1_1_:%.+]], [[VAR_output2_2_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_1_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
+// CHECK:                 [[VAR_output1_3_:%.+]], [[VAR_output2_4_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_2_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
+// CHECK:                 [[VAR_output1_5_:%.+]], [[VAR_output2_6_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_3_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK:                 [[VAR_14_:%.+]] = affine.apply [[MAP_7_]]([[I_3_]]){{.}}[[VAR_2_]]{{.}}
 // CHECK:                 vector.store [[VAR_output1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]4] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_15_:%.+]] = arith.addi [[VAR_14_]], [[CST_4_]] : index
 // CHECK:                 vector.store [[VAR_output2_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]5] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_16_:%.+]] = arith.addi [[VAR_14_]], [[CST_8_]] : index
-// CHECK:                 vector.store [[VAR_output1_0_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]6] : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output1_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]6] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_17_:%.+]] = arith.addi [[VAR_14_]], [[CST_12_]] : index
-// CHECK:                 vector.store [[VAR_output2_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]7] : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output2_2_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]7] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_18_:%.+]] = arith.addi [[VAR_14_]], [[CST_16_]] : index
-// CHECK:                 vector.store [[VAR_output1_2_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]8] : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output1_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]8] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_19_:%.+]] = arith.addi [[VAR_14_]], [[CST_20_]] : index
-// CHECK:                 vector.store [[VAR_output2_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]9] : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output2_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]9] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_20_:%.+]] = arith.addi [[VAR_14_]], [[CST_24_]] : index
-// CHECK:                 vector.store [[VAR_output1_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_20_]]{{.}} : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output1_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_20_]]{{.}} : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[VAR_21_:%.+]] = arith.addi [[VAR_14_]], [[CST_28_]] : index
-// CHECK:                 vector.store [[VAR_output2_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_21_]]{{.}} : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output2_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_21_]]{{.}} : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:               }
 // CHECK:             } else {
 // CHECK:               [[LOAD_VAR_reinterpret_cast_MEM_4_:%.+]] = affine.apply [[MAP_8_]](){{.}}[[VAR_2_]]{{.}}
 // CHECK:               scf.for [[I_4_:%.+]] = [[CST_0_]] to [[LOAD_VAR_reinterpret_cast_MEM_4_]] step [[CST_8_]] {
 // CHECK:                 [[LOAD_VAR_reinterpret_cast_MEM_5_:%.+]] = vector.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[I_4_]]{{.}} : memref<2x64xf16>, vector<8xf16>
-// CHECK:                 [[VAR_output1_1_:%.+]], [[VAR_output2_2_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_5_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
+// CHECK:                 [[VAR_output1_1_1_:%.+]], [[VAR_output2_2_1_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_5_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK:                 [[VAR_12_1_:%.+]] = affine.apply [[MAP_7_]]([[I_4_]]){{.}}[[VAR_2_]]{{.}}
-// CHECK:                 vector.store [[VAR_output1_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]2] : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output1_1_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]2] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:                 [[LOAD_VAR_reinterpret_cast_MEM_3_:%.+]] = arith.addi [[VAR_12_1_]], [[CST_4_]] : index
-// CHECK:                 vector.store [[VAR_output2_2_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]3] : memref<16x8x127xf32>, vector<4xf32>
+// CHECK:                 vector.store [[VAR_output2_2_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]3] : memref<16x8x127xf32>, vector<4xf32>
 // CHECK:               }
 // CHECK-DAG:           [[VAR_8_1_:%.+]] = affine.apply [[MAP_9_]](){{.}}[[VAR_2_]]{{.}}
 // CHECK-DAG:           [[LOAD_VAR_reinterpret_cast_MEM_1_:%.+]] = affine.apply [[MAP_10_]](){{.}}[[VAR_2_]]{{.}}
 // CHECK:               [[LOAD_VAR_reinterpret_cast_MEM_6_:%.+]] = vector.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[LOAD_VAR_reinterpret_cast_MEM_1_]]{{.}} : memref<2x64xf16>, vector<8xf16>
 // CHECK:               [[VAR_output1_1_:%.+]], [[VAR_output2_1_:%.+]] = "zlow.vec_dlf16_to_f32"([[LOAD_VAR_reinterpret_cast_MEM_6_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
-// CHECK:               [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<8xf32>
 // CHECK:               vector.store [[VAR_output1_1_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<8xf32>, vector<4xf32>
 // CHECK:               vector.store [[VAR_output2_1_]], [[RES_1_]]{{.}}[[CST_4_]]{{.}} : memref<8xf32>, vector<4xf32>
 // CHECK:               scf.for [[I_5_:%.+]] = [[CST_0_]] to [[VAR_8_1_]] step [[CST_1_]] {
