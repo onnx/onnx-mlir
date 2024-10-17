@@ -122,6 +122,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     // Initialize the index used to store the result values.
     Value iZero = create.math.constantIndex(0);
     Value iOne = create.math.constantIndex(1);
+  // Scalar, ok to use alloca.
     Value storeIndex =
         create.mem.alloca(MemRefType::get({}, rewriter.getIndexType()));
     create.krnl.store(iZero, storeIndex);
