@@ -42,7 +42,7 @@
 // Todo: cleanup after we are done experimenting.
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
 #define PREFETCH_CSU_DIST 0
-#define PREFETCH_CSU 1
+#define PREFETCH_CSU 0
 
 using namespace mlir;
 
@@ -100,7 +100,7 @@ public:
 
     // hi alex:
     create.krnl.printf("unstick dims:");
-    for(int r=0; r<rank; ++r) {
+    for (int r = 0; r < rank; ++r) {
       create.krnl.printf(" ", outputDims[r].getValue(), false);
     }
     create.krnl.printf("\n\n\n");
@@ -176,6 +176,10 @@ public:
               create.krnl.getLinearOffsetIndexIE(input, inputAF);
           IndexExpr inputDataOffset = SymIE(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
+#define REMOVE_LOAD_TRICK 1
+#if REMOVE_LOAD_TRICK
+          inputTileOffset = litZero;
+#endif
 
 // Prefetch
 #if PREFETCH_CSU
@@ -232,7 +236,7 @@ public:
                       // tile.
                       for (int64_t i = 0; i < unrollVL; ++i) {
                         vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
-                            {SymIE(inputTileOffset), l + (i * archVL)}, {});
+                            {SymIE(inputTileOffset), l + (i * archVL)});
                       }
                       // Convert back to f32.
                       for (int64_t i = 0; i < unrollVL; ++i) {
@@ -278,7 +282,7 @@ public:
                         // Load f16 values from input via reinterpreted data
                         // tile.
                         Value vecF16 = create.vec.loadIE(vecF16Type,
-                            inputAsTx64, {SymIE(inputTileOffset), l}, {});
+                            inputAsTx64, {SymIE(inputTileOffset), l});
                         // Convert back to f32.
                         auto convertOp =
                             rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
@@ -297,7 +301,7 @@ public:
                 IndexExpr remainingScalarValues = tripCount % archVL;
                 IndexExpr lastL = tripCount - remainingScalarValues;
                 Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
-                    {SymIE(inputTileOffset), lastL}, {});
+                    {SymIE(inputTileOffset), lastL});
                 // Convert back to f32.
                 auto convertOp =
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
@@ -382,7 +386,7 @@ public:
 
     // hi alex:
     create.krnl.printf("stick dims:");
-    for(int r=0; r<rank; ++r) {
+    for (int r = 0; r < rank; ++r) {
       create.krnl.printf(" ", outputDims[r].getValue(), false);
     }
     create.krnl.printf("\n\n\n");
