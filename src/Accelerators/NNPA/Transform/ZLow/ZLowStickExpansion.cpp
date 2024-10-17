@@ -172,7 +172,7 @@ public:
           IndexExpr e1 = outerIndices[E1] * 64;
           inputAF[E1] = e1;
       // Translate the tile index t1 to the actual targetted data.
-#define REMOVE_LOAD_TRICK 1
+#define REMOVE_LOAD_TRICK 0
 #if REMOVE_LOAD_TRICK
           IndexExpr inputTileOffset = litZero;
 #else
