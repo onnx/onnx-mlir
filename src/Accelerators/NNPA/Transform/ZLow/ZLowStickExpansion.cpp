@@ -309,7 +309,7 @@ public:
                 Value vecF32H = convertOp.getResult(0);
                 Value vecF32L = convertOp.getResult(1);
                 // Save into archVL value buffer.
-                Value bufferF32 = create.mem.alignedAlloca(bufferType);
+                Value bufferF32 = create.mem.alignedAlloc(bufferType);
                 create.vec.storeIE(vecF32H, bufferF32, {litZero});
                 create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
                 // Save the remaining values as scalars.
