@@ -42,7 +42,7 @@
 // Todo: cleanup after we are done experimenting.
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
 #define PREFETCH_CSU_DIST 0
-#define PREFETCH_CSU 0
+#define PREFETCH_CSU 1
 
 using namespace mlir;
 
@@ -98,13 +98,6 @@ public:
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);
     int64_t rank = outputDims.size();
 
-    // hi alex:
-    create.krnl.printf("unstick dims:");
-    for (int r = 0; r < rank; ++r) {
-      create.krnl.printf(" ", outputDims[r].getValue(), false);
-    }
-    create.krnl.printf("\n\n\n");
-
     // Info for SIMD Vector Length (VL) and associated types.
     int64_t archVL = 8;              // FP16 archVL.
     int64_t archVLHalf = archVL / 2; // FP32 archVL.
@@ -137,6 +130,8 @@ public:
     bool neverHas8 = outputDims[E1].isLiteralAndSmallerThan(8);
     bool hasOnly64 =
         outputDims[E1].isLiteral() && (outputDims[E1].getLiteral() % 64 == 0);
+    bool hasOnly8 =
+        outputDims[E1].isLiteral() && (outputDims[E1].getLiteral() % 8 == 0);
 
     // Parallel...
     if (enableParallel) {
@@ -171,16 +166,16 @@ public:
           DimsExpr inputAF = outerIndices;
           IndexExpr e1 = outerIndices[E1] * 64;
           inputAF[E1] = e1;
-      // Translate the tile index t1 to the actual targetted data.
-#define REMOVE_LOAD_TRICK 0
-#if REMOVE_LOAD_TRICK
-          IndexExpr inputTileOffset = litZero;
-#else
+          // Translate the tile index t1 to the actual targetted data.
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, inputAF);
           IndexExpr inputDataOffset = SymIE(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
-#endif
+
+          // Buffer for small leftovers (used when E1 % 8 != 0)
+          Value bufferF32;
+          // if (!hasOnly8)
+          bufferF32 = create.mem.alignedAlloc(bufferType);
 
 // Prefetch
 #if PREFETCH_CSU
@@ -309,7 +304,6 @@ public:
                 Value vecF32H = convertOp.getResult(0);
                 Value vecF32L = convertOp.getResult(1);
                 // Save into archVL value buffer.
-                Value bufferF32 = create.mem.alignedAlloc(bufferType);
                 create.vec.storeIE(vecF32H, bufferF32, {litZero});
                 create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
                 // Save the remaining values as scalars.
@@ -384,13 +378,6 @@ public:
     DimsExpr outputDims;
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);
     int64_t rank = outputDims.size();
-
-    // hi alex:
-    create.krnl.printf("stick dims:");
-    for (int r = 0; r < rank; ++r) {
-      create.krnl.printf(" ", outputDims[r].getValue(), false);
-    }
-    create.krnl.printf("\n\n\n");
 
     // Info for SIMD Vector Length (VL) and associated types.
     int64_t archVL = 8;              // FP16 archVL.
@@ -475,11 +462,11 @@ public:
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
-          getIndexExprList<DimIE>(loopInd, outerIndices); // hi alex was sym
+          getIndexExprList<DimIE>(loopInd, outerIndices);
           DimsExpr memAF = outerIndices;
           memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
-          IndexExpr allocTileIndex = DimIE(allocOffset).floorDiv(64); // hi alex was sym
+          IndexExpr allocTileIndex = DimIE(allocOffset).floorDiv(64);
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
           // Prefetch current lines.
@@ -502,7 +489,7 @@ public:
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                DimIE l(loopInd[0]); // hi alex was sym, make it dim
+                DimIE l(loopInd[0]);
                 getIndexExprList<SymIE>(memAF, inputAF);
                 // E1: add the "l" local E1 offset.
                 inputAF[E1] = inputAF[E1] + l;
