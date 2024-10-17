@@ -174,8 +174,8 @@ public:
 
           // Buffer for small leftovers (used when E1 % 8 != 0)
           Value bufferF32;
-          // if (!hasOnly8)
-          bufferF32 = create.mem.alignedAlloc(bufferType);
+          if (!hasOnly8)
+            bufferF32 = create.mem.alignedAlloc(bufferType);
 
 // Prefetch
 #if PREFETCH_CSU
@@ -293,34 +293,37 @@ public:
                             {litArchVLHalf.getValue()});
                       });
                 }
-                // Deal with the last values: compute f32 using simd.
-                IndexExpr remainingScalarValues = tripCount % archVL;
-                IndexExpr lastL = tripCount - remainingScalarValues;
-                Value vecF16 = create.vec.loadIE(
-                    vecF16Type, inputAsTx64, {SymIE(inputTileOffset), lastL});
-                // Convert back to f32.
-                auto convertOp =
-                    rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
-                Value vecF32H = convertOp.getResult(0);
-                Value vecF32L = convertOp.getResult(1);
-                // Save into archVL value buffer.
-                create.vec.storeIE(vecF32H, bufferF32, {litZero});
-                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
-                // Save the remaining values as scalars.
-                create.scf.forLoop(litZero.getValue(),
-                    remainingScalarValues.getValue(), 1,
-                    [&](SCFBuilder b, ValueRange loopInd) {
-                      MDBuilder create(b);
-                      IndexExprScope innerScope(b, &middleScope);
-                      Value loopIndex = loopInd[0];
-                      IndexExpr l = DimIE(loopIndex);
-                      // Load converted value.
-                      Value f32 = create.krnl.loadIE(bufferF32, {l});
-                      DimsExpr outputAF = SymListIE(inputAF);
-                      outputAF[E1] = outputAF[E1] + SymIE(lastL);
-                      outputAF[E1] = outputAF[E1] + l;
-                      create.krnl.storeIE(f32, alloc, outputAF);
-                    });
+                if (!hasOnly8) {
+                  // Deal with the last <8 values: compute f32 using simd.
+                  IndexExpr remainingScalarValues = tripCount % archVL;
+                  IndexExpr lastL = tripCount - remainingScalarValues;
+                  Value vecF16 = create.vec.loadIE(
+                      vecF16Type, inputAsTx64, {SymIE(inputTileOffset), lastL});
+                  // Convert back to f32.
+                  auto convertOp =
+                      rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
+                          loc, vecF16);
+                  Value vecF32H = convertOp.getResult(0);
+                  Value vecF32L = convertOp.getResult(1);
+                  // Save into archVL value buffer.
+                  create.vec.storeIE(vecF32H, bufferF32, {litZero});
+                  create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
+                  // Save the remaining values as scalars.
+                  create.scf.forLoop(litZero.getValue(),
+                      remainingScalarValues.getValue(), 1,
+                      [&](SCFBuilder b, ValueRange loopInd) {
+                        MDBuilder create(b);
+                        IndexExprScope innerScope(b, &middleScope);
+                        Value loopIndex = loopInd[0];
+                        IndexExpr l = DimIE(loopIndex);
+                        // Load converted value.
+                        Value f32 = create.krnl.loadIE(bufferF32, {l});
+                        DimsExpr outputAF = SymListIE(inputAF);
+                        outputAF[E1] = outputAF[E1] + SymIE(lastL);
+                        outputAF[E1] = outputAF[E1] + l;
+                        create.krnl.storeIE(f32, alloc, outputAF);
+                      });
+                }
               });
         });
     rewriter.eraseOp(unstickOp);
