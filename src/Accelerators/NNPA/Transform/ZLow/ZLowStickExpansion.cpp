@@ -171,14 +171,15 @@ public:
           DimsExpr inputAF = outerIndices;
           IndexExpr e1 = outerIndices[E1] * 64;
           inputAF[E1] = e1;
-          // Translate the tile index t1 to the actual targetted data.
+      // Translate the tile index t1 to the actual targetted data.
+#define REMOVE_LOAD_TRICK 1
+#if REMOVE_LOAD_TRICK
+          IndexExpr inputTileOffset = litZero;
+#else
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, inputAF);
           IndexExpr inputDataOffset = SymIE(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
-#define REMOVE_LOAD_TRICK 1
-#if REMOVE_LOAD_TRICK
-          inputTileOffset = litZero;
 #endif
 
 // Prefetch
@@ -300,8 +301,8 @@ public:
                 // Deal with the last values: compute f32 using simd.
                 IndexExpr remainingScalarValues = tripCount % archVL;
                 IndexExpr lastL = tripCount - remainingScalarValues;
-                Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
-                    {SymIE(inputTileOffset), lastL});
+                Value vecF16 = create.vec.loadIE(
+                    vecF16Type, inputAsTx64, {SymIE(inputTileOffset), lastL});
                 // Convert back to f32.
                 auto convertOp =
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
@@ -474,11 +475,11 @@ public:
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
-          getIndexExprList<SymIE>(loopInd, outerIndices);
+          getIndexExprList<DimIE>(loopInd, outerIndices); // hi alex was sym
           DimsExpr memAF = outerIndices;
           memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
-          IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
+          IndexExpr allocTileIndex = DimIE(allocOffset).floorDiv(64); // hi alex was sym
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
           // Prefetch current lines.
@@ -501,7 +502,7 @@ public:
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymIE l(loopInd[0]);
+                DimIE l(loopInd[0]); // hi alex was sym, make it dim
                 getIndexExprList<SymIE>(memAF, inputAF);
                 // E1: add the "l" local E1 offset.
                 inputAF[E1] = inputAF[E1] + l;
