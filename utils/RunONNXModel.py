@@ -690,11 +690,7 @@ class InferenceSession:
             # Prepare input and output paths.
             output_path = os.path.join(self.model_path, self.default_model_name)
             if args.model.endswith(".onnx"):
-                if (
-                    args.verify
-                    and args.verify == "onnxruntime"
-                    and args.verify_all_ops
-                ):
+                if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
                     input_model_path = os.path.join(
                         self.model_path, f"{self.default_model_name}.onnx"
                     )
@@ -715,17 +711,12 @@ class InferenceSession:
                 command_str += args.compile_args.split()
             if args.compile_using_input_shape:
                 # Use shapes of the reference inputs to compile the model.
-                assert (
-                    args.load_ref or args.load_ref_from_numpy
-                ), "No data folder given"
+                assert args.load_ref or args.load_ref_from_numpy, "No data folder given"
                 assert "shapeInformation" not in command_str, "shape info was set"
                 shape_info = "--shapeInformation="
                 for i in range(len(inputs)):
                     shape_info += (
-                        str(i)
-                        + ":"
-                        + "x".join([str(d) for d in inputs[i].shape])
-                        + ","
+                        str(i) + ":" + "x".join([str(d) for d in inputs[i].shape]) + ","
                     )
                 shape_info = shape_info[:-1]
                 command_str += [shape_info]
