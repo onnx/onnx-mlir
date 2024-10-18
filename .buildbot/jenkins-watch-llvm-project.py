@@ -336,7 +336,7 @@ def build_watch_image(repo, commit, dockerfile, base_image, image_repo, image_ta
     ):
         if "stream" in line:
             # Keep track of the latest successful image layer
-            m = re.match("^\s*---> ([0-9a-f]+)$", line["stream"])
+            m = re.match(r"^\s*---> ([0-9a-f]+)$", line["stream"])
             if m:
                 layer_sha256 = m.group(1)
             print(line["stream"], end="", flush=True)

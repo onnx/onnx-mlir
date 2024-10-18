@@ -7,7 +7,7 @@ LLVM_PROJECT_SHA1_REGEX = "git checkout ([0-9a-f]+)"
 LLVM_PROJECT_DOCKERFILE = "docker/Dockerfile.llvm-project"
 LLVM_PROJECT_GITHUB_URL = "https://api.github.com/repos/llvm/llvm-project"
 LLVM_PROJECT_BASE_IMAGE = {
-    "static": "ubuntu:jammy",
+    "static": "ghcr.io/onnxmlir/ubuntu:jammy",
     "shared": "registry.access.redhat.com/ubi8-minimal:latest",
 }
 LLVM_PROJECT_IMAGE = {
@@ -187,7 +187,7 @@ def setup_per_pr_llvm_project(image_type, exp):
             ):
                 if "stream" in line:
                     # Keep track of the latest successful image layer
-                    m = re.match("^\s*---> ([0-9a-f]+)$", line["stream"])
+                    m = re.match(r"^\s*---> ([0-9a-f]+)$", line["stream"])
                     if m:
                         layer_sha256 = m.group(1)
                     print(line["stream"], end="", flush=True)

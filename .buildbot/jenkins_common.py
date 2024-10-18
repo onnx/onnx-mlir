@@ -31,10 +31,11 @@ logging.basicConfig(
 MEMORY_IN_GB = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1024.0**3)
 NPROC = str(math.ceil(min(max(2, MEMORY_IN_GB / 8), os.cpu_count())))
 
-RETRY_LIMIT = 5
+RETRY_LIMIT = 10
 READ_CHUNK_SIZE = 1024 * 1024
 BASE_BRANCH = "main"
 
+DOCKER_API_TIMEOUT = 3600
 DOCKER_DIST_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
 DOCKER_DIST_MANIFEST_LIST = "application/vnd.docker.distribution.manifest.list.v2+json"
 
@@ -47,7 +48,7 @@ docker_registry_login_name = os.getenv("DOCKER_REGISTRY_LOGIN_NAME")
 docker_registry_login_token = os.getenv("DOCKER_REGISTRY_LOGIN_TOKEN")
 docker_registry_token_access = os.getenv("DOCKER_REGISTRY_TOKEN_ACCESS")
 docker_rwlock = fasteners.InterProcessReaderWriterLock(docker_pushpull_rwlock)
-docker_api = docker.APIClient(base_url=docker_daemon_socket)
+docker_api = docker.APIClient(base_url=docker_daemon_socket, timeout=DOCKER_API_TIMEOUT)
 
 github_repo_access_token = os.getenv("GITHUB_REPO_ACCESS_TOKEN")
 github_repo_name = os.getenv("GITHUB_REPO_NAME")
