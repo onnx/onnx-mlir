@@ -61,7 +61,7 @@ llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
 llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
     "nnpa-enable-scalar-bcast-binary",
     llvm::cl::desc("Enable the lowering to NNPA of binary operations with "
-                   "broadcasting of a scalar operand."
+                   "broadcasting of a scalar operand.\n"
                    "Currently only enable ONNXDiv. Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
@@ -70,9 +70,10 @@ llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     llvm::cl::desc(
         "Load device placement configuration from a JSON file. To "
         "have a template for the JSON file, use "
-        "--nnpa-save-device-placement-file=cfg.json. Note that we can use "
+        "--nnpa-save-device-placement-file=cfg.json.\nNote that we can use "
         "regex for "
-        "string values in the JSON file to match operations. The compiler uses "
+        "string values in the JSON file to match operations.\nThe compiler "
+        "uses "
         "C++ std::regex_match function for matching."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
@@ -87,11 +88,11 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
         "[Optional] Choose NNPA-related heuristic to place operations "
         "on NNPA device:"),
     llvm::cl::values(
-        clEnumVal(QualifyingOps, "Place all qualifying ops on NNPA (default)"),
-        clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA"),
-        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost"),
+        clEnumVal(QualifyingOps, "Place all qualifying ops on NNPA (default)."),
+        clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA."),
+        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost."),
         clEnumVal(MuchFasterOpsWSU,
-            "Much/Significantly FasterOps with stick/unstick cost")),
+            "Much/Significantly FasterOps with stick/unstick cost.")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
 llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
