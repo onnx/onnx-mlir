@@ -1150,18 +1150,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             "not enough work for reduction h-simd");
       }
     }
-    Value tmpAlloc;
-    if (!enableParallel) {
-      // No parallel, alloc once outside.
-      tmpAlloc = create.mem.alignedAlloc(tmpType);
-    }
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
-          if (enableParallel) {
-            // Allocate temp inside loop because of parallel.
-            tmpAlloc = create.mem.alignedAlloc(tmpType);
-          }
+          // When parallel, will stay inside; otherwise will migrate out.
+          Value tmpAlloc = create.mem.alignedAlloc(tmpType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
@@ -1311,18 +1304,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             "not enough work for reduction shuffle h-simd");
       }
     }
-    Value tmpBlockedAlloc;
-    if (!enableParallel) {
-      // Sequential, can allocate before loop.
-      tmpBlockedAlloc = create.mem.alignedAlloc(tmpBlockedType);
-    }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
           MDBuilder create(ck);
-          if (enableParallel) {
-            // Create temp inside loop because of parallel.
-            tmpBlockedAlloc = create.mem.alignedAlloc(tmpBlockedType);
-          }
+          // When parallel, will stay inside; otherwise will migrate out.
+          Value tmpBlockedAlloc = create.mem.alignedAlloc(tmpBlockedType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
