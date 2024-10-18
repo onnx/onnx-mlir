@@ -370,6 +370,7 @@ def FuseAddConvNullBiasPattern: Pat<
   [(HasShapeAndRank:$res),
    (HasNoneType $b),
    (AttributeIsNotNull:$denseAttr),
+   (ValidAxisConstraints<1>:$y),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
 >;
@@ -395,7 +396,6 @@ def FuseAddConvPattern: Pat<
    (ValidAxisConstraints<1>:$y),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
-   
 >;
 
 //===----------------------------------------------------------------------===//
@@ -441,6 +441,7 @@ def FuseMulConvNullBiasPattern: Pat<
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.
    (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
    (HaveSameDim<0> $w, $y),            // the first dimension of $w and $y must be equal.
+   (ValidAxisConstraints<1>:$y),
    (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
 >;
 
