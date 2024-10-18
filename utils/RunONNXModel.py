@@ -769,7 +769,7 @@ class InferenceSession:
         start = time.perf_counter()
         shared_lib_path = self.model_path + f"/{self.default_model_name}.so"
         if not os.path.exists(shared_lib_path):
-            print(f"Input model {shared_lib_path} does not exists")
+            print(f"Input model {shared_lib_path} does not exist")
             exit(0)
         print("Loading the compiled model ...")
         if args.load_model:
