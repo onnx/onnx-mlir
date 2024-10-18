@@ -33,7 +33,7 @@ import subprocess
 import sys
 
 DOCKER_SOCKET = "/var/run/docker.sock"
-ONNX_MLIR_IMAGE = "onnxmlir/onnx-mlir"
+ONNX_MLIR_IMAGE = "ghcr.io/onnxmlir/onnx-mlir"
 KNOWN_INPUT_TYPE = (".onnx", ".json", ".mlir")
 
 mount_dirs = []

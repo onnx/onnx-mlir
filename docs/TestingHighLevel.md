@@ -40,7 +40,7 @@ If you run into protobuf related errors during the build, check the following po
 * llvm-project, onnx, and/or onnx-mlir may detect different versions of python3 (so watch their cmake output) if you have multiple python versions installed
 * cmake caches stuff and you should never use "make clean" when rebuilding. Instead remove everything under the build tree and start from scratch.
 
-These and many other trickeries for setting up the build env are the reason why we recommend using the `onnxmlir/onnx-mlir-dev` docker image for development.
+These and many other trickeries for setting up the build env are the reason why we recommend using the [onnxmlir/onnx-mlir-dev](https://github.com/users/onnxmlir/packages/container/onnx-mlir-dev) docker image for development.
 
 ## High level testing of ONNX-MLIR
 
