@@ -122,9 +122,8 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
         for (auto &[id, translation] : batch) {
           auto &[disposable, dense] = translation;
           dense = disposable.toDenseElementsAttr();
-          // TODO: Consider calling disposable.dispose() here to free up memory
-          //       on the go to make memory available to create the next
-          //       DenseElementsAttr. In that case should we lock mutex?
+          disposable.dispose();
+          // TODO: In that case should we lock mutex?
         }
       }
     };
