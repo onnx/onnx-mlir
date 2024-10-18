@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --mcpu=z16 --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --mcpu=z16 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
 
 // use --mtriple=s390x-ibm-loz --mcpu=z16 to enable SIMD as we now need a machine
 // can also use -march=x86-64 instead.
@@ -63,6 +63,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK-DAG:       [[VAR_reshape_4_:%.+]] = memref.reshape [[RES_]]([[RES_]]_3) : (memref<2x64x1x1xf32>, memref<2xindex>) -> memref<2x64xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]]#1 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.parallel([[BLOCK_TILE__0_]]) : !krnl.loop
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[BLOCK_TILE__0_]]) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[BLOCK_TILE__0_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<4x4xf32>
@@ -162,6 +163,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           krnl.iterate() with (){
 // CHECK:             [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK:             [[BLOCK_TILE__2_:%.+]], [[BLOCK_IN__2_:%.+]] = krnl.block [[LOOP_2_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.parallel([[BLOCK_TILE__2_]]) : !krnl.loop
 // CHECK:             krnl.iterate([[BLOCK_TILE__2_]]) with ([[LOOP_2_]] -> [[I_4_:%.+]] = 0 to 11904){
 // CHECK:               [[VAR_9_2_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__2_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_10_1_:%.+]] = vector.load [[VAR_reshape_14_]]{{.}}[[VAR_9_2_]]{{.}} : memref<11904xf32>, vector<32xf32>
@@ -182,6 +184,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK-DAG:       [[VAR_reshape_23_:%.+]] = memref.reshape [[RES_12_]]([[RES_14_]]) : (memref<2x64x1x1xf32>, memref<2xindex>) -> memref<2x64xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           [[BLOCK_TILE__3_:%.+]], [[BLOCK_IN__3_:%.+]] = krnl.block [[LOOP_3_]]#1 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.parallel([[BLOCK_TILE__3_]]) : !krnl.loop
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[BLOCK_TILE__3_]]) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_3_]]#1 -> [[I_6_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[BLOCK_TILE__3_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[RES_15_:%.+]] = memref.alloc() {{.*}}: memref<4x4xf32>
@@ -285,6 +288,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           affine.store [[CST_93_]], [[RES_23_]][2] : memref<3xindex>
 // CHECK-DAG:       [[VAR_reshape_39_:%.+]] = memref.reshape [[RES_20_]]([[RES_23_]]) : (memref<2x64x31x3xf32>, memref<3xindex>) -> memref<2x64x93xf32>
 // CHECK-DAG:       [[LOOP_5_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.parallel([[LOOP_5_]]#1) : !krnl.loop
 // CHECK:           krnl.iterate([[LOOP_5_]]#0, [[LOOP_5_]]#1) with ([[LOOP_5_]]#0 -> [[I_9_:%.+]] = 0 to 2, [[LOOP_5_]]#1 -> [[I_10_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_5_]]#0, [[LOOP_5_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[LOOP_6_:%.+]] = krnl.define_loops 1
@@ -376,6 +380,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           affine.store [[CST_93_]], [[RES_36_]][2] : memref<3xindex>
 // CHECK-DAG:       [[VAR_reshape_61_:%.+]] = memref.reshape [[RES_33_]]([[RES_36_]]) : (memref<2x64x31x3xf32>, memref<3xindex>) -> memref<2x64x93xf32>
 // CHECK-DAG:       [[LOOP_11_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.parallel([[LOOP_11_]]#1) : !krnl.loop
 // CHECK:           krnl.iterate([[LOOP_11_]]#0, [[LOOP_11_]]#1) with ([[LOOP_11_]]#0 -> [[I_16_:%.+]] = 0 to 2, [[LOOP_11_]]#1 -> [[I_17_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_11_]]#0, [[LOOP_11_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[LOOP_12_:%.+]] = krnl.define_loops 1
@@ -412,6 +417,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           affine.store [[CST_93_]], [[RES_40_]][2] : memref<3xindex>
 // CHECK-DAG:       [[VAR_reshape_68_:%.+]] = memref.reshape [[RES_37_]]([[RES_40_]]) : (memref<2x64x31x3xf32>, memref<3xindex>) -> memref<2x64x93xf32>
 // CHECK-DAG:       [[LOOP_14_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.parallel([[LOOP_14_]]#1) : !krnl.loop
 // CHECK:           krnl.iterate([[LOOP_14_]]#0, [[LOOP_14_]]#1) with ([[LOOP_14_]]#0 -> [[I_20_:%.+]] = 0 to 2, [[LOOP_14_]]#1 -> [[I_21_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_14_]]#0, [[LOOP_14_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[LOOP_15_:%.+]] = krnl.define_loops 1
@@ -448,6 +454,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           affine.store [[CST_93_]], [[RES_44_]][2] : memref<3xindex>
 // CHECK-DAG:       [[VAR_reshape_75_:%.+]] = memref.reshape [[RES_41_]]([[RES_44_]]) : (memref<2x64x31x3xf32>, memref<3xindex>) -> memref<2x64x93xf32>
 // CHECK-DAG:       [[LOOP_17_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.parallel([[LOOP_17_]]#1) : !krnl.loop
 // CHECK:           krnl.iterate([[LOOP_17_]]#0, [[LOOP_17_]]#1) with ([[LOOP_17_]]#0 -> [[I_24_:%.+]] = 0 to 2, [[LOOP_17_]]#1 -> [[I_25_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_5_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_17_]]#0, [[LOOP_17_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[LOOP_18_:%.+]] = krnl.define_loops 1
