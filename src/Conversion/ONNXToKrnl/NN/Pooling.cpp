@@ -310,7 +310,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
     // Identity value of the operation.
     auto identity = getIdentityValue<PoolOp>(rewriter, loc, outputElementType);
     // Create a local reduction value for output[n][c][ho][wo].
-    // Single scalar, no need for default alignment.
+    // Single scalar, no need for default alignment. Ok to use alloca.
     Value reductionVal =
         create.mem.alloca(MemRefType::get({}, memRefType.getElementType()));
 

@@ -130,6 +130,8 @@ public:
     bool neverHas8 = outputDims[E1].isLiteralAndSmallerThan(8);
     bool hasOnly64 =
         outputDims[E1].isLiteral() && (outputDims[E1].getLiteral() % 64 == 0);
+    bool hasOnly8 =
+        outputDims[E1].isLiteral() && (outputDims[E1].getLiteral() % 8 == 0);
 
     // Parallel...
     if (enableParallel) {
@@ -169,6 +171,11 @@ public:
               create.krnl.getLinearOffsetIndexIE(input, inputAF);
           IndexExpr inputDataOffset = SymIE(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
+
+          // Buffer for small leftovers (used when E1 % 8 != 0)
+          Value bufferF32;
+          if (!hasOnly8)
+            bufferF32 = create.mem.alignedAlloc(bufferType);
 
 // Prefetch
 #if PREFETCH_CSU
@@ -225,7 +232,7 @@ public:
                       // tile.
                       for (int64_t i = 0; i < unrollVL; ++i) {
                         vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
-                            {SymIE(inputTileOffset), l + (i * archVL)}, {});
+                            {SymIE(inputTileOffset), l + (i * archVL)});
                       }
                       // Convert back to f32.
                       for (int64_t i = 0; i < unrollVL; ++i) {
@@ -271,7 +278,7 @@ public:
                         // Load f16 values from input via reinterpreted data
                         // tile.
                         Value vecF16 = create.vec.loadIE(vecF16Type,
-                            inputAsTx64, {SymIE(inputTileOffset), l}, {});
+                            inputAsTx64, {SymIE(inputTileOffset), l});
                         // Convert back to f32.
                         auto convertOp =
                             rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
@@ -286,35 +293,37 @@ public:
                             {litArchVLHalf.getValue()});
                       });
                 }
-                // Deal with the last values: compute f32 using simd.
-                IndexExpr remainingScalarValues = tripCount % archVL;
-                IndexExpr lastL = tripCount - remainingScalarValues;
-                Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
-                    {SymIE(inputTileOffset), lastL}, {});
-                // Convert back to f32.
-                auto convertOp =
-                    rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
-                Value vecF32H = convertOp.getResult(0);
-                Value vecF32L = convertOp.getResult(1);
-                // Save into archVL value buffer.
-                Value bufferF32 = create.mem.alignedAlloca(bufferType);
-                create.vec.storeIE(vecF32H, bufferF32, {litZero});
-                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
-                // Save the remaining values as scalars.
-                create.scf.forLoop(litZero.getValue(),
-                    remainingScalarValues.getValue(), 1,
-                    [&](SCFBuilder b, ValueRange loopInd) {
-                      MDBuilder create(b);
-                      IndexExprScope innerScope(b, &middleScope);
-                      Value loopIndex = loopInd[0];
-                      IndexExpr l = DimIE(loopIndex);
-                      // Load converted value.
-                      Value f32 = create.krnl.loadIE(bufferF32, {l});
-                      DimsExpr outputAF = SymListIE(inputAF);
-                      outputAF[E1] = outputAF[E1] + SymIE(lastL);
-                      outputAF[E1] = outputAF[E1] + l;
-                      create.krnl.storeIE(f32, alloc, outputAF);
-                    });
+                if (!hasOnly8) {
+                  // Deal with the last <8 values: compute f32 using simd.
+                  IndexExpr remainingScalarValues = tripCount % archVL;
+                  IndexExpr lastL = tripCount - remainingScalarValues;
+                  Value vecF16 = create.vec.loadIE(
+                      vecF16Type, inputAsTx64, {SymIE(inputTileOffset), lastL});
+                  // Convert back to f32.
+                  auto convertOp =
+                      rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
+                          loc, vecF16);
+                  Value vecF32H = convertOp.getResult(0);
+                  Value vecF32L = convertOp.getResult(1);
+                  // Save into archVL value buffer.
+                  create.vec.storeIE(vecF32H, bufferF32, {litZero});
+                  create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
+                  // Save the remaining values as scalars.
+                  create.scf.forLoop(litZero.getValue(),
+                      remainingScalarValues.getValue(), 1,
+                      [&](SCFBuilder b, ValueRange loopInd) {
+                        MDBuilder create(b);
+                        IndexExprScope innerScope(b, &middleScope);
+                        Value loopIndex = loopInd[0];
+                        IndexExpr l = DimIE(loopIndex);
+                        // Load converted value.
+                        Value f32 = create.krnl.loadIE(bufferF32, {l});
+                        DimsExpr outputAF = SymListIE(inputAF);
+                        outputAF[E1] = outputAF[E1] + SymIE(lastL);
+                        outputAF[E1] = outputAF[E1] + l;
+                        create.krnl.storeIE(f32, alloc, outputAF);
+                      });
+                }
               });
         });
     rewriter.eraseOp(unstickOp);
@@ -456,11 +465,11 @@ public:
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
-          getIndexExprList<SymIE>(loopInd, outerIndices);
+          getIndexExprList<DimIE>(loopInd, outerIndices);
           DimsExpr memAF = outerIndices;
           memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
-          IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
+          IndexExpr allocTileIndex = DimIE(allocOffset).floorDiv(64);
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
           // Prefetch current lines.
@@ -483,7 +492,7 @@ public:
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymIE l(loopInd[0]);
+                DimIE l(loopInd[0]);
                 getIndexExprList<SymIE>(memAF, inputAF);
                 // E1: add the "l" local E1 offset.
                 inputAF[E1] = inputAF[E1] + l;
