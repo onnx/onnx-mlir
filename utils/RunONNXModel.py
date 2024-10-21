@@ -89,19 +89,14 @@ parser.add_argument(
 )
 parser.add_argument("--print-input", action="store_true", help="Print out inputs")
 parser.add_argument(
-    "--print-input-signature",
-    action="store_true",
-    help="Print out input signature of the model",
-)
-parser.add_argument(
     "--print-output",
     action="store_true",
     help="Print out inference outputs produced by onnx-mlir",
 )
 parser.add_argument(
-    "--print-output-signature",
+    "--print-signatures",
     action="store_true",
-    help="Print out output signature of the model",
+    help="Print out the input and output signatures of the model",
 )
 parser.add_argument(
     "--save-onnx",
@@ -680,19 +675,19 @@ class InferenceSession:
         # If a shared library is given, use it without compiling the ONNX model.
         # Otherwise, compile the ONNX model.
         if args.load_model:
-            self.model_path = args.load_model
+            self.model_dir = args.load_model
         else:
             # Compile the ONNX model.
             self.temp_dir = tempfile.TemporaryDirectory()
             print("Temporary directory has been created at {}\n".format(self.temp_dir))
             print("Compiling the model ...")
-            self.model_path = self.temp_dir.name
+            self.model_dir = self.temp_dir.name
             # Prepare input and output paths.
-            output_path = os.path.join(self.model_path, self.default_model_name)
+            output_path = os.path.join(self.model_dir, self.default_model_name)
             if args.model.endswith(".onnx"):
                 if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
                     input_model_path = os.path.join(
-                        self.model_path, f"{self.default_model_name}.onnx"
+                        self.model_dir, f"{self.default_model_name}.onnx"
                     )
                     onnx.save(model, input_model_path)
                 else:
@@ -750,12 +745,15 @@ class InferenceSession:
             if args.save_model:
                 if not os.path.exists(args.save_model):
                     os.makedirs(args.save_model)
-                shared_lib_path = self.model_path + f"/{self.default_model_name}.so"
+                if not os.path.isdir(args.save_model):
+                    print("Path to --save-model is not a folder")
+                    exit(0)
+                shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
                 if os.path.exists(shared_lib_path):
                     print("Saving the shared library to", args.save_model)
                     shutil.copy2(shared_lib_path, args.save_model)
                 constants_file_path = os.path.join(
-                    self.model_path, f"{self.default_model_name}.constants.bin"
+                    self.model_dir, f"{self.default_model_name}.constants.bin"
                 )
                 if os.path.exists(constants_file_path):
                     print("Saving the constants file to ", args.save_model, "\n")
@@ -767,7 +765,7 @@ class InferenceSession:
 
         # Use the generated shared library to create an execution session.
         start = time.perf_counter()
-        shared_lib_path = self.model_path + f"/{self.default_model_name}.so"
+        shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
         if not os.path.exists(shared_lib_path):
             print(f"Input model {shared_lib_path} does not exist")
             exit(0)
@@ -816,10 +814,9 @@ class InferenceSession:
         output_signature = self.sess.output_signature()
         input_names = get_names_in_signature(input_signature)
         output_names = get_names_in_signature(output_signature)
-        if args.print_input_signature:
-            print("Model's input signature: ", input_signature)
-        if args.print_output_signature:
-            print("Model's output signature: ", output_signature)
+        if args.print_signatures:
+            print("Model's input signature: ", input_signature.strip())
+            print("Model's output signature: ", output_signature.strip())
 
         inputs = []
         # Get input from input_feed, if input_feed is provided
@@ -867,7 +864,7 @@ class InferenceSession:
         # Running inference.
         print("Running inference ...")
         # Let onnx-mlir know where to find the constants file.
-        os.environ["OM_CONSTANT_PATH"] = self.model_path
+        os.environ["OM_CONSTANT_PATH"] = self.model_dir
         for i in range(args.warmup):
             start = time.perf_counter()
             outs = self.sess.run(inputs)
