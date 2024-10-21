@@ -190,28 +190,12 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
 
     // Create a ZHighStickifiedConstantOp.
-    ZHighStickifiedConstantOp stickifiedConstant =
-        rewriter.create<ZHighStickifiedConstantOp>(loc, resType,
-            /*value=*/nullptr,
-            /*alignment=*/rewriter.getI64IntegerAttr(4096));
-
-    // Use an dense resource attribute to store stickified data.
-    // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes =
-        affine::getIntOrFloatMemRefSizeInBytes(resType).value();
-    char *rawData = static_cast<char *>(malloc(sizeInBytes));
-    assert(rawData && "failed to allocate memory for stickified data");
-    memset(rawData, 0, sizeInBytes);
-    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-        stickifiedConstant.getOperation()
-            ->getDialect()
-            ->getNamespace(), // use the dialect as the blob "hint"
-        HeapAsmResourceBlob::allocateAndCopyWithAlign(
-            llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
-    stickifiedConstant.setValueAttr(valueAttr);
-    free(rawData);
-
+    FloatAttr floatZero = rewriter.getFloatAttr(resType.getElementType(), 0.0);
+    ZHighStickifiedConstantOp stickifiedConstant = rewriter.create<
+        ZHighStickifiedConstantOp>(loc, resType,
+        /*value=*/SplatElementsAttr::get(cast<ShapedType>(resType), floatZero),
+        /*stickified=*/rewriter.getBoolAttr(true),
+        /*alignment=*/rewriter.getI64IntegerAttr(4096));
     res = stickifiedConstant.getResult();
   } else {
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
@@ -686,7 +670,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
-// Lower ZHigh Stickified Constant to KrnlGlobal
+// Lower ZHigh Stickified Constant to ZLow Stickified Constant
 //===----------------------------------------------------------------------===//
 
 struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
@@ -699,7 +683,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickifiedConstantOp stickifiedConstOp =
+    ZHighStickifiedConstantOp zhighStickifiedConstOp =
         llvm::dyn_cast<ZHighStickifiedConstantOp>(op);
 
     // Convert ZTensor type to MemRefType.
@@ -713,36 +697,27 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
-    // Get dense resource attribute.
-    auto blob = mlir::cast<DenseResourceElementsAttr>(
-        stickifiedConstOp.getValue().value())
-                    .getRawHandle()
-                    .getBlob();
-    assert(blob && "Expecting dense resource with a valid blob");
-    ArrayRef<char> data = blob->getData();
-
-    // Validate the stickified tensor.
-    int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
-    memRefSizeInBytes *= normalizedType.getNumElements();
-    assert((data.size() == static_cast<uint64_t>(memRefSizeInBytes)) &&
-           "The stickified tensor's buffer size and MemRef's size mismatched");
-
-    // Create a KrnlGlobalOp.
-    KrnlGlobalOp constantGlobal =
-        rewriter.create<KrnlGlobalOp>(loc, zMemRefType.value,
+    // Create ZLowStickifiedConstantOp.
+    StringAttr layout =
+        getZTensorLayoutAttr(rewriter, *op->result_type_begin());
+    ZLowStickifiedConstantOp constantOp =
+        rewriter.create<ZLowStickifiedConstantOp>(loc,
+            mlir::cast<MemRefType>(zMemRefType.value),
             /*shape=*/
             rewriter.getI64ArrayAttr(normalizedShape),
             /*name=*/
             rewriter.getStringAttr(
                 "constant_stickify_" + std::to_string(constantID)),
-            /*value=*/stickifiedConstOp.getValueAttr(),
-            /*offset=*/nullptr,
-            /*alignment=*/stickifiedConstOp.getAlignmentAttr());
+            /*value=*/zhighStickifiedConstOp.getValueAttr(),
+            /*layout=*/layout,
+            /*offset=*/rewriter.getI64IntegerAttr(0),
+            /*stickified=*/zhighStickifiedConstOp.getStickifiedAttr(),
+            /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
 
     // Increment constant ID:
     constantID++;
 
-    rewriter.replaceOp(op, constantGlobal.getResult());
+    rewriter.replaceOp(op, constantOp.getResult());
     return success();
   }
 };

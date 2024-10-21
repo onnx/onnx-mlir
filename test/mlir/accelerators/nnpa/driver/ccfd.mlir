@@ -5,15 +5,14 @@
 // COM: It is the necessary condition to get the best performance.
 
 CHECK-LABEL: func.func @main_graph
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
+CHECK-DAG: zlow.stickifiedConstant
+CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: memref.alloc
 CHECK-NEXT: zlow.stick
+CHECK-DAG: zlow.stickifiedConstant
 
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
+CHECK-DAG: zlow.stickifiedConstant
+CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: memref.alloc
 CHECK-DAG: memref.alloc
 CHECK-DAG: krnl.global
@@ -24,12 +23,10 @@ CHECK-NEXT: zlow.lstm
 CHECK-NOT: zlow.stick
 CHECK-NOT: zlow.unstick
 
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
+CHECK-DAG: zlow.stickifiedConstant
+CHECK-DAG: zlow.stickifiedConstant
+CHECK-DAG: zlow.stickifiedConstant
+CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: memref.alloc
 CHECK-DAG: memref.alloc
 CHECK-DAG: krnl.global
@@ -40,17 +37,17 @@ CHECK-NEXT: zlow.lstm
 CHECK-NOT: zlow.stick
 CHECK-NOT: zlow.unstick
 
-CHECK-DAG: krnl.global
+CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: memref.alloc
 CHECK-DAG: krnl.global
-CHECK-DAG: krnl.global
+CHECK-DAG: zlow.stickifiedConstant
 CHECK-NEXT: zlow.matmul
 
 // No stick and unstick in between.
 CHECK-NOT: zlow.stick
 CHECK-NOT: zlow.unstick
 
-CHECK-DAG: krnl.global
+CHECK-DAG: zlow.stickifiedConstant
 CHECK-DAG: memref.alloc
 CHECK-DAG: krnl.global
 CHECK-NEXT: zlow.add

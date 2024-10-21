@@ -478,3 +478,4 @@ func.func @test_call_zdnn_batchnorm() -> () {
   // CHECK-LABEL: test_call_zdnn_batchnorm
   // CHECK: {{.*}} = llvm.call @zdnn_batchnorm(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
+
