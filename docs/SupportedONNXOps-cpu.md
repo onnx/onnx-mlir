@@ -158,9 +158,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 21. Limitatio
 | **ReduceL2** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceLogSum** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceLogSumExp** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceMax** |6 - * |do_not_keep_dim not supported. | |
-| **ReduceMean** |6 - * |do_not_keep_dim not supported. | |
-| **ReduceMin** |6 - * |do_not_keep_dim not supported. | |
+| **ReduceMax** |6 - * |do_not_keep_dims not supported. | |
+| **ReduceMean** |6 - * |do_not_keep_dims not supported. | |
+| **ReduceMin** |6 - * |do_not_keep_dims not supported. | |
 | **ReduceProd** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceSum** |6 - * |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
 | **ReduceSumSquare** |13 - * |Default axis and do_not_keep_dim not supported. | |
