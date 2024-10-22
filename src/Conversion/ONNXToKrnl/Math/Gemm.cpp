@@ -87,6 +87,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
           // Create temp, single scalar, no need for default alignment.
+          // Alloca is ok here as its for a scalar, and in the generic version
+          // of GEMM.
           Value red = create.mem.alloca(MemRefType::get({}, elementType));
           // Set to zero.
           create.krnl.store(zeroVal, red);
@@ -203,14 +205,6 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
     SmallVector<IndexExpr, 1> empty;
-    // Allocate here on heap, only when no parallelism.
-    Value aBuff, bBuff, rBuff;
-    if (!enableParallel) {
-      aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
-      bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
-      if (mustTileR)
-        rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
-    }
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -253,13 +247,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           {I, J, K},
           [&](const KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
-            // If parallel, allocate on stack inside the parallel region.
-            if (enableParallel) {
-              aBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
-              bBuff = create.mem.alignedAlloca(bTileType, BUFFER_ALIGN);
-              if (mustTileR)
-                rBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
-            }
+            // If parallel, will stay inside, otherwise will migrate out.
+            Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
+            Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
+            Value rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
             createKrnl.copyToBuffer(rBuff, R, {i1, j1}, zeroVal, false);
             createKrnl.iterateIE({}, {kk1}, {}, {},
                 [&](const KrnlBuilder &createKrnl, ValueRange k1_index) {
@@ -321,13 +312,9 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           {J, K, I},
           [&](const KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-            // If parallel, allocate on stack inside the parallel region.
-            if (enableParallel) {
-              aBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
-              bBuff = create.mem.alignedAlloca(bTileType, BUFFER_ALIGN);
-              if (mustTileR)
-                rBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
-            }
+            // If parallel, it will stay inside, otherwise it will migrate out.
+            Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
+            Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
             if (bTrans)
               createKrnl.copyToBuffer(bBuff, B, {j1, k1}, zeroVal, true);
             else
