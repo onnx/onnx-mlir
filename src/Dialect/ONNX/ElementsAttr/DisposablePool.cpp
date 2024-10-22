@@ -114,7 +114,7 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
       return llvm::make_range(batchBegin, batchEnd);
     };
     // Parallel worker body: Fetch and process batches until there are no more.
-    auto work = [&fetchBatch](size_t threadNumber) {
+    auto work = [&fetchBatch, &translationMutex](size_t threadNumber) {
       for (;;) {
         auto batch = fetchBatch();
         if (batch.empty())
@@ -122,9 +122,18 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
         for (auto &[id, translation] : batch) {
           auto &[disposable, dense] = translation;
           dense = disposable.toDenseElementsAttr();
-          disposable.dispose();
-          // TODO: In that case should we lock mutex?
         }
+
+        // Delete DisposableElementsAttr for each batch with lock after
+        // conversion.
+        auto deleteBatch = [&translationMutex, &batch]() {
+          const std::lock_guard<std::mutex> lock(translationMutex);
+          for (auto &[id, translation] : batch) {
+            auto &[disposable, dense] = translation;
+            disposable.dispose();
+          }
+        };
+        deleteBatch();
       }
     };
     MLIRContext *ctx = moduleOp.getContext();
