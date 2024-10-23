@@ -126,14 +126,13 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
 
         // Delete DisposableElementsAttr for each batch with lock after
         // conversion.
-        auto deleteBatch = [&translationMutex, &batch]() {
+        {
           const std::lock_guard<std::mutex> lock(translationMutex);
           for (auto &[id, translation] : batch) {
             auto &[disposable, dense] = translation;
             disposable.dispose();
           }
-        };
-        deleteBatch();
+        }
       }
     };
     MLIRContext *ctx = moduleOp.getContext();
