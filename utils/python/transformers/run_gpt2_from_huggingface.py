@@ -21,6 +21,7 @@ import os
 import sys
 import time
 import json
+import requests as req
 from urllib.request import urlretrieve
 
 import numpy as np
@@ -38,7 +39,7 @@ except ImportError:
     )
 
 # Information to download onnx models from HuggingFace.
-model_name_or_path = "gpt2"  # can be gpt2-medium, gpt2-large
+model_name_or_path = "gpt2"  # can be gpt2, gpt2-medium, gpt2-large
 decoder_model_name = "decoder_model.onnx"
 decoder_with_past_model_name = "decoder_with_past_model.onnx"
 config_json_name = "config.json"
@@ -54,12 +55,20 @@ config_json_path = f"{cache_dir}/{config_json_name}"
 
 # Download the model to a local dir.
 if not os.path.exists(decoder_model_path):
-    print(f"Downloading the decoder model {decoder_url}")
+    print(f"Downloading {decoder_url}")
     urlretrieve(decoder_url, decoder_model_path)
     print("Done")
+if req.head(f"{decoder_url}_data", allow_redirects=True).status_code == 200:
+    print(f"Downloading {decoder_url}_data")
+    urlretrieve(decoder_url + "_data", decoder_model_path + "_data")
+    print("Done")
 if not os.path.exists(decoder_with_past_model_path):
-    print(f"Downloading the decoder_with_past model {decoder_with_past_url}")
+    print(f"Downloading {decoder_with_past_url}")
     urlretrieve(decoder_with_past_url, decoder_with_past_model_path)
+    print("Done")
+if req.head(f"{decoder_with_past_url}_data", allow_redirects=True).status_code == 200:
+    print(f"Downloading {decoder_with_past_url}_data")
+    urlretrieve(decoder_with_past_url + "_data", decoder_with_past_model_path + "_data")
     print("Done")
 if not os.path.exists(config_json_path):
     print(f"Downloading the config json file {config_json_url}")
