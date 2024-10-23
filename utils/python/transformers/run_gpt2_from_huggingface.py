@@ -13,7 +13,7 @@
 # When running this script for the first time, it will download onnx models from
 # HuggingFace and compile the models. The onnx models and compiled models are
 # cached in the current folder (by default).
-# 
+#
 # Change compile_flags if targeting a different machine.
 ################################################################################
 
@@ -38,7 +38,7 @@ except ImportError:
     )
 
 # Information to download onnx models from HuggingFace.
-model_name_or_path = "gpt2" # can be gpt2-medium, gpt2-large
+model_name_or_path = "gpt2"  # can be gpt2-medium, gpt2-large
 decoder_model_name = "decoder_model.onnx"
 decoder_with_past_model_name = "decoder_with_past_model.onnx"
 config_json_name = "config.json"
