@@ -15,9 +15,6 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-#include <sys/time.h>
-// #include <time.h>
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -33,8 +30,6 @@ struct ScrubDisposablePass
   StringRef getArgument() const override { return "scrub-disposable"; }
 
   void runOnOperation() final {
-    struct timeval start_t, end_t;
-    gettimeofday(&start_t, NULL);    
     ModuleOp moduleOp = getOperation();
     DisposablePool *pool = getDisposablePool();
     pool->scrub(
@@ -42,9 +37,6 @@ struct ScrubDisposablePass
                       {ONNXConstantOfShapeOp::getOperationName(), "value"}});
     if (closeAfter)
       pool->close();
-    gettimeofday(&end_t, NULL);
-    double totalTime = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec)) / 1000;
-    llvm::dbgs() << "ScrubDisposablePass " << totalTime << " msec\n";    
   }
 
   DisposablePool *getDisposablePool() {
