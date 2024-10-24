@@ -122,14 +122,8 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
         for (auto &[id, translation] : batch) {
           auto &[disposable, dense] = translation;
           dense = disposable.toDenseElementsAttr();
-        }
-
-        // Delete DisposableElementsAttr for each batch with lock after
-        // conversion.
-        {
-          const std::lock_guard<std::mutex> lock(translationMutex);
-          for (auto &[id, translation] : batch) {
-            auto &[disposable, dense] = translation;
+          {
+            const std::lock_guard<std::mutex> lock(translationMutex);
             disposable.dispose();
           }
         }
