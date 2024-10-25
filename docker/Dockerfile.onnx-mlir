@@ -27,7 +27,6 @@ ARG NPROC=4
 ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MCPU
-ARG TEST_MACCEL
 ARG KEEPSRC
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
@@ -57,10 +56,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && TEST_MCPU=${TEST_MCPU:-$([ "$(uname -m)" = "s390x" ] && echo z16 || \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
-    && TEST_MACCEL=${TEST_MACCEL:-$([ "$(uname -m)" = "s390x" ] && echo NNPA || \
-                               ([ "$(uname -m)" = "x86_64" ] &&  echo NONE|| \
-                               ([ "$(uname -m)" = "ppc64le" ] && echo NONE || echo NONE)))} \
-    && TEST_ARGS="-mcpu=${TEST_MCPU} -maccel=${TEST_MACCEL}" \
+    && TEST_ARGS="-mcpu=${TEST_MCPU}" \
     && make check-docs \
     && make check-unittest \
     && make check-multiple-models \
@@ -71,13 +67,13 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             TEST_ARGS="${TEST_ARGS}" \
             -j${NPROC} \
             check-onnx-backend-numerical \
-    && if [ "${TEST_MACCEL}" = "NNPA"]; then \
+    && if [ "${TEST_MCPU}" = "z16" ]; then \
           make NPROC=${NPROC} \
                CTEST_PARALLEL_LEVEL=${NPROC} \
                TEST_NOFLOAT16=${TEST_NOFLOAT16} \
                TEST_MCPU=${TEST_MCPU} \
-               TEST_MACCEL=${TEST_MACCEL} \
-               TEST_ARGS="${TEST_ARGS}" \
+               TEST_MACCEL="NNPA" \
+               TEST_ARGS="${TEST_ARGS} -maccel=NNPA" \
                -j${NPROC} \
                check-onnx-backend-numerical-nnpa; \
        fi \
