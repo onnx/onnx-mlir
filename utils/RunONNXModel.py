@@ -651,12 +651,18 @@ class InferenceSession:
         if args.cache_model:
             shared_lib_path = args.cache_model + f"/{self.default_model_name}.so"
             if not os.path.exists(shared_lib_path):
-                print("Cached compiled model not found in \"" + args.cache_model + 
-                      "\": save model this run.")
+                print(
+                    'Cached compiled model not found in "'
+                    + args.cache_model
+                    + '": save model this run.'
+                )
                 args.save_model = args.cache_model
             else:
-                print("Cached compiled model found in \"" + args.cache_model + 
-                      "\": load model this run.")
+                print(
+                    'Cached compiled model found in "'
+                    + args.cache_model
+                    + '": load model this run.'
+                )
                 args.load_model = args.cache_model
             args.cache_model = None
 
