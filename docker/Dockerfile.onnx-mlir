@@ -53,7 +53,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                          ([ "$(uname -m)" = "x86_64" ] &&  echo true || \
                                          ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
 # User image is built with SIMD (currently on s390x only)
-    && TEST_MCPU=${TEST_MCPU:-$([ "$(uname -m)" = "s390x" ] && echo z14 || \
+    && TEST_MCPU=${TEST_MCPU:-$([ "$(uname -m)" = "s390x" ] && echo z16 || \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
@@ -67,6 +67,12 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             TEST_ARGS="${TEST_ARGS}" \
             -j${NPROC} \
             check-onnx-backend-numerical \
+    && if [ "${TEST_MCPU}" = "z16" ]; then \
+          make NPROC=${NPROC} \
+               CTEST_PARALLEL_LEVEL=${NPROC} \
+               -j${NPROC} \
+               check-onnx-backend-numerical-nnpa; \
+       fi \
     && make -j${NPROC} install && ldconfig \
 # Clean up
     && cd ${WORK_DIR} \
