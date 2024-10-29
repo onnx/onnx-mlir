@@ -443,7 +443,7 @@ void ZLowStickifiedConstantOp::freeBuffer(ArrayRef<char> rawData) {
 }
 
 /// Get a buffer, set/copy it to value attribute, and free the buffer.
-void ZLowStickifiedConstantOp::updateBuffer() {
+void ZLowStickifiedConstantOp::updateValueAttr() {
   MLIRContext *context = getOperation()->getContext();
   PatternRewriter rewriter(context);
   ZLowStickifiedConstantOp zlowStickifiedConstantOp =

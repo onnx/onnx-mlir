@@ -836,9 +836,12 @@ uint64_t KrnlGlobalOp::getBufferSize() {
   return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
 }
 
-void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {}
+void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {
+  free(const_cast<char *>(rawData.data()));
+  return;
+}
 
-void KrnlGlobalOp::updateBuffer() {}
+void KrnlGlobalOp::updateValueAttr() {}
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp
