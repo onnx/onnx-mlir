@@ -13,16 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_KRNLGLOBALOP_INTERFACE_H
+#define ONNX_MLIR_KRNLGLOBALOP_INTERFACE_H
 
 #include <map>
 #include <string>
 
 #include "mlir/IR/OpDefinition.h"
 
-// namespace mlir {
-
 /// Include the auto-generated declarations.
 #include "src/Interface/KrnlGlobalOpInterface.hpp.inc"
 
-// } // end namespace mlir
+#endif
