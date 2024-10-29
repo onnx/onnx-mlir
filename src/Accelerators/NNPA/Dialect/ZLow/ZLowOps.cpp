@@ -371,14 +371,11 @@ void ZLowBatchNormOp::getEffects(
 ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   MLIRContext *context = getOperation()->getContext();
   PatternRewriter rewriter(context);
-  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
-      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
   ArrayRef<char> ret;
-  if (zlowStickifiedConstantOp.getValueAttr() &&
-      zlowStickifiedConstantOp.getStickifiedAttr()) {
-    StringAttr layout = zlowStickifiedConstantOp.getLayoutAttr();
-    auto dataAttr = zlowStickifiedConstantOp.getValue().value();
-    if (!zlowStickifiedConstantOp.getStickified().value()) {
+  if (getValueAttr() && getStickifiedAttr()) {
+    StringAttr layout = getLayoutAttr();
+    auto dataAttr = getValue().value();
+    if (!getStickified().value()) {
       // The case which the data in value attribute is still not stickified.
       DenseElementsAttr denseAttr = mlir::cast<DenseElementsAttr>(dataAttr);
       ArrayRef<int64_t> shape = denseAttr.getType().getShape();
@@ -446,28 +443,24 @@ void ZLowStickifiedConstantOp::freeBuffer(ArrayRef<char> rawData) {
 void ZLowStickifiedConstantOp::updateValueAttr() {
   MLIRContext *context = getOperation()->getContext();
   PatternRewriter rewriter(context);
-  ZLowStickifiedConstantOp zlowStickifiedConstantOp =
-      mlir::cast<ZLowStickifiedConstantOp>(getOperation());
   // Set buffer when the value attribute is still not stickified or is splat
   // with dense element attribute.
-  if (zlowStickifiedConstantOp.getValueAttr() &&
-      zlowStickifiedConstantOp.getStickifiedAttr()) {
-    bool isStickified = zlowStickifiedConstantOp.getStickified().value();
+  if (getValueAttr() && getStickifiedAttr()) {
+    bool isStickified = getStickified().value();
     bool isSplat = false;
-    if (auto denseAttr = mlir::dyn_cast<DenseElementsAttr>(
-            zlowStickifiedConstantOp.getValue().value()))
+    if (auto denseAttr = mlir::dyn_cast<DenseElementsAttr>(getValue().value()))
       isSplat = denseAttr.isSplat();
     if (!isStickified || isSplat) {
       ArrayRef<char> rawData = getBuffer();
       int64_t sizeInBytes = getBufferSize();
       DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
           RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-          zlowStickifiedConstantOp.getOperation()
+          getOperation()
               ->getDialect()
               ->getNamespace(), // use the dialect as the blob "hint"
           HeapAsmResourceBlob::allocateAndCopyWithAlign(
               rawData, alignof(char)));
-      zlowStickifiedConstantOp.setValueAttr(valueAttr);
+      setValueAttr(valueAttr);
       freeBuffer(rawData);
     }
   }

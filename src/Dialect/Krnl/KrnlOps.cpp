@@ -817,11 +817,10 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 ArrayRef<char> KrnlGlobalOp::getBuffer() {
   ArrayRef<char> ret;
   std::vector<char> attrData;
-  auto krnlGlobalOp = mlir::cast<KrnlGlobalOp>(*getOperation());
-  if (krnlGlobalOp.getValueAttr()) {
+  if (getValueAttr()) {
     int64_t sizeInBytes = getBufferSize();
     char *rawData = (char *)malloc(sizeInBytes);
-    auto valueAttr = krnlGlobalOp.getValue().value();
+    auto valueAttr = getValue().value();
     getRawData(valueAttr, attrData);
     memcpy(rawData, attrData.data(), sizeInBytes);
     ret = llvm::ArrayRef(rawData, sizeInBytes);
