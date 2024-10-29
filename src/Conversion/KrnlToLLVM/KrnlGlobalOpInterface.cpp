@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- KrnlGlobalOpInterface.cpp - Lower
-//KrnlGlobalOpInterface--------===//
+//===------ KrnlGlobalOpInterface.cpp - Lower KrnlGlobalOpInterface -------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
