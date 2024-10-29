@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------------------ ConstantOpInterface.hpp -----------------===//
-//===------------ Constant Op Interface Definition -------------===//
+//===-------------------- KrnlGlobalOpInterface.hpp -----------------------===//
+//===---------------- KrnlGlobal Op Interface Definition ------------------===//
 //
 // Copyright 2024 The IBM Research Authors.
 //
@@ -18,23 +18,23 @@
 
 include "mlir/IR/OpBase.td"
 
-def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
+def KrnlGlobalOpInterface : OpInterface<"KrnlGlobalOpInterface"> {
   let description = [{
   }];
 
   let methods = [
-      InterfaceMethod<"Update the constant value to value attribute.",
-          "void", "updateBuffer", (ins )
-      >,
-      InterfaceMethod<"Get the constant value from value attribute. ",
+      InterfaceMethod<"Get the buffer for the constant value from value attribute. ",
           "::mlir::ArrayRef<char>", "getBuffer", (ins )
       >,
-      InterfaceMethod<"Get the size of the constant value.",
+      InterfaceMethod<"Get the size of the buffer for the constant value.",
           "uint64_t", "getBufferSize", (ins )
       >,
-      InterfaceMethod<"Free the constant value retrieved from value "
+      InterfaceMethod<"Free the buffer for the constant value retrieved from value "
                       "attribute.",
           "void", "freeBuffer", (ins "::mlir::ArrayRef<char>": $buffer)
+      >,
+      InterfaceMethod<"Update the `value` attribute.",
+          "void", "updateValueAttr", (ins )
       >,
       InterfaceMethod<"Get the value from the attribute.",
           "std::optional<Attribute>", "getValue", (ins )

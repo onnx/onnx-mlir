@@ -2,8 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------- ConstantOpInterface.cpp ------------------===//
-//===------------- Constant Op Interface Definition -------------===//
+//===-------------------- KrnlGlobalOpInterface.cpp -----------------------===//
+//===---------------- KrnlGlobalOp Interface Definition -------------------===//
 //
 // Copyright 2024 The IBM Research Authors.
 //
@@ -13,12 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ConstantOpInterface.hpp"
+#include "KrnlGlobalOpInterface.hpp"
 
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
-// Constant Op Interface
+// KrnlGlobal Op Interface
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/ConstantOpInterface.cpp.inc"
+#include "src/Interface/KrnlGlobalOpInterface.cpp.inc"

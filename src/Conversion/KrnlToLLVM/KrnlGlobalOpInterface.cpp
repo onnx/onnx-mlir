@@ -2,13 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------- ConstantOpInterface.cpp - Lower ConstantOpInterface---------===//
+//===------- KrnlGlobalOpInterface.cpp - Lower
+//KrnlGlobalOpInterface--------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the ConstantOpInterface.
+// This file lowers the KrnlGlobalOpInterface.
 //
 //===----------------------------------------------------------------------===//
 
@@ -35,18 +36,18 @@ namespace krnl {
 /// This variable is initizalied inside ConvertKrnlToLLVMPass.
 extern std::string EXTERNAL_CONSTANT_PREFIX;
 
-class ConstantOpInterfaceLowering
-    : public OpInterfaceConversionPattern<ConstantOpInterface> {
+class KrnlGlobalOpInterfaceLowering
+    : public OpInterfaceConversionPattern<KrnlGlobalOpInterface> {
 
 public:
   using OpInterfaceConversionPattern<
-      ConstantOpInterface>::OpInterfaceConversionPattern;
+      KrnlGlobalOpInterface>::OpInterfaceConversionPattern;
 
-  explicit ConstantOpInterfaceLowering(
+  explicit KrnlGlobalOpInterfaceLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
       : OpInterfaceConversionPattern(typeConverter, context) {}
 
-  LogicalResult matchAndRewrite(ConstantOpInterface op,
+  LogicalResult matchAndRewrite(KrnlGlobalOpInterface op,
       ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
@@ -81,7 +82,7 @@ public:
     // Pointer to the raw data of the global.
     Value dataPtr;
     // Update value attribute if needed.
-    op.updateBuffer();
+    op.updateValueAttr();
 
     if (op.getValue().has_value()) {
       auto value = op.getValue().value();
@@ -122,31 +123,31 @@ private:
   }
 
   LLVM::GlobalOp lowerDenseResourceConstant(
-      ConstantOpInterface &constOpInterface, Type globalType,
+      KrnlGlobalOpInterface &globalOpInterface, Type globalType,
       ConversionPatternRewriter &rewriter) const {
-    assert(constOpInterface.getValue().has_value() &&
-           "Expecting ConstantOpInterface with a valid value");
+    assert(globalOpInterface.getValue().has_value() &&
+           "Expecting KrnlGlobalOpInterface with a valid value");
     assert(mlir::isa<DenseResourceElementsAttr>(
-               constOpInterface.getValue().value()) &&
+               globalOpInterface.getValue().value()) &&
            "Expecting a global with an dense resource elements attribute");
 
-    MLIRContext *context = constOpInterface.getContext();
-    Location loc = constOpInterface.getLoc();
-    ModuleOp module = constOpInterface->getParentOfType<ModuleOp>();
+    MLIRContext *context = globalOpInterface.getContext();
+    Location loc = globalOpInterface.getLoc();
+    ModuleOp module = globalOpInterface->getParentOfType<ModuleOp>();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
     auto blob = mlir::cast<DenseResourceElementsAttr>(
-        constOpInterface.getValue().value())
+        globalOpInterface.getValue().value())
                     .getRawHandle()
                     .getBlob();
     assert(blob && "Expecting dense resource with a valid blob");
     ArrayRef<char> rawData = blob->getData();
 
     // Check data size.
-    uint64_t sizeInBytes = computeSizeInBytes(constOpInterface);
+    uint64_t sizeInBytes = computeSizeInBytes(globalOpInterface);
     assert(((uint64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
     StringRef data(rawData.data(), rawData.size());
@@ -155,22 +156,22 @@ private:
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
     LLVM::GlobalOp global = create.llvm.globalOp(llvmArrayI8Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        constOpInterface.getName(), llvmStringAttr);
+        globalOpInterface.getName(), llvmStringAttr);
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
     return global;
   }
 
-  LLVM::GlobalOp lowerDenseConstant(ConstantOpInterface &constOpInterface,
+  LLVM::GlobalOp lowerDenseConstant(KrnlGlobalOpInterface &globalOpInterface,
       Type globalType, ConversionPatternRewriter &rewriter) const {
-    assert(constOpInterface.getValue().has_value() &&
-           "Expecting ConstantOpInterface with a valid value");
-    assert(mlir::isa<DenseElementsAttr>(constOpInterface.getValue().value()) &&
+    assert(globalOpInterface.getValue().has_value() &&
+           "Expecting KrnlGlobalOpInterface with a valid value");
+    assert(mlir::isa<DenseElementsAttr>(globalOpInterface.getValue().value()) &&
            "Expecting a global with an dense elements attribute");
 
-    Location loc = constOpInterface.getLoc();
-    ModuleOp module = constOpInterface->getParentOfType<ModuleOp>();
-    MLIRContext *context = constOpInterface.getContext();
+    Location loc = globalOpInterface.getLoc();
+    ModuleOp module = globalOpInterface->getParentOfType<ModuleOp>();
+    MLIRContext *context = globalOpInterface.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Type llvmI8Ty = IntegerType::get(context, 8);
@@ -179,9 +180,9 @@ private:
     rewriter.setInsertionPointToStart(module.getBody());
 
     DenseElementsAttr denseAttr =
-        mlir::cast<DenseElementsAttr>(constOpInterface.getValue().value());
+        mlir::cast<DenseElementsAttr>(globalOpInterface.getValue().value());
 
-    uint64_t sizeInBytes = computeSizeInBytes(constOpInterface);
+    uint64_t sizeInBytes = computeSizeInBytes(globalOpInterface);
     LLVM::GlobalOp global;
     if (!(mlir::isa<StringType>(denseAttr.getElementType())) &&
         !(denseAttr.getElementType().isInteger(1)) && (!denseAttr.isSplat()) &&
@@ -196,14 +197,14 @@ private:
       StringAttr llvmStringAttr = StringAttr::get(context, data);
       global = create.llvm.globalOp(llvmArrayI8Ty,
           /*isConstant=*/true, LLVM::Linkage::Internal,
-          constOpInterface.getName(), llvmStringAttr);
+          globalOpInterface.getName(), llvmStringAttr);
     } else {
       if (mlir::isa<StringType>(denseAttr.getElementType()))
-        global = lowerStringLiteral(constOpInterface, globalType, rewriter);
+        global = lowerStringLiteral(globalOpInterface, globalType, rewriter);
       else
         global = create.llvm.globalOp(globalType,
             /*isConstant=*/true, LLVM::Linkage::Internal,
-            constOpInterface.getName(), constOpInterface.getValue().value());
+            globalOpInterface.getName(), globalOpInterface.getValue().value());
     }
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
@@ -211,23 +212,24 @@ private:
   }
 
   LLVM::GlobalOp lowerGlobalOpWithExternalFiles(
-      ConstantOpInterface &constOpInterface,
+      KrnlGlobalOpInterface &globalOpInterface,
       ConversionPatternRewriter &rewriter) const {
-    Location loc = constOpInterface.getLoc();
-    MLIRContext *context = constOpInterface.getContext();
+    Location loc = globalOpInterface.getLoc();
+    MLIRContext *context = globalOpInterface.getContext();
     ModuleOp module =
-        constOpInterface.getOperation()->getParentOfType<ModuleOp>();
+        globalOpInterface.getOperation()->getParentOfType<ModuleOp>();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Type llvmI8Ty = IntegerType::get(context, 8);
     Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
     Type llvmI64Ty = IntegerType::get(context, 64);
 
-    auto offset = constOpInterface.getOffset();
-    assert(offset.has_value() && "Missing offset value in ConstantOpInterface");
+    auto offset = globalOpInterface.getOffset();
+    assert(
+        offset.has_value() && "Missing offset value in KrnlGlobalOpInterface");
 
     // Data is store in `constants.bin` at offset.
-    std::string constantName = constOpInterface.getName().str();
+    std::string constantName = globalOpInterface.getName().str();
 
     // Emit globals at the begining of the module.
     OpBuilder::InsertionGuard insertGuard(rewriter);
@@ -255,14 +257,14 @@ private:
     return global;
   }
 
-  uint64_t computeSizeInBytes(ConstantOpInterface &constOpInterface) const {
+  uint64_t computeSizeInBytes(KrnlGlobalOpInterface &globalOpInterface) const {
     // Compute total number of elements.
-    const auto shape = mlir::dyn_cast<ArrayAttr>(constOpInterface.getShape());
+    const auto shape = mlir::dyn_cast<ArrayAttr>(globalOpInterface.getShape());
     uint64_t numElements = 1;
     for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
 
-    const auto type = constOpInterface.getResult().getType();
+    const auto type = globalOpInterface.getResult().getType();
     const auto memRefTy = mlir::cast<mlir::MemRefType>(type);
 
     // Special handling for bool.
@@ -291,18 +293,18 @@ private:
         builder, loc, *llvmTypeConverter, memRefType, bitCastOp);
   }
 
-  // Generate a global string for each constOpInterface string value, and store
+  // Generate a global string for each globalOpInterface string value, and store
   // the address of the global strings into an array. Return the array address.
-  LLVM::GlobalOp lowerStringLiteral(ConstantOpInterface &constOpInterface,
+  LLVM::GlobalOp lowerStringLiteral(KrnlGlobalOpInterface &globalOpInterface,
       Type globalType, OpBuilder &builder) const {
-    assert(mlir::isa<DenseElementsAttr>(constOpInterface.getValue().value()) &&
+    assert(mlir::isa<DenseElementsAttr>(globalOpInterface.getValue().value()) &&
            "Expecting a dense value");
 
-    Location loc = constOpInterface.getLoc();
+    Location loc = globalOpInterface.getLoc();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     DenseElementsAttr denseAttr =
-        mlir::cast<DenseElementsAttr>(constOpInterface.getValue().value());
+        mlir::cast<DenseElementsAttr>(globalOpInterface.getValue().value());
 
     Type i8PtrType = getI8PointerType(builder.getContext());
 
@@ -332,14 +334,14 @@ private:
     auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(i8Type, totalSize);
     LLVM::GlobalOp globalStr = create.llvm.globalOp(llvmArrayI8Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        "om.strArray." + constOpInterface.getName().str(), llvmStringAttr);
+        "om.strArray." + globalOpInterface.getName().str(), llvmStringAttr);
 
     // Generate an LLVM GlobalOps with an initializer region containing one
     // block.
     auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, offsets.size());
     auto global = create.llvm.globalOp(arrayType,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        constOpInterface.getName(), Attribute());
+        globalOpInterface.getName(), Attribute());
     Region &region = global.getInitializerRegion();
     Block *block = builder.createBlock(&region);
 
@@ -365,10 +367,10 @@ private:
   }
 };
 
-void populateLoweringConstantOpInterfacePattern(
+void populateLoweringKrnlGlobalOpInterfacePattern(
     LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
     MLIRContext *ctx) {
-  patterns.insert<ConstantOpInterfaceLowering>(typeConverter, ctx);
+  patterns.insert<KrnlGlobalOpInterfaceLowering>(typeConverter, ctx);
 }
 
 } // namespace krnl

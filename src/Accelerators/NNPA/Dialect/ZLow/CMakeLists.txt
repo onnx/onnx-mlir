@@ -11,7 +11,7 @@ add_onnx_mlir_library(OMZLowOps
   DEPENDS
   OMZLowIncGen
   OMONNXZLowCombineIncGen
-  OMConstantOpInterface
+  OMKrnlGlobalOpInterface
 
   LINK_LIBS PUBLIC
   MLIRIR

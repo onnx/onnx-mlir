@@ -475,8 +475,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Check constants with thresholds.
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
-  SmallVector<ConstantOpInterface> globalOfInterest;
-  module.walk([&](ConstantOpInterface op) {
+  SmallVector<KrnlGlobalOpInterface> globalOfInterest;
+  module.walk([&](KrnlGlobalOpInterface op) {
     // Ignore constants that are return values.
     bool isReturnedValue = false;
     for (Operation *user : op.getResult().getUsers()) {
@@ -519,7 +519,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Sort constants in the non-descending order of alignment values.
   // Non-alignment is the smallest value (-1), the others are positive.
   llvm::sort(globalOfInterest,
-      [&](ConstantOpInterface left, ConstantOpInterface right) {
+      [&](KrnlGlobalOpInterface left, KrnlGlobalOpInterface right) {
         int64_t leftAlign = -1;
         int64_t rightAlign = -1;
         if (left.getAlignment().has_value())
@@ -537,7 +537,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
   uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
-    ConstantOpInterface op = globalOfInterest[i];
+    KrnlGlobalOpInterface op = globalOfInterest[i];
     ArrayRef<char> rawData = op.getBuffer();
 
     // Get alignment.
@@ -972,7 +972,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringConstantOpInterfacePattern(
+  krnl::populateLoweringKrnlGlobalOpInterfacePattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);

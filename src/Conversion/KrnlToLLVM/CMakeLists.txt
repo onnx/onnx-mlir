@@ -2,7 +2,7 @@
 
 add_onnx_mlir_library(OMKrnlToLLVM
   ConvertKrnlToLLVM.cpp
-  ConstantOpInterface.cpp
+  KrnlGlobalOpInterface.cpp
   KrnlFindIndex.cpp
   KrnlCall.cpp
   KrnlEntryPoint.cpp
@@ -22,7 +22,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
 
   LINK_LIBS PUBLIC
   OMAccelerator
-  OMConstantOpInterface
+  OMKrnlGlobalOpInterface
   OMSupport
   MLIRAffineToStandard
   MLIRArithTransforms

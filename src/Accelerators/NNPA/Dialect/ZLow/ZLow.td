@@ -44,7 +44,7 @@ def ZMemRef : MemRefOf<[DLF16]>;
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "src/Interface/ConstantOpInterface.td"
+include "src/Interface/KrnlGlobalOpInterface.td"
 
 def ZLowAddOp:ZLow_Op<"add", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
@@ -549,7 +549,7 @@ def ZLowConvertF32ToDLF16VectorOp:ZLow_Op<"vec_f32_to_dlf16", [Pure]> {
 }
 
 def ZLowStickifiedConstantOp:ZLow_Op<"stickifiedConstant", [MemRefsNormalizable,
-    DeclareOpInterfaceMethods<ConstantOpInterface>]> {
+    DeclareOpInterfaceMethods<KrnlGlobalOpInterface>]> {
   let summary = "ZLow Stickified Constant operation.";
   let description = [{
 
