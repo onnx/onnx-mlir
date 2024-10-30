@@ -43,8 +43,8 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
   // Create a ZHighStickifiedConstantOp.
   ZHighStickifiedConstantOp stickifiedConstant =
       rewriter.create<ZHighStickifiedConstantOp>(loc, outputType,
-          /*value=*/nullptr,
           /*stickified=*/rewriter.getBoolAttr(true),
+          /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
   // Use an dense resource attribute to store stickified data.
@@ -74,8 +74,8 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
 
   ZHighStickifiedConstantOp constantOp =
       rewriter.create<ZHighStickifiedConstantOp>(loc, replacingValue.getType(),
-          /*value=*/dataAttr,
           /*stickified=*/rewriter.getBoolAttr(false),
+          /*value=*/dataAttr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
   return constantOp;

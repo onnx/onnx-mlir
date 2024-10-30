@@ -868,8 +868,8 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
     the stickified data must make sure its size in bytes consistent with
     the output tensor's size.
   }];
-  let arguments = (ins OptionalAttr<AnyAttr>:$value,
-                       OptionalAttr<BoolAttr>:$stickified,
+  let arguments = (ins BoolAttr:$stickified,
+                       OptionalAttr<AnyAttr>:$value,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
 }

@@ -372,10 +372,10 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   MLIRContext *context = getOperation()->getContext();
   PatternRewriter rewriter(context);
   ArrayRef<char> ret;
-  if (getValueAttr() && getStickifiedAttr()) {
+  if (getValueAttr()) {
     StringAttr layout = getLayoutAttr();
     auto dataAttr = getValue().value();
-    if (!getStickified().value()) {
+    if (!getStickified()) {
       // The case which the data in value attribute is still not stickified.
       DenseElementsAttr denseAttr = mlir::cast<DenseElementsAttr>(dataAttr);
       ArrayRef<int64_t> shape = denseAttr.getType().getShape();
@@ -445,8 +445,8 @@ void ZLowStickifiedConstantOp::updateValueAttr() {
   PatternRewriter rewriter(context);
   // Set buffer when the value attribute is still not stickified or is splat
   // with dense element attribute.
-  if (getValueAttr() && getStickifiedAttr()) {
-    bool isStickified = getStickified().value();
+  if (getValueAttr()) {
+    bool isStickified = getStickified();
     bool isSplat = false;
     if (auto denseAttr = mlir::dyn_cast<DenseElementsAttr>(getValue().value()))
       isSplat = denseAttr.isSplat();

@@ -193,8 +193,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     FloatAttr floatZero = rewriter.getFloatAttr(resType.getElementType(), 0.0);
     ZHighStickifiedConstantOp stickifiedConstant = rewriter.create<
         ZHighStickifiedConstantOp>(loc, resType,
-        /*value=*/SplatElementsAttr::get(cast<ShapedType>(resType), floatZero),
         /*stickified=*/rewriter.getBoolAttr(true),
+        /*value=*/SplatElementsAttr::get(cast<ShapedType>(resType), floatZero),
         /*alignment=*/rewriter.getI64IntegerAttr(4096));
     res = stickifiedConstant.getResult();
   } else {
@@ -708,10 +708,10 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             /*name=*/
             rewriter.getStringAttr(
                 "constant_stickify_" + std::to_string(constantID)),
+            /*stickified=*/zhighStickifiedConstOp.getStickifiedAttr(),
             /*value=*/zhighStickifiedConstOp.getValueAttr(),
             /*layout=*/layout,
             /*offset=*/rewriter.getI64IntegerAttr(0),
-            /*stickified=*/zhighStickifiedConstOp.getStickifiedAttr(),
             /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
 
     // Increment constant ID:
