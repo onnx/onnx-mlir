@@ -74,6 +74,9 @@ void omMMapBinaryFile(
   memcpy(tPath, fname, tLen);
   __a2e_s(tPath);
   fname = tPath;
+  fname[tLen] = '\0';
+
+
 #endif
 
   if (constAddr == NULL) {
@@ -168,6 +171,7 @@ void omGetExternalConstantAddr(
     return;
 
   outputAddr[0] = (char *)baseAddr[0] + offset;
+
 }
 
 #endif
