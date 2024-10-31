@@ -768,23 +768,33 @@ class InferenceSession:
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
 
-            # Save the generated .so and .constants.bin files of the model if required.
+            # Save the following information:
+            # - .so file,
+            # - .constants.bin file, and
+            # - compilation.log containing the compilation output.
             if args.save_model:
                 if not os.path.exists(args.save_model):
                     os.makedirs(args.save_model)
                 if not os.path.isdir(args.save_model):
                     print("Path to --save-model is not a folder")
                     exit(0)
+                # .so file.
                 shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
                 if os.path.exists(shared_lib_path):
                     print("Saving the shared library to", args.save_model)
                     shutil.copy2(shared_lib_path, args.save_model)
+                # .constants.bin file.
                 constants_file_path = os.path.join(
                     self.model_dir, f"{self.default_model_name}.constants.bin"
                 )
                 if os.path.exists(constants_file_path):
-                    print("Saving the constants file to ", args.save_model, "\n")
+                    print("Saving the constants file to", args.save_model, "\n")
                     shutil.copy2(constants_file_path, args.save_model)
+                # Compilation log.
+                log_file_path = os.path.join(args.save_model, "compile.log")
+                with open(log_file_path, "w") as f:
+                    print("Saving the compilation log to", args.save_model, "\n")
+                    f.write(msg)
 
             # Exit if only compiling the model.
             if args.compile_only:
