@@ -71,13 +71,40 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
   DenseElementsAttr dataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
       op->getAttrOfType<::mlir::Attribute>("value"));
   assert(dataAttr && "Attribute is null");
-
+  // Keep previous implementation about generating stickified data at
+  // ZHighConstPropagationPass. To use this, comment in and set directive "
+  // NNPA_ZHIGH_STICKIFIEDCONST_GEN"
+  //
+  // #ifdef NNPA_ZHIGH_STICKIFIEDCONST_GEN
+  //   // Set stickified data.
+  //   ArrayRef<char> stickifiedData =
+  //       getStickifiedDataOfDenseElemAttr(dataAttr, layout);
+  //   // Create a ZHighStickifiedConstantOp.
+  //   ZHighStickifiedConstantOp constantOp =
+  //       rewriter.create<ZHighStickifiedConstantOp>(loc,
+  //       replacingValue.getType(),
+  //           /*stickified=*/rewriter.getBoolAttr(true),
+  //           /*value=*/nullptr,
+  //           /*alignment=*/rewriter.getI64IntegerAttr(4096));
+  //
+  //   // Use an dense resource attribute to store stickified data.
+  //   // Attribute type: tensor<sizeInBytes x i8>
+  //   DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+  //       RankedTensorType::get({stickifiedData.size()}, rewriter.getI8Type()),
+  //       constantOp.getOperation()
+  //           ->getDialect()
+  //           ->getNamespace(), // use the dialect as the blob "hint"
+  //       HeapAsmResourceBlob::allocateAndCopyWithAlign(
+  //           stickifiedData, alignof(char)));
+  //
+  //   constantOp.setValueAttr(valueAttr);
+  // #else
   ZHighStickifiedConstantOp constantOp =
       rewriter.create<ZHighStickifiedConstantOp>(loc, replacingValue.getType(),
           /*stickified=*/rewriter.getBoolAttr(false),
           /*value=*/dataAttr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
-
+  // #endif //  NNPA_ZHIGH_STICKIFIEDCONST_GEN
   return constantOp;
 }
 

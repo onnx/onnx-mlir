@@ -18,7 +18,6 @@ add_onnx_mlir_library(OMZLowOps
   MLIRMemRefTransforms
   OMMlirDialects
   OMLayoutHelper
-  OMStickify
   OMZHighOps
 
   ACCEL_INCLUDE_DIRS PRIVATE

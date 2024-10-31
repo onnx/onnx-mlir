@@ -92,6 +92,10 @@ mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
 /// MLIR type to zDNN type.
 zdnn_data_types mlirTypeToZDNNType(mlir::Type elementType);
 
+/// Get stickified data from denseElementAttribute
+mlir::ArrayRef<char> getStickifiedDataOfDenseElemAttr(
+    mlir::DenseElementsAttr denseAttr, mlir::StringAttr layout);
+
 } // namespace zhigh
 } // namespace onnx_mlir
 #endif

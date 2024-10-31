@@ -12,7 +12,6 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -494,6 +493,42 @@ zdnn_data_types mlirTypeToZDNNType(Type elementType) {
       llvm_unreachable("Unsupported data type.");
   } else
     llvm_unreachable("Unsupported data type.");
+}
+
+/// Get stickified data from denseElementAttribute
+ArrayRef<char> getStickifiedDataOfDenseElemAttr(
+    DenseElementsAttr denseAttr, StringAttr layout) {
+  ArrayRef<int64_t> shape = denseAttr.getType().getShape();
+  Type elementType = denseAttr.getType().getElementType();
+  int rank = shape.size();
+  // Read attributes's raw data.
+  std::vector<char> attrData;
+  getRawData(denseAttr, attrData);
+  // Call stickify.
+  zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
+  // pre-transformed desc.
+  zdnn_data_layouts zDNNLayout =
+      convertLayoutAttrToZDNNDataLayout(rank, layout);
+  // If zDNNLayout is NHWC, we stickify directly from NCHW.
+  if (zDNNLayout == ZDNN_NHWC)
+    zDNNLayout = ZDNN_NCHW;
+  zdnn_data_types zDNNType = onnx_mlir::zhigh::mlirTypeToZDNNType(elementType);
+  set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
+  // transformed desc.
+  zdnn_status status = generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
+  assert(status == ZDNN_OK);
+  // Stick data using the software stickify.
+  zdnn_ztensor ztensor;
+  init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
+  status = allochelper_ztensor_alloc(&ztensor);
+  assert(status == ZDNN_OK);
+  status = stickify(&ztensor, attrData.data());
+  assert(status == ZDNN_OK);
+  int64_t sizeInBytes = ztensor.buffer_size;
+  char *rawData = (char *)malloc(sizeInBytes);
+  memcpy(rawData, ztensor.buffer, sizeInBytes);
+  allochelper_ztensor_free(&ztensor);
+  return llvm::ArrayRef(rawData, sizeInBytes);
 }
 
 } // namespace zhigh

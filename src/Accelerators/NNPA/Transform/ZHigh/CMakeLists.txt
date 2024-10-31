@@ -12,7 +12,6 @@ add_onnx_mlir_library(OMZHighConstPropagation
   MLIRRewrite
   MLIRTransformUtils
   OMLayoutHelper
-  OMStickify
   OMZHighOps
   OMONNXOps
 
