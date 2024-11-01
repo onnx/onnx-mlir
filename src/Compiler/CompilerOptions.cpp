@@ -283,8 +283,9 @@ static llvm::cl::opt<bool, true> printIROpt("printIR",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> emitElidedIROnlyOpt("emitElidedIROnly",
-    llvm::cl::desc("Emit only elided IR (.tmp) by emit IR options such as "
-                   "--EmitONNXBasic."),
+    llvm::cl::desc(
+        "Emit only IR without constants (<name>.tmp file). Need to use with "
+        "emitting IR options such as --EmitONNXIR and --EmitMLIR."),
     llvm::cl::location(emitElidedIROnly), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
