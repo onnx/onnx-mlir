@@ -97,6 +97,7 @@ extern bool printIR;                                          // onnx-mlir only
 extern bool preserveBitcode;                                  // onnx-mlir only
 extern bool preserveLLVMIR;                                   // onnx-mlir only
 extern bool preserveMLIR;                                     // onnx-mlir only
+extern bool emitElidedIROnly;                                 // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only

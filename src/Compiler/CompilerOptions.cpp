@@ -49,6 +49,7 @@ EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
+bool emitElidedIROnly;                                 // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
 bool preserveMLIR;                                     // onnx-mlir only
@@ -280,6 +281,12 @@ static llvm::cl::opt<bool, true> preserveLocationsOpt("preserveLocations",
 static llvm::cl::opt<bool, true> printIROpt("printIR",
     llvm::cl::desc("Print the IR to stdout:."), llvm::cl::location(printIR),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> emitElidedIROnlyOpt("emitElidedIROnly",
+    llvm::cl::desc("Emit only elided IR (.tmp) by emit IR options such as "
+                   "--EmitONNXBasic."),
+    llvm::cl::location(emitElidedIROnly), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> preserveBitcodeOpt("preserveBitcode",
     llvm::cl::desc("Preserve the bitcode files (optimized and unoptimized)."),
