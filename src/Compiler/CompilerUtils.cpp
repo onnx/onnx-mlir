@@ -60,9 +60,8 @@ mlir::TimingScope rootTimingScope;
 namespace onnx_mlir {
 
 // Values to report the current phase of compilation.
-// Increase TOTAL_COMPILE_PHASE when having more phases.
 uint64_t CURRENT_COMPILE_PHASE = 1;
-uint64_t TOTAL_COMPILE_PHASE = 6;
+uint64_t TOTAL_COMPILE_PHASE = 0;
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -977,11 +976,15 @@ static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     EmissionTargetType emissionTarget) {
+  // When a C++ program calls this function directly without using onnx-mlir
+  // driver, there is no importing phase (e.g. the model is .mlir, not .onnx).
+  // Thus, decrease the total number of phases.
+  if (CURRENT_COMPILE_PHASE == 1) {
+    SET_TOTAL_COMPILE_PHASE(emissionTarget);
+    TOTAL_COMPILE_PHASE--;
+  }
+
   std::string msg = "Compiling and Optimizing MLIR Module";
-  // There is no importing phase (e.g. the model is .mlir, not .onnx), adjust to
-  // correctly reflect the current phase.
-  if (CURRENT_COMPILE_PHASE == 1)
-    CURRENT_COMPILE_PHASE++;
   showCompilePhase(msg);
   auto compileModuleTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
 
