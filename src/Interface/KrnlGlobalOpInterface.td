@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef CONSTANT_OP_INTERFACE
+#ifdef KRNLGLOBAL_OP_INTERFACE
 #else
-#define CONSTANT_OP_INTERFACE
+#define KRNLGLOBAL_OP_INTERFACE
 
 include "mlir/IR/OpBase.td"
 
@@ -74,7 +74,7 @@ def KrnlGlobalOpInterface : OpInterface<"KrnlGlobalOpInterface"> {
           "std::optional<uint64_t>", "getOffset", (ins )
       >
   ];
-  
+
   let extraClassDeclaration = [{
     /// Return the single result of this op.
     ::mlir::Value getResult() {
@@ -85,4 +85,4 @@ def KrnlGlobalOpInterface : OpInterface<"KrnlGlobalOpInterface"> {
   let cppNamespace = "::mlir";
 }
 
-#endif // SPECIALIZED_KERNEL_OP_INTERFACE
+#endif // KRNLGLOBAL_OP_INTERFACE

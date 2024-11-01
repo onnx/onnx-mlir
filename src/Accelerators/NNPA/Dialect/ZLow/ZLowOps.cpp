@@ -366,7 +366,7 @@ void ZLowBatchNormOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-/// Create a buffer and set data fron value attribute. Stickified data is
+/// Create a buffer for constant. Stickified data is
 /// created and set if `stickified` attribute is false.
 ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
   MLIRContext *context = getOperation()->getContext();
@@ -377,10 +377,12 @@ ArrayRef<char> ZLowStickifiedConstantOp::getBuffer() {
     auto dataAttr = getValue().value();
     if (!getStickified()) {
       // The case which the data in value attribute is still not stickified.
+      // Get the buffer after stickification.
       DenseElementsAttr denseAttr = mlir::cast<DenseElementsAttr>(dataAttr);
       ret =
           onnx_mlir::zhigh::getStickifiedDataOfDenseElemAttr(denseAttr, layout);
     } else {
+      // Get the buffer from `value` attribute.
       int64_t sizeInBytes = getBufferSize();
       char *rawData = (char *)malloc(sizeInBytes);
       std::vector<char> attrData;
