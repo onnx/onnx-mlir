@@ -64,17 +64,13 @@ void omMMapBinaryFile(
   char *fname = filename;
 #ifdef __MVS__
   // Convert the file name to EBCDIC for the open call.
-  char *tPath;
-  size_t tLen = strlen(fname);
-  tPath = (char *)malloc(tLen);
+  char *tPath = strdup(fname);
   if (!tPath) {
-    fprintf(stderr, "Error while malloc");
+    fprintf(stderr, "Error while strdup");
     return;
   }
-  memcpy(tPath, fname, tLen);
   __a2e_s(tPath);
   fname = tPath;
-  fname[tLen] = '\0';
 #endif
 
   if (constAddr == NULL) {
