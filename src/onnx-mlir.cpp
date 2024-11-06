@@ -79,6 +79,8 @@ int main(int argc, char *argv[]) {
   // may better determine which compilation we are dealing with.
   std::filesystem::path p(inputFilename);
   std::string modelShortName = p.filename();
+  // Configure compile phase information.
+  SET_TOTAL_COMPILE_PHASE(emissionTarget);
   std::string msg =
       "Importing ONNX Model to MLIR Module from \"" + modelShortName + "\"";
   showCompilePhase(msg);
