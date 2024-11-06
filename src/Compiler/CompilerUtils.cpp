@@ -835,7 +835,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     // Emit the version with all constants included.
     std::string outputNameWithExt =
         getTargetFilename(outputNameNoExt, emissionTarget);
-    if (!emitElidedIROnly) {
+    if (!doNotEmitFullMLIRCode) {
       int rc = outputCode(module, outputNameWithExt);
       if (VerboseOutput)
         llvm::outs() << "Full MLIR code written to:\n"
