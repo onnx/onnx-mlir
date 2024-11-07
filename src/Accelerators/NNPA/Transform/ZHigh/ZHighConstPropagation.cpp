@@ -21,9 +21,11 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -34,33 +36,6 @@ using namespace onnx_mlir::zhigh;
 namespace onnx_mlir {
 namespace zhigh {
 
-/// Get raw data from a dense attribute.
-static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
-  if (!denseAttr.isSplat()) {
-    data = denseAttr.getRawData();
-  } else {
-    ShapedType denseShapeType = mlir::cast<ShapedType>(denseAttr.getType());
-    std::vector<char> rawData = denseAttr.getRawData();
-    int64_t numElements = denseShapeType.getNumElements();
-    for (int i = 0; i < numElements; i++)
-      data.insert(data.end(), rawData.begin(), rawData.end());
-  }
-}
-
-/// MLIR type to zDNN type.
-zdnn_data_types mlirTypeToZDNNType(Type elementType) {
-  if (mlir::isa<FloatType>(elementType)) {
-    FloatType floatTy = mlir::cast<FloatType>(elementType);
-    if (floatTy.getWidth() == 16) {
-      return FP16;
-    } else if (floatTy.getWidth() == 32) {
-      return FP32;
-    } else
-      llvm_unreachable("Unsupported data type.");
-  } else
-    llvm_unreachable("Unsupported data type.");
-}
-
 /// Emit a ZHighStikifiedConstant using information from a stickified ztensor.
 ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
     Location loc, zdnn_ztensor *ztensor, Type outputType) {
@@ -68,6 +43,7 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
   // Create a ZHighStickifiedConstantOp.
   ZHighStickifiedConstantOp stickifiedConstant =
       rewriter.create<ZHighStickifiedConstantOp>(loc, outputType,
+          /*stickified=*/rewriter.getBoolAttr(true),
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
@@ -91,44 +67,44 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
     Value replacingValue, Value input, StringAttr layout) {
   Location loc = replacingValue.getLoc();
   Operation *op = input.getDefiningOp();
-  ArrayRef<int64_t> shape = mlir::cast<ShapedType>(input.getType()).getShape();
-  Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
-  int rank = shape.size();
-
   // Read dense attributes.
   DenseElementsAttr dataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
       op->getAttrOfType<::mlir::Attribute>("value"));
   assert(dataAttr && "Attribute is null");
-  // Read attributes's raw data.
-  std::vector<char> rawData;
-  getRawData(dataAttr, rawData);
-  // assert((rawData.size() == (uint64_t)getMemRefSizeInBytes(input)) &&
-  //        "Data size mismatched");
-
-  // Call stickify.
-  zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
-  // pre-transformed desc.
-  zdnn_data_layouts zDNNLayout =
-      convertLayoutAttrToZDNNDataLayout(rank, layout);
-  // If zDNNLayout is NHWC, we stickify directly from NCHW.
-  if (zDNNLayout == ZDNN_NHWC)
-    zDNNLayout = ZDNN_NCHW;
-  zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
-  set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
-  // transformed desc.
-  zdnn_status status = generate_transformed_desc(&pre_tfrmd_desc, &tfrmd_desc);
-  assert(status == ZDNN_OK);
-  // Stick data using the software stickify.
-  zdnn_ztensor ztensor;
-  init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
-  status = allochelper_ztensor_alloc(&ztensor);
-  assert(status == ZDNN_OK);
-  status = stickify(&ztensor, rawData.data());
-  assert(status == ZDNN_OK);
-  // Emit a constant global in ZHigh dialect.
-  ZHighStickifiedConstantOp constantOp = emitZHighStickifiedConstant(
-      rewriter, loc, &ztensor, replacingValue.getType());
-
+  // Keep previous implementation about generating stickified data at
+  // ZHighConstPropagationPass. To use this, comment in and set directive "
+  // NNPA_ZHIGH_STICKIFIEDCONST_GEN"
+  //
+  // #ifdef NNPA_ZHIGH_STICKIFIEDCONST_GEN
+  //   // Set stickified data.
+  //   ArrayRef<char> stickifiedData =
+  //       getStickifiedDataOfDenseElemAttr(dataAttr, layout);
+  //   // Create a ZHighStickifiedConstantOp.
+  //   ZHighStickifiedConstantOp constantOp =
+  //       rewriter.create<ZHighStickifiedConstantOp>(loc,
+  //       replacingValue.getType(),
+  //           /*stickified=*/rewriter.getBoolAttr(true),
+  //           /*value=*/nullptr,
+  //           /*alignment=*/rewriter.getI64IntegerAttr(4096));
+  //
+  //   // Use an dense resource attribute to store stickified data.
+  //   // Attribute type: tensor<sizeInBytes x i8>
+  //   DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+  //       RankedTensorType::get({stickifiedData.size()}, rewriter.getI8Type()),
+  //       constantOp.getOperation()
+  //           ->getDialect()
+  //           ->getNamespace(), // use the dialect as the blob "hint"
+  //       HeapAsmResourceBlob::allocateAndCopyWithAlign(
+  //           stickifiedData, alignof(char)));
+  //
+  //   constantOp.setValueAttr(valueAttr);
+  // #else
+  ZHighStickifiedConstantOp constantOp =
+      rewriter.create<ZHighStickifiedConstantOp>(loc, replacingValue.getType(),
+          /*stickified=*/rewriter.getBoolAttr(false),
+          /*value=*/dataAttr,
+          /*alignment=*/rewriter.getI64IntegerAttr(4096));
+  // #endif //  NNPA_ZHIGH_STICKIFIEDCONST_GEN
   return constantOp;
 }
 

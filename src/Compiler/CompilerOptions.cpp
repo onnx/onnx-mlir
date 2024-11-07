@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
-// Copyright 2022, 2023 The IBM Research Authors.
+// Copyright 2022, 2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -49,6 +49,7 @@ EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
+bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
 bool preserveMLIR;                                     // onnx-mlir only
@@ -280,6 +281,16 @@ static llvm::cl::opt<bool, true> preserveLocationsOpt("preserveLocations",
 static llvm::cl::opt<bool, true> printIROpt("printIR",
     llvm::cl::desc("Print the IR to stdout:."), llvm::cl::location(printIR),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
+    "do-not-emit-full-mlir-code",
+    llvm::cl::desc(
+        "Do not emit the MLIR the constant values are embeded "
+        "(<name>onnx.mlir). Emit only the MLIR without the constants "
+        "(<name>.tmp). Need to be used with emitting MLIR options such as "
+        "--EmitONNXIR and --EmitMLIR."),
+    llvm::cl::location(doNotEmitFullMLIRCode), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> preserveBitcodeOpt("preserveBitcode",
     llvm::cl::desc("Preserve the bitcode files (optimized and unoptimized)."),
