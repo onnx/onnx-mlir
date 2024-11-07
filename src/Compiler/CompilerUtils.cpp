@@ -454,6 +454,9 @@ static int genLLVMBitcode(mlir::OwningOpRef<ModuleOp> &module,
   moduleBitcodeStream.flush();
 
   // Free memory before using LLVM `opt` command
+  // TODO: It might be unexpected that the module is released in this function.
+  //       it is better to restructure functions so that the module is
+  //       automatically released.
   llvmModule.reset();
   module.release();
   context.~MLIRContext();
