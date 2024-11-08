@@ -161,6 +161,7 @@ lib_group.add_argument(
 )
 
 parser.add_argument(
+    "-o",
     "--default-model-name",
     metavar="MODEL_NAME",
     type=str,
