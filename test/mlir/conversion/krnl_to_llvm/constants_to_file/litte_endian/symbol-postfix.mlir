@@ -155,6 +155,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantsFromFile_tag_constants_to_file() -> i1 {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_0_19_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_1_10_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0_tag_constants_to_file : !llvm.ptr
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_1_11_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_2_10_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1_tag_constants_to_file : !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_3_10_:%.+]] = llvm.mlir.constant(true) : i1
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_4_9_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
@@ -167,7 +168,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:         ^bb1:  // pred: ^bb0
 // CHECK-CONST-TO-FILE:           llvm.return [[VAR_8_4_]] : i1
 // CHECK-CONST-TO-FILE:         ^bb2:  // pred: ^bb0
-// CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_2_10_]], [[VAR_6_8_]], [[VAR_5_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_2_10_]], [[VAR_6_8_]], [[VAR_1_11_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_1_10_]], [[VAR_6_8_]], [[VAR_0_19_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.return [[VAR_3_10_]] : i1
 // CHECK-CONST-TO-FILE:         }
