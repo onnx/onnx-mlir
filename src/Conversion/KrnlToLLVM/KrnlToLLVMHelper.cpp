@@ -24,6 +24,7 @@
 
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -340,6 +341,49 @@ bool isZOS(ModuleOp module) {
     zOS =
         llvm::Triple(mlir::cast<StringAttr>(mtripleAttr).getValue()).isOSzOS();
   return zOS;
+}
+
+void equalOrFailed(ModuleOp &module, OpBuilder &rewriter, Location loc,
+    Value lhs, Value rhs, std::string errorMsg, bool appendRHS) {
+  MLIRContext *context = rewriter.getContext();
+  MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);
+  create.llvm.ifThenElse(/*cond=*/
+      [&](const LLVMBuilder &createLLVM) {
+        return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
+      }, /*then=*/
+      [&](const LLVMBuilder &createLLVM) {
+        MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+        // Print an error message.
+        if (!errorMsg.empty()) {
+          if (appendRHS)
+            create.krnl.printf(
+                StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
+          else
+            create.krnl.printf(StringRef(errorMsg + "\n"));
+        }
+        // Set errno.
+        emitErrNo(module, rewriter, loc, EINVAL);
+        // Return NULL.
+        create.llvm._return(create.llvm.null(getI8PointerType(context)));
+      });
+}
+
+void equalOrReturn(ModuleOp &module, OpBuilder &rewriter, Location loc,
+    Value lhs, Value rhs, Value retVal, std::string errorMsg) {
+  MLIRContext *context = rewriter.getContext();
+  MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);
+  create.llvm.ifThenElse(/*cond=*/
+      [&](const LLVMBuilder &createLLVM) {
+        return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
+      }, /*then=*/
+      [&](const LLVMBuilder &createLLVM) {
+        MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+        // Print an error message.
+        if (!errorMsg.empty())
+          create.krnl.printf(StringRef(errorMsg + "\n"));
+        // Return retVal.
+        create.llvm._return(retVal);
+      });
 }
 
 } // namespace krnl

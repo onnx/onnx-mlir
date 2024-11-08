@@ -612,15 +612,15 @@ void loadConstantsFromFile(ModuleOp &module,
   OpBuilder b(ctx);
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
+  Type llvmI1Ty = IntegerType::get(ctx, 1);
   Type llvmI8Ty = IntegerType::get(ctx, 8);
   Type llvmI64Ty = IntegerType::get(ctx, 64);
   Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
-  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
 
   // The following function will be emitted inside the IR to load constants from
   // file.
   std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmI1Ty, {}, false);
 
   // If calledByEntryPoint, this function will be called by entry points.
   // Otherwise, user program (C/C++/Java/Python) would call this function.
@@ -629,6 +629,7 @@ void loadConstantsFromFile(ModuleOp &module,
     Operation *firstEntryPointOp =
         getFirstEntryOpInBlock(module, entryGlobalOps);
     assert(firstEntryPointOp && "No entry function exists");
+    OpBuilder::InsertionGuard guard(b);
     b.setInsertionPoint(firstEntryPointOp);
     funcOp = create.llvm.func(
         loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
@@ -646,13 +647,16 @@ void loadConstantsFromFile(ModuleOp &module,
           std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
       auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
       assert(entryFunc && "Entry function not found");
+      OpBuilder::InsertionGuard guard(b);
       b.setInsertionPoint(
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
       FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
           module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
-          llvmVoidTy, {},
+          llvmI1Ty, {},
           /*isVarArg=*/false);
-      create.llvm.call({}, loadAllConstantsRef, {});
+      Value retVal = create.llvm.call({llvmI1Ty}, loadAllConstantsRef, {});
+      equalOrFailed(module, b, loc,
+          create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
     }
   } else {
     OpBuilder::InsertionGuard guard(b);
@@ -697,8 +701,11 @@ void loadConstantsFromFile(ModuleOp &module,
   // Call a function to mmap the binary file to memory.
   Value isleVal = create.llvm.constant(llvmI64Ty, isle);
   Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
-  RuntimeAPI::callApi(b, loc, apiRegistry, RuntimeAPI::API::MMAP_BINARY_FILE,
+  Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
+      RuntimeAPI::API::MMAP_BINARY_FILE,
       {packedGlobalPtr, fnameI8Ptr, sizeVal, isleVal});
+  equalOrReturn(module, b, loc,
+      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal, retVal);
 
   // Now set pointers for constants in the IR
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
@@ -725,11 +732,10 @@ void loadConstantsFromFile(ModuleOp &module,
     RuntimeAPI::callApi(b, loc, apiRegistry,
         RuntimeAPI::API::GET_EXTERNAL_CONSTANT_ADDR,
         {dataPtr, packedGlobalPtr, offsetVal});
-
     return WalkResult::advance();
   });
 
-  create.llvm._return();
+  create.llvm._return(create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)));
 }
 
 //===----------------------------------------------------------------------===//

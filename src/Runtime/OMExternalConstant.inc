@@ -19,6 +19,7 @@ typedef int make_iso_compilers_happy;
 
 #include <errno.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +59,7 @@ void checkEndianness(const char constPackIsLE) {
 ///
 /// This function is thread-safe.
 ///
-void omMMapBinaryFile(
+bool omMMapBinaryFile(
     void **constAddr, char *filename, int64_t size, int64_t isLE) {
   checkEndianness(isLE);
   char *fname = filename;
@@ -67,7 +68,7 @@ void omMMapBinaryFile(
   char *tPath = strdup(fname);
   if (!tPath) {
     fprintf(stderr, "Error while strdup");
-    return;
+    return false;
   }
   __a2e_s(tPath);
   fname = tPath;
@@ -75,7 +76,10 @@ void omMMapBinaryFile(
 
   if (constAddr == NULL) {
     perror("Error: null pointer");
-    return;
+#ifdef __MVS__
+    free(tPath);
+#endif
+    return false;
   }
 
   if (constAddr[0] == NULL) {
@@ -89,7 +93,10 @@ void omMMapBinaryFile(
       filePath = (char *)malloc(filePathLen);
       if (!filePath) {
         fprintf(stderr, "Error while malloc");
-        return;
+#ifdef __MVS__
+        free(tPath);
+#endif
+        return false;
       }
       memcpy(filePath, basePath, baseLen);
       memcpy(filePath + baseLen, DIR_SEPARATOR, sepLen);
@@ -101,7 +108,12 @@ void omMMapBinaryFile(
     int fd = open(filePath, O_RDONLY);
     if (fd < 0) {
       fprintf(stderr, "Error while opening %s\n", filePath);
-      return;
+      if (basePath)
+        free(filePath);
+#ifdef __MVS__
+      free(tPath);
+#endif
+      return false;
     }
 
 #ifdef __MVS__
@@ -113,7 +125,12 @@ void omMMapBinaryFile(
     if (tempAddr == MAP_FAILED) {
       fprintf(stderr, "Error while mmapping %s\n", fname);
       close(fd);
-      return;
+      if (basePath)
+        free(filePath);
+#ifdef __MVS__
+      free(tPath);
+#endif
+      return false;
     }
 
     /* Prepare to compare-and-swap to setup the shared constAddr.
@@ -135,11 +152,22 @@ void omMMapBinaryFile(
     close(fd);
     if (basePath)
       free(filePath);
+#ifdef __MVS__
+    free(tPath);
+#endif
+    /* Make sure constAddr is the same as the mmap address.
+    */
+    if (constAddr[0] != tempAddr) {
+      fprintf(stderr, "Error while updating the buffer address for constants\n");
+      return false;
+    }
+    return true;
   }
 
 #ifdef __MVS__
   free(tPath);
 #endif
+  return true;
 }
 
 /// Return the address of a constant at a given offset.
