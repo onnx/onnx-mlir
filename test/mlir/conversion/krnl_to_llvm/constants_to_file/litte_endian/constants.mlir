@@ -38,7 +38,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
   return %2 : memref<10xi64>
 
 // CHECK:         llvm.func @omGetExternalConstantAddr(!llvm.ptr, !llvm.ptr, i64)
-// CHECK:         llvm.func @omMMapBinaryFile(!llvm.ptr, !llvm.ptr, i64, i64)
+// CHECK:         llvm.func @omMMapBinaryFile(!llvm.ptr, !llvm.ptr, i64, i64) -> i1
 // CHECK:         llvm.mlir.global internal constant @constant_2(dense<[21, 22, 23, 24, 25, 26, 27, 28, 29, 30]> : tensor<10xi64>) {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.array<10 x i64>
 // CHECK:         llvm.mlir.global internal @om_external_constant_data_constant_1() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
 // CHECK:           [[VAR_0_4_:%.+]] = llvm.mlir.zero : !llvm.ptr
@@ -58,23 +58,38 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:           llvm.return [[VAR_0_6_]] : !llvm.ptr
 // CHECK:         }
 
-// CHECK:         llvm.func @omLoadConstantsFromFile() {
+// CHECK:         llvm.func @omLoadConstantsFromFile() -> i1 {
 // CHECK-DAG:       [[VAR_0_9_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
 // CHECK-DAG:       [[VAR_1_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr
-// CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.constant(0 : i64) : i64
-// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr
+// CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr
+// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.constant(true) : i1
 // CHECK-DAG:       [[VAR_4_3_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
-// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
+// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       [[VAR_6_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr
 // CHECK-DAG:       [[VAR_7_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr
-// CHECK:           llvm.call @omMMapBinaryFile([[VAR_6_3_]], [[VAR_7_3_]], [[VAR_4_3_]], [[VAR_5_3_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
-// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_3_3_]], [[VAR_6_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_8_3_:%.+]] = llvm.call @omMMapBinaryFile([[VAR_6_3_]], [[VAR_7_3_]], [[VAR_4_3_]], [[VAR_5_3_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> i1
+// CHECK:           [[VAR_9_3_:%.+]] = llvm.icmp "ne" [[VAR_3_3_]], [[VAR_8_3_]] : i1
+// CHECK:           llvm.cond_br [[VAR_9_3_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_8_3_]] : i1
+// CHECK:         ^bb2:  // pred: ^bb0
+// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_2_3_]], [[VAR_6_3_]], [[VAR_5_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_1_3_]], [[VAR_6_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK:           llvm.return
+// CHECK:           llvm.return [[VAR_3_3_]] : i1
 // CHECK:         }
 
 // CHECK:         llvm.func @run_main_graph({{.*}}: !llvm.ptr) -> !llvm.ptr {
-// CHECK:           llvm.call @omLoadConstantsFromFile() : () -> ()
+// CHECK-DAG:       [[VAR_3_4_:%.+]] = llvm.mlir.zero : !llvm.ptr
+// CHECK-DAG:       [[VAR_4_4_:%.+]] = llvm.mlir.constant(22 : i32) : i32
+// CHECK-DAG:       [[VAR_5_4_:%.+]] = llvm.mlir.constant(true) : i1
+// CHECK-DAG:       [[VAR_6_4_:%.+]] = llvm.call @omLoadConstantsFromFile() : () -> i1
+// CHECK:           [[VAR_7_4_:%.+]] = llvm.icmp "ne" [[VAR_5_4_]], [[VAR_6_4_]] : i1
+// CHECK:           llvm.cond_br [[VAR_7_4_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           [[VAR_8_4_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK:           llvm.store [[VAR_4_4_]], [[VAR_8_4_]] : i32, !llvm.ptr
+// CHECK:           llvm.return [[VAR_3_4_]] : !llvm.ptr
+// CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:         }
 
 }
