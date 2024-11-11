@@ -138,7 +138,7 @@ bool omMMapBinaryFile(
      */
 #ifdef __MVS__
     void *expected = NULL;
-    if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)tempAddr))
+    if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr))
       munmap(tempAddr, size);
 #else
     if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
