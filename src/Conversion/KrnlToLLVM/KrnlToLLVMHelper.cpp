@@ -370,7 +370,6 @@ void equalOrFailed(ModuleOp &module, OpBuilder &rewriter, Location loc,
 
 void equalOrReturn(ModuleOp &module, OpBuilder &rewriter, Location loc,
     Value lhs, Value rhs, Value retVal, std::string errorMsg) {
-  MLIRContext *context = rewriter.getContext();
   MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);
   create.llvm.ifThenElse(/*cond=*/
       [&](const LLVMBuilder &createLLVM) {

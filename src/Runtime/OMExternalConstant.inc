@@ -135,15 +135,11 @@ bool omMMapBinaryFile(
      */
 #ifdef __MVS__
     void *expected = NULL;
-    if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr)) {
+    if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr))
       munmap(tempAddr, size);
-      tempAddr = NULL;
-    }
 #else
-    if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr)) {
+    if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
       munmap(tempAddr, size);
-      tempAddr = NULL;
-    }
 #endif
 
     /* Either we succeeded in setting constAddr or someone else did it.
@@ -156,13 +152,6 @@ bool omMMapBinaryFile(
 #ifdef __MVS__
     free(tPath);
 #endif
-    /* Make sure constAddr is the same as the mmap address.
-    */
-    if (tempAddr && (constAddr[0] != tempAddr)) {
-      fprintf(stderr,
-        "Error while updating the buffer address for constants.\n");
-      return false;
-    }
     return true;
   }
 
