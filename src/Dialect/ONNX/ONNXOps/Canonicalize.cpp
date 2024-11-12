@@ -202,11 +202,7 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
 
 /// Test if the input is a splat constant with a negative value or not.
 bool isNegativeSplatConstant(Value val) {
-  if (!isDenseONNXConstant(val))
-    return false;
-  ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
-  auto valAttr =
-      llvm::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+  ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
   if (!valAttr)
     return false;
 
@@ -238,9 +234,7 @@ bool areAllDimSizes(ValueRange vals) {
       Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
       if (!mlir::isa<IntegerType>(elemTy))
         return false;
-      ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
-      auto valAttr =
-          llvm::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+      ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
       if (!valAttr)
         return false;
       int64_t v = (*valAttr.getValues<APInt>().begin()).getSExtValue();
@@ -752,9 +746,7 @@ private:
     Operation *definingOp = v.getDefiningOp();
     if (mlir::isa<IntegerType>(
             mlir::cast<ShapedType>(v.getType()).getElementType()) &&
-        isa<ONNXConstantOp>(definingOp) &&
-        mlir::isa<DenseElementsAttr>(
-            mlir::cast<ONNXConstantOp>(definingOp).getValueAttr()))
+        isDenseONNXConstant(v))
       return true;
     return false;
   }
