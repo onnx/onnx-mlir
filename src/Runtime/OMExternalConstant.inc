@@ -43,7 +43,7 @@ const int i = 1;
 void checkEndianness(const char constPackIsLE) {
   if (XOR(IS_SYSTEM_LE(), constPackIsLE)) {
     fprintf(stderr, "Constant pack is stored in a byte order that is not "
-                    "native to this current system.");
+                    "native to this current system: %s", strerror(errno));
     exit(1);
   }
 }
@@ -67,7 +67,7 @@ bool omMMapBinaryFile(
   // Convert the file name to EBCDIC for the open call.
   char *tPath = strdup(fname);
   if (!tPath) {
-    fprintf(stderr, "Error while strdup");
+    fprintf(stderr, "Error while strdup: %s", strerror(errno));
     return false;
   }
   __a2e_s(tPath);
@@ -75,7 +75,7 @@ bool omMMapBinaryFile(
 #endif
 
   if (constAddr == NULL) {
-    perror("Error: null pointer");
+    fprintf(stderr, "Error: null pointer: %s", strerror(errno));
 #ifdef __MVS__
     free(tPath);
 #endif
@@ -89,25 +89,22 @@ bool omMMapBinaryFile(
       size_t baseLen = strlen(basePath);
       size_t fnameLen = strlen(fname);
       size_t sepLen = strlen(DIR_SEPARATOR);
-      size_t filePathLen = baseLen + sepLen + fnameLen;
+      size_t filePathLen = baseLen + sepLen + fnameLen + 1;
       filePath = (char *)malloc(filePathLen);
       if (!filePath) {
-        fprintf(stderr, "Error while malloc");
+        fprintf(stderr, "Error while malloc: %s", strerror(errno));
 #ifdef __MVS__
         free(tPath);
 #endif
         return false;
       }
-      memcpy(filePath, basePath, baseLen);
-      memcpy(filePath + baseLen, DIR_SEPARATOR, sepLen);
-      memcpy(filePath + baseLen + sepLen, fname, fnameLen);
-      filePath[filePathLen] = '\0';
+      snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, fname);
     } else {
       filePath = (char *)fname;
     }
     int fd = open(filePath, O_RDONLY);
     if (fd < 0) {
-      fprintf(stderr, "Error while opening %s\n", filePath);
+      fprintf(stderr, "Error while opening %s: %s\n", filePath, strerror(errno));
       if (basePath)
         free(filePath);
 #ifdef __MVS__
@@ -123,7 +120,7 @@ bool omMMapBinaryFile(
 #endif
 
     if (tempAddr == MAP_FAILED) {
-      fprintf(stderr, "Error while mmapping %s\n", fname);
+      fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
       close(fd);
       if (basePath)
         free(filePath);
@@ -158,7 +155,9 @@ bool omMMapBinaryFile(
     /* Make sure constAddr is the same as the mmap address.
     */
     if (constAddr[0] != tempAddr) {
-      fprintf(stderr, "Error while updating the buffer address for constants\n");
+      fprintf(stderr,
+        "Error while updating the buffer address for constants: %s\n",
+        strerror(errno));
       return false;
     }
     return true;
@@ -181,11 +180,11 @@ bool omMMapBinaryFile(
 void omGetExternalConstantAddr(
     void **outputAddr, void **baseAddr, int64_t offset) {
   if (outputAddr == NULL) {
-    perror("Error: null pointer");
+    fprintf(stderr, "Error: null pointer: %s", strerror(errno));
     return;
   }
   if (baseAddr == NULL) {
-    perror("Error: null pointer");
+    fprintf(stderr, "Error: null pointer: %s", strerror(errno));
     return;
   }
   // Constant is already loaded. Nothing to do.
