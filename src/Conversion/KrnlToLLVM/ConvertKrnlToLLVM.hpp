@@ -68,8 +68,9 @@ void populateLoweringKrnlFindIndexOpPattern(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlGlobalOpPattern(mlir::LLVMTypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+void populateLoweringKrnlGlobalOpInterfacePattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlInstrumentOpPattern(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,

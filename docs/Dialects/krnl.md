@@ -453,7 +453,7 @@ in the `value` dense element attribute.
 
 Traits: `AlwaysSpeculatableImplTrait`, `MemRefsNormalizable`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+Interfaces: `ConditionallySpeculatable`, `KrnlGlobalOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
 Effects: `MemoryEffects::Effect{}`
 

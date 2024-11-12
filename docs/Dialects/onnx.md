@@ -529,7 +529,7 @@ AveragePool consumes an input tensor X and applies average pooling across
  ```
  output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - dilation[i] * (kernel_shape[i] - 1) - 1) / strides_spatial_shape[i] + 1)
  ```
- if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`. Sliding windows that would start in the right padded region are ignored.
+ if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`.
 
  `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following when ceil_mode is enabled:
  ```
@@ -1701,15 +1701,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
-| `W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `X` | tensor of 16-bit float values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `W` | tensor of 16-bit float values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `B` | tensor of 16-bit float values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `Y` | tensor of 16-bit float values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ConvTranspose` (ONNXConvTransposeOp)
 
@@ -2610,13 +2610,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Expand` (ONNXExpandOp)
 
@@ -3282,13 +3282,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.GlobalMaxPool` (ONNXGlobalMaxPoolOp)
 
@@ -4817,7 +4817,7 @@ Effects: `MemoryEffects::Effect{}`
 
 _ONNX MatMulInteger operation_
 
-Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
+Matrix product that behaves like [numpy.matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
 The production MUST never overflow. The accumulation may overflow if and only if in 32 bits.
 
 Traits: `AlwaysSpeculatableImplTrait`
@@ -4845,7 +4845,7 @@ Effects: `MemoryEffects::Effect{}`
 
 _ONNX MatMul operation_
 
-Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html
+Matrix product that behaves like [numpy.matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -4910,7 +4910,7 @@ MaxPool consumes an input tensor X and applies max pooling across
  ```
  output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - dilation[i] * (kernel_shape[i] - 1) - 1) / strides_spatial_shape[i] + 1)
  ```
- if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`. Sliding windows that would start in the right padded region are ignored.
+ if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`.
 
  `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following when ceil_mode is enabled:
  ```
@@ -6611,7 +6611,7 @@ Effects: `MemoryEffects::Effect{}`
 
 _ONNX QLinearMatMul operation_
 
-Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
+Matrix product that behaves like [numpy.matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
 It consumes two quantized input tensors, their scales and zero points, scale and zero point of output,
 and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point).
 For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details.
@@ -10215,13 +10215,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.TfIdfVectorizer` (ONNXTfIdfVectorizerOp)
 
