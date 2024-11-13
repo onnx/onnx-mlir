@@ -81,11 +81,6 @@ def createArrayAttrOfTwoToRankOf : NativeCodeCall<
 def AttributeIsNotNull :
   Constraint<CPred<"($_self)">, "Attribute is not null">;
 
-def IsDenseElementsAttr :
-  Constraint<And<[CPred<" ($_self) ">,
-                  CPred<"mlir::isa<DenseElementsAttr>(($_self))">
-                 ]>, "Attribute is not a DenseElementsAttr">;
-
 // Intended to check whether there is at least one not-Null the attributes
 // However, the current table gen can only support max 4 parameters
 // Multiple rules are used instead of one rule
@@ -197,17 +192,12 @@ def HasSpecifiedConstantShape: Constraint<
           "Has the specified constant shape">;
 
 def IsFromONNXConstantOp: Constraint<
-    CPred<"llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp())">,
+    CPred<"onnx_mlir::isDenseONNXConstant($0)">,
     "Is a value from ONNXConstantOp">;
 
 def IsNotFromONNXConstantOp: Constraint<
     CPred<"!(llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp()))">,
     "Is a value not from ONNXConstantOp">;
-
-def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
-    And<[CPred<" $_self.getDefiningOp<ONNXConstantOp>() ">,
-         CPred<" isa<DenseElementsAttr>(onnx_mlir::getONNXConstantOp($_self).getValueAttr()) ">
-        ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
 def IsNegativeSplatConstant: Constraint<
   CPred<"onnx_mlir::isNegativeSplatConstant($_self)">,
@@ -407,8 +397,8 @@ def FuseMulConvNullBiasPattern: Pat<
      // unchanged operands and attributes.
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
-   (IsDenseElementsAttr:$denseAttr),
-   (IsFromONNXConstantOpWithDenseElementsAttr:$w),
+   (AttributeIsNotNull:$denseAttr),
+   (IsFromONNXConstantOp $w),
    (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.
    (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
@@ -474,13 +464,13 @@ def SwapCastSlicePattern: Pat<
 // Canonicalization for ONNXTileOp
 //===----------------------------------------------------------------------===//
 
-def IsFromONNXConstantOpWithOnesDenseElementsAttr: Constraint<
-    And<[IsFromONNXConstantOpWithDenseElementsAttr.predicate,
+def IsFromONNXConstantOpWithOnes: Constraint<
+    And<[CPred<"onnx_mlir::isDenseONNXConstant($_self)">,
          CPred<"::llvm::all_of("
-               "mlir::dyn_cast<DenseElementsAttr>(onnx_mlir::getONNXConstantOp($_self)"
-               ".getValueAttr()).getValues<int64_t>(), "
+               "onnx_mlir::getElementAttributeFromONNXValue($_self)"
+               ".getValues<int64_t>(), "
                "[](int64_t repeat) { return repeat == 1;})">
-        ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr of ones">;
+        ]>, "Value is not a ONNXConstantOp with an ElementsAttr of ones">;
 
 def RemoveIdentityTilePattern:  Pat<
   // Tile with `repeats` of all constant 1's
@@ -488,7 +478,7 @@ def RemoveIdentityTilePattern:  Pat<
   // Remove the tile.
   (replaceWithValue $val),
   // Check that we have indeed a identity tile pattern.
-  [(IsFromONNXConstantOpWithOnesDenseElementsAttr:$r), (HaveSameShapedType $val,$result)]>;
+  [(IsFromONNXConstantOpWithOnes:$r), (HaveSameShapedType $val,$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp

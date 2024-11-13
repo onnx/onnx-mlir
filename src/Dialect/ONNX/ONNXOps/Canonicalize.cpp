@@ -787,10 +787,8 @@ private:
 
   // A helper function to get an integer constant from a value.
   int64_t getOneIntegerConstant(Value v) const {
-    Operation *definingOp = v.getDefiningOp();
-    DenseElementsAttr valueAttr = mlir::cast<DenseElementsAttr>(
-        mlir::cast<ONNXConstantOp>(definingOp).getValueAttr());
-    return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
+    return onnx_mlir::getScalarValue<int64_t>(
+        v.getDefiningOp<ONNXConstantOp>());
   }
 
   // A helper function to match the pattern of the given operation. It also
