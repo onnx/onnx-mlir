@@ -65,8 +65,8 @@ static void getRawData(ElementsAttr attr, std::vector<char> &data) {
 
   // Clear the buffer if possible to save memory.
   // Need to check usage, perhaps, from the caller.
-  if (disposalAttr)
-    disposalAttr.dispose();
+  // if (disposalAttr)
+  //   disposalAttr.dispose();
 }
 
 /// MLIR type to zDNN type.
