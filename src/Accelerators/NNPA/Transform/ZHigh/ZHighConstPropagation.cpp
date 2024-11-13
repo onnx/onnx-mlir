@@ -35,16 +35,38 @@ namespace onnx_mlir {
 namespace zhigh {
 
 /// Get raw data from a dense attribute.
-static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
-  if (!denseAttr.isSplat()) {
-    data = denseAttr.getRawData();
+static void getRawData(ElementsAttr attr, std::vector<char> &data) {
+  auto denseAttr = mlir::dyn_cast_or_null<DenseElementsAttr>(attr);
+  auto disposalAttr = mlir::dyn_cast_or_null<DisposableElementsAttr>(attr);
+  ArrayRef<char> rawData;
+  if (denseAttr) {
+    rawData = denseAttr.getRawData();
+  } else if (disposalAttr) {
+    rawData = disposalAttr.getRawBytes().get();
+  } else
+    llvm_unreachable("Unsupported ElementsAttr type.");
+
+  // Non-splat case.
+  if (!attr.isSplat()) {
+    data = rawData;
   } else {
-    ShapedType denseShapeType = mlir::cast<ShapedType>(denseAttr.getType());
-    std::vector<char> rawData = denseAttr.getRawData();
+    // Splat case.
+    if (disposalAttr && disposalAttr.isSplat()) {
+      // It's a bit tricky to deal with splat DisposableElementsAttr: it looks
+      // like Splat DisposableElementsAttr has more than one element.
+      // This special handling would not consume much memory in case of splat.
+      rawData = disposalAttr.toDenseElementsAttr().getRawData();
+    }
+    ShapedType denseShapeType = mlir::cast<ShapedType>(attr.getType());
     int64_t numElements = denseShapeType.getNumElements();
     for (int i = 0; i < numElements; i++)
       data.insert(data.end(), rawData.begin(), rawData.end());
   }
+
+  // Clear the buffer if possible to save memory.
+  // Need to check usage, perhaps, from the caller.
+  if (disposalAttr)
+    disposalAttr.dispose();
 }
 
 /// MLIR type to zDNN type.
@@ -96,7 +118,7 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
   int rank = shape.size();
 
   // Read dense attributes.
-  DenseElementsAttr dataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr dataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       op->getAttrOfType<::mlir::Attribute>("value"));
   assert(dataAttr && "Attribute is null");
   // Read attributes's raw data.
@@ -147,13 +169,13 @@ ZHighStickifiedConstantOp createConstantForStickForLSTM(
   Type elementType = mlir::cast<ShapedType>(inputF.getType()).getElementType();
 
   // Read dense attributes.
-  DenseElementsAttr fDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr fDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       fOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr iDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr iDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       iOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr cDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr cDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       cOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr oDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr oDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       oOp->getAttrOfType<::mlir::Attribute>("value"));
   assert((fDataAttr && iDataAttr && cDataAttr && oDataAttr) &&
          "Attribute is null");
@@ -208,11 +230,11 @@ ZHighStickifiedConstantOp createConstantForStickForGRU(
   Type elementType = mlir::cast<ShapedType>(inputZ.getType()).getElementType();
 
   // Read dense attributes.
-  DenseElementsAttr zDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr zDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       zOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr rDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr rDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       rOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr hDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+  ElementsAttr hDataAttr = mlir::dyn_cast_or_null<ElementsAttr>(
       hOp->getAttrOfType<::mlir::Attribute>("value"));
   assert((zDataAttr && rDataAttr && hDataAttr) && "Attribute is null");
   // Read attributes's raw data.

@@ -120,10 +120,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Replace every DisposableElementsAttr with DenseElementsAttr.
-  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
-  pm.addPass(createScrubDisposablePass());
-
   // Experimental feature: Decompose stick/unstick into two phases: layout
   // transform and data conversion. Do some optimizations after decomposing.
   // Then, recompose again layout and data conversion if they are not optimized.
@@ -154,6 +150,10 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
+  pm.addPass(createScrubDisposablePass());
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling
   // for onnx and zhigh ops.

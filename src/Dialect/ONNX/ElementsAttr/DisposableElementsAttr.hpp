@@ -123,11 +123,6 @@ private:
       BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
       Transformer transformer);
 
-  // Clears the buffer payload shared_ptr which decreases the reference count
-  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
-  // heap allocation or file. Called from DisposablePool.
-  void dispose();
-
 public:
   //===--------------------------------------------------------------------===//
   // Instance properties:
@@ -147,6 +142,11 @@ public:
   ArrayRef<int64_t> getShape() const { return getType().getShape(); }
   int64_t getRank() const { return getType().getRank(); }
   int64_t getNumElements() const { return getType().getNumElements(); }
+
+  // Clears the buffer payload shared_ptr which decreases the reference count
+  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
+  // heap allocation or file. Called from DisposablePool.
+  void dispose();
 
 private:
   bool isDisposed() const;
@@ -254,6 +254,12 @@ public:
   template <typename X>
   onnx_mlir::ArrayBuffer<X> getArray() const;
 
+  // Returns a pointer to the underlying data as a flat byte array, if
+  // everything aligns, otherwise makes and returns a copy.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
+  onnx_mlir::ArrayBuffer<char> getRawBytes() const;
+
   // Copies out the elements in a flat array in row-major order.
   // Precondition: X must correspond to getElementType().
   template <typename X>
@@ -312,12 +318,6 @@ private:
   // If the element type is bool the data holds one byte (with value 0 or 1) per
   // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
   void readRawBytes(MutableArrayRef<char> dst) const;
-
-  // Returns a pointer to the underlying data as a flat byte array, if
-  // everything aligns, otherwise makes and returns a copy.
-  // If the element type is bool the data holds one byte (with value 0 or 1) per
-  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  onnx_mlir::ArrayBuffer<char> getRawBytes() const;
 
 }; // class DisposableElementsAttr
 
