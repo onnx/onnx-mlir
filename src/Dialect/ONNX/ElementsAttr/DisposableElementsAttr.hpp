@@ -254,16 +254,15 @@ public:
   template <typename X>
   onnx_mlir::ArrayBuffer<X> getArray() const;
 
-  // Returns a pointer to the underlying data as a flat byte array, if
-  // everything aligns, otherwise makes and returns a copy.
-  // If the element type is bool the data holds one byte (with value 0 or 1) per
-  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  onnx_mlir::ArrayBuffer<char> getRawBytes() const;
-
   // Copies out the elements in a flat array in row-major order.
   // Precondition: X must correspond to getElementType().
   template <typename X>
   void readArray(MutableArrayRef<X> dst) const;
+
+  // Copies out the elements in a flat array in row-major order.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
+  void readRawBytes(MutableArrayRef<char> dst) const;
 
   // Returns a pointer to the underlying data as a flat WideNum array, if
   // everything aligns, otherwise makes and returns a copy.
@@ -314,11 +313,11 @@ private:
   // Warning: This is inefficient because it calls unflattenIndex on flatIndex.
   size_t flatIndexToBufferPos(size_t flatIndex) const;
 
-  // Copies out the elements in a flat array in row-major order.
+  // Returns a pointer to the underlying data as a flat byte array, if
+  // everything aligns, otherwise makes and returns a copy.
   // If the element type is bool the data holds one byte (with value 0 or 1) per
   // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  void readRawBytes(MutableArrayRef<char> dst) const;
-
+  onnx_mlir::ArrayBuffer<char> getRawBytes() const;
 }; // class DisposableElementsAttr
 
 // Include template implementations.

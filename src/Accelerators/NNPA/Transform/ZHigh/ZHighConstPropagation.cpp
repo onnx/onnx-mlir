@@ -34,74 +34,36 @@ using namespace onnx_mlir::zhigh;
 namespace onnx_mlir {
 namespace zhigh {
 
-template <typename cpptype>
-bool checkSplat(DisposableElementsAttr attr) {
-  ShapedType tensorType = mlir::cast<ShapedType>(attr.getType());
-  int64_t numElements = tensorType.getNumElements();
-  auto vals = attr.getValues<cpptype>();
-
-  bool isSplat = true;
-  for (int64_t i = 1; i < numElements; ++i) {
-    if (vals[i] != vals[0]) {
-      isSplat = false;
-      break;
-    }
-  }
-  return isSplat;
-}
-
 /// Get raw data from a dense attribute.
 static void getRawData(ElementsAttr attr_, std::vector<char> &data) {
   ShapedType tensorType = mlir::cast<ShapedType>(attr_.getType());
   Type elemTy = tensorType.getElementType();
   int64_t numElements = tensorType.getNumElements();
+
+  // Use DenseElementsAttr for boolean values. DisposableElementsAttr handles
+  // bool differently.
   ElementsAttr attr = attr_;
-  // Figure out why DenseElementsAttr can detect splat?
-  // ElementsAttr attr = ElementsAttrBuilder::toDenseElementsAttr(attr_);
-  if (elemTy.isInteger(1)) {
+  if (elemTy.isInteger(1))
     attr = ElementsAttrBuilder::toDenseElementsAttr(attr_);
-  }
+
   auto denseAttr = mlir::dyn_cast_or_null<DenseElementsAttr>(attr);
   auto disposalAttr = mlir::dyn_cast_or_null<DisposableElementsAttr>(attr);
+  assert((denseAttr || disposalAttr) &&
+         "Must be DenseElementsAttr or DisposableElementsAttr");
 
-  ArrayRef<char> rawData;
-  bool isSplat = false;
-  if (denseAttr) {
-    rawData = denseAttr.getRawData();
-    isSplat = denseAttr.isSplat();
-  } else if (disposalAttr) {
-    if (elemTy.isF32()) {
-      isSplat = checkSplat<float>(disposalAttr);
-    } else if (elemTy.isInteger(8)) {
-      isSplat = checkSplat<int32_t>(disposalAttr);
-    } else if (elemTy.isInteger(32)) {
-      isSplat = checkSplat<int32_t>(disposalAttr);
-    } else if (elemTy.isInteger(64)) {
-      isSplat = checkSplat<int64_t>(disposalAttr);
-    } else {
-      DenseElementsAttr dattr = disposalAttr.toDenseElementsAttr();
-      rawData = dattr.getRawData();
-      isSplat = dattr.isSplat();
-    }
+  if (disposalAttr) {
+    data.resize(numElements * getEltSizeInBytes(elemTy));
+    disposalAttr.readRawBytes(data);
+    return;
+  }
 
-    if (isSplat) {
-      // It's a bit tricky to deal with splat DisposableElementsAttr: it looks
-      // like Splat DisposableElementsAttr has more than one element.
-      // This special handling would not consume much memory in case of splat.
-      rawData = disposalAttr.toDenseElementsAttr().getRawData();
-    } else {
-      rawData = disposalAttr.getRawBytes().get();
-    }
-  } else
-    llvm_unreachable("Unsupported ElementsAttr type.");
-
-  // Non-splat case.
-  if (!isSplat) {
-    data = rawData;
-  } else {
-    // Splat case.
+  ArrayRef<char> rawData = denseAttr.getRawData();
+  if (denseAttr.isSplat()) {
+    // Broadcast the splat value.
     for (int i = 0; i < numElements; i++)
       data.insert(data.end(), rawData.begin(), rawData.end());
+  } else {
+    data = rawData;
   }
 
   // Clear the buffer if possible to save memory.
