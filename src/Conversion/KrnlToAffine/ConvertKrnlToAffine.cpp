@@ -814,8 +814,7 @@ AffineTypeConverter::AffineTypeConverter() {
   addConversion([](Type type) { return type; });
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> Value {
+                               ValueRange inputs, Location loc) -> Value {
     if (inputs.size() != 1)
       return Value();
 
@@ -824,8 +823,7 @@ AffineTypeConverter::AffineTypeConverter() {
   });
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> Value {
+                               ValueRange inputs, Location loc) -> Value {
     if (inputs.size() != 1)
       return Value();
 
