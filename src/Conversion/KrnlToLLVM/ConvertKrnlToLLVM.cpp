@@ -569,6 +569,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(module.getBody());
   std::string fname = llvm::sys::path::filename(filepath).str() + '\0';
+  fname = (isZOS(module)) ? krnl::e2a_s(fname) : fname;
   mlir::StringAttr valueAttr = mlir::StringAttr::get(context, fname);
   create.llvm.globalOp(LLVM::LLVMArrayType::get(llvmI8Ty, fname.size()),
       /*isConstant=*/true, LLVM::Linkage::Internal,

@@ -60,58 +60,39 @@ void checkEndianness(const char constPackIsLE) {
 /// This function is thread-safe.
 ///
 bool omMMapBinaryFile(
-    void **constAddr, char *filename, int64_t size, int64_t isLE) {
-  checkEndianness(isLE);
-  char *fname = filename;
-#ifdef __MVS__
-  // Convert the file name to EBCDIC for the open call.
-  char *tPath = strdup(fname);
-  if (!tPath) {
-    fprintf(stderr, "Error while strdup: %s", strerror(errno));
-    return false;
-  }
-  __a2e_s(tPath);
-  fname = tPath;
-#endif
-
+    void **constAddr, char *fname, int64_t size, int64_t isLE) {
   if (constAddr == NULL) {
     fprintf(stderr, "Error: null pointer.");
-#ifdef __MVS__
-    free(tPath);
-#endif
     return false;
   }
 
-  if (constAddr[0] == NULL) {
-    char *filePath;
-    char *basePath = getenv("OM_CONSTANT_PATH");
-    if (basePath) {
-      size_t baseLen = strlen(basePath);
-      size_t fnameLen = strlen(fname);
-      size_t sepLen = strlen(DIR_SEPARATOR);
-      size_t filePathLen = baseLen + sepLen + fnameLen + 1;
-      filePath = (char *)malloc(filePathLen);
-      if (!filePath) {
-        fprintf(stderr, "Error while malloc: %s", strerror(errno));
-#ifdef __MVS__
-        free(tPath);
-#endif
-        return false;
-      }
-      snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, fname);
-    } else {
-      filePath = (char *)fname;
-    }
-    int fd = open(filePath, O_RDONLY);
-    if (fd < 0) {
-      fprintf(stderr, "Error while opening %s: %s\n", filePath, strerror(errno));
-      if (basePath)
-        free(filePath);
-#ifdef __MVS__
-      free(tPath);
-#endif
+  // Already mmaped. Nothing to do.
+  if (constAddr[0] != NULL)
+    return true;
+
+  char *filePath;
+  char *basePath = getenv("OM_CONSTANT_PATH");
+  if (basePath) {
+    size_t baseLen = strlen(basePath);
+    size_t fnameLen = strlen(fname);
+    size_t sepLen = strlen(DIR_SEPARATOR);
+    size_t filePathLen = baseLen + sepLen + fnameLen + 1;
+    filePath = (char *)malloc(filePathLen);
+    if (!filePath) {
+      fprintf(stderr, "Error while malloc: %s", strerror(errno));
       return false;
     }
+    snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, fname);
+  } else {
+    filePath = (char *)fname;
+  }
+  int fd = open(filePath, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr, "Error while opening %s: %s\n", filePath, strerror(errno));
+    if (basePath)
+      free(filePath);
+    return false;
+  }
 
 #ifdef __MVS__
     void *tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
@@ -119,45 +100,33 @@ bool omMMapBinaryFile(
     void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
 #endif
 
-    if (tempAddr == MAP_FAILED) {
-      fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
-      close(fd);
-      if (basePath)
-        free(filePath);
-#ifdef __MVS__
-      free(tPath);
-#endif
-      return false;
-    }
-
-    /* Prepare to compare-and-swap to setup the shared constAddr.
-     * If we fail, another thread beat us so free our mmap.
-     */
-#ifdef __MVS__
-    void *expected = NULL;
-    if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr))
-      munmap(tempAddr, size);
-#else
-    if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
-      munmap(tempAddr, size);
-#endif
-
-    /* Either we succeeded in setting constAddr or someone else did it.
-     * Either way, constAddr is now setup. We can close our fd without
-     * invalidating the mmap.
-     */
+  if (tempAddr == MAP_FAILED) {
+    fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
     close(fd);
     if (basePath)
       free(filePath);
-#ifdef __MVS__
-    free(tPath);
-#endif
-    return true;
+    return false;
   }
 
+  /* Prepare to compare-and-swap to setup the shared constAddr.
+   * If we fail, another thread beat us so free our mmap.
+   */
 #ifdef __MVS__
-  free(tPath);
+  void *expected = NULL;
+  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr))
+    munmap(tempAddr, size);
+#else
+  if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
+    munmap(tempAddr, size);
 #endif
+
+  /* Either we succeeded in setting constAddr or someone else did it.
+   * Either way, constAddr is now setup. We can close our fd without
+   * invalidating the mmap.
+   */
+  close(fd);
+  if (basePath)
+    free(filePath);
   return true;
 }
 
