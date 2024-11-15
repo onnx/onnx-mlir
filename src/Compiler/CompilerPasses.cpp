@@ -68,8 +68,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // this function.
 
   if (!donotScrubDisposableElementsAttr)
-  pm.addInstrumentation(
-      std::make_unique<DisposableGarbageCollector>(pm.getContext()));
+    pm.addInstrumentation(
+        std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());

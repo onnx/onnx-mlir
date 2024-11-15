@@ -720,7 +720,8 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     // int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
     // memRefSizeInBytes *= normalizedType.getNumElements();
     // assert((data.size() == static_cast<uint64_t>(memRefSizeInBytes)) &&
-    //        "The stickified tensor's buffer size and MemRef's size mismatched");
+    //        "The stickified tensor's buffer size and MemRef's size
+    //        mismatched");
 
     // Create a KrnlGlobalOp.
     KrnlGlobalOp constantGlobal =
