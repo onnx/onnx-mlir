@@ -26,6 +26,7 @@
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -96,17 +97,15 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-  // Use an dense resource attribute to store stickified data.
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
-  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-      stickifiedConstant.getOperation()
-          ->getDialect()
-          ->getNamespace(), // use the dialect as the blob "hint"
-      HeapAsmResourceBlob::allocateAndCopyWithAlign(
-          llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
-
+  RankedTensorType dataType =
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
+  std::unique_ptr<llvm::MemoryBuffer> memBuf = llvm::MemoryBuffer::getMemBuffer(
+      StringRef((char *)ztensor->buffer, sizeInBytes), "",
+      /*RequiresNullTerminator*/ false);
+  ElementsAttr valueAttr = OnnxElementsAttrBuilder(rewriter.getContext())
+                               .fromMemoryBuffer(dataType, std::move(memBuf));
   stickifiedConstant.setValueAttr(valueAttr);
 
   return stickifiedConstant;

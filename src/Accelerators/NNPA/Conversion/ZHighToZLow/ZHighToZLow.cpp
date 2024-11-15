@@ -713,19 +713,14 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
         affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
-    // Get dense resource attribute.
-    auto blob = mlir::cast<DenseResourceElementsAttr>(
-        stickifiedConstOp.getValue().value())
-                    .getRawHandle()
-                    .getBlob();
-    assert(blob && "Expecting dense resource with a valid blob");
-    ArrayRef<char> data = blob->getData();
-
     // Validate the stickified tensor.
-    int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
-    memRefSizeInBytes *= normalizedType.getNumElements();
-    assert((data.size() == static_cast<uint64_t>(memRefSizeInBytes)) &&
-           "The stickified tensor's buffer size and MemRef's size mismatched");
+    // ArrayRef<char> data =
+    //     mlir::cast<DenseElementsAttr>(stickifiedConstOp.getValueAttr())
+    //         .getRawData();
+    // int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
+    // memRefSizeInBytes *= normalizedType.getNumElements();
+    // assert((data.size() == static_cast<uint64_t>(memRefSizeInBytes)) &&
+    //        "The stickified tensor's buffer size and MemRef's size mismatched");
 
     // Create a KrnlGlobalOp.
     KrnlGlobalOp constantGlobal =

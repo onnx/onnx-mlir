@@ -49,6 +49,10 @@ std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
+/// Pass for scrubbing constants at ZHighIR.
+std::unique_ptr<mlir::Pass> createZHighScrubDisposablePass(
+    bool closeAfter = true);
+
 /// Pass for clipping values to dlfloat before stickification at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighClipToDLFloatPass();
 
