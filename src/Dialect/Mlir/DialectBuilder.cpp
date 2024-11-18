@@ -617,7 +617,7 @@ Value MathBuilder::constant(Type type, double val) const {
             b().create<arith::ConstantOp>(loc(), b().getF64FloatAttr(val));
       })
       .Case<IntegerType>([&](IntegerType elementType) {
-        assert(val == (int64_t)val && "value is ambiguous");
+        assert(val == static_cast<int64_t>(val) && "value is ambiguous");
         unsigned width = elementType.getWidth();
 
         if (width == 1)
@@ -629,12 +629,12 @@ Value MathBuilder::constant(Type type, double val) const {
             Type signlessTy = b().getIntegerType(width);
             constant = b().create<arith::ConstantOp>(
                 loc(), b().getIntegerAttr(signlessTy,
-                           APInt(width, (int64_t)val, false, true)));
+                           APInt(width, static_cast<int64_t>(val), false, true)));
             constant = castToUnsigned(constant, width);
           } else {
             constant = b().create<arith::ConstantOp>(
                 loc(), b().getIntegerAttr(elementType,
-                           APInt(width, (int64_t)val, false, true)));
+                           APInt(width, static_cast<int64_t>(val), false, true)));
           }
         }
       })
@@ -2266,7 +2266,7 @@ Value LLVMBuilder::constant(Type type, int64_t val) const {
                  "LLVM::ConstantOp requires a signless type.");
           constant = b().create<LLVM::ConstantOp>(loc(), type,
               b().getIntegerAttr(
-                  type, APInt(width, (int64_t)val, false, true)));
+                  type, APInt(width, static_cast<int64_t>(val), false, true)));
         }
       })
       .Case<IndexType>([&](Type) {
