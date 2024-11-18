@@ -168,6 +168,25 @@ static Value insertAllocForWorkAreaForRNNOps(IndexExprBuilderForKrnl &createIE,
   return create.mem.alignedAlloc(resultType, dims, gAlignment);
 }
 
+/// Get an dense resource attribute to store stickified data of zeros.
+/// Attribute type: tensor<sizeInBytes x i8>
+DenseResourceElementsAttr getDenseResourceElementsAttrOfZero(
+    PatternRewriter &rewriter, ZHighStickifiedConstantOp stickifiedConstant,
+    int64_t sizeInBytes) {
+  char *rawData = static_cast<char *>(malloc(sizeInBytes));
+  assert(rawData && "failed to allocate memory for stickified data");
+  memset(rawData, 0, sizeInBytes);
+  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+      stickifiedConstant.getOperation()
+          ->getDialect()
+          ->getNamespace(), // use the dialect as the blob "hint"
+      HeapAsmResourceBlob::allocateAndCopyWithAlign(
+          llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
+  free(rawData);
+  return valueAttr;
+}
+
 /// This function emits a buffer of zero elements for the given dimensions and
 /// layout. If the given dimensions are static, then a stickified constant is
 /// returned.
@@ -199,19 +218,9 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     // Attribute type: tensor<sizeInBytes x i8>
     int64_t sizeInBytes =
         affine::getIntOrFloatMemRefSizeInBytes(resType).value();
-    char *rawData = static_cast<char *>(malloc(sizeInBytes));
-    assert(rawData && "failed to allocate memory for stickified data");
-    memset(rawData, 0, sizeInBytes);
-    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-        stickifiedConstant.getOperation()
-            ->getDialect()
-            ->getNamespace(), // use the dialect as the blob "hint"
-        HeapAsmResourceBlob::allocateAndCopyWithAlign(
-            llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
+    DenseResourceElementsAttr valueAttr = getDenseResourceElementsAttrOfZero(
+        rewriter, stickifiedConstant, sizeInBytes);
     stickifiedConstant.setValueAttr(valueAttr);
-    free(rawData);
-
     res = stickifiedConstant.getResult();
   } else {
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
@@ -714,14 +723,36 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
     // Validate the stickified tensor.
-    // ArrayRef<char> data =
-    //     mlir::cast<DenseElementsAttr>(stickifiedConstOp.getValueAttr())
-    //         .getRawData();
-    // int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
-    // memRefSizeInBytes *= normalizedType.getNumElements();
-    // assert((data.size() == static_cast<uint64_t>(memRefSizeInBytes)) &&
-    //        "The stickified tensor's buffer size and MemRef's size
-    //        mismatched");
+    Attribute valueAttr = stickifiedConstOp.getValueAttr();
+    int64_t sizeInBytes = getMemRefEltSizeInBytes(normalizedType);
+    sizeInBytes *= normalizedType.getNumElements();
+    if (auto denseAttr = mlir::dyn_cast_or_null<DenseElementsAttr>(valueAttr)) {
+      ArrayRef<char> data = denseAttr.getRawData();
+      if (denseAttr.isSplat()) {
+        // Constant ztensor's buffer is tensor<sizeInBytes x i8>.
+        int8_t v = denseAttr.getSplatValue<int8_t>();
+        assert(v == 0 && "Cannot be a non-zero splat value");
+        // NNPA does not work with a splat buffer.
+        // Expand the memory buffer for NNPA by using DenseResourceElementsAttr.
+        valueAttr = getDenseResourceElementsAttrOfZero(
+            rewriter, stickifiedConstOp, sizeInBytes);
+      } else {
+        assert(
+            (data.size() == static_cast<uint64_t>(sizeInBytes)) &&
+            "The stickified tensor's buffer size and MemRef's size mismatched");
+      }
+    } else if (auto resourceAttr =
+                   mlir::dyn_cast_or_null<DenseResourceElementsAttr>(
+                       valueAttr)) {
+      auto blob = resourceAttr.getRawHandle().getBlob();
+      assert(blob && "Expecting dense resource with a valid blob");
+      ArrayRef<char> data = blob->getData();
+      assert(
+          (data.size() == static_cast<uint64_t>(sizeInBytes)) &&
+          "The stickified tensor's buffer size and MemRef's size mismatched");
+    } else {
+      llvm_unreachable("Unsupported ElementsAttr");
+    }
 
     // Create a KrnlGlobalOp.
     KrnlGlobalOp constantGlobal =
@@ -731,7 +762,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             /*name=*/
             rewriter.getStringAttr(
                 "constant_stickify_" + std::to_string(constantID)),
-            /*value=*/stickifiedConstOp.getValueAttr(),
+            /*value=*/valueAttr,
             /*offset=*/nullptr,
             /*alignment=*/stickifiedConstOp.getAlignmentAttr());
 
