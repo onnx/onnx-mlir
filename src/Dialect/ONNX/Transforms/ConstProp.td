@@ -308,9 +308,9 @@ def CreateScatterNDOfConst :
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : NamedPat<"AddConstCommutative1",
   // From add(c, x).
-  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp:$addOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   // To add(x, c).
-  (ONNXAddOp $x, $c),
+  (ONNXAddOp $x, $c, (location $addOp)),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
 
@@ -591,9 +591,9 @@ def SumConstProp : NamedPat<"SumConstProp",
 // Use commutativity to normalize constants in the second position of Mul.
 def MulConstCommutative1 : NamedPat<"MulConstCommutative1",
   // From mul(c, x).
-  (ONNXMulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXMulOp:$mulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   // To mul(x, c).
-  (ONNXMulOp $x, $c),
+  (ONNXMulOp $x, $c, (location $mulOp)),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
 
