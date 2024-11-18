@@ -627,14 +627,14 @@ Value MathBuilder::constant(Type type, double val) const {
           // If unsigned, create a signless constant, then cast it to unsigned.
           if (elementType.isUnsignedInteger()) {
             Type signlessTy = b().getIntegerType(width);
-            constant = b().create<arith::ConstantOp>(
-                loc(), b().getIntegerAttr(signlessTy,
-                           APInt(width, static_cast<int64_t>(val), false, true)));
+            constant = b().create<arith::ConstantOp>(loc(),
+                b().getIntegerAttr(signlessTy,
+                    APInt(width, static_cast<int64_t>(val), false, true)));
             constant = castToUnsigned(constant, width);
           } else {
-            constant = b().create<arith::ConstantOp>(
-                loc(), b().getIntegerAttr(elementType,
-                           APInt(width, static_cast<int64_t>(val), false, true)));
+            constant = b().create<arith::ConstantOp>(loc(),
+                b().getIntegerAttr(elementType,
+                    APInt(width, static_cast<int64_t>(val), false, true)));
           }
         }
       })
