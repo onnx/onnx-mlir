@@ -39,13 +39,13 @@ module {
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_2_]]) {perm = [2, 3, 1, 0]} : (tensor<8x1x5x5xf32>) -> tensor<5x5x1x8xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Stick"([[VAR_8_]]) {layout = "HWCK"} : (tensor<5x5x1x8xf32>) -> tensor<5x5x1x8xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh_1> : tensor<4096xi8>} : () -> tensor<8xf16, #zhigh.layout<{dataLayout = "1D"}>>
+// CHECK-DAG:       [[VAR_10_:%.+]] = zhigh.StickifiedConstant {alignment = 4096 : i64, value = dense<{{.*}}> : tensor<4096xi8>} : tensor<8xf16, #zhigh.layout<{dataLayout = "1D"}>>
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.Conv2D"([[VAR_7_]], [[VAR_9_]], [[VAR_10_]]) {act_func = "ACT_RELU", kernel_shape = [5, 5], padding_type = "SAME_PADDING", strides = [1, 1]} : (tensor<1x28x28x1xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<5x5x1x8xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<8xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<1x28x28x8xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 // CHECK-DAG:       [[VAR_12_:%.+]] = "zhigh.MaxPool2D"([[VAR_11_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [2, 2]} : (tensor<1x28x28x8xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x14x14x8xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 // CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Transpose"([[VAR_1_]]) {perm = [2, 3, 1, 0]} : (tensor<16x8x5x5xf32>) -> tensor<5x5x8x16xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_14_:%.+]] = "zhigh.Stick"([[VAR_13_]]) {layout = "HWCK"} : (tensor<5x5x8x16xf32>) -> tensor<5x5x8x16xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<16xf16, #zhigh.layout<{dataLayout = "1D"}>>
+// CHECK-DAG:       [[VAR_15_:%.+]] = zhigh.StickifiedConstant {alignment = 4096 : i64, value = dense<{{.*}}> : tensor<4096xi8>} : tensor<16xf16, #zhigh.layout<{dataLayout = "1D"}>>
 // CHECK:           [[VAR_16_:%.+]] = "zhigh.Conv2D"([[VAR_12_]], [[VAR_14_]], [[VAR_15_]]) {act_func = "ACT_RELU", kernel_shape = [5, 5], padding_type = "SAME_PADDING", strides = [1, 1]} : (tensor<1x14x14x8xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<5x5x8x16xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<16xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<1x14x14x16xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_17_:%.+]] = "zhigh.MaxPool2D"([[VAR_16_]]) {kernel_shape = [3, 3], padding_type = "VALID_PADDING", strides = [3, 3]} : (tensor<1x14x14x16xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x4x4x16xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_18_:%.+]] = "zhigh.Unstick"([[VAR_17_]]) : (tensor<1x4x4x16xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x16x4x4xf32>

@@ -32,6 +32,7 @@
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -120,10 +121,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Replace every DisposableElementsAttr with DenseElementsAttr.
-  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
-  pm.addPass(createScrubDisposablePass());
-
   // Experimental feature: Decompose stick/unstick into two phases: layout
   // transform and data conversion. Do some optimizations after decomposing.
   // Then, recompose again layout and data conversion if they are not optimized.
@@ -154,6 +151,9 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling
   // for onnx and zhigh ops.
@@ -195,6 +195,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
+    pm.addInstrumentation(
+        std::make_unique<onnx_mlir::zhigh::ZHighDisposableGarbageCollector>(
+            pm.getContext()));
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
     pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,

@@ -26,6 +26,7 @@
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -35,15 +36,35 @@ namespace onnx_mlir {
 namespace zhigh {
 
 /// Get raw data from a dense attribute.
-static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
-  if (!denseAttr.isSplat()) {
-    data = denseAttr.getRawData();
-  } else {
-    ShapedType denseShapeType = mlir::cast<ShapedType>(denseAttr.getType());
-    std::vector<char> rawData = denseAttr.getRawData();
-    int64_t numElements = denseShapeType.getNumElements();
+static void getRawData(ElementsAttr attr_, std::vector<char> &data) {
+  ShapedType tensorType = mlir::cast<ShapedType>(attr_.getType());
+  Type elemTy = tensorType.getElementType();
+  int64_t numElements = tensorType.getNumElements();
+
+  // Use DenseElementsAttr for boolean values. DisposableElementsAttr handles
+  // bool differently.
+  ElementsAttr attr = attr_;
+  if (elemTy.isInteger(1))
+    attr = ElementsAttrBuilder::toDenseElementsAttr(attr_);
+
+  auto denseAttr = mlir::dyn_cast_or_null<DenseElementsAttr>(attr);
+  auto disposalAttr = mlir::dyn_cast_or_null<DisposableElementsAttr>(attr);
+  assert((denseAttr || disposalAttr) &&
+         "Must be DenseElementsAttr or DisposableElementsAttr");
+
+  if (disposalAttr) {
+    data.resize(numElements * getEltSizeInBytes(elemTy));
+    disposalAttr.readRawBytes(data);
+    return;
+  }
+
+  ArrayRef<char> rawData = denseAttr.getRawData();
+  if (denseAttr.isSplat()) {
+    // Broadcast the splat value.
     for (int i = 0; i < numElements; i++)
       data.insert(data.end(), rawData.begin(), rawData.end());
+  } else {
+    data = rawData;
   }
 }
 
@@ -71,17 +92,15 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-  // Use an dense resource attribute to store stickified data.
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
-  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-      stickifiedConstant.getOperation()
-          ->getDialect()
-          ->getNamespace(), // use the dialect as the blob "hint"
-      HeapAsmResourceBlob::allocateAndCopyWithAlign(
-          llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
-
+  RankedTensorType dataType =
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
+  std::unique_ptr<llvm::MemoryBuffer> memBuf = llvm::MemoryBuffer::getMemBuffer(
+      StringRef((char *)ztensor->buffer, sizeInBytes), "",
+      /*RequiresNullTerminator*/ false);
+  ElementsAttr valueAttr = OnnxElementsAttrBuilder(rewriter.getContext())
+                               .fromMemoryBuffer(dataType, std::move(memBuf));
   stickifiedConstant.setValueAttr(valueAttr);
 
   return stickifiedConstant;
@@ -90,14 +109,12 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
 ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
     Value replacingValue, Value input, StringAttr layout) {
   Location loc = replacingValue.getLoc();
-  Operation *op = input.getDefiningOp();
   ArrayRef<int64_t> shape = mlir::cast<ShapedType>(input.getType()).getShape();
   Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
   int rank = shape.size();
 
   // Read dense attributes.
-  DenseElementsAttr dataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      op->getAttrOfType<::mlir::Attribute>("value"));
+  ElementsAttr dataAttr = getElementAttributeFromONNXValue(input);
   assert(dataAttr && "Attribute is null");
   // Read attributes's raw data.
   std::vector<char> rawData;
@@ -136,10 +153,6 @@ ZHighStickifiedConstantOp createConstantForStickForLSTM(
     PatternRewriter &rewriter, Value replacingValue, Value inputF, Value inputI,
     Value inputC, Value inputO) {
   Location loc = replacingValue.getLoc();
-  Operation *fOp = inputF.getDefiningOp();
-  Operation *iOp = inputI.getDefiningOp();
-  Operation *cOp = inputC.getDefiningOp();
-  Operation *oOp = inputO.getDefiningOp();
 
   ArrayRef<int64_t> fShape =
       mlir::cast<ShapedType>(inputF.getType()).getShape();
@@ -147,14 +160,10 @@ ZHighStickifiedConstantOp createConstantForStickForLSTM(
   Type elementType = mlir::cast<ShapedType>(inputF.getType()).getElementType();
 
   // Read dense attributes.
-  DenseElementsAttr fDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      fOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr iDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      iOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr cDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      cOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr oDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      oOp->getAttrOfType<::mlir::Attribute>("value"));
+  ElementsAttr fDataAttr = getElementAttributeFromONNXValue(inputF);
+  ElementsAttr iDataAttr = getElementAttributeFromONNXValue(inputI);
+  ElementsAttr cDataAttr = getElementAttributeFromONNXValue(inputC);
+  ElementsAttr oDataAttr = getElementAttributeFromONNXValue(inputO);
   assert((fDataAttr && iDataAttr && cDataAttr && oDataAttr) &&
          "Attribute is null");
   // Read attributes's raw data.
@@ -198,9 +207,6 @@ ZHighStickifiedConstantOp createConstantForStickForGRU(
     PatternRewriter &rewriter, Value replacingValue, Value inputZ, Value inputR,
     Value inputH) {
   Location loc = replacingValue.getLoc();
-  Operation *zOp = inputZ.getDefiningOp();
-  Operation *rOp = inputR.getDefiningOp();
-  Operation *hOp = inputH.getDefiningOp();
 
   ArrayRef<int64_t> zShape =
       mlir::cast<ShapedType>(inputZ.getType()).getShape();
@@ -208,12 +214,9 @@ ZHighStickifiedConstantOp createConstantForStickForGRU(
   Type elementType = mlir::cast<ShapedType>(inputZ.getType()).getElementType();
 
   // Read dense attributes.
-  DenseElementsAttr zDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      zOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr rDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      rOp->getAttrOfType<::mlir::Attribute>("value"));
-  DenseElementsAttr hDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
-      hOp->getAttrOfType<::mlir::Attribute>("value"));
+  ElementsAttr zDataAttr = getElementAttributeFromONNXValue(inputZ);
+  ElementsAttr rDataAttr = getElementAttributeFromONNXValue(inputR);
+  ElementsAttr hDataAttr = getElementAttributeFromONNXValue(inputH);
   assert((zDataAttr && rDataAttr && hDataAttr) && "Attribute is null");
   // Read attributes's raw data.
   std::vector<char> rawZData, rawHData, rawRData, rawOData;

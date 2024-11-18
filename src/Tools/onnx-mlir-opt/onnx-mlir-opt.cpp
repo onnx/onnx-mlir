@@ -167,7 +167,15 @@ int main(int argc, char **argv) {
     // MlirOptMain constructed ctx with our registry so we just load all our
     // already registered dialects.
     ctx->loadAllAvailableDialects();
-    pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
+    if (maccel.empty()) {
+      pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
+    } else {
+      // Initialize accelerator(s) if required.
+      accel::initAccelerators(maccel);
+      // Setup PassManager for accelerators.
+      for (auto *accel : accel::Accelerator::getAccelerators())
+        accel->setupPassManager(pm);
+    }
     auto errorHandler = [ctx](const Twine &msg) {
       emitError(UnknownLoc::get(ctx)) << msg;
       return failure();
