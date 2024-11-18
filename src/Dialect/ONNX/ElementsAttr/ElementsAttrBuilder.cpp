@@ -187,6 +187,7 @@ ElementsAttr ElementsAttrBuilder::fromWideNums(
 //       demonstrates a speedup.
 ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum)) {
+  assert(combinedType.hasStaticShape());
   if (lhs.isSplat()) {
     WideNum lhsNum = getElementsSplatWideNum(lhs);
     return expandAndTransform(rhs, combinedType,
@@ -227,6 +228,7 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
 
 ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
     ElementsAttr rhs, ShapedType combinedType) {
+  assert(combinedType.hasStaticShape());
   assert(cond.getElementType().isInteger(1));
   assert(lhs.getElementType() == rhs.getElementType());
   assert(lhs.getElementType() == combinedType.getElementType());
