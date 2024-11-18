@@ -108,7 +108,7 @@ public:
   /// command line options.
   virtual void registerPasses(int optLevel) const = 0;
 
-  /// Setup PassManager.
+  /// Setup PassManager for onnx-mlir-opt.
   virtual void setupPassManager(mlir::PassManager &pm) const = 0;
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass
