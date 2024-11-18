@@ -627,12 +627,14 @@ Value MathBuilder::constant(Type type, double val) const {
           // If unsigned, create a signless constant, then cast it to unsigned.
           if (elementType.isUnsignedInteger()) {
             Type signlessTy = b().getIntegerType(width);
-            constant = b().create<arith::ConstantOp>(loc(),
-                b().getIntegerAttr(signlessTy, APInt(width, (int64_t)val, false, true)));
+            constant = b().create<arith::ConstantOp>(
+                loc(), b().getIntegerAttr(signlessTy,
+                           APInt(width, (int64_t)val, false, true)));
             constant = castToUnsigned(constant, width);
           } else {
-            constant = b().create<arith::ConstantOp>(loc(),
-                b().getIntegerAttr(elementType, APInt(width, (int64_t)val, false, true)));
+            constant = b().create<arith::ConstantOp>(
+                loc(), b().getIntegerAttr(elementType,
+                           APInt(width, (int64_t)val, false, true)));
           }
         }
       })
@@ -2263,7 +2265,8 @@ Value LLVMBuilder::constant(Type type, int64_t val) const {
           assert(type.isSignless() &&
                  "LLVM::ConstantOp requires a signless type.");
           constant = b().create<LLVM::ConstantOp>(loc(), type,
-              b().getIntegerAttr(type, APInt(width, (int64_t)val, false, true)));
+              b().getIntegerAttr(
+                  type, APInt(width, (int64_t)val, false, true)));
         }
       })
       .Case<IndexType>([&](Type) {
