@@ -47,7 +47,6 @@ add_onnx_mlir_library(OMZHighOps
   OMONNXOps # Use ONNXShapeHelper 
   OMLayoutHelper
   OMShapeHelperOpInterface
-  OMStickify
   OMNNPACompilerOptions
   MLIRIR
 

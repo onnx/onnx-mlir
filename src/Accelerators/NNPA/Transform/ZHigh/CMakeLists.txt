@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMZHighConstPropagation
   MLIRRewrite
   MLIRTransformUtils
   OMLayoutHelper
+  OMStickify
   OMZHighOps
   OMONNXOps
 
@@ -46,9 +47,6 @@ add_onnx_mlir_library(OMZHighClipToDLFloat
   MLIRTransformUtils
   OMZHighOps
   OMONNXOps
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_INCLUDE_PATH}
   )
 
 add_onnx_mlir_rewriter(ZHighDecomposeStickUnstick)
