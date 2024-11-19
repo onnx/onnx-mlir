@@ -168,14 +168,14 @@ static Value insertAllocForWorkAreaForRNNOps(IndexExprBuilderForKrnl &createIE,
   return create.mem.alignedAlloc(resultType, dims, gAlignment);
 }
 
-/// Get an dense resource attribute to store stickified data of zeros.
+/// Get a dense resource attribute to store stickified data of a given i8 value.
 /// Attribute type: tensor<sizeInBytes x i8>
-DenseResourceElementsAttr getDenseResourceElementsAttrOfZero(
+DenseResourceElementsAttr getDenseResourceElementsAttrOfValue(
     PatternRewriter &rewriter, ZHighStickifiedConstantOp stickifiedConstant,
-    int64_t sizeInBytes) {
+    int8_t val, int64_t sizeInBytes) {
   char *rawData = static_cast<char *>(malloc(sizeInBytes));
   assert(rawData && "failed to allocate memory for stickified data");
-  memset(rawData, 0, sizeInBytes);
+  memset(rawData, val, sizeInBytes);
   DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
       RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
       stickifiedConstant.getOperation()
@@ -218,8 +218,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     // Attribute type: tensor<sizeInBytes x i8>
     int64_t sizeInBytes =
         affine::getIntOrFloatMemRefSizeInBytes(resType).value();
-    DenseResourceElementsAttr valueAttr = getDenseResourceElementsAttrOfZero(
-        rewriter, stickifiedConstant, sizeInBytes);
+    DenseResourceElementsAttr valueAttr = getDenseResourceElementsAttrOfValue(
+        rewriter, stickifiedConstant, 0, sizeInBytes);
     stickifiedConstant.setValueAttr(valueAttr);
     res = stickifiedConstant.getResult();
   } else {
@@ -731,11 +731,10 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
       if (denseAttr.isSplat()) {
         // Constant ztensor's buffer is tensor<sizeInBytes x i8>.
         int8_t v = denseAttr.getSplatValue<int8_t>();
-        assert(v == 0 && "Cannot be a non-zero splat value");
         // NNPA does not work with a splat buffer.
         // Expand the memory buffer for NNPA by using DenseResourceElementsAttr.
-        valueAttr = getDenseResourceElementsAttrOfZero(
-            rewriter, stickifiedConstOp, sizeInBytes);
+        valueAttr = getDenseResourceElementsAttrOfValue(
+            rewriter, stickifiedConstOp, v, sizeInBytes);
       } else {
         assert(
             (data.size() == static_cast<uint64_t>(sizeInBytes)) &&
