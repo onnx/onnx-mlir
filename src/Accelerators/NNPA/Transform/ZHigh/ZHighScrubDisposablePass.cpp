@@ -29,7 +29,7 @@ struct ZHighScrubDisposablePass
 
   ZHighScrubDisposablePass(bool closeAfter) : closeAfter(closeAfter) {}
 
-  StringRef getArgument() const override { return "scrub-disposable"; }
+  StringRef getArgument() const override { return "zhigh-scrub-disposable"; }
 
   void runOnOperation() final {
     ModuleOp moduleOp = getOperation();

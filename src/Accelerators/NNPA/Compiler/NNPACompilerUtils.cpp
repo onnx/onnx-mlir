@@ -143,8 +143,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Only support BE machines.
   bool isBE = llvm::endianness::native == llvm::endianness::big;
   if (isBE)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighConstPropagationPass());
+    pm.addPass(onnx_mlir::zhigh::createZHighConstPropagationPass());
 
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());

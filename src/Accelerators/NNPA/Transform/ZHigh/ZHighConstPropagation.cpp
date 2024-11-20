@@ -264,10 +264,116 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Transform/ZHigh/ONNXZHighConstPropagation.inc"
 
+static void replaceOpAndGC(PatternRewriter &rewriter, ModuleOp moduleOp,
+    DisposablePool *disposablePool, Operation *op, ValueRange newValues) {
+  rewriter.replaceOp(op, newValues);
+  disposablePool->garbageCollectUnreachable(
+      moduleOp, {{ONNXConstantOp::getOperationName(), "value"},
+                    {ONNXConstantOfShapeOp::getOperationName(), "value"},
+                    {ZHighStickifiedConstantOp::getOperationName(), "value"}});
+}
+
+// zhigh.Stick (c) = krnl.global(c1), where c1 is stickified data.
+// Always saturate constants.
+struct ConstantStickPattern : public OpRewritePattern<ZHighStickOp> {
+  ConstantStickPattern(
+      MLIRContext *context, ModuleOp moduleOp, DisposablePool *disposablePool)
+      : OpRewritePattern(context), moduleOp(moduleOp),
+        disposablePool(disposablePool) {}
+  LogicalResult matchAndRewrite(
+      ZHighStickOp stickOp, PatternRewriter &rewriter) const override {
+    Value input = stickOp.getIn();
+    Value output = stickOp.getOut();
+    StringAttr layout = stickOp.getLayoutAttr();
+
+    // Match
+    if (!isDenseONNXConstant(input)) {
+      return failure();
+    }
+
+    // Rewrite
+    Value stickifiedVal =
+        createConstantForStick(rewriter, output, input, layout);
+    replaceOpAndGC(rewriter, moduleOp, disposablePool, stickOp, stickifiedVal);
+    return success();
+  }
+
+private:
+  ModuleOp moduleOp;
+  DisposablePool *disposablePool;
+};
+
+// zhigh.StickForGRU (c1, c2, c3) = krnl.global(c)
+// where c is stickified data.
+struct ConstantStickForGRUPattern
+    : public OpRewritePattern<ZHighStickForGRUOp> {
+  ConstantStickForGRUPattern(
+      MLIRContext *context, ModuleOp moduleOp, DisposablePool *disposablePool)
+      : OpRewritePattern(context), moduleOp(moduleOp),
+        disposablePool(disposablePool) {}
+  LogicalResult matchAndRewrite(
+      ZHighStickForGRUOp stickOp, PatternRewriter &rewriter) const override {
+    Value zGate = stickOp.getZGate();
+    Value rGate = stickOp.getRGate();
+    Value hGate = stickOp.getHGate();
+    Value output = stickOp.getOut();
+
+    // Match
+    if (!isDenseONNXConstant(zGate) || !isDenseONNXConstant(rGate) ||
+        !isDenseONNXConstant(hGate)) {
+      return failure();
+    }
+
+    // Rewrite
+    Value stickifiedVal =
+        createConstantForStickForGRU(rewriter, output, zGate, rGate, hGate);
+    replaceOpAndGC(rewriter, moduleOp, disposablePool, stickOp, stickifiedVal);
+    return success();
+  }
+
+private:
+  ModuleOp moduleOp;
+  DisposablePool *disposablePool;
+};
+
+// zhigh.StickForLSTM (c1, c2, c3, c4) = krnl.global(c)
+// where c is stickified data.
+struct ConstantStickForLSTMPattern
+    : public OpRewritePattern<ZHighStickForLSTMOp> {
+  ConstantStickForLSTMPattern(
+      MLIRContext *context, ModuleOp moduleOp, DisposablePool *disposablePool)
+      : OpRewritePattern(context), moduleOp(moduleOp),
+        disposablePool(disposablePool) {}
+  LogicalResult matchAndRewrite(
+      ZHighStickForLSTMOp stickOp, PatternRewriter &rewriter) const override {
+    Value fGate = stickOp.getFGate();
+    Value iGate = stickOp.getIGate();
+    Value cGate = stickOp.getCGate();
+    Value oGate = stickOp.getOGate();
+    Value output = stickOp.getOut();
+
+    // Match
+    if (!isDenseONNXConstant(fGate) || !isDenseONNXConstant(iGate) ||
+        !isDenseONNXConstant(cGate) || !isDenseONNXConstant(oGate)) {
+      return failure();
+    }
+
+    // Rewrite
+    Value stickifiedVal = createConstantForStickForLSTM(
+        rewriter, output, fGate, iGate, cGate, oGate);
+    replaceOpAndGC(rewriter, moduleOp, disposablePool, stickOp, stickifiedVal);
+    return success();
+  }
+
+private:
+  ModuleOp moduleOp;
+  DisposablePool *disposablePool;
+};
+
 struct ZHighConstPropagationPass
-    //: public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
-    : public PassWrapper<ZHighConstPropagationPass,
-          OperationPass<func::FuncOp>> {
+    : public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
+  // : public PassWrapper<ZHighConstPropagationPass,
+  //       OperationPass<func::FuncOp>> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighConstPropagationPass)
 
@@ -278,11 +384,18 @@ struct ZHighConstPropagationPass
   }
 
   void runOnOperation() override {
-    auto function = getOperation();
+    DisposablePool *disposablePool =
+        DisposablePool::get<ONNXDialect>(&getContext());
+    ModuleOp moduleOp = getOperation();
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    populateWithGenerated(patterns);
-    (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
+    patterns.insert<ConstantStickPattern>(
+        patterns.getContext(), moduleOp, disposablePool);
+    patterns.insert<ConstantStickForGRUPattern>(
+        patterns.getContext(), moduleOp, disposablePool);
+    patterns.insert<ConstantStickForLSTMPattern>(
+        patterns.getContext(), moduleOp, disposablePool);
+    (void)applyPatternsAndFoldGreedily(moduleOp, std::move(patterns));
   }
 };
 } // anonymous namespace
