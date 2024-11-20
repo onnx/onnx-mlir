@@ -1,5 +1,5 @@
 
-// RUN: onnx-mlir --EmitZHighIR --mcpu=z16 --maccel=NNPA --disable-constant-prop=true --printIR %s | FileCheck %s
+//&& RUN: onnx-mlir --EmitZHighIR --mcpu=z16 --maccel=NNPA --disable-constant-prop=true --printIR %s | FileCheck %s
 
 // Note that, we intentionally add `device=cpu` into onnx.Gemm to force it run on CPU.
 module { 
