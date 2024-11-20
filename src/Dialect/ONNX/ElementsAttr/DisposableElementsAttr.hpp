@@ -116,17 +116,17 @@ public:
     return *this ? mlir::cast<ElementsAttr>(*this) : nullptr;
   }
 
+  // Clears the buffer payload shared_ptr which decreases the reference count
+  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
+  // heap allocation or file. Called from DisposablePool.
+  void dispose();
+
 private:
   // Called from DisposablePool who calls with a unique id and records the
   // created instance.
   static DisposableElementsAttr create(ShapedType type, size_t id,
       BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
       Transformer transformer);
-
-  // Clears the buffer payload shared_ptr which decreases the reference count
-  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
-  // heap allocation or file. Called from DisposablePool.
-  void dispose();
 
 public:
   //===--------------------------------------------------------------------===//

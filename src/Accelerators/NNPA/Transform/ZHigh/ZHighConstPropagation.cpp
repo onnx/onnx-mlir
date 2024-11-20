@@ -95,23 +95,24 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
 
-  // DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-  //     RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-  //     stickifiedConstant.getOperation()
-  //         ->getDialect()
-  //         ->getNamespace(), // use the dialect as the blob "hint"
-  //     HeapAsmResourceBlob::allocateAndCopyWithAlign(
-  //         llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes),
-  //         alignof(char)));
-  // allochelper_ztensor_free(ztensor);
+  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+      stickifiedConstant.getOperation()
+          ->getDialect()
+          ->getNamespace(), // use the dialect as the blob "hint"
+      HeapAsmResourceBlob::allocateAndCopyWithAlign(
+          llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
+  allochelper_ztensor_free(ztensor);
 
-  RankedTensorType dataType =
-      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
-  std::unique_ptr<llvm::MemoryBuffer> memBuf = llvm::MemoryBuffer::getMemBuffer(
-      StringRef((char *)ztensor->buffer, sizeInBytes), "",
-      /*RequiresNullTerminator*/ false);
-  ElementsAttr valueAttr = OnnxElementsAttrBuilder(rewriter.getContext())
-                               .fromMemoryBuffer(dataType, std::move(memBuf));
+  // RankedTensorType dataType =
+  //     RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
+  // std::unique_ptr<llvm::MemoryBuffer> memBuf =
+  // llvm::MemoryBuffer::getMemBuffer(
+  //     StringRef((char *)ztensor->buffer, sizeInBytes), "",
+  //     /*RequiresNullTerminator*/ false);
+  // ElementsAttr valueAttr = OnnxElementsAttrBuilder(rewriter.getContext())
+  //                              .fromMemoryBuffer(dataType,
+  //                              std::move(memBuf));
   stickifiedConstant.setValueAttr(valueAttr);
 
   return stickifiedConstant;
@@ -275,22 +276,34 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Transform/ZHigh/ONNXZHighConstPropagation.inc"
 
-static void replaceOpAndGC(PatternRewriter &rewriter, ModuleOp moduleOp,
-    DisposablePool *disposablePool, Operation *op, ValueRange newValues) {
+static void replaceOpAndGC(
+    PatternRewriter &rewriter, Operation *op, ValueRange newValues) {
+  SmallVector<ONNXConstantOp> constOps;
+  for (Value v : op->getOperands()) {
+    // v is consumed by only the current stick op.
+    if (!v.hasOneUse())
+      continue;
+    if (auto cop = v.getDefiningOp<ONNXConstantOp>()) {
+      if (auto disposableAttr =
+              mlir::dyn_cast<DisposableElementsAttr>(cop.getValueAttr())) {
+        disposableAttr.dispose();
+        cop.removeValueAttr();
+        // This op will be dead soon, but we need to make it valid by setting a
+        // splat value so that it does not consume memory.
+        llvm::SmallVector<float, 1> values(1, 0.);
+        cop.setValueAttr(DenseElementsAttr::get(
+            mlir::cast<ShapedType>(disposableAttr.getType()),
+            llvm::ArrayRef(values)));
+      }
+    }
+  }
   rewriter.replaceOp(op, newValues);
-  disposablePool->garbageCollectUnreachable(
-      moduleOp, {{ONNXConstantOp::getOperationName(), "value"},
-                    {ONNXConstantOfShapeOp::getOperationName(), "value"},
-                    {ZHighStickifiedConstantOp::getOperationName(), "value"}});
 }
 
 // zhigh.Stick (c) = krnl.global(c1), where c1 is stickified data.
 // Always saturate constants.
 struct ConstantStickPattern : public OpRewritePattern<ZHighStickOp> {
-  ConstantStickPattern(
-      MLIRContext *context, ModuleOp moduleOp, DisposablePool *disposablePool)
-      : OpRewritePattern(context), moduleOp(moduleOp),
-        disposablePool(disposablePool) {}
+  ConstantStickPattern(MLIRContext *context) : OpRewritePattern(context) {}
   LogicalResult matchAndRewrite(
       ZHighStickOp stickOp, PatternRewriter &rewriter) const override {
     Value input = stickOp.getIn();
@@ -305,23 +318,17 @@ struct ConstantStickPattern : public OpRewritePattern<ZHighStickOp> {
     // Rewrite
     Value stickifiedVal =
         createConstantForStick(rewriter, output, input, layout);
-    replaceOpAndGC(rewriter, moduleOp, disposablePool, stickOp, stickifiedVal);
+    replaceOpAndGC(rewriter, stickOp, stickifiedVal);
     return success();
   }
-
-private:
-  ModuleOp moduleOp;
-  DisposablePool *disposablePool;
 };
 
 // zhigh.StickForGRU (c1, c2, c3) = krnl.global(c)
 // where c is stickified data.
 struct ConstantStickForGRUPattern
     : public OpRewritePattern<ZHighStickForGRUOp> {
-  ConstantStickForGRUPattern(
-      MLIRContext *context, ModuleOp moduleOp, DisposablePool *disposablePool)
-      : OpRewritePattern(context), moduleOp(moduleOp),
-        disposablePool(disposablePool) {}
+  ConstantStickForGRUPattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
   LogicalResult matchAndRewrite(
       ZHighStickForGRUOp stickOp, PatternRewriter &rewriter) const override {
     Value zGate = stickOp.getZGate();
@@ -338,23 +345,17 @@ struct ConstantStickForGRUPattern
     // Rewrite
     Value stickifiedVal =
         createConstantForStickForGRU(rewriter, output, zGate, rGate, hGate);
-    replaceOpAndGC(rewriter, moduleOp, disposablePool, stickOp, stickifiedVal);
+    replaceOpAndGC(rewriter, stickOp, stickifiedVal);
     return success();
   }
-
-private:
-  ModuleOp moduleOp;
-  DisposablePool *disposablePool;
 };
 
 // zhigh.StickForLSTM (c1, c2, c3, c4) = krnl.global(c)
 // where c is stickified data.
 struct ConstantStickForLSTMPattern
     : public OpRewritePattern<ZHighStickForLSTMOp> {
-  ConstantStickForLSTMPattern(
-      MLIRContext *context, ModuleOp moduleOp, DisposablePool *disposablePool)
-      : OpRewritePattern(context), moduleOp(moduleOp),
-        disposablePool(disposablePool) {}
+  ConstantStickForLSTMPattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
   LogicalResult matchAndRewrite(
       ZHighStickForLSTMOp stickOp, PatternRewriter &rewriter) const override {
     Value fGate = stickOp.getFGate();
@@ -372,19 +373,13 @@ struct ConstantStickForLSTMPattern
     // Rewrite
     Value stickifiedVal = createConstantForStickForLSTM(
         rewriter, output, fGate, iGate, cGate, oGate);
-    replaceOpAndGC(rewriter, moduleOp, disposablePool, stickOp, stickifiedVal);
+    replaceOpAndGC(rewriter, stickOp, stickifiedVal);
     return success();
   }
-
-private:
-  ModuleOp moduleOp;
-  DisposablePool *disposablePool;
 };
 
 struct ZHighConstPropagationPass
     : public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
-  // : public PassWrapper<ZHighConstPropagationPass,
-  //       OperationPass<func::FuncOp>> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighConstPropagationPass)
 
@@ -395,17 +390,12 @@ struct ZHighConstPropagationPass
   }
 
   void runOnOperation() override {
-    DisposablePool *disposablePool =
-        DisposablePool::get<ONNXDialect>(&getContext());
     ModuleOp moduleOp = getOperation();
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<ConstantStickPattern>(
-        patterns.getContext(), moduleOp, disposablePool);
-    patterns.insert<ConstantStickForGRUPattern>(
-        patterns.getContext(), moduleOp, disposablePool);
-    patterns.insert<ConstantStickForLSTMPattern>(
-        patterns.getContext(), moduleOp, disposablePool);
+    patterns.insert<ConstantStickPattern>(patterns.getContext());
+    patterns.insert<ConstantStickForGRUPattern>(patterns.getContext());
+    patterns.insert<ConstantStickForLSTMPattern>(patterns.getContext());
     (void)applyPatternsAndFoldGreedily(moduleOp, std::move(patterns));
   }
 };
