@@ -278,7 +278,6 @@ namespace {
 
 static void replaceOpAndGC(
     PatternRewriter &rewriter, Operation *op, ValueRange newValues) {
-  SmallVector<ONNXConstantOp> constOps;
   for (Value v : op->getOperands()) {
     // v is consumed by only the current stick op.
     if (!v.hasOneUse())
@@ -286,14 +285,26 @@ static void replaceOpAndGC(
     if (auto cop = v.getDefiningOp<ONNXConstantOp>()) {
       if (auto disposableAttr =
               mlir::dyn_cast<DisposableElementsAttr>(cop.getValueAttr())) {
-        disposableAttr.dispose();
-        cop.removeValueAttr();
         // This op will be dead soon, but we need to make it valid by setting a
         // splat value so that it does not consume memory.
-        llvm::SmallVector<float, 1> values(1, 0.);
-        cop.setValueAttr(DenseElementsAttr::get(
-            mlir::cast<ShapedType>(disposableAttr.getType()),
-            llvm::ArrayRef(values)));
+        ShapedType ty = mlir::cast<ShapedType>(disposableAttr.getType());
+        Type elemTy = ty.getElementType();
+        if (!elemTy.isF32() || !elemTy.isInteger(8))
+          continue;
+        // Release the disposable elements att.
+        disposableAttr.dispose();
+        // Replace it with DenseElementsAttr.
+        cop.removeValueAttr();
+        if (elemTy.isF32()) {
+          SmallVector<float, 1> values(1, 0.);
+          cop.setValueAttr(DenseElementsAttr::get(ty, llvm::ArrayRef(values)));
+        }
+        if (elemTy.isInteger(8)) {
+          disposableAttr.dispose();
+          cop.removeValueAttr();
+          SmallVector<int8_t, 1> values(1, 0);
+          cop.setValueAttr(DenseElementsAttr::get(ty, llvm::ArrayRef(values)));
+        }
       }
     }
   }
