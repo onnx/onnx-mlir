@@ -57,7 +57,6 @@ public:
   //===--------------------------------------------------------------------===//
   virtual void registerDialects(mlir::DialectRegistry &registry) const final;
   virtual void registerPasses(int optLevel) const final;
-  virtual void setupPassManager(mlir::PassManager &pm) const final;
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass
   //===--------------------------------------------------------------------===//

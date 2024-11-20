@@ -18,7 +18,6 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
@@ -132,12 +131,6 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass();
   });
-}
-
-void NNPAAccelerator::setupPassManager(mlir::PassManager &pm) const {
-  mlir::MLIRContext *ctx = pm.getContext();
-  pm.addInstrumentation(
-      std::make_unique<onnx_mlir::zhigh::ZHighDisposableGarbageCollector>(ctx));
 }
 
 mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(

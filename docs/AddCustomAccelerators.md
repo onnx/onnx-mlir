@@ -110,9 +110,6 @@ virtual void conversionTargetONNXToKrnl(
 virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
 
-/// Setup PassManager for onnx-mlir-opt.
-virtual void setupPassManager(mlir::PassManager &pm) const = 0;
-
 //===--------------------------------------------------------------------===//
 // Hooks for krnl-to-llvm pass
 //===--------------------------------------------------------------------===//
