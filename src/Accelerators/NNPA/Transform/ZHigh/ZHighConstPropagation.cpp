@@ -289,7 +289,7 @@ static void replaceOpAndGC(
         // splat value so that it does not consume memory.
         ShapedType ty = mlir::cast<ShapedType>(disposableAttr.getType());
         Type elemTy = ty.getElementType();
-        if (!elemTy.isF32() || !elemTy.isInteger(8))
+        if (!elemTy.isF32() && !elemTy.isInteger(8))
           continue;
         // Release the disposable elements att.
         disposableAttr.dispose();
