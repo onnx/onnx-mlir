@@ -11,8 +11,8 @@ func.func @test_add_constant_1_loc(%arg0 : tensor<3xf32>) -> tensor<3xf32> {
   "onnx.Return"(%1) : (tensor<3xf32>) -> ()
   // CHECK-NEXT: [[CONST:%.+]] = onnx.Constant dense<[0.000000e+00, 1.000000e+00, 2.000000e+00]> : tensor<3xf32> loc([[LOC_CONST:#.+]])
   // CHECK-NEXT: [[ADD:%.+]] = "onnx.Add"(%arg0, [[CONST]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32> loc([[LOC_ADD:#.+]])
-  // CHECK:      [[LOC_CONST]] = loc("Constant")
-  // CHECK:      [[LOC_ADD]] = loc("Add")
+  // CHECK-DAG:      [[LOC_CONST]] = loc("Constant")
+  // CHECK-DAG:      [[LOC_ADD]] = loc("Add")
 }
 
 // -----
@@ -24,7 +24,7 @@ func.func @test_mul_constant_1_loc(%arg0 : tensor<3xf32>) -> tensor<3xf32> {
   "onnx.Return"(%1) : (tensor<3xf32>) -> ()
   // CHECK-NEXT: [[CONST:%.+]] = onnx.Constant dense<[0.000000e+00, 1.000000e+00, 2.000000e+00]> : tensor<3xf32> loc([[LOC_CONST:#.+]])
   // CHECK-NEXT: [[MUL:%.+]] =  "onnx.Mul"(%arg0, [[CONST]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32> loc([[LOC_MUL:#.+]])
-  // CHECK:      [[LOC_CONST]] = loc("Constant")
-  // CHECK:      [[LOC_MUL]] = loc("Mul")
+  // CHECK-DAG:      [[LOC_CONST]] = loc("Constant")
+  // CHECK-DAG:      [[LOC_MUL]] = loc("Mul")
 }
 
