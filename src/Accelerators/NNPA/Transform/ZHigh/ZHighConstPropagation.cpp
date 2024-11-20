@@ -53,8 +53,8 @@ static void getRawData(ElementsAttr attr_, std::vector<char> &data) {
          "Must be DenseElementsAttr or DisposableElementsAttr");
 
   if (disposalAttr) {
-    data.resize(numElements * getEltSizeInBytes(elemTy));
-    disposalAttr.readRawBytes(data);
+    ArrayBuffer<char> dstBytes = disposalAttr.getRawBytes();
+    data = dstBytes.get();
     return;
   }
 
@@ -94,6 +94,17 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
 
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
+
+  // DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+  //     RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+  //     stickifiedConstant.getOperation()
+  //         ->getDialect()
+  //         ->getNamespace(), // use the dialect as the blob "hint"
+  //     HeapAsmResourceBlob::allocateAndCopyWithAlign(
+  //         llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes),
+  //         alignof(char)));
+  // allochelper_ztensor_free(ztensor);
+
   RankedTensorType dataType =
       RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
   std::unique_ptr<llvm::MemoryBuffer> memBuf = llvm::MemoryBuffer::getMemBuffer(
