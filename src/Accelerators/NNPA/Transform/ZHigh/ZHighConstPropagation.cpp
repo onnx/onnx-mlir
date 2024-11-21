@@ -95,25 +95,36 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
 
-  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
-      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-      stickifiedConstant.getOperation()
-          ->getDialect()
-          ->getNamespace(), // use the dialect as the blob "hint"
-      HeapAsmResourceBlob::allocateAndCopyWithAlign(
-          llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
-  allochelper_ztensor_free(ztensor);
-
-  // RankedTensorType dataType =
-  //     RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
-  // std::unique_ptr<llvm::MemoryBuffer> memBuf =
-  // llvm::MemoryBuffer::getMemBuffer(
-  //     StringRef((char *)ztensor->buffer, sizeInBytes), "",
-  //     /*RequiresNullTerminator*/ false);
-  // ElementsAttr valueAttr = OnnxElementsAttrBuilder(rewriter.getContext())
-  //                              .fromMemoryBuffer(dataType,
-  //                              std::move(memBuf));
-  stickifiedConstant.setValueAttr(valueAttr);
+  // Currently, using DenseResourceElementsAttr leads to less memory consumption
+  // at compile time.
+  // In the future, if there is a need to do constant prop for ZHigh Ops whose
+  // inputs are stickified data, then using ElementsAttr is potentially better.
+  // In this case, to print or parse ElementsAttr in lit tests,
+  // ZHighStickifiedConstantOp would be updated to support custom printer and
+  // parser.
+  bool useDenseResourceElementsAttr = true;
+  if (useDenseResourceElementsAttr) {
+    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+        stickifiedConstant.getOperation()
+            ->getDialect()
+            ->getNamespace(), // use the dialect as the blob "hint"
+        HeapAsmResourceBlob::allocateAndCopyWithAlign(
+            llvm::ArrayRef((char *)ztensor->buffer, sizeInBytes),
+            alignof(char)));
+    allochelper_ztensor_free(ztensor);
+    stickifiedConstant.setValueAttr(valueAttr);
+  } else {
+    RankedTensorType dataType =
+        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type());
+    std::unique_ptr<llvm::MemoryBuffer> memBuf =
+        llvm::MemoryBuffer::getMemBuffer(
+            StringRef((char *)ztensor->buffer, sizeInBytes), "",
+            /*RequiresNullTerminator*/ false);
+    ElementsAttr valueAttr = OnnxElementsAttrBuilder(rewriter.getContext())
+                                 .fromMemoryBuffer(dataType, std::move(memBuf));
+    stickifiedConstant.setValueAttr(valueAttr);
+  }
 
   return stickifiedConstant;
 }
@@ -285,24 +296,16 @@ static void replaceOpAndGC(
     if (auto cop = v.getDefiningOp<ONNXConstantOp>()) {
       if (auto disposableAttr =
               mlir::dyn_cast<DisposableElementsAttr>(cop.getValueAttr())) {
-        // This op will be dead soon, but we need to make it valid by setting a
-        // splat value so that it does not consume memory.
-        ShapedType ty = mlir::cast<ShapedType>(disposableAttr.getType());
-        Type elemTy = ty.getElementType();
-        if (!elemTy.isF32() && !elemTy.isInteger(8))
-          continue;
-        // Release the disposable elements att.
+        // Since the current op is the only consummer of the constant,
+        // this constant op will be dead soon after the current op is replaced
+        // (but the attribute's buffer is not disposed automatically until the
+        // next call of garbage collector). So, it's safe to dispose the
+        // attribute's buffer now in order to eagerly save memory.
+        //
+        // Once the buffer is dispose, any touch to the attribute would be
+        // invalid. So we just remove it from the constant operation.
         disposableAttr.dispose();
-        // Replace it with DenseElementsAttr.
         cop.removeValueAttr();
-        if (elemTy.isF32()) {
-          SmallVector<float, 1> values(1, 0.);
-          cop.setValueAttr(DenseElementsAttr::get(ty, llvm::ArrayRef(values)));
-        }
-        if (elemTy.isInteger(8)) {
-          SmallVector<int8_t, 1> values(1, 0);
-          cop.setValueAttr(DenseElementsAttr::get(ty, llvm::ArrayRef(values)));
-        }
       }
     }
   }
