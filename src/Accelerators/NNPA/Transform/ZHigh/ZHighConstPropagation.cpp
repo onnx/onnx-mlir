@@ -300,8 +300,6 @@ static void replaceOpAndGC(
           cop.setValueAttr(DenseElementsAttr::get(ty, llvm::ArrayRef(values)));
         }
         if (elemTy.isInteger(8)) {
-          disposableAttr.dispose();
-          cop.removeValueAttr();
           SmallVector<int8_t, 1> values(1, 0);
           cop.setValueAttr(DenseElementsAttr::get(ty, llvm::ArrayRef(values)));
         }
