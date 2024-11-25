@@ -77,7 +77,6 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
     outputConcatDims[dim] = createIE->getShapeAsDim(firstInput, dim);
   }
   IndexExpr cumulativeAxisSize = createIE->getShapeAsDim(firstInput, axisIndex);
-
   // Handle the rest of input
   for (unsigned i = 1; i < numInputs; ++i) {
     Value currInput = operandAdaptor.getInputs()[i];
