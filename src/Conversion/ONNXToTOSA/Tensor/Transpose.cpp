@@ -40,7 +40,9 @@ public:
 
     IndexExprBuilderForTosa createTosaIE(rewriter, loc);
     ONNXTransposeOpShapeHelper shapeHelper(op, {}, &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (shapeHelper.computeShape().failed()) {
+      return rewriter.notifyMatchFailure(op, "Could not infer shapes");
+    }
 
     TosaBuilder tosaBuilder(rewriter, loc);
 

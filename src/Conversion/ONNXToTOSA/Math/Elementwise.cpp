@@ -166,9 +166,8 @@ public:
 
       IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
       ONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createTosaIE);
-      shapeHelper.computeShapeAndAssertOnFailure();
-
-      if (shapeHelper.hasRankBroadcast()) {
+      if (shapeHelper.computeShape().succeeded() &&
+          shapeHelper.hasRankBroadcast()) {
         TosaBuilder tosaBuilder(rewriter, loc);
         llvm::SmallVector<Value, 4> newValues =
             tosaBuilder.equalizeRanks({lhs, rhs});
