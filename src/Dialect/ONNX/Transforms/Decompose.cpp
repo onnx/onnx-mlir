@@ -333,6 +333,105 @@ bool hasStaticSpatialDims(Value v) {
   return llvm::none_of(Ds, ShapedType::isDynamic);
 }
 
+// In the following pattern, a SequenceAt can be replaced with Split
+//   %seq = onnx.SplitToSequence(%input, %split) {%axis : }
+//   %res = onnx.SequenceAt(%seq, %position)
+// In the targeted use case, %split and %position are constant scalar and the 
+// tensor of %input and %res have static shape.
+// This condition greatly reduces the complexity of code generation to replace
+// SequenceAt with slice op
+//   %res = onnx.Slice(%input, %start, %end, %step)
+// The start, and end for slice will be onnx.constant:
+//   start: %position*%split for %axis, 0 for other dimensionis
+//   end: (%positiion+1)*%split for %axis, upper bound for other dimension
+//   step: 1 for all dimensions
+// For dynamic value, code gen, though doable,
+// would be complicated with onnx ops. mlir::tensor op may help
+// Alternative approach is to use split op.
+//   %newres = onnx.split(%input, %split) {axis :}
+// replace %res with %newres:%position
+// Hopefully, the onnx.split from different SequenceAt could be merged in the
+// following optimization.
+// The split approach may have better performance because the slicing is done
+// 
+
+bool canSequenceAtBeReplaced(Value sequenceAtResult) {
+  if (!hasStaticShape(sequenceAtResult.getType()))
+    return false;
+
+  ONNXSequenceAtOp op =
+      mlir::dyn_cast<ONNXSequenceAtOp>(sequenceAtResult.getDefiningOp());
+
+  Value inputSequence = op.getInputSequence();
+  Value position = op.getPosition();
+
+  if (!isDenseONNXConstant(position))
+    return false;
+
+  // Input sequence should be defined with SplitToSequence
+  ONNXSplitToSequenceOp splitToSequence;
+  if (!(splitToSequence = mlir::dyn_cast<ONNXSplitToSequenceOp>(inputSequence.getDefiningOp())))
+    return false;
+
+  // Check the pattern of the SplitToSequence op
+  Value input = splitToSequence.getInput();
+  if (!hasStaticShape(input.getType()))
+    return false;
+  Value split = splitToSequence.getSplit();
+  if (!isScalarConstantTensor(split))
+    return false;
+  
+  return true;
+}
+
+Value replaceSequenceAt(PatternRewriter &rewriter, Location loc, Value sequenceAtResult) {
+  ONNXSequenceAtOp op =
+      mlir::cast<ONNXSequenceAtOp>(sequenceAtResult.getDefiningOp());
+
+  Value inputSequence = op.getInputSequence();
+  Value position = op.getPosition();
+
+  ONNXConstantOp positionConstant = mlir::cast<ONNXConstantOp>(position.getDefiningOp());
+  int64_t positionInt = getScalarValue<int64_t>(positionConstant);
+
+  ONNXSplitToSequenceOp splitToSequence = mlir::cast<ONNXSplitToSequenceOp>(inputSequence.getDefiningOp());
+
+  Value input = splitToSequence.getInput();
+  Value split = splitToSequence.getSplit();
+
+  ONNXConstantOp splitConstant = mlir::cast<ONNXConstantOp>(split.getDefiningOp());
+  int64_t splitInt = getScalarValue<int64_t>(splitConstant);
+  int64_t axisInt = splitToSequence.getAxis();
+
+  auto shape = getShape(input.getType());
+
+#if 0
+  llvm::SmallVector<int64_t, 4> startInt(0, rank);
+  llvm::SmallVector<int64_t, 4> endInt(shape);
+  llvm::SmallVector<int64_t, 4> stepInt(1, rank);
+
+  startInt[axisValue] = splitInt*positionInt;
+  endInt[axisValue] = splitValue*(positionValue+1);
+#endif
+
+  OnnxBuilder create(rewriter, loc);
+  
+  Type sequenceElementType = mlir::cast<SeqType>(inputSequence.getType()).getElementType();
+  mlir::SmallVector<mlir::Type, 4> outputTypes(shape[axisInt]/splitInt, sequenceElementType);
+  auto numSplit = create.constantInt64(mlir::SmallVector<int64_t, 4>(shape[axisInt]/splitInt, splitInt));
+  auto resultRange = create.split(outputTypes, input, numSplit, axisInt);
+  auto rawResult =  resultRange[positionInt];
+
+  if (rawResult.getType() == sequenceAtResult.getType())
+    return rawResult;
+
+  // Temporary code for the error in torch.onnx.export
+  // The exporter changed the dim at the SequenceAt op.
+  // My assumption is that the exporter is confused with  squeeze and unsqueeze.
+  // Need to unsqueeze the tensor.
+  return create.squeeze(sequenceAtResult.getType(), rawResult, create.constantInt64(axisInt));
+}
+
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
