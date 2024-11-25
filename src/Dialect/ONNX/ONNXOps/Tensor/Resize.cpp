@@ -48,9 +48,13 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands, cast<ONNXResizeOp>(op));
   if (operandAdaptor.getAxes().has_value())
     return op->emitOpError("axes are unsupported");
-  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
+  const auto x = operandAdaptor.getX();
+  if (!hasShapeAndRank(x)) {
+    return failure();
+  }
+  uint64_t rank = createIE->getShapedTypeRank(x);
   DimsExpr inputDims, outputDims;
-  createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
+  createIE->getShapeAsDims(x, inputDims);
   bool scalesIsAbsent = isAbsent(operandAdaptor.getScales());
   if (!scalesIsAbsent) {
     // Read and save scales as float.
