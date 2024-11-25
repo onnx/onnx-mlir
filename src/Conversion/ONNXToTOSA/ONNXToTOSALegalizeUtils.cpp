@@ -99,7 +99,7 @@ Value buildRescale(PatternRewriter &rewriter, Operation *op,
 Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
     Value input_val, double input_scale, int64_t input_zp) {
   // Output is always int32 type
-  auto input_type = input_val.getType().dyn_cast<mlir::ShapedType>();
+  auto input_type = dyn_cast<mlir::ShapedType>(input_val.getType());
   assert(input_type);
   auto output_type = input_type.clone(rewriter.getI32Type());
 

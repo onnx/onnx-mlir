@@ -176,7 +176,8 @@ std::optional<Value> TosaBuilder::gather(Value resultValue, Value inputValue,
     Value indicesValue, int32_t batchDims, int32_t axis) {
   return tosa::convertGatherOp(rewriter(), loc(), resultValue, inputValue,
       indicesValue, batchDims, axis);
-};
+}
+
 Value TosaBuilder::reshape(mlir::Value value, llvm::ArrayRef<int64_t> shape) {
   auto shapeAttr = rewriter().getDenseI64ArrayAttr(shape);
   auto valueType = mlir::cast<ShapedType>(value.getType());
@@ -246,7 +247,7 @@ template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
 
 template <typename T>
 Value TosaBuilder::unaryOp(mlir::Value &input) {
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = cast<ShapedType>(input.getType());
   Type newValueType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
       inputType.getElementType());
@@ -304,7 +305,7 @@ Value TosaBuilder::select(
     lhs = valueVec[1];
     rhs = valueVec[2];
   }
-  auto lhsType = lhs.getType().cast<ShapedType>();
+  auto lhsType = cast<ShapedType>(lhs.getType());
   Type newValueType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
       lhsType.getElementType());
@@ -326,7 +327,7 @@ mlir::Value TosaBuilder::castToNewTensorElementType(
 }
 
 Value TosaBuilder::sqrt(mlir::Value &input) {
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = cast<ShapedType>(input.getType());
   auto oneHalf = this->getSplattedConst(
       0.5, inputType.getElementType(), inputType.getShape());
   return this->binaryOp<mlir::tosa::PowOp>(input, oneHalf);

@@ -70,7 +70,7 @@ ScaleHelper normalize(int64_t output, int64_t input, bool pytorchHalfPixel,
   // We can compute this directly based on previous values.
   border = denominator * (output - 1) - numerator * (input - 1) + offset;
   return ScaleHelper(numerator, denominator, offset, border);
-};
+}
 
 void valuesFromAxis(ArrayAttr *axis, llvm::SmallVectorImpl<int64_t> &axisVec) {
   auto axisRange = axis->getAsRange<IntegerAttr>();
@@ -172,7 +172,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto resizeOp = llvm::cast<ONNXResizeOp>(op);
+    auto resizeOp = mlir::cast<ONNXResizeOp>(op);
     Location loc = op->getLoc();
     OpAdaptor adaptor(operands, op->getAttrDictionary());
 

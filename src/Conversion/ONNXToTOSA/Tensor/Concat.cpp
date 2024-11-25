@@ -46,7 +46,7 @@ public:
 
     Type newConcatOutputType = RankedTensorType::get(
         llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
-        resultType.cast<ShapedType>().getElementType());
+        cast<ShapedType>(resultType).getElementType());
 
     tosa::CreateReplaceOpAndInfer<mlir::tosa::ConcatOp>(
         rewriter, op, newConcatOutputType, inputs, axis);

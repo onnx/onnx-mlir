@@ -50,7 +50,7 @@ Value reshapeUpTo3DTensor(Value tensor, TosaBuilder &builder) {
   }
 
   return builder.reshape(tensor, newShape);
-};
+}
 
 // Obtaining the rank broadcasted shapes of tensors makes it easier to
 // construct the input and output reshaping logic.

@@ -43,7 +43,7 @@ DenseIntElementsAttr getAxesLatestsVersionAttr(ONNXReduceOp op) {
     if (noOpIfAxesEmpty == 0) {
       // Default behaviour when "axes" is none and "noop_with_empty_axes" is
       // set to false, it is to reduce all dims
-      const int64_t numberOfAxes = input.getType().cast<ShapedType>().getRank();
+      const int64_t numberOfAxes = cast<ShapedType>(input.getType()).getRank();
       auto iotaRange =
           llvm::iota_range<int64_t>(0, numberOfAxes, /*Inclusive=*/false);
       targetAxes = SmallVector<int64_t>(iotaRange.begin(), iotaRange.end());
@@ -86,7 +86,7 @@ DenseIntElementsAttr getAxesLegacyVersionAttr(ONNXReduceOp op) {
   SmallVector<int64_t> targetAxes;
   if (!axes) {
     // if not present all axes are reduced
-    const int64_t numberOfAxes = input.getType().cast<ShapedType>().getRank();
+    const int64_t numberOfAxes = cast<ShapedType>(input.getType()).getRank();
     auto iotaRange =
         llvm::iota_range<int64_t>(0, numberOfAxes, /*Inclusive=*/false);
     targetAxes = SmallVector<int64_t>(iotaRange.begin(), iotaRange.end());
@@ -111,14 +111,12 @@ public:
   LogicalResult matchAndRewrite(ONNXReduceOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto inputType =
-        adaptor.getData().getType().template dyn_cast<RankedTensorType>();
+    auto inputType = dyn_cast<RankedTensorType>(adaptor.getData().getType());
     if (!inputType)
       return rewriter.notifyMatchFailure(op, "input type not a ranked tensor.");
 
-    auto outputType = this->getTypeConverter()
-                          ->convertType(op.getResult().getType())
-                          .template cast<RankedTensorType>();
+    auto outputType = cast<RankedTensorType>(
+        this->getTypeConverter()->convertType(op.getResult().getType()));
 
     return (*lowerFn)(op, inputType, outputType, rewriter);
   }

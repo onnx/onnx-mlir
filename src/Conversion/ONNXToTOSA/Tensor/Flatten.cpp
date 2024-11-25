@@ -44,7 +44,7 @@ public:
     TosaBuilder tosaBuilder(rewriter, loc);
 
     int64_t axis = adaptor.getAxis();
-    auto inputType = input.getType().cast<ShapedType>();
+    auto inputType = cast<ShapedType>(input.getType());
 
     // onnx allows values beetween [-r, r] where r is the rank.
     if (axis == inputType.getRank()) {
