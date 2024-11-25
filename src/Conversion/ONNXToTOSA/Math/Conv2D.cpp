@@ -101,7 +101,7 @@ public:
       ConversionPatternRewriter &rewriter) const final {
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto loc = op->getLoc();
-    auto convOp = llvm::cast<ONNXConvOp>(op);
+    auto convOp = mlir::cast<ONNXConvOp>(op);
 
     TosaBuilder tosaBuilder(rewriter, loc);
 

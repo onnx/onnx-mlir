@@ -126,13 +126,13 @@ llvm::SmallVector<int64_t, 4> createOrderedPadAttrForWindowBasedOps(
 
 inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter,
     mlir::Value input, mlir::TypeAttr &accType) {
-  auto inputTy = llvm::dyn_cast<mlir::ShapedType>(input.getType());
+  auto inputTy = mlir::dyn_cast<mlir::ShapedType>(input.getType());
   if (!inputTy)
     return mlir::failure();
   auto inputETy = inputTy.getElementType();
 
   if (auto quantType =
-          llvm::dyn_cast<mlir::quant::UniformQuantizedType>(inputETy))
+          mlir::dyn_cast<mlir::quant::UniformQuantizedType>(inputETy))
     inputETy = quantType.getStorageType();
 
   // Tosa supports FP16 and FP32 accumulator type for FP16 input. When the time
@@ -178,7 +178,7 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   llvm::SmallVector<int64_t, 4> kernelShapeVec;
   llvm::transform(kernelShape, std::back_inserter(kernelShapeVec),
       [](const mlir::Attribute &pad) {
-        return pad.cast<mlir::IntegerAttr>().getInt();
+        return  mlir::cast<mlir::IntegerAttr>(pad).getInt();
       });
 
   const int64_t ceilMode = adaptor.getCeilMode();
@@ -214,7 +214,7 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
       pads[0], pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]};
 
   mlir::FailureOr<mlir::Value> resizedInput = tosaBuilder.resizeWindowBasedOps(
-      input, input.getType().cast<mlir::RankedTensorType>().getShape(),
+      input, mlir::cast<mlir::RankedTensorType>(input.getType()).getShape(),
       {kernelShapeVec[0], kernelShapeVec[1]}, reorderedPads,
       shapeHelper.strides, shapeHelper.dilations);
 
@@ -255,4 +255,4 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   // Construct the old result shape out of the new one
   mlir::Value transpose = tosaBuilder.transpose(input, {0, 3, 1, 2});
   return transpose;
-};
+}

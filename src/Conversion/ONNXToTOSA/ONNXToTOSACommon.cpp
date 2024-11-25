@@ -57,9 +57,9 @@ std::optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
 
   TosaBuilder tosaBuilder(rewriter, loc);
 
-  auto resultType = resultValue.getType().dyn_cast<ShapedType>();
-  auto inputType = inputValue.getType().dyn_cast<RankedTensorType>();
-  auto indicesType = indicesValue.getType().dyn_cast<RankedTensorType>();
+  auto resultType = dyn_cast<ShapedType>(resultValue.getType());
+  auto inputType = dyn_cast<RankedTensorType>(inputValue.getType());
+  auto indicesType = dyn_cast<RankedTensorType>(indicesValue.getType());
 
   if (!resultType || !inputType || !indicesType)
     return std::nullopt;
@@ -143,7 +143,7 @@ std::optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
   // onnx allows i64 indices, but tosa does not.
   if (indicesType.getElementType().isInteger(64)) {
     indicesType =
-        indicesType.clone(rewriter.getI32Type()).dyn_cast<RankedTensorType>();
+        dyn_cast<RankedTensorType>(indicesType.clone(rewriter.getI32Type()));
     indicesValue = CreateOpAndInfer<mlir::tosa::CastOp>(
         rewriter, loc, indicesType, indicesValue)
                        .getResult();
@@ -293,7 +293,7 @@ std::optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
     bool is_quantized, double input_scale, int64_t input_zp,
     double output_scale, int64_t output_zp) {
   RankedTensorType input_type =
-      input_value.getType().dyn_cast<RankedTensorType>();
+      dyn_cast<RankedTensorType>(input_value.getType());
   if (!input_type)
     return std::nullopt;
 
@@ -362,14 +362,14 @@ std::optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
   // op2 = mul(op1, 1.0 / num_elements_on_reduced_axis)
 
   RankedTensorType input_type =
-      input_value.getType().dyn_cast<RankedTensorType>();
+      dyn_cast<RankedTensorType>(input_value.getType());
   if (!input_type)
     return std::nullopt;
 
   bool input_is_qtype =
-      input_type.getElementType().isa<mlir::quant::UniformQuantizedType>();
+      isa<mlir::quant::UniformQuantizedType>(input_type.getElementType());
   bool output_is_qtype =
-      output_type.getElementType().isa<mlir::quant::UniformQuantizedType>();
+      isa<mlir::quant::UniformQuantizedType>(output_type.getElementType());
 
   if (input_is_qtype != output_is_qtype) {
     op->emitOpError("ConvertReduceSumOp: input/output tensor should "
@@ -378,7 +378,7 @@ std::optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
   }
 
   // Only supports float type mean() if it's non-quantized
-  if (!input_is_qtype && !output_type.getElementType().isa<mlir::FloatType>()) {
+  if (!input_is_qtype && !isa<mlir::FloatType>(output_type.getElementType())) {
     op->emitWarning(
         "Failed convertReduceMean: input unquantized type but output element "
         "not FloatType!");
@@ -403,9 +403,9 @@ std::optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
 
   if (input_is_qtype) {
     auto input_qtype =
-        input_type.getElementType().cast<mlir::quant::UniformQuantizedType>();
+        cast<mlir::quant::UniformQuantizedType>(input_type.getElementType());
     auto output_qtype =
-        output_type.getElementType().cast<mlir::quant::UniformQuantizedType>();
+        cast<mlir::quant::UniformQuantizedType>(output_type.getElementType());
 
     // Combine 'div_scale' as part of output rescale
     output_scale = div_scale * input_qtype.getScale() / output_qtype.getScale();

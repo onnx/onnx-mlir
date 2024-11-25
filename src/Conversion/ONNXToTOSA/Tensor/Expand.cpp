@@ -60,9 +60,9 @@ public:
         castArrayRef<int64_t, WideNum>(shapeWideNums.get());
 
     auto inputType =
-        llvm::dyn_cast_or_null<RankedTensorType>(adaptor.getInput().getType());
+        mlir::dyn_cast_or_null<RankedTensorType>(adaptor.getInput().getType());
     auto outputType =
-        llvm::dyn_cast_or_null<RankedTensorType>(op.getResult().getType());
+        mlir::dyn_cast_or_null<RankedTensorType>(op.getResult().getType());
     if (!inputType || !outputType || !inputType.hasStaticShape() ||
         !outputType.hasStaticShape()) {
       return rewriter.notifyMatchFailure(

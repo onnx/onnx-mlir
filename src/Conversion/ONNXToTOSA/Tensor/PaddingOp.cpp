@@ -79,11 +79,11 @@ public:
         getTypeConverter()->convertType(op.getResult().getType());
 
     float valueFloat = 0.0F;
-    if (!constValue.getType().dyn_cast<NoneType>()) {
+    if (!isa<NoneType>(constValue.getType())) {
       auto valueAttr = tosa::getValueFromTosaConst<ElementsAttr>(constValue);
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
-      float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
+      float valueFloat = cast<FloatAttr>(*valueIt).getValueAsDouble();
 
       TosaBuilder tosaBuilder(rewriter, loc);
       Value constTosaTensor =
