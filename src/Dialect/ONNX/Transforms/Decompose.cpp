@@ -336,24 +336,27 @@ bool hasStaticSpatialDims(Value v) {
 // In the following pattern, a SequenceAt can be replaced with Split
 //   %seq = onnx.SplitToSequence(%input, %split) {%axis : }
 //   %res = onnx.SequenceAt(%seq, %position)
-// In the targeted use case, %split and %position are constant scalar and the 
+// We just try to avoid using the sequence related ops, which are less
+// optimized, or even not implemented in onnx-mlir.
+// In the targeted use case, %split and %position are constant scalar and the
 // tensor of %input and %res have static shape.
 // This condition greatly reduces the complexity of code generation to replace
-// SequenceAt with slice op
+// SequenceAt with split op
+//   %res = onnx.Split(%input, onnx.expand(%split, %input.shape()[%axis]))
+//   {%axis : } : %position
+// onnx.expand(%split, %input.shape()[%axis]) can be a constant under the
+// assumed condition.
+// Here %position has to be compiler time constant.
+// For multiple SequenceAt from the same SplitToSequence result, the onnx.split
+// for different SequenceAt are expected to be merged by optimization.
+// Alternatively, Slice can be used
 //   %res = onnx.Slice(%input, %start, %end, %step)
 // The start, and end for slice will be onnx.constant:
 //   start: %position*%split for %axis, 0 for other dimensionis
 //   end: (%positiion+1)*%split for %axis, upper bound for other dimension
 //   step: 1 for all dimensions
-// For dynamic value, code gen, though doable,
-// would be complicated with onnx ops. mlir::tensor op may help
-// Alternative approach is to use split op.
-//   %newres = onnx.split(%input, %split) {axis :}
-// replace %res with %newres:%position
-// Hopefully, the onnx.split from different SequenceAt could be merged in the
-// following optimization.
-// The split approach may have better performance because the slicing is done
-// 
+// The split approach may have better performance than the alternative slice
+// approach,  because the slicing is done separately.
 
 bool canSequenceAtBeReplaced(Value sequenceAtResult) {
   if (!hasStaticShape(sequenceAtResult.getType()))
@@ -370,7 +373,8 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
 
   // Input sequence should be defined with SplitToSequence
   ONNXSplitToSequenceOp splitToSequence;
-  if (!(splitToSequence = mlir::dyn_cast<ONNXSplitToSequenceOp>(inputSequence.getDefiningOp())))
+  if (!(splitToSequence = mlir::dyn_cast<ONNXSplitToSequenceOp>(
+            inputSequence.getDefiningOp())))
     return false;
 
   // Check the pattern of the SplitToSequence op
@@ -380,56 +384,69 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
   Value split = splitToSequence.getSplit();
   if (!isScalarConstantTensor(split))
     return false;
-  
+
   return true;
 }
 
-Value replaceSequenceAt(PatternRewriter &rewriter, Location loc, Value sequenceAtResult) {
+Value replaceSequenceAt(
+    PatternRewriter &rewriter, Location loc, Value sequenceAtResult) {
   ONNXSequenceAtOp op =
       mlir::cast<ONNXSequenceAtOp>(sequenceAtResult.getDefiningOp());
 
   Value inputSequence = op.getInputSequence();
   Value position = op.getPosition();
 
-  ONNXConstantOp positionConstant = mlir::cast<ONNXConstantOp>(position.getDefiningOp());
+  ONNXConstantOp positionConstant =
+      mlir::cast<ONNXConstantOp>(position.getDefiningOp());
   int64_t positionInt = getScalarValue<int64_t>(positionConstant);
 
-  ONNXSplitToSequenceOp splitToSequence = mlir::cast<ONNXSplitToSequenceOp>(inputSequence.getDefiningOp());
+  ONNXSplitToSequenceOp splitToSequence =
+      mlir::cast<ONNXSplitToSequenceOp>(inputSequence.getDefiningOp());
 
   Value input = splitToSequence.getInput();
   Value split = splitToSequence.getSplit();
 
-  ONNXConstantOp splitConstant = mlir::cast<ONNXConstantOp>(split.getDefiningOp());
+  ONNXConstantOp splitConstant =
+      mlir::cast<ONNXConstantOp>(split.getDefiningOp());
   int64_t splitInt = getScalarValue<int64_t>(splitConstant);
   int64_t axisInt = splitToSequence.getAxis();
 
   auto shape = getShape(input.getType());
 
-#if 0
-  llvm::SmallVector<int64_t, 4> startInt(0, rank);
-  llvm::SmallVector<int64_t, 4> endInt(shape);
-  llvm::SmallVector<int64_t, 4> stepInt(1, rank);
-
-  startInt[axisValue] = splitInt*positionInt;
-  endInt[axisValue] = splitValue*(positionValue+1);
-#endif
-
   OnnxBuilder create(rewriter, loc);
-  
-  Type sequenceElementType = mlir::cast<SeqType>(inputSequence.getType()).getElementType();
-  mlir::SmallVector<mlir::Type, 4> outputTypes(shape[axisInt]/splitInt, sequenceElementType);
-  auto numSplit = create.constantInt64(mlir::SmallVector<int64_t, 4>(shape[axisInt]/splitInt, splitInt));
+
+  Type sequenceElementType =
+      mlir::cast<SeqType>(inputSequence.getType()).getElementType();
+  mlir::SmallVector<mlir::Type, 4> outputTypes(
+      shape[axisInt] / splitInt, sequenceElementType);
+  auto numSplit = create.constantInt64(
+      mlir::SmallVector<int64_t, 4>(shape[axisInt] / splitInt, splitInt));
   auto resultRange = create.split(outputTypes, input, numSplit, axisInt);
-  auto rawResult =  resultRange[positionInt];
+  auto rawResult = resultRange[positionInt];
 
   if (rawResult.getType() == sequenceAtResult.getType())
     return rawResult;
 
-  // Temporary code for the error in torch.onnx.export
-  // The exporter changed the dim at the SequenceAt op.
-  // My assumption is that the exporter is confused with  squeeze and unsqueeze.
-  // Need to unsqueeze the tensor.
-  return create.squeeze(sequenceAtResult.getType(), rawResult, create.constantInt64(axisInt));
+  // Temporary code for the error in the model generated by torch.onnx.export
+  // The the dim of the reuslt of SequenceAt op is different from the element
+  // type of the sequence..
+  // My assumption is that the exporter is confused with  squeeze and unsqueeze
+  // followed by the SequenceAt. There are two cases in the model:
+  // clang-format off
+  // Case #1:
+  //   %16 = "onnx.SequenceAt"(%14, %15) {onnx_node_name = "n0"} :
+  //     (!onnx.Seq<tensor<1x1x100xf32>>, tensor<i64>) -> tensor<1x100xf32>
+  //     %23 = "onnx.Unsqueeze"(%16, %22) {onnx_node_name = "n2"} :
+  //     (tensor<1x100xf32>, tensor<i64>) -> tensor<1x1x100xf32>
+  // Case#2:
+  //   %67 = "onnx.SequenceAt"(%66, %15) {onnx_node_name = "n0"} :
+  //   (!onnx.Seq<tensor<1x1x100xf32>>, tensor<i64>) -> tensor<1x1x100xf32>
+  //   %71 = "onnx.Sigmoid"(%67) {onnx_node_name = "node_Sigmoid_60"} :
+  //   (tensor<1x1x100xf32>) -> tensor<1x1x100xf32>
+  // clang-format on
+  // Thus, the compiler squeeze the tensor if needed.
+  return create.squeeze(
+      sequenceAtResult.getType(), rawResult, create.constantInt64(axisInt));
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
@@ -1343,6 +1360,10 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     ONNXShapeOp shapeOp;
     ONNXTransposeOp transposeOp;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
+  });
+
+  target.addDynamicallyLegalOp<ONNXSequenceAtOp>([](ONNXSequenceAtOp op) {
+    return !onnx_mlir::canSequenceAtBeReplaced(op.getResult());
   });
 
   // Rewrite ONNXConstantOp with scalar values into the one using ElementAttrs.
