@@ -743,7 +743,7 @@ private:
   bool isDefinedByIntegerConstantOp(Value v) const {
     if (mlir::isa<BlockArgument>(v))
       return false;
-    Operation *definingOp = v.getDefiningOp();
+    // Operation *definingOp = v.getDefiningOp();
     if (mlir::isa<IntegerType>(
             mlir::cast<ShapedType>(v.getType()).getElementType()) &&
         isDenseONNXConstant(v))
