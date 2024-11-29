@@ -55,6 +55,9 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
   std::tie(A, B) = matMulInputs(operandAdaptor);
 
   // Size all the arrays to padded length.
+  if (!hasShapeAndRank(A) || !hasShapeAndRank(B)) {
+    return failure();
+  }
   uint64_t aRank = createIE->getShapedTypeRank(A);
   uint64_t bRank = createIE->getShapedTypeRank(B);
   int paddedRank = std::max(aRank, bRank);

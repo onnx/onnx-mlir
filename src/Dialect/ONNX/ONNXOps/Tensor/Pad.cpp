@@ -33,6 +33,9 @@ LogicalResult ONNXPadOpShapeHelper::computeShape() {
   Value padsOperand = operandAdaptor.getPads();
   Value axesOperand = operandAdaptor.getAxes();
 
+  if (!hasShapeAndRank(dataOperand)) {
+    return failure();
+  }
   uint64_t dataRank = createIE->getShapedTypeRank(dataOperand);
 
   bool isFloat = isa<FloatType>(getElementType(dataOperand.getType()));

@@ -139,3 +139,12 @@ func.func @test_maxpoolsingleout_dilation2(%arg0 : tensor<5x5x32x32xf32>) -> ten
 }
 // CHECK-LABEL: func.func @test_maxpoolsingleout_dilation2(%arg0: tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32> {
 // CHECK: onnx.MaxPoolSingleOut
+
+// -----
+
+func.func @test_maxpoolsingleout_dilation1_dyn(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [3,3], dilations = [1,1]} : (tensor<*xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL: func.func @test_maxpoolsingleout_dilation1_dyn
+// CHECK: onnx.MaxPoolSingleOut

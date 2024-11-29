@@ -239,3 +239,17 @@ func.func @test_averagepool_5d(%arg0: tensor<1x1x32x32x32xf32>) -> tensor<1x1x8x
 // CHECK-LABEL: test_averagepool_5d
 // CHECK: onnx.AveragePool
 
+// -----
+
+func.func @test_averagepool_dilations_one_dyn_shape(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+ %0 = "onnx.AveragePool"(%arg0) { auto_pad = "NOTSET",
+                                  ceil_mode = 1 : si64,
+                                  count_include_pad = 0 : si64,
+                                  dilations = [1, 1],
+                                  kernel_shape = [2, 2],
+                                  strides = [1, 1]} : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_averagepool_dilations_one
+// CHECK: onnx.AveragePool
+

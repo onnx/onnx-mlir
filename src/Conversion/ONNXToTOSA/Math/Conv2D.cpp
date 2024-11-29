@@ -121,7 +121,9 @@ public:
     // Get shapehelper for autopad attributes
     IndexExprBuilderForTosa createTosaIE(rewriter, convOp->getLoc());
     ONNXConvOpShapeHelper shapeHelper(op, operands, &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (shapeHelper.computeShape().failed()) {
+      return rewriter.notifyMatchFailure(convOp, "Could not infer shapes");
+    }
 
     auto weightShape = weightType.getShape();
 

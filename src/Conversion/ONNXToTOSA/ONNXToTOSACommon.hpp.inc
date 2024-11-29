@@ -163,7 +163,9 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   // Get shape.
   IndexExprBuilderForTosa createTosaIE(rewriter, loc);
   ONNXGenericPoolOpShapeHelper<ONNXPoolOp> shapeHelper(op, {}, &createTosaIE);
-  shapeHelper.computeShapeAndAssertOnFailure();
+  if (shapeHelper.computeShape().failed()) {
+      return rewriter.notifyMatchFailure(op, "Could not infer shapes");
+  }
 
   TosaBuilder tosaBuilder(rewriter, loc);
 

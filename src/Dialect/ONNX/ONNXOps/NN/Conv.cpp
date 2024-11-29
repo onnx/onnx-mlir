@@ -374,6 +374,9 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
   Value wValue = operandAdaptor.getW();
 
   // Basic information.
+  if (!hasShapeAndRank(xValue)) {
+    return failure();
+  }
   int64_t rank = createIE->getShapedTypeRank(xValue);
   int64_t spatialOffset = 2;
   int64_t spatialRank = rank - spatialOffset;
