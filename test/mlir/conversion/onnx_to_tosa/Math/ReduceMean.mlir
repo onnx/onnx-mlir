@@ -69,10 +69,7 @@ func.func @reduce_mean_noop_with_emtpy_axes_one_none_input(%arg0: tensor<2x5x9x1
 return %0 : tensor<2x5x9x11xf32>
 // CHECK-LABEL:   func.func @reduce_mean_noop_with_emtpy_axes_one_none_input(
 // CHECK-SAME:                                                               %[[VAL_0:.*]]: tensor<2x5x9x11xf32>) -> tensor<2x5x9x11xf32> {
-// CHECK:           %[[VAL_1:.*]] = tosa.identity %[[VAL_0]] : (tensor<2x5x9x11xf32>) -> tensor<2x5x9x11xf32>
-// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<1.000000e+00> : tensor<1x1x1x1xf32>}> : () -> tensor<1x1x1x1xf32>
-// CHECK:           %[[VAL_3:.*]] = tosa.mul %[[VAL_1]], %[[VAL_2]] {shift = 0 : i8} : (tensor<2x5x9x11xf32>, tensor<1x1x1x1xf32>) -> tensor<2x5x9x11xf32>
-// CHECK:           return %[[VAL_3]] : tensor<2x5x9x11xf32>
+// CHECK:           return %[[VAL_0]] : tensor<2x5x9x11xf32>
 }
 
 // -----

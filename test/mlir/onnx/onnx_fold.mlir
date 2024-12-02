@@ -30,3 +30,17 @@ func.func @test_squeezev11() -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[4.000000e+00, 1.600000e+01]> : tensor<2xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<2xf32>
 }
+
+
+// -----
+
+func.func @test_reduceMeanIsNoopWithEmptyAxes(%arg0: tensor<4x512x256x8xf32>) -> tensor<4x512x256x8xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.ReduceMean"(%arg0, %0) {noop_with_empty_axes = 1: si64} : (tensor<4x512x256x8xf32>, none) -> tensor<4x512x256x8xf32>
+  return %1 : tensor<4x512x256x8xf32>
+}
+
+// CHECK-LABEL: @test_reduceMeanIsNoopWithEmptyAxes
+// CHECK-SAME: (%[[VAL_0:.*]]: tensor<4x512x256x8xf32>) -> tensor<4x512x256x8xf32> {
+// CHECK:   return %[[VAL_0]] : tensor<4x512x256x8xf32>
+// CHECK: }

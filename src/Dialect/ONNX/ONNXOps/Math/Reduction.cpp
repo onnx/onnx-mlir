@@ -394,6 +394,27 @@ LogicalResult ONNXReduceSumSquareV13Op::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+
+OpFoldResult ONNXReduceMeanOp::fold(FoldAdaptor adaptor) {
+  typename ONNXReduceMeanOp::Adaptor opAdaptor(*this);
+  onnx_mlir::ONNXGenericReductionOpShapeHelper<ONNXReduceMeanOp> shapeHelper(
+      getOperation(), opAdaptor.getOperands());
+
+  if (failed(shapeHelper.computeShape()))
+    return nullptr;
+
+  const bool hasReduction = llvm::any_of(shapeHelper.isReductionAxis.begin(),
+      shapeHelper.isReductionAxis.end(), [](bool axis) { return axis; });
+
+  if (!hasReduction && opAdaptor.getNoopWithEmptyAxes())
+    return getData();
+
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
 // Template instantiation; keep at the end of the file.
 //===----------------------------------------------------------------------===//
 
