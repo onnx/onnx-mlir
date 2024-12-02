@@ -80,12 +80,12 @@ LogicalResult checkBasicTosaRequirementsForBinaryOps(
     ConversionPatternRewriter &rewriter, Operation *op, OpAdaptorT adaptor,
     Type resultType) {
   Value lhs = adaptor.getOperands()[0];
-  auto lhsType = lhs.getType().dyn_cast<TensorType>();
+  auto lhsType = dyn_cast<TensorType>(lhs.getType());
 
   Value rhs = adaptor.getOperands()[1];
-  auto rhsType = rhs.getType().dyn_cast<TensorType>();
+  auto rhsType = dyn_cast<TensorType>(rhs.getType());
 
-  auto resultTensorType = resultType.dyn_cast<TensorType>();
+  auto resultTensorType = dyn_cast<TensorType>(resultType);
   if (!lhsType || !rhsType || !resultTensorType) {
     return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
   }
@@ -121,9 +121,9 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Value input = *adaptor.getODSOperands(0).begin();
-    auto inputType = input.getType().dyn_cast<TensorType>();
+    auto inputType = dyn_cast<TensorType>(input.getType());
     Value output = op.getResult();
-    auto outputType = output.getType().dyn_cast<TensorType>();
+    auto outputType = dyn_cast<TensorType>(output.getType());
 
     if (!inputType || !outputType) {
       return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
@@ -166,9 +166,8 @@ public:
 
       IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
       ONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createTosaIE);
-      shapeHelper.computeShapeAndAssertOnFailure();
-
-      if (shapeHelper.hasRankBroadcast()) {
+      if (shapeHelper.computeShape().succeeded() &&
+          shapeHelper.hasRankBroadcast()) {
         TosaBuilder tosaBuilder(rewriter, loc);
         llvm::SmallVector<Value, 4> newValues =
             tosaBuilder.equalizeRanks({lhs, rhs});
@@ -249,7 +248,7 @@ public:
   LogicalResult matchAndRewrite(ONNXLeakyReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto outputType = op.getResult().getType().cast<TensorType>();
+    auto outputType = cast<TensorType>(op.getResult().getType());
     if (failed(IsIntOrFloat::checkType(
             rewriter, outputType.getElementType(), op))) {
       return failure();
@@ -280,15 +279,13 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Value input1 = adaptor.getA();
-    auto input1ElemType =
-        input1.getType().template cast<TensorType>().getElementType();
+    auto input1ElemType = cast<TensorType>(input1.getType()).getElementType();
     if (failed(IsIntOrFloat::checkType(rewriter, input1ElemType, op))) {
       return failure();
     }
 
     Value input2 = adaptor.getB();
-    auto input2ElemType =
-        input2.getType().template cast<TensorType>().getElementType();
+    auto input2ElemType = cast<TensorType>(input2.getType()).getElementType();
     if (input1ElemType != input2ElemType) {
       return failure();
     }
@@ -433,7 +430,7 @@ public:
   LogicalResult matchAndRewrite(ONNXSqrtOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto resultTensorType = op.getResult().getType().cast<TensorType>();
+    auto resultTensorType = cast<TensorType>(op.getResult().getType());
     if (failed(IsFloat::checkType(
             rewriter, resultTensorType.getElementType(), op))) {
       return failure();
@@ -455,7 +452,7 @@ public:
     // ELU(x) = x                     if x >= 0
     //         alpha * (exp(x) - 1.)  if x <  0
 
-    auto resultTensorType = op.getResult().getType().cast<TensorType>();
+    auto resultTensorType = cast<TensorType>(op.getResult().getType());
     if (failed(IsFloat::checkType(
             rewriter, resultTensorType.getElementType(), op))) {
       return failure();
@@ -497,7 +494,7 @@ public:
     // - tosa.mul(clamp, alpha)
     Value input = adaptor.getX();
 
-    auto resultType = op.getResult().getType().template cast<TensorType>();
+    auto resultType = cast<TensorType>(op.getResult().getType());
     auto resultElementType = resultType.getElementType();
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
@@ -537,7 +534,7 @@ public:
   LogicalResult matchAndRewrite(ONNXPReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto outputType = op.getResult().getType().cast<TensorType>();
+    auto outputType = cast<TensorType>(op.getResult().getType());
     if (failed(IsIntOrFloat::checkType(
             rewriter, outputType.getElementType(), op))) {
       return failure();
@@ -555,7 +552,7 @@ public:
   LogicalResult matchAndRewrite(ONNXSoftplusOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto outputType = op.getResult().getType().cast<TensorType>();
+    auto outputType = cast<TensorType>(op.getResult().getType());
     if (failed(IsFloat::checkType(rewriter, outputType.getElementType(), op))) {
       return failure();
     }
@@ -580,7 +577,7 @@ public:
   LogicalResult matchAndRewrite(ONNXSeluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto outputType = op.getResult().getType().cast<TensorType>();
+    auto outputType = cast<TensorType>(op.getResult().getType());
     if (failed(IsFloat::checkType(rewriter, outputType.getElementType(), op))) {
       return failure();
     }
@@ -619,7 +616,7 @@ public:
   LogicalResult matchAndRewrite(ONNXThresholdedReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto outputType = op.getResult().getType().cast<TensorType>();
+    auto outputType = cast<TensorType>(op.getResult().getType());
     if (failed(IsIntOrFloat::checkType(
             rewriter, outputType.getElementType(), op))) {
       return failure();

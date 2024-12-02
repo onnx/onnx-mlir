@@ -30,6 +30,9 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
 
   Value data = operandAdaptor.getData();
+  if (!hasShapeAndRank(data)) {
+    return failure();
+  }
   auto rank = createIE->getShapedTypeRank(data);
 
   // Transposition which handles the default case of

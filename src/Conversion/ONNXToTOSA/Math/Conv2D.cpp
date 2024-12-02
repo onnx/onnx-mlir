@@ -89,7 +89,7 @@ public:
       ConversionPatternRewriter &rewriter) const final {
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto loc = op->getLoc();
-    auto convOp = llvm::cast<ONNXConvOp>(op);
+    auto convOp = mlir::cast<ONNXConvOp>(op);
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
@@ -109,7 +109,9 @@ public:
     // Get shapehelper for autopad attributes
     IndexExprBuilderForTosa createTosaIE(rewriter, convOp->getLoc());
     ONNXConvOpShapeHelper shapeHelper(op, operands, &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (shapeHelper.computeShape().failed()) {
+      return rewriter.notifyMatchFailure(convOp, "Could not infer shapes");
+    }
 
     auto weightShape = weightType.getShape();
 

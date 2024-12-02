@@ -10,6 +10,8 @@ func.func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<32x1x5
 // CHECK:           return %[[VAL_2]] : tensor<32x1x5x5xf32>
 }
 
+// -----
+
 func.func @test_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<5x1x32x5xf32> {
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<5x5x1x32xf32>) -> tensor<5x1x32x5xf32>
   "func.return"(%0) : (tensor<5x1x32x5xf32>) -> ()
@@ -20,10 +22,21 @@ func.func @test_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<5x1x32x5xf32> 
 // CHECK:           return %[[VAL_2]] : tensor<5x1x32x5xf32>
 }
 
+// -----
+
 func.func @test_transpose_f64(%arg0 : tensor<5x5x1x32xf64>) -> tensor<5x1x32x5xf64> {
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<5x5x1x32xf64>) -> tensor<5x1x32x5xf64>
   return %0 : tensor<5x1x32x5xf64>
 // CHECK-LABEL:   func.func @test_transpose
 // CHECK-NOT:     onnx.Transpose
 // CHECK:         return {{.*}}: tensor<5x1x32x5xf64>
+}
+
+// -----
+
+func.func @test_transpose_dyn(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:   func.func @test_transpose_dyn
+// CHECK:         onnx.Transpose
 }

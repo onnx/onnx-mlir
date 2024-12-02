@@ -894,6 +894,7 @@ Value ConstPropTranspose(
 
 Value ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
+  assert(llvm::cast<ShapedType>(replacingValue.getType()).hasStaticShape());
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
@@ -906,6 +907,7 @@ Value ConstPropUnsqueeze(
 
 Value ConstPropSqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
+  assert(llvm::cast<ShapedType>(replacingValue.getType()).hasStaticShape());
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
@@ -1069,6 +1071,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropReshape(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  assert(llvm::cast<ShapedType>(replacingValue.getType()).hasStaticShape());
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);

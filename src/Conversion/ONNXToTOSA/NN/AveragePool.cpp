@@ -37,16 +37,18 @@ LogicalResult handleIncludePadAttr(
   IndexExprBuilderForTosa createTosaIE(rewriter, loc);
   ONNXGenericPoolOpShapeHelper<ONNXAveragePoolOp> shapeHelper(
       op, {}, &createTosaIE);
-  shapeHelper.computeShapeAndAssertOnFailure();
+  if (shapeHelper.computeShape().failed()) {
+    return rewriter.notifyMatchFailure(op, "Could not infer shapes");
+  }
 
-  auto inputType = input.getType().cast<mlir::TensorType>();
+  auto inputType = cast<mlir::TensorType>(input.getType());
   if (inputType.getShape().size() != 4) {
     return rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
   }
 
   llvm::SmallVector<int64_t, 4> pads =
       tosa::createOrderedPadAttrForWindowBasedOps(rewriter,
-          input.getType().cast<mlir::TensorType>().getShape(), shapeHelper,
+          cast<mlir::TensorType>(input.getType()).getShape(), shapeHelper,
           /*ceilMode*/ 0, {0, 1, 2, 3});
 
   // Create Padding and ConstPad tosa::ConstOp's

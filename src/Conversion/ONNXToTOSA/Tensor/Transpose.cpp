@@ -40,13 +40,15 @@ public:
 
     IndexExprBuilderForTosa createTosaIE(rewriter, loc);
     ONNXTransposeOpShapeHelper shapeHelper(op, {}, &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (shapeHelper.computeShape().failed()) {
+      return rewriter.notifyMatchFailure(op, "Could not infer shapes");
+    }
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
     Value input = adaptor.getData();
 
-    auto inputType = input.getType().dyn_cast<TensorType>();
+    auto inputType = dyn_cast<TensorType>(input.getType());
 
     if (!inputType)
       return rewriter.notifyMatchFailure(op, "input not a ranked tensor");
@@ -59,7 +61,7 @@ public:
           op, "input element type not supported");
     }
 
-    auto outputType = op.getResult().getType().dyn_cast<TensorType>();
+    auto outputType = dyn_cast<TensorType>(op.getResult().getType());
 
     if (!outputType)
       return rewriter.notifyMatchFailure(op, "output not a ranked tensor");

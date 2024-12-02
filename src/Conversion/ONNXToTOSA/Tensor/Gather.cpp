@@ -57,7 +57,7 @@ public:
     // onnx allows values beetween [-r, r-1] where r is the rank
     axis = tosa::convertNegativeAxis(axis, inputRank);
 
-    auto indicesType = indices.getType().cast<ShapedType>();
+    auto indicesType = cast<ShapedType>(indices.getType());
 
     APInt indicesVal;
     if (indicesType.getRank() == 0 &&
@@ -76,7 +76,7 @@ public:
     SmallVector<int32_t, 4> newIndicesValues;
     newIndicesValues.resize(indicesType.getNumElements());
 
-    ArrayRef<int64_t> inputShape = inputType.cast<ShapedType>().getShape();
+    ArrayRef<int64_t> inputShape = cast<ShapedType>(inputType).getShape();
 
     // ONNX allows negative indices and TOSA doesn't.
     // We will emit ops to compute

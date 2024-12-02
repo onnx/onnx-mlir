@@ -183,6 +183,15 @@ func.func @test_onnx_conv2d_dyn_shapes(%arg0: tensor<?x?x?x?xf32>, %arg1 : tenso
 
 // -----
 
+func.func @test_onnx_conv2d_dyn_shapes_no_rank(%arg0: tensor<*xf32>, %arg1 : tensor<*xf32>, %arg2: tensor<*xf32>) ->  tensor<*xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) ->  tensor<*xf32>
+  return %0 : tensor<*xf32>
+// CHECK-LABEL:  func.func @test_onnx_conv2d_dyn_shapes_no_rank
+// CHECK: onnx.Conv
+}
+
+// -----
+
 func.func @test_onnx_conv2d_dyn_shapes_with_shape_inference(%arg0: tensor<5x3x256x256xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: tensor<2xf32>) ->  tensor<?x?x?x?xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<5x3x256x256xf32>, tensor<2x3x64x64xf32>, tensor<2xf32>) ->  tensor<?x?x?x?xf32>
   return %0 : tensor<?x?x?x?xf32>

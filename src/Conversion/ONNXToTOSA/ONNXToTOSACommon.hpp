@@ -87,12 +87,12 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 
 inline bool isTOSABool(mlir::Type type) {
-  mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
+  mlir::IntegerType intType = mlir::dyn_cast<mlir::IntegerType>(type);
   return intType && intType.isSignless() && intType.getWidth() == 1;
 }
 
 inline bool isTOSAInt(mlir::Type type) {
-  mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
+  mlir::IntegerType intType = mlir::dyn_cast<mlir::IntegerType>(type);
   std::set<unsigned> intWidth{1, 8, 16, 32, 48, 64};
   return intType && (intType.isSignless() || intType.isUnsignedInteger()) &&
          (intWidth.find(intType.getWidth()) != intWidth.end());
