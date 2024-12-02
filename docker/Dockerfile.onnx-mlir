@@ -43,6 +43,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && CC=clang CXX=clang++ \
        cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
              -DCMAKE_BUILD_TYPE=Release \
+             -DONNX_MLIR_BUILD_TESTS=ON \
              -DLLVM_ENABLE_ASSERTIONS=ON \
              -DCMAKE_INSTALL_MESSAGE=NEVER \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \

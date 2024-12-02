@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+if (NOT ONNX_MLIR_BUILD_TESTS)
+  set(EXCLUDE_FROM_ALL ON)
+endif()
+
 add_custom_target(unittest)
 set_target_properties(unittest PROPERTIES FOLDER "Tests")
 
