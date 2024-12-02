@@ -41,7 +41,7 @@ public:
       ConversionPatternRewriter &rewriter) const final {
     KrnlRandomNormalOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
-    mlir::Type inType = op->getOperand(2).getType();
+    Type inType = op->getOperand(2).getType();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.

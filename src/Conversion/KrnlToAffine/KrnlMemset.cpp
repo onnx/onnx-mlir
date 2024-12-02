@@ -35,7 +35,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     // Get info from operands.
-    auto memsetOp = cast<KrnlMemsetOp>(op);
+    auto memsetOp = mlir::cast<KrnlMemsetOp>(op);
     bool delayed = memsetOp.getDelayed();
     KrnlMemsetOpAdaptor operandAdaptor(memsetOp);
     Value destMemRef(operandAdaptor.getDest());
@@ -55,10 +55,10 @@ public:
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(destMemRef, ubs);
     int rank = ubs.size();
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
     SmallVector<int64_t, 4> steps(rank, 1);
     // Copy data,
-    create.affineKMem.forIE(lbs, ubs, steps,
+    create.affineKMem.forLoopsIE(lbs, ubs, steps,
         [&](AffineBuilderKrnlMem &createAffine, ValueRange indices) {
           createAffine.store(destVal, destMemRef, indices);
         });

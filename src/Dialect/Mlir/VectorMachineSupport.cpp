@@ -190,7 +190,7 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
 // =============================================================================
 
 int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
-    GenericOps Gop, mlir::Type elementType) {
+    GenericOps Gop, Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
@@ -276,7 +276,7 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
 // =============================================================================
 
 int64_t NeonVectorMachineSupport::computeArchVectorLength(
-    GenericOps Gop, mlir::Type elementType) {
+    GenericOps Gop, Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);

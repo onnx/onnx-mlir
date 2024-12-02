@@ -55,7 +55,7 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
 
     // Element-wise moving of data.
     ValueRange loopDef = create.krnl.defineLoops(inputRank);
-    SmallVector<IndexExpr, 4> lbs(inputRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(inputRank, LitIE(0));
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(input, ubs);
 

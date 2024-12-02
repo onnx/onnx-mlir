@@ -59,7 +59,7 @@ struct ONNXSequenceInsertOpLowering
       // ToDo (chentong): backward shape inference may help
       positionIE = boundIE;
     } else {
-      positionIE = SymbolIndexExpr(create.krnl.load(adaptor.getPosition()));
+      positionIE = SymIE(create.krnl.load(adaptor.getPosition()));
       // Handle the negative position
       IndexExpr condIE = positionIE < 0;
       IndexExpr fixedPosition = positionIE + boundIE;
@@ -78,7 +78,7 @@ struct ONNXSequenceInsertOpLowering
       // the loop will not be reached at runtime.
     } else {
       SmallVector<IndexExpr, 1> lbs;
-      lbs.emplace_back(LiteralIndexExpr(0));
+      lbs.emplace_back(LitIE(0));
       SmallVector<IndexExpr, 1> ubs;
       ubs.emplace_back(positionIE);
       ValueRange firstLoopDef = createKrnl.defineLoops(1);

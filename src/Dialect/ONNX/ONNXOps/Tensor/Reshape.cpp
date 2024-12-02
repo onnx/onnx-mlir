@@ -51,12 +51,12 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // Compute the total number of elements using the input data operand.
   // dataRank will be 0 if Data is unranked tensor.
   // The number of element will not be computed
-  IndexExpr numOfElements = LiteralIndexExpr(1);
+  IndexExpr numOfElements = LitIE(1);
   for (unsigned i = 0; i < dataRank; ++i)
     numOfElements = numOfElements * createIE->getShapeAsDim(data, i);
 
   // Compute the total number of elements from the shape values.
-  IndexExpr numOfElementsFromShape = LiteralIndexExpr(1);
+  IndexExpr numOfElementsFromShape = LitIE(1);
   for (unsigned i = 0; i < outputRank; ++i) {
     IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
     if (dimShape.isUndefined())
@@ -74,7 +74,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
     // dimShape == -1: use 1 to compute the number of elements to avoid
     // negative value.
-    dim = dim.selectOrSelf(dim == -1, LiteralIndexExpr(1));
+    dim = dim.selectOrSelf(dim == -1, LitIE(1));
     numOfElementsFromShape = numOfElementsFromShape * dim;
   }
 

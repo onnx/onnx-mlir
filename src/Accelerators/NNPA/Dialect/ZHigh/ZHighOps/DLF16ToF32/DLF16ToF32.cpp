@@ -33,7 +33,7 @@ void ZHighDLF16ToF32Op::build(
   Type elementType = builder.getF32Type();
   Type resType = UnrankedTensorType::get(elementType);
 
-  if (auto inType = dyn_cast<RankedTensorType>(input.getType()))
+  if (auto inType = mlir::dyn_cast<RankedTensorType>(input.getType()))
     resType = RankedTensorType::get(inType.getShape(), elementType);
 
   build(builder, state, resType, input);
@@ -44,7 +44,7 @@ void ZHighDLF16ToF32Op::build(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighDLF16ToF32Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 

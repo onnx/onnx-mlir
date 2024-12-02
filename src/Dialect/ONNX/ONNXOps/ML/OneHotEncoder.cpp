@@ -46,7 +46,7 @@ LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
   // total category count will determine the size of the extra dimension
   DimsExpr outputDims;
   createIE->getShapeAsDims(X, outputDims);
-  outputDims.emplace_back(LiteralIndexExpr(outDim));
+  outputDims.emplace_back(LitIE(outDim));
 
   // Save the final result.
   setOutputDims(outputDims);

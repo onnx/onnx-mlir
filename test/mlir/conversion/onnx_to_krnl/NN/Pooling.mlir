@@ -110,6 +110,14 @@ func.func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>)
 // CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<(d0, d1) -> (0, d1)>
 // CHECK-DAG:   [[MAP_7_:#.+]] = affine_map<(d0, d1) -> (32, d1 + 2)>
 // CHECK-DAG:   [[MAP_8_:#.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
+// CHECK-DAG:   [[MAP_9_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
+// CHECK-DAG:   [[MAP_10_:#.+]] = affine_map<(d0, d1, d2) -> (d0)>
+// CHECK-DAG:   [[MAP_11_:#.+]] = affine_map<(d0, d1, d2) -> (d2 + d0)>
+// CHECK-DAG:   [[MAP_12_:#.+]] = affine_map<(d0, d1, d2) -> (d2, d2 + d0)>
+// CHECK-DAG:   [[MAP_13_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3)>
+// CHECK-DAG:   [[MAP_14_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d1)>
+// CHECK-DAG:   [[MAP_15_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3 + d1)>
+// CHECK-DAG:   [[MAP_16_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3, d3 + d1)>
 // CHECK-LABEL:  func.func private @test_maxpool_pooling_operation
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x3x32x32xf32>) -> memref<1x3x31x31xf32> {
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
@@ -181,13 +189,21 @@ func.func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>)
 // CHECK-DAG:         [[VAR_13_:%.+]] = arith.subi [[VAR_10_]], [[VAR_9_]] : index
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_4_:%.+]] = 0 to min [[MAP_8_]]([[VAR_1_]]#2){{.}}[[CST_32_2_]], [[CST_2_4_]], [[CST_0_7_]], [[CST_1_9_]], [[CST_1_10_]]{{.}}, [[LOOP_1_]]#1 -> [[I_5_:%.+]] = 0 to min [[MAP_8_]]([[VAR_1_]]#3){{.}}[[CST_32_3_]], [[CST_2_5_]], [[CST_0_8_]], [[CST_1_11_]], [[CST_1_12_]]{{.}}){
-// CHECK-DAG:           [[VAR_16_:%.+]] = arith.addi [[I_4_]], [[VAR_4_]] : index
-// CHECK-DAG:           [[VAR_17_:%.+]] = arith.addi [[I_5_]], [[VAR_9_]] : index
+// CHECK-DAG:           [[CST_0_11_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:           [[VAR_16_:%.+]] = affine.apply [[MAP_9_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]])
+// CHECK-DAG:           [[VAR_17_:%.+]] = affine.apply [[MAP_10_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]])
+// CHECK-DAG:           [[VAR_18_:%.+]] = affine.apply [[MAP_11_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]])
+// CHECK-DAG:           [[VAR_19_:%.+]] = affine.max [[MAP_12_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]])
+// CHECK-DAG:           [[CST_0_12_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:           [[VAR_20_:%.+]] = affine.apply [[MAP_13_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]], [[I_5_]])
+// CHECK-DAG:           [[VAR_21_:%.+]] = affine.apply [[MAP_14_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]], [[I_5_]])
+// CHECK-DAG:           [[VAR_22_:%.+]] = affine.apply [[MAP_15_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]], [[I_5_]])
+// CHECK-DAG:           [[VAR_23_:%.+]] = affine.max [[MAP_16_]]([[VAR_1_]]#2, [[VAR_1_]]#3, [[I_4_]], [[I_5_]])
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]6, [[VAR_1_]]7] : memref<1x3x32x32xf32>
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]9, [[VAR_23_]]{{.}} : memref<1x3x32x32xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:               [[VAR_20_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:               krnl.store [[VAR_20_]], [[RES_1_]][] : memref<f32>
+// CHECK:               [[VAR_26_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:               krnl.store [[VAR_26_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<1x3x31x31xf32>

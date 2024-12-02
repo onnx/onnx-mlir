@@ -199,9 +199,10 @@ public:
                 const int64_t totVL = unrollVL * archVL;
                 assert(totVL <= 64 && "bad unroll");
                 create.scf.forLoop(litZero.getValue(), lit64.getValue(), totVL,
-                    [&](SCFBuilder b, Value loopIndex) {
+                    [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &outerScope);
+                      Value loopIndex = loopInd[0];
                       IndexExpr l = DimIE(loopIndex);
                       Value vecF16[unrollVL], vecF32H[unrollVL],
                           vecF32L[unrollVL];
@@ -243,9 +244,10 @@ public:
                     tripCount - (archVL - 1);
                 create.scf.forLoop(litZero.getValue(),
                     tripCountWithoutPartialLastVL.getValue(), archVL,
-                    [&](SCFBuilder b, Value loopIndex) {
+                    [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
+                      Value loopIndex = loopInd[0];
                       IndexExpr l = DimIE(loopIndex);
                       // Load f16 values from input via reinterpreted data tile.
                       Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
@@ -280,9 +282,10 @@ public:
                 // Save the remaining values as scalars.
                 create.scf.forLoop(litZero.getValue(),
                     remainingScalarValues.getValue(), 1,
-                    [&](SCFBuilder b, Value loopIndex) {
+                    [&](SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
+                      Value loopIndex = loopInd[0];
                       IndexExpr l = DimIE(loopIndex);
                       // Load converted value.
                       Value f32 = create.krnl.loadIE(bufferF32, {l});
@@ -454,7 +457,7 @@ public:
 #endif
 #endif
 
-          create.affine.forIE(litZero, simdLoopUB, totVL,
+          create.affine.forLoopIE(litZero, simdLoopUB, totVL,
               [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;

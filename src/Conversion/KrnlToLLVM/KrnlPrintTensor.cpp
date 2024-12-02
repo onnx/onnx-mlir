@@ -34,7 +34,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto printTensorOp = cast<KrnlPrintTensorOp>(op);
+    auto printTensorOp = mlir::cast<KrnlPrintTensorOp>(op);
     MLIRContext *context = printTensorOp.getContext();
     Location loc = printTensorOp.getLoc();
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);

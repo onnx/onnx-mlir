@@ -68,7 +68,7 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
     if (a < 0)
       a += r;
     if (!outputDims[a].isLiteral()) {
-      outputDims[a] = LiteralIndexExpr(d);
+      outputDims[a] = LitIE(d);
     }
     LLVM_DEBUG(llvm::dbgs() << "literal: " << outputDims[a].getLiteral()
                             << " d = " << d << "\n");

@@ -41,7 +41,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto krnlVectorTypeCastOp = cast<KrnlVectorTypeCastOp>(op);
+    auto krnlVectorTypeCastOp = mlir::cast<KrnlVectorTypeCastOp>(op);
     MemRefType sourceType =
         mlir::cast<MemRefType>(krnlVectorTypeCastOp.getOperand().getType());
     MemRefType targetType = krnlVectorTypeCastOp.getType();

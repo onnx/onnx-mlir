@@ -219,12 +219,12 @@ struct ONNXInstanceNormalizationOpLowering
           SmallVector<IndexExpr, 4> lbs(rank - 2, iZero);
           SmallVector<IndexExpr, 4> ubs;
           for (int d = 2; d < rank; ++d)
-            ubs.emplace_back(SymbolIndexExpr(inputBounds[d]));
+            ubs.emplace_back(SymIE(inputBounds[d]));
 
           // First compute the mean: store zero in reduction value, then sum up
           // all of the values in the channel, and divide by the number of
           // values.
-          create.krnl.store(fZero, tmpMemRef, {});
+          create.krnl.store(fZero, tmpMemRef);
           // Iterate over kernel and add values.
           ValueRange spatial2_loopDef = create.krnl.defineLoops(rank - 2);
           create.krnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
@@ -236,7 +236,7 @@ struct ONNXInstanceNormalizationOpLowering
                 for (int d = 0; d < rank - 2; ++d)
                   inputAccessFct.emplace_back(spatial_loopInd[d]);
                 // tmp += input[n,c, spatial dims]
-                Value oldSum = create.krnl.load(tmpMemRef, {});
+                Value oldSum = create.krnl.load(tmpMemRef);
                 Value val = create.krnl.load(inputMemRef, inputAccessFct);
                 Value newSum = create.math.add(oldSum, val);
                 create.krnl.store(newSum, tmpMemRef);
@@ -244,7 +244,7 @@ struct ONNXInstanceNormalizationOpLowering
           Value sum = create.krnl.load(tmpMemRef);
           Value mean = create.math.div(sum, meanDenom);
           // Second, compute the standard dev: sum of (val - mean)2 / (num-1).
-          create.krnl.store(fZero, tmpMemRef, {});
+          create.krnl.store(fZero, tmpMemRef);
           // Iterate over kernel and add values.
           create.krnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
@@ -465,7 +465,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       IndexExpr &modFactor) const {
     DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex];
     int64_t operandRank = mlir::cast<MemRefType>(operand.getType()).getRank();
-    modFactor = LiteralIndexExpr(1);
+    modFactor = LitIE(1);
 
     // X:     X0  X1  X2 | X3  X4  X5  .
     //        ^          | ^           ^
@@ -773,10 +773,11 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       create.vec.store(initVec, redMemRef2, {o, zero});
     });
     // Perform reduction of entire vectors.
-    IndexExpr izero = LiteralIndexExpr(0);
-    create.affineKMem.forIE(izero, redDim, totVL,
-        [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
+    IndexExpr izero = LitIE(0);
+    create.affineKMem.forLoopIE(izero, redDim, totVL,
+        [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
+          Value j = loopInd[0];
           // load X, compute X**2, sum into reductions.
           inlineFor(create, B, [&](int64_t d, Value o) {
             Value ii = create.math.add(i, o);
@@ -828,9 +829,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       invStdDev[d] = create.math.div(oneFloat, stdDev);
     });
     // Normalize of entire vectors.
-    create.affineKMem.forIE(izero, redDim, totVL,
-        [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
+    create.affineKMem.forLoopIE(izero, redDim, totVL,
+        [&](onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
+          Value j = loopInd[0];
           // load X, compute X**2, sum into reductions.
           inlineFor(create, B, [&](int64_t d, Value o) {
             Value ii = create.math.add(i, o);
@@ -941,12 +943,12 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     MemRefType tmpRedType = MemRefType::get({B, totVL}, elementType);
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
-    IndexExpr zero = LiteralIndexExpr(0);
+    IndexExpr zero = LitIE(0);
     ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
     Value blockedLoopDef = blockedLoopDefs[0];
     if (enableParallel) {
       int64_t parId;
-      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)), ub(1, XFlatDims[0]);
+      SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
       if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
               /*min iter for going parallel*/ 4)) {
         create.krnl.parallel(blockedLoopDef);
@@ -964,10 +966,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           IndexExprScope innerScope(ck);
           Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
           Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
-          IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
-          IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0]);
-          IndexExpr isFull = create.krnlIE.isTileFull(
-              blockedCurrIndex, LiteralIndexExpr(B), blockedUB);
+          IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[0]);
+          IndexExpr blockedUB = SymIE(XFlatDims[0]);
+          IndexExpr isFull =
+              create.krnlIE.isTileFull(blockedCurrIndex, LitIE(B), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(
@@ -978,8 +980,9 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
-                    [&](SCFBuilder &scf, Value blockLocalInd) {
+                    [&](SCFBuilder &scf, ValueRange loopInd) {
                       MDBuilder create(scf);
+                      Value blockLocalInd = loopInd[0];
                       generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
                           scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                           meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,

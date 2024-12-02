@@ -126,8 +126,8 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     if (steps[i].isUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we
       // are fine).
-      starts[i] = LiteralIndexExpr(0);
-      steps[i] = LiteralIndexExpr(1);
+      starts[i] = LitIE(0);
+      steps[i] = LitIE(1);
       DimIndexExpr dimInput = createIE->getShapeAsDim(data, i);
       ends[i] = dimInput;
       outputDims[i] = dimInput;
@@ -163,7 +163,8 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (!isNoneValue(axes) && !getONNXConstantOp(axes))
     return success();
 
-  const auto startsType = dyn_cast<RankedTensorType>(getStarts().getType());
+  const auto startsType =
+      mlir::dyn_cast<RankedTensorType>(getStarts().getType());
   assert(startsType != nullptr && "starts type is not a RankedTensorType");
   auto startsDim = startsType.getShape()[0];
   {

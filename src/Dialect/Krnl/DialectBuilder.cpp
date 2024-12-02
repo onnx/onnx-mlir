@@ -56,30 +56,14 @@ static StringRef getFormat(const Type &inputType) {
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-Value KrnlBuilder::load(Value memref, ValueRange indices) const {
-  if (indices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      return b().create<KrnlLoadOp>(loc(), memref, ValueRange({iZero}));
-    }
-  }
-  return b().create<KrnlLoadOp>(loc(), memref, indices);
-}
-
-mlir::Value KrnlBuilder::load(mlir::Value memref, mlir::ValueRange indices,
-    mlir::ValueRange offsets) const {
+Value KrnlBuilder::load(
+    Value memref, ValueRange indices, ValueRange offsets) const {
+  // Handle offsets.
   SmallVector<Value, 4> computedIndices;
   MathBuilder createMath(*this);
   createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  return load(memref, computedIndices);
-}
-
-Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
-  if (indices.size() == 0) {
+  // Perform load.
+  if (computedIndices.size() == 0) {
     // case memref<1xdtype>
     MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
     assert(type && "Not MemRefType");
@@ -89,13 +73,22 @@ Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
       return b().create<KrnlLoadOp>(loc(), memref, ValueRange({iZero}));
     }
   }
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  return b().create<KrnlLoadOp>(loc(), memref, indexValues);
+  return b().create<KrnlLoadOp>(loc(), memref, computedIndices);
 }
 
-void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
-  if (indices.size() == 0) {
+Value KrnlBuilder::loadIE(
+    Value memref, ArrayRef<IndexExpr> indices, ValueRange offsets) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return load(memref, indexValues, offsets);
+}
+
+void KrnlBuilder::store(
+    Value val, Value memref, ValueRange indices, ValueRange offsets) const {
+  SmallVector<Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  if (computedIndices.size() == 0) {
     // case memref<1xdtype>
     MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
     assert(type && "Not MemRefType");
@@ -106,33 +99,14 @@ void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
       return;
     }
   }
-  b().create<KrnlStoreOp>(loc(), val, memref, indices);
+  b().create<KrnlStoreOp>(loc(), val, memref, computedIndices);
 }
 
-void KrnlBuilder::store(mlir::Value val, mlir::Value memref,
-    mlir::ValueRange indices, mlir::ValueRange offsets) const {
-  SmallVector<Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
-  store(val, memref, computedIndices);
-}
-
-void KrnlBuilder::storeIE(
-    Value val, Value memref, ArrayRef<IndexExpr> indices) const {
-  if (indices.size() == 0) {
-    // case memref<1xdtype>
-    MemRefType type = dyn_cast_or_null<MemRefType>(memref.getType());
-    assert(type && "Not MemRefType");
-    if (type.getRank() == 1 && type.getShape()[0] == 1) {
-      MultiDialectBuilder<MathBuilder> create(*this);
-      Value iZero = create.math.constantIndex(0);
-      b().create<KrnlStoreOp>(loc(), val, memref, ValueRange({iZero}));
-      return;
-    }
-  }
+void KrnlBuilder::storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices,
+    ValueRange offsets) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
-  b().create<KrnlStoreOp>(loc(), val, memref, indexValues);
+  store(val, memref, indexValues, offsets);
 }
 
 Value KrnlBuilder::getLinearOffsetIndex(
@@ -161,13 +135,11 @@ void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
       loc(), memref, indexValues, isWrite, localityHint, isDataCache);
 }
 
-void KrnlBuilder::seqstore(
-    mlir::Value element, mlir::Value seq, mlir::Value index) const {
+void KrnlBuilder::seqstore(Value element, Value seq, Value index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index);
 }
 
-void KrnlBuilder::seqstore(
-    mlir::Value element, mlir::Value seq, IndexExpr index) const {
+void KrnlBuilder::seqstore(Value element, Value seq, IndexExpr index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index.getValue());
 }
 
@@ -221,7 +193,7 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
-mlir::KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
+KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
     function_ref<void(
         KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
@@ -257,7 +229,7 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
 
 KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    mlir::ValueRange inits,
+    ValueRange inits,
     function_ref<void(
         KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
         bodyBuilderFn) const {
@@ -328,7 +300,7 @@ krnl.iterate(loop i from 0 to 256) {
       MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
       Value aVal = inputVals[0];            // simd or scalar
       Value bVal = inputVals[1];            // simd or scalar
-      Value cVal = create.krnl.load(C, {}); // scalar always
+      Value cVal = create.krnl.load(C); // scalar always
       Value newVal = create.math.add(aVal, bVal); // simd or scalar
       newVal = create.math.add(newVal, cVal); // if newVal is simd, cVal is
                                               // splatted
@@ -351,7 +323,7 @@ bool static hasOneElementInInnermostDims(Value value, int64_t innerDim) {
   ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
   assert(type && "expected shaped type");
   int64_t rank = type.getRank();
-  mlir::ArrayRef<int64_t> shape = type.getShape();
+  ArrayRef<int64_t> shape = type.getShape();
   for (int64_t i = std::max((int64_t)0, rank - innerDim); i < rank; ++i)
     if (shape[i] != 1)
       return false;
@@ -414,7 +386,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
               // Have a vector.
               VectorType vecType = VectorType::get({VL}, type.getElementType());
               AF[rank - 1] = AF[rank - 1] + ind; // Add induction var.
-              Value vecVal = create.vec.loadIE(vecType, input, AF, {});
+              Value vecVal = create.vec.loadIE(vecType, input, AF);
               vecInputVals.emplace_back(vecVal);
             }
           }
@@ -430,7 +402,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
             int64_t rank = type.getRank();
             assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
             AF[rank - 1] = AF[rank - 1] + ind;
-            create.vec.storeIE(vecResVals[i], outputs[i], AF, {});
+            create.vec.storeIE(vecResVals[i], outputs[i], AF);
           }
         });
     if (fullySimd)
@@ -495,7 +467,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
       });
 }
 
-void KrnlBuilder::yield(mlir::ValueRange iterArgs) const {
+void KrnlBuilder::yield(ValueRange iterArgs) const {
   b().create<KrnlYieldOp>(loc(), iterArgs);
 }
 
@@ -625,13 +597,12 @@ void KrnlBuilder::printf(
 // =============================================================================
 
 // Return null if none is found.
-ElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
+ElementsAttr IndexExprBuilderForKrnl::getConst(Value value) {
   auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+  if (auto globalOp = dyn_cast_or_null<KrnlGlobalOp>(definingOp)) {
     if (globalOp.getValue().has_value())
       return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
-  } else if (auto globalOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+  } else if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (globalOp.getValue().has_value())
       return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
   }
@@ -642,7 +613,7 @@ Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
   uint64_t rank = getShapedTypeRank(intArrayVal);
   if (rank == 0)
-    return create.krnl.load(intArrayVal, {});
+    return create.krnl.load(intArrayVal);
   uint64_t size = getArraySize(intArrayVal);
   assert(i < size && "out of bound reference");
   Value iVal = create.math.constantIndex(i);

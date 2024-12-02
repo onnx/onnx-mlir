@@ -66,10 +66,10 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   if (hasBias) {
     if (cRank == 0) {
       // Broadcast for scalar: both dims are 1.
-      cDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
+      cDims = {LitIE(1), LitIE(1)};
     } else if (cRank == 1) {
       // First dim is the one padded.
-      cDims = {LiteralIndexExpr(1), createIE->getShapeAsDim(C, 0)};
+      cDims = {LitIE(1), createIE->getShapeAsDim(C, 0)};
     } else {
       assert(cRank == 2 && "illegal path");
       cDims = {createIE->getShapeAsDim(C, 0), createIE->getShapeAsDim(C, 1)};

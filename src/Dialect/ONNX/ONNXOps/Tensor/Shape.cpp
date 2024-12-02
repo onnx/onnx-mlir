@@ -64,7 +64,7 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape() {
     return op->emitError("Start must not be greater than end");
 
   // Output shape is a 1D vector with "end-start" values
-  DimsExpr outputDims(1, LiteralIndexExpr(end - start));
+  DimsExpr outputDims(1, LitIE(end - start));
   setOutputDims(outputDims);
   return success();
 }

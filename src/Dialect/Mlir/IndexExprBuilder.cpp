@@ -132,14 +132,14 @@ IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
   if (i >= size)
     return UndefinedIndexExpr();
   int64_t val = mlir::cast<IntegerAttr>(intAttrArray.getValue()[i]).getInt();
-  return LiteralIndexExpr(val);
+  return LitIE(val);
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
     ArrayAttr intAttrArray, uint64_t i, int64_t outOfBoundVal) {
   IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
   // Undefined value are set to default value.
-  return indexExpr.isUndefined() ? LiteralIndexExpr(outOfBoundVal) : indexExpr;
+  return indexExpr.isUndefined() ? LitIE(outOfBoundVal) : indexExpr;
 }
 
 void IndexExprBuilder::getIntFromArrayAsLiterals(
@@ -206,10 +206,10 @@ IndexExpr IndexExprBuilder::getValFromArray(
     if (isFloat) {
       double floatVal =
           getFloatValue(elementsAttr, elType, i).convertToDouble();
-      return LiteralIndexExpr(floatVal);
+      return LitIE(floatVal);
     } else {
       int64_t intVal = getIntValue(elementsAttr, elType, i).getSExtValue();
-      return LiteralIndexExpr(intVal);
+      return LitIE(intVal);
     }
   }
   // If our scalar array is not a constant; we have a runtime value.
@@ -222,10 +222,10 @@ IndexExpr IndexExprBuilder::getValFromArray(
       if (isFloat) {
         double floatVal =
             getFloatValue(elementsAttr, elType, 0).convertToDouble();
-        return LiteralIndexExpr(floatVal);
+        return LitIE(floatVal);
       } else {
         int64_t intVal = getIntValue(elementsAttr, elType, 0).getSExtValue();
-        return LiteralIndexExpr(intVal);
+        return LitIE(intVal);
       }
     }
     // Otherwise, we can write code.
@@ -236,9 +236,9 @@ IndexExpr IndexExprBuilder::getValFromArray(
     }
     Value castedVal = createMath.castToIndex(val);
     if (makeSymbol)
-      return SymbolIndexExpr(castedVal);
+      return SymIE(castedVal);
     else
-      return DimIndexExpr(castedVal);
+      return DimIE(castedVal);
   }
   return QuestionmarkIndexExpr(isFloat);
 }
@@ -280,21 +280,21 @@ IndexExpr IndexExprBuilder::getIntFromArrayAsSymbolWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
   // Undefined value are set to default value.
-  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+  return indexExpr.isUndefined() ? LitIE(defaultLiteral) : indexExpr;
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsDimWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
   // Undefined value are set to default value.
-  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+  return indexExpr.isUndefined() ? LitIE(defaultLiteral) : indexExpr;
 }
 
 IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffineWithOutOfBound(
     Value floatArray, uint64_t i, double defaultLiteral) {
   IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
   // Undefined value are set to default value.
-  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+  return indexExpr.isUndefined() ? LitIE(defaultLiteral) : indexExpr;
 }
 
 void IndexExprBuilder::getIntFromArrayAsSymbols(
@@ -375,7 +375,7 @@ IndexExpr IndexExprBuilder::getShapeAsLiteral(
   int64_t shape = getShape(tensorOrMemrefValue, i);
   assert(
       shape != ShapedType::kDynamic && "expected compile time constant shape");
-  return LiteralIndexExpr(shape);
+  return LitIE(shape);
 }
 
 IndexExpr IndexExprBuilder::getShapeAsSymbol(
@@ -383,7 +383,7 @@ IndexExpr IndexExprBuilder::getShapeAsSymbol(
   if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
-    return SymbolIndexExpr(val);
+    return SymIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
@@ -392,7 +392,7 @@ IndexExpr IndexExprBuilder::getShapeAsDim(
   if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
-    return DimIndexExpr(val);
+    return DimIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
@@ -432,7 +432,7 @@ IndexExpr IndexExprBuilder::isTileFull(
   // However, if UB is divisible by Block, then its full no matter what.
   if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
     // Last tile is guaranteed to be full because UB is divisible by block.
-    return LiteralIndexExpr(1); // 1 >= 0 is true
+    return LitIE(1); // 1 >= 0 is true
   }
   // True if i <= (UB - block), namely UB - block - i >= 0.
   // Affine expressions compared to >= 0

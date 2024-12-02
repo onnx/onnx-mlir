@@ -161,10 +161,10 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       IndexExprScope childScope(create.krnl);
       mlir::ValueRange loopDef = create.krnl.defineLoops(1);
-      llvm::SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
+      llvm::SmallVector<IndexExpr, 4> lbs(1, LitIE(0));
       llvm::SmallVector<IndexExpr, 4> ubs;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
-        ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
+        ubs.emplace_back(LitIE(sequenceDimSize));
       else
         ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -186,10 +186,10 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       IndexExprScope childScope(create.krnl);
       mlir::ValueRange loopDef = create.krnl.defineLoops(1);
-      llvm::SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
+      llvm::SmallVector<IndexExpr, 4> lbs(1, LitIE(0));
       llvm::SmallVector<IndexExpr, 4> ubs;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
-        ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
+        ubs.emplace_back(LitIE(sequenceDimSize));
       else
         ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

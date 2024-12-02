@@ -154,7 +154,7 @@ struct ONNXLayoutTransformOpLowering
             create.krnl.memcpy(alloc, input, len, allocOffset, inputOffset);
           } else {
             // Compute if we have a last tile.
-            IndexExpr modLit = LiteralIndexExpr(modVal);
+            IndexExpr modLit = LitIE(modVal);
             IndexExpr isFull =
                 create.krnlIE.isTileFull(memAF[E1], modLit, SymIE(ub1));
             IndexExpr isFullLogical = isFull >= 0;
@@ -218,7 +218,7 @@ struct ONNXLayoutTransformOpLowering
     IndexExprScope outerScope(create.krnl);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(data, ubs);
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
 
     // Insert an allocation and deallocation for the result of this
     // operation.
