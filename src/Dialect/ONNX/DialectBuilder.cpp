@@ -444,7 +444,8 @@ TensorType OnnxBuilder::toTensor(Type input) const {
 }
 
 TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
-  //assert(inputs.size() >= 2 && "Expect at least two inputs");
+  // Sometimes, the size of inputs could be 1
+  // assert(inputs.size() >= 2 && "Expect at least two inputs");
   if (llvm::all_of(inputs, [](Type t) { return (mlir::isa<TensorType>(t)); }))
     return inputs;
   assert(llvm::all_of(inputs, [](Type t) {
