@@ -30,7 +30,14 @@ from onnx.backend.sample.ops import collect_sample_implementations
 from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 
 import pprint
-import onnx
+
+try:
+    import onnx
+except ImportError:
+    print(
+        "Failed to include the `onnx` package; please install to successfully use this script."
+    )
+    exit(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
