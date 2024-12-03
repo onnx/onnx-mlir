@@ -77,35 +77,37 @@ func.func @test_onnx_conv2d_no_dilation_pad_stride(%arg0: tensor<5x3x256x260xf32
 func.func @test_onnx_conv2d_group(%arg0: tensor<5x64x256x256xf32>, %arg1 : tensor<12x16x45x45xf32>, %arg2: tensor<12xf32>) ->  tensor<5x12x17x17xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {pads = [1, 1, 1, 1], strides = [13, 13], group = 4 : si64} : (tensor<5x64x256x256xf32>, tensor<12x16x45x45xf32>, tensor<12xf32>) ->  tensor<5x12x17x17xf32>
   return %0 : tensor<5x12x17x17xf32>
-// CHECK-LABEL:  func.func @test_onnx_conv2d_group
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x64x256x256xf32>, [[PARAM_1_:%.+]]: tensor<12x16x45x45xf32>, [[PARAM_2_:%.+]]: tensor<12xf32>) -> tensor<5x12x17x17xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<5x64x256x256xf32>, tensor<4xi32>) -> tensor<5x256x256x64xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.transpose [[PARAM_1_]], [[VAR_0_]] : (tensor<12x16x45x45xf32>, tensor<4xi32>) -> tensor<12x45x45x16xf32>
-// CHECK:           [[VAR_3_:%.+]] = tosa.slice [[VAR_1_]] {size = array<i64: 5, 252, 252, 64>, start = array<i64: 0, 0, 0, 0>} : (tensor<5x256x256x64xf32>) -> tensor<5x252x252x64xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.slice [[VAR_3_]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 0>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_:%.+]] = tensor.extract_slice [[VAR_2_]][0, 0, 0, 0] [3, 45, 45, 16] [1, 1, 1, 1] : tensor<12x45x45x16xf32> to tensor<3x45x45x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_0_:%.+]] = tensor.extract_slice [[PARAM_2_]][0] [3] [1] : tensor<12xf32> to tensor<3xf32>
+// CHECK-LABEL:   func.func @test_onnx_conv2d_group(
+// CHECK-SAME:                                      %[[VAL_0:.*]]: tensor<5x64x256x256xf32>,
+// CHECK-SAME:                                      %[[VAL_1:.*]]: tensor<12x16x45x45xf32>,
+// CHECK-SAME:                                      %[[VAL_2:.*]]: tensor<12xf32>) -> tensor<5x12x17x17xf32> {
+// CHECK:           %[[VAL_3:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       %[[VAL_4:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_3]] : (tensor<5x64x256x256xf32>, tensor<4xi32>) -> tensor<5x256x256x64xf32>
+// CHECK-DAG:       %[[VAL_5:.*]] = tosa.transpose %[[VAL_1]], %[[VAL_3]] : (tensor<12x16x45x45xf32>, tensor<4xi32>) -> tensor<12x45x45x16xf32>
+// CHECK:           %[[VAL_6:.*]] = tosa.slice %[[VAL_4]] {size = array<i64: 5, 252, 252, 64>, start = array<i64: 0, 0, 0, 0>} : (tensor<5x256x256x64xf32>) -> tensor<5x252x252x64xf32>
+// CHECK:           %[[VAL_7:.*]] = tosa.slice %[[VAL_6]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 0>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
+// CHECK-DAG:       %[[VAL_8:.*]] = tosa.slice %[[VAL_5]] {size = array<i64: 3, 45, 45, 16>, start = array<i64: 0, 0, 0, 0>} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
+// CHECK-DAG:       %[[VAL_9:.*]] = tosa.slice %[[VAL_2]] {size = array<i64: 3>, start = array<i64: 0>} : (tensor<12xf32>) -> tensor<3xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.conv2d [[VAR_4_]], [[VAR_extracted_slice_]], [[VAR_extracted_slice_]]_0 {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = tosa.slice [[VAR_3_]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 16>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_1_:%.+]] = tensor.extract_slice [[VAR_2_]][3, 0, 0, 0] [3, 45, 45, 16] [1, 1, 1, 1] : tensor<12x45x45x16xf32> to tensor<3x45x45x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_2_:%.+]] = tensor.extract_slice [[PARAM_2_]][3] [3] [1] : tensor<12xf32> to tensor<3xf32>
+// CHECK-DAG:       %[[VAL_10:.*]] = tosa.conv2d %[[VAL_7]], %[[VAL_8]], %[[VAL_9]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
+// CHECK-DAG:       %[[VAL_11:.*]] = tosa.slice %[[VAL_6]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 16>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
+// CHECK-DAG:       %[[VAL_12:.*]] = tosa.slice %[[VAL_5]] {size = array<i64: 3, 45, 45, 16>, start = array<i64: 3, 0, 0, 0>} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
+// CHECK-DAG:       %[[VAL_13:.*]] = tosa.slice %[[VAL_2]] {size = array<i64: 3>, start = array<i64: 3>} : (tensor<12xf32>) -> tensor<3xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_7_:%.+]] = tosa.conv2d [[VAR_6_]], [[VAR_extracted_slice_1_]], [[VAR_extracted_slice_2_]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = tosa.slice [[VAR_3_]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 32>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_3_:%.+]] = tensor.extract_slice [[VAR_2_]][6, 0, 0, 0] [3, 45, 45, 16] [1, 1, 1, 1] : tensor<12x45x45x16xf32> to tensor<3x45x45x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_4_:%.+]] = tensor.extract_slice [[PARAM_2_]][6] [3] [1] : tensor<12xf32> to tensor<3xf32>
+// CHECK-DAG:       %[[VAL_14:.*]] = tosa.conv2d %[[VAL_11]], %[[VAL_12]], %[[VAL_13]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
+// CHECK-DAG:       %[[VAL_15:.*]] = tosa.slice %[[VAL_6]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 32>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
+// CHECK-DAG:       %[[VAL_16:.*]] = tosa.slice %[[VAL_5]] {size = array<i64: 3, 45, 45, 16>, start = array<i64: 6, 0, 0, 0>} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
+// CHECK-DAG:       %[[VAL_17:.*]] = tosa.slice %[[VAL_2]] {size = array<i64: 3>, start = array<i64: 6>} : (tensor<12xf32>) -> tensor<3xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_9_:%.+]] = tosa.conv2d [[VAR_8_]], [[VAR_extracted_slice_3_]], [[VAR_extracted_slice_4_]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = tosa.slice [[VAR_3_]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 48>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_5_:%.+]] = tensor.extract_slice [[VAR_2_]][9, 0, 0, 0] [3, 45, 45, 16] [1, 1, 1, 1] : tensor<12x45x45x16xf32> to tensor<3x45x45x16xf32>
-// CHECK-DAG:       [[VAR_extracted_slice_6_:%.+]] = tensor.extract_slice [[PARAM_2_]][9] [3] [1] : tensor<12xf32> to tensor<3xf32>
-// CHECK:           [[VAR_11_:%.+]] = tosa.conv2d [[VAR_10_]], [[VAR_extracted_slice_5_]], [[VAR_extracted_slice_6_]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
-// CHECK-DAG:       [[VAR_12_:%.+]] = tosa.concat [[VAR_5_]], [[VAR_7_]], [[VAR_9_]], [[VAR_11_]] {axis = 3 : i32} : (tensor<5x17x17x3xf32>, tensor<5x17x17x3xf32>, tensor<5x17x17x3xf32>, tensor<5x17x17x3xf32>) -> tensor<5x17x17x12xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_14_:%.+]] = tosa.transpose [[VAR_12_]], [[VAR_13_]] : (tensor<5x17x17x12xf32>, tensor<4xi32>) -> tensor<5x12x17x17xf32>
-// CHECK:           return [[VAR_14_]] : tensor<5x12x17x17xf32>
+// CHECK-DAG:       %[[VAL_18:.*]] = tosa.conv2d %[[VAL_15]], %[[VAL_16]], %[[VAL_17]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
+// CHECK-DAG:       %[[VAL_19:.*]] = tosa.slice %[[VAL_6]] {size = array<i64: 5, 252, 252, 16>, start = array<i64: 0, 0, 0, 48>} : (tensor<5x252x252x64xf32>) -> tensor<5x252x252x16xf32>
+// CHECK-DAG:       %[[VAL_20:.*]] = tosa.slice %[[VAL_5]] {size = array<i64: 3, 45, 45, 16>, start = array<i64: 9, 0, 0, 0>} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
+// CHECK-DAG:       %[[VAL_21:.*]] = tosa.slice %[[VAL_2]] {size = array<i64: 3>, start = array<i64: 9>} : (tensor<12xf32>) -> tensor<3xf32>
+// CHECK:           %[[VAL_22:.*]] = tosa.conv2d %[[VAL_19]], %[[VAL_20]], %[[VAL_21]] {dilation = array<i64: 1, 1>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 13, 13>} : (tensor<5x252x252x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x17x17x3xf32>
+// CHECK-DAG:       %[[VAL_23:.*]] = tosa.concat %[[VAL_10]], %[[VAL_14]], %[[VAL_18]], %[[VAL_22]] {axis = 3 : i32} : (tensor<5x17x17x3xf32>, tensor<5x17x17x3xf32>, tensor<5x17x17x3xf32>, tensor<5x17x17x3xf32>) -> tensor<5x17x17x12xf32>
+// CHECK-DAG:       %[[VAL_24:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           %[[VAL_25:.*]] = tosa.transpose %[[VAL_23]], %[[VAL_24]] : (tensor<5x17x17x12xf32>, tensor<4xi32>) -> tensor<5x12x17x17xf32>
+// CHECK:           return %[[VAL_25]] : tensor<5x12x17x17xf32>
 }
 
 // -----
