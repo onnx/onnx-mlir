@@ -14,7 +14,11 @@
 import os
 import sys
 import argparse
-import onnx
+try:
+    import onnx
+except ImportError:
+    print("Import of onnx package failed; please instal to use this script")
+    exit(1)
 import time
 import signal
 import subprocess
