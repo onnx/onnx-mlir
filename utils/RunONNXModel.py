@@ -995,10 +995,10 @@ class InferenceSession:
                 try:
                     import onnxruntime
                 except ImportError:
-                print(
-                     "Failed to include the `onnxruntime` package; please install to successfully use this script."
-                )
-                exit(1)
+                    print(
+                        "Failed to include the `onnxruntime` package; please install to successfully use this script."
+                    )
+                    exit(1)
 
                 input_feed = dict(zip(input_names, inputs))
                 print("Running inference using onnxruntime ...")
