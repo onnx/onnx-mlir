@@ -16,7 +16,15 @@ from __future__ import unicode_literals
 import sys
 import os
 import ctypes
-import onnx
+
+try:
+    import onnx
+except ImportError:
+    print(
+        "Failed to include the `onnx` package; please install to successfully use this script."
+    )
+    exit(1)
+
 import subprocess
 import variables
 from variables import *
