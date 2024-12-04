@@ -12,14 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "mlir/IR/Value.h"
@@ -813,34 +811,6 @@ OpFoldResult KrnlVectorTypeCastOp::fold(FoldAdaptor adaptor) {
 MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
   return getLoopsMutable();
 }
-
-ArrayRef<char> KrnlGlobalOp::getBuffer() {
-  ArrayRef<char> ret;
-  std::vector<char> attrData;
-  if (getValueAttr()) {
-    int64_t sizeInBytes = getBufferSize();
-    char *rawData = (char *)malloc(sizeInBytes);
-    auto valueAttr = getValue().value();
-    getRawData(valueAttr, attrData);
-    memcpy(rawData, attrData.data(), sizeInBytes);
-    ret = llvm::ArrayRef(rawData, sizeInBytes);
-  }
-  return ret;
-}
-
-uint64_t KrnlGlobalOp::getBufferSize() {
-  const Type type = getOperation()->getResults()[0].getType();
-  const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
-  auto sizeInBytes = affine::getIntOrFloatMemRefSizeInBytes(memRefTy);
-  return sizeInBytes.has_value() ? sizeInBytes.value() : 0;
-}
-
-void KrnlGlobalOp::freeBuffer(ArrayRef<char> rawData) {
-  free(const_cast<char *>(rawData.data()));
-  return;
-}
-
-void KrnlGlobalOp::updateValueAttr() {}
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp
