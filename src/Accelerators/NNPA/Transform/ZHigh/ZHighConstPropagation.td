@@ -52,39 +52,4 @@ def CreateConstantForStickForGRU : NativeCodeCall<
   "createConstantForStickForGRU($_builder, $0, $1, $2, $3)"
 >;
 
-// zhigh.Stick (c) = krnl.global(c1), where c1 is stickified data.
-// Always saturate constants.
-def ConstantStickPattern : Pat<
-  (ZHighStickOp:$stickOp
-     (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_),
-     $layout, $_),
-  (CreateConstantForStick $stickOp, $c, $layout),
-  [(IsFromDenseONNXConstantOp:$c)]
->;
-
-// zhigh.StickForLSTM (c1, c2, c3, c4) = krnl.global(c)
-// where c is stickified data.
-def ConstantStickForLSTMPattern : Pat<
-  (ZHighStickForLSTMOp:$stickOp
-     (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_),
-     (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_),
-     (ONNXConstantOp:$c3 $_, $_, $_, $_, $_, $_, $_, $_),
-     (ONNXConstantOp:$c4 $_, $_, $_, $_, $_, $_, $_, $_)),
-  (CreateConstantForStickForLSTM $stickOp, $c1, $c2, $c3, $c4),
-  [(IsFromDenseONNXConstantOp:$c1), (IsFromDenseONNXConstantOp:$c2),
-   (IsFromDenseONNXConstantOp:$c3), (IsFromDenseONNXConstantOp:$c4)]
->;
-
-// zhigh.StickForGRU (c1, c2, c3) = krnl.global(c)
-// where c is stickified data.
-def ConstantStickForGRUPattern : Pat<
-  (ZHighStickForGRUOp:$stickOp
-     (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_),
-     (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_),
-     (ONNXConstantOp:$c3 $_, $_, $_, $_, $_, $_, $_, $_)),
-  (CreateConstantForStickForGRU $stickOp, $c1, $c2, $c3),
-  [(IsFromDenseONNXConstantOp:$c1), (IsFromDenseONNXConstantOp:$c2),
-   (IsFromDenseONNXConstantOp:$c3)]
->;
-
 #endif // ZHIGH_CONST_PROPAGATION

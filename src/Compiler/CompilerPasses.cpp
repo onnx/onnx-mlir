@@ -67,8 +67,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  pm.addInstrumentation(
-      std::make_unique<DisposableGarbageCollector>(pm.getContext()));
+  if (!donotScrubDisposableElementsAttr)
+    pm.addInstrumentation(
+        std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
