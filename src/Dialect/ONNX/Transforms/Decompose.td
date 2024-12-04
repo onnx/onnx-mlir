@@ -71,6 +71,12 @@ def createScalarDenseAttrRank0
 def ReshapeElementsAttrToRank0 : NativeCodeCall<
     "onnx_mlir::OnnxElementsAttrBuilder($0.getContext()).reshape(cast<ElementsAttr>($0), {})">;
 
+def ReplaceSequenceAt :  NativeCodeCall<
+    "onnx_mlir::replaceSequenceAt($_builder, $_loc, $0)">;
+    
+def CanSequenceAtBeReplaced :
+   Constraint<CPred<"::onnx_mlir::canSequenceAtBeReplaced($_self)">, "check whether the SequenceAt can be replaced with split">;
+
 // Create a DenseElementsAttr from a single attribute.
 def createDenseArrayAttrFromSingleAttr
     : NativeCodeCall<"::onnx_mlir::createDenseArrayAttr($_builder, $_builder.getArrayAttr($0))">;
@@ -618,6 +624,18 @@ def ConstantOpNormalizationPattern6: Pat<
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]
+>;
+
+// Optimize for the pattern coming from torch.nn.LSTM exported from pytorch
+//     %32 = "onnx.SplitToSequence"(%30, %27) {axis = 0 : si64, keepdims = 0 : si64, onnx_node_name = "n1"} : (tensor<1x1x100xf32>, tensor<i64>) -> !onnx.Seq<tensor<1x1x100xf32>>
+//    %33 = "onnx.SequenceAt"(%32, %26) {onnx_node_name = "n0"} : (!onnx.Seq<tensor<1x1x100xf32>>, tensor<i64>) -> tensor<1x100xf32>
+// When shape and size/axis related value are constant, this sequence of code
+// can be translated into onnx.slice
+
+def ReplaceSequenceAtPattern: Pat<
+   (ONNXSequenceAtOp:$res $seq, $position),
+   (ReplaceSequenceAt $res),
+   [(CanSequenceAtBeReplaced:$res)]
 >;
 
 #endif // ONNX_DECOMPOSE
