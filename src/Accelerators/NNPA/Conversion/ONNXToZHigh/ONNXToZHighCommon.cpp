@@ -83,8 +83,7 @@ bool isF32ScalarConstantTensor(Value v) {
 FloatAttr getScalarF32AttrFromConstant(Value v) {
   if (!isF32ScalarConstantTensor(v))
     return nullptr;
-  DenseElementsAttr constElements = ElementsAttrBuilder::toDenseElementsAttr(
-      getElementAttributeFromONNXValue(v));
+  ElementsAttr constElements = getElementAttributeFromONNXValue(v);
   return constElements.getSplatValue<FloatAttr>();
 }
 
