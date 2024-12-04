@@ -362,8 +362,7 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
   if (!hasStaticShape(sequenceAtResult.getType()))
     return false;
 
-  ONNXSequenceAtOp op =
-      mlir::dyn_cast<ONNXSequenceAtOp>(sequenceAtResult.getDefiningOp());
+  ONNXSequenceAtOp op = sequenceAtResult.getDefiningOp<ONNXSequenceAtOp>();
 
   Value inputSequence = op.getInputSequence();
   Value position = op.getPosition();
@@ -372,9 +371,9 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
     return false;
 
   // Input sequence should be defined with SplitToSequence
-  ONNXSplitToSequenceOp splitToSequence;
-  if (!(splitToSequence = mlir::dyn_cast<ONNXSplitToSequenceOp>(
-            inputSequence.getDefiningOp())))
+  ONNXSplitToSequenceOp splitToSequence =
+      inputSequence.getDefiningOp<ONNXSplitToSequenceOp>();
+  if (!splitToSequence)
     return false;
 
   // Check the pattern of the SplitToSequence op
@@ -390,8 +389,7 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
 
 Value replaceSequenceAt(
     PatternRewriter &rewriter, Location loc, Value sequenceAtResult) {
-  ONNXSequenceAtOp op =
-      mlir::cast<ONNXSequenceAtOp>(sequenceAtResult.getDefiningOp());
+  ONNXSequenceAtOp op = sequenceAtResult.getDefiningOp<ONNXSequenceAtOp>();
 
   Value inputSequence = op.getInputSequence();
   Value position = op.getPosition();
