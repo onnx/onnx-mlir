@@ -62,6 +62,7 @@ namespace onnx_mlir {
 // Values to report the current phase of compilation.
 uint64_t CURRENT_COMPILE_PHASE = 1;
 uint64_t TOTAL_COMPILE_PHASE = 0;
+static DiagnosticEngine::HandlerID diagnosticHandlerID = 0;
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -420,6 +421,12 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     return InvalidTemporaryFileAccess;
   }
 
+  // In the LLVM translation, we get some warnings, so disable in non-verbose
+  // mode.
+  if (diagnosticHandlerID && !VerboseOutput) {
+    module.get().getContext()->getDiagEngine().eraseHandler(
+        diagnosticHandlerID);
+  }
   llvm::LLVMContext llvmContext;
   mlir::registerBuiltinDialectTranslation(*(module.get().getContext()));
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
@@ -994,6 +1001,17 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     return rc;
 
   configurePasses();
+
+  // Enable printing for error handler on llvm error stream. Save ID if we want
+  // to disable it later. We currently disable for the llvm lowering, as
+  // otherwise we currently get an unrecognized warning for the "onnx.name"
+  // attribute in function operations. In Verbose mode, we keep the error
+  // handling all the way to the end.
+  diagnosticHandlerID =
+      context.getDiagEngine().registerHandler([](Diagnostic &diag) {
+        llvm::errs() << diag << "\n";
+        return mlir::LogicalResult::success();
+      });
 
   mlir::PassManager pm(
       module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
