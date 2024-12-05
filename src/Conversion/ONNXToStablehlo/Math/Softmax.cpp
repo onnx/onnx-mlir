@@ -121,8 +121,7 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
 
     Value operand = operands[0];
-    assert(
-        hasStaticShape(operand.getType()) && "Only Static shapes are accepted");
+    bool isStaticShape = hasStaticShape(operand.getType());
 
     Location loc = op->getLoc();
     Type outputType = *op->result_type_begin();
@@ -151,29 +150,51 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
     // Sum of the all the exponents for the denominator
     SmallVector<int64_t> reducedShape =
         getReductionShape(ExpOutputType, axes, false);
-    ShapedType ReducedShapeType = mlir::cast<ShapedType>(
-        RankedTensorType::get(reducedShape, ExpOutputType.getElementType()));
+    ShapedType ReducedShapeType;
+    if (isStaticShape) {
+      ReducedShapeType = mlir::cast<ShapedType>(
+          RankedTensorType::get(reducedShape, ExpOutputType.getElementType()));
+    } else {
+      SmallVector<int64_t> ReducedShapeVector =
+          getReductionShape(ExpOutputType, axes, true);
+      ReducedShapeType = mlir::cast<ShapedType>(RankedTensorType::get(
+          ReducedShapeVector, ExpOutputType.getElementType()));
+    }
     Value identity = rewriter.create<stablehlo::ConstantOp>(
         loc, rewriter.getZeroAttr(ExpOutputType.getElementType()));
     Value ReduceSum = computeReduceSum(loc, ElementwiseExpStableHLO, identity,
-        reducedShape, axes, rewriter, false, ReducedShapeType);
+        reducedShape, axes, rewriter, !isStaticShape, ReducedShapeType);
+
     if (ReduceSum == nullptr)
       return failure();
 
-    SmallVector<int64_t> broadcast_dims =
-        getBroadcastDims(ElementwiseExpStableHLO, axes);
-    Value BroadCastOp =
-        rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType,
-            ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+    Value BroadCastOp;
+    if (isStaticShape) {
+      SmallVector<int64_t> broadcast_dims =
+          getBroadcastDims(ElementwiseExpStableHLO, axes);
+      BroadCastOp =
+          rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType,
+              ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+    } else {
+      mlir::Value OutputDimensions =
+          rewriter.create<shape::ShapeOfOp>(loc, operand);
+      SmallVector<int64_t> DimIndex;
+      for (int64_t i = 0; i < ExpOutputType.getRank(); i++)
+        DimIndex.push_back(i);
+      BroadCastOp = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
+          ExpOutputType, ReduceSum, OutputDimensions,
+          rewriter.getDenseI64ArrayAttr(DimIndex));
+    }
     if (BroadCastOp == nullptr)
       return failure();
 
-    Value Softmax_output = rewriter.create<stablehlo::DivOp>(
+    Value SoftmaxOutput = rewriter.create<stablehlo::DivOp>(
         loc, ElementwiseExpStableHLO, BroadCastOp);
-    if (Softmax_output == nullptr)
+
+    if (SoftmaxOutput == nullptr)
       return failure();
 
-    rewriter.replaceOp(op, Softmax_output);
+    rewriter.replaceOp(op, SoftmaxOutput);
     return success();
   }
 };
