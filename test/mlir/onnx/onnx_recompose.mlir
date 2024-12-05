@@ -222,29 +222,26 @@ func.func @layernorm_without_bias_second_reduce_unsuitable_axis_v18(%x: tensor<1
 func.func @layernorm_without_bias_v18_noop(%x: tensor<1x384x768xf32>, %scale: tensor<768xf32>, %bias: tensor<768xf32>) -> (tensor<1x384x768xf32>) {
   %eps = onnx.Constant dense<9.99999974E-6> : tensor<f32>
   %none = "onnx.NoValue"() {value} : () -> none
-  %mean = "onnx.ReduceMean"(%x, %none) {keepdims = 1 : si64, noop_with_empty_axes = 1: si64} : (tensor<1x384x768xf32>, none) -> tensor<1x384x1xf32>
-  %d = "onnx.Sub"(%x, %mean) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
+  %mean = "onnx.ReduceMean"(%x, %none) {keepdims = 1 : si64, noop_with_empty_axes = 1: si64} : (tensor<1x384x768xf32>, none) -> tensor<1x384x768xf32>
+  %d = "onnx.Sub"(%x, %mean) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
   %dd = "onnx.Mul"(%d, %d) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
-  %var = "onnx.ReduceMean"(%dd, %none) {keepdims = 1 : si64, noop_with_empty_axes = 1: si64} : (tensor<1x384x768xf32>, none) -> tensor<1x384x1xf32>
-  %varEps = "onnx.Add"(%var, %eps) : (tensor<1x384x1xf32>, tensor<f32>) -> tensor<1x384x1xf32>
-  %StdDev = "onnx.Sqrt"(%varEps) : (tensor<1x384x1xf32>) -> tensor<1x384x1xf32>
-  %Norm = "onnx.Div"(%d, %StdDev) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
+  %var = "onnx.ReduceMean"(%dd, %none) {keepdims = 1 : si64, noop_with_empty_axes = 1: si64} : (tensor<1x384x768xf32>, none) -> tensor<1x384x768xf32>
+  %varEps = "onnx.Add"(%var, %eps) : (tensor<1x384x768xf32>, tensor<f32>) -> tensor<1x384x768xf32>
+  %StdDev = "onnx.Sqrt"(%varEps) : (tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  %Norm = "onnx.Div"(%d, %StdDev) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
   %Y = "onnx.Mul"(%Norm, %scale) : (tensor<1x384x768xf32>, tensor<768xf32>) -> tensor<1x384x768xf32>
   return %Y : tensor<1x384x768xf32>
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @layernorm_without_bias_v18_noop
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<9.99999974E-6> : tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[VAR_2_:%.+]] = "onnx.ReduceMean"([[PARAM_0_]], [[VAR_1_]]) {keepdims = 1 : si64, noop_with_empty_axes = 1 : si64} : (tensor<1x384x768xf32>, none) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Sub"([[PARAM_0_]], [[VAR_2_]]) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Mul"([[VAR_3_]], [[VAR_3_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_5_:%.+]] = "onnx.ReduceMean"([[VAR_4_]], [[VAR_1_]]) {keepdims = 1 : si64, noop_with_empty_axes = 1 : si64} : (tensor<1x384x768xf32>, none) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.Add"([[VAR_5_]], [[VAR_0_]]) : (tensor<1x384x1xf32>, tensor<f32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_7_:%.+]] = "onnx.Sqrt"([[VAR_6_]]) : (tensor<1x384x1xf32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_8_:%.+]] = "onnx.Div"([[VAR_3_]], [[VAR_7_]]) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_9_:%.+]] = "onnx.Mul"([[VAR_8_]], [[PARAM_1_]]) : (tensor<1x384x768xf32>, tensor<768xf32>) -> tensor<1x384x768xf32>
-// CHECK:           return [[VAR_9_]] : tensor<1x384x768xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Sub"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<1x384x768xf32>, tensor<f32>) -> tensor<1x384x768xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Sqrt"([[VAR_3_]]) : (tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Div"([[VAR_1_]], [[VAR_4_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Mul"([[VAR_5_]], [[PARAM_1_]]) : (tensor<1x384x768xf32>, tensor<768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           return [[VAR_6_]] : tensor<1x384x768xf32>
 // CHECK:         }
 }
 
