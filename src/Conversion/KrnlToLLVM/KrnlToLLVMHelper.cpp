@@ -183,7 +183,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
         create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-            stridesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+            stridesArrayPtr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
     create.llvm.store(dimStride, dimStridePtr);
   }
 }

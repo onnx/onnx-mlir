@@ -377,7 +377,7 @@ private:
       // Insert size of the dimension.
       Value dimSizePtr =
           create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-              sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+              sizesArrayPtr, ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(i)});
       Value dimSize = create.llvm.load(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
