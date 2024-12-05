@@ -4,7 +4,7 @@
 
 //===---------------- GatherND.cpp - Lowering GatherND Op -----------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -35,7 +35,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
       StringRef title, const DimsExpr &indices, KrnlBuilder &createKrnl) {
     llvm::Twine msg(title + ": (");
     createKrnl.printf(msg.str());
-    int64_t n = (int64_t)indices.size();
+    int64_t n = static_cast<int64_t>(indices.size());
     for (int64_t i = 0; i < n; ++i) {
       Value val = indices[i].getValue();
       createKrnl.printf(" ", val);
@@ -184,7 +184,8 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             // When indices.shape[-1] is equal to (rank(data) - b) the
             // `reshapedDataAccessFct` computed so far has the same number of
             // indices as the rank of 'reshapedData'.
-            assert((int64_t)reshapedDataAccessFct.size() == reshapedDataRank &&
+            assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==
+                       reshapedDataRank &&
                    "Access function should have the same rank as reshapedData");
 
             if (emitPrintStmts)
@@ -214,7 +215,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
                 [&](KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
                   IndexExpr ind = SymIE(innerLoopInd[0]);
                   reshapedDataAccessFct.emplace_back(ind);
-                  assert((int64_t)reshapedDataAccessFct.size() ==
+                  assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==
                              reshapedDataRank &&
                          "Access function should have the same rank as "
                          "reshapedData");

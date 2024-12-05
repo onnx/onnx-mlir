@@ -4,7 +4,7 @@
 
 //===-------------- CumSum.cpp - Lowering CumSum Ops ----------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -138,7 +138,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
     IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      int64_t logN = (int64_t)std::ceil(std::log2(n));
+      int64_t logN = static_cast<int64_t>(std::ceil(std::log2(n)));
       numberOfStep = LitIE(logN);
     } else {
       Value nos = create.math.cast(f32Ty, axisSize.getValue());
