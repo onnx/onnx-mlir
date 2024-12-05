@@ -307,7 +307,8 @@ void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i) {
 
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
-  if (constantOp)
+  // In case the ConstantOp has not been normalized yet
+  if (constantOp && constantOp.getValueAttr())
     return mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   return nullptr;
 }
