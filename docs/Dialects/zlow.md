@@ -752,34 +752,6 @@ Interfaces: `MemoryEffectOpInterface`
 | `X` | memref of 16-bit float or 32-bit float values
 | `Out` | memref of dlfloat16 type values
 
-### `zlow.stickifiedConstant` (::onnx_mlir::zlow::ZLowStickifiedConstantOp)
-
-_ZLow Stickified Constant operation._
-
-
-Traits: `MemRefsNormalizable`
-
-Interfaces: `KrnlGlobalOpInterface`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>shape</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
-<tr><td><code>name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>stickified</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
-<tr><td><code>value</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
-<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>offset</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
-<tr><td><code>alignment</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
-</table>
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | memref of dlfloat16 type values
-
 ### `zlow.sub` (::onnx_mlir::zlow::ZLowSubOp)
 
 _ZLow sub operation_

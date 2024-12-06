@@ -329,6 +329,7 @@ _Indicate ONNX entry point_
 
 The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.
+
 ### `krnl.erf` (KrnlErfOp)
 
 _Krnl erf scalar operation_
@@ -453,7 +454,7 @@ in the `value` dense element attribute.
 
 Traits: `AlwaysSpeculatableImplTrait`, `MemRefsNormalizable`
 
-Interfaces: `ConditionallySpeculatable`, `KrnlGlobalOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
 Effects: `MemoryEffects::Effect{}`
 
