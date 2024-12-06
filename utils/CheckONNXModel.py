@@ -166,6 +166,13 @@ parser.add_argument(
     " uint64, int64, float16, float32, float64",
 )
 
+parser.add_argument(
+    "--rtol", type=str, default="", help="Relative tolerance for verification."
+)
+parser.add_argument(
+    "--atol", type=str, default="", help="Absolute tolerance for verification."
+)
+
 args = parser.parse_args()
 
 VERBOSE = os.environ.get("VERBOSE", False)
@@ -276,6 +283,10 @@ def main():
     # How to verify
     test_cmd += ["--verify=ref"]
     test_cmd += ["--verify-every-value"]
+    if args.atol:
+        test_cmd += ["--atol=" + args.atol]
+    if args.rtol:
+        test_cmd += ["--rtol=" + args.rtol]
     # Model name.
     test_cmd += [model_str]
 
