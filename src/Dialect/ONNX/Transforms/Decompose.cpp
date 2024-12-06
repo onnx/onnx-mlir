@@ -1118,7 +1118,8 @@ LogicalResult ONNXGroupNormalizationCommon(
 
     // Calculate the (possible) dynamic dimensions for biasScaleShape
     Value NGShape = create.onnx.constantInt64({numGroups});
-    Value oneDimShape = create.onnx.constantInt64({1, 1});
+    Value oneDimShape =
+        create.onnx.constantInt64(SmallVector<int64_t>(spacialRank, 1));
     Type biasScaleShapeType =
         RankedTensorType::get({inputRank}, rewriter.getI64Type());
     Value biasScaleShape = create.onnx.concat(

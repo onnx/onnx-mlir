@@ -672,8 +672,8 @@ func.func @group_norm5d_v21(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<2xf32>,
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x6x8x16xf32>, [[PARAM_1_:%.+]]: tensor<2xf32>, [[PARAM_2_:%.+]]: tensor<2xf32>) -> tensor<3x4x6x8x16xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, -1]> : tensor<2xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<2xi64>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<2xi64>) -> tensor<5xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<3xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<3xi64>) -> tensor<5xi64>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<2xf32>, tensor<5xi64>) -> tensor<2x2x1x1x1xf32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<2xf32>, tensor<5xi64>) -> tensor<2x2x1x1x1xf32>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {end = 1 : si64, start = 0 : si64} : (tensor<3x4x6x8x16xf32>) -> tensor<1xi64>
