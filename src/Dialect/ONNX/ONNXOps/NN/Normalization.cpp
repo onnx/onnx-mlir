@@ -210,6 +210,21 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// GroupNormalizationV18
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXGroupNormalizationV18Op::verify() {
+  ONNXGroupNormalizationV18OpAdaptor(*this);
+  llvm::outs()
+      << "Warning: The previous understanding of Opset 18 for "
+         "GroupNormalization "
+         "is incorrect. As shown in the following issue: "
+         "https://github.com/onnx/onnx/issues/5466.Rather, use Opset 21 for "
+         "GroupNormalization instead."
+      << "/n";
+  return success();
+}
+
 // TODO: should there be a shape inference for this one?
 
 //===----------------------------------------------------------------------===//
