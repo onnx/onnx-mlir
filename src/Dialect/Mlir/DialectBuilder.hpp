@@ -254,6 +254,19 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
+  // Add offsets (if any) to the least significant memref dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+
+  // Add offsets (if any) to the least significant memref dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
+      mlir::ValueRange offsets = {}) const;
+  void storeIE(mlir::Value val, mlir::Value memref,
+      mlir::ArrayRef<IndexExpr> indices = {},
+      mlir::ValueRange offsets = {}) const;
+
   // Info: get static and dynamic size of memory in number of elementary type.
   // Array of vector types are not supported at this time.
   //
@@ -395,6 +408,11 @@ struct MemRefBuilder final : DialectBuilder {
   void prefetch(mlir::Value memref, mlir::ValueRange indices, bool isWrite,
       unsigned locality, bool isData = true);
 
+  // Queries about memory
+  static bool isNoneValue(mlir::Value value);
+  // Check if "innerDims" innermost dims are scalar (size 1).
+  static bool hasOneElementInInnermostDims(mlir::Value value, int64_t innerDim);
+
 private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
   void computeDynSymbols(
@@ -432,6 +450,34 @@ struct SCFBuilder final : DialectBuilder {
       mlir::ValueRange steps,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
+
+  // For detailed description, see KrnlBuilder.hpp file.
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::function_ref<void(SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> inputVals,
+          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
+          bodyBuilderFn) const;
+
+  // For detailed description, see KrnlBuilder.hpp file.
+  void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<mlir::Value> initVals,
+      /* reduction function (simd or scalar) */
+      mlir::function_ref<void(const SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> inputVals,
+          mlir::ArrayRef<mlir::Value> tmpVals,
+          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
+          reductionBuilderFn,
+      /* post reduction function (simd to scalar + post processing)*/
+      mlir::function_ref<void(const SCFBuilder &b,
+          mlir::ArrayRef<mlir::Value> tmpVals,
+          llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
+          postProcessingBuilderFn) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -866,7 +912,9 @@ struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 };
 
 // Include template implementations.
+#ifndef ONNX_MLIR_DIALECT_BUILDER_MLIR_INC
 #include "DialectBuilder.hpp.inc"
+#endif
 
 } // namespace onnx_mlir
 #endif

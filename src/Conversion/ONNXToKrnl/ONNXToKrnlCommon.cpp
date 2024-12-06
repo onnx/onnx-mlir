@@ -610,9 +610,9 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // requirement by definition. If found one, it is parDim and the function
 // returns true.
 
-bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
-    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize) {
+bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
+    ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
+    int64_t &parDim, int64_t minSize) {
   assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
   if (firstInclusiveDim < 0)
     firstInclusiveDim = 0;
