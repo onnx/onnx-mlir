@@ -82,14 +82,14 @@ public:
       else
         name.pop_back(); // remove last "-"
       Location newLoc = NameLoc::get(rewriter.getStringAttr(name));
-      nodeName = cast<NameLoc>(newLoc).getName();
+      nodeName = mlir::cast<NameLoc>(newLoc).getName();
     } else if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(loc)) {
       std::string filename =
           llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
       std::string name =
           filename + ":" + std::to_string(fileLineColLoc.getLine());
       Location newLoc = NameLoc::get(rewriter.getStringAttr(name));
-      nodeName = cast<NameLoc>(newLoc).getName();
+      nodeName = mlir::cast<NameLoc>(newLoc).getName();
     } else
       nodeName = StringRef("NOTSET");
     LLVM_DEBUG(

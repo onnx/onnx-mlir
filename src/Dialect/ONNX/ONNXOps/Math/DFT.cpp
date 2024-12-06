@@ -70,7 +70,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
       }
     }
   }
-  outputDims.emplace_back(LiteralIndexExpr(2));
+  outputDims.emplace_back(LitIE(2));
 
   // Save the final result.
   setOutputDims(outputDims);
@@ -91,7 +91,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTOp>::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDFTOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape isn't known yet.
   if (!hasShapeAndRank(getOperation()))
     return success();

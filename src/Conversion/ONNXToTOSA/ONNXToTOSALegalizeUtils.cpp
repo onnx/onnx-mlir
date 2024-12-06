@@ -55,8 +55,8 @@ llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
   return literalVector;
 }
 
-mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType, mlir::Attribute encoding) {
+mlir::RankedTensorType reduceAxisToOne(
+    llvm::ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
   return mlir::RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
 }
@@ -108,7 +108,7 @@ Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
 }
 
 mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
-    llvm::ArrayRef<int64_t> onnxPads, mlir::Location loc,
+    llvm::ArrayRef<int64_t> onnxPads, Location loc,
     const std::initializer_list<int64_t> &initialVals,
     const std::initializer_list<int64_t> &lastVals) {
 

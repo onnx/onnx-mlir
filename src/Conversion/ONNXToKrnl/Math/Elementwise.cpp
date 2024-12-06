@@ -304,7 +304,7 @@ struct ScalarOp<ONNXGeluOp> {
 
 template <>
 GenOpMix getGenOpMix<ONNXGeluOp>(Type t, Operation *op) {
-  StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
+  StringRef approximate = mlir::dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
     return {{GenericOps::ArithmeticGop, 1}, {GenericOps::ErfGop, 1},
         {GenericOps::MulGop, 3}};
@@ -327,7 +327,7 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   // "none". "approximate = none" simply implies no approximation will take
   // place. However, "approximate" can also have a string value of "tanh" which
   // indicates the use of tanh approximation.
-  StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
+  StringRef approximate = mlir::dyn_cast<ONNXGeluOp>(op).getApproximate();
 
   // Local constants
   Value half = create.math.constant(elementType, 0.5);
@@ -388,8 +388,10 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value negInf = create.math.negativeInf(inputType);
   Value posInf = create.math.positiveInf(inputType);
 
-  double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
-  double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+  double detectNegAttribute =
+      mlir::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  double detectPosAttribute =
+      mlir::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
 
   // Three different cases: Infinity, Negative Infinity and Positive Infinity
   bool detectInf = detectPosAttribute == 1 && detectNegAttribute == 1;
@@ -551,8 +553,10 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
   //                                  Constant 1)
   CheckIfCustomScalarOpIsSupported<ONNXHardSigmoidOp>(elementType);
   Value operand = scalarOperands[0];
-  double alphaLit = dyn_cast<ONNXHardSigmoidOp>(op).getAlpha().convertToFloat();
-  double betaLit = dyn_cast<ONNXHardSigmoidOp>(op).getBeta().convertToFloat();
+  double alphaLit =
+      mlir::dyn_cast<ONNXHardSigmoidOp>(op).getAlpha().convertToFloat();
+  double betaLit =
+      mlir::dyn_cast<ONNXHardSigmoidOp>(op).getBeta().convertToFloat();
   // Create constants.
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
@@ -591,7 +595,7 @@ Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
   //                          %X)
   CheckIfCustomScalarOpIsSupported<ONNXEluOp>(elementType);
   Value operand = scalarOperands[0];
-  double alphaLit = dyn_cast<ONNXEluOp>(op).getAlpha().convertToFloat();
+  double alphaLit = mlir::dyn_cast<ONNXEluOp>(op).getAlpha().convertToFloat();
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
   Value one = create.math.constant(elementType, 1);
@@ -651,7 +655,8 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
   //                                %X)
   CheckIfCustomScalarOpIsSupported<ONNXLeakyReluOp>(elementType);
   Value operand = scalarOperands[0];
-  double alphaLit = dyn_cast<ONNXLeakyReluOp>(op).getAlpha().convertToFloat();
+  double alphaLit =
+      mlir::dyn_cast<ONNXLeakyReluOp>(op).getAlpha().convertToFloat();
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
   auto alpha = create.math.constant(elementType, alphaLit);
@@ -717,8 +722,8 @@ Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
   //                                         alpha)))
   CheckIfCustomScalarOpIsSupported<ONNXSeluOp>(elementType);
   Value operand = scalarOperands[0];
-  double alphaLit = dyn_cast<ONNXSeluOp>(op).getAlpha().convertToFloat();
-  double gammaLit = dyn_cast<ONNXSeluOp>(op).getGamma().convertToFloat();
+  double alphaLit = mlir::dyn_cast<ONNXSeluOp>(op).getAlpha().convertToFloat();
+  double gammaLit = mlir::dyn_cast<ONNXSeluOp>(op).getGamma().convertToFloat();
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
   Value alpha = create.math.constant(elementType, alphaLit);
@@ -1483,9 +1488,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 //===----------------------------------------------------------------------===//
 
 // Function pointer type for the emitScalarOpFor<T> of elementwise Ops.
-typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
-    mlir::ArrayRef<mlir::Value> scalarOperands);
+typedef Value (*EmitScalarFunc)(ConversionPatternRewriter &rewriter,
+    Location loc, mlir::Operation *op, Type elementType,
+    mlir::ArrayRef<Value> scalarOperands);
 
 // Utility class for Op fusion.
 // Start from the root op, which is being lowered as an Elementwise Op.
@@ -1976,7 +1981,7 @@ struct ONNXElementwiseUnaryOpLowering
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       if (enableParallel) {
@@ -2157,7 +2162,7 @@ struct ONNXElementwiseBinaryOpLowering
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       // TODO adjust in the future
@@ -2332,7 +2337,7 @@ struct ONNXElementwiseVariadicOpLowering
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
@@ -2456,7 +2461,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
-      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       if (enableParallel) {

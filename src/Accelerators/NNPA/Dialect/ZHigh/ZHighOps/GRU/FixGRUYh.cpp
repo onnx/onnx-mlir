@@ -41,7 +41,7 @@ LogicalResult ZHighFixGRUYhOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighFixGRUYhOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasRankedType(getY()))
     return success();
 

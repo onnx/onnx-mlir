@@ -98,7 +98,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowStickOp stickOp = cast<ZLowStickOp>(op);
+    ZLowStickOp stickOp = mlir::cast<ZLowStickOp>(op);
 
     ZLowStickOpAdaptor operandAdaptor(operands);
     // Do not get element type from adaptor since the type can be opaque.
@@ -154,7 +154,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowStickForLSTMOp stickForLSTMOp = cast<ZLowStickForLSTMOp>(op);
+    ZLowStickForLSTMOp stickForLSTMOp = mlir::cast<ZLowStickForLSTMOp>(op);
 
     ZLowStickForLSTMOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
@@ -240,7 +240,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowStickForGRUOp stickForGRUOp = cast<ZLowStickForGRUOp>(op);
+    ZLowStickForGRUOp stickForGRUOp = mlir::cast<ZLowStickForGRUOp>(op);
 
     ZLowStickForGRUOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
@@ -324,7 +324,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowLSTMOp lstmOp = cast<ZLowLSTMOp>(op);
+    ZLowLSTMOp lstmOp = mlir::cast<ZLowLSTMOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
@@ -520,7 +520,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowGRUOp gruOp = cast<ZLowGRUOp>(op);
+    ZLowGRUOp gruOp = mlir::cast<ZLowGRUOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
@@ -675,7 +675,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowUnstickOp unstickOp = cast<ZLowUnstickOp>(op);
+    ZLowUnstickOp unstickOp = mlir::cast<ZLowUnstickOp>(op);
 
     ZLowUnstickOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
@@ -732,7 +732,7 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     MLIRContext *context = rewriter.getContext();
-    UnaryElementwiseOp unaryOp = cast<UnaryElementwiseOp>(op);
+    UnaryElementwiseOp unaryOp = mlir::cast<UnaryElementwiseOp>(op);
     typename UnaryElementwiseOp::Adaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -810,7 +810,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    BinaryElementwiseOp binaryOp = cast<BinaryElementwiseOp>(op);
+    BinaryElementwiseOp binaryOp = mlir::cast<BinaryElementwiseOp>(op);
     typename BinaryElementwiseOp::Adaptor operandAdaptor(operands);
 
     Value input1 = operandAdaptor.getX();
@@ -888,7 +888,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowSoftmaxOp softmaxOp = cast<ZLowSoftmaxOp>(op);
+    ZLowSoftmaxOp softmaxOp = mlir::cast<ZLowSoftmaxOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
@@ -971,7 +971,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowMatMulOp matmulOp = cast<ZLowMatMulOp>(op);
+    ZLowMatMulOp matmulOp = mlir::cast<ZLowMatMulOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
@@ -1109,7 +1109,7 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     MLIRContext *context = rewriter.getContext();
-    ZLowConv2DOp convOp = cast<ZLowConv2DOp>(op);
+    ZLowConv2DOp convOp = mlir::cast<ZLowConv2DOp>(op);
     ZLowConv2DOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -1256,7 +1256,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    POOLOP poolOp = cast<POOLOP>(op);
+    POOLOP poolOp = mlir::cast<POOLOP>(op);
     typename POOLOP::Adaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -1360,7 +1360,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowMeanReduce2DOp meanOp = cast<ZLowMeanReduce2DOp>(op);
+    ZLowMeanReduce2DOp meanOp = mlir::cast<ZLowMeanReduce2DOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
@@ -1429,7 +1429,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowBatchNormOp batchnormOp = cast<ZLowBatchNormOp>(op);
+    ZLowBatchNormOp batchnormOp = mlir::cast<ZLowBatchNormOp>(op);
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(

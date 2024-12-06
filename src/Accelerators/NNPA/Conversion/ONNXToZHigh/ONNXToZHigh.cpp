@@ -207,7 +207,7 @@ Value getLSTMGRUGetYc(
 SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
     Value input, IntegerAttr axis, ArrayAttr split) {
   Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
-  SmallVector<mlir::Type> outputTypes;
+  SmallVector<Type> outputTypes;
   int64_t splitNum = split.size();
   ArrayRef<int64_t> inputShape =
       mlir::cast<RankedTensorType>(input.getType()).getShape();

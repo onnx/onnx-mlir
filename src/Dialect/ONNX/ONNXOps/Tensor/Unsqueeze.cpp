@@ -67,7 +67,7 @@ LogicalResult ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     if (std::find(unsqueezedAxes.begin(), unsqueezedAxes.end(), i) !=
         unsqueezedAxes.end())
       // found i in unsqueeze axles.
-      outputDims.emplace_back(LiteralIndexExpr(1));
+      outputDims.emplace_back(LitIE(1));
     else
       outputDims.emplace_back(createIE->getShapeAsDim(data, j++));
 

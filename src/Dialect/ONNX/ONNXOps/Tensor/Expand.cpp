@@ -40,7 +40,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape() {
   if (ShapedType::isDynamic(shapeType.getShape()[0]))
     return op->emitError("expected size of shape parameter to be defined");
 
-  if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
+  if (ONNXShapeOp shapeOp = mlir::dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
     assert(mlir::isa<ShapedType>(shapeOp.getData().getType()) && "expected");
     // Consider a first case where the expand.shape is produced by a shape op.
     // Infer its shape and use it as the requested shape.

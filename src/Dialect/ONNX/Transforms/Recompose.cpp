@@ -234,7 +234,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (!isScalarTensor(epsilon))
       return reportFailure("RMS epsilon is expected to be scalar");
     ONNXConstantOp epsilonOp =
-        dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
+        mlir::dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
     if (!epsilonOp)
       return reportFailure("RMS epsilon needs to be a constant");
     epsilonAttr = epsilonOp.getValueFloatAttr();
@@ -273,10 +273,10 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (hasFullPattern) {
       // Verify that the mReduceOp uses x as well.
       Value x2 = [](Operation *op) {
-        if (auto rmOp = dyn_cast<ONNXReduceMeanOp>(op)) {
+        if (auto rmOp = mlir::dyn_cast<ONNXReduceMeanOp>(op)) {
           return rmOp.getData();
         }
-        if (auto rmV13Op = dyn_cast<ONNXReduceMeanV13Op>(op)) {
+        if (auto rmV13Op = mlir::dyn_cast<ONNXReduceMeanV13Op>(op)) {
           return rmV13Op.getData();
         }
         llvm_unreachable("Expected ONNXReduceMeanOp or ONNXReduceMeanV13Op");
@@ -318,14 +318,14 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 private:
   static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
     SmallVector<int64_t> axes; // The axes attribute/operand of the ReduceMeanOp
-    if (auto reduceOpV13 = dyn_cast<ONNXReduceMeanV13Op>(op)) {
+    if (auto reduceOpV13 = mlir::dyn_cast<ONNXReduceMeanV13Op>(op)) {
       if (reduceOpV13.getKeepdims() != 1)
         return reportFailure("need keepdims = 1");
       ArrayAttr axesAttr = reduceOpV13.getAxesAttr();
       for (size_t i = 0; i < axesAttr.size(); ++i) {
         axes.emplace_back(onnx_mlir::ArrayAttrIntVal(axesAttr, i));
       }
-    } else if (auto reduceOp = dyn_cast<ONNXReduceMeanOp>(op)) {
+    } else if (auto reduceOp = mlir::dyn_cast<ONNXReduceMeanOp>(op)) {
       if (reduceOp.getKeepdims() != 1)
         return reportFailure("need keepdims = 1");
       Value axesValue = reduceOp.getAxes();
@@ -414,8 +414,8 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
         matmulOp, quantizeOp, qlX, 0);
     if (!matchMatMul)
       return false;
-    matA = cast<ONNXMatMulOp>(matmulOp).getA();
-    matB = cast<ONNXMatMulOp>(matmulOp).getB();
+    matA = mlir::cast<ONNXMatMulOp>(matmulOp).getA();
+    matB = mlir::cast<ONNXMatMulOp>(matmulOp).getB();
     // Matching input A of MatMul.
     auto dlOpA = matA.getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dlOpA)
