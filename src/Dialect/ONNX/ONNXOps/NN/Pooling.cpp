@@ -48,14 +48,18 @@ LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
 template <>
 LogicalResult ONNXMaxRoiPoolOpShapeHelper::computeShape() {
   ONNXMaxRoiPoolOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-
   IndexExpr channel = createIE->getShapeAsDim(operandAdaptor.getX(), 1);
-  uint64_t roisRank = createIE->getShapedTypeRank(operandAdaptor.getRois());
+
+  const auto rois = operandAdaptor.getRois();
+  if (!hasShapeAndRank(rois)) {
+    return failure();
+  }
+  uint64_t roisRank = createIE->getShapedTypeRank(rois);
   if (roisRank != 2)
     return op->emitError("rois rank is expected to be 2d");
 
   // 2d tensor: (num_rois, 5)
-  IndexExpr numRois = createIE->getShapeAsDim(operandAdaptor.getRois(), 0);
+  IndexExpr numRois = createIE->getShapeAsDim(rois, 0);
   DimsExpr pooledDims;
   createIE->getIntFromArrayAsLiterals(
       operandAdaptor.getPooledShape(), pooledDims);

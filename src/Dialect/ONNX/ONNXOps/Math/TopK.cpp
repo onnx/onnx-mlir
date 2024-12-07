@@ -31,6 +31,9 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape() {
   // Get info about X and K operands.
   Value X = operandAdaptor.getX();
   Value K = operandAdaptor.getK();
+  if (!hasShapeAndRank(X)) {
+    return failure();
+  }
   int64_t rank = createIE->getShapedTypeRank(X);
 
   // Axis to compute TopK.

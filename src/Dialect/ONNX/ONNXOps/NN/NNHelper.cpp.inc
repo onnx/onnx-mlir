@@ -31,6 +31,9 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
     std::optional<ArrayAttr> strideOpt, std::optional<ArrayAttr> dilationOpt,
     bool hasFilter, bool ceilMode) {
   // Basic information.
+  if(!hasShapeAndRank(xValue)) {
+    return failure();
+  }
   int64_t rank = createIE->getShapedTypeRank(xValue);
   int64_t spatialOffset = 2;
   int64_t spatialRank = rank - spatialOffset;

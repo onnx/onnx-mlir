@@ -30,6 +30,9 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape() {
   ONNXDepthToSpaceOp depthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
   ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.getInput();
+  if (!hasShapeAndRank(input)) {
+    return failure();
+  }
   int64_t inputRank = createIE->getShapedTypeRank(input);
   assert(inputRank == 4 && "Unexpected input tensor rank");
   int64_t blocksize = depthOp.getBlocksize();

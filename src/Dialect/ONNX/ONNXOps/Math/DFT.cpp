@@ -33,6 +33,9 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
   // Get info about input data operand.
   Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
+  if (!hasShapeAndRank(input)) {
+    return failure();
+  }
   int64_t rank = createIE->getShapedTypeRank(input);
 
   // Check if the dimension for axis is a literal and in range.

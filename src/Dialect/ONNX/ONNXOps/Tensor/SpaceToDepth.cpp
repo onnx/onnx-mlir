@@ -33,7 +33,9 @@ LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   Value input = operandAdaptor.getInput();
   int64_t blocksize = operandAdaptor.getBlocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
-
+  if (!hasShapeAndRank(input)) {
+    return failure();
+  }
   int64_t inputRank = createIE->getShapedTypeRank(input);
   assert(inputRank == 4 && "Unexpected input tensor rank");
 

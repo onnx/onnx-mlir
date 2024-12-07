@@ -52,6 +52,9 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape() {
   Value data = operandAdaptor.getData();
 
   // Compute and store start/end in ONNXShapeOpShapeHelper object.
+  if (!hasShapeAndRank(data)) {
+    return failure();
+  }
   int64_t rank = createIE->getShapedTypeRank(data);
   start = shapeOp.getStart();
   start = normalizeClampedPerSpec(start, rank);

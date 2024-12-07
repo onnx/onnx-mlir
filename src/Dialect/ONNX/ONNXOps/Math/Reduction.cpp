@@ -29,6 +29,9 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &axes, int noopWithEmptyAxes) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   Value data = operandAdaptor.getData();
+  if (!hasShapeAndRank(data)) {
+    return failure();
+  }
   int64_t rank = createIE->getShapedTypeRank(data);
   // Normalize the axes: at present, we only support compile time axes, but
   // with keep_dim on, it might not be too difficult to generate the code.
@@ -104,7 +107,11 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
       createIE->getIntFromArrayAsSymbols(operandAdaptor.getAxes(), axes);
     } else {
       // When the axis is dynamic, try to infer the rank of output tensor
-      int64_t dataRank = createIE->getShapedTypeRank(operandAdaptor.getData());
+      const auto data = operandAdaptor.getData();
+      if (!hasShapeAndRank(data)) {
+        return failure();
+      }
+      int64_t dataRank = createIE->getShapedTypeRank(data);
       int64_t axlesSize = createIE->getArraySize(operandAdaptor.getAxes());
       if (!operandAdaptor.getKeepdims() && axlesSize < 0 /*undef shape*/) {
         // Even though we did not compute the shape in ShapeHelper, return

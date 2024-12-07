@@ -285,6 +285,11 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   DimsExpr dimsExpr;
   uint64_t numOfInputs = initialOperands.size();
 
+  if (!llvm::all_of(initialOperands,
+          [](Value initalOperand) { return hasShapeAndRank(initalOperand); })) {
+    return failure();
+  }
+
   // Compute rank of the output. Rank of the output is the maximum rank of all
   // initial operands.
   uint64_t additionalOperRank =
