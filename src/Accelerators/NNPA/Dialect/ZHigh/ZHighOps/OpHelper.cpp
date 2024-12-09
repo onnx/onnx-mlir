@@ -4,7 +4,7 @@
 
 //===-------- OpHelper.cpp - NNPA ZHigh Helper Functions ------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -190,7 +190,7 @@ Value getConstantOfType(
   Type elementType = shapedType.getElementType();
   DenseElementsAttr denseAttr;
   if (mlir::isa<IntegerType>(elementType))
-    denseAttr = DenseElementsAttr::get(shapedType, (int64_t)val);
+    denseAttr = DenseElementsAttr::get(shapedType, static_cast<int64_t>(val));
   else if (mlir::isa<FloatType>(elementType))
     denseAttr = DenseElementsAttr::get(shapedType, val);
   else

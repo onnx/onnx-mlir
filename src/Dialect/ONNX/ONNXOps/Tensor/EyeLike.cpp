@@ -4,7 +4,7 @@
 
 //===------------------ .cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -47,8 +47,9 @@ Type ONNXEyeLikeOp::getResultElementType() {
   const auto inputType = cast<TensorType>(getInput().getType());
   if (getDtypeAttr()) {
     auto builder = OpBuilder(getContext());
-    return convertONNXTypeToMLIRType(builder,
-        (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
+    return convertONNXTypeToMLIRType(
+        builder, static_cast<onnx::TensorProto_DataType>(
+                     getDtypeAttr().getValue().getSExtValue()));
   }
   return inputType.getElementType();
 }

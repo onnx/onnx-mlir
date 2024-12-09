@@ -4,7 +4,7 @@
 
 //===-------------- onnx-mlir-opt.cpp - Optimization Driver ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -57,7 +57,7 @@ void scanAndSetOptLevel(int argc, char **argv) {
       num = atoi(&argv[i][2]); // Get the number starting 2 char down.
     // Silently ignore out of bound opt levels.
     if (num >= 0 && num <= 3) {
-      OptimizationLevel = (OptLevel)num;
+      OptimizationLevel = static_cast<OptLevel>(num);
       return;
     }
   }
