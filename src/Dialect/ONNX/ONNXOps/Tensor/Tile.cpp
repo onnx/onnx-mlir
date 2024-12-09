@@ -29,6 +29,9 @@ LogicalResult ONNXTileOpShapeHelper::computeShape() {
   ONNXTileOpAdaptor operandAdaptor(operands);
   // Get info about input data operand.
   Value input = operandAdaptor.getInput();
+  if (!hasShapeAndRank(input)) {
+    return failure();
+  }
   int64_t inputRank = createIE->getShapedTypeRank(input);
   Value repeats = operandAdaptor.getRepeats();
   // Compute outputDims

@@ -42,6 +42,9 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
   Value data = operandAdaptor.getData();
+  if (!hasShapeAndRank(data)) {
+    return failure();
+  }
   int64_t dataRank = createIE->getShapedTypeRank(data);
 
   // Init state.
