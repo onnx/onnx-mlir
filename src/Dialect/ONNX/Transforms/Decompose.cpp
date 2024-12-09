@@ -334,10 +334,15 @@ bool hasStaticSpatialDims(Value v) {
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
+#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
+#else
+  // Disable the ONNXConvTransposeOp decomposition patterns.
+  return false;
+#endif
 }
 
 // Split on the specified axis. The length of each output is one.

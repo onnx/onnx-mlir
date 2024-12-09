@@ -10,6 +10,7 @@ config.onnx_mlir_obj_root = r"@ONNX_MLIR_BIN_ROOT@"
 
 config.enable_stablehlo = @ONNX_MLIR_STABLEHLO_ENABLED@
 config.enable_nnpa= 0x0@NNPA_LIT_ENABLED@
+config.decomp_onnx_convtranspose = @ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE_ENABLED@
 
 # Support substitution of the tools_dir with user parameters. This is
 # used when we can't determine the tool dir at configuration time.

@@ -52,3 +52,5 @@ llvm_config.add_tool_substitutions(tools, tool_dirs)
 for arch in config.targets_to_build.split():
     config.available_features.add(arch.lower())
 
+if config.decomp_onnx_convtranspose:
+    config.available_features.add("decomp_onnx_convtranspose")
