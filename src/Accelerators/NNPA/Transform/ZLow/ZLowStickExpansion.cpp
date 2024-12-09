@@ -149,8 +149,8 @@ public:
         create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
 
     // Outer loop (E4, E3, E2, E1 iterates over tiles of 64 elements)
-    create.krnl.iterateIE(
-        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
+    create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
+        [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices = DimListIE(loopInd);
@@ -192,14 +192,14 @@ public:
               // Condition
               isFullLogical.getValue(),
               // Then (is full).
-              [&](SCFBuilder b) {
+              [&](const SCFBuilder b) {
                 MDBuilder create(b);
                 // Loop (tried unroll of 2 and 8, 4 was best).
                 const int64_t unrollVL = 4;
                 const int64_t totVL = unrollVL * archVL;
                 assert(totVL <= 64 && "bad unroll");
                 create.scf.forLoop(litZero.getValue(), lit64.getValue(), totVL,
-                    [&](SCFBuilder b, ValueRange loopInd) {
+                    [&](const SCFBuilder b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &outerScope);
                       Value loopIndex = loopInd[0];
@@ -261,7 +261,7 @@ public:
                       // Store f32 values back to the (normal layout) output.
                       DimsExpr outputAF = SymListIE(inputAF);
                       outputAF[E1] = outputAF[E1] + l;
-                      create.vec.storeIE(vecF32H, alloc, outputAF, {});
+                      create.vec.storeIE(vecF32H, alloc, outputAF);
                       create.vec.storeIE(
                           vecF32L, alloc, outputAF, {litArchVLHalf.getValue()});
                     });
@@ -277,8 +277,8 @@ public:
                 Value vecF32L = convertOp.getResult(1);
                 // Save into archVL value buffer.
                 Value bufferF32 = create.mem.alignedAlloca(bufferType);
-                create.vec.storeIE(vecF32H, bufferF32, {litZero}, {});
-                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf}, {});
+                create.vec.storeIE(vecF32H, bufferF32, {litZero});
+                create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf});
                 // Save the remaining values as scalars.
                 create.scf.forLoop(litZero.getValue(),
                     remainingScalarValues.getValue(), 1,
@@ -430,8 +430,8 @@ public:
         create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
 
     // Outer loop (E1 iterates over tiles of 64 elements).
-    create.krnl.iterateIE(
-        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
+    create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
+        [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
@@ -458,7 +458,7 @@ public:
 #endif
 
           create.affine.forLoopIE(litZero, simdLoopUB, totVL,
-              [&](AffineBuilder &b, ValueRange loopInd) {
+              [&](const AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);

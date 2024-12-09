@@ -78,21 +78,30 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
 }
 
 /*static*/ double VectorMachineSupport::getAvgArchVectorLength(GenOpMix &genOps,
-    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum,
+    int64_t &maxVectorRegisterPressure) {
   int64_t size = genOps.size();
+  vectorizedOpNum = maxVectorRegisterPressure = 0;
   if (!hasSimd()) {
-    vectorizedOpNum = 0;
     scalarOpNum = size;
     return 1;
   }
   int64_t totProcessedValues = 0.0;
-  vectorizedOpNum = 0;
   scalarOpNum = 0;
+  bool hasRegisterPressure = false;
+
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
   for (auto pair : genOps) {
     GenericOps genOp = pair.first;
     int64_t num = pair.second;
+    // Handle other metrics first.
+    if (genOp == GenericOps::EstimatedVectorRegisterPressure) {
+      maxVectorRegisterPressure = std::max(maxVectorRegisterPressure, num);
+      hasRegisterPressure = true;
+      continue;
+    }
+    assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
     int64_t vl = getArchVectorLength(genOp, elementType);
     // If past last value, assume 1; otherwise use actual value.
     // Accumulate weighted scalar/vectorized num and vl length.
@@ -106,7 +115,10 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   }
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
-  scalarOpNum = size - vectorizedOpNum;
+  if (!hasRegisterPressure) {
+    // Estimate default register pressure as one per 2 vector operation.
+    maxVectorRegisterPressure = std::max(vectorizedOpNum / 2, (int64_t)1);
+  }
   return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 1.0;
 }
 
@@ -115,13 +127,13 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
 // =============================================================================
 
 int64_t Z16VectorMachineSupport::computeArchVectorLength(
-    GenericOps Gop, Type elementType) {
+    GenericOps genOp, Type elementType) {
+  assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
-
   // Support shared between int and float.
-  switch (Gop) {
+  switch (genOp) {
   case GenericOps::ScalarOnlyGop:
     return 1; // Must be scalar.
   case GenericOps::SelectGop:
@@ -137,10 +149,10 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
     // Supports only 32 and 64 bit Floats; There is support for extended too
     // but ignore this for now.
     if (!(bitWidth == 32 || bitWidth == 64 ||
-            (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
+            (bitWidth == 16 && genOp == GenericOps::ConversionGop)))
       return UNSUPPORTED;
     // Now we have a supported length, test for specific operations.
-    switch (Gop) {
+    switch (genOp) {
     case GenericOps::AbsGop:        /* Supported via compare and select */
     case GenericOps::ArithmeticGop: /* Add/sub,... */
     case GenericOps::CeilGop:       /* Use load integer & rounding modes*/
@@ -161,7 +173,7 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
     }
   }
   // Support for integer (we consider bit-wide ops as byte wide ops).
-  switch (Gop) {
+  switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
@@ -190,13 +202,14 @@ int64_t Z16VectorMachineSupport::computeArchVectorLength(
 // =============================================================================
 
 int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
-    GenericOps Gop, Type elementType) {
+    GenericOps genOp, Type elementType) {
+  assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
-  switch (Gop) {
+  switch (genOp) {
   case GenericOps::ScalarOnlyGop:
     return 1; // Must be scalar.
   case GenericOps::SelectGop:
@@ -212,10 +225,10 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     // Supports only 32 and 64 bit Floats; There is support for extended too
     // but ignore this for now.
     if (!(bitWidth == 32 || bitWidth == 64 ||
-            (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
+            (bitWidth == 16 && genOp == GenericOps::ConversionGop)))
       return UNSUPPORTED;
     // Now we have a supported length, test for specific operations.
-    switch (Gop) {
+    switch (genOp) {
     case GenericOps::AbsGop:
     case GenericOps::ArithmeticGop: /* Add/sub,... */
     case GenericOps::CeilGop:
@@ -237,7 +250,7 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     }
   }
   // Support for integer (we consider bit-wide ops as byte wide ops).
-  switch (Gop) {
+  switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
@@ -276,13 +289,14 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
 // =============================================================================
 
 int64_t NeonVectorMachineSupport::computeArchVectorLength(
-    GenericOps Gop, Type elementType) {
+    GenericOps genOp, Type elementType) {
+  assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
-  switch (Gop) {
+  switch (genOp) {
   case GenericOps::ScalarOnlyGop:
     return 1; // Must be scalar.
   case GenericOps::SelectGop:
@@ -297,10 +311,10 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
   if (isFloat) {
     // Supports only 32 and 64 bit Floats;
     if (!(bitWidth == 32 || bitWidth == 64 ||
-            (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
+            (bitWidth == 16 && genOp == GenericOps::ConversionGop)))
       return UNSUPPORTED;
     // Now we have a supported length, test for specific operations.
-    switch (Gop) {
+    switch (genOp) {
     case GenericOps::AbsGop:
     case GenericOps::ArithmeticGop: /* Add/sub,... */
     case GenericOps::CeilGop:
@@ -322,7 +336,7 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
     }
   }
   // Support for integer (we consider bit-wide ops as byte wide ops).
-  switch (Gop) {
+  switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
@@ -370,10 +384,19 @@ GenOpMix computeGenOpMixUnion(const GenOpMix &mix1, const GenOpMix &mix2) {
   for (auto pair : mix1) {
     GenericOps genOp = pair.first;
     int64_t num = pair.second;
-    if (u.find(genOp) != u.end())
-      u[genOp] += num; // Has this op already, add to it.
-    else
+    if (u.find(genOp) != u.end()) {
+      // Merge the 2 operation counts/metrics.
+      if (genOp == GenericOps::EstimatedVectorRegisterPressure) {
+        // For register pressure, pick the max of both.
+        u[genOp] = std::max(u[genOp], num);
+      } else {
+        // For operation count, use the sum of both
+        u[genOp] += num;
+      }
+    } else {
+      // First time we have this.
       u[genOp] = num;
+    }
   }
   return u;
 }

@@ -32,6 +32,10 @@ namespace onnx_mlir {
 // (e.g. all the compares).
 
 enum class GenericOps {
+  /////////////////////////////////////
+  // Generic ops.
+  /////////////////////////////////////
+
   AbsGop,
   ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity. */
   CeilDivGop,
@@ -62,6 +66,17 @@ enum class GenericOps {
   TrigArcGop,        /* Arc trigonometry ops: asin, acos, atan. */
   TrigGop,           /* Trigonometry ops: sin, cos, tan. */
   TrigHyperbolicGop, /* Hyperbolic trig. */
+
+  LastGop, /* Marker of the last op. Used to delineate from other metrics. */
+
+  /////////////////////////////////////
+  // Metrics others than operations.
+  /////////////////////////////////////
+
+  // Metric that provides an estimate of the maximum number of vector registers
+  // used in a kernel. If none is provided, we estimate the pressure based on
+  // the number of operations.
+  EstimatedVectorRegisterPressure,
 };
 
 // Describe the mix of Generic operations in a given kernel. Each generic
@@ -132,8 +147,12 @@ public:
   // number of times that generic operation was found. Note that scalar
   // operation have a vector length of one in the weighted average as they still
   // contribute one result.
+  // Max vector register pressure is also reported, either from an explicit
+  // mention in the genOps, or estimated as one vector register per vector
+  // operation.
   static double getAvgArchVectorLength(GenOpMix &genOps, mlir::Type elementType,
-      int64_t &vectorizedOpNum, int64_t &scalarOpNum);
+      int64_t &vectorizedOpNum, int64_t &scalarOpNum,
+      int64_t &maxVectorRegisterPressure);
 
 protected:
   // Virtual functions that do the actual work. Called by the "get" functions.

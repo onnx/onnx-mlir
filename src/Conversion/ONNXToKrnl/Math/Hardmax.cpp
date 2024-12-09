@@ -51,7 +51,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   ValueRange loopDef = create.krnl.defineLoops(rank);
   SmallVector<IndexExpr> lbs(rank, LitIE(0));
   create.krnl.iterateIE(loopDef, loopDef, lbs, inputUBS,
-      [&](KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
+      [&](const KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
             createKrnl);
         // Load the index of the current max value.
@@ -68,7 +68,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
 
         // Compare and update the index for the maximum value.
         Value gt = create.math.sgt(next, maxValue);
-        create.scf.ifThenElse(gt, [&](SCFBuilder &createSCF) {
+        create.scf.ifThenElse(gt, [&](const SCFBuilder &createSCF) {
           KrnlBuilder createKrnl(createSCF);
           createKrnl.store(inputLoopInd[axis], resMemRef, resLoopInd);
         });
@@ -120,7 +120,7 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
     ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr> lbs(rank, LitIE(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
               createKrnl);
           // Load the index of the current max value.
@@ -132,13 +132,13 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
           Value eq = create.math.eq(maxInd, loopInd[axis]);
           create.scf.ifThenElse(
               eq, /*then*/
-              [&](SCFBuilder &createSCF) {
+              [&](const SCFBuilder &createSCF) {
                 MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
                 Value one = create.math.constant(elementType, 1);
                 create.krnl.store(one, resMemRef, loopInd);
               },
               /*else*/
-              [&](SCFBuilder &createSCF) {
+              [&](const SCFBuilder &createSCF) {
                 MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
                 Value zero = create.math.constant(elementType, 0);
                 create.krnl.store(zero, resMemRef, loopInd);

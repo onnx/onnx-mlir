@@ -367,12 +367,12 @@ void genSignatureFunction(ModuleOp &module,
     // If the argument is not NULL, update its value to return the number of
     // entry points.
     create.llvm.ifThenElse(/*cond=*/
-        [&](LLVMBuilder &createLLVM) {
+        [&](const LLVMBuilder &createLLVM) {
           Value nullPtr = createLLVM.null(i64PtrTy);
           return createLLVM.icmp(
               LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
         }, /*then=*/
-        [&](LLVMBuilder &createLLVM) {
+        [&](const LLVMBuilder &createLLVM) {
           Value numOfEntryPointsPtr = createLLVM.getElemPtr(
               i64PtrTy, i64Type, numOfEntryPoints, ArrayRef<LLVM::GEPArg>{0});
           Value noep =
@@ -420,7 +420,7 @@ void genSignatureFunction(ModuleOp &module,
 
       // Return the signature if found.
       create.llvm.ifThenElse(/*cond=*/
-          [&](LLVMBuilder &createLLVM) {
+          [&](const LLVMBuilder &createLLVM) {
             // Read an entry point name.
             Value entryI8Ptr =
                 krnl::getPtrToGlobalString(globalEntryPoint, loc, b);
@@ -434,7 +434,7 @@ void genSignatureFunction(ModuleOp &module,
             return createLLVM.icmp(
                 LLVM::ICmpPredicate::eq, strncmpResult, zeroI32);
           }, /*then=*/
-          [&](LLVMBuilder &createLLVM) {
+          [&](const LLVMBuilder &createLLVM) {
             Value sigAddr = createLLVM.addressOf(globalSignature);
             Value sigI8Ptr = createLLVM.bitcast(i8PtrTy, sigAddr);
             createLLVM._return(sigI8Ptr);
