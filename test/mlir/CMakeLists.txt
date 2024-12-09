@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Just like LLVM, ONNX_MLIR_BUILD_TESTS=false does not disable lit tests.
+
 # Turn on lit test for specified accelerators even if the
 # accelerator code itself cannot be built.
 if (ONNX_MLIR_ACCELERATORS)

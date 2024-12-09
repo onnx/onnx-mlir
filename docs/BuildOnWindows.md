@@ -108,6 +108,10 @@ call cmake --build . --config Release
 ```
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
 
+To build a version with extended tests, add the `-DONNX_MLIR_BUILD_TESTS=ON` line above.
+Note that the extended tests requires the installation of `onnx` via a pip install of `third_party/onnx`. To build a version without a dependence on `third_party/onnx`, do not add the `-DONNX_MLIR_BUILD_TESTS=ON` line or set to `OFF`.
+The lightweight Literal tests are build regardless of this option.
+
 ### Trouble shooting build issues
 
 Check this [page](TestingHighLevel.md) for helpful hints.
