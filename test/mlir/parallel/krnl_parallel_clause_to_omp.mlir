@@ -172,4 +172,3 @@ func.func @omp_normal(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<16x8x128xf32> {onnx.name = "y"}) {
 // CHECK:           omp.parallel {
 }
-

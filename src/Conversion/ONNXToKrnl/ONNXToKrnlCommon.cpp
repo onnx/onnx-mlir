@@ -547,20 +547,18 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               ValueRange inputs, Location loc) -> Value {
     if (inputs.size() != 1)
-      return std::nullopt;
+      return Value();
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               ValueRange inputs, Location loc) -> Value {
     if (inputs.size() != 1)
-      return std::nullopt;
+      return Value();
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
