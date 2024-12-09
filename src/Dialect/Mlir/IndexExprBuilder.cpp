@@ -153,7 +153,7 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(
         static_cast<uint64_t>(len) <= size && "requesting too many elements");
   if (len == 0)
     return;
-  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+  for (uint64_t i = 0; i < static_cast<uint64_t>(len); ++i) {
     IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);

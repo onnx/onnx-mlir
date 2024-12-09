@@ -30,6 +30,10 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 * The Krnl Dialect is used to lower ONNX operators to MLIR affine. The Krnl Dialect is defined [here](docs/Dialects/krnl.md).
 * To update the internal documentation on our dialects when there are changes, please look for guidance [here](docs/ImportONNXDefs.md#update-your-operations-status).
 
+## Coding practices for ONNX-MLIR
+
+* When adding or updating code, see [here](CODING_PRACTICE.md) for coding practices.
+
 ## Testing and debugging ONNX-MLIR
 
 * To test new code, see [here](docs/Testing.md) for instructions.

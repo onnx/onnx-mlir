@@ -248,7 +248,8 @@ ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
   ZTensor zTensor;
 
   Type llvmZTensorStructTy = getZTensorStructTy(context);
-  Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
+  Value one =
+      create.llvm.constant(rewriter.getI64Type(), static_cast<int64_t>(1));
   Value alloc =
       create.llvm._alloca(krnl::getPointerType(context, llvmZTensorStructTy),
           llvmZTensorStructTy, one,
