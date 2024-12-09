@@ -203,6 +203,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXYieldOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDFTOpPattern(patterns, typeConverter, ctx);
