@@ -14,7 +14,14 @@
 import os
 import sys
 import argparse
-import onnx
+
+try:
+    import onnx
+except ImportError:
+    print(
+        "Failed to include the `onnx` package; please install to successfully use this script."
+    )
+    exit(1)
 import time
 import signal
 import subprocess
@@ -984,7 +991,14 @@ class InferenceSession:
             if args.verify.lower() == "onnxruntime":
                 input_model_path = args.model
                 # Reference backend by using onnxruntime.
-                import onnxruntime
+
+                try:
+                    import onnxruntime
+                except ImportError:
+                    print(
+                        "Failed to include the `onnxruntime` package; please install to successfully use this script."
+                    )
+                    exit(1)
 
                 input_feed = dict(zip(input_names, inputs))
                 print("Running inference using onnxruntime ...")
