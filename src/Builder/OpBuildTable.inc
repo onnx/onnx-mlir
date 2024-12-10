@@ -80,7 +80,7 @@ op_dialect_version_map_["Gradient"] = {1};
 op_dialect_version_map_["Greater"] = {13};
 op_dialect_version_map_["GreaterOrEqual"] = {16};
 op_dialect_version_map_["GridSample"] = {16};
-op_dialect_version_map_["GroupNormalization"] = {18};
+op_dialect_version_map_["GroupNormalization"] = {21, 18};
 op_dialect_version_map_["HammingWindow"] = {17};
 op_dialect_version_map_["HannWindow"] = {17};
 op_dialect_version_map_["HardSigmoid"] = {6};
@@ -360,6 +360,8 @@ import_handler_map_["GridSample"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleOp>;
 import_handler_map_["GroupNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGroupNormalizationOp>;
+import_handler_map_["GroupNormalizationV18"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGroupNormalizationV18Op>;
 import_handler_map_["HammingWindow"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHammingWindowOp>;
 import_handler_map_["HannWindow"] = 
