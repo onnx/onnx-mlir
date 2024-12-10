@@ -405,8 +405,8 @@ OpFoldResult ONNXReduceMeanOp::fold(FoldAdaptor adaptor) {
   if (failed(shapeHelper.computeShape()))
     return nullptr;
 
-  const bool hasReduction = llvm::any_of(shapeHelper.isReductionAxis.begin(),
-      shapeHelper.isReductionAxis.end(), [](bool axis) { return axis; });
+  const bool hasReduction =
+      llvm::any_of(shapeHelper.isReductionAxis, [](bool axis) { return axis; });
 
   if (!hasReduction && opAdaptor.getNoopWithEmptyAxes())
     return getData();

@@ -396,6 +396,7 @@ OpsWithVerifier = [
     "Gelu",
     "Greater",
     "GreaterOrEqual",
+    "GridSample",
     "GroupNormalizationV18",
     "Hardmax",
     "If",
