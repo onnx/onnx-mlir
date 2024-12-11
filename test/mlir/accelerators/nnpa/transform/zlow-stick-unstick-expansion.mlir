@@ -361,4 +361,3 @@ func.func @test_unstick_expansion_127(%arg0: memref<16x8x127xf16, #map>) -> memr
 // CHECK:           return [[RES_]] : memref<16x8x127xf32>
 // CHECK:         }
 }
-
