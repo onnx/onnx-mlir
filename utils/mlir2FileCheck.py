@@ -268,12 +268,20 @@ def process_line(i, line):
         new_line = process_name(new_line, def1_pat, "BLOCK_TILE_", ",", 1)
         new_line = process_name(new_line, def2_pat, "BLOCK_IN_", " =", 1)
     else:
-        definitions = def_qual_pat.findall(new_line)
+        def_qual_pat2 = re.compile(
+            r"((?:%(?:[a-zA-Z0-9][a-zA-Z0-9_\-]*)(?::\d+)?,?\s+)*)="
+        )
+        definitions = def_qual_pat2.findall(new_line)
         for d in definitions:
-            (name, num) = d
-            x = use_name(name, num, " =")
-            y = record_name_def(name, num, "VAR_" + name, " =", 0, new_line)
-            new_line = new_line.replace(x, y)
+            arg_def_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?")
+            arg_defs = d.split(",")
+            for arg_def in arg_defs:
+                args = arg_def_pat.findall(arg_def)
+                for arg in args:
+                    (name, num) = arg
+                    x = use_name(name, num, "")
+                    y = record_name_def(name, num, "VAR_" + name, "", 0, new_line)
+                    new_line = new_line.replace(x, y)
 
     # Process uses and map use.
     uses = use_qual_pat.findall(new_line)

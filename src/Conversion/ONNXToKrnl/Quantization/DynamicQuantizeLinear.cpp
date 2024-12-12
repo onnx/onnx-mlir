@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Conversion/ONNXToKrnl/Quantization/QuantizeHelper.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -29,7 +30,7 @@ void emitDynamicQuantizationLinearScalarParameters(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
     MemRefType inputType, MemRefType quantizedType, Value input, Value qMin,
     Value qMax, Value &scale, Value &zeroPoint, Value &quantizedZeroPoint,
-    bool enableSIMD, bool enableParallel) {
+    bool wantZeroPoint, bool enableSIMD, bool enableParallel) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
   // Types
@@ -62,11 +63,15 @@ void emitDynamicQuantizationLinearScalarParameters(
   scale = create.math.div(xDiff, boundDiff);
 
   // Compute y_zero_point.
-  Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
-  // Saturate zero point.
-  Value saturateZeroPoint = create.math.clip(interZeroPoint, qMin, qMax);
-  // Round zero point.
-  zeroPoint = create.math.round(saturateZeroPoint);
+  if (wantZeroPoint) {
+    Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
+    // Saturate zero point.
+    Value saturateZeroPoint = create.math.clip(interZeroPoint, qMin, qMax);
+    // Round zero point.
+    zeroPoint = create.math.round(saturateZeroPoint);
+  } else {
+    zeroPoint = zero;
+  }
   quantizedZeroPoint = create.math.cast(quantizedElementType, zeroPoint);
 }
 
@@ -122,15 +127,17 @@ struct ONNXDynamicQuantizeLinearOpLowering
     Value qMin = create.math.constant(elementType, 0.0);
     Value scale, zeroPoint, zeroPointInt;
 
+    bool wantZeroPoint = !disableQuantZeroPoint;
     emitDynamicQuantizationLinearScalarParameters(rewriter, loc, op,
         xMemRefType, yMemRefType, X, qMin, qMax, scale, zeroPoint, zeroPointInt,
-        enableSIMD, enableParallel);
+        wantZeroPoint, enableSIMD, enableParallel);
     create.krnl.store(scale, YScale);
     create.krnl.store(zeroPointInt, YZeroPoint);
 
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
         yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-        zeroPoint, enableSIMD, enableParallel);
+        zeroPoint, wantZeroPoint /*wanted one, so we have a zero point*/,
+        enableSIMD, enableParallel);
 
     rewriter.replaceOp(op, {Y, YScale, YZeroPoint});
     onnxToKrnlSimdReport(op);

@@ -452,7 +452,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops = create.krnl.defineLoops(htRank);
     create.krnl.iterate(loops, loops, htLbs, htUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
           Value bs(indices[0]), hs(indices[1]);
@@ -541,7 +541,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Emit rt and (rt (.) Ht-1).
     ValueRange loops1 = create.krnl.defineLoops(htRank);
     create.krnl.iterate(loops1, loops1, htLbs, htUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
           Value bs(indices[0]), hs(indices[1]);
@@ -574,7 +574,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops2 = create.krnl.defineLoops(htRank);
     create.krnl.iterate(loops2, loops2, htLbs, htUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
           Value bs(indices[0]), hs(indices[1]);

@@ -345,7 +345,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   }
   ValueRange loops = create.krnl.defineLoops(htRank);
   create.krnl.iterate(loops, loops, htLbs, htUbs,
-      [&](KrnlBuilder &createKrnl, ValueRange indices) {
+      [&](const KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
         Value bs(indices[0]), hs(indices[1]);
         // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)

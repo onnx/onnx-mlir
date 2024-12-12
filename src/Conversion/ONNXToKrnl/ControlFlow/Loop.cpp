@@ -100,7 +100,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     ValueRange loopDef = createKrnl.defineLoops(1);
     Value zero = create.math.constantIndex(0);
     createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           OpBuilder::InsertionGuard insertGuard(rewriter);
 
           Value condReg = createKrnl.load(cond);
@@ -303,7 +303,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           KrnlBuilder createKrnl(rewriter, loc);
           ValueRange loopDef = createKrnl.defineLoops(1);
           createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
-              [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
                 // Wrap with KrnlRegionOp because emitCopy uses the result of
                 // SeqExtract for loop bound.
                 KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
@@ -456,7 +456,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(src, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
             writeIV.insert(writeIV.end(), loopInd.begin(), loopInd.end());

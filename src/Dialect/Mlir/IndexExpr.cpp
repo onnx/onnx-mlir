@@ -49,7 +49,7 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(DialectBuilder &db)
+IndexExprScope::IndexExprScope(const DialectBuilder &db)
     : IndexExprScope(&db.getBuilder(), db.getLoc()) {}
 
 // Nested scopes.
@@ -73,7 +73,7 @@ IndexExprScope::IndexExprScope(
 }
 
 IndexExprScope::IndexExprScope(
-    DialectBuilder &innerDb, IndexExprScope *enclosingScope)
+    const DialectBuilder &innerDb, IndexExprScope *enclosingScope)
     : IndexExprScope(&innerDb.getBuilder(), enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {

@@ -887,6 +887,46 @@ Value MathBuilder::cast(Type destType, Value src) const {
   LLVM_DEBUG(llvm::dbgs() << "srcType: " << srcType << "\n";
              llvm::dbgs() << "destType: " << destType << "\n";);
 
+  // Before we process with the actual cast, there is a special case that we
+  // want to handle here. Cast from float to int that have different width, llvm
+  // generate better patterns if we first cast from float to int of the same
+  // width, and then from int to a different size int.
+  // Skip that optimization if the result is a 1 bit (boolean).
+  if (mlir::isa<FloatType>(srcElemType) &&
+      mlir::isa<IntegerType>(destElemType) && bitTrunc && destElemWidth > 1) {
+    // Quantization: float to smaller int. First determine the intermediary
+    // type, same integer type as destination type, with the same type width as
+    // the source float type.
+    Type step1ElementType;
+    IntegerType destIntType = mlir::cast<IntegerType>(destElemType);
+    bool destIssSigned = destIntType.isSignless() || destIntType.isSigned();
+    if (destIssSigned)
+      step1ElementType = b().getIntegerType(srcElemWidth);
+    else
+      step1ElementType = b().getIntegerType(srcElemWidth, false);
+    // Perform (recursively) the 2 step conversion. Exceptionally ok here to use
+    // element type here as cast will promote it to a vector if src is a vector.
+    Value step1Val = cast(step1ElementType, src);
+    return cast(destType, step1Val);
+  }
+  if (mlir::isa<IntegerType>(srcElemType) &&
+      mlir::isa<FloatType>(destElemType) && bitExtend) {
+    // Dequantization: small int to a float. First determine the intermediary
+    // type,  same integer type as source type, with the same type width as
+    // the destination float type.
+    Type step1ElementType;
+    IntegerType srcIntType = mlir::cast<IntegerType>(srcElemType);
+    bool srcIssSigned = srcIntType.isSignless() || srcIntType.isSigned();
+    if (srcIssSigned)
+      step1ElementType = b().getIntegerType(destElemWidth);
+    else
+      step1ElementType = b().getIntegerType(destElemWidth, false);
+    // Perform (recursively) the 2 step conversion. Exceptionally ok here to use
+    // element type here as cast will promote it to a vector if src is a vector.
+    Value step1Val = cast(step1ElementType, src);
+    return cast(destType, step1Val);
+  }
+
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
   if (srcElemType.isInteger(1)) {
@@ -1700,9 +1740,8 @@ void MemRefBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
 // Structured Control Flow (SCF).
 //===----------------------------------------------------------------------===//
 
-void SCFBuilder::ifThenElse(Value cond,
-    function_ref<void(SCFBuilder &createSCF)> thenFn,
-    function_ref<void(SCFBuilder &createSCF)> elseFn) const {
+void SCFBuilder::ifThenElse(
+    Value cond, SCFThenElseBodyFn thenFn, SCFThenElseBodyFn elseFn) const {
   if (!elseFn) {
     b().create<scf::IfOp>(loc(), cond,
         /* then */
@@ -1729,11 +1768,11 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
-    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
+void SCFBuilder::forLoop(
+    Value lb, Value ub, int64_t step, SCFLoopBodyFn bodyFn) const {
   MathBuilder createMath(*this);
   Value stepVal = createMath.constantIndex(step);
-  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+  b().create<scf::ForOp>(loc(), lb, ub, stepVal, std::nullopt,
       [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
           ValueRange args) {
         SCFBuilder builder(childBuilder, childLoc);
@@ -1742,10 +1781,20 @@ void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
       });
 }
 
-void SCFBuilder::parallelLoops(ValueRange lowerBounds, ValueRange upperBounds,
-    ValueRange steps,
-    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
-  b().create<scf::ParallelOp>(loc(), lowerBounds, upperBounds, steps,
+void SCFBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
+    bool useParallel, SCFLoopBodyFn bodyFn) const {
+  if (useParallel) {
+    MathBuilder createMath(*this);
+    Value stepVal = createMath.constantIndex(step);
+    parallelLoops({lb.getValue()}, {ub.getValue()}, {stepVal}, bodyFn);
+  } else {
+    forLoop(lb.getValue(), ub.getValue(), step, bodyFn);
+  }
+}
+
+void SCFBuilder::parallelLoops(ValueRange lbs, ValueRange ubs, ValueRange steps,
+    SCFLoopBodyFn bodyFn) const {
+  b().create<scf::ParallelOp>(loc(), lbs, ubs, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
         SCFBuilder builder(childBuilder, childLoc);
@@ -1760,12 +1809,9 @@ void SCFBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
-    function_ref<void(SCFBuilder &b, ArrayRef<Value> inputVals,
-        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
-        bodyBuilderFn) const {
+    ArrayRef<SCFSimdIterateBodyFn> bodyFnList) const {
   onnx_mlir::impl::simdIterateIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
-      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs,
-      bodyBuilderFn);
+      fullySimd, useParallel, inputs, inputAFs, outputs, outputAFs, bodyFnList);
 }
 
 void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
@@ -1773,17 +1819,24 @@ void SCFBuilder::simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<Value> tmps, ArrayRef<DimsExpr> tmpAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs, ArrayRef<Value> initVals,
     /* reduction function (simd or scalar) */
-    function_ref<void(const SCFBuilder &b, ArrayRef<Value> inputVals,
-        ArrayRef<Value> tmpVals, llvm::SmallVectorImpl<Value> &resultVals,
-        int64_t VL)>
-        reductionBuilderFn,
+    mlir::ArrayRef<SCFSimdReductionBodyFn> reductionFnList,
     /* post reduction function (simd to scalar + post processing)*/
-    function_ref<void(const SCFBuilder &b, ArrayRef<Value> tmpVals,
-        llvm::SmallVectorImpl<Value> &scalarOutputs, int64_t VL)>
-        postProcessingBuilderFn) const {
+    mlir::ArrayRef<SCFSimdPostReductionBodyFn> postReductionFnList) const {
   onnx_mlir::impl::simdReduceIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
       fullySimd, inputs, inputAFs, tmps, tmpAFs, outputs, outputAFs, initVals,
-      reductionBuilderFn, postProcessingBuilderFn);
+      reductionFnList, postReductionFnList);
+}
+
+void SCFBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, Value input, DimsExpr inputAF, Value tmp, DimsExpr tmpAF,
+    Value output, DimsExpr outputAF, Value initVal,
+    /* reduction functions (simd or scalar) */
+    SCFSimdReductionBodyFn reductionBodyFn,
+    /* post reduction functions (post processing ONLY)*/
+    SCFSimdPostReductionBodyFn postReductionBodyFn) const {
+  onnx_mlir::impl::simdReduce2DIE<SCFBuilder, MemRefBuilder>(*this, lb, ub, VL,
+      fullySimd, input, inputAF, tmp, tmpAF, output, outputAF, initVal,
+      reductionBodyFn, postReductionBodyFn);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2060,6 +2113,29 @@ void VectorBuilder::multiReduction(ArrayRef<Value> inputVecArray,
     // Completed the archVL x archVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+Value VectorBuilder::extractElement(Value vector, int64_t index) const {
+  MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
+  VectorType type = llvm::cast<VectorType>(vector.getType());
+  int64_t VL = type.getShape()[0];
+  assert(type.getRank() == 1 && "expected 1D vector only");
+  assert(index >= 0 && index < VL && "out of range vector index");
+  Value position = create.math.constantIndex(index);
+  return b().create<vector::ExtractElementOp>(loc(), vector, position);
+}
+
+Value VectorBuilder::insertElement(
+    Value vector, Value element, int64_t index) const {
+  MultiDialectBuilder<VectorBuilder, MathBuilder> create(*this);
+  VectorType type = llvm::cast<VectorType>(vector.getType());
+  int64_t VL = type.getShape()[0];
+  assert(type.getRank() == 1 && "expected 1D vector only");
+  assert(index >= 0 && index < VL && "out of range vector index");
+  Value position = create.math.constantIndex(index);
+  // Unlike LLVM insert element which takes <dest, source, position>, vector
+  // take <source, dest, position>
+  return b().create<vector::InsertElementOp>(loc(), element, vector, position);
 }
 
 //===----------------------------------------------------------------------===//

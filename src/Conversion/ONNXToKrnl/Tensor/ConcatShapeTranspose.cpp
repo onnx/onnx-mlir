@@ -140,7 +140,7 @@ struct ONNXConcatShapeTransposeOpLowering
       // For each input, only the dimension 'axis' is different
       commonUB[axis] = ubs[axis];
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> readIndices, writeIndices;
             for (unsigned int r = 0; r < rank; ++r) {
