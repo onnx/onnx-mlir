@@ -254,13 +254,12 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
+  // Common load/store interface (krnl/affine/memref)
   // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
-
-  // Add offsets (if any) to the least significant memref dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -428,6 +427,34 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// Functions definitions for SIMD methods (simdIterate & simdReduce)
+//===----------------------------------------------------------------------===//
+
+namespace impl {
+
+// For simdIterate: given a list of inputs, create one output value.
+template <class BUILDER>
+using SimdIterateBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::ArrayRef<mlir::Value> inputVals, int64_t VL)>;
+
+// For simdReduce: take one input & one temp reduction value, and generate the
+// new reduction value.
+template <class BUILDER>
+using SimdReductionBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::Value inputVal, mlir::Value tmpVal, int64_t VL)>;
+
+// For simdReduce: take one temp simd reduction value, create a scalar
+// reduction, and possibly apply post processing to it (e.g. div by number of
+// elements).
+//
+// For simdReduce2D: only the post processing. Reduction is done before.
+template <class BUILDER>
+using SimdPostReductionBodyFn = std::function<mlir::Value(
+    const BUILDER &b, mlir::Value tmpVal, int64_t VL)>;
+
+} // namespace impl
+
+//===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF) Builder
 //===----------------------------------------------------------------------===//
 
@@ -439,45 +466,51 @@ struct SCFBuilder final : DialectBuilder {
 
   /// Create an if then with optional else. Construct does not generate a
   /// result (unlike some scf::if) and introduces the yields automatically.
-  void ifThenElse(mlir::Value cond,
-      mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
-      mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
-  // Create a for loop.
-  void forLoop(mlir::Value lowerBound, mlir::Value upperBound, int64_t step,
-      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
-  // Create a parallel for loop.
-  void parallelLoops(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
-      mlir::ValueRange steps,
-      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
+  using SCFThenElseBodyFn = mlir::function_ref<void(const SCFBuilder &)>;
+  void ifThenElse(mlir::Value cond, SCFThenElseBodyFn thenFn,
+      SCFThenElseBodyFn elseFn = nullptr) const;
+  // Common loop interface (krnl/affine/scf).
+  using SCFLoopBodyFn =
+      mlir::function_ref<void(const SCFBuilder &, mlir::ValueRange)>;
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
+      SCFLoopBodyFn bodyFn) const;
+  // Custom interface
+  void forLoop(
+      mlir::Value lb, mlir::Value ub, int64_t step, SCFLoopBodyFn bodyFn) const;
+  void parallelLoops(mlir::ValueRange lbs, mlir::ValueRange ubs,
+      mlir::ValueRange steps, SCFLoopBodyFn bodyFn) const;
+
   void yield() const;
 
+  // Common simd loop interface (krnl/affine/scf).
   // For detailed description, see KrnlBuilder.hpp file.
+  using SCFSimdIterateBodyFn = impl::SimdIterateBodyFn<SCFBuilder>;
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
       mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
       mlir::ArrayRef<DimsExpr> outputAFs,
-      mlir::function_ref<void(SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          bodyBuilderFn) const;
+      mlir::ArrayRef<SCFSimdIterateBodyFn> simdIterateBodyList) const;
 
   // For detailed description, see KrnlBuilder.hpp file.
+  using SCFSimdReductionBodyFn = impl::SimdReductionBodyFn<SCFBuilder>;
+  using SCFSimdPostReductionBodyFn = impl::SimdPostReductionBodyFn<SCFBuilder>;
   void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
       mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::ArrayRef<mlir::Value> initVals,
       /* reduction function (simd or scalar) */
-      mlir::function_ref<void(const SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> inputVals,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
-          reductionBuilderFn,
+      mlir::ArrayRef<SCFSimdReductionBodyFn> simdReductionBodyFnList,
       /* post reduction function (simd to scalar + post processing)*/
-      mlir::function_ref<void(const SCFBuilder &b,
-          mlir::ArrayRef<mlir::Value> tmpVals,
-          llvm::SmallVectorImpl<mlir::Value> &scalarOutputs, int64_t VL)>
-          postProcessingBuilderFn) const;
+      mlir::ArrayRef<SCFSimdPostReductionBodyFn> simdPostReductionBodyFnList)
+      const;
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      SCFSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      SCFSimdPostReductionBodyFn postReductionBodyFn) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -541,6 +574,11 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(mlir::ArrayRef<mlir::Value> inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
+  // Insert and extract.
+  mlir::Value extractElement(mlir::Value vector, int64_t position) const;
+  mlir::Value insertElement(
+      mlir::Value vector, mlir::Value element, int64_t position) const;
+
 private:
   bool isPowerOf2(uint64_t num) const;
   uint64_t getLengthOf1DVector(mlir::Value vec) const;
@@ -558,13 +596,12 @@ struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~GenericAffineBuilder() {}
 
+  // Common load/store interface (krnl/affine/memref)
   // Add offsets (if any) to the least significant memref dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   mlir::Value loadIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices = {},
       mlir::ValueRange offsets = {}) const;
-
-  // Add offsets (if any) to the least significant memref dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {},
       mlir::ValueRange offsets = {}) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -575,19 +612,55 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::ValueRange indices, bool isWrite, unsigned localityHint,
       bool isDataCache = true);
 
+  // Common loop interface (krnl/affine/scf).
+  using GenericAffineLoopBodyFn =
+      mlir::function_ref<void(const GenericAffineBuilder &, mlir::ValueRange)>;
+  void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
+      GenericAffineLoopBodyFn builderFn) const;
+
+  // Custom interface
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      GenericAffineLoopBodyFn builderFn) const; // Sequential only.
   void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-      mlir::ArrayRef<int64_t> steps,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const;
+
+  // Common simd loop interface (krnl/affine/scf).
+  using GenericAffineSimdIterateBodyFn =
+      impl::SimdIterateBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      bool useParallel, mlir::ArrayRef<mlir::Value> inputs,
+      mlir::ArrayRef<DimsExpr> inputAFs, mlir::ArrayRef<mlir::Value> outputs,
+      mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<GenericAffineSimdIterateBodyFn> simdIterateBodyList) const;
+
+  using GenericAffineSimdReductionBodyFn =
+      impl::SimdReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  using GenericAffineSimdPostReductionBodyFn =
+      impl::SimdPostReductionBodyFn<GenericAffineBuilder<LOAD_OP, STORE_OP>>;
+  void simdReduceIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> temps, mlir::ArrayRef<DimsExpr> tempAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::ArrayRef<mlir::Value> initVals,
+      /* reduction function (simd or scalar) */
+      mlir::ArrayRef<GenericAffineSimdReductionBodyFn> simdReductionBodyFnList,
+      /* post reduction function (simd to scalar + post processing)*/
+      mlir::ArrayRef<GenericAffineSimdPostReductionBodyFn>
+          simdPostReductionBodyFnList) const;
+  void simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::Value input, DimsExpr inputAF, mlir::Value tmp, DimsExpr tmpAF,
+      mlir::Value output, DimsExpr outputAF, mlir::Value initVal,
+      /* reduction functions (simd or scalar) */
+      GenericAffineSimdReductionBodyFn reductionBodyFn,
+      /* post reduction functions (post processing ONLY)*/
+      GenericAffineSimdPostReductionBodyFn postReductionBodyFn) const;
 
   // This if then else construct has no arguments to the blocks.
+  using GenericAffineThenElseBodyFn =
+      mlir::function_ref<void(const GenericAffineBuilder<LOAD_OP, STORE_OP> &)>;
   void ifThenElseIE(IndexExprScope &scope, mlir::ArrayRef<IndexExpr> conditions,
-      mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-      mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
-      const;
+      GenericAffineThenElseBodyFn thenFn,
+      GenericAffineThenElseBodyFn elseFn) const;
 
   // AffineApplyOp
   mlir::Value apply(mlir::AffineMap map, mlir::ValueRange operands) const;
@@ -595,12 +668,11 @@ struct GenericAffineBuilder final : DialectBuilder {
   void yield() const;
 
 private:
-  // Support for multiple forLoopIE loops.
+  // Support for multiple for loops.
   void recursionForLoopsIE(mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
       llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
-          builderFn) const;
+      GenericAffineLoopBodyFn builderFn) const;
 
   // Support for adding blocks.
   void appendToBlock(mlir::Block *block,
@@ -619,8 +691,9 @@ using AffineBuilder = GenericAffineBuilder<mlir::affine::AffineLoadOp,
 //===----------------------------------------------------------------------===//
 
 struct LLVMBuilder final : DialectBuilder {
-  using voidFuncRef = mlir::function_ref<void(LLVMBuilder &createLLVM)>;
-  using valueFuncRef = mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)>;
+  using voidFuncRef = mlir::function_ref<void(const LLVMBuilder &createLLVM)>;
+  using valueFuncRef =
+      mlir::function_ref<mlir::Value(const LLVMBuilder &createLLVM)>;
 
   LLVMBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)

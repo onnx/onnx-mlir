@@ -321,7 +321,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(src, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
             writeIV.insert(writeIV.end(), loopInd.begin(), loopInd.end());
@@ -353,7 +353,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
         ubs.emplace_back(create.krnlIE.getShapeAsDim(src, i));
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             readIV.insert(readIV.end(), loopInd.begin(), loopInd.end());
             Value val = createKrnl.load(src, readIV);
             createKrnl.store(val, dest, loopInd);

@@ -42,6 +42,7 @@ bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
+bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
@@ -196,7 +197,7 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> enableONNXHybridPassOpt("onnx-hybrid-pass",
-    llvm::cl::desc("Enable ONNX hybrid pass (default=true)\n"
+    llvm::cl::desc("Enable ONNX hybrid pass (default=true).\n"
                    "Set to 'false' if you want to disable ONNX hybrid pass."),
     llvm::cl::location(enableONNXHybridPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
@@ -209,9 +210,18 @@ static llvm::cl::list<std::string, std::vector<std::string>>
 
 static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
     "disable-krnl-op-fusion",
-    llvm::cl::desc("disable op fusion in onnx-to-krnl pass (default=false)\n"
+    llvm::cl::desc("Disable op fusion in onnx-to-krnl pass (default=false).\n"
                    "Set to 'true' if you want to disable fusion."),
     llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disable_quantization_zero_point(
+    "disable-quantization-zero-point",
+    llvm::cl::desc(
+        "Disable the use of zero-point in quantization (default=false).\n"
+        "Set to 'true' if you want to disable the use of zero-point\n"
+        "in dyn/static quantization/dequantization."),
+    llvm::cl::location(disableQuantZeroPoint), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
@@ -224,7 +234,7 @@ static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
 
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
     "disable-memref-prefetch",
-    llvm::cl::desc("disable generation of memref.prefetch (default=false)\n"
+    llvm::cl::desc("Disable generation of memref.prefetch (default=false).\n"
                    "Set to 'true' if you want to disable prefetch."),
     llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
@@ -403,13 +413,19 @@ static llvm::cl::opt<bool, true> VerboseOutputOpt("v",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> XoptOpt("Xopt",
-    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'opt' option processing"
+        "Multiple arguments to 'opt' need to be pass with seperate 'Xopt'"
+        "For example, '-Xopt opt1 -Xopt opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
     llvm::cl::location(Xopt), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 static llvm::cl::list<std::string, std::vector<std::string>> XllcOpt("Xllc",
-    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'llc' option processing"
+        "Multiple arguments to 'llc' need to be pass with seperate 'Xllc'"
+        "For example, '-Xllc opt1 -Xllc opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
     llvm::cl::location(Xllc), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
@@ -910,6 +926,21 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+static std::vector<std::string> split(std::string &input) {
+  std::stringstream ss(input);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  std::vector<std::string> vstrings(begin, end);
+  return vstrings;
+}
+
+std::vector<std::string> getLLVMOptions() {
+  if (mllvm == "")
+    return std::vector<std::string>();
+
+  return split(mllvm);
+}
+
 // Support for model tag
 void setModelTag(const std::string &str) { modelTag = str; }
 void clearModelTag() { modelTag = ""; }
@@ -1151,7 +1182,6 @@ std::string getLibraryPath() {
 // as lrodataScript.
 std::string getToolPath(
     const std::string &tool, bool flag /*false by default*/) {
-
   if (!flag) {
     std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
     llvm::SmallString<8> toolPath(execDir);
@@ -1221,6 +1251,13 @@ void initCompilerConfig() {
     // For example, -lextra1, -lextra2, -Lpath1, -Lpath2
     addCompilerConfig(CCM_SHARED_LIB_DEPS, extraLibs);
     addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, extraLibPaths);
+  }
+
+  // Enable aggressive optimization for NNPA with -O3
+  if (OptimizationLevel == OptLevel::O3 &&
+      getTargetAccel().find("NNPA") != std::string::npos &&
+      getLLVMOption().find("enable-unsafe-fp-math") == std::string::npos) {
+    setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
 }
 

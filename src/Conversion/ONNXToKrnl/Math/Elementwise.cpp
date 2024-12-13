@@ -1289,7 +1289,9 @@ template <>
 GenOpMix getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
       {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
-      {GenericOps::FloorGop, 2}};
+      {GenericOps::FloorGop, 2},
+      {GenericOps::EstimatedVectorRegisterPressure,
+          4 /* Little parallelism in code. */}};
 }
 
 template <>
@@ -1358,9 +1360,15 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
   Value scaleFloat = scalarOperands[1];
   Value zeroPointInt = scalarOperands[2];
 
-  Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
   Value xFloat = create.math.cast(elementType, XInt);
-  Value sub = create.math.sub(xFloat, zeroPointFloat);
+
+  Value sub;
+  if (!disableQuantZeroPoint && !isNoneValue(zeroPointInt)) {
+    Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
+    sub = create.math.sub(xFloat, zeroPointFloat);
+  } else {
+    sub = xFloat;
+  }
   Value res = create.math.mul(sub, scaleFloat);
   return res;
 }
@@ -1474,8 +1482,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       }
     }
   }
-  create.krnl.iterateIE(
-      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &ck, ValueRange loopInd) {
+  create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      [&](const KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder> create(ck);
         // LoopInd has the current indices for all but the innermost dim. Since
         // we expect here the entire innermost loop iteration in one go, the
@@ -1521,8 +1529,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 
         create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, simdOnly,
             useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
-            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-                SmallVectorImpl<Value> &resVals, int64_t VL) {
+            {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
               MultiDialectBuilder<MathBuilder> create(kb);
               Type currElementType = outputElementType;
               if (VL > 1)
@@ -1551,9 +1558,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                 res = emitPostProcessingFor<OP_TYPE>(rewriter, create.getLoc(),
                     op, currElementType, accumulated);
               }
-              resVals.emplace_back(res);
-            }); // SIMD kernel.
-      });       // Outer loops.
+              return res;
+            }}); // SIMD kernel.
+      });        // Outer loops.
 
   rewriter.replaceOp(op, alloc);
   return success();
@@ -2074,7 +2081,7 @@ struct ONNXElementwiseUnaryOpLowering
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value> args;
             Value loadedVal = createKrnl.load(X, loopInd);
             args.emplace_back(loadedVal);
@@ -2257,7 +2264,7 @@ struct ONNXElementwiseBinaryOpLowering
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
@@ -2433,7 +2440,7 @@ struct ONNXElementwiseVariadicOpLowering
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
@@ -2556,7 +2563,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(&rewriter, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);

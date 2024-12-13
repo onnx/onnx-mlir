@@ -102,7 +102,7 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
       }
     }
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
           SymbolIndexExpr axisDim(dataDims[axisLit]);

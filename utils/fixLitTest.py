@@ -425,6 +425,7 @@ def main(argv):
             dprint("\n>> Tested with " + str(test_error_num) + " errors:")
             for f in test_error_functions:
                 dprint(">>   " + f)
+    dprint(">> Completed processing of " + lit_test_filename + "\n")
 
 
 if __name__ == "__main__":

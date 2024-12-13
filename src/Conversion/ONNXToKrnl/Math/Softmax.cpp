@@ -33,7 +33,8 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the maximum value along axis.
   ValueRange maxLoops = createKrnl.defineLoops(numberOfLoops);
   auto maxLoop = createKrnl.iterateIE(maxLoops, maxLoops, Lbs, Ubs, maxInits,
-      [&](KrnlBuilder &createKrnl, ValueRange maxIndices, ValueRange iterArgs) {
+      [&](const KrnlBuilder &createKrnl, ValueRange maxIndices,
+          ValueRange iterArgs) {
         // Get last argument for the iterate body.
         Value iterArg = iterArgs.back();
 
@@ -67,7 +68,8 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the sum of all values along axis.
   ValueRange sumLoops = createKrnl.defineLoops(numberOfLoops);
   auto sumLoop = createKrnl.iterateIE(sumLoops, sumLoops, Lbs, Ubs, sumInits,
-      [&](KrnlBuilder &createKrnl, ValueRange sumIndices, ValueRange iterArgs) {
+      [&](const KrnlBuilder &createKrnl, ValueRange sumIndices,
+          ValueRange iterArgs) {
         // Get last argument for the iterate body.
         Value iterArg = iterArgs.back();
 
@@ -106,7 +108,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the softmax.
   ValueRange softmaxLoops = createKrnl.defineLoops(numberOfLoops);
   createKrnl.iterateIE(softmaxLoops, softmaxLoops, Lbs, Ubs,
-      [&](KrnlBuilder &createKrnl, ValueRange softmaxIndices) {
+      [&](const KrnlBuilder &createKrnl, ValueRange softmaxIndices) {
         MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
         IndexExprScope ieScope(createKrnl);
 
@@ -188,7 +190,7 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
       }
     }
     create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-        [&](KrnlBuilder &ck, ValueRange outerIndices) {
+        [&](const KrnlBuilder &ck, ValueRange outerIndices) {
           MultiDialectBuilder<MemRefBuilder, KrnlBuilder,
               IndexExprBuilderForKrnl>
               create(ck);
@@ -249,7 +251,7 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
 
   // Emit outer loops.
   create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-      [&](KrnlBuilder &ck, ValueRange outerIndices) {
+      [&](const KrnlBuilder &ck, ValueRange outerIndices) {
         MultiDialectBuilder<MemRefBuilder, KrnlBuilder, IndexExprBuilderForKrnl>
             create(ck);
         IndexExprScope ieScope(ck);

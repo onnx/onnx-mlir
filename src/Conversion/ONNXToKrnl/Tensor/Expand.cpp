@@ -56,7 +56,7 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
     create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.getOutputDims(),
-        [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
+        [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
           SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
           getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);

@@ -86,14 +86,14 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     // Non-reduction loop iterations: output-rank.
     create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
 
           ValueRange inits = ValueRange(fZero);
           // Inner loop for reduction.
           auto innerIterate = create.krnl.iterate({}, innerLoop, {}, {}, inits,
-              [&](KrnlBuilder &createKrnl, ValueRange innerIndex,
+              [&](const KrnlBuilder &createKrnl, ValueRange innerIndex,
                   ValueRange iterArgs) {
                 // Get last argument for the iterate body.
                 Value iterArg = iterArgs.back();
@@ -340,7 +340,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       }
     }
     create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
-        {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        {I, J, K}, [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
@@ -420,7 +420,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       }
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
-        [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
+        [&](const KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
           MultiDialectBuilder<KrnlBuilder> create(createKrnl);
           // I, J, K loop.
           ValueRange origLoop = create.krnl.defineLoops(3);
@@ -436,7 +436,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           create.krnl.permute(
               {ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
           create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
-              {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
+              {I, J, K},
+              [&](const KrnlBuilder &createKrnl, ValueRange indices) {
                 Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
                 // Compute global start for B/C: {broadcastIndices, 0, 0}
                 SmallVector<Value, 4> broadcastGlobalStart;
