@@ -44,13 +44,17 @@ decoder_model_name = "decoder_model.onnx"
 decoder_with_past_model_name = "decoder_with_past_model.onnx"
 config_json_name = "config.json"
 decoder_url = f"https://huggingface.co/openai-community/{model_name_or_path}/resolve/main/onnx/{decoder_model_name}"
+decoder_data_url = f"https://huggingface.co/openai-community/{model_name_or_path}/resolve/main/onnx/{decoder_model_name}_data"
 decoder_with_past_url = f"https://huggingface.co/openai-community/{model_name_or_path}/resolve/main/onnx/{decoder_with_past_model_name}"
+decoder_with_past_data_url = f"https://huggingface.co/openai-community/{model_name_or_path}/resolve/main/onnx/{decoder_with_past_model_name}_data"
 config_json_url = f"https://huggingface.co/openai-community/{model_name_or_path}/resolve/main/onnx/{config_json_name}"
 
 # Local directories for caching the model.
 cache_dir = "./"
 decoder_model_path = f"{cache_dir}/{decoder_model_name}"
+decoder_data_path = f"{cache_dir}/{decoder_model_name}_data"
 decoder_with_past_model_path = f"{cache_dir}/{decoder_with_past_model_name}"
+decoder_with_past_data_path = f"{cache_dir}/{decoder_with_past_model_name}_data"
 config_json_path = f"{cache_dir}/{config_json_name}"
 
 # Download the model to a local dir.
@@ -58,18 +62,20 @@ if not os.path.exists(decoder_model_path):
     print(f"Downloading {decoder_url}")
     urlretrieve(decoder_url, decoder_model_path)
     print("Done")
-if req.head(f"{decoder_url}_data", allow_redirects=True).status_code == 200:
-    print(f"Downloading {decoder_url}_data")
-    urlretrieve(decoder_url + "_data", decoder_model_path + "_data")
-    print("Done")
+if not os.path.exists(decoder_data_path):
+    if req.head(decoder_data_url, allow_redirects=True).status_code == 200:
+        print(f"Downloading {decoder_data_url}")
+        urlretrieve(decoder_data_url, decoder_data_path)
+        print("Done")
 if not os.path.exists(decoder_with_past_model_path):
     print(f"Downloading {decoder_with_past_url}")
     urlretrieve(decoder_with_past_url, decoder_with_past_model_path)
     print("Done")
-if req.head(f"{decoder_with_past_url}_data", allow_redirects=True).status_code == 200:
-    print(f"Downloading {decoder_with_past_url}_data")
-    urlretrieve(decoder_with_past_url + "_data", decoder_with_past_model_path + "_data")
-    print("Done")
+if not os.path.exists(decoder_with_past_data_path):
+    if req.head(decoder_with_past_data_url, allow_redirects=True).status_code == 200:
+        print(f"Downloading {decoder_with_past_data_url}")
+        urlretrieve(decoder_with_past_data_url, decoder_with_past_data_path)
+        print("Done")
 if not os.path.exists(config_json_path):
     print(f"Downloading the config json file {config_json_url}")
     urlretrieve(config_json_url, config_json_path)
