@@ -198,6 +198,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
       patterns, vector::VectorTransformsOptions());
   vector::populateVectorTransposeLoweringPatterns(
       patterns, vector::VectorTransformsOptions());
+  vector::populateVectorShapeCastLoweringPatterns(patterns);
 
   populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);
@@ -971,6 +972,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlUnaryMathOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlStrncmpOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlNoneOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlRoundEvenOpPattern(typeConverter, patterns, ctx);
 }
 
 } // namespace krnl

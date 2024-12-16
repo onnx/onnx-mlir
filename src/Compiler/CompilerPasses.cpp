@@ -189,6 +189,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
         instrumentSignatureString));
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
+      /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
       /*opsToCall*/ opsForCall));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization

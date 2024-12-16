@@ -21,6 +21,8 @@
 
 using namespace mlir;
 
+#define DISABLE_FAST_MATH 0 /* disable reciprocal (for debug) */
+
 namespace onnx_mlir {
 
 // Helper function for quantization.
@@ -28,13 +30,18 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
     Value scale, Value zeroPoint, bool hasZeroPoint, bool enableSIMD,
-    bool enableParallel) {
+    bool enableParallel, bool enableFastMath) {
   MultiDialectBuilder<KrnlBuilder, MemRefBuilder, VectorBuilder, MathBuilder>
       create(rewriter, loc);
 
   // Types
   Type quantizedElementType = quantizedType.getElementType();
+  Type inputElementType = inputType.getElementType();
   int64_t rank = inputType.getRank();
+
+  // Use fast math with reciprocal?
+  bool useReciprocal =
+      !DISABLE_FAST_MATH && enableFastMath && isa<FloatType>(inputElementType);
 
   // Flatten the input data and outputs
   DimsExpr inputDims, flatInputDims, flatAllocDims;
@@ -51,14 +58,19 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   if (enableSIMD) {
     int64_t innermostLoopCollapse = 1; // Only innermost is simdized.
     bool canOverCompute = false;
-    GenOpMix mix = {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
-        {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
-        {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
-        {GenericOps::FloorGop, 2},
-        {GenericOps::EstimatedVectorRegisterPressure,
-            8 /* Little parallelism in code. */}};
+    GenOpMix mixAdjust;
+    if (hasZeroPoint)
+      mixAdjust = {{GenericOps::ArithmeticGop, 1}};
+    GenOpMix mixRound = getGenOpMix<ONNXRoundOp>(inputElementType, op);
+    GenericOps divOrMulGenOp =
+        useReciprocal ? GenericOps::MulGop : GenericOps::DivGop;
+    GenOpMix mixOthers = {{divOrMulGenOp, 1}, {GenericOps::ConversionGop, 1},
+        {GenericOps::MinMaxGop, 2},
+        {GenericOps::EstimatedVectorRegisterPressure, 4}};
+    GenOpMix mix1 = computeGenOpMixUnion(mixAdjust, mixRound);
+    GenOpMix mix2 = computeGenOpMixUnion(mix1, mixOthers);
     totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
-        innermostLoopCollapse, mix, canOverCompute, simdLoopStaticTripCount,
+        innermostLoopCollapse, mix2, canOverCompute, simdLoopStaticTripCount,
         simdOnly);
   }
 
@@ -71,15 +83,24 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
 
+  Value scaleReciprocal;
+  if (useReciprocal) {
+    Value one = create.math.constant(inputElementType, 1.0);
+    scaleReciprocal = create.math.div(one, scale);
+  }
   create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       {[&](const KrnlBuilder &kb, ArrayRef<Value> inputVals, int64_t VL) {
-        MultiDialectBuilder<MathBuilder> create(kb);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
         Value x = inputVals[0];
         // Scale
-        Value scaleX = create.math.div(x, scale);
+        Value scaleX;
+        if (useReciprocal)
+          scaleX = create.math.mul(x, scaleReciprocal);
+        else
+          scaleX = create.math.div(x, scale);
         // Round
-        Value roundX = create.math.round(scaleX);
+        Value roundX = create.krnl.roundEven(scaleX);
         // Adjust
         Value adjustX;
         if (hasZeroPoint)
@@ -103,12 +124,13 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 struct ONNXQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXQuantizeLinearOp> {
   ONNXQuantizeLinearOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableSIMD, bool enableParallel)
+      bool enableSIMD, bool enableParallel, bool enableFastMath)
       : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel), enableFastMath(enableFastMath) {}
 
   bool enableSIMD = false;
   bool enableParallel = false;
+  bool enableFastMath = false;
 
   using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
       IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
@@ -184,7 +206,7 @@ struct ONNXQuantizeLinearOpLowering
     }
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
         yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-        zeroPoint, hasZeroPoint, enableSIMD, enableParallel);
+        zeroPoint, hasZeroPoint, enableSIMD, enableParallel, enableFastMath);
 
     rewriter.replaceOp(op, {Y});
     onnxToKrnlSimdReport(op);
@@ -194,9 +216,9 @@ struct ONNXQuantizeLinearOpLowering
 
 void populateLoweringONNXQuantizeLinearOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel) {
+    bool enableParallel, bool enableFastMath) {
   patterns.insert<ONNXQuantizeLinearOpLowering>(
-      typeConverter, ctx, enableSIMD, enableParallel);
+      typeConverter, ctx, enableSIMD, enableParallel, enableFastMath);
 }
 
 } // namespace onnx_mlir

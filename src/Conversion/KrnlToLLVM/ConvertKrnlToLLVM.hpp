@@ -107,6 +107,10 @@ void populateLoweringKrnlVectorTypeCastOpPattern(
 void populateLoweringKrnlNoneOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
+void populateLoweringKrnlRoundEvenOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
+
 void determineOwnershipForOutputOMTensors(mlir::ModuleOp &module,
     llvm::SmallVectorImpl<bool> &outputOMTensorOwnerships);
 
