@@ -190,15 +190,19 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // %stdDev = "onnx.Sqrt"(%varEps)
     if (!operandOfOpDefinedBy<ONNXAddOp>(veAddOp, sdSqrtOp, varEps))
       return reportFailure("RMS missing var + eps, add op");
-    // %var = "onnx.ReduceMeanV13"(%dd)
+    // %var = "onnx.ReduceMean(V13)"(%dd)
     // %varEps = "onnx.Add"(%var, %eps)
-    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-            vReduceOp, veAddOp, var, epsilon, 0) &&
-        !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-            vReduceOp, veAddOp, epsilon, var, 1))
+    if ((!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+             vReduceOp, veAddOp, var, epsilon, 0) &&
+            !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+                vReduceOp, veAddOp, epsilon, var, 1)) &&
+        (!operandOfOpDefinedBy<ONNXReduceMeanOp>(
+             vReduceOp, veAddOp, var, epsilon, 0) &&
+            !operandOfOpDefinedBy<ONNXReduceMeanOp>(
+                vReduceOp, veAddOp, epsilon, var, 1)))
       return reportFailure("RMS missing var, reduce mean op");
     // %dd = "onnx.Mul"(%d, %d)
-    // %var = "onnx.ReduceMeanV13"(%dd)
+    // %var = "onnx.ReduceMean(V13)"(%dd)
     if (!operandOfOpDefinedBy<ONNXMulOp>(ddMulOp, vReduceOp, dd))
       return reportFailure("RMS missing DD, mul op");
 
@@ -253,10 +257,12 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (hasFullPattern &&
         !operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 1))
       hasFullPattern = reportFailure("LN missing D, sub op");
-    // %mean = "onnx.ReduceMeanV13"(%x)
+    // %mean = "onnx.ReduceMean(V13)"(%x)
     // %d = "onnx.Sub"(%X, %mean)
-    if (hasFullPattern && !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-                              mReduceOp, dSubOp, x1, mean, 1))
+    if (hasFullPattern && (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+                               mReduceOp, dSubOp, x1, mean, 1) &&
+                              !operandOfOpDefinedBy<ONNXReduceMeanOp>(
+                                  mReduceOp, dSubOp, x1, mean, 1)))
       hasFullPattern = reportFailure("LN missing mean, reduce mean op");
 
     // 4: We have the ops for a traditional LM pattern, now check a few more
@@ -266,8 +272,15 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
     if (hasFullPattern) {
       // Verify that the mReduceOp uses x as well.
-      auto lnOp = mlir::cast<ONNXReduceMeanV13Op>(mReduceOp);
-      Value x2 = lnOp.getData();
+      Value x2 = [](Operation *op) {
+        if (auto rmOp = mlir::dyn_cast<ONNXReduceMeanOp>(op)) {
+          return rmOp.getData();
+        }
+        if (auto rmV13Op = mlir::dyn_cast<ONNXReduceMeanV13Op>(op)) {
+          return rmV13Op.getData();
+        }
+        llvm_unreachable("Expected ONNXReduceMeanOp or ONNXReduceMeanV13Op");
+      }(mReduceOp);
       if (x1 != x2)
         hasFullPattern = reportFailure(
             "LN input x to mean/ReduceMean and sub are different");
@@ -304,16 +317,39 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
 private:
   static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
-    ONNXReduceMeanV13Op reduceOp = mlir::cast<ONNXReduceMeanV13Op>(op);
-    if (reduceOp.getKeepdims() != 1)
-      return reportFailure("need keepdims = 1");
-    ArrayAttr axesAttr = reduceOp.getAxesAttr();
-    int64_t axesSize = axesAttr.size();
+    SmallVector<int64_t> axes; // The axes attribute/operand of the ReduceMeanOp
+    if (auto reduceOpV13 = mlir::dyn_cast<ONNXReduceMeanV13Op>(op)) {
+      if (reduceOpV13.getKeepdims() != 1)
+        return reportFailure("need keepdims = 1");
+      ArrayAttr axesAttr = reduceOpV13.getAxesAttr();
+      for (size_t i = 0; i < axesAttr.size(); ++i) {
+        axes.emplace_back(onnx_mlir::ArrayAttrIntVal(axesAttr, i));
+      }
+    } else if (auto reduceOp = mlir::dyn_cast<ONNXReduceMeanOp>(op)) {
+      if (reduceOp.getKeepdims() != 1)
+        return reportFailure("need keepdims = 1");
+      Value axesValue = reduceOp.getAxes();
+      if (isa<NoneType>(axesValue.getType())) {
+        if (reduceOp.getNoopWithEmptyAxes()) {
+          // No reduction
+          return reportFailure("needs a reduction on at least one dimension");
+        } else {
+          // Reduction on all dimensions
+          axis = 0;
+          return true;
+        }
+      }
+      if (!onnx_mlir::getI64ValuesFromONNXConstantOp(axesValue, axes)) {
+        return reportFailure("only static axes are supported");
+      }
+    } else {
+      llvm_unreachable("ReduceMean is the only supported op");
+    }
+
     // Record axes value in bit vector.
     llvm::SmallBitVector reduceAxes(xRank, false);
-    for (int64_t i = 0; i < axesSize; ++i) {
-      int64_t a = onnx_mlir::getAxisInRange(
-          onnx_mlir::ArrayAttrIntVal(axesAttr, i), xRank);
+    for (int64_t axe : axes) {
+      int64_t a = onnx_mlir::getAxisInRange(axe, xRank);
       reduceAxes[a] = true;
     }
     // Check that we have a "false"* "true"+ pattern.
