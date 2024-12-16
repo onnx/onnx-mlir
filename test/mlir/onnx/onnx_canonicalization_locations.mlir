@@ -1,7 +1,5 @@
 // RUN: onnx-mlir-opt --shape-inference --canonicalize="test-convergence=true" --shape-inference --cse %s -split-input-file --mlir-print-debuginfo | FileCheck %s
 
-
-
 // CHECK-LABEL:  func.func @layernorm_with_bias
 func.func @layernorm_with_bias(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %arg3: tensor<768xf32>) -> tensor<1x384x768xf32> {
   %none = "onnx.NoValue"() {value} : () -> none
