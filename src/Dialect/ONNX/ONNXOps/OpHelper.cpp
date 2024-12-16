@@ -14,6 +14,7 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
@@ -775,6 +776,29 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   }
   // Other type, just fails.
   return false;
+}
+
+/// Get raw data from a dense attribute.
+void getRawData(Attribute dataAttr, std::vector<char> &data) {
+  TypeSwitch<Attribute>(dataAttr)
+      .Case<DenseElementsAttr>([&](DenseElementsAttr denseAttr) {
+        if (!denseAttr.isSplat()) {
+          data = denseAttr.getRawData();
+        } else {
+          ShapedType denseShapeType =
+              mlir::cast<ShapedType>(denseAttr.getType());
+          std::vector<char> rawData = denseAttr.getRawData();
+          int64_t numElements = denseShapeType.getNumElements();
+          for (int i = 0; i < numElements; i++)
+            data.insert(data.end(), rawData.begin(), rawData.end());
+        }
+      })
+      .Case<DenseResourceElementsAttr>(
+          [&](DenseResourceElementsAttr denseResourceAttr) {
+            data = denseResourceAttr.getRawHandle().getBlob()->getData();
+          })
+      .Default(
+          [&](Attribute attr) { llvm_unreachable("Unsupported data type."); });
 }
 
 //===----------------------------------------------------------------------===//
