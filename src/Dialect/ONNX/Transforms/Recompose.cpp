@@ -48,17 +48,19 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   LogicalResult matchAndRewrite(
       ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
     using namespace onnx_mlir;
-    Location loc = mulOp.getLoc();
     // Match
     Value x, scale;
     FloatAttr epsilon;
     int64_t axis;
     bool isRMSLayerNorm;
-    if (!matchLayerNormPattern(mulOp, x, scale, axis, epsilon, isRMSLayerNorm))
+    SmallVector<Location> layerNormLocations;
+    if (!matchLayerNormPattern(
+            mulOp, x, scale, axis, epsilon, layerNormLocations, isRMSLayerNorm))
       return failure();
 
     // Replace
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    MultiDialectBuilder<OnnxBuilder> create(
+        rewriter, rewriter.getFusedLoc(layerNormLocations));
     Type xType = x.getType();
     Value noneVal = create.onnx.none();
     Value res;
@@ -99,7 +101,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   */
   static bool matchLayerNormPattern(ONNXMulOp LayerNormOp, Value &x,
       Value &scale, int64_t &axis, FloatAttr &epsilonAttr,
-      bool &isRMSLayerNorm) {
+      SmallVectorImpl<Location> &layerNormLocations, bool &isRMSLayerNorm) {
     using namespace onnx_mlir;
     Location loc = LayerNormOp.getLoc();
     isRMSLayerNorm = false;
@@ -110,11 +112,17 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // Replicate of values, check that they are identical to originals.
     Value d1, d2;
     // Operations that will be gathered and kept locally.
-    Operation *nsMulOp, *ddMulOp, *nDivOp, *nMulOp, *isdRecipOp, *sdSqrtOp,
-        *veAddOp, *vReduceOp, *mReduceOp, *dSubOp;
-    nsMulOp = LayerNormOp.getOperation();
+    Operation *nsMulOp = LayerNormOp.getOperation();
+    Operation *ddMulOp = nullptr;
+    Operation *nDivOp = nullptr;
+    Operation *nMulOp = nullptr;
+    Operation *isdRecipOp = nullptr;
+    Operation *sdSqrtOp = nullptr;
+    Operation *veAddOp = nullptr;
+    Operation *vReduceOp = nullptr;
+    Operation *mReduceOp = nullptr;
+    Operation *dSubOp = nullptr;
     // after this group, we have defined norm, scale, d, and sdSqrtOp.
-    nDivOp = nMulOp = isdRecipOp = nullptr;
     if (operandOfOpDefinedBy<ONNXDivOp>(nDivOp, nsMulOp, norm, scale, 0) ||
         operandOfOpDefinedBy<ONNXDivOp>(nDivOp, nsMulOp, scale, norm, 1)) {
       // Matched norm = d / stdDev.
@@ -126,7 +134,6 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       // %norm = "onnx.Div"(%d, %stdDev)
       if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, nDivOp, d, stdDev, 1))
         return reportFailure("RMS missing std dev (via div), sqrt op");
-
     } else if (operandOfOpDefinedBy<ONNXMulOp>(
                    nMulOp, nsMulOp, norm, scale, 0) ||
                operandOfOpDefinedBy<ONNXMulOp>(
@@ -312,6 +319,23 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       LLVM_DEBUG(
           llvm::dbgs() << "RMSLayerNorm from mult, axis " << axis << "\n");
     }
+    // Collect the locations of the recomposed ops
+    if (mReduceOp)
+      layerNormLocations.push_back(mReduceOp->getLoc());
+    if (dSubOp)
+      layerNormLocations.push_back(dSubOp->getLoc());
+    layerNormLocations.push_back(ddMulOp->getLoc());
+    layerNormLocations.push_back(vReduceOp->getLoc());
+    layerNormLocations.push_back(veAddOp->getLoc());
+    layerNormLocations.push_back(sdSqrtOp->getLoc());
+    if (isdRecipOp)
+      layerNormLocations.push_back(isdRecipOp->getLoc());
+    if (nMulOp)
+      layerNormLocations.push_back(nMulOp->getLoc());
+    if (nDivOp)
+      layerNormLocations.push_back(nDivOp->getLoc());
+    layerNormLocations.push_back(loc);
+
     return true;
   }
 
@@ -478,8 +502,9 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     FloatAttr epsilon;
     int64_t axis;
     bool isRMSLayerNorm;
+    SmallVector<Location> layerNormLocations;
     return !RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
-        op, x, scale, axis, epsilon, isRMSLayerNorm);
+        op, x, scale, axis, epsilon, layerNormLocations, isRMSLayerNorm);
   });
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
