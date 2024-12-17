@@ -1,9 +1,8 @@
 // (c) Copyright 2022 - 2024 Advanced Micro Devices, Inc. All Rights Reserved.
 
-#include "DialectBuilder.hpp"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
