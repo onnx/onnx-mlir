@@ -35,11 +35,14 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
+
+  // ONNXAbsOp
+  mlir::Value abs(mlir::Value input) const;
 
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
@@ -73,6 +76,10 @@ struct OnnxBuilder : DialectBuilder {
       llvm::StringRef autoPad, mlir::ArrayRef<int64_t> dilations, int64_t group,
       mlir::ArrayRef<int64_t> kernelShape, mlir::ArrayRef<int64_t> pads,
       mlir::ArrayRef<int64_t> strides) const;
+
+  // ONNXDequantizeLinearOp
+  mlir::Value dequantizeLinear(mlir::Type resType, mlir::Value X,
+      mlir::Value scale, mlir::Value zeroPoint, int axis = 1) const;
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;

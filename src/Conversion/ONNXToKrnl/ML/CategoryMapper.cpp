@@ -140,7 +140,7 @@ struct ONNXCategoryMapperOpLowering
     create.krnlIE.getShapeAsDims(X, ubs);
 
     if (emitPrintStmts)
-      create.krnl.printTensor("Input tensor:\n", X);
+      create.krnl.printTensor("Input tensor:%s%d%e", X);
 
     ValueRange loopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

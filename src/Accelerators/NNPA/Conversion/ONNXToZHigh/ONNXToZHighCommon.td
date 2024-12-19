@@ -2,7 +2,7 @@
 
 //===- ONNXToZHigh.td - Replacing ONNX Ops by ZHigh Ops -*- tablegen ------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -62,6 +62,16 @@ def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 def GetZeroI64Attr: NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
+>;
+
+def IsCompatibleWithNNPALevelArch14: Constraint<
+  CPred<"isCompatibleWithNNPALevel(NNPALevel::M14)">,
+  "Input level is compatible with NNPA level"
+>;
+
+def IsCompatibleWithNNPALevelArch15: Constraint<
+  CPred<"isCompatibleWithNNPALevel(NNPALevel::M15)">,
+  "Input level is compatible with NNPA level"
 >;
 
 #endif // ONNX_TO_ZHIGH_COMMON

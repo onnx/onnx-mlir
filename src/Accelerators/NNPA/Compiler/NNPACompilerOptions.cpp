@@ -101,4 +101,27 @@ llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU("nnpa-cpu-dql",
+    llvm::cl::desc("Use dynamic quantized linear on CPU. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset(
+    "nnpa-cpu-dql-scale",
+    llvm::cl::desc("Use dynamic quantized linear computation of "
+                   " scale and offset on CPU. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<NNPAQuantType> nnpaQuantization("nnpa-quantization",
+    llvm::cl::desc("Enable quantization with a specific type. Only "
+                   "MatMul whose weight is a constant is supported."),
+    llvm::cl::values(
+        clEnumVal(
+            DynSymI8, "Dynamic Quantization to signed integer 8. Asymmetric "
+                      "quant for activations and symmetric quant for weights."),
+        clEnumVal(
+            SymSymI8, "Dynamic Quantization to signed integer 8. Symmetric "
+                      "quant for activations and symmetric quant for weights."),
+        clEnumVal(QNONE, "No quantization (default).")),
+    llvm::cl::init(QNONE), llvm::cl::cat(OnnxMlirOptions));
+
 } // namespace onnx_mlir

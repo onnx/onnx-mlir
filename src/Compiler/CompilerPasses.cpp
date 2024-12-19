@@ -44,6 +44,18 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void configurePasses() {
+  // Handle deprecated mcpu.
+  if (!mcpu.empty()) {
+    if (!march.empty()) {
+      llvm::outs()
+          << "\nWarning: Got values for both --march and --mcpu, ignore --mcpu. "
+             "Please remove deprecated --mcpu in the near future.\n\n";
+    } else {
+      llvm::outs()
+          << "\nWarning: Got deprecated --mcpu option. Please switch to "
+             "--march in the near future.\n\n";
+    }
+  }
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
   configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,

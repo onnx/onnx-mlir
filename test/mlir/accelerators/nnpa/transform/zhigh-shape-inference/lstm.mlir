@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
 func.func @test_lstm_all_timesteps(%X: tensor<2x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>) {
   %cst = "onnx.NoValue"() {value} : () -> none

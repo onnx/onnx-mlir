@@ -114,7 +114,8 @@ def compile_model(model, emit):
     command_list = [TEST_DRIVER]
     if args.Optlevel:
         command_list.append("-O" + args.Optlevel)
-    if args.mcpu:
+    if args.mcpu: # deprecated
+        print("warning, --mcpu option is deprecated, please use --march instead")
         command_list.append("--mcpu=" + args.mcpu)
     if args.march:
         command_list.append("--march=" + args.march)

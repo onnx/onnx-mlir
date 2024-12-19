@@ -4,7 +4,7 @@
 
 //===------------------ Elementwise.cpp - ZHigh Operations ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -83,10 +83,34 @@ LogicalResult ZHighExpOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// InvSqrtOp
+
+LogicalResult ZHighInvSqrtOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// LeakyReluOp
+
+LogicalResult ZHighLeakyReluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // ReluOp
 
 LogicalResult ZHighReluOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// GeluOp
+
+LogicalResult ZHighGeluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -103,6 +127,14 @@ LogicalResult ZHighTanhOp::inferShapes(
 
 LogicalResult ZHighSigmoidOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// SqrtOp
+
+LogicalResult ZHighSqrtOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 

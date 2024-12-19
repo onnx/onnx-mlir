@@ -21,6 +21,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
@@ -78,6 +79,8 @@ zdnn_data_types mlirTypeToZDNNType(Type elementType) {
       return FP32;
     } else
       llvm_unreachable("Unsupported data type.");
+  } else if (elementType.isInteger(8)) {
+    return INT8; // INT8 is accepted by verify_pre_transformed_descriptor
   } else
     llvm_unreachable("Unsupported data type.");
 }
@@ -164,6 +167,67 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
   status = allochelper_ztensor_alloc(&ztensor);
   assert(status == ZDNN_OK);
   status = stickify(&ztensor, rawData.data());
+  assert(status == ZDNN_OK);
+  // Emit a constant global in ZHigh dialect.
+  ZHighStickifiedConstantOp constantOp = emitZHighStickifiedConstant(
+      rewriter, loc, &ztensor, replacingValue.getType());
+
+  return constantOp;
+}
+
+bool isFoldableQuantizedStickOp(Value res) {
+  ZTensorEncodingAttr::QuantizedType qtype =
+      getZTensorQuantizedType(res.getType());
+  return (qtype == ZTensorEncodingAttr::QuantizedType::WEIGHTS ||
+          qtype == ZTensorEncodingAttr::QuantizedType::INT8);
+}
+
+ZHighStickifiedConstantOp createQuantizedConstantForStick(
+    PatternRewriter &rewriter, Value replacingValue, Value input,
+    Value recScale, Value offset, StringAttr layout, StringAttr quantizeType) {
+  Location loc = replacingValue.getLoc();
+  ArrayRef<int64_t> shape = mlir::cast<ShapedType>(input.getType()).getShape();
+  Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
+  int rank = shape.size();
+
+  // Read dense attributes.
+  ElementsAttr dataAttr = getElementAttributeFromONNXValue(input);
+  assert(dataAttr && "Attribute is null");
+  // Read attributes's raw data.
+  std::vector<char> rawData;
+  getRawData(dataAttr, rawData);
+  // assert((rawData.size() == (uint64_t)getMemRefSizeInBytes(input)) &&
+  //        "Data size mismatched");
+
+  // Call stickify.
+  zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
+  // pre-transformed desc.
+  zdnn_data_layouts zDNNLayout =
+      convertLayoutAttrToZDNNDataLayout(rank, layout);
+  // If zDNNLayout is NHWC, we stickify directly from NCHW.
+  if (zDNNLayout == ZDNN_NHWC)
+    zDNNLayout = ZDNN_NCHW;
+  zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
+  set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
+  // Check the condition for transformed desc.
+  // Currently, only QUANTIZED_WEIGHTS_INT8 is supported.
+  // The condition of being the weight for QuantizedMatMul has been checked
+  // by the matching pattern.
+  assert(zDNNType == INT8);
+  zdnn_quantized_transform_types transform_type = QUANTIZED_WEIGHTS_INT8;
+  zdnn_status status = generate_quantized_transformed_desc(
+      &pre_tfrmd_desc, transform_type, &tfrmd_desc);
+  assert(status == ZDNN_OK);
+  // Stick data using the software stickify.
+  zdnn_ztensor ztensor;
+  // init_quantized_ztensor can be used if the constant value for recScale and
+  // offset is extracted at compile time. However, in the following
+  // transformation for the quantized weight tensor, the recScale and offset
+  // is not used. The parameters are kept for possible future use.
+  init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
+  status = allochelper_ztensor_alloc(&ztensor);
+  assert(status == ZDNN_OK);
+  status = quantized_stickify(&ztensor, rawData.data());
   assert(status == ZDNN_OK);
   // Emit a constant global in ZHigh dialect.
   ZHighStickifiedConstantOp constantOp = emitZHighStickifiedConstant(
@@ -390,6 +454,34 @@ struct ConstantStickForLSTMPattern
   }
 };
 
+// zhigh.QuantizedStick (c) = krnl.global(c1), where c1 is stickified data.
+// Always saturate constants.
+struct ConstantQuantizedStickPattern
+    : public OpRewritePattern<ZHighQuantizedStickOp> {
+  ConstantQuantizedStickPattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+  LogicalResult matchAndRewrite(
+      ZHighQuantizedStickOp stickOp, PatternRewriter &rewriter) const override {
+    Value input = stickOp.getIn();
+    Value recscale = stickOp.getRecScale();
+    Value offset = stickOp.getOffset();
+    Value output = stickOp.getOut();
+    StringAttr layout = stickOp.getLayoutAttr();
+    StringAttr quantizedType = stickOp.getQuantizedTypeAttr();
+
+    // Match
+    if (!isDenseONNXConstant(input) || !isFoldableQuantizedStickOp(output)) {
+      return failure();
+    }
+
+    // Rewrite
+    Value stickifiedVal = createQuantizedConstantForStick(
+        rewriter, output, input, recscale, offset, layout, quantizedType);
+    replaceOpAndGC(rewriter, stickOp, {stickifiedVal, recscale, offset});
+    return success();
+  }
+};
+
 struct ZHighConstPropagationPass
     : public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
 
@@ -405,6 +497,7 @@ struct ZHighConstPropagationPass
     ModuleOp moduleOp = getOperation();
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
+    patterns.insert<ConstantQuantizedStickPattern>(patterns.getContext());
     patterns.insert<ConstantStickPattern>(patterns.getContext());
     patterns.insert<ConstantStickForGRUPattern>(patterns.getContext());
     patterns.insert<ConstantStickForLSTMPattern>(patterns.getContext());

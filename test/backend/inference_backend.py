@@ -74,6 +74,8 @@ def get_test_models():
         ############################################################
         # Elementary ops, ordered in the order they are found in
         # onnx-mlir/third_party/onnx/onnx/backend/test/case/node.
+
+        # To rebuild after changes: make onnx_mlir_supported_ops
         # ==ARCH== cpu
         # ==OP== Abs
         # ==MIN== 6
@@ -1199,7 +1201,7 @@ def get_test_models():
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
-        },
+        },  
         # ==OP== GlobalAveragePool
         # ==MIN== 1
         "test_globalaveragepool_cpu": {
