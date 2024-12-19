@@ -810,7 +810,9 @@ template <typename T>
 class SubArrayAccessHelper {
 public:
   explicit SubArrayAccessHelper(ArrayRef<T> data, size_t iterArraySize)
-      : data(data), iterArraySize(iterArraySize) {}
+      : data(data), iterArraySize(iterArraySize) {
+    assert((data.size() % iterArraySize) == 0);
+  }
 
   [[nodiscard]] size_t size() const { return data.size() / iterArraySize; }
 
@@ -832,7 +834,7 @@ public:
   ArrayRef<int64_t> getCounter() const { return counter; }
 
   void increment() {
-    // Increment from the back, carry if necessary.
+    // Increment from the back, carry if necessary
     for (int64_t i = counter.size() - 1; i >= 0; --i) {
       if (counter[i] == (shapeToCheck[i] + firstElem[i] - 1)) {
         counter[i] = firstElem[i]; // Carry and keep an eventual shift in mind
@@ -927,7 +929,6 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     {
       IndicesContigousCounter counter(firstIndex, indicesShape.drop_back(1));
       for (size_t i = 0; i < indicesFlatAccessor.size(); ++i) {
-        auto index = indicesFlatAccessor[i];
         if (counter.getCounter() != indicesFlatAccessor[i]) {
           return failure(); // Indices are not contigous
         }
@@ -937,19 +938,69 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
 
     // Strategy for the decomposition:
     // Split at the split axis, concat the update and part of the split
-
-    // First split
-    const auto slicePosition = updateShape[splitAxis] + firstIndex[splitAxis];
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, scatterNDOp->getLoc());
+    // Edge case: The update completly overwrites, no splitting needed
+    if (updateShape[splitAxis] == dataShape[splitAxis]) {
+      rewriter.replaceOp(scatterNDOp, scatterNDOp.getUpdates());
+      return success();
+    }
 
     const Type dataElementType = dataType.getElementType();
+    // We only need a single split if there is no shift
+    if (firstIndex[splitAxis] == 0) {
+      SmallVector<int64_t> splitTyFirstHalf(dataShape);
+      splitTyFirstHalf[splitAxis] = updateShape[splitAxis];
+      SmallVector<int64_t> splitTySecondHalf(dataShape);
+      splitTySecondHalf[splitAxis] -= updateShape[splitAxis];
+      Value splitSizes = create.onnx.constantInt64(
+          {updateShape[splitAxis], splitTySecondHalf[splitAxis]});
+      ValueRange split = create.onnx.split(
+          {RankedTensorType::get(splitTyFirstHalf, dataElementType),
+              RankedTensorType::get(splitTySecondHalf, dataElementType)},
+          scatterNDOp.getData(), splitSizes, splitAxis);
+      Value concat = create.onnx.concat(
+          dataType, {scatterNDOp.getUpdates(), split[1]}, splitAxis);
+      concat.dump();
+      scatterNDOp->dump();
+      llvm::errs() << "single split\n";
+      rewriter.replaceOp(scatterNDOp, concat);
+      return success();
+    }
+
+    const auto firstSlicePosition =
+        updateShape[splitAxis] + firstIndex[splitAxis];
+
+    // We also only need a single split if the shift + size of the update is the
+    // same size as the input
+    if (firstSlicePosition == dataShape[splitAxis]) {
+      // Case with a shift
+      SmallVector<int64_t> splitTyFirstHalf(dataShape);
+      splitTyFirstHalf[splitAxis] = firstIndex[splitAxis];
+      SmallVector<int64_t> splitTySecondHalf(dataShape);
+      splitTySecondHalf[splitAxis] -= firstIndex[splitAxis];
+      Value firstSplitSizes = create.onnx.constantInt64(
+          {firstIndex[splitAxis], splitTySecondHalf[splitAxis]});
+      ValueRange split = create.onnx.split(
+          {RankedTensorType::get(splitTyFirstHalf, dataElementType),
+              RankedTensorType::get(splitTySecondHalf, dataElementType)},
+          scatterNDOp.getData(), firstSplitSizes, splitAxis);
+      Value concat = create.onnx.concat(
+          dataType, {split[0], scatterNDOp.getUpdates()}, splitAxis);
+      split[0].dump();
+      concat.dump();
+      scatterNDOp->dump();
+      llvm::errs() << "single split type 2\n";
+      rewriter.replaceOp(scatterNDOp, concat);
+      return success();
+    }
+    // Double split case
     SmallVector<int64_t> splitTyFirstHalf(dataShape);
-    splitTyFirstHalf[splitAxis] = slicePosition;
+    splitTyFirstHalf[splitAxis] = firstSlicePosition;
     SmallVector<int64_t> splitTySecondHalf(dataShape);
-    splitTySecondHalf[splitAxis] -= slicePosition;
+    splitTySecondHalf[splitAxis] -= firstSlicePosition;
     Value firstSplitSizes = create.onnx.constantInt64(
-        {slicePosition, splitTySecondHalf[splitAxis]});
+        {firstSlicePosition, splitTySecondHalf[splitAxis]});
     ValueRange firstSplit = create.onnx.split(
         {RankedTensorType::get(splitTyFirstHalf, dataElementType),
             RankedTensorType::get(splitTySecondHalf, dataElementType)},
