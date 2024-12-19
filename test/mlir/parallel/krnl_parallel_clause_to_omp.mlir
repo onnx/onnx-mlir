@@ -32,7 +32,6 @@ func.func @omp_threads_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -
         }
         omp.yield
       }
-      omp.terminator
     }
     omp.terminator
   }
@@ -43,9 +42,7 @@ func.func @omp_threads_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -
 // CHECK:           [[CST_8_:%.+]] = arith.constant 8 : i32
 // CHECK:           omp.parallel num_threads([[CST_8_]] : i32) proc_bind(spread) {
 }
-
 // -----
-
 func.func @omp_threads(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<16x8x128xf32> {onnx.name = "y"}) {
   %c32 = arith.constant 32 : index
   %c0 = arith.constant 0 : index
@@ -76,7 +73,6 @@ func.func @omp_threads(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref
         }
         omp.yield
       }
-      omp.terminator
     }
     omp.terminator
   }
@@ -120,7 +116,6 @@ func.func @omp_affinity(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memre
         }
         omp.yield
       }
-      omp.terminator
     }
     omp.terminator
   }
@@ -162,7 +157,6 @@ func.func @omp_normal(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<
         }
         omp.yield
       }
-      omp.terminator
     }
     omp.terminator
   }
@@ -172,4 +166,3 @@ func.func @omp_normal(%arg0: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x8x128xf32> {onnx.name = "x"}) -> (memref<16x8x128xf32> {onnx.name = "y"}) {
 // CHECK:           omp.parallel {
 }
-

@@ -153,9 +153,7 @@ public:
     // 64.
     IndexExpr T = LitIE(2);
     DimsExpr reallocTileDims = {T, lit64};
-    Value inputAsTx64 =
-        create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
-
+    Value inputAsTx64 = create.mem.reinterpretCast(input, reallocTileDims);
     // Outer loop (E4, E3, E2, E1 iterates over tiles of 64 elements)
     create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
         [&](const KrnlBuilder &b, ValueRange loopInd) {
@@ -456,8 +454,7 @@ public:
     // 64 elements.
     IndexExpr T = LitIE(2);
     DimsExpr reallocTileDims = {T, lit64};
-    Value allocAsTx64 =
-        create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
+    Value allocAsTx64 = create.mem.reinterpretCast(alloc, reallocTileDims);
 
     // Outer loop (E1 iterates over tiles of 64 elements).
     create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
