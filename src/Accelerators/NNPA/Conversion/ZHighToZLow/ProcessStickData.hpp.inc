@@ -109,7 +109,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
   // more.
   DimsExpr reallocStickDims = {lit2, litStickLen};
   mlir::Value inputAsSticks =
-      create.mem.reinterpretCast(input, litZero.getValue(), reallocStickDims);
+      create.mem.reinterpretCast(input, reallocStickDims);
 
   llvm::SmallVector<int64_t, 4> steps(rank, 1);
   llvm::SmallVector<bool, 4> useParallel(rank, false);
