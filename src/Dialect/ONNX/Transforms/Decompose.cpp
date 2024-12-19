@@ -833,7 +833,7 @@ public:
 
   void increment() {
     // Increment from the back, carry if necessary.
-    for (auto i = shapeToCheck.back(); i >= 0; --i) {
+    for (int64_t i = counter.size() - 1; i >= 0; --i) {
       if (counter[i] == (shapeToCheck[i] + firstElem[i] - 1)) {
         counter[i] = firstElem[i]; // Carry and keep an eventual shift in mind
       } else {
@@ -844,7 +844,7 @@ public:
   }
 
 private:
-  SmallVector<int64_t, 4> counter;
+  SmallVector<int64_t> counter;
   ArrayRef<int64_t> firstElem;
   ArrayRef<int64_t> shapeToCheck; // The first n-1 dims of indices and updates
                                   // are required to be the same by scatterND
@@ -858,8 +858,6 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
   LogicalResult matchAndRewrite(
       ONNXScatterNDOp scatterNDOp, PatternRewriter &rewriter) const final {
     // Check preconditions
-    scatterNDOp.getReductionAttr().dump();
-
     if (scatterNDOp.getReductionAttr().strref() != "none") {
       return failure(); // Scatters with reduction are not supported
     }
@@ -930,15 +928,58 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
       IndicesContigousCounter counter(firstIndex, indicesShape.drop_back(1));
       for (size_t i = 0; i < indicesFlatAccessor.size(); ++i) {
         auto index = indicesFlatAccessor[i];
-        if (counter.getCounter() != index) {
+        if (counter.getCounter() != indicesFlatAccessor[i]) {
           return failure(); // Indices are not contigous
         }
         counter.increment();
       }
     }
-    scatterNDOp->dump();
 
-    return failure();
+    // Strategy for the decomposition:
+    // Split at the split axis, concat the update and part of the split
+
+    // First split
+    const auto slicePosition = updateShape[splitAxis] + firstIndex[splitAxis];
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, scatterNDOp->getLoc());
+
+    const Type dataElementType = dataType.getElementType();
+    SmallVector<int64_t> splitTyFirstHalf(dataShape);
+    splitTyFirstHalf[splitAxis] = slicePosition;
+    SmallVector<int64_t> splitTySecondHalf(dataShape);
+    splitTySecondHalf[splitAxis] -= slicePosition;
+    Value firstSplitSizes = create.onnx.constantInt64(
+        {slicePosition, splitTySecondHalf[splitAxis]});
+    ValueRange firstSplit = create.onnx.split(
+        {RankedTensorType::get(splitTyFirstHalf, dataElementType),
+            RankedTensorType::get(splitTySecondHalf, dataElementType)},
+        scatterNDOp.getData(), firstSplitSizes, splitAxis);
+
+    // Second split
+    SmallVector<int64_t> splitTyFirstQuarter(dataShape);
+    splitTyFirstQuarter[splitAxis] = firstIndex[splitAxis];
+    SmallVector<int64_t> splitTySecondQuarter(dataShape);
+    splitTySecondQuarter[splitAxis] = updateShape[splitAxis];
+    Value secondSplitSize = create.onnx.constantInt64(
+        {firstIndex[splitAxis], updateShape[splitAxis]});
+    ValueRange secondSplit = create.onnx.split(
+        {RankedTensorType::get(splitTyFirstQuarter, dataElementType),
+            RankedTensorType::get(splitTySecondQuarter, dataElementType)},
+        firstSplit[0], secondSplitSize, splitAxis);
+
+    SmallVector<int64_t> firstConcatTy(dataShape);
+    firstConcatTy[splitAxis] = firstIndex[splitAxis] + updateShape[splitAxis];
+    Value firstHalfConcat = create.onnx.concat(
+        RankedTensorType::get(firstConcatTy, dataElementType),
+        {secondSplit[0], scatterNDOp.getUpdates()}, splitAxis);
+    firstHalfConcat.dump();
+
+    Value fullConcat = create.onnx.concat(
+        dataType, {firstHalfConcat, firstSplit[1]}, splitAxis);
+    fullConcat.dump();
+    rewriter.replaceOp(scatterNDOp, fullConcat);
+
+    return success();
   }
 };
 
