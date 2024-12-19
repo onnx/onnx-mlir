@@ -34,6 +34,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Tensor/Squeeze.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
+  Tensor/Where.cpp
   Flow/EntryPoint.cpp
 
 
