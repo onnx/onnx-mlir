@@ -948,6 +948,8 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
 
     const Type dataElementType = dataType.getElementType();
     // We only need a single split if there is no shift
+    // a, b = split(input)
+    // concat(update, b)
     if (firstIndex[splitAxis] == 0) {
       SmallVector<int64_t> splitTyFirstHalf(dataShape);
       splitTyFirstHalf[splitAxis] = updateShape[splitAxis];
@@ -973,8 +975,9 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
 
     // We also only need a single split if the shift + size of the update is the
     // same size as the input
+    // a, b = split(input)
+    // concat(a, update)
     if (firstSlicePosition == dataShape[splitAxis]) {
-      // Case with a shift
       SmallVector<int64_t> splitTyFirstHalf(dataShape);
       splitTyFirstHalf[splitAxis] = firstIndex[splitAxis];
       SmallVector<int64_t> splitTySecondHalf(dataShape);
@@ -995,6 +998,9 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
       return success();
     }
     // Double split case
+    // a, b = split(input)
+    // a1, a2 = split(a)
+    // concat(a1, update, b)
     SmallVector<int64_t> splitTyFirstHalf(dataShape);
     splitTyFirstHalf[splitAxis] = firstSlicePosition;
     SmallVector<int64_t> splitTySecondHalf(dataShape);
@@ -1018,18 +1024,10 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
             RankedTensorType::get(splitTySecondQuarter, dataElementType)},
         firstSplit[0], secondSplitSize, splitAxis);
 
-    SmallVector<int64_t> firstConcatTy(dataShape);
-    firstConcatTy[splitAxis] = firstIndex[splitAxis] + updateShape[splitAxis];
-    Value firstHalfConcat = create.onnx.concat(
-        RankedTensorType::get(firstConcatTy, dataElementType),
-        {secondSplit[0], scatterNDOp.getUpdates()}, splitAxis);
-    firstHalfConcat.dump();
-
-    Value fullConcat = create.onnx.concat(
-        dataType, {firstHalfConcat, firstSplit[1]}, splitAxis);
-    fullConcat.dump();
-    rewriter.replaceOp(scatterNDOp, fullConcat);
-
+    Value concat = create.onnx.concat(dataType,
+        {secondSplit[0], scatterNDOp.getUpdates(), firstSplit[1]}, splitAxis);
+    concat.dump();
+    rewriter.replaceOp(scatterNDOp, concat);
     return success();
   }
 };
