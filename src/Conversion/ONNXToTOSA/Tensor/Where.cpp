@@ -14,15 +14,14 @@ namespace {
 class ONNXWhereLoweringToTOSA : public OpConversionPattern<ONNXWhereOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  using OpAdaptor = typename ONNXWhereOp::Adaptor;
 
   LogicalResult matchAndRewrite(ONNXWhereOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
     auto loc = op.getLoc();
-    Value pred = adaptor.getOperands()[0];
-    Value lhs = adaptor.getOperands()[1];
-    Value rhs = adaptor.getOperands()[2];
+    Value pred = adaptor.getCondition();
+    Value lhs = adaptor.getX();
+    Value rhs = adaptor.getY();
 
     // Check types are compatible
     auto predType = dyn_cast<TensorType>(pred.getType());
@@ -32,10 +31,6 @@ public:
 
     if (!predType || !lhsType || !rhsType || !resultType) {
       return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
-    }
-    if (!isTOSABool(predType.getElementType())) {
-      return rewriter.notifyMatchFailure(
-          op, "Expected bool type for condition to onnx.Where");
     }
     if (lhsType.getElementType() != rhsType.getElementType() ||
         lhsType.getElementType() != resultType.getElementType()) {
