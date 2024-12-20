@@ -46,6 +46,37 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   // Flatten the input data and outputs
   DimsExpr inputDims, flatInputDims, flatAllocDims;
   inputDims = allocDims; // Unput and output have the same shape.
+                         //
+  if (rank == 0) {
+    // Do scalar computation only when the input is a scalar tensor.
+    Value x = create.krnl.load(input);
+    // Scale
+    Value scaleX;
+    if (useReciprocal) {
+      Value one = create.math.constant(inputElementType, 1.0);
+      Value scaleReciprocal = create.math.div(one, scale);
+      scaleX = create.math.mul(x, scaleReciprocal);
+    } else {
+      scaleX = create.math.div(x, scale);
+    }
+    // Round
+    Value roundX = create.krnl.roundEven(scaleX);
+    // Adjust
+    Value adjustX;
+    if (hasZeroPoint)
+      adjustX = create.math.add(roundX, zeroPoint);
+    else
+      adjustX = roundX;
+    // Saturate: use max into a min.
+    Value saturateX = create.math.clip(adjustX, qMin, qMax);
+    // Convert into quantized type.
+    Value quantSaturateX = create.math.cast(quantizedElementType, saturateX);
+    create.krnl.store(quantSaturateX, alloc);
+    onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+        "no simd in quantizationLinear whole tensor");
+    return;
+  }
+
   Value flatInput =
       create.mem.reshapeToFlatInnermost(input, inputDims, flatInputDims, rank);
   Value flatAlloc =

@@ -18,29 +18,87 @@
 #include <assert.h>
 #include <string>
 
-//===----------------------------------------------------------------------===//
-// Compatibility checks
+using namespace onnx_mlir;
 
-/// Convert the input NNPA level, ie. "z16", to a integer value representing the
-/// level, ie. "16". When unkown / out of bounds, returns 0.
-int64_t convertNNPALevel(std::string inputNNPALevel) {
-  if (inputNNPALevel.size() != 3 || inputNNPALevel[0] != 'z')
-    return 0;
-  if (inputNNPALevel[1] == '1') {
-    if (inputNNPALevel[2] == '6')
-      return 16;
+//===----------------------------------------------------------------------===//
+// Scan mcpu and march flags into NNPALevel
+
+static NNPALevel getNNPAFromTargetFlag(std::string str) {
+  // Coded it efficiently as it is called over and over again.
+  if (str.size() == 3) {
+    if (str[0] == 'z') {
+      if (str[1] == '1') {
+        if (str[2] == '6')
+          return NNPALevel::M14;
+      }
+    }
+  } else if (str.size() == 6) {
+    if (str[0] == 'a' && str[1] == 'r' && str[2] == 'c' && str[3] == 'h') {
+      if (str[4] == '1') {
+        if (str[5] == '4')
+          return NNPALevel::M14;
+        if (str[5] == '5')
+          return NNPALevel::M15;
+      }
+    }
   }
-  return 0;
+  return NNPALevel::NONE;
+}
+
+// Read march flag, and if undefined, then read mcpu.
+NNPALevel getNNPAFromFlags() {
+  NNPALevel level = getNNPAFromTargetFlag(march);
+  if (level == NNPALevel::NONE)
+    level = getNNPAFromTargetFlag(mcpu);
+  return level;
+}
+
+//===----------------------------------------------------------------------===//
+// Print NNPALevel as a string (depending on which option was given)
+
+// Print level using mcpu, march, or both depending on the options that were
+// given to the compiler. Favor the zYY names below over the archXX names.
+std::string getNNPAString(NNPALevel level) {
+  std::string val;
+  if (!mcpu.empty()) {
+    // The mcpu compiler option is defined, give an answer
+    if (level == NNPALevel::M14)
+      val = "--mcpu=z16"; // Note: --mcpu is deprecated.
+    else if (level == NNPALevel::M15)
+      val = "--mcpu=arch15"; // Note: --mcpu is deprecated.
+    else
+      assert(level == NNPALevel::NONE && "unknown mcpu option");
+  }
+  if (!march.empty()) {
+    if (!val.empty() && level != NNPALevel::NONE)
+      val = val.append(" ");
+    // The march compiler option is defined, give an answer
+    if (level == NNPALevel::M14)
+      val = val.append("--march=z16");
+    else if (level == NNPALevel::M15)
+      val = val.append("--march=arch15");
+    else
+      assert(level == NNPALevel::NONE && "unknown march option");
+  }
+  return val;
 }
 
 /// A function to check whether the input NNPA level, ie. "z16", is compatible
 /// with the current NNPA level.
-bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
-  int64_t inLevel = convertNNPALevel(inputNNPALevel);
-  int64_t mcpuLevel = convertNNPALevel(onnx_mlir::mcpu);
-  if (inLevel == 0 && mcpuLevel == 0)
+bool isCompatibleWithNNPALevel(NNPALevel level) {
+  NNPALevel flagLevel = getNNPAFromFlags();
+  if (level == NNPALevel::NONE && flagLevel == NNPALevel::NONE)
     return false;
-  return inLevel <= mcpuLevel;
+  return level <= flagLevel;
+}
+
+/// A function to check whether the current --march, ie. "z16", is less than or
+/// equal to the given NNPA level.
+bool isLessEqualNNPALevel(NNPALevel level) {
+  NNPALevel flagLevel = getNNPAFromFlags();
+  if (level == NNPALevel::NONE && flagLevel == NNPALevel::NONE)
+    return false;
+  return flagLevel <= level;
 }
 
 //===----------------------------------------------------------------------===//
@@ -48,14 +106,41 @@ bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
 
 // The NNPA maximum supported dimension index size value by using
 // zdnn_get_nnpa_max_dim_idx_size() This value depends on HW.
-static constexpr int64_t NNPA_Z16_MAXIMUM_DIMENSION_INDEX_SIZE = 32768;
+static constexpr int64_t NNPA_ARCH14_MAXIMUM_DIMENSION_INDEX_SIZE = 32768;
+
+/*
+  ARCH15 sizes are dimension dependent:
+        for(int i=1; i<=4; ++i) {
+                uint32_t maxDimSize = zdnn_get_max_for_dim((uint8_t) i);
+                printf("  max size for dim e%i: %i\n", i, (int) maxDimSize);
+        }
+
+  max size for dim e1: 2097152
+  max size for dim e2: 1048576
+  max size for dim e3: 32768
+  max size for dim e4: 32768
+*/
+static constexpr int64_t NNPA_ARCH15_MAXIMUM_DIMENSION_INDEX_SIZES[] = {
+    /*e1*/ 2097152, /*e2*/ 1048576, /*e3*/ 32768, /*e4*/ 32768};
 
 int64_t NNPAGetMaxForDim(int64_t dim, int64_t rank) {
   assert(rank >= 0 && "expected positive rank");
   assert(dim >= 0 && dim < rank && "dim outside range [0..rank)");
   if (rank > 4)
     return 0;
-  if (isCompatibleWithNNPALevel(NNPA_Z16))
-    return NNPA_Z16_MAXIMUM_DIMENSION_INDEX_SIZE;
+  // rank 4: (index from memref = 0, 1, 2, 3) -> e (4, 3, 2, 1)
+  // rank 3: (index from memref = 0, 1, 2) -> e (3, 2, 1)
+  // rank 2: (index from memref = 0, 1) -> e (2, 1)
+  // rank 1: (index from memref = 0) -> e (1)
+  int64_t e = rank - dim;
+
+  // List from newest NNPA to oldest, to select the most recent compatible
+  // one.
+  if (isCompatibleWithNNPALevel(NNPALevel::M15))
+    return NNPA_ARCH15_MAXIMUM_DIMENSION_INDEX_SIZES[e - 1];
+
+  if (isCompatibleWithNNPALevel(NNPALevel::M14))
+    return NNPA_ARCH14_MAXIMUM_DIMENSION_INDEX_SIZE;
+
   return 0;
 }

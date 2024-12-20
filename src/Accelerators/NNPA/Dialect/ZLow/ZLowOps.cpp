@@ -357,6 +357,48 @@ void ZLowBatchNormOp::getEffects(
   effects.emplace_back(MemoryEffects::Read::get(), &getShapeMutable(),
       SideEffects::DefaultResource::get());
 }
+//===----------------------------------------------------------------------===//
+// ZLowOps methods
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZLowQuantizedStickOp::verify() {
+  ZLowQuantizedStickOp::Adaptor operandAdaptor(*this);
+  Value recScale = operandAdaptor.getRecScale();
+  Value offset = operandAdaptor.getOffset();
+  Value output = operandAdaptor.getOut();
+  auto outputType = llvm::dyn_cast<MemRefType>(output.getType());
+  if (!outputType)
+    return failure();
+
+  // Verify quantized type.
+  StringRef quantizedType = getQType();
+  if (!(quantizedType.equals_insensitive("dlfloat16") ||
+          quantizedType.equals_insensitive("int8") ||
+          quantizedType.equals_insensitive("weights")))
+    return emitOpError("q_type must be one of dlfloat16, int8, and weights");
+
+  // Verify element type of the output.
+  // TODO: should we have a more stricted contraint, e.g. signed integer?
+  Type elementType = outputType.getElementType();
+  if (quantizedType.equals_insensitive("dfloat16") && !elementType.isF16())
+    return emitOpError("q_type and element type mismatched");
+  if (quantizedType.equals_insensitive("int8") && !elementType.isInteger(8))
+    return emitOpError("q_type and element type mismatched");
+  if (quantizedType.equals_insensitive("weights") && !elementType.isInteger(8))
+    return emitOpError("q_type and element type mismatched");
+
+  // Verify recScale and offset.
+  if (auto ty = llvm::dyn_cast<MemRefType>(recScale.getType())) {
+    if (!ty.getElementType().isF32())
+      return emitOpError("recScale must be f32");
+  }
+  if (auto ty = llvm::dyn_cast<MemRefType>(offset.getType())) {
+    if (!ty.getElementType().isF32())
+      return emitOpError("offset must be f32");
+  }
+
+  return success();
+}
 
 } // namespace zlow
 } // namespace onnx_mlir

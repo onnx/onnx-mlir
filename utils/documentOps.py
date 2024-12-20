@@ -4,7 +4,7 @@
 
 ##################### documentOps.py ########################################
 #
-# Copyright 2022, 2023 The IBM Research Authors.
+# Copyright 2022, 2024 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -23,6 +23,15 @@
 # Default values are used when no explicit ==MIN==/==MAX== values are used.
 min_opset_default = 6
 max_opset_default = "*"
+# NNPA supported. Ordered list, with oldest first and most recent last.
+nnpa_supported_list = ["z16"]
+
+# Derived variables (do not update).
+nnpa_level_default = nnpa_supported_list[-1]  # Most recent arch (last).
+nnpa_supported_set = set(nnpa_supported_list)
+nnpa_most_current_str = ""
+if len(nnpa_supported_list) > 1:
+    nnpa_most_current_str = " - ^"
 
 import sys
 import getopt
@@ -35,7 +44,10 @@ import subprocess
 # SEMANTIC for LABELING (one line per directive)
 #
 # ==ARCH== <arch>
-#   where <arch> is cpu/NNPA/... this option is valid until reset by another ARCH dir
+#   where <arch> is cpu or NNPA.. this option is valid until reset by another ARCH dir
+#
+# ==LEVEL== <levels>
+#   where <levels> is a comma separated names of versions supported by NNPA.
 #
 # ==OP== <op> <text>
 #   where <op> is the ONNX op name
@@ -69,6 +81,8 @@ def print_usage(msg=""):
     print('  -a, --arch <arch>: report on "==ARCH== <arch>".')
     print("  -d, --debug: include debug.")
     print("  -i, --input <file name>: input file.")
+    if "NNPA" in target_arch:
+        print('  -l, --level <level>: report on "==LEVEL== <level>".')
     print("  -n, --notes: include notes/TODOs.")
     print("  -p, --path <util path>: path to onnx-mlir util directory.")
     print("  -u, --unsupported: list unsupported ops.")
@@ -81,6 +95,7 @@ def print_usage(msg=""):
 hightest_opset = None  # Highest opset found in the description.
 opset_dict = {}  # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}  # <op> -> <text> in "==LIM== <text>".
+level_dict = {}  # <op> -> <text> in "==LEVEL== <text>".
 min_dict = {}  # <op> -> <num> in "==MIN== <num>".
 max_dict = {}  # <op> -> <num> in "==MAX== <num>".
 todo_dict = {}  # <op> -> <text> in "==TODO== <text>".
@@ -106,7 +121,6 @@ def parse_file(file_name):
         file = open(file_name, "r")
     except OSError:
         print_usage("Could not open file `" + file_name + "`")
-
     op = ""
     arch = ""
     for line in file:
@@ -117,7 +131,7 @@ def parse_file(file_name):
             arch = p[1]
             if debug:
                 print("process arch", arch)
-            continue
+                continue
         if arch != target_arch:
             continue
         # Additional top paragraph
@@ -142,6 +156,50 @@ def parse_file(file_name):
             if debug:
                 print("got supported op", op, "at level", list_op_version[op])
             continue
+        # Scan NNPA Level
+        if "NNPA" in target_arch:
+            p = re.search(r"==LEVEL==\s+(\w+)(?:,\s*(\w+))*", l)
+            if p is not None:
+                assert op is not None, "Level without op."
+                assert op not in level_dict, "Redefinition of level for op " + op
+                current_set = set(p.groups())
+                join_set = current_set & nnpa_supported_set
+                if not join_set:
+                    if debug:
+                        print(
+                            "process NNPA level, no overlap between",
+                            current_set,
+                            "and",
+                            nnpa_supported_set,
+                        )
+                else:
+                    # Find the first and last in set according to the order in nnpa_supported_list.
+                    first_in_set = None
+                    last_in_set = None
+                    for x in nnpa_supported_list:
+                        if x in join_set:
+                            last_in_set = x
+                            if first_in_set == None:
+                                first_in_set = x
+                    assert first_in_set and last_in_set, "should both be defined"
+                    if debug:
+                        print(
+                            "join set is",
+                            join_set,
+                            "first",
+                            first_in_set,
+                            "last",
+                            last_in_set,
+                        )
+                    if last_in_set == nnpa_level_default:  # First to default (current).
+                        level_dict[op] = first_in_set + nnpa_most_current_str
+                    elif first_in_set == last_in_set:  # Only one.
+                        level_dict[op] = first_in_set
+                    else:  # Interval finishing before current.
+                        level_dict[op] = first_in_set + " - " + last_in_set
+                    if debug:
+                        print("process NNPA level", level_dict[op])
+                continue
         # Limits.
         p = re.search(r"==LIM==\s+(.*)\s*$", l)
         if p is not None:
@@ -232,6 +290,13 @@ def print_md():
         + str(hightest_opset)
         + "."
     )
+    if "NNPA" in target_arch:
+        print(
+            "   * A ^ indicates onnx-mlir is compatible with the latest"
+            + " level of the NNPA Architecture which is "
+            + str(nnpa_level_default)
+            + "."
+        )
 
     print("\n")
     # Additional top paragraph.
@@ -239,8 +304,17 @@ def print_md():
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Supported Opsets (inclusive)", "Limitations"]
-    separator = ["---", "---", "---"]
+    if "NNPA" in target_arch:
+        header = [
+            "Op",
+            "Supported Opsets (inclusive)",
+            "Minimum NNPA Level(Inclusive)",
+            "Limitations",
+        ]
+        separator = ["---", "---", "---", "---"]
+    else:
+        header = ["Op", "Supported Opsets (inclusive)", "Limitations"]
+        separator = ["---", "---", "---"]
     if emit_notes:
         header.append("Notes")
         separator.append("---")
@@ -248,8 +322,16 @@ def print_md():
     print_row(separator)
     for op in sorted(list_op_version.keys()):
         supported_op = op in min_dict
+        if supported_op and "NNPA" in target_arch and op not in level_dict:
+            supported_op = False
         if supported_op:
             info = ["**" + op + "**", f"{min_dict[op]} - {max_dict[op]}"]
+            if "NNPA" in target_arch:
+                info = [
+                    "**" + op + "**",
+                    f"{min_dict[op]} - {max_dict[op]}",
+                    f"{level_dict[op]}",
+                ]
         else:
             if not emit_unsupported:
                 continue
@@ -288,7 +370,10 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-a", "--arch"):
             target_arch = arg
-            input_command += " --arch " + arg
+            input_command += " --arch " + target_arch
+        elif opt in ("-l", "--level"):
+            nnpa_level = arg
+            input_command += " --level " + nnpa_level
         elif opt in ("-d", "--debug"):
             debug = 1
         elif opt in ("-h", "--help"):

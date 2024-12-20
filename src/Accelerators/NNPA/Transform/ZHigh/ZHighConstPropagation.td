@@ -28,28 +28,5 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
-//===----------------------------------------------------------------------===//
-// Pattern-Match and Rewrite
-//===----------------------------------------------------------------------===//
-
-// Useful test definitions.
-
-// Check an ONNXConstantOp is using dense attribute or not.
-def IsFromDenseONNXConstantOp:
-    Constraint<CPred<"isDenseONNXConstant($_self)">,
-  "Value is produced by a dense ONNXConstantOp">;
-
-// Constant propagation for stickify
-def CreateConstantForStick: NativeCodeCall<
-  "createConstantForStick($_builder, $0, $1, $2)"
->;
-
-def CreateConstantForStickForLSTM : NativeCodeCall<
-  "createConstantForStickForLSTM($_builder, $0, $1, $2, $3, $4)"
->;
-
-def CreateConstantForStickForGRU : NativeCodeCall<
-  "createConstantForStickForGRU($_builder, $0, $1, $2, $3)"
->;
 
 #endif // ZHIGH_CONST_PROPAGATION

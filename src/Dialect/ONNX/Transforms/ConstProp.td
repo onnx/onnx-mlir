@@ -142,6 +142,9 @@ def CreateCastOfConst :
 def CreateBitwiseNotOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXBitwiseNotOp>($_builder, $0, $1)">;
 
+def CreateAbsOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXAbsOp>($_builder, $0, $1)">;
+
 def CreateCeilOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXCeilOp>($_builder, $0, $1)">;
 
@@ -177,6 +180,9 @@ def CreateReluOfConst :
 
 def CreateReciprocalOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXReciprocalOp>($_builder, $0, $1)">;
+
+def CreateRoundOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXRoundOp>($_builder, $0, $1)">;
 
 def CreateMaxOfConst :
    NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXMaxOp>($_builder, $0, $1)">;
@@ -420,6 +426,14 @@ def BitwiseNotConstProp : NamedPat<"BitwiseNotofConst",
     (CreateBitwiseNotOfConst $bitwiseNotOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
+// Constant Propagation for Abs
+def AbsConstProp : NamedPat<"AbsofConst",
+    // From abs(c).
+    (ONNXAbsOp:$ceilOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To new_c
+    (CreateAbsOfConst $ceilOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
 // Constant Propagation for Ceil
 def CeilConstProp : NamedPat<"CeilofConst",
     // From ceil(c).
@@ -531,6 +545,14 @@ def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
     (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To reciprocal(c)
     (CreateReciprocalOfConst $reciprocalOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Round
+def RoundofConst : NamedPat<"RoundofConst",
+    // From  onnx.Round(c)
+    (ONNXRoundOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To round_even(c)
+    (CreateRoundOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
 //===----------------------------------------------------------------------===//

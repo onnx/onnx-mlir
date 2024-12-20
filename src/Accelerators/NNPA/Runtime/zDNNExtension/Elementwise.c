@@ -28,7 +28,6 @@
 #include <sys/time.h>
 
 #include "zDNNExtension.h"
-#include "zdnn.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -301,6 +300,46 @@ zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_unary_elementwise_common(input, NULL, output, ZDNN_TANH_EXT);
   CHECK_ZDNN_STATUS(status, "zdnn_tanh");
+  return status;
+}
+
+// -----------------------------------------------------------------------------
+// Extension Functions for arch15
+// arch15 specific zdnn functions but with the `_ext` postfix.
+// Retrieve the zdnn status message
+// -----------------------------------------------------------------------------
+
+zdnn_status zdnn_gelu_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+  zdnn_status status = zdnn_gelu(input, output);
+  CHECK_ZDNN_STATUS(status, "zdnn_gelu");
+  return status;
+}
+
+zdnn_status zdnn_invsqrt_ext(
+    const zdnn_ztensor *input, float epsilon, zdnn_ztensor *output) {
+  zdnn_status status = zdnn_invsqrt(input, epsilon, output);
+  CHECK_ZDNN_STATUS(status, "zdnn_invsqrt");
+  return status;
+}
+
+zdnn_status zdnn_leaky_relu_ext(const zdnn_ztensor *input,
+    const void *clipping_value, float adjustment_factor, zdnn_ztensor *output) {
+  zdnn_status status =
+      zdnn_leaky_relu(input, clipping_value, adjustment_factor, output);
+  CHECK_ZDNN_STATUS(status, "zdnn_leaky_relu");
+  return status;
+}
+
+zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area,
+    int opType, zdnn_ztensor *output) {
+  zdnn_status status = zdnn_reduce(input, save_area, opType, output);
+  CHECK_ZDNN_STATUS(status, "zdnn_reduce");
+  return status;
+}
+
+zdnn_status zdnn_sqrt_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+  zdnn_status status = zdnn_sqrt(input, output);
+  CHECK_ZDNN_STATUS(status, "zdnn_sqrt");
   return status;
 }
 

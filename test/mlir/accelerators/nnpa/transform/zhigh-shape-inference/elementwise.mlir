@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 /// Test the default behavior of unary lement-wise ops users give the shape of

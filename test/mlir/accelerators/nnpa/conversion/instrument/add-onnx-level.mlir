@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --mcpu=z16 --maccel=NNPA  --printIR --EmitZHighIR -profile-ir=Onnx %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA  --printIR --EmitZHighIR -profile-ir=Onnx %s | FileCheck %s
 
 // -----
 
