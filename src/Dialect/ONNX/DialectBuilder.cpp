@@ -36,6 +36,12 @@ IntegerAttr OnnxBuilder::getSignedInt64Attr(int64_t n) const {
 // Basic operations
 // =============================================================================
 
+Value OnnxBuilder::abs(Value input) const {
+  Type outputType = input.getType(); // input == output type.
+  return createTypedOpAndInferShapes<ONNXAbsOp>(
+      toTensor(outputType), toTensor(input));
+}
+
 Value OnnxBuilder::add(Value A, Value B) const {
   assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
              mlir::cast<ShapedType>(B.getType()).getElementType()) &&
@@ -136,6 +142,13 @@ void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
   IntegerAttr groupIDAttr = getSignedInt64Attr(groupID);
   // No shape needed for this one I believe.
   b().create<ONNXDimGroupOp>(loc(), input, axisAttr, groupIDAttr);
+}
+
+Value OnnxBuilder::dequantizeLinear(
+    Type resType, Value X, Value scale, Value zeroPoint, int axis) const {
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
+  return createOpAndInferShapes<ONNXDequantizeLinearOp>(
+      resType, toTensor(X), toTensor(scale), toTensor(zeroPoint), axisAttr);
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {

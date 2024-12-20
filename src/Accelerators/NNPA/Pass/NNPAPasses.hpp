@@ -30,6 +30,7 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
+std::unique_ptr<mlir::Pass> createONNXToZHighPass(NNPAQuantType quantMode);
 void configureOnnxToZHighLoweringPass(bool reportOnNNPAUnsupportedOps);
 
 /// Add pass for rewriting ONNX ops for ZHigh.

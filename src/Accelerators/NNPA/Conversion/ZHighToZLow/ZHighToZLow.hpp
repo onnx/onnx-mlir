@@ -19,6 +19,8 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+
 /// Default 4K alignment for sticked tensors.
 static constexpr int64_t gAlignment = 4096;
 
@@ -42,8 +44,9 @@ mlir::Value insertShapeMemRefI64(mlir::PatternRewriter &rewriter,
 /// Insert an allocation for the given dimensions and layout.
 /// By default, set alignment to 4K.
 mlir::Value insertAllocForZMemRefByDim(mlir::ArrayRef<IndexExpr> dims,
-    mlir::Type layoutType, mlir::Operation *op, mlir::PatternRewriter &rewriter,
-    int64_t alignment);
+    ZTensorEncodingAttr::DataLayout layout,
+    ZTensorEncodingAttr::QuantizedType qtype, mlir::Operation *op,
+    mlir::PatternRewriter &rewriter, int64_t alignment);
 
 /// Insert an allocation for the given ZMemRefType.
 /// By default, set alignment to 4K.
@@ -53,7 +56,7 @@ mlir::Value insertAllocForZMemRef(ZMemRefType zType,
 
 /// Populate all conversion patterns for ZHigh Ops.
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
-    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
     bool enableParallel);
 
 } // namespace zhigh

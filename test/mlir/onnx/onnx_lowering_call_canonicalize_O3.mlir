@@ -1,7 +1,7 @@
-// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --mcpu=z16 --shape-inference --convert-onnx-to-krnl='ops-for-call=Conv' --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --march=z16 --shape-inference --convert-onnx-to-krnl='ops-for-call=Conv' --canonicalize %s -split-input-file | FileCheck %s
 
-// use --mtriple=s390x-ibm-loz --mcpu=z16 to enable SIMD as we now need a machine
-// can also use -march=x86-64 instead.
+// use --mtriple=s390x-ibm-loz --march=z16 to enable SIMD as we now need a machine
+// can also use --march=x86-64 instead.
 
 // -----
 

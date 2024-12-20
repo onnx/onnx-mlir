@@ -119,6 +119,9 @@ struct MathBuilder final : DialectBuilder {
   // "B" below indicates that the operation will splat scalar values if one of
   // the input value is itself a vector.
 
+  // "B" below indicates that the operation will splat scalar values if one of
+  // the input value is itself a vector.
+
   mlir::Value abs(mlir::Value val) const;
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;     // B.
   mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;    // B/Int only.
@@ -457,6 +460,11 @@ template <class BUILDER>
 using SimdPostReductionBodyFn = std::function<mlir::Value(
     const BUILDER &b, mlir::Value tmpVal, int64_t VL)>;
 
+// Function used for (nearly) all loops, where there is typically one value in
+// the provided ValueRange per loop nest.
+template <class BUILDER>
+using LoopBodyFn = mlir::function_ref<void(const BUILDER &, mlir::ValueRange)>;
+
 } // namespace impl
 
 //===----------------------------------------------------------------------===//
@@ -475,10 +483,12 @@ struct SCFBuilder final : DialectBuilder {
   void ifThenElse(mlir::Value cond, SCFThenElseBodyFn thenFn,
       SCFThenElseBodyFn elseFn = nullptr) const;
   // Common loop interface (krnl/affine/scf).
-  using SCFLoopBodyFn =
-      mlir::function_ref<void(const SCFBuilder &, mlir::ValueRange)>;
+  using SCFLoopBodyFn = impl::LoopBodyFn<SCFBuilder>;
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       SCFLoopBodyFn bodyFn) const;
+  void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+      mlir::ArrayRef<int64_t> steps, mlir::ArrayRef<bool> useParallel,
+      SCFLoopBodyFn builderFn) const;
   // Custom interface
   void forLoop(
       mlir::Value lb, mlir::Value ub, int64_t step, SCFLoopBodyFn bodyFn) const;
@@ -625,16 +635,16 @@ struct GenericAffineBuilder final : DialectBuilder {
       bool isDataCache = true);
 
   // Common loop interface (krnl/affine/scf).
-  using GenericAffineLoopBodyFn =
-      mlir::function_ref<void(const GenericAffineBuilder &, mlir::ValueRange)>;
+  using GenericAffineLoopBodyFn = impl::LoopBodyFn<GenericAffineBuilder>;
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
+      GenericAffineLoopBodyFn builderFn) const;
+  void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+      mlir::ArrayRef<int64_t> steps, mlir::ArrayRef<bool> useParallel,
       GenericAffineLoopBodyFn builderFn) const;
 
   // Custom interface
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
       GenericAffineLoopBodyFn builderFn) const; // Sequential only.
-  void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-      mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const;
 
   // Common simd loop interface (krnl/affine/scf).
   using GenericAffineSimdIterateBodyFn =
@@ -680,12 +690,6 @@ struct GenericAffineBuilder final : DialectBuilder {
   void yield() const;
 
 private:
-  // Support for multiple for loops.
-  void recursionForLoopsIE(mlir::ArrayRef<IndexExpr> lbs,
-      mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
-      llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-      GenericAffineLoopBodyFn builderFn) const;
-
   // Support for adding blocks.
   void appendToBlock(mlir::Block *block,
       mlir::function_ref<void(mlir::ValueRange)> builderFn) const;

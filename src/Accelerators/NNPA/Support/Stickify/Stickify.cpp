@@ -30,18 +30,41 @@
 #pragma export(zdnn_get_library_version)
 #endif
 
+/// Verify the transformed descriptor
 zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
+
+zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
+    const char *file_name, int line_no, const char *format, ...);
+
+#define ZDNN_STATUS(status, format, ...)                                       \
+  set_zdnn_status(status, __func__, __FILE__, __LINE__, format, __VA_ARGS__)
+
+#define ZDNN_STATUS_NO_MSG(status) ZDNN_STATUS(status, NULL, NO_ARG)
+#ifndef ZDNN_CONFIG_DEBUG
+#define ZDNN_STATUS_OK ZDNN_OK
+#else
+#define ZDNN_STATUS_OK ZDNN_STATUS_NO_MSG(ZDNN_OK)
+#endif
 
 /// Macros from third_party/zdnn-lib/zdnn/zdnn_private.h
 
 #define AIU_BYTES_PER_STICK 128
+#define AIU_1BYTE_CELLS_PER_STICK 128
 #define AIU_2BYTE_CELLS_PER_STICK 64
+#define AIU_4BYTE_CELLS_PER_STICK 32
 #define AIU_2BYTE_CELL_SIZE 2
 #define AIU_STICKS_PER_PAGE 32
 #define AIU_PAGESIZE_IN_BYTES 4096
 
 #define ZDNN_MAX_DIMS 4 // number of dims in AIU's Tensor Descriptor
 
+// From status.c
+// maximum size for the format string, including the prepended STATUS_STR_XXX
+#define MAX_STATUS_FMTSTR_SIZE 1024
+
+// -----------------------------------------------------------------------------
+// Misc Macros
+// -----------------------------------------------------------------------------
 #define CEIL(a, b)                                                             \
   static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
@@ -54,6 +77,7 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
       AIU_2BYTE_CELLS_PER_STICK)
 #define ZDNN_STATUS_OK ZDNN_OK
 
+// From zdnn_private.h
 typedef enum elements_mode {
   ELEMENTS_AIU,
   ELEMENTS_PRE,
@@ -61,10 +85,13 @@ typedef enum elements_mode {
   ELEMENTS_PRE_ALL_GATES
 } elements_mode;
 
-typedef /*vector*/ unsigned int vec_float32;
-typedef /*vector*/ unsigned short vec_int16;
-typedef /*vector*/ unsigned char vec_char8;
 // End - Macros from third_party/zdnn-lib/zdnn/zdnn_private.h
+
+// Functions from third_party/zdnn-lib/zdnn/status.h
+zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
+    const char *file_name, int line_no, const char *format, ...) {
+  return status;
+}
 
 // Functions from third_party/zdnn-lib/zdnn/get.c
 #define DECLARE_DATA_LAYOUT_STR(a) static const char *DATA_LAYOUT_STR_##a = #a;
@@ -219,6 +246,7 @@ short get_data_type_size(zdnn_data_types type) {
     CASE_RTN_SIZE(FP16, 2);
     CASE_RTN_SIZE(FP32, 4);
     CASE_RTN_SIZE(ZDNN_DLFLOAT16, 2);
+    CASE_RTN_SIZE(INT8, 1);
   }
 #undef CASE_RTN_SIZE
 
@@ -305,11 +333,33 @@ uint64_t get_num_elements(const zdnn_ztensor *ztensor, elements_mode mode) {
 
 // Functions from third_party/zdnn-lib/zdnn/allochelper.c
 uint64_t getsize_ztensor(const zdnn_tensor_desc *tfrmd_desc) {
-  // same formula for 4DFEATURE and 4DKERNEL tensors
+  uint32_t cells_per_stick;
+  uint32_t number_of_sticks;
+  switch (tfrmd_desc->type) {
+  case ZDNN_BINARY_INT8:
+    if (tfrmd_desc->format == ZDNN_FORMAT_4DWEIGHTS) {
+      // 4DWEIGHTS has two vectors interleaved, therefore only 64 cells vs 128
+      // Due to this interleaving, number_of_sticks is halved, but must be
+      // rounded up to stay even for proper interleaving.
+      cells_per_stick = AIU_2BYTE_CELLS_PER_STICK;
+      number_of_sticks = CEIL(tfrmd_desc->dim2, 2);
+    } else {
+      cells_per_stick = AIU_1BYTE_CELLS_PER_STICK;
+      number_of_sticks = tfrmd_desc->dim2;
+    }
+    break;
+  case ZDNN_BINARY_INT32:
+    cells_per_stick = AIU_4BYTE_CELLS_PER_STICK;
+    number_of_sticks = tfrmd_desc->dim2;
+    break;
+  case ZDNN_DLFLOAT16: /* fallthrough */
+  default:
+    cells_per_stick = AIU_2BYTE_CELLS_PER_STICK;
+    number_of_sticks = tfrmd_desc->dim2;
+  }
   return static_cast<uint64_t>(tfrmd_desc->dim4) * tfrmd_desc->dim3 *
-         CEIL(tfrmd_desc->dim2, AIU_STICKS_PER_PAGE) *
-         CEIL(tfrmd_desc->dim1, AIU_2BYTE_CELLS_PER_STICK) *
-         AIU_PAGESIZE_IN_BYTES;
+         CEIL(number_of_sticks, AIU_STICKS_PER_PAGE) *
+         CEIL(tfrmd_desc->dim1, cells_per_stick) * AIU_PAGESIZE_IN_BYTES;
 }
 
 zdnn_status allochelper_ztensor_alloc(zdnn_ztensor *ztensor) {
@@ -325,7 +375,7 @@ zdnn_status allochelper_ztensor_alloc(zdnn_ztensor *ztensor) {
 
   // get the size and allocate space aligned on a 4k boundary. If the malloc
   // fails, return error.
-  size = getsize_ztensor(ztensor->transformed_desc);
+  size = getsize_ztensor(ztensor->transformed_desc); // Modified
   if (!(ztensor->buffer = malloc_aligned_4k(size))) {
     return ZDNN_ALLOCATION_FAILURE;
   }
@@ -342,7 +392,9 @@ void allochelper_ztensor_free(zdnn_ztensor *ztensor) {
   free_aligned_4k(ztensor->buffer);
   ztensor->buffer = NULL;
   ztensor->buffer_size = 0;
-} // End - Functions from third_party/zdnn-lib/zdnn/allochelper.c
+}
+
+/* End - Functions from third_party/zdnn-lib/zdnn/allochelper.c */
 
 // Functions from third_party/zdnn-lib/zdnn/tensor_desc.c
 zdnn_status verify_pre_transformed_descriptor(
@@ -371,6 +423,7 @@ zdnn_status verify_pre_transformed_descriptor(
   case BFLOAT:
   case FP16:
   case FP32:
+  case INT8:
     // all of these are good cases
     break;
   default:
@@ -395,35 +448,71 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
     case ZDNN_BIDIR_ZRH:
       break;
     default:
-      return ZDNN_INVALID_LAYOUT;
+      return ZDNN_STATUS(ZDNN_INVALID_LAYOUT, "Format is %s but layout is %s",
+          get_data_format_str(tfrmd_desc->format),
+          get_data_layout_str(tfrmd_desc->layout));
     }
     break;
   case ZDNN_FORMAT_4DKERNEL:
     if (tfrmd_desc->layout != ZDNN_HWCK) {
-      return ZDNN_INVALID_LAYOUT;
+      return ZDNN_STATUS(ZDNN_INVALID_LAYOUT, "Format is %s but layout is %s",
+          get_data_format_str(tfrmd_desc->format),
+          get_data_layout_str(tfrmd_desc->layout));
     }
     break;
+  case ZDNN_FORMAT_4DWEIGHTS:
+    if (tfrmd_desc->layout != ZDNN_NHWC) {
+      return ZDNN_STATUS(ZDNN_INVALID_LAYOUT, "Format is %s but layout is %s",
+          get_data_format_str(tfrmd_desc->format),
+          get_data_layout_str(tfrmd_desc->layout));
+    }
+    break;
+  default:
+    // unrecognized
+    return ZDNN_STATUS(ZDNN_INVALID_FORMAT, "Invalid format: %d (%s)",
+        tfrmd_desc->format, get_data_format_str(tfrmd_desc->format));
   }
-
-  // for right now only ZDNN_DLFLOAT16 is valid
-  if (tfrmd_desc->type != ZDNN_DLFLOAT16) {
+  // Only ZDNN_DLFLOAT16, ZDNN_BINARY_INT8, and ZDNN_BINARY_INT32 are currently
+  // supported.
+  if (tfrmd_desc->type != ZDNN_DLFLOAT16 &&
+      tfrmd_desc->type != ZDNN_BINARY_INT8 &&
+      tfrmd_desc->type != ZDNN_BINARY_INT32) {
     return ZDNN_INVALID_TYPE;
   }
 
   const uint32_t *dims_ptr = &(tfrmd_desc->dim4);
 
+  /* ToFix: the nnpa_query_result is not set up with onnx-mlir
+   * Temporarily commented out.
+   * Refer to issue #3034
+   */
+
+#if 0
   // is the dimension above the limit or zero?
   // transformed layout uses all dim* entries, so we'll check them all
   for (int i = 0; i < ZDNN_MAX_DIMS; i++) {
     if (!dims_ptr[i] || dims_ptr[i] > NNPAGetMaxForDim(i, ZDNN_MAX_DIMS)) {
       return ZDNN_INVALID_SHAPE;
     }
+   if (dims_ptr[i] > zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i)) {
+
+      if (!zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i)) {
+        return ZDNN_UNSUPPORTED_AIU_EXCEPTION;
+      } else {
+        return ZDNN_STATUS(
+            ZDNN_INVALID_SHAPE,
+            "Invalid shape for dim%d. (reason: dimension value %d exceeds %d)",
+            ZDNN_MAX_DIMS - i, dims_ptr[i],
+            zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i));
+      }
+    }
   }
 
   // is stick area size above the limit?
-  if (getsize_ztensor(tfrmd_desc) > NNPA_MAXIMUM_TENSOR_SIZE) {
+  if (getsize_ztensor(tfrmd_desc) > zdnn_get_nnpa_max_tensor_size()) {
     return ZDNN_INVALID_SHAPE;
   }
+#endif
 
   return ZDNN_STATUS_OK;
 }
@@ -548,6 +637,36 @@ zdnn_status generate_transformed_desc(
   return status;
 }
 
+zdnn_status generate_quantized_transformed_desc(
+    const zdnn_tensor_desc *pre_tfrmd_desc,
+    zdnn_quantized_transform_types transform_type,
+    zdnn_tensor_desc *tfrmd_desc) {
+
+  zdnn_status status;
+  if ((status = generate_transformed_desc(pre_tfrmd_desc, tfrmd_desc)) !=
+      ZDNN_OK) {
+    return status;
+  }
+  switch (transform_type) {
+  case QUANTIZED_DLFLOAT16:
+    tfrmd_desc->format = ZDNN_FORMAT_4DFEATURE;
+    tfrmd_desc->type = ZDNN_DLFLOAT16;
+    return ZDNN_STATUS_OK;
+  case QUANTIZED_INT8:
+    tfrmd_desc->format = ZDNN_FORMAT_4DFEATURE;
+    tfrmd_desc->type = ZDNN_BINARY_INT8;
+    return ZDNN_STATUS_OK;
+  case QUANTIZED_WEIGHTS_INT8:
+    tfrmd_desc->format = ZDNN_FORMAT_4DWEIGHTS;
+    tfrmd_desc->type = ZDNN_BINARY_INT8;
+    return ZDNN_STATUS_OK;
+  default:
+    return ZDNN_INVALID_TRANSFORM_TYPE;
+    // return ZDNN_STATUS(ZDNN_INVALID_TRANSFORM_TYPE,
+    //                    "Invalid transform type: %d", transform_type);
+  }
+}
+
 zdnn_status generate_transformed_desc_concatenated(
     const zdnn_tensor_desc *pre_tfrmd_desc, zdnn_concat_info info,
     zdnn_tensor_desc *tfrmd_desc) {
@@ -631,6 +750,9 @@ void init_ztensor(zdnn_tensor_desc *pre_tfrmd_desc,
   output->transformed_desc = tfrmd_desc;
   output->is_transformed = false;
   memset(&output->reserved, 0, sizeof(output->reserved));
+  output->rec_scale = 0;
+  output->offset = 0;
+  memset(&output->reserved2, 0, sizeof(output->reserved2));
 } // End - Functions from third_party/zdnn-lib/zdnn/init_ztensor.c
 
 // Functions from third_party/zdnn-lib/zdnn/stickify.c
@@ -1388,6 +1510,152 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
   va_end(argptr);
   return status;
 } // End - Functions from third_party/zdnn-lib/zdnn/stickify.c
+
+#define AIU_STICKS_PER_PAGE 32
+#define AIU_BYTES_PER_STICK 128
+#define AIU_1BYTE_CELLS_PER_STICK 128
+#define AIU_PAGESIZE_IN_BYTES 4096
+
+#define VECPERM_MAX_INT8_ENTRIES 8
+
+// The scalar version of transform_quantized_weights_ztensor()
+zdnn_status transform_quantized_weights_ztensor_element_wise(
+    const void *in_buf, zdnn_ztensor *output) {
+
+  // moving position as the input is processed, in BYTES
+  uint64_t input_offset = 0;
+  // moving position as the output is processed, in BYTES
+  uint64_t output_offset = 0;
+
+  // loop invariant values
+  uint64_t bytes_all_h =
+      (uint64_t)output->transformed_desc->dim3 *
+      CEIL(CEIL(output->transformed_desc->dim2, 2), AIU_STICKS_PER_PAGE) *
+      AIU_PAGESIZE_IN_BYTES;
+
+  uint64_t bytes_per_n = bytes_all_h * CEIL(output->transformed_desc->dim1,
+                                           (AIU_1BYTE_CELLS_PER_STICK / 2));
+
+  // N
+  for (uint32_t e4x = 0; e4x < output->transformed_desc->dim4; e4x++) {
+
+    // used for pushing out_offset from n to n+1 (i.e., + bytes_per_n)
+    uint64_t out_offset_n = output_offset;
+
+    // H
+    for (uint32_t e3x = 0; e3x < output->transformed_desc->dim3; e3x++) {
+
+      // W, sticks are processed in pairs
+      for (uint32_t e2x = 0; e2x < output->transformed_desc->dim2;
+           e2x = e2x + 2) {
+
+        // used for pushing out_offset from w to w+1 (i.e., +
+        // AIU_BYTES_PER_STICK)
+        uint64_t out_offset_w = output_offset;
+
+        // true when dim2 is odd number and we're at the last w
+        bool no_stick2 = ((output->transformed_desc->dim2 - e2x) == 1);
+
+        int8_t *stick1 = (int8_t *)in_buf + input_offset;
+        int8_t *stick2 = no_stick2 ? stick1
+                                   // duplicate stick1 entries if no stick2
+                                   : stick1 + output->transformed_desc->dim1;
+
+        // this C loop takes care of the full VECPERM_MAX_INT8_ENTRIES-entries
+        // groups
+        for (uint32_t i = 0;
+             i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
+             i++) {
+          ((int8_t *)output->buffer + output_offset)[0] = stick1[0];
+          ((int8_t *)output->buffer + output_offset)[1] = stick2[0];
+          ((int8_t *)output->buffer + output_offset)[2] = stick1[1];
+          ((int8_t *)output->buffer + output_offset)[3] = stick2[1];
+          ((int8_t *)output->buffer + output_offset)[4] = stick1[2];
+          ((int8_t *)output->buffer + output_offset)[5] = stick2[2];
+          ((int8_t *)output->buffer + output_offset)[6] = stick1[3];
+          ((int8_t *)output->buffer + output_offset)[7] = stick2[3];
+
+          ((int8_t *)output->buffer + output_offset)[8] = stick1[4];
+          ((int8_t *)output->buffer + output_offset)[9] = stick2[4];
+          ((int8_t *)output->buffer + output_offset)[10] = stick1[5];
+          ((int8_t *)output->buffer + output_offset)[11] = stick2[5];
+          ((int8_t *)output->buffer + output_offset)[12] = stick1[6];
+          ((int8_t *)output->buffer + output_offset)[13] = stick2[6];
+          ((int8_t *)output->buffer + output_offset)[14] = stick1[7];
+          ((int8_t *)output->buffer + output_offset)[15] = stick2[7];
+
+          stick1 += VECPERM_MAX_INT8_ENTRIES;
+          stick2 += VECPERM_MAX_INT8_ENTRIES;
+          output_offset += VECPERM_MAX_INT8_ENTRIES * 2;
+
+          if ((i + 1) %
+                  (AIU_BYTES_PER_STICK / (VECPERM_MAX_INT8_ENTRIES * 2)) ==
+              0) {
+            // we need to jump to the next c-stick of the same super c-stick
+            //
+            // roll-back to the beginning and jump to bytes_all_h number of
+            // bytes away
+            output_offset = output_offset - AIU_BYTES_PER_STICK + bytes_all_h;
+          }
+        }
+
+        // takes care of the leftover c entries
+        for (uint32_t i = 0;
+             i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
+             i++) {
+          ((int8_t *)output->buffer + output_offset)[0] = stick1[i];
+          ((int8_t *)output->buffer + output_offset)[1] = stick2[i];
+
+          output_offset += 2;
+        }
+
+        // move on to the next set
+        input_offset += output->transformed_desc->dim1 * (no_stick2 ? 1 : 2);
+        // output_offset was pushed around in dim1 loops, so reset it to
+        // the next w
+        output_offset = out_offset_w + AIU_BYTES_PER_STICK;
+      }
+
+      // after processing all the w-entries, go to the next 4k-boundary
+      // location (aka stick padding)
+      output_offset = (output_offset + (AIU_PAGESIZE_IN_BYTES - 1)) &
+                      (-AIU_PAGESIZE_IN_BYTES);
+    }
+
+    // output_offset was pushed around in the dims[2-0] loops, so reset it
+    // to the next n
+    output_offset = out_offset_n + bytes_per_n;
+  }
+
+  // Update the tensor's format to indicate it has been stickified
+  output->is_transformed = true;
+  return ZDNN_STATUS_OK;
+}
+
+zdnn_status quantized_stickify(zdnn_ztensor *ztensor, const void *in_buf) {
+  /* It is supposed to use zdnn_transform_quantized_ztensor here.
+   *  return zdnn_transform_quantized_ztensor(ztensor, 0, 0, in_buf);
+   *  The clip_min and clip_max will not be used when
+   *  transform_quantized_weights_ztensor() is called in this transform.
+   *  The reason that zdnn_transform_quantized_ztensor can't be called
+   *  is that the variable, nnpa_query_result, in the zdnn library built with
+   *  onnx-mlir has not been properly set up. Therefore, the check on
+   *  dimension size will fail. verify_transformed_descriptor() is called
+   *  by zdnn_transform_quantized_ztensor().
+   *  Tried to call zdnn_refresh_nnpa_query_result(), but failed.
+   *  In the copied verify_transformed_descriptor code, the code for checking
+   *  has been commented out.
+   *  Refer to issue #3034
+   */
+
+  zdnn_status status;
+  if ((status = verify_transformed_descriptor(ztensor->transformed_desc)) !=
+      ZDNN_OK) {
+    return status;
+  }
+
+  return transform_quantized_weights_ztensor_element_wise(in_buf, ztensor);
+}
 
 /// Set information for a pre transformed descriptor.
 void set_info_pre_transformed_desc(zdnn_tensor_desc *pre_tfrmd_desc,

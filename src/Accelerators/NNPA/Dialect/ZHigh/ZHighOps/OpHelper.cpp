@@ -140,6 +140,45 @@ StringAttr convertZTensorDataLayoutToStringAttr(
   return attr;
 }
 
+/// Get a ztensor quantized type by StringAttr.
+ZTensorEncodingAttr::QuantizedType convertStringAttrToZTensorQuantizedType(
+    StringAttr qtypeAttr) {
+  if (qtypeAttr) {
+    StringRef qtypeStr = qtypeAttr.getValue();
+    if (qtypeStr.equals_insensitive(QTYPE_DLFLOAT16))
+      return ZTensorEncodingAttr::QuantizedType::DLFLOAT16;
+    else if (qtypeStr.equals_insensitive(QTYPE_INT8))
+      return ZTensorEncodingAttr::QuantizedType::INT8;
+    else if (qtypeStr.equals_insensitive(QTYPE_WEIGHTS))
+      return ZTensorEncodingAttr::QuantizedType::WEIGHTS;
+    else if (qtypeStr.equals_insensitive(QTYPE_UNDEFINED))
+      return ZTensorEncodingAttr::QuantizedType::UNDEFINED;
+    else
+      llvm_unreachable("Invalid quantized type string");
+  } else
+    llvm_unreachable("Could not get quantized type by an empty StringAttr");
+}
+
+/// Convert a quantized type to StringAttr.
+StringAttr convertZTensorQuantizedTypeToStringAttr(
+    OpBuilder &builder, ZTensorEncodingAttr::QuantizedType qtype) {
+  StringAttr attr;
+  switch (qtype) {
+  case ZTensorEncodingAttr::QuantizedType::DLFLOAT16:
+    attr = builder.getStringAttr(QTYPE_DLFLOAT16);
+    break;
+  case ZTensorEncodingAttr::QuantizedType::INT8:
+    attr = builder.getStringAttr(QTYPE_INT8);
+    break;
+  case ZTensorEncodingAttr::QuantizedType::WEIGHTS:
+    attr = builder.getStringAttr(QTYPE_WEIGHTS);
+    break;
+  default:
+    break;
+  }
+  return attr;
+}
+
 //===----------------------------------------------------------------------===//
 // Utility functions to query ztensor information.
 
@@ -167,6 +206,12 @@ StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
   if (layout != ZTensorEncodingAttr::DataLayout::UNDEFINED)
     return convertZTensorDataLayoutToStringAttr(builder, layout);
   return nullptr;
+}
+
+ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(Type type) {
+  if (auto encoding = getZTensorEncoding(type))
+    return encoding.getQuantizedType();
+  return ZTensorEncodingAttr::QuantizedType::UNDEFINED;
 }
 
 //===----------------------------------------------------------------------===//

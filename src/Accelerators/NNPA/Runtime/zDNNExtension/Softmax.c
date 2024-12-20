@@ -28,7 +28,6 @@
 #include <sys/time.h>
 
 #include "zDNNExtension.h"
-#include "zdnn.h"
 
 #ifdef __cplusplus
 extern "C" {

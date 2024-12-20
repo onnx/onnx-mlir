@@ -54,6 +54,7 @@ DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForGRUOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForLSTMOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickifiedConstantOfShapeOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighQuantizedStickOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighUnstickOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER_ZHIGH
 
@@ -67,6 +68,27 @@ struct ZHighMatMulOpShapeHelper : public ONNXOpShapeHelper {
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ZHighMatMulOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Broadcast 1 case: X:2D - Y:3DS
+  bool isBroadcasted1 = false;
+  // Broadcast 23 case: X:3DS - Y:2D
+  bool isBroadcasted23 = false;
+  // Stack case: X:3DS - Y:3DS
+  bool isStacked = false;
+  // Keep original dimensions in this order: m, n, p if 2D or s, m, n, p if 3D.
+  DimsExpr allOriginalDims;
+};
+
+//===----------------------------------------------------------------------===//
+// Shape helper for QuantizedMatMulOp.
+//===----------------------------------------------------------------------===//
+
+struct ZHighQuantizedMatMulOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighQuantizedMatMulOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighQuantizedMatMulOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Broadcast case: X:3DS - Y:2D
   bool isBroadcasted = false;
@@ -144,6 +166,25 @@ struct ZHighPoolingOpShapeHelper : public ONNXOpShapeHelper {
   // weight_in, height_out, weight_out.
   DimsExpr allOriginalDims;
 };
+
+//===----------------------------------------------------------------------===//
+// Shape helper for ReductionOp.
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE>
+struct ZHighReductionOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighReductionOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighReductionOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+using ZHighReduceMaxOpShapeHelper =
+    ZHighReductionOpShapeHelper<ZHighReduceMaxOp>;
+using ZHighReduceMinOpShapeHelper =
+    ZHighReductionOpShapeHelper<ZHighReduceMinOp>;
 
 //===----------------------------------------------------------------------===//
 // Shape helper for UnaryOp.

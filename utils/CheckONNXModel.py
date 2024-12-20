@@ -13,7 +13,7 @@
 
 # This script can be used as follows:
 #
-# CheckONNXModel.py --model=reducegpt2.mlir --test-compile-args="-O3 -march=x86-64" --shape-info=0:10x20
+# CheckONNXModel.py --model=reducegpt2.mlir --test-compile-args="-O3 --march=x86-64" --shape-info=0:10x20
 #
 # It will compile and run the model reducegpt2.mlir twice.
 # * Once with the default (-O0) option, which can be overridden with

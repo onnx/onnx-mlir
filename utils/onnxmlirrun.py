@@ -101,7 +101,7 @@ class InferenceSession:
         output_path = os.path.join(self.temp_dir.name, self.temp_lib_name)
         command_str += ["-o", output_path]
         if self.target == "zAIU":
-            command_str += ["--maccel=NNPA", "-O3", "--mcpu=z16"]
+            command_str += ["--maccel=NNPA", "-O3", "--march=z16"]
         command_str += self.options.split()
 
         # Compile the model.

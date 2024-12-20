@@ -34,6 +34,14 @@ ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank);
 mlir::StringAttr convertZTensorDataLayoutToStringAttr(
     mlir::OpBuilder &builder, ZTensorEncodingAttr::DataLayout layout);
 
+/// Get a ztensor quantized type by StringAttr.
+ZTensorEncodingAttr::QuantizedType convertStringAttrToZTensorQuantizedType(
+    mlir::StringAttr qtypeAttr);
+
+/// Convert a quantized type to StringAttr.
+mlir::StringAttr convertZTensorQuantizedTypeToStringAttr(
+    mlir::OpBuilder &builder, ZTensorEncodingAttr::QuantizedType qtype);
+
 //===----------------------------------------------------------------------===//
 // Convenience method to query information of a ztensor
 
@@ -50,6 +58,9 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
 /// Get the layout attribute of a ztensor.
 mlir::StringAttr getZTensorLayoutAttr(
     mlir::OpBuilder &builder, mlir::Type type);
+
+/// Get the quantized type of a ztensor.
+ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(mlir::Type type);
 
 /// Get a minus value.
 mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
