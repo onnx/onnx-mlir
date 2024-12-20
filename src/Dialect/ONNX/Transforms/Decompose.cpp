@@ -825,9 +825,9 @@ private:
   size_t iterArraySize;
 };
 
-class IndicesContigousCounter {
+class IndicesContiguosCounter {
 public:
-  explicit IndicesContigousCounter(
+  explicit IndicesContiguosCounter(
       ArrayRef<int64_t> firstElem, ArrayRef<int64_t> shapeToCheck)
       : counter(firstElem), firstElem(firstElem), shapeToCheck(shapeToCheck) {}
 
@@ -861,7 +861,8 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
       ONNXScatterNDOp scatterNDOp, PatternRewriter &rewriter) const final {
     // Check preconditions
     if (scatterNDOp.getReductionAttr().strref() != "none") {
-      return failure(); // Scatters with reduction are not supported
+      return rewriter.notifyMatchFailure(
+          scatterNDOp, "Scatters with reduction are not supported");
     }
     const auto data = scatterNDOp.getData();
     const auto indices = scatterNDOp.getIndices();
@@ -869,7 +870,8 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     if (!onnx_mlir::hasStaticShape(data.getType()) ||
         !onnx_mlir::hasStaticShape(indices.getType()) ||
         !onnx_mlir::hasStaticShape(updates.getType())) {
-      return failure(); // All inputs need to have static shapes
+      return rewriter.notifyMatchFailure(
+          scatterNDOp, "All operands need to have a static shape");
     }
     const auto dataType = cast<RankedTensorType>(data.getType());
     const auto dataShape = dataType.getShape();
@@ -878,8 +880,9 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     const auto indicesType = cast<RankedTensorType>(indices.getType());
     const auto indicesShape = indicesType.getShape();
     if (dataType.getRank() != updatesType.getRank()) {
-      return failure(); // Only the case where data and update have the same
-                        // rank is supported
+      return rewriter.notifyMatchFailure(scatterNDOp,
+          "Only the case where data and update have the same rank "
+          "is supported");
     }
 
     const auto splitAxis = [&]() -> uint64_t {
@@ -898,17 +901,21 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     for (auto [idx, dimData, dimUpdates] :
         llvm::enumerate(dataShape, updateShape)) {
       if (idx != splitAxis && dimData != dimUpdates) {
-        return failure(); // Only a single differing dimension is supported
+        return rewriter.notifyMatchFailure(
+            scatterNDOp, "Only a single differing dimension is supported");
       }
     }
 
     SmallVector<int64_t> indicesAsFlatArray;
     if (!onnx_mlir::getI64ValuesFromONNXConstantOp(
             indices, indicesAsFlatArray)) {
-      return failure(); // The indices need to be constant
+      return rewriter.notifyMatchFailure(
+          scatterNDOp, "The indices need to be constant");
     }
     if (indicesAsFlatArray.empty()) {
-      return failure(); // Skip the edge case of empty indices
+      return rewriter.notifyMatchFailure(
+          scatterNDOp, "Empty indices are not supported"); // Skip the edge case
+                                                           // of empty indices
     }
     const auto indicesLastDimSize = indicesShape.back();
     SubArrayAccessHelper<int64_t> indicesFlatAccessor(
@@ -917,20 +924,25 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
         indicesFlatAccessor[0]; // Safe, we have checked the length before
     for (auto [idx, firstIndexDim] : llvm::enumerate(firstIndex)) {
       if (idx != splitAxis && firstIndexDim != 0) {
-        return failure(); // Shifting is only supported in the split axis
+        return rewriter.notifyMatchFailure(
+            scatterNDOp, " Shifting is only supported on the split axis");
       }
       if (idx == splitAxis && firstIndexDim < 0) {
-        return failure(); // onnx allows negative values with wrap-arround, this
-                          // decomposition does not (for now)
+        return rewriter.notifyMatchFailure(scatterNDOp,
+            "Negative values with wrap around are not yet "
+            "supported"); // onnx allows negative values with
+                          // wrap-arround, this decomposition does
+                          // not (for now)
       }
     }
 
     // Check that all indices are contigous.
     {
-      IndicesContigousCounter counter(firstIndex, indicesShape.drop_back(1));
+      IndicesContiguosCounter counter(firstIndex, indicesShape.drop_back(1));
       for (size_t i = 0; i < indicesFlatAccessor.size(); ++i) {
         if (counter.getCounter() != indicesFlatAccessor[i]) {
-          return failure(); // Indices are not contigous
+          return rewriter.notifyMatchFailure(
+              scatterNDOp, "Indices are not contigous");
         }
         counter.increment();
       }
