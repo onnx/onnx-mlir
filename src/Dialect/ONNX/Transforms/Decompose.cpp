@@ -963,9 +963,6 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
           scatterNDOp.getData(), splitSizes, splitAxis);
       Value concat = create.onnx.concat(
           dataType, {scatterNDOp.getUpdates(), split[1]}, splitAxis);
-      concat.dump();
-      scatterNDOp->dump();
-      llvm::errs() << "single split\n";
       rewriter.replaceOp(scatterNDOp, concat);
       return success();
     }
@@ -990,10 +987,6 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
           scatterNDOp.getData(), firstSplitSizes, splitAxis);
       Value concat = create.onnx.concat(
           dataType, {split[0], scatterNDOp.getUpdates()}, splitAxis);
-      split[0].dump();
-      concat.dump();
-      scatterNDOp->dump();
-      llvm::errs() << "single split type 2\n";
       rewriter.replaceOp(scatterNDOp, concat);
       return success();
     }
@@ -1001,32 +994,24 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     // a, b = split(input)
     // a1, a2 = split(a)
     // concat(a1, update, b)
-    SmallVector<int64_t> splitTyFirstHalf(dataShape);
-    splitTyFirstHalf[splitAxis] = firstSlicePosition;
-    SmallVector<int64_t> splitTySecondHalf(dataShape);
-    splitTySecondHalf[splitAxis] -= firstSlicePosition;
-    Value firstSplitSizes = create.onnx.constantInt64(
-        {firstSlicePosition, splitTySecondHalf[splitAxis]});
-    ValueRange firstSplit = create.onnx.split(
-        {RankedTensorType::get(splitTyFirstHalf, dataElementType),
-            RankedTensorType::get(splitTySecondHalf, dataElementType)},
-        scatterNDOp.getData(), firstSplitSizes, splitAxis);
-
-    // Second split
+    // In onnx this split can be done in one:
+    // a1, a2, b = split(input)
     SmallVector<int64_t> splitTyFirstQuarter(dataShape);
     splitTyFirstQuarter[splitAxis] = firstIndex[splitAxis];
     SmallVector<int64_t> splitTySecondQuarter(dataShape);
     splitTySecondQuarter[splitAxis] = updateShape[splitAxis];
-    Value secondSplitSize = create.onnx.constantInt64(
-        {firstIndex[splitAxis], updateShape[splitAxis]});
-    ValueRange secondSplit = create.onnx.split(
+    SmallVector<int64_t> splitTySecondHalf(dataShape);
+    splitTySecondHalf[splitAxis] -= firstSlicePosition;
+    Value splitSize = create.onnx.constantInt64({firstIndex[splitAxis],
+        updateShape[splitAxis], splitTySecondHalf[splitAxis]});
+    ValueRange split = create.onnx.split(
         {RankedTensorType::get(splitTyFirstQuarter, dataElementType),
-            RankedTensorType::get(splitTySecondQuarter, dataElementType)},
-        firstSplit[0], secondSplitSize, splitAxis);
+            RankedTensorType::get(splitTySecondQuarter, dataElementType),
+            RankedTensorType::get(splitTySecondHalf, dataElementType)},
+        scatterNDOp.getData(), splitSize, splitAxis);
 
-    Value concat = create.onnx.concat(dataType,
-        {secondSplit[0], scatterNDOp.getUpdates(), firstSplit[1]}, splitAxis);
-    concat.dump();
+    Value concat = create.onnx.concat(
+        dataType, {split[0], scatterNDOp.getUpdates(), split[2]}, splitAxis);
     rewriter.replaceOp(scatterNDOp, concat);
     return success();
   }
