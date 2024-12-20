@@ -484,7 +484,7 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
 
   /* ToFix: the nnpa_query_result is not set up with onnx-mlir
    * Temporarily commented out.
-   * Refer to issue #288
+   * Refer to issue #3034
    */
 
 #if 0
@@ -1645,7 +1645,7 @@ zdnn_status quantized_stickify(zdnn_ztensor *ztensor, const void *in_buf) {
    *  Tried to call zdnn_refresh_nnpa_query_result(), but failed.
    *  In the copied verify_transformed_descriptor code, the code for checking
    *  has been commented out.
-   *  Refer to issue #288
+   *  Refer to issue #3034
    */
 
   zdnn_status status;
