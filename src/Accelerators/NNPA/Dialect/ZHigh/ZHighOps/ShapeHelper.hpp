@@ -174,16 +174,17 @@ struct ZHighPoolingOpShapeHelper : public ONNXOpShapeHelper {
 template <typename OP_TYPE>
 struct ZHighReductionOpShapeHelper : public ONNXOpShapeHelper {
   ZHighReductionOpShapeHelper(mlir::Operation *op,
-     mlir::ArrayRef<mlir::Value> operands = {},
-     IndexExprBuilder *ieBuilder = nullptr,
-      IndexExprScope *scope = nullptr)
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ZHighReductionOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
 
-using ZHighReduceMaxOpShapeHelper = ZHighReductionOpShapeHelper<ZHighReduceMaxOp>;
-using ZHighReduceMinOpShapeHelper = ZHighReductionOpShapeHelper<ZHighReduceMinOp>;
+using ZHighReduceMaxOpShapeHelper =
+    ZHighReductionOpShapeHelper<ZHighReduceMaxOp>;
+using ZHighReduceMinOpShapeHelper =
+    ZHighReductionOpShapeHelper<ZHighReduceMinOp>;
 
 //===----------------------------------------------------------------------===//
 // Shape helper for UnaryOp.

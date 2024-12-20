@@ -330,7 +330,8 @@ zdnn_status zdnn_leaky_relu_ext(const zdnn_ztensor *input,
   return status;
 }
 
-zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area, int opType, zdnn_ztensor *output) {
+zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area,
+    int opType, zdnn_ztensor *output) {
   zdnn_status status = zdnn_reduce(input, save_area, opType, output);
   CHECK_ZDNN_STATUS(status, "zdnn_reduce");
   return status;

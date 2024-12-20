@@ -47,9 +47,9 @@ void configurePasses() {
   // Handle deprecated mcpu.
   if (!mcpu.empty()) {
     if (!march.empty()) {
-      llvm::outs()
-          << "\nWarning: Got values for both --march and --mcpu, ignore --mcpu. "
-             "Please remove deprecated --mcpu in the near future.\n\n";
+      llvm::outs() << "\nWarning: Got values for both --march and --mcpu, "
+                      "ignore --mcpu. "
+                      "Please remove deprecated --mcpu in the near future.\n\n";
     } else {
       llvm::outs()
           << "\nWarning: Got deprecated --mcpu option. Please switch to "

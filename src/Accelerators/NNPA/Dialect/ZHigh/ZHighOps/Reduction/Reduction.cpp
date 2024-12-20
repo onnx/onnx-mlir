@@ -46,7 +46,8 @@ LogicalResult ZHighReductionOpShapeHelper<OP_TYPE>::computeShape() {
     outputDims.emplace_back(inputDims[i]);
   }
   // The innermost dimension or last dimension needs to be reduced to one
-  outputDims.emplace_back(one); // NNPA is always true for keepdims so we will reduce the dimension
+  outputDims.emplace_back(
+      one); // NNPA is always true for keepdims so we will reduce the dimension
 
   // Save the final result.
   setOutputDims(outputDims);
@@ -72,7 +73,8 @@ static LogicalResult inferShapeForReductionOps(OP_TYPE &op) {
   RankedTensorType dataType =
       mlir::cast<RankedTensorType>(operandAdaptor.getData().getType());
   ZHighReductionOpShapeHelper<OP_TYPE> shapeHelper(op.getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(dataType.getElementType(), dataType.getEncoding());
+  return shapeHelper.computeShapeAndUpdateType(
+      dataType.getElementType(), dataType.getEncoding());
 }
 
 //===----------------------------------------------------------------------===//

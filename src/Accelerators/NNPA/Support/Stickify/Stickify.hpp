@@ -22,7 +22,6 @@ extern "C" {
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 
-
 /// Set information for a pre transformed descriptor.
 void set_info_pre_transformed_desc(zdnn_tensor_desc *pre_tfrmd_desc,
     zdnn_data_layouts layout, zdnn_data_types type,
@@ -33,7 +32,8 @@ zdnn_status generate_transformed_desc(
     const zdnn_tensor_desc *pre_tfrmd_desc, zdnn_tensor_desc *tfrmd_desc);
 
 zdnn_status generate_quantized_transformed_desc(
-    const zdnn_tensor_desc *pre_tfrmd_desc, zdnn_quantized_transform_types, zdnn_tensor_desc *tfrmd_desc);
+    const zdnn_tensor_desc *pre_tfrmd_desc, zdnn_quantized_transform_types,
+    zdnn_tensor_desc *tfrmd_desc);
 
 /// Generate a concatenated transformed descriptor.
 zdnn_status generate_transformed_desc_concatenated(

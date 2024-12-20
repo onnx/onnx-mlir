@@ -152,8 +152,8 @@ public:
           API::ZDNN_TRANSFORM_ZTENSOR_WITH_SATURATION,
           {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
     else
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
-        {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
+      callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
+          {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
 
     rewriter.eraseOp(op);
     return success();
@@ -1353,8 +1353,8 @@ public:
         // ZDNN_3DS (s, m, n)
         xZTensor =
             zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-          /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
-          /*isTransformed=*/true);
+                /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
+                /*isTransformed=*/true);
     else /* unstacked || broadcasting1 */
       if (transposeA)
         // ZDNN_2D (n, m)
@@ -1366,8 +1366,8 @@ public:
         // ZDNN_2D (m, n)
         xZTensor =
             zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-          /*layout=*/ZDNN_2D, /*originalDims=*/{M, N},
-          /*isTransformed=*/true);
+                /*layout=*/ZDNN_2D, /*originalDims=*/{M, N},
+                /*isTransformed=*/true);
     // Y
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getY());
     if (stacked || broadcasting1)
@@ -1381,8 +1381,8 @@ public:
         // ZDNN_3DS (s, n, p)
         yZTensor =
             zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-          /*layout=*/ZDNN_3DS, /*originalDims=*/{S, N, P},
-          /*isTransformed=*/true);
+                /*layout=*/ZDNN_3DS, /*originalDims=*/{S, N, P},
+                /*isTransformed=*/true);
     else /* unstacked || broadcasting23 */
       if (transposeB)
         // ZDNN_2D (p, n)
@@ -1394,8 +1394,8 @@ public:
         // ZDNN_2D (n, p)
         yZTensor =
             zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-          /*layout=*/ZDNN_2D, /*originalDims=*/{N, P},
-          /*isTransformed=*/true);
+                /*layout=*/ZDNN_2D, /*originalDims=*/{N, P},
+                /*isTransformed=*/true);
     // Bias
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getBias());
     if (stacked || broadcasting1)

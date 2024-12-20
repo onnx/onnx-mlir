@@ -254,7 +254,7 @@ void KrnlBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
 void KrnlBuilder::forLoopsIE(ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
     ArrayRef<int64_t> steps, ArrayRef<bool> useParallel,
     KrnlLoopBodyFn builderFn) const {
-        impl::forLoopsIE(*this, lbs, ubs, steps, useParallel, builderFn);
+  impl::forLoopsIE(*this, lbs, ubs, steps, useParallel, builderFn);
 }
 
 void KrnlBuilder::forExplicitParallelLoopIE(IndexExpr lb, IndexExpr ub,

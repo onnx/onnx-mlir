@@ -106,7 +106,8 @@ LogicalResult ZHighQuantizedMatMulOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
-  Type elementType = mlir::cast<ShapedType>(getResult(0).getType()).getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult(0).getType()).getElementType();
   ZTensorEncodingAttr encoding;
   ZTensorEncodingAttr::QuantizedType qtype =
       ZTensorEncodingAttr::QuantizedType::DLFLOAT16;

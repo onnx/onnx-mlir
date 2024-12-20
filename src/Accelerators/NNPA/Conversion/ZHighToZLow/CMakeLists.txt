@@ -4,6 +4,7 @@ add_onnx_mlir_library(OMZHighToZLow
 
   LINK_LIBS PUBLIC
   MLIRMemRefTransforms
+  OMKrnlToLLVM
   OMLayoutHelper
   OMONNXToKrnl
   OMStickify

@@ -1123,8 +1123,9 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
     Value data = operands[0];
 
     // Helper builders.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, LLVMBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, LLVMBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -1142,7 +1143,8 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
     // Get the original shape before it is vanished by lower passes.
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
-    // If set to NULL, the operation will determine, allocate and free storage automatically.
+    // If set to NULL, the operation will determine, allocate and free storage
+    // automatically.
     Value workArea = create.llvm.null(krnl::getI8PointerType(context));
 
     // Emit a ZLow operation.

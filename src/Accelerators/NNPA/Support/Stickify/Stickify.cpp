@@ -34,8 +34,7 @@
 zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
 
 zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
-                            const char *file_name, int line_no,
-                            const char *format, ...);
+    const char *file_name, int line_no, const char *format, ...);
 
 #define ZDNN_STATUS(status, format, ...)                                       \
   set_zdnn_status(status, __func__, __FILE__, __LINE__, format, __VA_ARGS__)
@@ -90,8 +89,7 @@ typedef enum elements_mode {
 
 // Functions from third_party/zdnn-lib/zdnn/status.h
 zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
-                            const char *file_name, int line_no,
-                            const char *format, ...) {
+    const char *file_name, int line_no, const char *format, ...) {
   return status;
 }
 
@@ -357,7 +355,7 @@ uint64_t getsize_ztensor(const zdnn_tensor_desc *tfrmd_desc) {
   case ZDNN_DLFLOAT16: /* fallthrough */
   default:
     cells_per_stick = AIU_2BYTE_CELLS_PER_STICK;
-        number_of_sticks = tfrmd_desc->dim2;
+    number_of_sticks = tfrmd_desc->dim2;
   }
   return static_cast<uint64_t>(tfrmd_desc->dim4) * tfrmd_desc->dim3 *
          CEIL(number_of_sticks, AIU_STICKS_PER_PAGE) *
@@ -394,7 +392,7 @@ void allochelper_ztensor_free(zdnn_ztensor *ztensor) {
   free_aligned_4k(ztensor->buffer);
   ztensor->buffer = NULL;
   ztensor->buffer_size = 0;
-} 
+}
 
 /* End - Functions from third_party/zdnn-lib/zdnn/allochelper.c */
 
@@ -451,29 +449,28 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
       break;
     default:
       return ZDNN_STATUS(ZDNN_INVALID_LAYOUT, "Format is %s but layout is %s",
-                         get_data_format_str(tfrmd_desc->format),
-                         get_data_layout_str(tfrmd_desc->layout));
+          get_data_format_str(tfrmd_desc->format),
+          get_data_layout_str(tfrmd_desc->layout));
     }
     break;
   case ZDNN_FORMAT_4DKERNEL:
     if (tfrmd_desc->layout != ZDNN_HWCK) {
       return ZDNN_STATUS(ZDNN_INVALID_LAYOUT, "Format is %s but layout is %s",
-                         get_data_format_str(tfrmd_desc->format),
-                         get_data_layout_str(tfrmd_desc->layout));
+          get_data_format_str(tfrmd_desc->format),
+          get_data_layout_str(tfrmd_desc->layout));
     }
     break;
   case ZDNN_FORMAT_4DWEIGHTS:
     if (tfrmd_desc->layout != ZDNN_NHWC) {
       return ZDNN_STATUS(ZDNN_INVALID_LAYOUT, "Format is %s but layout is %s",
-                         get_data_format_str(tfrmd_desc->format),
-                         get_data_layout_str(tfrmd_desc->layout));
+          get_data_format_str(tfrmd_desc->format),
+          get_data_layout_str(tfrmd_desc->layout));
     }
     break;
   default:
     // unrecognized
     return ZDNN_STATUS(ZDNN_INVALID_FORMAT, "Invalid format: %d (%s)",
-                       tfrmd_desc->format,
-                       get_data_format_str(tfrmd_desc->format));
+        tfrmd_desc->format, get_data_format_str(tfrmd_desc->format));
   }
   // Only ZDNN_DLFLOAT16, ZDNN_BINARY_INT8, and ZDNN_BINARY_INT32 are currently
   // supported.
@@ -485,10 +482,10 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
 
   const uint32_t *dims_ptr = &(tfrmd_desc->dim4);
 
- /* ToFix: the nnpa_query_result is not set up with onnx-mlir
-  * Temporarily commented out.
-  * Refer to issue #288
-  */
+  /* ToFix: the nnpa_query_result is not set up with onnx-mlir
+   * Temporarily commented out.
+   * Refer to issue #288
+   */
 
 #if 0
   // is the dimension above the limit or zero?
@@ -665,8 +662,8 @@ zdnn_status generate_quantized_transformed_desc(
     return ZDNN_STATUS_OK;
   default:
     return ZDNN_INVALID_TRANSFORM_TYPE;
-    //return ZDNN_STATUS(ZDNN_INVALID_TRANSFORM_TYPE,
-    //                   "Invalid transform type: %d", transform_type);
+    // return ZDNN_STATUS(ZDNN_INVALID_TRANSFORM_TYPE,
+    //                    "Invalid transform type: %d", transform_type);
   }
 }
 
@@ -1514,7 +1511,6 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
   return status;
 } // End - Functions from third_party/zdnn-lib/zdnn/stickify.c
 
-
 #define AIU_STICKS_PER_PAGE 32
 #define AIU_BYTES_PER_STICK 128
 #define AIU_1BYTE_CELLS_PER_STICK 128
@@ -1538,7 +1534,7 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
       AIU_PAGESIZE_IN_BYTES;
 
   uint64_t bytes_per_n = bytes_all_h * CEIL(output->transformed_desc->dim1,
-                                            (AIU_1BYTE_CELLS_PER_STICK / 2));
+                                           (AIU_1BYTE_CELLS_PER_STICK / 2));
 
   // N
   for (uint32_t e4x = 0; e4x < output->transformed_desc->dim4; e4x++) {
@@ -1652,9 +1648,9 @@ zdnn_status quantized_stickify(zdnn_ztensor *ztensor, const void *in_buf) {
    *  Refer to issue #288
    */
 
-  zdnn_status status;	
-  if ((status = verify_transformed_descriptor(
-           ztensor->transformed_desc)) != ZDNN_OK) {
+  zdnn_status status;
+  if ((status = verify_transformed_descriptor(ztensor->transformed_desc)) !=
+      ZDNN_OK) {
     return status;
   }
 

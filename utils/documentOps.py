@@ -27,9 +27,9 @@ max_opset_default = "*"
 nnpa_supported_list = ["z16"]
 
 # Derived variables (do not update).
-nnpa_level_default = nnpa_supported_list[-1] # Most recent arch (last).
+nnpa_level_default = nnpa_supported_list[-1]  # Most recent arch (last).
 nnpa_supported_set = set(nnpa_supported_list)
-nnpa_most_current_str = "" 
+nnpa_most_current_str = ""
 if len(nnpa_supported_list) > 1:
     nnpa_most_current_str = " - ^"
 
@@ -95,7 +95,7 @@ def print_usage(msg=""):
 hightest_opset = None  # Highest opset found in the description.
 opset_dict = {}  # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}  # <op> -> <text> in "==LIM== <text>".
-level_dict ={}  # <op> -> <text> in "==LEVEL== <text>".
+level_dict = {}  # <op> -> <text> in "==LEVEL== <text>".
 min_dict = {}  # <op> -> <num> in "==MIN== <num>".
 max_dict = {}  # <op> -> <num> in "==MAX== <num>".
 todo_dict = {}  # <op> -> <text> in "==TODO== <text>".
@@ -166,7 +166,12 @@ def parse_file(file_name):
                 join_set = current_set & nnpa_supported_set
                 if not join_set:
                     if debug:
-                        print("process NNPA level, no overlap between", current_set, "and", nnpa_supported_set)
+                        print(
+                            "process NNPA level, no overlap between",
+                            current_set,
+                            "and",
+                            nnpa_supported_set,
+                        )
                 else:
                     # Find the first and last in set according to the order in nnpa_supported_list.
                     first_in_set = None
@@ -178,12 +183,19 @@ def parse_file(file_name):
                                 first_in_set = x
                     assert first_in_set and last_in_set, "should both be defined"
                     if debug:
-                        print("join set is", join_set, "first", first_in_set, "last", last_in_set)
-                    if last_in_set == nnpa_level_default: # First to default (current).
+                        print(
+                            "join set is",
+                            join_set,
+                            "first",
+                            first_in_set,
+                            "last",
+                            last_in_set,
+                        )
+                    if last_in_set == nnpa_level_default:  # First to default (current).
                         level_dict[op] = first_in_set + nnpa_most_current_str
-                    elif first_in_set == last_in_set: # Only one.
+                    elif first_in_set == last_in_set:  # Only one.
                         level_dict[op] = first_in_set
-                    else: # Interval finishing before current.
+                    else:  # Interval finishing before current.
                         level_dict[op] = first_in_set + " - " + last_in_set
                     if debug:
                         print("process NNPA level", level_dict[op])
@@ -280,9 +292,11 @@ def print_md():
     )
     if "NNPA" in target_arch:
         print(
-        "   * A ^ indicates onnx-mlir is compatible with the latest"
-        + " level of the NNPA Architecture which is "
-        + str(nnpa_level_default) + ".")
+            "   * A ^ indicates onnx-mlir is compatible with the latest"
+            + " level of the NNPA Architecture which is "
+            + str(nnpa_level_default)
+            + "."
+        )
 
     print("\n")
     # Additional top paragraph.
@@ -291,9 +305,14 @@ def print_md():
         print("\n")
     # Table.
     if "NNPA" in target_arch:
-        header = ["Op", "Supported Opsets (inclusive)", "Minimum NNPA Level(Inclusive)", "Limitations"]
+        header = [
+            "Op",
+            "Supported Opsets (inclusive)",
+            "Minimum NNPA Level(Inclusive)",
+            "Limitations",
+        ]
         separator = ["---", "---", "---", "---"]
-    else: 
+    else:
         header = ["Op", "Supported Opsets (inclusive)", "Limitations"]
         separator = ["---", "---", "---"]
     if emit_notes:
@@ -308,7 +327,11 @@ def print_md():
         if supported_op:
             info = ["**" + op + "**", f"{min_dict[op]} - {max_dict[op]}"]
             if "NNPA" in target_arch:
-                info = ["**" + op + "**", f"{min_dict[op]} - {max_dict[op]}", f"{level_dict[op]}"]
+                info = [
+                    "**" + op + "**",
+                    f"{min_dict[op]} - {max_dict[op]}",
+                    f"{level_dict[op]}",
+                ]
         else:
             if not emit_unsupported:
                 continue
@@ -392,5 +415,3 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-

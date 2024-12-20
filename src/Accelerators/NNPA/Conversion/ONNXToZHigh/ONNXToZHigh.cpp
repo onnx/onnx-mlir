@@ -1588,9 +1588,9 @@ void getONNXToZHighOneOpPatterns(
   patterns.insert<replaceONNXMinPattern>(context);
   patterns.insert<replaceONNXMulPattern>(context);
   patterns.insert<replaceONNXQLinearMatMulPattern>(context);
-  patterns.insert<replaceONNXReduceMaxPattern>(context); 
+  patterns.insert<replaceONNXReduceMaxPattern>(context);
   patterns.insert<replaceONNXReduceMeanV13Pattern>(context);
-  patterns.insert<replaceONNXReduceMinPattern>(context); 
+  patterns.insert<replaceONNXReduceMinPattern>(context);
   patterns.insert<replaceONNXReluPattern>(context);
   patterns.insert<replaceONNXSigmoidPattern>(context);
   patterns.insert<replaceONNXSoftmax2DPattern>(context);
