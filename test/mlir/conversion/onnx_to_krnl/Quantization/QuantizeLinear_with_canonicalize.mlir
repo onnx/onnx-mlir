@@ -109,3 +109,50 @@ func.func @test_quantize_linear_i8(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %ar
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_quantize_linear_ui8_scalar(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<ui8>) -> tensor<ui8> {
+  %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<f32>, tensor<f32>, tensor<ui8>) -> tensor<ui8>
+  return %0 : tensor<ui8>
+
+// CHECK-LABEL:  func.func @test_quantize_linear_ui8_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>, [[PARAM_1_:%.+]]: memref<f32>, [[PARAM_2_:%.+]]: memref<ui8>) -> memref<ui8> {
+// CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = arith.constant 5.000000e-01 : f32
+// CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_2_dot_550000_:%.+]] = arith.constant 2.550000e+02 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<ui8>
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
+// CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]][] : memref<ui8>
+// CHECK:           [[VAR_2_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_2_MEM_]] : ui8 to i8
+// CHECK:           [[VAR_3_:%.+]] = arith.extui [[VAR_2_]] : i8 to i32
+// CHECK-DAG:       [[VAR_4_:%.+]] = arith.uitofp [[VAR_3_]] : i32 to f32
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
+// CHECK:           [[VAR_6_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:           [[VAR_7_:%.+]] = math.floor [[VAR_6_]] : f32
+// CHECK:           [[VAR_8_:%.+]] = arith.subf [[VAR_6_]], [[VAR_7_]] : f32
+// CHECK-DAG:       [[VAR_9_:%.+]] = arith.cmpf ogt, [[VAR_8_]], [[CST_5_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_10_:%.+]] = arith.addf [[VAR_7_]], [[CST_1_dot_000000_]] : f32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_11_:%.+]] = arith.select [[VAR_9_]], [[VAR_10_]], [[VAR_7_]] : f32
+// CHECK-DAG:       [[VAR_12_:%.+]] = arith.mulf [[VAR_7_]], [[CST_5_dot_000000_]] : f32
+// CHECK:           [[VAR_13_:%.+]] = math.floor [[VAR_12_]] : f32
+// CHECK:           [[VAR_14_:%.+]] = arith.mulf [[VAR_13_]], [[CST_2_dot_000000_]] : f32
+// CHECK:           [[VAR_15_:%.+]] = arith.subf [[VAR_7_]], [[VAR_14_]] : f32
+// CHECK-DAG:       [[VAR_16_:%.+]] = arith.cmpf oeq, [[VAR_15_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_17_:%.+]] = arith.addf [[VAR_7_]], [[CST_1_dot_000000_]] : f32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_18_:%.+]] = arith.select [[VAR_16_]], [[VAR_17_]], [[VAR_7_]] : f32
+// CHECK-DAG:       [[VAR_19_:%.+]] = arith.cmpf oeq, [[VAR_8_]], [[CST_5_dot_000000_]] : f32
+// CHECK:           [[VAR_20_:%.+]] = arith.select [[VAR_19_]], [[VAR_18_]], [[VAR_11_]] : f32
+// CHECK:           [[VAR_21_:%.+]] = arith.addf [[VAR_20_]], [[VAR_4_]] : f32
+// CHECK:           [[VAR_22_:%.+]] = arith.maxnumf [[VAR_21_]], [[CST_0_dot_000000_]] : f32
+// CHECK:           [[VAR_23_:%.+]] = arith.minnumf [[VAR_22_]], [[CST_2_dot_550000_]] : f32
+// CHECK:           [[VAR_24_:%.+]] = arith.fptoui [[VAR_23_]] : f32 to i32
+// CHECK:           [[VAR_25_:%.+]] = arith.trunci [[VAR_24_]] : i32 to i8
+// CHECK:           [[VAR_26_:%.+]] = builtin.unrealized_conversion_cast [[VAR_25_]] : i8 to ui8
+// CHECK:           krnl.store [[VAR_26_]], [[RES_]][] : memref<ui8>
+// CHECK:           return [[RES_]] : memref<ui8>
+// CHECK:         }
+}

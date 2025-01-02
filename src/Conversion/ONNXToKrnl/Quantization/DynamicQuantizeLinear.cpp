@@ -24,18 +24,27 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// Implementation of quantize helper function.
-// TODO: add parallel.
-void emitDynamicQuantizationLinearScalarParameters(
-    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    MemRefType inputType, MemRefType quantizedType, Value input, Value qMin,
-    Value qMax, Value &scale, Value &zeroPoint, Value &quantizedZeroPoint,
-    bool wantZeroPoint, bool enableSIMD, bool enableParallel) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+// Implementation of computing the min and max over an entire tensor. Can
+// generate parallel and SIMD code as requested.
+void emitDynamicQuantizationLinearMinMax(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Value input, Value &inputMin, Value &inputMax,
+    bool enableSIMD, bool enableParallel) {
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+  Value inputMinAlloc, inputMaxAlloc;
+  emitMinMaxReductionToScalar(rewriter, loc, op, input, inputMinAlloc,
+      inputMaxAlloc, enableSIMD, enableParallel);
+  inputMin = create.krnl.load(inputMinAlloc);
+  inputMax = create.krnl.load(inputMaxAlloc);
+}
 
-  // Types
-  Type elementType = inputType.getElementType();
-  Type quantizedElementType = quantizedType.getElementType();
+// Implementation of quantize helper function. Returns Values scale, zeroPoint,
+// and quantizedZeroPoint directly (not as a value to a memory location,
+// directly the floating point results).
+void emitDynamicQuantizationLinearScalarParametersFromMinMax(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    MemRefType inputType, MemRefType quantizedType, Value inputMin,
+    Value inputMax, Value qMin, Value qMax, Value &scale, Value &zeroPoint,
+    Value &quantizedZeroPoint, bool wantZeroPoint, bool enableParallel) {
 
   // Equations:
   // y_scale = (max(x) - min(x))/(qMax - qMin)
@@ -45,26 +54,25 @@ void emitDynamicQuantizationLinearScalarParameters(
   //
   // where, saturate is to clip to [0, 255] for ui8.
 
-  Value inputMinAlloc, inputMaxAlloc;
-  emitMinMaxReductionToScalar(rewriter, loc, op, input, inputMinAlloc,
-      inputMaxAlloc, enableSIMD, enableParallel);
-  Value xMin = create.krnl.load(inputMinAlloc);
-  Value xMax = create.krnl.load(inputMaxAlloc);
-
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  // Types.
+  Type elementType = inputType.getElementType();
+  Type quantizedElementType = quantizedType.getElementType();
   // Include 0 to max(x) and min(x).
   // x_min = min(min(x), 0)
   // x_max = max(max(x), 0)
   Value zero = create.math.constant(elementType, 0.0);
-  xMax = create.math.max(xMax, zero);
-  xMin = create.math.min(xMin, zero);
+  inputMax = create.math.max(inputMax, zero);
+  inputMin = create.math.min(inputMin, zero);
   // Compute y_scale.
-  Value xDiff = create.math.sub(xMax, xMin);
+  Value xDiff = create.math.sub(inputMax, inputMin);
   Value boundDiff = create.math.sub(qMax, qMin);
   scale = create.math.div(xDiff, boundDiff);
 
   // Compute y_zero_point.
   if (wantZeroPoint) {
-    Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
+    Value interZeroPoint =
+        create.math.sub(qMin, create.math.div(inputMin, scale));
     // Saturate zero point.
     Value saturateZeroPoint = create.math.clip(interZeroPoint, qMin, qMax);
     // Round zero point.
@@ -125,14 +133,16 @@ struct ONNXDynamicQuantizeLinearOpLowering
     Value YZeroPoint = create.mem.alignedAlloc(
         yZeroPointMemRefType, shapeHelper.getOutputDims(2));
 
+    Value xMin, xMax;
+    emitDynamicQuantizationLinearMinMax(
+        rewriter, loc, op, X, xMin, xMax, enableSIMD, enableParallel);
     Value qMax = create.math.constant(elementType, 255.0);
     Value qMin = create.math.constant(elementType, 0.0);
     Value scale, zeroPoint, zeroPointInt;
-
     bool wantZeroPoint = !disableQuantZeroPoint;
-    emitDynamicQuantizationLinearScalarParameters(rewriter, loc, op,
-        xMemRefType, yMemRefType, X, qMin, qMax, scale, zeroPoint, zeroPointInt,
-        wantZeroPoint, enableSIMD, enableParallel);
+    emitDynamicQuantizationLinearScalarParametersFromMinMax(rewriter, loc, op,
+        xMemRefType, yMemRefType, xMin, xMax, qMin, qMax, scale, zeroPoint,
+        zeroPointInt, wantZeroPoint, enableParallel);
     create.krnl.store(scale, YScale);
     create.krnl.store(zeroPointInt, YZeroPoint);
 

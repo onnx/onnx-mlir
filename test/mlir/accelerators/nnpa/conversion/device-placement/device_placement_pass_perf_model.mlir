@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --device-placement=use-faster=true --mcpu=z16 --maccel=NNPA --split-input-file %s | FileCheck %s
+// RUN: onnx-mlir-opt --device-placement=use-faster=true --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s
 // -----
 
 // Shape is such that this op is nearly guaranteed to be faster on CPU.

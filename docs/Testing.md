@@ -122,9 +122,9 @@ cmake --build . --config Release --target check-onnx-backend-signature
 
 ### Enable SIMD instructions
 
-On supported platforms, currently s390x only, backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MCPU environment variable, e.g.,
+On supported platforms (currently s390x z14 and up, x86, and arm), backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MARCH environment variable, e.g.,
 ```
-TEST_MCPU=z14 cmake --build . --config Release --target check-onnx-backend[-jni]
+TEST_MARCH=z16 cmake --build . --config Release --target check-onnx-backend[-jni]
 ```
 
 ### Execution of backend tests
@@ -294,9 +294,9 @@ If you need to change ATOL and RTOL for accuracy checks, set the environment var
 
 ### Enable SIMD instructions
 
-On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the `TEST_ARGS` environment variable, e.g.,
+On supported platforms (currently s390x z14 and up, x86, and arm), numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the `TEST_ARGS` environment variable, e.g.,
 ```
-TEST_ARGS="-mcpu=z14" CTEST_PARALLEL_LEVEL=$(nproc) cmake --build . --config Release --target check-onnx-numerical
+TEST_ARGS="-march=z16" CTEST_PARALLEL_LEVEL=$(nproc) cmake --build . --config Release --target check-onnx-numerical
 ```
 
 ### Testing of specific accelerators
@@ -395,7 +395,7 @@ Without specifying a model using `-m`, the script will check all models in the O
 
 If you want to gather performance info about a model zoo (or any models, for that matter), simplest is to request the desired statistic at compile time (using `-profile-ir` flag), divert the output statistic to a file, and then analyze it using `make-report.py`. For example:
 ```
-> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 -march=arm64 --profile-ir=Onnx" -m bertsquad-10
+> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 --march=arm64 --profile-ir=Onnx" -m bertsquad-10
 ...
 > make-report.py -r run.log
 ...
@@ -408,7 +408,7 @@ Statistics start (all ops).
 
 The runtime profiling info can be combined with specific compile-time statistics as well. Let's say that we are interested in SIMD statistics. We inform the compiler of the compile-time statistic to emit using `-opt-report` option, and inform `RunONNXModelZoo.py` that we want to preserve the compiler output using the `--log-to-file` option. For example
 ```
-> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 -march=arm64 -opt-report=Simd --profile-ir=Onnx" -m bertsquad-10 --log-to-file compile.log
+> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 --march=arm64 -opt-report=Simd --profile-ir=Onnx" -m bertsquad-10 --log-to-file compile.log
 ...
 > make-report.py -c compile.log -r run.log
 ...

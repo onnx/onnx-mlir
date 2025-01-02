@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --convert-zhigh-to-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-zhigh-to-onnx %s -split-input-file | FileCheck %s
 
 func.func @test_min() -> tensor<10x10xf32> {
   %cst0 = onnx.Constant dense<1.0> : tensor<10x10xf32>

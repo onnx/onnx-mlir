@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @lstm_return_single_step(%input : tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 

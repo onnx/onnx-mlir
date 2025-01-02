@@ -55,6 +55,15 @@ typedef enum {
   MuchFasterOpsWSU, /* FasterOpsWSU only if significantly faster. */
 } NNPAPlacementHeuristic;
 
+// Quantization type
+typedef enum {
+  DynSymI8, /* Dynamic quantization to signed integer 8. Asymmetric quant for
+               activations and symmetric quant for weights.*/
+  SymSymI8, /* Dynamic quantization to signed integer 8. Symmetric quant for
+               activations and symmetric quant for weights.*/
+  QNONE,    /* Only qualifying ops that are faster on NNPA. */
+} NNPAQuantType;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::OptionCategory OnnxMlirCommonOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
@@ -68,6 +77,9 @@ extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
 extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 extern llvm::cl::opt<bool> nnpaEnableSaturation;
+extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
+extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
+extern llvm::cl::opt<NNPAQuantType> nnpaQuantization;
 
 } // namespace onnx_mlir
 #endif

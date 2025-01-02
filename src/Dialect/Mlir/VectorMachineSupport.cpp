@@ -9,6 +9,7 @@
 // =============================================================================
 
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/Support/Debug.h"
@@ -28,14 +29,17 @@ namespace onnx_mlir {
     *VectorMachineSupport::globalVectorMachineSupport = nullptr;
 
 /*static*/ void VectorMachineSupport::setGlobalVectorMachineSupport(
-    std::string arch, std::string cpu, std::string attr) {
-  // IBM Z servers use mcpu.
-  if (cpu.compare("z14") == 0) {
-    globalVectorMachineSupport = new Z14VectorMachineSupport();
-  } else if (cpu.compare("z15") == 0) {
-    globalVectorMachineSupport = new Z15VectorMachineSupport();
-  } else if (cpu.compare("z16") == 0) {
-    globalVectorMachineSupport = new Z16VectorMachineSupport();
+    const std::string &arch, const std::string &cpu, const std::string &attr) {
+  // IBM Z servers use march (deprecated mcpu), process here.
+  int64_t zArchNum = getZArchNum(arch, cpu);
+  if (zArchNum == 12) {
+    globalVectorMachineSupport = new ZArch12VectorMachineSupport();
+  } else if (zArchNum == 13) {
+    globalVectorMachineSupport = new ZArch13VectorMachineSupport();
+  } else if (zArchNum == 14) {
+    globalVectorMachineSupport = new ZArch14VectorMachineSupport();
+  } else if (zArchNum == 15) {
+    globalVectorMachineSupport = new ZArch15VectorMachineSupport();
     // Intel uses arch
   } else if (arch.compare("x86-64") == 0) {
     // Intel arch
@@ -128,7 +132,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
 // IBM Z servers
 // =============================================================================
 
-bool Z16VectorMachineSupport::needCustomASM(
+bool ZArch14VectorMachineSupport::needCustomASM(
     GenericOps genOp, Type elementType) {
   assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
   bool isFloat = mlir::isa<FloatType>(elementType);
@@ -144,7 +148,7 @@ bool Z16VectorMachineSupport::needCustomASM(
   return false;
 }
 
-int64_t Z16VectorMachineSupport::computeArchVectorLength(
+int64_t ZArch14VectorMachineSupport::computeArchVectorLength(
     GenericOps genOp, Type elementType) {
   assert(genOp < GenericOps::LastGop && "no metrics here, only genOps");
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();

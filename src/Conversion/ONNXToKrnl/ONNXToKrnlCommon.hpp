@@ -754,5 +754,21 @@ void emitMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
     mlir::Value &minAlloc, mlir::Value &maxAlloc, bool enableSIMD,
     bool enableParallel);
 
+// Compute the reciprocal scale (recscale) for the symmetric quantization. Can
+// generate parallel and SIMD code as requested. Formula for recscale:
+// ```
+// recscale  = (2^(b-1) - 1) / absmax(X)
+// ```
+// where
+// - X is the input tensor,
+// - b is the number of bits we want to quantize to (e.g. 8 for integer 8), and
+// - absmax is a function to compute the absolute maximun value over entire
+// tensor
+//
+void emitSymmetricQuantRecscaleToScalar(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Operation *op, mlir::Value input, uint64_t bitWidth,
+    mlir::Value &recscale, bool enableSIMD, bool enableParallel);
+
 } // namespace onnx_mlir
 #endif

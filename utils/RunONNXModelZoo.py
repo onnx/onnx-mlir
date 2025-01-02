@@ -37,7 +37,7 @@ Note:
     - Use `-m model_name` to check a list of selected models.
 
 Example:
-    $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -c "-O3 -mcpu=z14"
+    $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -c "-O3 --march=z16"
 """
 
 if not os.environ.get("ONNX_MLIR_HOME", None):

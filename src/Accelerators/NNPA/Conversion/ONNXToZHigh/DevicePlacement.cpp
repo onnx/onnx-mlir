@@ -200,13 +200,13 @@ void DevicePlacementPass::runOnOperation() {
   // Call ONNXToZHigh pass for lowering multiple ONNX ops at once to ZHigh.
   // E.g. `onnx.ReLu (onnx.Conv)` to zhigh.Conv.
   RewritePatternSet Patterns2(context);
-  getONNXToZHighMultipleOpPatterns(Patterns2);
+  getONNXToZHighMultipleOpPatterns(Patterns2, nnpaQuantization);
   (void)applyAnalysisConversion(module, target, std::move(Patterns2),
       ConversionConfig{.legalizableOps = &legalizedOps2});
 
   // Call ONNXToZHigh pass for lowering a single ONNX op to ZHigh.
   RewritePatternSet Patterns3(context);
-  getONNXToZHighOneOpPatterns(Patterns3);
+  getONNXToZHighOneOpPatterns(Patterns3, nnpaQuantization);
   getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis);
   (void)applyAnalysisConversion(module, target, std::move(Patterns3),
       ConversionConfig{.legalizableOps = &legalizedOps3});

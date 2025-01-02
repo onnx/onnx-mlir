@@ -61,11 +61,11 @@ The output for the memory measurement is explained here.
 
 Other example for NNPA
 - Performance profiling for onnx ops before lowering to zhigh ops:
-  `onnx-mlir --mcpu=z16 --maccel=NNPA --instrument-stage=Onnx --instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+  `onnx-mlir --march=z16 --maccel=NNPA --instrument-stage=Onnx --instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 - Performance profiling for onnx and zhigh ops:
-  `onnx-mlir --mcpu=z16 --maccel=NNPA --instrument-stage=ZHigh --instrument-ops=onnx.*,zhigh.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+  `onnx-mlir --march=z16 --maccel=NNPA --instrument-stage=ZHigh --instrument-ops=onnx.*,zhigh.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 - Performance profiling for zlow ops:
-  `onnx-mlir --mcpu=z16 --maccel=NNPA --instrument-stage=ZLow --instrument-ops=zlow.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+  `onnx-mlir --march=z16 --maccel=NNPA --instrument-stage=ZLow --instrument-ops=zlow.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 
 ## Control instrument at runtime
 By providing certain env variable at runtime, you can disable reports from  instrument library.

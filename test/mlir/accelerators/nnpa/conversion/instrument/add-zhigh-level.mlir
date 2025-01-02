@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --mcpu=z16 --maccel=NNPA --printIR --EmitZLowIR --instrument-stage=ZHigh --instrument-ops=zhigh.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime %s  | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --printIR --EmitZLowIR --instrument-stage=ZHigh --instrument-ops=zhigh.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime %s  | FileCheck %s
 
 // -----
 

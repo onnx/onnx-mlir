@@ -2480,3 +2480,31 @@ func.func @test_reciprocal() -> tensor<1x2xf32> {
   // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[-2.500000e-01, 6.250000e-02]{{\]}}> : tensor<1x2xf32>
   // CHECK-NOT: {{.*}} = "onnx.Reciprocal"{{.*}}
 }
+
+//===----------------------------------------------------------------------===//
+/// Abs test
+
+// -----
+
+// CHECK-LABEL: @test_abs() -> tensor<2xf32>
+func.func @test_abs() -> tensor<2xf32> {
+  %0 = onnx.Constant dense<[-4.0, 16.0]> : tensor<2xf32>
+  %1 = "onnx.Abs"(%0) : (tensor<2xf32>) -> tensor<2xf32>
+  "onnx.Return"(%1) : (tensor<2xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[4.000000e+00, 1.600000e+01]> : tensor<2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Abs"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// Round test
+
+// -----
+
+// CHECK-LABEL: @test_round() -> tensor<5xf32>
+func.func @test_round() -> tensor<5xf32> {
+  %0 = onnx.Constant dense<[0.9, 2.5, 2.3, 1.5, -4.5]> : tensor<5xf32>
+  %1 = "onnx.Round"(%0) : (tensor<5xf32>) -> tensor<5xf32>
+  "onnx.Return"(%1) : (tensor<5xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 2.000000e+00, 2.000000e+00, -4.000000e+00]> : tensor<5xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Round"{{.*}}
+}

@@ -17,6 +17,7 @@
 #ifndef ONNX_MLIR_LEGALITY_H
 #define ONNX_MLIR_LEGALITY_H
 
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -53,6 +54,8 @@ bool onnxToZHighUnsupportedReport(
     mlir::Operation *op, const std::string &message);
 
 bool onnxToZHighInCompatibilityReport(
-    mlir::Operation *op, std::string inputNNPALevel);
+    mlir::Operation *op, const std::string &message);
+
+bool onnxToZHighInCompatibilityReport(mlir::Operation *op, NNPALevel level);
 
 #endif

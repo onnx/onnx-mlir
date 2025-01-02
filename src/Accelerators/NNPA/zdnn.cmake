@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 function(setup_zdnn version)
-  set(ZDNN_GITHUB_URL https://github.com/IBM/zDNN)
+  # Set policy CMP0097 to NEW for it to not initialize submodules
+  cmake_policy(SET CMP0097 NEW)
+
+  set(ZDNN_GITHUB_URL https://github.com/IBM/zDNN.git)
+  message("Git clone zDNN. The ZDNN_GITHUB_URL is: ${ZDNN_GITHUB_URL}")
+
   set(ZDNN_PREFIX     ${CMAKE_CURRENT_BINARY_DIR}/zDNN)
   set(ZDNN_TOPDIR     ${ZDNN_PREFIX}/src/zdnn)
   set(ZDNN_OBJDIR     ${ZDNN_TOPDIR}/zdnn/obj)
@@ -12,6 +17,7 @@ function(setup_zdnn version)
     ExternalProject_Add(zdnn
       GIT_REPOSITORY ${ZDNN_GITHUB_URL}
       GIT_TAG ${version}
+      GIT_SUBMODULES ""
       PREFIX ${ZDNN_PREFIX}
       BUILD_IN_SOURCE ON
       CONFIGURE_COMMAND sh -c "autoconf && ./configure"
@@ -55,6 +61,7 @@ function(setup_zdnn version)
     ExternalProject_Add(zdnn
       GIT_REPOSITORY ${ZDNN_GITHUB_URL}
       GIT_TAG ${version}
+      GIT_SUBMODULES ""
       PREFIX ${ZDNN_PREFIX}
       BUILD_IN_SOURCE ON
       CONFIGURE_COMMAND ""
