@@ -931,41 +931,49 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
         return rewriter.notifyMatchFailure(scatterNDOp,
             "Negative values with wrap around are not yet "
             "supported"); // onnx allows negative values with
-                          // wrap-arround, this decomposition does
+                          // wrap-around, this decomposition does
                           // not (for now)
       }
     }
 
-    // Check that all indices are contigous.
-    // let r = shape(data),
-    // q = shape(indices)
-    // u = shape(updates)
-    // We checked that rank(q) == rank(r) and that u and r only differ in a
-    // single dimension 'a'. 'a' is the dimension, where the split and concat
-    // will happen. To ensure that the decomposition to split and concat is
-    // valid, the indices need to be contiguous beginning from the first index.
-    // We call them contiguous if each index is pointing at the element in data
-    // directly following the element pointed to by the previous index.
-    // "The following element" is the element that will be accessed, if the
-    // least significant value of an elements index is increased by one. To
-    // check that the indices are contiguous, we iterate over all indices.
-    // The indices need to completey cover 'data', with the exception of
-    // dimension 'a', where they need to only cover u[a].
-    // By definition, rank(q) -1 dimensions of indices and updates are
-    // identical.
-    // Because we checked that u and r only differ in 'a', all
-    // dimension except 'a' and rank(q) -1 (which contains the indices),  are
-    // also identical in r and q.
-    // The check works by calculating the expected index (called 'counter' in
-    // the code) and then comparing it against the actual one. The check begins
-    // with the first index and then always increments it by one. The increment
-    // works similar to manual addition, incrementing the least significant
-    // digit and carrying when needed. The carry happens whenever a dimension
-    // was completly covered. A complication is, that the first index is not
-    // always [0, ...], it can be 'shifted'. We checked that the shift is only
-    // in the split dimension 'a'. If a carry is required, the counter that
-    // required the carry is not reset to zero, but to its value in the first
-    // index, which can contain the shift.
+    // Check that all indices are contiguous.
+    //
+    // ScatterND pseudo code:
+    //   output = np.copy(data)
+    //   update_indices = indices.shape[:-1]
+    //   for idx in np.ndindex(update_indices):
+    //     output[indices[idx]] = updates[idx]
+    //
+    // To ensure that this decomposition to split and concat is
+    // valid, the following constraints need to hold:
+    // - rank(data) == rank(updates)
+    // - The shape of data and updates differs only in one dimension 'a'
+    // -- 'a' is the dimension where the split and concat will happen
+    // - The update indices need to be contiguous
+    // -- The update indices are the last dim in indices
+    // -- We call the contiguous, if each idx in indices is indexing the element
+    //    in data, that is logically directly after the element indexed by the
+    //    previous idx
+    // --- logically directly after means the element that will be accessed if
+    //     the least significant value of an elements index is increased by one
+    // - The update indices need to cover/index the complete data, with the
+    //   exception of dimension 'a', where they need to cover only updates[a]
+    // - To check the contiguity and covering works the following way:
+    // -- Iterated over all idx in indices and compare the idx against the
+    //    expected index, fail if it differs
+    // -- The expected index is calculated the following way:
+    // --- The expected index is initialized with the first index in indices and
+    //     then always incremented by one.
+    // --- The increment works like an addition on paper, the least significant
+    //     digit/subindex gets incremented by one. If an digit overflows, it
+    //     gets reset to the first index and the addition carries to the next,
+    //     more significant digit. The addition overflows, if the index for an
+    //     axis is equal to the size of this axis in updates/indices. (By
+    //     definition the shape for indices.shape().drop(-1) ==
+    //     updates.shape()). If the addition overflows , the overflowing digit
+    //     is reset to its value in the first index. This is zero for all axes,
+    //     except for 'a', where it can be a positive number if the split/concat
+    //     is in the middle of the tensor
     {
       IndicesContiguosCounter counter(firstIndex, indicesShape.drop_back(1));
       for (size_t i = 0; i < indicesFlatAccessor.size(); ++i) {
