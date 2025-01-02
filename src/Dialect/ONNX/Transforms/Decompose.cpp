@@ -825,9 +825,9 @@ private:
   size_t iterArraySize;
 };
 
-class IndicesContiguosCounter {
+class IndicesContiguousCounter {
 public:
-  explicit IndicesContiguosCounter(
+  explicit IndicesContiguousCounter(
       ArrayRef<int64_t> firstElem, ArrayRef<int64_t> shapeToCheck)
       : counter(firstElem), firstElem(firstElem), shapeToCheck(shapeToCheck) {}
 
@@ -848,8 +848,7 @@ public:
 private:
   SmallVector<int64_t> counter;
   ArrayRef<int64_t> firstElem;
-  ArrayRef<int64_t> shapeToCheck; // The first n-1 dims of indices and updates
-                                  // are required to be the same by scatterND
+  ArrayRef<int64_t> shapeToCheck;
 };
 
 } // namespace
@@ -969,13 +968,17 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     //     gets reset to the first index and the addition carries to the next,
     //     more significant digit. The addition overflows, if the index for an
     //     axis is equal to the size of this axis in updates/indices. (By
-    //     definition the shape for indices.shape().drop(-1) ==
-    //     updates.shape()). If the addition overflows , the overflowing digit
-    //     is reset to its value in the first index. This is zero for all axes,
-    //     except for 'a', where it can be a positive number if the split/concat
-    //     is in the middle of the tensor
+    //     definition the shape for indices.shape().drop(-1) must match the
+    //     first dimensions in updates). If the addition overflows , the
+    //     overflowing digit is reset to its value in the first index. This is
+    //     zero for all axes, except for 'a', where it can be a positive number
+    //     if the split/concat is in the middle of the tensor
+    assert(
+        updateShape.drop_back(updateShape.size() - (indicesShape.size() - 1)) ==
+            indicesShape.drop_back(1) &&
+        "Update and indicesShape should partially match for scatterNd");
     {
-      IndicesContiguosCounter counter(firstIndex, indicesShape.drop_back(1));
+      IndicesContiguousCounter counter(firstIndex, indicesShape.drop_back(1));
       for (size_t i = 0; i < indicesFlatAccessor.size(); ++i) {
         if (counter.getCounter() != indicesFlatAccessor[i]) {
           return rewriter.notifyMatchFailure(
