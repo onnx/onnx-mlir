@@ -1,0 +1,55 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s | FileCheck %s
+
+// Semi hand-written model.
+// When converted to onnxtext, onnx-mlir didn't like the result.
+
+// CHECK: [[DQ:%.+]] = "onnx.Custom"(%arg0) {domain_name = "com.microsoft", function_name = "Gelu", onnx_node_name = "myGelu", output_element_type = bf16, shape_infer_pattern = "MDBroadcast"} : (tensor<1x64x112x112xbf16>) -> tensor<1x64x112x112xbf16>
+// CHECK: return [[DQ]]
+{
+  "irVersion": "8",
+  "producerName": "pytorch",
+  "producerVersion": "2.1.2",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "myInput"
+        ],
+        "output": ["myGelu_output_0"],
+        "name": "myGelu",
+        "opType": "Gelu",
+        "domain": "com.microsoft"
+      }
+    ],
+    "name": "main_graph",
+    "input": [
+      {
+        "name": "myInput",
+        "type": {
+          "tensorType": {
+            "elemType": 16,
+            "shape": {
+              "dim": [
+                {"dimValue": "1"},
+                {"dimValue": "64"},
+                {"dimValue": "112"},
+                {"dimValue": "112"}
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "myGelu_output_0",
+        "type": {
+          "tensorType": {
+            "elemType": 16
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [{"version": "17"}]
+}
