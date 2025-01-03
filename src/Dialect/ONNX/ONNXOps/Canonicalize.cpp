@@ -1542,7 +1542,6 @@ struct PropagateBiasIntoLayerNormRewritePattern
     Value y, bias;
     Operation *yLayerNormOp;
     Operation *ywbAddOp = addOp.getOperation();
-    Location loc = addOp.getLoc();
     // Match
     // %noBias = "onnx.NoValue"()
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
@@ -1568,7 +1567,8 @@ struct PropagateBiasIntoLayerNormRewritePattern
     LLVM_DEBUG(llvm::dbgs() << "LayerNorm from add, axis : " << axis << "\n");
 
     // Replace
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    MultiDialectBuilder<OnnxBuilder> create(
+        rewriter, rewriter.getFusedLoc({lnOp.getLoc(), addOp->getLoc()}));
     Type xType = x.getType();
     Value res;
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)

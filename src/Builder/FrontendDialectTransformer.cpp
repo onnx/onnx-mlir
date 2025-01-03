@@ -1375,10 +1375,13 @@ private:
       Type outElementType = {};
       if (opName == "DequantizeLinear") {
         outElementType =
-            inputs.at(1).getType().cast<ShapedType>().getElementType();
+            cast<ShapedType>(inputs.at(1).getType()).getElementType();
       } else if (opName == "QuantizeLinear") {
         outElementType =
-            inputs.at(2).getType().cast<ShapedType>().getElementType();
+            cast<ShapedType>(inputs.at(2).getType()).getElementType();
+      } else if (opName == "Gelu") {
+        outElementType =
+            cast<ShapedType>(inputs.at(0).getType()).getElementType();
       }
       if (outElementType) {
         auto outElemTypeAttr = builder_.getNamedAttr(
