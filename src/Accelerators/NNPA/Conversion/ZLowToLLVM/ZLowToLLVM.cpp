@@ -1542,10 +1542,12 @@ public:
         Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
         Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
 
-        // SIMD instruction in string for z/Linux.
+        // SIMD instruction in string for z/Linux and z/OS.
         // Convert and lengthen from DLF16: VCLFN(H/L) V1,V2,M3,M4
         // M3 = 2 = FP32, M4 = 0 = DLF16
-        const char *asmStr = "VCLFNH $0,$2,2,0 \n\t VCLFNL $1,$2,2,0 \n\t";
+        // Note the spaces are required by the z/OS assembler.
+        const char *asmStr = "       VCLFNH $0,$2,2,0       \n\t"
+                             "       VCLFNL $1,$2,2,0       \n\t";
         const char *asmConstraints = "=&v,=v,v";
 
         // Prepare the input vector.
@@ -1710,10 +1712,11 @@ public:
         Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
         Type vecTypeF16 = LLVM::getFixedVectorType(f16Ty, 8);
 
-        // SIMD instruction in string for z/Linux.
+        // SIMD instruction in string for z/Linux and z/OS.
         // Convert and round to DLF16: VCRNF V1,V2,V3,M4,M5
         // M4 = 0 = DLF16, M5 = 2 = FP32
-        const char *asmStr = "VCRNF $0,$1,$2,0,2";
+        // Note the spaces are required by the z/OS assembler.
+        const char *asmStr = "       VCRNF $0,$1,$2,0,2         \n\t";
         const char *asmConstraints = "=v,v,v";
 
         // Prepare two input vectors: each for left/right four elements.
@@ -1864,10 +1867,15 @@ public:
     Value inputVecI16 =
         create.llvm.bitcast(vecTypeI16, operandAdaptor.getInput());
 
-    // Emit SIMD instruction for conversion.
-    // TODO: check if z/OS uses the same or different instruction.
-    const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t"
-                         ".insn vrr,0xe6000000005E,$1,$2,0,2,0,0 \n\t";
+    // SIMD instruction in string for z/Linux and z/OS.
+    // Note this .insn version of asmStr was used previously for z/Linux.
+    // const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t"
+    //                      ".insn vrr,0xe6000000005E,$1,$2,0,2,0,0 \n\t";
+    // Convert and lengthen from DLF16: VCLFN(H/L) V1,V2,M3,M4
+    // M3 = 2 = FP32, M4 = 0 = DLF16
+    // Note the spaces are required by the z/OS assembler.
+    const char *asmStr = "       VCLFNH $0,$2,2,0       \n\t"
+                         "       VCLFNL $1,$2,2,0       \n\t";
     const char *asmConstraints = "=&v,=v,v";
     SmallVector<Value> asmVals{inputVecI16};
     Value outVecI32Struct =
@@ -1920,9 +1928,13 @@ public:
     Value vecI32H = create.llvm.bitcast(vecTypeI32, operandAdaptor.getInput1());
     Value vecI32L = create.llvm.bitcast(vecTypeI32, operandAdaptor.getInput2());
 
-    // Emit SIMD instruction for conversion.
-    // TODO: check if z/OS uses the same or different instruction.
-    const char *asmStr = ".insn vrr,0xe60000000075,$0,$1,$2,0,2,0";
+    // SIMD instruction in string for z/Linux and z/OS.
+    // Note this .insn version of asmStr was used previously for z/Linux.
+    // asmStr = ".insn vrr,0xe60000000075,$0,$1,$2,0,2,0";
+    // Convert and round to DLF16: VCRNF V1,V2,V3,M4,M5
+    // M4 = 0 = DLF16, M5 = 2 = FP32
+    // Note the spaces are required by the z/OS assembler.
+    const char *asmStr = "       VCRNF $0,$1,$2,0,2         \n\t";
     const char *asmConstraints = "=v,v,v";
     SmallVector<Value> asmVals{vecI32H, vecI32L};
 

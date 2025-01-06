@@ -151,6 +151,42 @@ func.func @test_add_const_associative2_2uses(%x: tensor<i32>, %y: tensor<i32>, %
 
 // -----
 
+// (x + c) + y will not be rewritten to (x + y) + c because x and c are scalar
+func.func @test_add_const_associative_scalar_not_apply_1(%x: tensor<1xi32>, %y: tensor<5xi32>) -> tensor<5xi32> {
+  %c = onnx.Constant dense<1> : tensor<i32>
+  %1 = "onnx.Add"(%x, %c) : (tensor<1xi32> , tensor<i32>) -> tensor<1xi32>
+  %2 = "onnx.Add"(%1, %y) : (tensor<1xi32> , tensor<5xi32>) -> tensor<5xi32>
+  onnx.Return %2: tensor<5xi32>
+
+// CHECK-LABEL:  func.func @test_add_const_associative_scalar_not_apply_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>, [[PARAM_1_:%.+]]: tensor<5xi32>) -> tensor<5xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1xi32>, tensor<i32>) -> tensor<1xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_1_]]) : (tensor<1xi32>, tensor<5xi32>) -> tensor<5xi32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<5xi32>
+// CHECK:         }
+}
+
+// -----
+
+// (x + (y+c)) will not be rewritten to (x + y) + c because y and c are scalar
+func.func @test_add_const_associative_scalar_not_apply_2(%x: tensor<5xi32>, %y: tensor<1xi32>) -> tensor<5xi32> {
+  %c = onnx.Constant dense<1> : tensor<i32>
+  %1 = "onnx.Add"(%y, %c) : (tensor<1xi32> , tensor<i32>) -> tensor<1xi32>
+  %2 = "onnx.Add"(%x, %1) : (tensor<5xi32> , tensor<1xi32>) -> tensor<5xi32>
+  onnx.Return %2: tensor<5xi32>
+
+// CHECK-LABEL:  func.func @test_add_const_associative_scalar_not_apply_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5xi32>, [[PARAM_1_:%.+]]: tensor<1xi32>) -> tensor<5xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_1_]], [[VAR_0_]]) : (tensor<1xi32>, tensor<i32>) -> tensor<1xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_1_]]) : (tensor<5xi32>, tensor<1xi32>) -> tensor<5xi32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<5xi32>
+// CHECK:         }
+}
+
+// -----
+
 // CHECK-LABEL: @test_add_zeros(%arg0: tensor<3xi32>) -> tensor<3xi32>
 func.func @test_add_zeros(%arg0 : tensor<3xi32>) -> tensor<3xi32> {
   %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi32>
@@ -250,6 +286,42 @@ func.func @test_mul_ones(%arg0 : tensor<2x2xf32>) -> tensor<2x2xf32> {
   %1 = "onnx.Mul"(%arg0, %0) : (tensor<2x2xf32> , tensor<2x2xf32>) -> tensor<2x2xf32>
   onnx.Return %1 : tensor<2x2xf32>
   // CHECK: onnx.Return %arg0 : tensor<2x2xf32>
+}
+
+// -----
+
+// (x * c) * y will not be rewritten to (x * y) * c because x and c are scalar
+func.func @test_mul_const_associative_scalar_not_apply_1(%x: tensor<1xi32>, %y: tensor<5xi32>) -> tensor<5xi32> {
+  %c = onnx.Constant dense<5> : tensor<i32>
+  %1 = "onnx.Mul"(%x, %c) : (tensor<1xi32> , tensor<i32>) -> tensor<1xi32>
+  %2 = "onnx.Mul"(%1, %y) : (tensor<1xi32> , tensor<5xi32>) -> tensor<5xi32>
+  onnx.Return %2: tensor<5xi32>
+
+// CHECK-LABEL:  func.func @test_mul_const_associative_scalar_not_apply_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>, [[PARAM_1_:%.+]]: tensor<5xi32>) -> tensor<5xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<5> : tensor<i32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1xi32>, tensor<i32>) -> tensor<1xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[PARAM_1_]]) : (tensor<1xi32>, tensor<5xi32>) -> tensor<5xi32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<5xi32>
+// CHECK:         }
+}
+
+// -----
+
+// (x * (y*c)) will not be rewritten to (x * y) * c because y and c are scalar
+func.func @test_mul_const_associative_scalar_not_apply_2(%x: tensor<5xi32>, %y: tensor<1xi32>) -> tensor<5xi32> {
+  %c = onnx.Constant dense<5> : tensor<i32>
+  %1 = "onnx.Mul"(%y, %c) : (tensor<1xi32> , tensor<i32>) -> tensor<1xi32>
+  %2 = "onnx.Mul"(%x, %1) : (tensor<5xi32> , tensor<1xi32>) -> tensor<5xi32>
+  onnx.Return %2: tensor<5xi32>
+
+// CHECK-LABEL:  func.func @test_mul_const_associative_scalar_not_apply_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5xi32>, [[PARAM_1_:%.+]]: tensor<1xi32>) -> tensor<5xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<5> : tensor<i32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_1_]], [[VAR_0_]]) : (tensor<1xi32>, tensor<i32>) -> tensor<1xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<5xi32>, tensor<1xi32>) -> tensor<5xi32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<5xi32>
+// CHECK:         }
 }
 
 //===----------------------------------------------------------------------===//

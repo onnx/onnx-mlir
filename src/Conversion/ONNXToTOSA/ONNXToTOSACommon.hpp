@@ -5,7 +5,7 @@
 //====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering --------===//
 //
 // Copyright 2020-2024 The TensorFlow Authors. All Rights Reserved.
-// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2024 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -19,7 +19,7 @@
 
 #include "DialectBuilder.hpp"
 #include "ONNXToTOSALegalizeUtils.hpp"
-#include "mlir/Dialect/Quant/QuantTypes.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 
 #include "mlir/IR/MLIRContext.h"

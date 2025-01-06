@@ -150,6 +150,11 @@ Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
       outputType, toTensor(input), toTensor(shape));
 }
 
+Value OnnxBuilder::gelu(Value input, StringAttr approximateAttr) const {
+  return createOpAndInferShapes<ONNXGeluOp>(
+      toTensor(input.getType()), input, approximateAttr);
+}
+
 // ONNXLayerNormalizationOp, version with one output only (Y).
 Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
     Value bias, int64_t axis, FloatAttr epsilon) const {

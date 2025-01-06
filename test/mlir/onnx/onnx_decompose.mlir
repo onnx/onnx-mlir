@@ -782,6 +782,53 @@ func.func @test_castlike(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf16>) -> tensor
 
 // -----
 
+func.func @test_sum(%arg0: tensor<128x10xf32>, %arg1: tensor<64x128x10xf32>, %arg2: tensor<10xf32>, %arg3: tensor<64x1x1xf32>) -> tensor<64x128x10xf32> {
+  %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<128x10xf32>, tensor<64x128x10xf32>, tensor<10xf32>, tensor<64x1x1xf32>) -> tensor<64x128x10xf32>
+  onnx.Return %0 : tensor<64x128x10xf32> 
+  // CHECK-LABEL:       func @test_sum
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}}, %[[ARG3:.*]]: {{.*}})
+  // CHECK-NEXT:      %[[SUM0:.*]] = "onnx.Add"(%[[ARG0]], %[[ARG1]])
+  // CHECK-NEXT:      %[[SUM1:.*]] = "onnx.Add"(%[[SUM0]], %[[ARG2]])
+  // CHECK-NEXT:      %[[SUM2:.*]] = "onnx.Add"(%[[SUM1]], %[[ARG3]])
+  // CHECK-NEXT:      onnx.Return %[[SUM2]]
+}
+
+// -----
+
+func.func @test_sum_to_unranked(%arg0: tensor<128x10xf32>, %arg1: tensor<64x128x10xf32>, %arg2: tensor<10xf32>, %arg3: tensor<64x1x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<128x10xf32>, tensor<64x128x10xf32>, tensor<10xf32>, tensor<64x1x1xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32> 
+  // CHECK-LABEL:       func @test_sum
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}}, %[[ARG3:.*]]: {{.*}})
+  // CHECK-NEXT:      %[[SUM0:.*]] = "onnx.Add"(%[[ARG0]], %[[ARG1]])
+  // CHECK-NEXT:      %[[SUM1:.*]] = "onnx.Add"(%[[SUM0]], %[[ARG2]])
+  // CHECK-NEXT:      %[[SUM2:.*]] = "onnx.Add"(%[[SUM1]], %[[ARG3]])
+  // CHECK-NEXT:      %[[CAST:.*]] = "onnx.Cast"(%[[SUM2]]) {saturate = 1 : si64, to = f32} : (tensor<64x128x10xf32>) -> tensor<*xf32>
+  // CHECK-NEXT:      onnx.Return %[[CAST]]
+}
+
+// -----
+
+func.func @test_sum_single_input(%arg0: tensor<64x128x10xf32>) -> tensor<64x128x10xf32> {
+  %0 = "onnx.Sum"(%arg0) : (tensor<64x128x10xf32>) -> tensor<64x128x10xf32>
+  onnx.Return %0 : tensor<64x128x10xf32> 
+  // CHECK-LABEL:       func @test_sum_single_input
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}})
+  // CHECK-NEXT:      onnx.Return %[[ARG0]]
+}
+
+// -----
+
+func.func @test_sum_single_input_to_unranked(%arg0: tensor<64x128x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sum"(%arg0) : (tensor<64x128x10xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32> 
+  // CHECK-LABEL:       func @test_sum_single_input_to_unranked
+  // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}})
+  // CHECK-NEXT:      %[[CAST:.*]] = "onnx.Cast"(%[[ARG0]]) {saturate = 1 : si64, to = f32} : (tensor<64x128x10xf32>) -> tensor<*xf32>
+  // CHECK-NEXT:      onnx.Return %[[CAST]]
+}
+// -----
+
 func.func @test_batchnorm_f32(%arg0: tensor<100x3x10x10xf32>) -> tensor<100x3x10x10xf32> {
     %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xf32>} : () -> tensor<3xf32>
     %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xf32>} : () -> tensor<3xf32>
