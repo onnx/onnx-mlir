@@ -869,6 +869,35 @@ private:
 //   %2 = "onnx.Concat"(%1#0, %updates, %1#2) {axis = 1 : si64} :
 //    (tensor<1x1x10x12xf32>,tensor<1x1x10x12xf32>, tensor<1x4x10x12xf32>) ->
 //    tensor<1x6x10x12xf32>`
+//
+// ScatterND pseudo code:
+//   output = np.copy(data)
+//   update_indices = indices.shape[:-1]
+//   for idx in np.ndindex(update_indices):
+//     output[indices[idx]] = updates[idx]
+//
+// Inputs:
+//  data (heterogeneous) - T: Tensor of rank r >= 1.
+//  indices (heterogeneous) - tensor(int64): Tensor of rank q >= 1.
+//  updates (heterogeneous) - T: Tensor of rank q + r - indices_shape[-1] - 1.
+//
+// Outputs:
+//  output (heterogeneous) - T: Tensor of rank r >= 1.
+//
+// To ensure that this decomposition to split and concat is
+// valid, the following constraints need to hold:
+// - r == rank(updates)
+// - The shape of data and updates differs only in one dimension 'a'
+// -- 'a' is the dimension where the split and concat will happen
+// - The update indices need to be contiguous
+// -- The update indices are the last dim in indices
+// -- We call them contiguous, if each idx in indices is indexing the element
+//    in data, that is logically directly after the element indexed by the
+//    previous idx
+// --- logically directly after means the element that will be accessed if
+//     the least significant value of an elements index is increased by one
+// - The update indices need to cover/index the complete data, with the
+//   exception of dimension 'a', where they need to cover only updates[a]
 struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -952,34 +981,13 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     }
 
     // Check that all indices are contiguous.
-    //
-    // ScatterND pseudo code:
-    //   output = np.copy(data)
-    //   update_indices = indices.shape[:-1]
-    //   for idx in np.ndindex(update_indices):
-    //     output[indices[idx]] = updates[idx]
-    //
-    // To ensure that this decomposition to split and concat is
-    // valid, the following constraints need to hold:
-    // - rank(data) == rank(updates)
-    // - The shape of data and updates differs only in one dimension 'a'
-    // -- 'a' is the dimension where the split and concat will happen
-    // - The update indices need to be contiguous
-    // -- The update indices are the last dim in indices
-    // -- We call the contiguous, if each idx in indices is indexing the element
-    //    in data, that is logically directly after the element indexed by the
-    //    previous idx
-    // --- logically directly after means the element that will be accessed if
-    //     the least significant value of an elements index is increased by one
-    // - The update indices need to cover/index the complete data, with the
-    //   exception of dimension 'a', where they need to cover only updates[a]
-    // - To check the contiguity and covering works the following way:
+    // - The check for contiguity and covering works the following way:
     // -- Iterated over all idx in indices and compare the idx against the
     //    expected index, fail if it differs
     // -- The expected index is calculated the following way:
     // --- The expected index is initialized with the first index in indices and
     //     then always incremented by one.
-    // --- The increment works like an addition on paper, the least significant
+    // --- The increment works like an manual addition, the least significant
     //     digit/subindex gets incremented by one. If an digit overflows, it
     //     gets reset to the first index and the addition carries to the next,
     //     more significant digit. The addition overflows, if the index for an
