@@ -853,6 +853,22 @@ private:
 
 } // namespace
 
+// Decomposes ScatterNDs into a single Split and Concat
+// Example:
+// ` %indices = onnx.Constant dense<[[[[0, 1, 0], [0, 1, 1], [0, 1, 2],
+//     [0, 1, 3], [0, 1, 4], [0, 1, 5], [0, 1, 6], [0, 1, 7], [0, 1, 8],
+//     [0, 1, 9]]]]> : tensor<1x1x10x3xi64>
+//   %0 = "onnx.ScatterND"(%data, %indices, %updates) {reduction = "none"} :
+//     (tensor<1x6x10x12xf32>, tensor<1x1x10x3xi64>, tensor<1x1x10x12xf32>) ->
+//     tensor<1x6x10x12xf32>`
+// gets decomposed to:
+// ` %0 = onnx.Constant dense<[1, 1, 4]> : tensor<3xi64>
+//   %1:3 = "onnx.Split"(%data, %0) {axis = 1 : si64} : (tensor<1x6x10x12xf32>,
+//    tensor<3xi64>) -> (tensor<1x1x10x12xf32>, tensor<1x1x10x12xf32>,
+//    tensor<1x4x10x12xf32>)
+//   %2 = "onnx.Concat"(%1#0, %updates, %1#2) {axis = 1 : si64} :
+//    (tensor<1x1x10x12xf32>,tensor<1x1x10x12xf32>, tensor<1x4x10x12xf32>) ->
+//    tensor<1x6x10x12xf32>`
 struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
   using OpRewritePattern::OpRewritePattern;
 
