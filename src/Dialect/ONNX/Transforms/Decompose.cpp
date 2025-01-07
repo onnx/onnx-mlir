@@ -1446,6 +1446,30 @@ struct GroupNormIntoLayerNormPattern2
   }
 };
 
+/// Decompose `onnx.Sum` to a sequence of `onnx.Add`
+struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
+  using OpRewritePattern<ONNXSumOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSumOp sumOp, PatternRewriter &rewriter) const final {
+    SmallVector<Value> inputs(sumOp.getData_0());
+    assert(inputs.size() > 0 && "expected at least one input");
+    Value result = inputs[0];
+    if (inputs.size() > 1) {
+      inputs.erase(inputs.begin());
+      for (auto input : inputs) {
+        result = rewriter.create<ONNXAddOp>(sumOp.getLoc(), result, input);
+      }
+    }
+    auto resultType = mlir::cast<ShapedType>(sumOp.getResult().getType());
+    if (resultType != result.getType())
+      result = rewriter.create<ONNXCastOp>(
+          sumOp.getLoc(), resultType, result, 1, resultType.getElementType());
+    rewriter.replaceOp(sumOp, result);
+    return success();
+  }
+};
+
 // =============================================================================
 // Pattern for replacing CastLikeOp by CastOp.
 // =============================================================================
@@ -1548,6 +1572,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<DecomposeBatchNormV9ToBatchNorm>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
+  patterns.insert<SumToAddPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }

@@ -90,6 +90,7 @@ void registerOMPasses(int optLevel) {
     return createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
         /*enableSIMD, should consider disableSimdOption*/ optLevel >= 3,
         /*enableParallel*/ false,
+        /*enableFastMath*/ false, /*default is still off*/
         /*opsForCall*/ "");
   });
 

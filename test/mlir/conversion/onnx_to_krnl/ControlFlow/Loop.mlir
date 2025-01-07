@@ -41,19 +41,19 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK-DAG:             [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<1xi64> to tensor<1xi64>
 // CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xi64>
 // CHECK-DAG:             [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<i64>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:             [[VAR_10_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_RES_2_MEM_]] : i64
+// CHECK-DAG:             [[VAR_11_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_RES_2_MEM_]] : i64
 // CHECK-DAG:             [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:                 krnl.store [[VAR_10_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xi64>
-// CHECK-DAG:             [[VAR_11_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<1xi64> to tensor<1xi64>
+// CHECK:                 krnl.store [[VAR_11_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xi64>
 // CHECK-DAG:             [[VAR_12_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i1> to memref<i1>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_11_]] : tensor<1xi64> to memref<1xi64>
-// CHECK-DAG:             [[LOAD_VAR_12_MEM_:%.+]] = krnl.load [[VAR_12_]][] : memref<i1>
+// CHECK-DAG:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_8_]] : tensor<1xi64> to memref<1xi64>
+// CHECK:                 [[LOAD_VAR_12_MEM_:%.+]] = krnl.load [[VAR_12_]][] : memref<i1>
 // CHECK:                 krnl.store [[LOAD_VAR_12_MEM_]], [[RES_1_]][] : memref<i1>
 // CHECK-DAG:             [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[CST_0_4_:%.+]] = arith.constant 0 : index
@@ -111,8 +111,10 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK-DAG:             [[VAR_dim_7_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_1_]] : memref<?xf32>
 // CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK:                 [[VAR_dim_9_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_2_]] : memref<?xf32>
-// CHECK:                 [[VAR_11_:%.+]] = affine.max [[MAP_0_]]([[VAR_dim_7_]], [[VAR_dim_9_]])
-// CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc([[VAR_11_]]) {{.*}}: memref<?xf32>
+// CHECK-DAG:             [[VAR_11_:%.+]] = affine.max [[MAP_0_]]([[VAR_dim_7_]], [[VAR_dim_9_]])
+// CHECK-DAG:             [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK:                 [[RES_3_:%.+]] = memref.alloc([[VAR_11_]]) {{.*}}: memref<?xf32>
+// CHECK-DAG:             [[VAR_12_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<?xf32> to tensor<?xf32>
 // CHECK-DAG:             [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:             [[CST_0_4_:%.+]] = arith.constant 0 : index
@@ -123,11 +125,9 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK:                   [[VAR_20_:%.+]] = arith.addf [[LOAD_PARAM_2_MEM_]], [[LOAD_PARAM_2_MEM_1_]] : f32
 // CHECK:                   krnl.store [[VAR_20_]], [[RES_3_]]{{.}}[[VAR_17_]]{{.}} : memref<?xf32>
 // CHECK:                 }
-// CHECK-DAG:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<?xf32> to tensor<?xf32>
 // CHECK-DAG:             [[VAR_14_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i1> to memref<i1>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:             [[VAR_15_:%.+]] = builtin.unrealized_conversion_cast [[VAR_13_]] : tensor<?xf32> to memref<?xf32>
-// CHECK-DAG:             [[LOAD_VAR_14_MEM_:%.+]] = krnl.load [[VAR_14_]][] : memref<i1>
+// CHECK-DAG:             [[VAR_15_:%.+]] = builtin.unrealized_conversion_cast [[VAR_12_]] : tensor<?xf32> to memref<?xf32>
+// CHECK:                 [[LOAD_VAR_14_MEM_:%.+]] = krnl.load [[VAR_14_]][] : memref<i1>
 // CHECK:                 krnl.store [[LOAD_VAR_14_MEM_]], [[RES_1_]][] : memref<i1>
 // CHECK:                 "krnl.seqstore"([[VAR_15_]], [[RES_]], [[VAR_8_]]) : (memref<?xf32>, memref<?xmemref<?xf32>>, index) -> ()
 // CHECK:               }) : () -> ()
@@ -150,11 +150,10 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK:               [[VAR_dim_7_1_:%.+]] = memref.dim [[LOAD_RES_1_MEM_1_]], [[CST_0_9_]] : memref<?xf32>
 // CHECK:               krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_3_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_7_1_]])){
 // CHECK:                 [[VAR_11_1_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
-// CHECK:                 [[LOOP_1_:%.+]] = krnl.load [[LOAD_RES_1_MEM_1_]]{{.}}[[VAR_11_1_]]{{.}} : memref<?xf32>
-// CHECK:                 krnl.store [[LOOP_1_]], [[RES_4_]]{{.}}[[VAR_8_1_]], [[VAR_11_1_]]{{.}} : memref<?x?xf32>
+// CHECK:                 [[VAR_12_1_:%.+]] = krnl.load [[LOAD_RES_1_MEM_1_]]{{.}}[[VAR_11_1_]]{{.}} : memref<?xf32>
+// CHECK:                 krnl.store [[VAR_12_1_]], [[RES_4_]]{{.}}[[VAR_8_1_]], [[VAR_11_1_]]{{.}} : memref<?x?xf32>
 // CHECK:               }
 // CHECK:             }) : () -> ()
 // CHECK:           }
 // CHECK:           return [[RES_4_]] : memref<?x?xf32>
-// CHECK:         }
 }
