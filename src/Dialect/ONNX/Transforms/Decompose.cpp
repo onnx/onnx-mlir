@@ -855,7 +855,16 @@ private:
 
 } // namespace
 
-// Decomposes ScatterNDs into a single Split and Concat
+// Decomposes ScatterNDs into a single Split and Concat.
+// We can always split an ScatterNDs by splitting the input tensor together with
+// the indices and their updates belonging to that part of the input tensor,
+// performing the ScatterNDs on each split, and the concatenating the result.
+// Here, we handle certain ScatterNDs where after splitting them into three,
+// the first and last ScatterND have empty indices (because the indices don't
+// affect their parts of the input tensor), and the middle ScatterND overwrites
+// the full input with sequential indices (i.e. can be replaced by a copy of its
+// update).
+//
 // Example:
 // ` %indices = onnx.Constant dense<[[[[0, 1, 0], [0, 1, 1], [0, 1, 2],
 //     [0, 1, 3], [0, 1, 4], [0, 1, 5], [0, 1, 6], [0, 1, 7], [0, 1, 8],
