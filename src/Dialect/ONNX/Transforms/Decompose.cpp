@@ -1012,74 +1012,28 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
       }
     }
 
-    // Strategy for the decomposition:
-    // Split at the split axis, concat the update and part of the split
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, scatterNDOp->getLoc());
-    // Edge case: The update completly overwrites, no splitting needed
-    if (updateShape[splitAxis] == dataShape[splitAxis]) {
-      rewriter.replaceOp(scatterNDOp, scatterNDOp.getUpdates());
-      return success();
-    }
-
-    const Type dataElementType = dataType.getElementType();
-    // We only need a single split if there is no shift
-    // a, b = split(input)
-    // concat(update, b)
-    if (firstIndex[splitAxis] == 0) {
-      SmallVector<int64_t> splitTyFirstHalf(dataShape);
-      splitTyFirstHalf[splitAxis] = updateShape[splitAxis];
-      SmallVector<int64_t> splitTySecondHalf(dataShape);
-      splitTySecondHalf[splitAxis] -= updateShape[splitAxis];
-      Value splitSizes = create.onnx.constantInt64(
-          {updateShape[splitAxis], splitTySecondHalf[splitAxis]});
-      ValueRange split = create.onnx.split(
-          {RankedTensorType::get(splitTyFirstHalf, dataElementType),
-              RankedTensorType::get(splitTySecondHalf, dataElementType)},
-          scatterNDOp.getData(), splitSizes, splitAxis);
-      Value concat = create.onnx.concat(
-          dataType, {scatterNDOp.getUpdates(), split[1]}, splitAxis);
-      rewriter.replaceOp(scatterNDOp, concat);
-      return success();
-    }
-
-    const auto firstSlicePosition =
-        updateShape[splitAxis] + firstIndex[splitAxis];
-
-    // We also only need a single split if the shift + size of the update is the
-    // same size as the input
-    // a, b = split(input)
-    // concat(a, update)
-    if (firstSlicePosition == dataShape[splitAxis]) {
-      SmallVector<int64_t> splitTyFirstHalf(dataShape);
-      splitTyFirstHalf[splitAxis] = firstIndex[splitAxis];
-      SmallVector<int64_t> splitTySecondHalf(dataShape);
-      splitTySecondHalf[splitAxis] -= firstIndex[splitAxis];
-      Value firstSplitSizes = create.onnx.constantInt64(
-          {firstIndex[splitAxis], splitTySecondHalf[splitAxis]});
-      ValueRange split = create.onnx.split(
-          {RankedTensorType::get(splitTyFirstHalf, dataElementType),
-              RankedTensorType::get(splitTySecondHalf, dataElementType)},
-          scatterNDOp.getData(), firstSplitSizes, splitAxis);
-      Value concat = create.onnx.concat(
-          dataType, {split[0], scatterNDOp.getUpdates()}, splitAxis);
-      rewriter.replaceOp(scatterNDOp, concat);
-      return success();
-    }
-    // Double split case
+    // Strategy for the decomposition:
+    // Split at the split axis, concat the update and part of the split
     // a, b = split(input)
     // a1, a2 = split(a)
     // concat(a1, update, b)
     // In onnx this split can be done in one:
     // a1, a2, b = split(input)
+    const auto firstSplitPosition =
+        (splitAxis < firstIndex.size()) ? firstIndex[splitAxis] : 0;
+    const auto secondSplitPosition =
+        updateShape[splitAxis] + firstSplitPosition;
     SmallVector<int64_t> splitTyFirstQuarter(dataShape);
-    splitTyFirstQuarter[splitAxis] = firstIndex[splitAxis];
+    splitTyFirstQuarter[splitAxis] = firstSplitPosition;
     SmallVector<int64_t> splitTySecondQuarter(dataShape);
     splitTySecondQuarter[splitAxis] = updateShape[splitAxis];
     SmallVector<int64_t> splitTySecondHalf(dataShape);
-    splitTySecondHalf[splitAxis] -= firstSlicePosition;
-    Value splitSize = create.onnx.constantInt64({firstIndex[splitAxis],
+    splitTySecondHalf[splitAxis] -= secondSplitPosition;
+    Value splitSize = create.onnx.constantInt64({firstSplitPosition,
         updateShape[splitAxis], splitTySecondHalf[splitAxis]});
+    const Type dataElementType = dataType.getElementType();
     ValueRange split = create.onnx.split(
         {RankedTensorType::get(splitTyFirstQuarter, dataElementType),
             RankedTensorType::get(splitTySecondQuarter, dataElementType),
