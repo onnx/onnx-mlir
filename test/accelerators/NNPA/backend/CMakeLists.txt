@@ -612,7 +612,11 @@ add_dependencies(check-onnx-backend-compilerlib-nnpa CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib-nnpa PyRuntimeC)
 
 add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa)
-add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-arch15-nnpa)
+# If on arch 15 machines then (TODO: enable once avail on test machines):
+# add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-arch15-nnpa)
+# else while on an arch 14 machine:
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa)
+# end if.
 add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-dynamic-nnpa)
 add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-constant-nnpa)
 
