@@ -1148,21 +1148,21 @@ func.func @test_scatter_nd_dynamic(%data : tensor<*xf32>, %updates : tensor<1x1x
 // CHECK:        onnx.ScatterND
 
 // -----
-func.func @test_scatter_nd_mulit_dim_differ(%data : tensor<2x6x10x12xf32>, %updates : tensor<1x1x10x12xf32> ) -> tensor<2x6x10x12xf32> {
+func.func @test_scatter_nd_multi_dim_differ(%data : tensor<2x6x10x12xf32>, %updates : tensor<1x1x10x12xf32> ) -> tensor<2x6x10x12xf32> {
   %indices = onnx.Constant dense<[[[[0, 1, 0], [0, 1, 1], [0, 1, 2], [0, 1, 3], [0, 1, 4], [0, 1, 5], [0, 1, 6], [0, 1, 7], [0, 1, 8], [0, 1, 9]]]]> : tensor<1x1x10x3xi64>
   %0 = "onnx.ScatterND"(%data, %indices, %updates) {reduction = "none"} : (tensor<2x6x10x12xf32>, tensor<1x1x10x3xi64>, tensor<1x1x10x12xf32>) -> tensor<2x6x10x12xf32>
   onnx.Return %0 : tensor<2x6x10x12xf32>
 }
-// CHECK-LABEL:  func.func @test_scatter_nd_mulit_dim_differ
+// CHECK-LABEL:  func.func @test_scatter_nd_multi_dim_differ
 // CHECK:        onnx.ScatterND
 
 // -----
-func.func @test_scatter_nd_mulit_dim_differ_multi_shift(%data : tensor<2x6x10x12xf32>, %updates : tensor<1x1x10x12xf32> ) -> tensor<2x6x10x12xf32> {
+func.func @test_scatter_nd_multi_dim_differ_multi_shift(%data : tensor<2x6x10x12xf32>, %updates : tensor<1x1x10x12xf32> ) -> tensor<2x6x10x12xf32> {
   %indices = onnx.Constant dense<[[[[1, 1, 0], [1, 1, 1], [1, 1, 2], [1, 1, 3], [1, 1, 4], [1, 1, 5], [1, 1, 6], [1, 1, 7], [1, 1, 8], [1, 1, 9]]]]> : tensor<1x1x10x3xi64>
   %0 = "onnx.ScatterND"(%data, %indices, %updates) {reduction = "none"} : (tensor<2x6x10x12xf32>, tensor<1x1x10x3xi64>, tensor<1x1x10x12xf32>) -> tensor<2x6x10x12xf32>
   onnx.Return %0 : tensor<2x6x10x12xf32>
 }
-// CHECK-LABEL:  func.func @test_scatter_nd_mulit_dim_differ_multi_shift
+// CHECK-LABEL:  func.func @test_scatter_nd_multi_dim_differ_multi_shift
 // CHECK:        onnx.ScatterND
 
 // -----

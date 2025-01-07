@@ -856,7 +856,7 @@ private:
 } // namespace
 
 // Decomposes ScatterNDs into a single Split and Concat.
-// We can always split an ScatterNDs by splitting the input tensor together with
+// We can always split ScatterNDs by splitting the input tensor together with
 // the indices and their updates belonging to that part of the input tensor,
 // performing the ScatterNDs on each split, and the concatenating the result.
 // Here, we handle certain ScatterNDs where after splitting them into three,
@@ -998,8 +998,8 @@ struct DecomposeScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
     // -- The expected index is calculated the following way:
     // --- The expected index is initialized with the first index in indices and
     //     then always incremented by one.
-    // --- The increment works like an manual addition, the least significant
-    //     digit/subindex gets incremented by one. If an digit overflows, it
+    // --- The increment works like a manual addition, the least significant
+    //     digit/subindex gets incremented by one. If a digit overflows, it
     //     gets reset to the first index and the addition carries to the next,
     //     more significant digit. The addition overflows, if the index for an
     //     axis is equal to the size of this axis in updates/indices. (By
