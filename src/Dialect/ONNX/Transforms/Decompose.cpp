@@ -835,11 +835,13 @@ public:
 
   void increment() {
     // Increment from the back, carry if necessary
-    for (int64_t i = counter.size() - 1; i >= 0; --i) {
-      if (counter[i] == (shapeToCheck[i] + firstElem[i] - 1)) {
-        counter[i] = firstElem[i]; // Carry and keep an eventual shift in mind
+    for (auto [shapeToCheckDimSize, firstElemDimSize, c] :
+        llvm::zip(llvm::reverse(shapeToCheck), llvm::reverse(firstElem),
+            llvm::reverse(counter))) {
+      if (c == (shapeToCheckDimSize + firstElemDimSize - 1)) {
+        c = firstElemDimSize; // Carry and keep an eventual shift in mind
       } else {
-        counter[i]++;
+        c++;
         break;
       }
     }
