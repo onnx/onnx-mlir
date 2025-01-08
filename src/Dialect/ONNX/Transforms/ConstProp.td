@@ -270,6 +270,9 @@ def CreateGemmOfConsts :
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
 
+def CreateReverseSequenceOfConst :
+   NativeCodeCall<"ConstPropReverseSequence($_builder, $0, $1, $2)">;
+
 def CreateUnsqueezeOfConst:
    NativeCodeCall<"ConstPropUnsqueeze($_builder, $0, $1)">;
 
@@ -1026,6 +1029,18 @@ def TransposeofConst : NamedPat<"TransposeofConst",
     // To c' where c' is transposed attribute
     (CreateTransposeOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with ReverseSequence operations.
+//===----------------------------------------------------------------------===//
+
+def ReverseSequenceofConst : NamedPat<"ReverseSequenceofConst",
+    // From ReverseSequenceOp(c, ba, ta)    
+    (ONNXReverseSequenceOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$sequence_lens $_, $_, $_, $_, $_, $_, $_, $_), $batch_axis, $time_axis),
+    // To c' where c' is transposed attribute
+    (CreateReverseSequenceOfConst $resOp, $input, $sequence_lens),
+    [(IsFromDenseONNXConstantOp:$input),(IsFromDenseONNXConstantOp:$sequence_lens)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Unsqueeze operations.

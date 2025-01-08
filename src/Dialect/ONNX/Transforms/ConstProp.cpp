@@ -889,6 +889,30 @@ Value ConstPropTranspose(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for reverseSequence.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropReverseSequence(PatternRewriter &rewriter, Value replacingValue,
+    Value inputValue, Value sequenceValue) {
+  // TODO: figure out if default may be omitted and what to do in that case
+  uint64_t batchAxis = mlir::cast<IntegerAttr>(
+      replacingValue.getDefiningOp()->getAttr("batch_axis"))
+                           .getSInt();
+
+  uint64_t timeAxis = mlir::cast<IntegerAttr>(
+      replacingValue.getDefiningOp()->getAttr("time_axis"))
+                          .getSInt();
+
+  ElementsAttr inputElements = getConstValueElements(inputValue);
+  ElementsAttr sequenceElements = getConstValueElements(sequenceValue);
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr reverseSequencedElements = elementsBuilder.reverseSequence(
+      inputElements, sequenceElements, batchAxis, timeAxis);
+  return createReplacingConstantOp(
+      rewriter, replacingValue, reverseSequencedElements);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for unsqueeze.
 //===----------------------------------------------------------------------===//
 

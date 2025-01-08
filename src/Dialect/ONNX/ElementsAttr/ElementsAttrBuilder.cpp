@@ -498,6 +498,18 @@ bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
 }
 } // namespace
 
+ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
+    ElementsAttr sequenceLength, uint64_t batchIndex, uint64_t timeIndex) {
+
+  ShapedType inputType = input.getShapedType();
+  ShapedType seqLengthType = sequenceLength.getShapedType();
+
+  if (batchIndex == 1 || timeIndex == 0 ||
+      inputType.getRank() == seqLengthType.getRank()) {
+    return input;
+  }
+  return input;
+}
 ElementsAttr ElementsAttrBuilder::transpose(
     ElementsAttr elms, ArrayRef<uint64_t> perm) {
   if (isIdentityPermutation(perm))
