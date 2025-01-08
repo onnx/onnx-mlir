@@ -38,8 +38,47 @@ protected:
 };
 
 // =============================================================================
+// ZLow Builder for building ZLow operations
+// =============================================================================
+
+struct ZLowBuilder : public DialectBuilder {
+  ZLowBuilder(mlir::Location loc) : DialectBuilder(loc) {}
+  ZLowBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
+  ZLowBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  virtual ~ZLowBuilder() {}
+
+  void stick(mlir::Value x, mlir::Value out, mlir::StringAttr layout,
+      mlir::IntegerAttr saturation) const;
+
+  void quantizedStick(mlir::Value x, mlir::Value xRecScale, mlir::Value xOffset,
+      mlir::Value out, mlir::StringAttr layout, mlir::StringAttr qType) const;
+
+  void quantizedMatMul(mlir::Value x, mlir::Value xRecScale,
+      mlir::Value xOffset, mlir::Value y, mlir::Value yRecScale,
+      mlir::Value yOffset, mlir::Value b, mlir::Value bRecScale,
+      mlir::Value bOffset, mlir::Value workArea, mlir::Value shape,
+      mlir::Value out, mlir::Value outRecScale, mlir::Value outOffset,
+      mlir::StringAttr xQType, mlir::StringAttr yQType, mlir::StringAttr bQType,
+      mlir::StringAttr outQType, mlir::IntegerAttr isBcast,
+      mlir::IntegerAttr isStacked, mlir::IntegerAttr preComputedBias,
+      mlir::IntegerAttr disableClipping,
+      mlir::IntegerAttr dequantizeOutput) const;
+};
+
+// =============================================================================
 // MultiDialectBuilder for ZLow
 // =============================================================================
+
+// Recursive class specialized for ZLowBuilder referred to as krnl.
+template <class... Ts>
+struct MultiDialectBuilder<ZLowBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), zlow(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), zlow(db) {}
+  ZLowBuilder zlow;
+};
 
 // Recursive class specialized for IndexExprBuilderForZLow referred to as
 // zlowIE.

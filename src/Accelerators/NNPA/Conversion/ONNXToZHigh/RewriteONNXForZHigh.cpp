@@ -532,8 +532,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXAddOp>(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
+        if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+          return !onnxToZHighInCompatibilityReport(
+              op.getOperation(), NNPALevel::M14);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -547,8 +548,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXDivOp>(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
+        if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+          return !onnxToZHighInCompatibilityReport(
+              op.getOperation(), NNPALevel::M14);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -560,8 +562,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMulOp>(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
+        if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+          return !onnxToZHighInCompatibilityReport(
+              op.getOperation(), NNPALevel::M14);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -573,8 +576,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXSubOp>(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
+        if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+          return !onnxToZHighInCompatibilityReport(
+              op.getOperation(), NNPALevel::M14);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -597,8 +601,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMatMulOp>(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
+        if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+          return !onnxToZHighInCompatibilityReport(
+              op.getOperation(), NNPALevel::M14);
 
         Value A = op.getA();
         Value B = op.getB();
@@ -660,6 +665,140 @@ void getRewriteONNXForZHighDynamicallyLegal(
         return true;
       });
 
+  // Determine if the pattern `DequantizeLinear (QLinearMatMul inputs)` is
+  // already legal (no need to rewrite) or need to rewrite. Considering the
+  // inputs of QLinearMatMul, the following cases must be rewritten:
+  // - both inputs are *the same* N-D (N > 3) and there is no broadcasting, or
+  // - one input is N-D (N > 3) and the other is 2-D, or
+  //
+  // For such cases, rewrite patterns will be added to turn QLinearMatMulOp into
+  // the one where N-D will become 3-D.
+  //
+  // Starting from ONNXDequantizeLinearOp in order to move Reshape after
+  // DequantizeLinear, so that QLinearMatMul is still followed by
+  // DequantizeLinear, which makes optimization for the pattern
+  // QLinearMatMul-DequantizeLinear easier. In other words, the result pattern
+  // would look like:
+  //
+  // ```
+  // A_3D   = ReshapeTo3D A_ND
+  // B_3D   = ReshapeTo3D B_ND
+  // QA_3D  = Quantize (A_3D)
+  // QB_3D  = Quantize (B_3D)
+  // QY_3D  = QLinearMatMul QA_3D, QB_3D
+  // Y_3D   = Dequantize QY_3D
+  // Y_ND   = ReshapeToND Y_3D
+  // ```
+  //
+  // instead of
+  //
+  // ```
+  // QA_ND  = Quantize (A_ND)
+  // QB_ND  = Quantize (B_ND)
+  // QA_3D  = ReshapeTo3D QA_ND
+  // QB_3D  = ReshapeTo3D QB_ND
+  // QY_3D  = QLinearMatMul QA_3D, QB_3D
+  // QY_ND  = ReshapeToND QY_3D
+  // Y_3D   = Dequantize QY_ND
+  // ```
+  //
+  addDynamicallyLegalOpFor<ONNXDequantizeLinearOp>(target, dimAnalysis,
+      [](ONNXDequantizeLinearOp dlOp, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPALevel::M15))
+          return !onnxToZHighInCompatibilityReport(
+              dlOp.getOperation(), NNPALevel::M15);
+
+        ONNXQLinearMatMulOp op =
+            dlOp.getX().getDefiningOp<ONNXQLinearMatMulOp>();
+        if (!op)
+          return !onnxToZHighUnsupportedReport(dlOp.getOperation(),
+              "Input is not defined by ONNXQLinearMatMulOp");
+
+        Value A = op.getA();
+        Value AScale = op.getAScale();
+        Value AZeroPoint = op.getAZeroPoint();
+        Value B = op.getB();
+        Value BScale = op.getBScale();
+        Value BZeroPoint = op.getBZeroPoint();
+        Value Y = op.getY();
+        Value YScale = op.getYScale();
+        Type aType = A.getType();
+        Type bType = B.getType();
+        Type yType = Y.getType();
+
+        if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
+          std::string message = "A or B is not shaped type with rank";
+          return !onnxToZHighUnsupportedReport(op.getOperation(), message);
+        }
+
+        int64_t aRank = getRank(aType);
+        int64_t bRank = getRank(bType);
+        ArrayRef<int64_t> aShape = getShape(aType);
+        ArrayRef<int64_t> bShape = getShape(bType);
+
+        // Only support float32 <-> int8/uint8.
+        Type elemTyA = getElementType(aType);
+        Type elemTyAScale = getElementType(AScale.getType());
+        Type elemTyB = getElementType(bType);
+        Type elemTyBScale = getElementType(BScale.getType());
+        Type elemTyY = getElementType(yType);
+        Type elemTyYScale = getElementType(YScale.getType());
+        if (!elemTyAScale.isF32() || !elemTyBScale.isF32() ||
+            !elemTyYScale.isF32())
+          return !onnxToZHighUnsupportedReport(
+              op.getOperation(), "A or B or Y's scale is not f32");
+        if (!(elemTyA.isInteger(8) || elemTyA.isUnsignedInteger(8)))
+          return !onnxToZHighUnsupportedReport(
+              op.getOperation(), "A is not i8 or ui8");
+        if (!(elemTyB.isInteger(8) || elemTyB.isUnsignedInteger(8)))
+          return !onnxToZHighUnsupportedReport(
+              op.getOperation(), "B is not i8 or ui8");
+        if (!(elemTyY.isInteger(8) || elemTyY.isUnsignedInteger(8)))
+          return !onnxToZHighUnsupportedReport(
+              op.getOperation(), "Y is not i8 or ui8");
+
+        // Only support per-tensor quantization.
+        if (!isScalarTensor(AScale) || !isScalarTensor(BScale) ||
+            !isScalarTensor(AZeroPoint) || !isScalarTensor(BZeroPoint))
+          return !onnxToZHighUnsupportedReport(
+              op.getOperation(), "Not per-tensor quantization");
+
+        // - one input is N-D (N > 3) and the other is 2-D.
+        if (aRank == 2 && bRank > 3)
+          return false;
+
+        if (bRank == 2 && aRank > 3)
+          return false;
+
+        // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
+        if (aRank > 3 && (aRank == bRank)) {
+          bool sameBatchDims = true;
+          std::string message = "";
+          for (int64_t i = 0; i < aRank - 2; ++i) {
+            sameBatchDims &= (aShape[i] == bShape[i]);
+            if (aShape[i] != bShape[i])
+              message += "The dim " + std::to_string(i) + " of A and dim " +
+                         std::to_string(i) + " of B are not the same.";
+
+            if (sameBatchDims && ShapedType::isDynamic(aShape[i])) {
+              sameBatchDims &=
+                  dimAnalysis->sameDynDim(op.getA(), i, op.getB(), i);
+              if (!sameBatchDims)
+                message += "The dynamic dimension analysis couldn't identify "
+                           "that dim " +
+                           std::to_string(i) + " of A and dim " +
+                           std::to_string(i) + " of B are the same.";
+            }
+          }
+          return (!sameBatchDims) ||
+                 onnxToZHighUnsupportedReport(op.getOperation(), message);
+        }
+
+        // Make other cases legal.
+        return true;
+      });
+
   // Illegalize SoftmaxOp if
   // - the NNPA level is not compatible, or
   // - axis is the last dimension.
@@ -667,8 +806,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
+        if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+          return !onnxToZHighInCompatibilityReport(
+              op.getOperation(), NNPALevel::M14);
 
         Value input = op.getInput();
         // std::string message = "The `input` is not reshaped to 3D because it

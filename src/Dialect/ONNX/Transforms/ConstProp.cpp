@@ -34,6 +34,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <fenv.h>
 #include <math.h>
 #include <numeric>
 
@@ -415,6 +416,11 @@ struct ElementWiseUnaryOpImpl<ONNXBitwiseNotOp, T, EnableInteger<T>> {
 };
 
 template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXAbsOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return (T)abs((double)val); }
+};
+
+template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXCeilOp, T, EnableNotBool<T>> {
   static T eval(T val) { return ceil(val); }
 };
@@ -472,6 +478,14 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableNotBool<T>> {
   static T eval(T val) { return (1 / val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXRoundOp, T, EnableNotBool<T>> {
+  static T eval(T val) {
+    /*std::*/ fesetround(FE_TONEAREST);
+    return (T)std::rint(val);
+  }
 };
 
 template <typename ElementwiseUnaryOp>
