@@ -20,7 +20,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
 ARG NPROC=4
 ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
-ARG TEST_MCPU
+ARG TEST_MARCH
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
@@ -51,10 +51,10 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                          ([ "$(uname -m)" = "x86_64" ] &&  echo true || \
                                          ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
 # Dev image is built without SIMD, placeholder for easy SIMD enablement
-    && TEST_MCPU=$([ "$(uname -m)" = "s390x" ] && echo || \
+    && TEST_MARCH=$([ "$(uname -m)" = "s390x" ] && echo || \
                   ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                   ([ "$(uname -m)" = "ppc64le" ] && echo || echo))) \
-    && TEST_ARGS="-mcpu=${TEST_MCPU}" \
+    && TEST_ARGS="-march=${TEST_MARCH}" \
     && TEST_OPTLEVEL=0 \
     && make check-docs \
     && make check-unittest \
@@ -62,7 +62,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_NOFLOAT16=${TEST_NOFLOAT16} \
-            TEST_MCPU=${TEST_MCPU} \
+            TEST_MARCH=${TEST_MARCH} \
             TEST_ARGS="${TEST_ARGS}" \
             TEST_OPTLEVEL=${TEST_OPTLEVEL} \
             -j${NPROC} \

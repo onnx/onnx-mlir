@@ -31,7 +31,6 @@
 #include <sys/time.h>
 
 #include "zDNNExtension.h"
-#include "zdnn.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -170,6 +169,19 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
   // Compiler does not check the return result at this moment. Thus, check it
   // here.
   CHECK_ZDNN_STATUS(status, "zdnn_matmul");
+  return status;
+}
+
+// transpose_a and transpose_b are actually boolean values but we will represent
+// these values in terms of integer values 0 or 1 for consistency.
+zdnn_status zdnn_matmul_transpose_op_ext(const zdnn_ztensor *inputA,
+    const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int transpose_a,
+    int transpose_b, int opType, zdnn_ztensor *output) {
+  zdnn_status status = zdnn_matmul_transpose_op(
+      inputA, inputB, inputC, transpose_a, transpose_b, opType, output);
+  // Compiler does not check the return result at this moment. Thus, check it
+  // here.
+  CHECK_ZDNN_STATUS(status, "zdnn_matmul_transpose");
   return status;
 }
 

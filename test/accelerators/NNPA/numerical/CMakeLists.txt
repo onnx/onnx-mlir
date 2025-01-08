@@ -41,7 +41,7 @@ function(add_numerical_test test_name)
 
   # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
   add_test(NAME ${test_name}
-    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --mcpu=z16 --maccel=NNPA
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --march=z16 --maccel=NNPA
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
@@ -93,7 +93,7 @@ add_numerical_test(TestGemmNNPA
 # LSTM
 set(TestLSTMNNPA_instruction zdnn_lstm)
 # Automatically set following config when using --maccel=NNPA
-# set(TestLSTMNNPA_config "-peephole=0")
+set(TestLSTMNNPA_config "-peephole=0")
 add_numerical_test(TestLSTMNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
@@ -102,11 +102,12 @@ add_numerical_test(TestLSTMNNPA
 # GRU
 set(TestGRUNNPA_instruction zdnn_gru)
 # Automatically set following config when using --maccel=NNPA
-# set(TestGRUNNPA_config "-linearBeforeReset=1")
+set(TestGRUNNPA_config "-linearBeforeReset=1")
 add_numerical_test(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
+
 
 # LeakyRelu
 set(TestLeakyReluNNPA_instruction zdnn_mul)

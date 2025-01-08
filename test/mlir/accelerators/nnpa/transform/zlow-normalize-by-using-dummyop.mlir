@@ -1,11 +1,11 @@
-// RUN: (onnx-mlir-opt --mcpu=z16 --maccel=NNPA --normalize-memrefs %s 2>&1 || true) | FileCheck --check-prefix=FAILED %s
+// RUN: (onnx-mlir-opt --march=z16 --maccel=NNPA --normalize-memrefs %s 2>&1 || true) | FileCheck --check-prefix=FAILED %s
 
 // COM: Current MLIR normalize-memres does not support multiple dereferencing uses
 // in a single op, check expected failure emitted by MLIR. 
 
 // FAILED: "multiple dereferencing uses in a single op not supported"
 
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --zlow-dummyop-for-multideref --normalize-memrefs --canonicalize %s | FileCheck --check-prefix=PASSED %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --zlow-dummyop-for-multideref --normalize-memrefs --canonicalize %s | FileCheck --check-prefix=PASSED %s
 
 // COM: Check normalize memrefs when there are multiple dereferencing uses in a single op.
 // COM: Check that --zlow-dummyop-for-multideref can help to bypass the issue.

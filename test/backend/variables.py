@@ -170,7 +170,7 @@ def get_args_from_env():
         "--mcpu",
         type=str,
         default=os.getenv("TEST_MCPU", ""),
-        help="target a specific cpu, passed to the compiler",
+        help="target a specific cpu, passed to the compiler (deprecated, use --march)",
     )
     parser.add_argument(
         "--march",

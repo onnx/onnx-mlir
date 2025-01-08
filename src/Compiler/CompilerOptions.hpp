@@ -14,6 +14,7 @@
 
 #ifndef ONNX_MLIR_COMPILER_OPTIONS_H
 #define ONNX_MLIR_COMPILER_OPTIONS_H
+
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
@@ -78,6 +79,7 @@ extern std::vector<accel::Accelerator::Kind> maccel;          // common for both
 extern OptLevel OptimizationLevel;                            // common for both
 extern std::string mtriple;                                   // common for both
 extern std::string mcpu;                                      // common for both
+extern float nnpaEpsilon;                                     // common for both
 extern std::string march;                                     // common for both
 extern InstrumentStages instrumentStage;                      // common for both
 extern bool onnxConstPropRoundFPToInt;                        // common for both
@@ -159,11 +161,13 @@ std::string getTargetTripleOption();
 
 void setTargetArch(const std::string &arch);
 void clearTargetArch();
-std::string getTargetArchOption();
+int64_t getZArchNum(const std::string &arch, const std::string cpu);
+std::string getTargetArchOption(bool forLLVMToolchain = false);
 
 void setTargetCPU(const std::string &cpu);
 void clearTargetCPU();
-std::string getTargetCPUOption();
+std::string getTargetCPUOption(
+    bool forLLVMToolchain = false, bool cpuOnly = false);
 
 int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);
