@@ -294,8 +294,8 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::StringRef msg, IndexExpr input, bool endsWithNewLine = false) const;
   void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
       bool endsWithNewLine = false) const;
-  // Use "%s" for signature, "%t" for detailed type, "%d" for data, "%e" for end of
-  // string (recommended). If no "%X" pattern is given, we assume "%s%d".
+  // Use "%s" for signature, "%t" for detailed type, "%d" for data, "%e" for end
+  // of string (recommended). If no "%X" pattern is given, we assume "%s%d".
   void printTensor(mlir::StringRef msg, mlir::Value input) const;
 
   // Onnx-mlir runtime functions.

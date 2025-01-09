@@ -111,7 +111,7 @@ public:
             Value val = vecOfF32Vals[i];
             IndexExpr offset = LitIE(4 * i); // Vector of float have 4 values.
             create.vec.storeIE(val, alloc, loopIndices, {offset.getValue()});
-                      }
+          }
         },
         [&](const KrnlBuilder &b, mlir::Value scalarF32Val,
             DimsExpr &loopIndices) {

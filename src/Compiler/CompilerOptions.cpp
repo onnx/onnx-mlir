@@ -161,12 +161,13 @@ static llvm::cl::opt<std::string, true> mcpuOpt("mcpu",
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<float, true> nnpaEpsilonOpt("nnpa-epsilon",
-    //TODO: what text should go here.
-    llvm::cl::desc("A value added to inputs during computations to prevent undefined mathematical operations, \n"
-                   "such as division by zero or logarithms of zero. Default value set to 1e-5."),
-    llvm::cl::value_desc("Float value"),
-    llvm::cl::location(nnpaEpsilon), llvm::cl::cat(OnnxMlirCommonOptions),
-    llvm::cl::init(1e-5));
+    // TODO: what text should go here.
+    llvm::cl::desc("A value added to inputs during computations to prevent "
+                   "undefined mathematical operations, \n"
+                   "such as division by zero or logarithms of zero. Default "
+                   "value set to 1e-5."),
+    llvm::cl::value_desc("Float value"), llvm::cl::location(nnpaEpsilon),
+    llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::init(1e-5));
 
 static llvm::cl::opt<std::string, true> marchOpt("march",
     llvm::cl::desc("Target architecture to generate code for."),

@@ -1157,7 +1157,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
       (rShape[0] != 1 && rShape[0] != 2)) {
     std::string message = "The recurrence weight tensor `R` must have static "
                           "dimension, and the "
-        "first dimension of it must be 1 or 2.";
+                          "first dimension of it must be 1 or 2.";
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
   // Check hidden_size.

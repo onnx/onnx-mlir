@@ -343,7 +343,8 @@ zdnn_status zdnn_sqrt_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
 zdnn_status zdnn_matmul_transpose_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int transpose_a,
     int transpose_b, int opType, zdnn_ztensor *output);
-zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area, int op_type, zdnn_ztensor *output);
+zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area,
+    int op_type, zdnn_ztensor *output);
 
 // -----------------------------------------------------------------------------
 // Misc Utility Functions

@@ -5,7 +5,7 @@
 # Copyright 2021-2022 The IBM Research Authors.
 #
 ################################################################################
-# commom function `compile_model` called by both
+# Common function `compile_model` called by both
 # SignatureExecutionSession and EndiannessAwareExecutionSession
 ################################################################################
 from __future__ import absolute_import
@@ -114,7 +114,7 @@ def compile_model(model, emit):
     command_list = [TEST_DRIVER]
     if args.Optlevel:
         command_list.append("-O" + args.Optlevel)
-    if args.mcpu: # deprecated
+    if args.mcpu:  # deprecated
         print("warning, --mcpu option is deprecated, please use --march instead")
         command_list.append("--mcpu=" + args.mcpu)
     if args.march:

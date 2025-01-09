@@ -55,7 +55,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // X :: NxM
       xI = 1;
     if (yRank == 2) {
-    // Y :: NxP
+      // Y :: NxP
       int64_t yI = 1;
       if (transposeB)
         // Y :: PxN
@@ -71,7 +71,8 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
         // Y :: SxPxN
         yI2 = 1;
       }
-      // Broadcast 1 case: X:2D (m,n) - Y:3DS (s,n,p) - Bias:2DS (s,p) - Out:3DS (s,m,p)
+      // Broadcast 1 case: X:2D (m,n) - Y:3DS (s,n,p) - Bias:2DS (s,p) - Out:3DS
+      // (s,m,p)
       outputDims.emplace_back(YDims[yI1]);
       outputDims.emplace_back(XDims[xI]);
       outputDims.emplace_back(YDims[yI2]);
@@ -90,7 +91,8 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       if (transposeB)
         // Y :: PxN
         yI = 0;
-      // Broadcast 23 case: X:3DS (s,m,n) - Y:2D (n,p) - Bias:1D (p) - Out:3DS (s,m,p)
+      // Broadcast 23 case: X:3DS (s,m,n) - Y:2D (n,p) - Bias:1D (p) - Out:3DS
+      // (s,m,p)
       outputDims.emplace_back(XDims[xI1]);
       outputDims.emplace_back(XDims[xI2]);
       outputDims.emplace_back(YDims[yI]);
@@ -101,7 +103,8 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       if (transposeB)
         // Y :: SxPxN
         yI = 1;
-      // Stacked case: X:3DS (s,m,n) - Y:3DS (s,n,p) - Bias:2DS (s,p) - Out:3DS (s,m,p)
+      // Stacked case: X:3DS (s,m,n) - Y:3DS (s,n,p) - Bias:2DS (s,p) - Out:3DS
+      // (s,m,p)
       outputDims.emplace_back(XDims[xI1]);
       outputDims.emplace_back(XDims[xI2]);
       outputDims.emplace_back(YDims[yI]);
@@ -117,10 +120,10 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // N
       allOriginalDims.emplace_back(XDims[0]);
     } else {
-    // M
-    allOriginalDims.emplace_back(XDims[0]);
-    // N
-    allOriginalDims.emplace_back(XDims[1]);
+      // M
+      allOriginalDims.emplace_back(XDims[0]);
+      // N
+      allOriginalDims.emplace_back(XDims[1]);
     }
     if (yRank == 2) {
       // P
@@ -131,9 +134,9 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
     } else if (yRank == 3) {
       // S
       allOriginalDims.emplace_back(YDims[0]);
-    // P
+      // P
       if (transposeB)
-    allOriginalDims.emplace_back(YDims[1]);
+        allOriginalDims.emplace_back(YDims[1]);
       else
         allOriginalDims.emplace_back(YDims[2]);
     }
@@ -146,23 +149,23 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // N
       allOriginalDims.emplace_back(XDims[1]);
     } else {
-    // M
-    allOriginalDims.emplace_back(XDims[1]);
-    // N
-    allOriginalDims.emplace_back(XDims[2]);
+      // M
+      allOriginalDims.emplace_back(XDims[1]);
+      // N
+      allOriginalDims.emplace_back(XDims[2]);
     }
     // P
     if (yRank == 2)
       if (transposeB)
         allOriginalDims.emplace_back(YDims[0]);
       else
-      allOriginalDims.emplace_back(YDims[1]);
+        allOriginalDims.emplace_back(YDims[1]);
     else if (yRank == 3) {
       if (transposeB)
         allOriginalDims.emplace_back(YDims[1]);
       else
-      allOriginalDims.emplace_back(YDims[2]);
-  }
+        allOriginalDims.emplace_back(YDims[2]);
+    }
   }
 
   // Save the final result.
@@ -224,11 +227,11 @@ LogicalResult ZHighMatMulOp::verify() {
   // If X is 2D and Y is 3DS, B must be 2DS.
   if (xLayout == ZTensorEncodingAttr::DataLayout::_2D) {
     if (!((yLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
-          (yLayout == ZTensorEncodingAttr::DataLayout::_3DS)))
+            (yLayout == ZTensorEncodingAttr::DataLayout::_3DS)))
       return failure();
     if (yLayout == ZTensorEncodingAttr::DataLayout::_2D) {
-    if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D))
-      return failure();
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D))
+        return failure();
     } else if (yLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
       if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS))
         return failure();
