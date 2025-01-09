@@ -29,9 +29,6 @@ LogicalResult ZHighReductionOpShapeHelper<OP_TYPE>::computeShape() {
   // Get operand.
   Value data = operandAdaptor.getData();
 
-  // Get Rank
-  int64_t rank = createIE->getShapedTypeRank(data);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -39,15 +36,15 @@ LogicalResult ZHighReductionOpShapeHelper<OP_TYPE>::computeShape() {
   SmallVector<IndexExpr, 4> inputDims;
   createIE->getShapeAsDims(data, inputDims);
 
-  int64_t axis = rank - 1;
+  // NNPA only supports reduction over the innermost dimension.
+  // So set the innermost dimension of the output to one.
+  int64_t axis = inputDims.size() - 1;
   LiteralIndexExpr one(1);
   // Copy the input until the second to last dimension
   for (int64_t i = 0; i < axis; ++i) {
     outputDims.emplace_back(inputDims[i]);
   }
-  // The innermost dimension or last dimension needs to be reduced to one
-  outputDims.emplace_back(
-      one); // NNPA is always true for keepdims so we will reduce the dimension
+  outputDims.emplace_back(one);
 
   // Save the final result.
   setOutputDims(outputDims);

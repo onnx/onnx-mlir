@@ -69,8 +69,7 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     ApiSpec(API::ZDNN_LOG, "zdnn_log_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_EXP, "zdnn_exp_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_INVSQRT, "zdnn_invsqrt_ext", int32Ty, {opaquePtrTy, float32Ty, opaquePtrTy}, false),                     
-    ApiSpec(API::ZDNN_REDUCEMAX, "zdnn_reduce_ext", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_REDUCEMIN, "zdnn_reduce_ext", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_REDUCE, "zdnn_reduce_ext", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
     // Activation operations
     ApiSpec(API::ZDNN_LEAKY_RELU, "zdnn_leaky_relu_ext", int32Ty, {opaquePtrTy, opaquePtrTy, float32Ty, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_RELU, "zdnn_relu_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),

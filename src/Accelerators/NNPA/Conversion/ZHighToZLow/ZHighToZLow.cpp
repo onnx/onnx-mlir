@@ -1123,8 +1123,7 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
     Value data = operands[0];
 
     // Helper builders.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, LLVMBuilder,
-        MemRefBuilder>
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
         create(rewriter, loc);
 
     // Convert ZTensor type to MemRefType.
@@ -1132,24 +1131,26 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Shape helper.
-    ZHighReduceMaxOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ZHighReductionOpShapeHelper<OP_TYPE> shapeHelper(
+        op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocForZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    Value shape = insertShapeMemRefI64(rewriter, loc, dims);
+    DimsExpr dataDims;
+    create.krnlIE.getShapeAsDims(data, dataDims);
+    Value shape = insertShapeMemRefI64(rewriter, loc, dataDims);
 
-    // If set to NULL, the operation will determine, allocate and free storage
-    // automatically.
-    Value workArea = create.llvm.null(krnl::getI8PointerType(context));
+    // Emit 'alloc' for work_area that is of 4K-aligned 8K bytes.
+    Value workArea = create.mem.alignedAlloc(
+        MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), gAlignment);
 
     // Emit a ZLow operation.
-    rewriter.create<typename ZLowReduceOpFor<OP_TYPE>::Op>(loc, data, workArea,
-        shape, alloc, zMemRefType.layout, reduceOp.getOpTypeAttr());
+    rewriter.create<typename ZLowReduceOpFor<OP_TYPE>::Op>(
+        loc, data, workArea, shape, alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }

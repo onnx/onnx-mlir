@@ -438,31 +438,14 @@ set(NNPA_TEST_LIST_ARCH_15
     # ==OP== ReduceMax
     # ==LEVEL== arch15
     # ==MIN== 1
-    # ==LIM== - We do no support `do_not_keepdims` backend tests. 
-    # test_reduce_max_bool_inputs_cpu,zdnn_reduce_ext
-    test_reduce_max_default_axes_keepdim_example_cpu,zdnn_reduce_ext
-    test_reduce_max_default_axes_keepdims_random_cpu,zdnn_reduce_ext
-    # test_reduce_max_do_not_keepdims_example_cpu,zdnn_reduce_ext
-    # test_reduce_max_do_not_keepdims_random_cpu,zdnn_reduce_ext
-    test_reduce_max_keepdims_example_cpu,zdnn_reduce_ext
-    test_reduce_max_keepdims_random_cpu,zdnn_reduce_ext
-    test_reduce_max_negative_axes_keepdims_example_cpu,zdnn_reduce_ext
-    test_reduce_max_negative_axes_keepdims_random_cpu,zdnn_reduce_ext
+    # ==LIM== - We do not support `do_not_keepdims` backend tests. Only support reduction over the innermost dimension.
+    # Currrently, there is no backend test in ONNX that does reduction on the innermost dimension.
 
     # ==OP== ReduceMin
     # ==LEVEL== arch15 
     # ==MIN== 1
-    # ==LIM== - We do no support `do_not_keepdims` backend tests. 
-    # test_reduce_min_bool_inputs_cpu,zdnn_reduce_ext
-    test_reduce_min_default_axes_keepdims_example_cpu,zdnn_reduce_ext
-    test_reduce_min_default_axes_keepdims_random_cpu,zdnn_reduce_ext 
-    # test_reduce_min_do_not_keepdims_example_cpu,zdnn_reduce_ext 
-    # test_reduce_min_do_not_keepdims_random_cpu,zdnn_reduce_ext     
-    test_reduce_min_empty_set_cpu,zdnn_reduce_ext
-    test_reduce_min_keepdims_example_cpu,zdnn_reduce_ext
-    test_reduce_min_keepdims_random_cpu,zdnn_reduce_ext
-    test_reduce_min_negative_axes_keepdims_example_cpu,zdnn_reduce_ext
-    test_reduce_min_negative_axes_keepdims_random_cpu,zdnn_reduce_ext
+    # ==LIM== - We do not support `do_not_keepdims` backend tests. Only support reduction over the innermost dimension.
+    # Currrently, there is no backend test in ONNX that does reduction on the innermost dimension.
 
     # ==OP== Sqrt
     # ==LEVEL== arch15
