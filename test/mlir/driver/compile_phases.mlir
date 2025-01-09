@@ -1,6 +1,6 @@
 // RUN: onnx-mlir %s -o %t 2>&1 | FileCheck --check-prefix=EMIT-LIB %s && rm %t.so
 // RUN: onnx-mlir %s --EmitObj -o %t 2>&1 | FileCheck --check-prefix=EMIT-OBJ %s && rm %t.o
-// RUN: onnx-mlir %s --EmitJNI -o %t 2>&1 | FileCheck --check-prefix=EMIT-JNI %s && rm %t.jar
+// Disabled as jni libs do not exist in test env (AMD): onnx-mlir %s --EmitJNI -o %t 2>&1 | FileCheck --check-prefix=EMIT-JNI %s && rm %t.jar
 // RUN: onnx-mlir %s --EmitLLVMIR -o %t 2>&1 | FileCheck --check-prefix=EMIT-LLVMIR %s && rm %t.onnx.mlir
 
 // EMIT-LIB: [1/6] {{.*}} Importing ONNX Model to MLIR Module from
