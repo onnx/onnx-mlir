@@ -1065,7 +1065,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
   void genOneHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
-      Value tmpAlloca, Value flatInput, Value flatAlloc, Value initVec,
+      Value tmpAlloc, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange outLoopInd, Value simdUB, int64_t VL,
       bool simdOnly) const {
     IndexExpr lb = LitIE(0);
@@ -1078,7 +1078,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         rewriter, create.getLoc(), elementType);
     create.krnl.simdReduceIE(lb, ub, VL, simdOnly,
         /* inputs*/ {flatInput}, {inputAF},
-        /* temp */ {tmpAlloca}, {tmpAF},
+        /* temp */ {tmpAlloc}, {tmpAF},
         /* output */ {flatAlloc}, {outputAF},
         /* init */ {identity},
         /* reduction simd/scalar */
@@ -1147,6 +1147,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         onnxToKrnlParallelReport(
             op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
       } else {
+        enableParallel = false;
         onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
             "not enough work for reduction h-simd");
       }
@@ -1154,13 +1155,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
-          // Allocate temp inside loop (because of parallel).
-          Value tmpAlloca = create.mem.alignedAlloca(tmpType);
+          // When parallel, will stay inside; otherwise will migrate out.
+          Value tmpAlloc = create.mem.alignedAlloc(tmpType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
           genOneHorizontalSimdReduction(rewriter, create, op, elementType,
-              vecType, tmpAlloca, flatInput, flatAlloc, initVec, divisorForMean,
+              vecType, tmpAlloc, flatInput, flatAlloc, initVec, divisorForMean,
               outLoopInd, simdUB, VL, simdOnly);
         });
   }
@@ -1185,7 +1186,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
   void genVlHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
-      Value tmpBlockedAlloca, Value flatInput, Value flatAlloc, Value initVec,
+      Value tmpBlockedAlloc, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange blockedOutLoopInd,
       IndexExpr blockedCurrIndex, Value simdUB, int64_t VL,
       bool simdOnly) const {
@@ -1202,7 +1203,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         rewriter, create.getLoc(), elementType);
     if (simdOnly) {
       create.affine.simdReduce2DIE(
-          lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
+          lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloc, tmpAF,
           flatAlloc, outputAF, identity,
           [&](const AffineBuilder &b, Value inputVal, Value tmpVal,
               int64_t VL) {
@@ -1217,7 +1218,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           });
     } else {
       create.scf.simdReduce2DIE( // Affine fails with dynamic shapes.
-          lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloca, tmpAF,
+          lb, ub, VL, simdOnly, flatInput, inputAF, tmpBlockedAlloc, tmpAF,
           flatAlloc, outputAF, identity,
           [&](const SCFBuilder &b, Value inputVal, Value tmpVal, int64_t VL) {
             Type type = VL > 1 ? vecType : elementType;
@@ -1300,6 +1301,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         onnxToKrnlParallelReport(op, true, parId, lbs[parId],
             flatOutDims[parId], "reduction shuffle h-simd");
       } else {
+        enableParallel = false;
         onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
             "not enough work for reduction shuffle h-simd");
       }
@@ -1307,8 +1309,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
           MDBuilder create(ck);
-          // Create temp inside loop (because of parallel).
-          Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
+          // When parallel, will stay inside; otherwise will migrate out.
+          Value tmpBlockedAlloc = create.mem.alignedAlloc(tmpBlockedType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
@@ -1338,7 +1340,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                       outLoopInd.emplace_back(blockLocalInd);
                       // Perform reduction for one output value.
                       genOneHorizontalSimdReduction(rewriter, create, op,
-                          elementType, vecType, tmpBlockedAlloca, flatInput,
+                          elementType, vecType, tmpBlockedAlloc, flatInput,
                           flatAlloc, initVec, divisorForMean, outLoopInd,
                           simdUB, VL, simdOnly);
                     }); /* for inside blocked loop */
@@ -1347,7 +1349,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 MDBuilder create(scf);
                 // create.krnl.printf("full tile\n");
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,
-                    vecType, tmpBlockedAlloca, flatInput, flatAlloc, initVec,
+                    vecType, tmpBlockedAlloc, flatInput, flatAlloc, initVec,
                     divisorForMean, blockedOutLoopInd, blockedCurrIndex, simdUB,
                     VL, simdOnly);
               });

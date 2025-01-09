@@ -23,6 +23,7 @@ import tempfile
 import json
 import importlib.util
 import shlex
+import shutil
 
 from onnx import numpy_helper
 from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
@@ -62,23 +63,23 @@ parser.add_argument(
     nargs="?",
     const="compilation.log",
     default=None,
-    help="Output compilation messages to file, default compilation.log",
+    help="Output compilation messages to file, default compilation.log.",
 )
 parser.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
-    help="Path to an ONNX model (.onnx or .mlir)",
+    help="Path to an ONNX model (.onnx or .mlir).",
 )
 parser.add_argument(
     "-c",
     "--compile-args",
     type=str,
     default="",
-    help="Arguments passed directly to onnx-mlir command." " See bin/onnx-mlir --help",
+    help="Arguments passed directly to onnx-mlir command." " See bin/onnx-mlir --help.",
 )
 parser.add_argument(
-    "-C", "--compile-only", action="store_true", help="Only compile the input model"
+    "-C", "--compile-only", action="store_true", help="Only compile the input model."
 )
 parser.add_argument(
     "--compile-using-input-shape",
@@ -86,17 +87,22 @@ parser.add_argument(
     help="Compile the model by using the shape info getting from"
     " the inputs in the reference folder set by --load-ref",
 )
-parser.add_argument("--print-input", action="store_true", help="Print out inputs")
+parser.add_argument("--print-input", action="store_true", help="Print out inputs.")
 parser.add_argument(
     "--print-output",
     action="store_true",
-    help="Print out inference outputs produced by onnx-mlir",
+    help="Print out inference outputs produced by onnx-mlir.",
+)
+parser.add_argument(
+    "--print-signatures",
+    action="store_true",
+    help="Print out the input and output signatures of the model.",
 )
 parser.add_argument(
     "--save-onnx",
     metavar="PATH",
     type=str,
-    help="File path to save the onnx model. Only effective if " "--verify=onnxruntime",
+    help="File path to save the onnx model. Only effective if --verify=onnxruntime.",
 )
 parser.add_argument(
     "--verify",
@@ -104,12 +110,12 @@ parser.add_argument(
     help="Verify the output by using onnxruntime or reference"
     " inputs/outputs. By default, no verification. When being"
     " enabled, --verify-with-softmax or --verify-every-value"
-    " must be used to specify verification mode",
+    " must be used to specify verification mode.",
 )
 parser.add_argument(
     "--verify-all-ops",
     action="store_true",
-    help="Verify all operation outputs when using onnxruntime",
+    help="Verify all operation outputs when using onnxruntime.",
 )
 parser.add_argument(
     "--verify-with-softmax",
@@ -123,35 +129,42 @@ parser.add_argument(
 parser.add_argument(
     "--verify-every-value",
     action="store_true",
-    help="Verify every value of the output using atol and rtol",
+    help="Verify every value of the output using atol and rtol.",
 )
 parser.add_argument(
-    "--rtol", type=str, default="0.05", help="Relative tolerance for verification"
+    "--rtol", type=str, default="0.05", help="Relative tolerance for verification."
 )
 parser.add_argument(
-    "--atol", type=str, default="0.01", help="Absolute tolerance for verification"
+    "--atol", type=str, default="0.01", help="Absolute tolerance for verification."
 )
 
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
-    "--save-so",
+    "--save-model",
     metavar="PATH",
     type=str,
-    help="File path to save the generated shared library of" " the model",
+    help="Path to a folder to save the compiled model.",
 )
 lib_group.add_argument(
-    "--load-so",
+    "--load-model",
     metavar="PATH",
     type=str,
-    help="File path to load a generated shared library for "
-    "inference, and the ONNX model will not be re-compiled",
+    help="Path to a folder to load a compiled model for "
+    "inference, and the ONNX model will not be re-compiled.",
+)
+lib_group.add_argument(
+    "--cache-model",
+    metavar="PATH",
+    type=str,
+    help="When finding a compiled model in given path, reuse it. "
+    "Otherwise, compile model and save it into the given path.",
 )
 
 parser.add_argument(
     "--save-ref",
     metavar="PATH",
     type=str,
-    help="Path to a folder to save the inputs and outputs" " in protobuf",
+    help="Path to a folder to save the inputs and outputs in protobuf.",
 )
 data_group = parser.add_mutually_exclusive_group()
 data_group.add_argument(
@@ -159,10 +172,10 @@ data_group.add_argument(
     metavar="PATH",
     type=str,
     help="Path to a folder containing reference inputs and outputs stored in protobuf."
-    " If --verify=ref, inputs and outputs are reference data for verification",
+    " If --verify=ref, inputs and outputs are reference data for verification.",
 )
 data_group.add_argument(
-    "--inputs-from-arrays", help="List of numpy arrays used as inputs for inference"
+    "--inputs-from-arrays", help="List of numpy arrays used as inputs for inference."
 )
 data_group.add_argument(
     "--load-ref-from-numpy",
@@ -176,7 +189,7 @@ data_group.add_argument(
     "--shape-info",
     type=str,
     help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-    "Used to generate random inputs for the model if --load-ref is not set",
+    "Used to generate random inputs for the model if --load-ref is not set.",
 )
 
 parser.add_argument(
@@ -185,7 +198,7 @@ parser.add_argument(
     help="Lower bound values for each data type. Used inputs."
     " E.g. --lower-bound=int64:-10,float32:-0.2,uint8:1."
     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
-    " uint64, int64,float16, float32, float64",
+    " uint64, int64,float16, float32, float64.",
 )
 parser.add_argument(
     "--upper-bound",
@@ -193,30 +206,31 @@ parser.add_argument(
     help="Upper bound values for each data type. Used to generate random inputs."
     " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
-    " uint64, int64, float16, float32, float64",
+    " uint64, int64, float16, float32, float64.",
 )
 parser.add_argument(
     "-w",
     "--warmup",
     type=lambda s: check_non_negative("--warmup", s),
     default=0,
-    help="The number of warmup inference runs",
+    help="The number of warmup inference runs.",
 )
 parser.add_argument(
     "-n",
     "--n-iteration",
     type=lambda s: check_positive("--n-iteration", s),
     default=1,
-    help="The number of inference runs excluding warmup",
+    help="The number of inference runs excluding warmup.",
 )
 parser.add_argument(
     "--seed",
     type=str,
     default="42",
-    help="seed to initialize the random num generator for inputs",
+    help="seed to initialize the random num generator for inputs.",
 )
 
 args = parser.parse_args()
+
 if args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value):
     raise RuntimeError(
         "Choose verification mode: --verify-with-softmax or "
@@ -617,17 +631,40 @@ class InferenceSession:
     Another argument, 'options' is added for onnxmlir to specify options for RunONNXModel.py
     """
 
-    def __init__(self, model_name, **kwargs):
+    def __init__(self, model_file, **kwargs):
         global args
         if "options" in kwargs.keys():
             options = kwargs["options"]
             args = parser.parse_args(shlex.split(options))
 
-        if model_name:
-            if model_name.endswith(".onnx") or model_name.endswith(".mlir"):
-                args.model = model_name
+        if model_file:
+            if model_file.endswith(".onnx") or model_file.endswith(".mlir"):
+                args.model = model_file
             else:
-                args.load_so = compiled_name
+                args.load_model = compiled_name
+
+        # Default model name that will be used for the compiled model.
+        # e.g. model.so, model.constants.bin, ...
+        self.default_model_name = "model"
+
+        # Handle cache_model.
+        if args.cache_model:
+            shared_lib_path = args.cache_model + f"/{self.default_model_name}.so"
+            if not os.path.exists(shared_lib_path):
+                print(
+                    'Cached compiled model not found in "'
+                    + args.cache_model
+                    + '": save model this run.'
+                )
+                args.save_model = args.cache_model
+            else:
+                print(
+                    'Cached compiled model found in "'
+                    + args.cache_model
+                    + '": load model this run.'
+                )
+                args.load_model = args.cache_model
+            args.cache_model = None
 
         # Get shape information if given.
         # args.shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
@@ -662,95 +699,121 @@ class InferenceSession:
                     print("Saving modified onnx model to ", args.save_onnx, "\n")
                     onnx.save(model, args.save_onnx)
 
-        # Compile, run, and verify.
-        with tempfile.TemporaryDirectory() as temp_dir:
-            print("Temporary directory has been created at {}".format(temp_dir))
-
-            shared_lib_path = ""
-
-            # If a shared library is given, use it without compiling the ONNX model.
-            # Otherwise, compile the ONNX model.
-            if args.load_so:
-                shared_lib_path = args.load_so
-            else:
-                print("Compiling the model ...")
-                # Prepare input and output paths.
-                output_path = os.path.join(temp_dir, "model")
-                shared_lib_path = os.path.join(temp_dir, "model.so")
-                if args.model.endswith(".onnx"):
-                    input_model_path = os.path.join(temp_dir, "model.onnx")
+        # If a shared library is given, use it without compiling the ONNX model.
+        # Otherwise, compile the ONNX model.
+        if args.load_model:
+            self.model_dir = args.load_model
+        else:
+            # Compile the ONNX model.
+            self.temp_dir = tempfile.TemporaryDirectory()
+            print("Temporary directory has been created at {}\n".format(self.temp_dir))
+            print("Compiling the model ...")
+            self.model_dir = self.temp_dir.name
+            # Prepare input and output paths.
+            output_path = os.path.join(self.model_dir, self.default_model_name)
+            if args.model.endswith(".onnx"):
+                if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
+                    input_model_path = os.path.join(
+                        self.model_dir, f"{self.default_model_name}.onnx"
+                    )
                     onnx.save(model, input_model_path)
-                elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
-                    input_model_path = args.model
                 else:
-                    print("Invalid input model path. Must end with .onnx or .mlir")
-                    exit(1)
-
-                # Prepare compiler arguments.
-                command_str = [ONNX_MLIR]
-                if args.compile_args:
-                    command_str += args.compile_args.split()
-                if args.compile_using_input_shape:
-                    # Use shapes of the reference inputs to compile the model.
-                    assert (
-                        args.load_ref or args.load_ref_from_numpy
-                    ), "No data folder given"
-                    assert "shapeInformation" not in command_str, "shape info was set"
-                    shape_info = "--shapeInformation="
-                    for i in range(len(inputs)):
-                        shape_info += (
-                            str(i)
-                            + ":"
-                            + "x".join([str(d) for d in inputs[i].shape])
-                            + ","
-                        )
-                    shape_info = shape_info[:-1]
-                    command_str += [shape_info]
-                    warning(
-                        "the shapes of the model's inputs will be "
-                        "changed to the shapes of the inputs in the data folder"
-                    )
-                command_str += [input_model_path]
-                command_str += ["-o", output_path]
-
-                # Compile the model.
-                start = time.perf_counter()
-                ok, msg = execute_commands(command_str)
-                # Dump the compilation log into a file.
-                if args.log_to_file:
-                    log_file = (
-                        args.log_to_file
-                        if args.log_to_file.startswith("/")
-                        else os.path.join(os.getcwd(), args.log_to_file)
-                    )
-                    print("  Compilation log is dumped into {}".format(log_file))
-                    with open(log_file, "w") as f:
-                        f.write(msg)
-                if not ok:
-                    print(msg)
-                    exit(1)
-                end = time.perf_counter()
-                print("  took ", end - start, " seconds.\n")
-
-                # Save the generated .so file of the model if required.
-                if args.save_so:
-                    print("Saving the shared library to", args.save_so, "\n")
-                    execute_commands(["rsync", "-ar", shared_lib_path, args.save_so])
-
-                # Exit if only compiling the model.
-                if args.compile_only:
-                    exit(0)
-
-            # Use the generated shared library to create an execution session.
-            print("Loading the compiled model ...")
-            start = time.perf_counter()
-            if args.load_so:
-                sess = OMExecutionSession(shared_lib_path, tag="None")
+                    input_model_path = args.model
+            elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
+                input_model_path = args.model
             else:
-                sess = OMExecutionSession(shared_lib_path)
+                print(
+                    "Invalid input model path. Must end with .onnx or .mlir or .onnxtext"
+                )
+                exit(1)
+
+            # Prepare compiler arguments.
+            command_str = [ONNX_MLIR]
+            if args.compile_args:
+                command_str += args.compile_args.split()
+            if args.compile_using_input_shape:
+                # Use shapes of the reference inputs to compile the model.
+                assert args.load_ref or args.load_ref_from_numpy, "No data folder given"
+                assert "shapeInformation" not in command_str, "shape info was set"
+                shape_info = "--shapeInformation="
+                for i in range(len(inputs)):
+                    shape_info += (
+                        str(i) + ":" + "x".join([str(d) for d in inputs[i].shape]) + ","
+                    )
+                shape_info = shape_info[:-1]
+                command_str += [shape_info]
+                warning(
+                    "the shapes of the model's inputs will be "
+                    "changed to the shapes of the inputs in the data folder"
+                )
+            command_str += [input_model_path]
+            command_str += ["-o", output_path]
+
+            # Compile the model.
+            start = time.perf_counter()
+            ok, msg = execute_commands(command_str)
+            # Dump the compilation log into a file.
+            if args.log_to_file:
+                log_file = (
+                    args.log_to_file
+                    if args.log_to_file.startswith("/")
+                    else os.path.join(os.getcwd(), args.log_to_file)
+                )
+                print("  Compilation log is dumped into {}".format(log_file))
+                with open(log_file, "w") as f:
+                    f.write(msg)
+            if not ok:
+                print(msg)
+                exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
-            self.sess = sess
+
+            # Save the following information:
+            # - .so file,
+            # - .constants.bin file, and
+            # - compilation.log containing the compilation output.
+            if args.save_model:
+                if not os.path.exists(args.save_model):
+                    os.makedirs(args.save_model)
+                if not os.path.isdir(args.save_model):
+                    print("Path to --save-model is not a folder")
+                    exit(0)
+                # .so file.
+                shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
+                if os.path.exists(shared_lib_path):
+                    print("Saving the shared library to", args.save_model)
+                    shutil.copy2(shared_lib_path, args.save_model)
+                # .constants.bin file.
+                constants_file_path = os.path.join(
+                    self.model_dir, f"{self.default_model_name}.constants.bin"
+                )
+                if os.path.exists(constants_file_path):
+                    print("Saving the constants file to", args.save_model, "\n")
+                    shutil.copy2(constants_file_path, args.save_model)
+                # Compilation log.
+                log_file_path = os.path.join(args.save_model, "compile.log")
+                with open(log_file_path, "w") as f:
+                    print("Saving the compilation log to", args.save_model, "\n")
+                    f.write(msg)
+
+            # Exit if only compiling the model.
+            if args.compile_only:
+                exit(0)
+
+        # Use the generated shared library to create an execution session.
+        start = time.perf_counter()
+        shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
+        if not os.path.exists(shared_lib_path):
+            print(f"Input model {shared_lib_path} does not exist")
+            exit(0)
+        print("Loading the compiled model ...")
+        if args.load_model:
+            sess = OMExecutionSession(shared_lib_path, tag="None")
+        else:
+            sess = OMExecutionSession(shared_lib_path)
+        end = time.perf_counter()
+        print("  took ", end - start, " seconds.\n")
+        self.sess = sess
 
     """
     From onnxruntime API:
@@ -788,6 +851,9 @@ class InferenceSession:
         output_signature = self.sess.output_signature()
         input_names = get_names_in_signature(input_signature)
         output_names = get_names_in_signature(output_signature)
+        if args.print_signatures:
+            print("Model's input signature: ", input_signature.strip())
+            print("Model's output signature: ", output_signature.strip())
 
         inputs = []
         # Get input from input_feed, if input_feed is provided
@@ -834,6 +900,8 @@ class InferenceSession:
 
         # Running inference.
         print("Running inference ...")
+        # Let onnx-mlir know where to find the constants file.
+        os.environ["OM_CONSTANT_PATH"] = self.model_dir
         for i in range(args.warmup):
             start = time.perf_counter()
             outs = self.sess.run(inputs)
@@ -957,8 +1025,8 @@ class InferenceSession:
 
 # Standalone driver
 def main():
-    if not (args.model or args.load_so):
-        print("error: no input model, use argument --model and/or --load-so.")
+    if not (args.model or args.load_model):
+        print("error: no input model, use argument --model and/or --load-model.")
         print(parser.format_usage())
         exit(1)
 
