@@ -12,6 +12,7 @@
 
 #include "mlir/Dialect/Traits.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -21,6 +22,8 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
+#include <iostream>
+#include <list>
 #include <numeric>
 
 using namespace mlir;
@@ -502,13 +505,165 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
     ElementsAttr sequenceLength, uint64_t batchIndex, uint64_t timeIndex) {
 
   ShapedType inputType = input.getShapedType();
-  ShapedType seqLengthType = sequenceLength.getShapedType();
-
-  if (batchIndex == 1 || timeIndex == 0 ||
-      inputType.getRank() == seqLengthType.getRank()) {
-    return input;
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  std::cout << " Input Shape  \n";
+  for (size_t i = 0; i < inputShape.size(); i++) {
+    std::cout << " at " << i << " " << inputShape[i] << std::endl;
   }
-  return input;
+  std::cout << std::endl;
+
+  SmallVector<int64_t> inputStrides;
+  ArrayBuffer<WideNum> inputNums =
+      getWideNumsAndExpandedStrides(input, inputShape, inputStrides);
+
+  SmallVector<int64_t> seqLengthStrides;
+  ArrayRef<int64_t> seqLengthShape = sequenceLength.getShapedType().getShape();
+  ArrayBuffer<WideNum> seqLengthNums = getWideNumsAndExpandedStrides(
+      sequenceLength, seqLengthShape, seqLengthStrides);
+
+  ShapedType resultType = inputType.clone(inputShape);
+  Type elementType = inputType.getElementType();
+
+  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      SmallVector<int64_t, 4> seqLength;
+      for (auto &idxoffs :
+          StridesRange<1>(seqLengthShape, {seqLengthStrides})) {
+        int64_t pos = idxoffs[0];
+        auto accumulator = seqLengthNums.get()[pos].narrow<BType::INT64>();
+        seqLength.emplace_back(accumulator);
+      }
+      std::cout << " batch index " << batchIndex << " time index " << timeIndex
+                << std::endl;
+
+      // Traverse and populate each element d in dstNums.
+      for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+        // Traverse all the elements that reduce together into d.
+        // srcNums elements may be repeated if there are zeros in axesStrides.
+        cpptype accumulator = 0;
+        int64_t pos = idxoffs[0];
+        // std::cout << " pos " << pos << std::endl
+        //           << "idxoffs.flattenedIndex " << idxoffs.flattenedIndex
+        //           << std::endl;
+
+        accumulator = inputNums.get()[pos].narrow<TAG>();
+        dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+        // auto idx = idxoffs.index;
+        // std::cout << "index: [";
+        // for (int i = 0; i < idx.size(); i++) {
+        //   std::cout << idx[i] << "][";
+        // }
+        // std::cout << "] ==> " << accumulator << std::endl;
+      }
+      for (size_t i = 0; i < seqLength.size(); i++) {
+        std::cout << "Iter - Index " << i << " seq length = " << seqLength[i]
+                  << std::endl;
+        std::list<std::tuple<int64_t, int64_t, float>> dstSrcTuples;
+        std::list<std::tuple<int64_t, int64_t, float>> dstSrcTuples2;
+        int revDimSize = 0;
+        if (batchIndex == 1) {
+          revDimSize = inputShape[0];
+        } else {
+          revDimSize = inputShape[1];
+        }
+        std::list<std::list<int64_t>> revDimPosList1;
+        revDimPosList1.resize(revDimSize);
+
+        for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+          // Traverse all the elements that reduce together into d.
+          // srcNums elements may be repeated if there are zeros in axesStrides.
+          cpptype accumulator = 0;
+          int64_t pos = idxoffs[0];
+          accumulator = inputNums.get()[pos].narrow<TAG>();
+
+          auto idx = idxoffs.index;
+
+          if ((batchIndex == 1) && ((idx[1] == i) && (idx[0] < seqLength[i]))) {
+            dstSrcTuples.emplace_back(idxoffs[0], 0, accumulator);
+            auto iter = revDimPosList1.begin();
+            std::advance(iter, idx[0]);
+            (*iter).push_back(idxoffs[0]);
+          } else if ((batchIndex == 0) &&
+                     ((idx[0] == i) && (idx[1] < seqLength[i]))) {
+            dstSrcTuples.emplace_back(idxoffs[0], 0, accumulator);
+            auto iter = revDimPosList1.begin();
+            std::advance(iter, idx[1]);
+            (*iter).push_back(idxoffs[0]);
+          }
+        }
+        std::cout << " Printing revDimPosList " << std::endl;
+        int iterindex = 0;
+        for (const auto &iter : revDimPosList1) {
+          std::cout << " at : " << iterindex << std::endl;
+          iterindex++;
+          for (auto innerIter : iter) {
+            std::cout << innerIter << " ";
+          }
+          std::cout << std::endl;
+        }
+        std::list<std::list<int64_t>> revDimPosList2;
+        revDimPosList2.resize(revDimSize);
+        auto dstSrcPairsIter = dstSrcTuples.begin();
+        for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+          auto idx = idxoffs.index;
+          if ((batchIndex == 1) && ((idx[1] == i) && (idx[0] < seqLength[i]))) {
+            auto iter2 = revDimPosList2.begin();
+            std::advance(iter2, idx[0]);
+            (*iter2).push_back(idxoffs[0]);
+            int posIndex = (*iter2).size() - 1;
+            auto iter1 = revDimPosList1.begin();
+            std::advance(iter1, (revDimPosList1.size() - 1 - idx[0]));
+            auto innerListIter = (*iter1).begin();
+            std::advance(innerListIter, posIndex);
+            std::get<1>(*dstSrcPairsIter) = *(innerListIter);
+            dstSrcPairsIter++;
+          } else if ((batchIndex == 0) &&
+                     ((idx[0] == i) && (idx[1] < seqLength[i]))) {
+            auto iter2 = revDimPosList2.begin();
+            std::advance(iter2, idx[1]);
+            (*iter2).push_back(idxoffs[0]);
+            int posIndex = (*iter2).size() - 1;
+            auto iter1 = revDimPosList1.begin();
+            std::advance(iter1, (revDimPosList1.size() - 1 - idx[1]));
+            auto innerListIter = (*iter1).begin();
+            std::advance(innerListIter, posIndex);
+            std::get<1>(*dstSrcPairsIter) = *(innerListIter);
+            dstSrcPairsIter++;
+          }
+        }
+        std::cout << " Printing the Final dstSrcPairs " << std::endl;
+        int ipos = 0;
+        for (auto it : dstSrcTuples) {
+          std::cout << ipos++ << " : " << std::get<0>(it) << "  -- "
+                    << std::get<1>(it) << " -oldVal- " << std::get<2>(it)
+                    << std::endl;
+        }
+        auto dstSrcLookupIter = dstSrcTuples.begin();
+        for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+          int64_t pos = idxoffs[0];
+          // std::cout << " pos " << pos << " idxoffs.flattenedIndex "
+          //           << idxoffs.flattenedIndex << " : "
+          //           << (*dstSrcLookupIter).first << std::endl;
+          if (pos < std::get<0>((*dstSrcLookupIter))) {
+            continue;
+          }
+          if (pos == std::get<0>(*dstSrcLookupIter)) {
+            cpptype accumulator = 0;
+            accumulator =
+                inputNums.get()[std::get<1>(*dstSrcLookupIter)].narrow<TAG>();
+            cpptype accumulator2 = 0;
+            accumulator2 = inputNums.get()[idxoffs[0]].narrow<TAG>();
+            dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+            dstSrcLookupIter++;
+            std::cout << " Assigning " << accumulator2 << " <== " << accumulator
+                      << std::endl;
+          }
+        }
+      }
+    });
+  });
 }
 ElementsAttr ElementsAttrBuilder::transpose(
     ElementsAttr elms, ArrayRef<uint64_t> perm) {
@@ -1049,10 +1204,11 @@ ElementsAttr ElementsAttrBuilder::range(
 }
 
 namespace {
-// Returns indices with non-zero values. The indices are placed back to back,
-// lexicographically sorted. Can be viewed as a [count, rank] shaped matrix
-// linearized in row-major order, where rank is the rank of elms' shape and
-// count is the number of non-zero values. AP_TYPE should be APFloat or APInt.
+// Returns indices with non-zero values. The indices are placed back to
+// back, lexicographically sorted. Can be viewed as a [count, rank] shaped
+// matrix linearized in row-major order, where rank is the rank of elms'
+// shape and count is the number of non-zero values. AP_TYPE should be
+// APFloat or APInt.
 // TODO: If this is too slow then reimplement in the style of allEqual()
 //       with WideNum instead of APFloat/APInt.
 template <typename AP_TYPE>
