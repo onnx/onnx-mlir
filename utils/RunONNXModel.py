@@ -161,6 +161,16 @@ lib_group.add_argument(
 )
 
 parser.add_argument(
+    "-o",
+    "--default-model-name",
+    metavar="MODEL_NAME",
+    type=str,
+    default="model",
+    help="Change the default model name that is used for two generated files: "
+    " .so and .constants.bin. Default is model.",
+)
+
+parser.add_argument(
     "--save-ref",
     metavar="PATH",
     type=str,
@@ -645,7 +655,7 @@ class InferenceSession:
 
         # Default model name that will be used for the compiled model.
         # e.g. model.so, model.constants.bin, ...
-        self.default_model_name = "model"
+        self.default_model_name = args.default_model_name
 
         # Handle cache_model.
         if args.cache_model:
