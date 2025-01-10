@@ -85,7 +85,57 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 
-  pm.addPass(onnx_mlir::createONNXToZHighPass(nnpaQuantization));
+  // Currently support dynamic quantization only.
+  NNPAQuantType quantMode = NNPAQuantType::QNONE;
+  if (nnpaQuantDynamic.getNumOccurrences() > 0) {
+    bool isWeightSym = false;
+    bool isActivationSym = false;
+    bool hadWeightOpt = false;
+    bool hadActivationOpt = false;
+    for (unsigned i = 0; i < nnpaQuantDynamic.size(); ++i) {
+      if (nnpaQuantDynamic[i] == NNPAQuantOptions::autoQuantOpt) {
+        // Default mode: symmetric for weighs and asymmetric for activations.
+        isWeightSym = true;
+        isActivationSym = false;
+        break;
+      }
+      if (nnpaQuantDynamic[i] == NNPAQuantOptions::symWeight) {
+        if (hadWeightOpt)
+          llvm_unreachable("Set options for quantizing weight twice.");
+        else
+          hadWeightOpt = true;
+        isWeightSym = true;
+      }
+      if (nnpaQuantDynamic[i] == NNPAQuantOptions::asymWeight) {
+        if (hadWeightOpt)
+          llvm_unreachable("Set options for quantizing weight twice.");
+        else
+          hadWeightOpt = true;
+        isWeightSym = false;
+      }
+      if (nnpaQuantDynamic[i] == NNPAQuantOptions::symActivation) {
+        if (hadActivationOpt)
+          llvm_unreachable("Set options for quantizing activation twice.");
+        else
+          hadActivationOpt = true;
+        isActivationSym = true;
+      }
+      if (nnpaQuantDynamic[i] == NNPAQuantOptions::asymActivation) {
+        if (hadActivationOpt)
+          llvm_unreachable("Set options for quantizing activation twice.");
+        else
+          hadActivationOpt = true;
+        isActivationSym = false;
+      }
+    }
+    if (isActivationSym && isWeightSym)
+      quantMode = NNPAQuantType::SymSymI8;
+    else if (!isActivationSym && isWeightSym)
+      quantMode = NNPAQuantType::DynSymI8;
+    else // default
+      quantMode = NNPAQuantType::DynSymI8;
+  }
+  pm.addPass(onnx_mlir::createONNXToZHighPass(quantMode));
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
 
   // There are more opportunities for const propagation once all zhigh ops were

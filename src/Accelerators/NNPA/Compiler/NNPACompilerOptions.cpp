@@ -101,16 +101,6 @@ llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU("nnpa-cpu-dql",
-    llvm::cl::desc("Use dynamic quantized linear on CPU. Default is false"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
-
-llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset(
-    "nnpa-cpu-dql-scale",
-    llvm::cl::desc("Use dynamic quantized linear computation of "
-                   " scale and offset on CPU. Default is false"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
-
 llvm::cl::opt<NNPAQuantType> nnpaQuantization("nnpa-quantization",
     llvm::cl::desc("Enable quantization with a specific type. Only "
                    "MatMul whose weight is a constant is supported."),
@@ -123,5 +113,40 @@ llvm::cl::opt<NNPAQuantType> nnpaQuantization("nnpa-quantization",
             "quant for activations and symmetric quant for weights."),
         clEnumVal(QNONE, "No quantization (default).")),
     llvm::cl::init(QNONE), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic("nnpa-quant-dynamic",
+    llvm::cl::desc(
+        "Enable dynamic quantization of the input model. If enabled, it only "
+        "quantizes from fp32 to i8. If an ONNX operation is already in i8, "
+        "no quantization is applied to that operation. Optionally, a "
+        "comma-separated list of quantization options can be specified as its "
+        "value, e.g. -nnpa-quant-dynamic=SymmetricActivation,SymmetricWeight."),
+    llvm::cl::values(clEnumVal(symWeight, "Symmetric quant for weights."),
+        clEnumVal(asymWeight, "Asymmetric quant for weights."),
+        clEnumVal(symActivation, "Symmetric quant for activations."),
+        clEnumVal(asymActivation, "Asymmetric quant for activations."),
+        clEnumValN(autoQuantOpt, "",
+            "Compiler automatically finds the best options.")),
+    llvm::cl::ValueOptional, llvm::cl::CommaSeparated,
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> nnpaQuantOpTypes("nnpa-quant-op-types",
+    llvm::cl::desc(
+        "A comma-separated list of types of operations that are quantized. "
+        "E.g. 'MatMul,Conv'. Strings for types are the same as ONNX operator "
+        "names in https://onnx.ai/onnx/operators/. By default or with "
+        "specifying this option, the compiler will determine the operation "
+        "types by itself."),
+    llvm::cl::CommaSeparated, llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU("nnpa-cpu-dql",
+    llvm::cl::desc("Use dynamic quantized linear on CPU. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset(
+    "nnpa-cpu-dql-scale",
+    llvm::cl::desc("Use dynamic quantized linear computation of "
+                   " scale and offset on CPU. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 } // namespace onnx_mlir

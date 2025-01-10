@@ -64,6 +64,14 @@ typedef enum {
   QNONE,    /* Only qualifying ops that are faster on NNPA. */
 } NNPAQuantType;
 
+typedef enum {
+  symWeight,
+  asymWeight,
+  symActivation,
+  asymActivation,
+  autoQuantOpt,
+} NNPAQuantOptions;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::OptionCategory OnnxMlirCommonOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
@@ -80,6 +88,8 @@ extern llvm::cl::opt<bool> nnpaEnableSaturation;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
 extern llvm::cl::opt<NNPAQuantType> nnpaQuantization;
+extern llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic;
+extern llvm::cl::list<std::string> nnpaQuantOpTypes;
 
 } // namespace onnx_mlir
 #endif
