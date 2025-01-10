@@ -836,13 +836,14 @@ static int emitOutputFiles(std::string outputNameNoExt,
     // Emit the version with all constants included.
     std::string outputNameWithExt =
         getTargetFilename(outputNameNoExt, emissionTarget);
-    int rc = outputCode(module, outputNameWithExt);
-    if (VerboseOutput)
-      llvm::outs() << "Full MLIR code written to:\n"
-                   << "\t" << outputNameWithExt << "\n\n";
-    if (rc != CompilerSuccess)
-      return rc;
-
+    if (!doNotEmitFullMLIRCode) {
+      int rc = outputCode(module, outputNameWithExt);
+      if (VerboseOutput)
+        llvm::outs() << "Full MLIR code written to:\n"
+                     << "\t" << outputNameWithExt << "\n\n";
+      if (rc != CompilerSuccess)
+        return rc;
+    }
     // Elide element attributes if larger than 100.
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
         emissionTarget == EmitMLIR) {

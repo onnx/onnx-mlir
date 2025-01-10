@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
-// Copyright 2022, 2023 The IBM Research Authors.
+// Copyright 2022, 2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -50,6 +50,7 @@ bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
 bool printBytecode;                                    // onnx-mlir only
+bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
 bool preserveMLIR;                                     // onnx-mlir only
@@ -287,6 +288,16 @@ static llvm::cl::opt<bool, true> printBytecodeOpt("printBytecode",
     llvm::cl::location(printBytecode), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
+    "do-not-emit-full-mlir-code",
+    llvm::cl::desc(
+        "Do not emit the MLIR the constant values are embeded "
+        "(<name>onnx.mlir). Emit only the MLIR without the constants "
+        "(<name>.tmp). Need to be used with emitting MLIR options such as "
+        "--EmitONNXIR and --EmitMLIR."),
+    llvm::cl::location(doNotEmitFullMLIRCode), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 static llvm::cl::opt<bool, true> preserveBitcodeOpt("preserveBitcode",
     llvm::cl::desc("Preserve the bitcode files (optimized and unoptimized)."),
     llvm::cl::location(preserveBitcode), llvm::cl::init(false),
@@ -315,11 +326,13 @@ static llvm::cl::opt<int, true> repeatOnnxTransformOpt("repeatOnnxTransform",
 
 static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
     llvm::cl::desc(
-        "Custom shapes for the inputs of the ONNX model, e.g. setting static "
+        "Custom shapes for the inputs of the ONNX model, e.g. setting "
+        "static "
         "shapes for dynamic inputs.\n"
         "\"value\" is in the format of "
         "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
-        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting "
+        "from "
         "0 or being -1 for all input indices), and\n"
         "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
         "unknown dimensions)."),
@@ -328,26 +341,30 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
 
 static llvm::cl::opt<std::string, true> dimParamsOpt("dimParams",
     llvm::cl::desc(
-        "Custom onnx.dim_params attributes for the inputs of the ONNX model "
-        "for specifying relationship among dynamic dimensions of the inputs.\n"
+        "Custom onnx.dim_params attributes for the inputs of the ONNX "
+        "model "
+        "for specifying relationship among dynamic dimensions of the "
+        "inputs.\n"
         "\"value\" is in the format of "
         "\"INPUT_ID1:D1=S1,D2=S2,...,Dn=Sn|INPUT_ID2:D1=T1,D2=T2,...Dn=Tn|"
         "...\" where \"INPUT_ID1, INPUT_ID2, ...\" are input indices "
         "(starting from 0 or being -1 for all input indices), and\n"
-        "\"S1, S2, ...\" and \"T2, T2, ...\" are symbols to specify that same "
+        "\"S1, S2, ...\" and \"T2, T2, ...\" are symbols to specify that "
+        "same "
         "symbols have the same value. "
         "All dimensions of onnx.dim_params for a specified input index in "
         "the original onnx model are cleared and replaced by this option. "
-        "onnx.dim_params for other input indices in the original onnx model "
+        "onnx.dim_params for other input indices in the original onnx "
+        "model "
         "are not cleared"),
     llvm::cl::value_desc("value"), llvm::cl::location(dimParams),
     llvm::cl::cat(OnnxMlirOptions));
 
 // Default value is defined by the OnnxMlirEnvOptionName constant string
-// variable, but the default setting mechanism here cannot be used here as we
-// need to evaluate this value prior to the compiler options being set. Proper
-// handling of the value of this compiler option is set by the calling the
-// parseCustomEnvFlagsCommandLineOption(...) function.
+// variable, but the default setting mechanism here cannot be used here as
+// we need to evaluate this value prior to the compiler options being set.
+// Proper handling of the value of this compiler option is set by the
+// calling the parseCustomEnvFlagsCommandLineOption(...) function.
 static llvm::cl::opt<std::string, true> customEnvFlagsOpt("customEnvFlags",
     llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
                    "ONNX_MLIR_FLAGS."),
@@ -372,15 +389,19 @@ static llvm::cl::opt<bool, true> storeConstantsToFileOpt(
     "store-constants-to-file",
     llvm::cl::desc(
         "Constants will be stored on a binary file instead of be embedded "
-        "into the model.so when compiling a big model.\nThe binary file is in "
-        "the same folder as the model.so and has the same name as the model "
+        "into the model.so when compiling a big model.\nThe binary file is "
+        "in "
+        "the same folder as the model.so and has the same name as the "
+        "model "
         "with the extension of .constants.bin.\nFor inference, "
         "model.constants.bin must be at the same folder as the inference "
         "program.\nIf model.constants.bin is at another folder, use the "
-        "environment variable OM_CONSTANT_PATH to set the constant folder.\n"
+        "environment variable OM_CONSTANT_PATH to set the constant "
+        "folder.\n"
         "When using this option, two other options "
         "constants-to-file-single-threshold and "
-        "constants-to-file-total-threshold can be used to fine-tune the amount "
+        "constants-to-file-total-threshold can be used to fine-tune the "
+        "amount "
         "of constants stored on the file.\n"
         "Default is True."),
     llvm::cl::location(storeConstantsToFile), llvm::cl::init(true),
@@ -391,7 +412,8 @@ static llvm::cl::opt<float, true> constantsToFileTotalThresholdOpt(
     llvm::cl::desc(
         "Put global constants to a file if the total size in "
         "bytes of constants is greater than this threshold.\n"
-        "store-constants-to-file must be enabled for this to be effective.\n"
+        "store-constants-to-file must be enabled for this to be "
+        "effective.\n"
         "Only count constants whose size is greater than "
         "constants-to-file-single-threshold. Value is in GB. Default is "
         "1.5GB."),
@@ -403,9 +425,11 @@ static llvm::cl::opt<float, true> constantsToFileSingleThresholdOpt(
     llvm::cl::desc(
         "Put global constants to a file if a single constant's size in "
         "bytes is greater than this threshold.\n"
-        "store-constants-to-file must be enabled for this to be effective.\n"
+        "store-constants-to-file must be enabled for this to be "
+        "effective.\n"
         "Total sizes in bytes of satisfied constants must be greater than "
-        "constants-to-file-total-threshold. Value is in KB. Default is 1KB."),
+        "constants-to-file-total-threshold. Value is in KB. Default is "
+        "1KB."),
     llvm::cl::location(constantsToFileSingleThreshold), llvm::cl::init(1.0),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -414,26 +438,26 @@ static llvm::cl::opt<bool, true> VerboseOutputOpt("v",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> XoptOpt("Xopt",
-    llvm::cl::desc(
-        "Arguments to forward to LLVM's 'opt' option processing "
-        "multiple arguments to 'opt' need to be pass with separate 'Xopt'.\n"
-        "For example, '-Xopt opt1 -Xopt opt2 ...'"),
+    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing "
+                   "multiple arguments to 'opt' need to be pass with "
+                   "separate 'Xopt'.\n"
+                   "For example, '-Xopt opt1 -Xopt opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
     llvm::cl::location(Xopt), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 static llvm::cl::list<std::string, std::vector<std::string>> XllcOpt("Xllc",
-    llvm::cl::desc(
-        "Arguments to forward to LLVM's 'llc' option processing "
-        "multiple arguments to 'llc' need to be pass with separate 'Xllc'.\n"
-        "For example, '-Xllc opt1 -Xllc opt2 ...'"),
+    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing "
+                   "multiple arguments to 'llc' need to be pass with "
+                   "separate 'Xllc'.\n"
+                   "For example, '-Xllc opt1 -Xllc opt2 ...'"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
     llvm::cl::location(Xllc), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired, llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 static llvm::cl::opt<std::string, true> mllvmOpt("mllvm",
-    llvm::cl::desc(
-        "Arguments to forward to LLVM's 'opt' and 'llc' option processing."),
+    llvm::cl::desc("Arguments to forward to LLVM's 'opt' and 'llc' option "
+                   "processing."),
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::location(mllvm), llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden,
     llvm::cl::ValueRequired);
@@ -486,12 +510,13 @@ static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
-    llvm::cl::desc(
-        "Report the occurrence frequency of ONNX ops in JSON or TXT format:\n"
-        "\"TXT\" for report as text,\n"
-        "\"JSON\" for report as JSON.\n"
-        "Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating "
-        "commands."),
+    llvm::cl::desc("Report the occurrence frequency of ONNX ops in JSON or "
+                   "TXT format:\n"
+                   "\"TXT\" for report as text,\n"
+                   "\"JSON\" for report as JSON.\n"
+                   "Requires targets like --EmitMLIR, --EmitLLVMIR, or "
+                   "binary-generating "
+                   "commands."),
     llvm::cl::location(ONNXOpStats), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -506,8 +531,8 @@ static llvm::cl::opt<int, true> onnxOpTransformThresholdOpt(
 
 static llvm::cl::opt<bool, true> onnxOpTransformReportOpt(
     "onnx-op-transform-report",
-    llvm::cl::desc(
-        "Report diagnostic info for ONNX op transform/optimization passes."),
+    llvm::cl::desc("Report diagnostic info for ONNX op "
+                   "transform/optimization passes."),
     llvm::cl::location(onnxOpTransformReport), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -547,10 +572,11 @@ llvm::cl::opt<std::string, true> opsForCallOpt("ops-for-call",
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
-    llvm::cl::desc(
-        "Verify input tensors whenever the entry point function is called.\n"
-        "Data type and shape are verified. Enable this may introduce overhead "
-        "at runtime."),
+    llvm::cl::desc("Verify input tensors whenever the entry point function "
+                   "is called.\n"
+                   "Data type and shape are verified. Enable this may "
+                   "introduce overhead "
+                   "at runtime."),
     llvm::cl::location(verifyInputTensors), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -576,16 +602,21 @@ static llvm::cl::list<std::string, std::vector<std::string>> reportHeapAfterOpt(
 static llvm::cl::opt<std::string, true> modelTagOpt("tag",
     llvm::cl::desc(
         "Set a tag that will be used to postfix symbols in the generated "
-        "LLVMIR to make the symbols unique across multiple generated models.\n"
-        "By default, use the filename (without extension) of the input onnx "
+        "LLVMIR to make the symbols unique across multiple generated "
+        "models.\n"
+        "By default, use the filename (without extension) of the input "
+        "onnx "
         "model or the value passed to `-o`.\nThe tag will be appended to "
-        "global variable and function names. For backward compatibility, each "
-        "function has two versions with the same signature and doing the same "
+        "global variable and function names. For backward compatibility, "
+        "each "
+        "function has two versions with the same signature and doing the "
+        "same "
         "computation.\nFor example, we will have two entry points: "
         "`run_main_graph` and `run_main_graph_tag`, where `run_main_graph` "
         "is just a wrapper of `run_main_graph_tag`.\nUsers can call one of "
         "the entry points and expect the same result.\nPassing `NONE` to "
-        "`--tag` will disable tag completely, meaning no tag is appended to "
+        "`--tag` will disable tag completely, meaning no tag is appended "
+        "to "
         "the symbols."),
     llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::location(modelTag), llvm::cl::init(""),
@@ -654,9 +685,12 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
 // Option only available in debug mode: set using command options.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
-        "Help compiler writers test a new (small) optimization. When false, "
-        "the old approach should be used.\nWhen true, the new opt should be "
-        "used. Utilities such as CheckONNXModel.py can then verify that the "
+        "Help compiler writers test a new (small) optimization. When "
+        "false, "
+        "the old approach should be used.\nWhen true, the new opt should "
+        "be "
+        "used. Utilities such as CheckONNXModel.py can then verify that "
+        "the "
         "new opt deliver the same results.\n"
         "E.g. CheckONNXModel.py -m test.mlir -t -O3 -a "
         "test-compiler-opt=true.\n"
@@ -694,11 +728,13 @@ static llvm::cl::opt<bool, true> allowUnregisteredDialectsOpt(
     llvm::cl::location(allowUnregisteredDialects), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptOptions));
 
-// Removed once the new LLVM bufferization works without performance regression.
+// Removed once the new LLVM bufferization works without performance
+// regression.
 static llvm::cl::opt<bool, true> useOldBufferizationOpt("use-old-bufferization",
     llvm::cl::desc(
         "Enable the old LLVM bufferization mechanism (default=true).\n"
-        "This option should be removed once the new LLVM bufferization works "
+        "This option should be removed once the new LLVM bufferization "
+        "works "
         "well in onnx-mlir."),
     llvm::cl::location(useOldBufferization), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
@@ -723,8 +759,8 @@ std::string customEnvFlags;
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(
     int argc, const char *const *argv, llvm::raw_ostream *errs) {
-  // Use the default ONNX MLIR Environment variable, unless specified otherwise
-  // by an argument, see below.
+  // Use the default ONNX MLIR Environment variable, unless specified
+  // otherwise by an argument, see below.
   std::string envVar = OnnxMlirEnvOptionName;
   // VerboseOutput is not yet set, so scan ourselves.
   bool verbose = false;
@@ -739,7 +775,8 @@ bool parseCustomEnvFlagsCommandLineOption(
       verbose = true;
     }
   }
-  // Check that the env var does not recursively hold another -customEnvFlags.
+  // Check that the env var does not recursively hold another
+  // -customEnvFlags.
   const char *envValCstr;
   if ((envValCstr = std::getenv(envVar.c_str()))) {
     std::string envVal(envValCstr);
@@ -1168,16 +1205,16 @@ std::string getLibraryPath() {
 
 // onnx-mlir currently requires llvm tools llc and opt and they are assumed
 // to be under llvm-project/build/bin. This doesn't work with the case where
-// llvm-project has been installed system wide (typically under /usr/local/...)
-// and its source has been removed.
+// llvm-project has been installed system wide (typically under
+// /usr/local/...) and its source has been removed.
 //
 // To account for this scenario, we first search for the tools in the same
-// directory where onnx-mlir is run. If they are found, it means both onnx-mlir
-// and llvm-project have been installed system wide under the same directory,
-// so we get them from that directory (typically /usr/local/bin). Otherwise,
-// at least one of onnx-mlir and llvm-project has not been installed system
-// wide. In this case, getToolPath returns the fallback directory where llvm
-// is built which is typically llvm-project/build/bin.
+// directory where onnx-mlir is run. If they are found, it means both
+// onnx-mlir and llvm-project have been installed system wide under the same
+// directory, so we get them from that directory (typically /usr/local/bin).
+// Otherwise, at least one of onnx-mlir and llvm-project has not been
+// installed system wide. In this case, getToolPath returns the fallback
+// directory where llvm is built which is typically llvm-project/build/bin.
 //
 // Note that this will not work if both onnx-mlir and llvm-project have been
 // installed system wide but to different places and their sources have been
@@ -1185,10 +1222,11 @@ std::string getLibraryPath() {
 // llvm-project.
 //
 // If the flag is true, getToolPath will simply return the path detected by
-// cmake at compile time. This is used for system wide tools such as cc, ld, ar,
-// etc. Note that this means the path is valid only on the system where
-// onnx-mlir is built. If onnx-mlir is subsequently run on a system that does
-// not have these tools installed in the "standard" places, it will fail.
+// cmake at compile time. This is used for system wide tools such as cc, ld,
+// ar, etc. Note that this means the path is valid only on the system where
+// onnx-mlir is built. If onnx-mlir is subsequently run on a system that
+// does not have these tools installed in the "standard" places, it will
+// fail.
 //
 // Setting flag = true is also used to simply look up non-path config such
 // as lrodataScript.
