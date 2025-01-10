@@ -211,6 +211,17 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);
+  // `arith.maxnumf/arith.minnumf` can be replaced with
+  // `llvm.intr.maxnum/llvm.intr.minnum` by
+  // populateArithToLLVMConversionPatterns, or with `arith.cmpf` and
+  // `arith.select` by populateArithExpandOpsPatterns. Which is applied for
+  // depends on the order in which the pattterns are  applied. Currently, it
+  // should be replaced with `llvm.intr.maxnum/llvm.intr.minnum` because
+  // `arith.cmpf` and `arith.select do not work in float16 on ppc64le and cannot
+  // use SIMD, but currently there is no way to specify the order. From testing,
+  // following two line generates expected replacement We need to consider to
+  // specify the order, but we use this workaround for now.
+  arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
@@ -219,7 +230,6 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   if (enableParallel) {
     populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
   }
-  arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
@@ -465,8 +475,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Check constants with thresholds.
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
-  SmallVector<KrnlGlobalOp> globalOfInterest;
-  module.walk([&](KrnlGlobalOp op) {
+  SmallVector<KrnlGlobalOpInterface> globalOfInterest;
+  module.walk([&](KrnlGlobalOpInterface op) {
     // Ignore constants that are return values.
     bool isReturnedValue = false;
     for (Operation *user : op.getResult().getUsers()) {
@@ -482,22 +492,23 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     // For an unknown reason, enabling constants of bool caused segfault in the
     // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
     // See issue https://github.com/onnx/onnx-mlir/issues/2713.
-    if (llvm::cast<MemRefType>(op->getResult(0).getType())
+    if (llvm::cast<MemRefType>(op.getResult().getType())
             .getElementType()
             .isInteger(1))
       return WalkResult::advance();
 
     // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
-    ArrayRef<char> rawData = getRawData(op);
-    if (rawData.empty())
+    uint64_t bufferSize = op.getBufferSize();
+    if (bufferSize <= singleThreshold)
       return WalkResult::advance();
 
-    auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
-    if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
-      return WalkResult::advance();
-
+    if (op.getValueAttr()) {
+      auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
+      if (valueAttr.isSplat())
+        return WalkResult::advance();
+    }
     globalOfInterest.emplace_back(op);
-    totalSize += rawData.size();
+    totalSize += bufferSize;
     return WalkResult::advance();
   });
   // Do not use file if the total size of satisfied constants is <=
@@ -507,15 +518,16 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
   // Sort constants in the non-descending order of alignment values.
   // Non-alignment is the smallest value (-1), the others are positive.
-  llvm::sort(globalOfInterest, [&](KrnlGlobalOp left, KrnlGlobalOp right) {
-    int64_t leftAlign = -1;
-    int64_t rightAlign = -1;
-    if (left.getAlignment().has_value())
-      leftAlign = left.getAlignment().value();
-    if (right.getAlignment().has_value())
-      rightAlign = right.getAlignment().value();
-    return (leftAlign < rightAlign);
-  });
+  llvm::sort(globalOfInterest,
+      [&](KrnlGlobalOpInterface left, KrnlGlobalOpInterface right) {
+        int64_t leftAlign = -1;
+        int64_t rightAlign = -1;
+        if (left.getAlignment().has_value())
+          leftAlign = left.getAlignment().value();
+        if (right.getAlignment().has_value())
+          rightAlign = right.getAlignment().value();
+        return (leftAlign < rightAlign);
+      });
 
   // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
@@ -525,8 +537,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
   uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
-    KrnlGlobalOp op = globalOfInterest[i];
-    ArrayRef<char> rawData = getRawData(op);
+    KrnlGlobalOpInterface op = globalOfInterest[i];
+    ArrayRef<char> rawData = op.getBuffer();
 
     // Get alignment.
     int64_t alignment = -1;
@@ -544,11 +556,11 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     }
 
     op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
-    op.removeValueAttr();
     outfile.write(rawData.data(), rawData.size());
     totalConstSize += rawData.size();
+    op.removeValueAttr();
+    op.freeBuffer(rawData);
   }
-
   // No constant statisfying thresholds, do not store constants to file.
   if (totalConstSize == 0)
     return false;
@@ -960,7 +972,8 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlGlobalOpInterfacePattern(
+      typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);
