@@ -48,8 +48,9 @@ enum class API {
   ZDNN_LOG,
   ZDNN_EXP,
   ZDNN_INVSQRT,
-  ZDNN_REDUCEMAX,
-  ZDNN_REDUCEMIN,
+  // Reduction operations
+  ZDNN_REDUCE,
+  ZDNN_MEANREDUCE2D,
   // Activation operations
   ZDNN_RELU,
   ZDNN_GELU,
@@ -68,7 +69,6 @@ enum class API {
   ZDNN_CONV2D,
   ZDNN_AVGPOOL2D,
   ZDNN_MAXPOOL2D,
-  ZDNN_MEANREDUCE2D,
   ZDNN_BATCHNORM,
   ZDNN_LEAKY_RELU,
   // Scalar operations.

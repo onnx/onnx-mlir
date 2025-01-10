@@ -471,7 +471,7 @@ def replaceONNXReduceMeanV13Pattern : Pat<
 def replaceONNXReduceMaxPattern : Pat<
   (ONNXReduceMaxOp:$res $data, $axes, $keepdims, $noop_with_empty_axes),
   (ZHighUnstickOp (ZHighReduceMaxOp (ZHighStickOp:$s_x $data, (NoneLayoutAttr), 
-                                    (GetDefaultSaturation)), (GetStringAttr<"REDUCE_OP_MAXIMUM">))),
+                                    (GetDefaultSaturation)))),
   [(IsCompatibleWithNNPALevelArch15)]
 >;
 
@@ -484,7 +484,7 @@ def replaceONNXReduceMaxPattern : Pat<
 def replaceONNXReduceMinPattern : Pat<
   (ONNXReduceMinOp:$res $data, $axes, $keepdims, $noop_with_empty_axes),
   (ZHighUnstickOp (ZHighReduceMinOp (ZHighStickOp:$s_x $data, (NoneLayoutAttr), 
-                                    (GetDefaultSaturation)), (GetStringAttr<"REDUCE_OP_MINIMUM">))),
+                                    (GetDefaultSaturation)))),
   [(IsCompatibleWithNNPALevelArch15)]
 >;
 //===----------------------------------------------------------------------===//
