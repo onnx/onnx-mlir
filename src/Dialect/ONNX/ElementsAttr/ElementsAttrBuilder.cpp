@@ -563,11 +563,9 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         std::list<std::tuple<int64_t, int64_t, float>> dstSrcTuples;
         std::list<std::tuple<int64_t, int64_t, float>> dstSrcTuples2;
         int revDimSize = 0;
-        if (batchIndex == 1) {
-          revDimSize = inputShape[0];
-        } else {
-          revDimSize = inputShape[1];
-        }
+
+        revDimSize = seqLength[i];
+
         std::list<std::list<int64_t>> revDimPosList1;
         revDimPosList1.resize(revDimSize);
 
