@@ -531,12 +531,13 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
     wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
-      SmallVector<int64_t, 4> seqLength;
+      SmallVector<int64_t, 4> sequenceLength;
+      // Traverse and populate each element d into sequenceLength.
       for (auto &idxoffs :
           StridesRange<1>(seqLengthShape, {seqLengthStrides})) {
         int64_t pos = idxoffs[0];
         auto accumulator = seqLengthNums.get()[pos].narrow<BType::INT64>();
-        seqLength.emplace_back(accumulator);
+        sequenceLength.emplace_back(accumulator);
       }
       if (enableVerbose) {
         std::cout << " batch index " << batchIndex << " time index "
@@ -549,59 +550,79 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         // srcNums elements may be repeated if there are zeros in axesStrides.
         cpptype accumulator = 0;
         int64_t pos = idxoffs[0];
-        // std::cout << " pos " << pos << std::endl
-        //           << "idxoffs.flattenedIndex " << idxoffs.flattenedIndex
-        //           << std::endl;
-
         accumulator = inputNums.get()[pos].narrow<TAG>();
         dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
-        // auto idx = idxoffs.index;
-        // std::cout << "index: [";
-        // for (int i = 0; i < idx.size(); i++) {
-        //   std::cout << idx[i] << "][";
-        // }
-        // std::cout << "] ==> " << accumulator << std::endl;
       }
-      for (size_t i = 0; i < seqLength.size(); i++) {
+      // Iterating through the sequence_lens tensor values.
+      for (size_t seqLengthIndex = 0; seqLengthIndex < sequenceLength.size();
+           seqLengthIndex++) {
         if (enableVerbose) {
-          std::cout << "Iter - Index " << i << " seq length = " << seqLength[i]
+          std::cout << "Iter - Index " << seqLengthIndex
+                    << " seq length = " << sequenceLength[seqLengthIndex]
                     << std::endl;
         }
-        std::list<std::tuple<int64_t, int64_t, float>> dstSrcTuples;
-        std::list<std::tuple<int64_t, int64_t, float>> dstSrcTuples2;
-        int revDimSize = 0;
+        // maintains the list of positions dst,src
+        // `destination element` pos that get its value from `source position`
+        // for ex: (0,1,2) <= (2,1,0) Will have entries (0,2),(1,0),(2,0)
+        std::list<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
 
-        revDimSize = seqLength[i];
-
-        std::list<std::list<int64_t>> revDimPosList1;
-        revDimPosList1.resize(revDimSize);
-
+        // list of positions per each timeIndex that needs to be reversed.
+        /*
+        Example value of the list below indicates, for timeIndexSlice at 0
+        we have positions 0,1 and at slice 1 we have 6,7
+        This is for keeping track of the positions for each timeIndexSlice.
+        at : 0
+        0 1
+        at : 1
+        6 7
+        at : 2
+        12 13
+        */
+        std::list<std::list<int64_t>> reversePosList1;
+        int reversePosListSize = 0;
+        int maxValueForReversePosListSize = 0;
+        if (batchIndex == 1) {
+          maxValueForReversePosListSize = inputShape[0];
+        } else {
+          maxValueForReversePosListSize = inputShape[1];
+        }
+        // The reverseSequence length cannot be greater than the timeIndex dim
+        // length
+        reversePosListSize =
+            (sequenceLength[seqLengthIndex] > maxValueForReversePosListSize)
+                ? maxValueForReversePosListSize
+                : sequenceLength[seqLengthIndex];
+        reversePosList1.resize(reversePosListSize);
+        // Iterating to produce the assignment list, destination part ..
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
           // Traverse all the elements that reduce together into d.
-          // srcNums elements may be repeated if there are zeros in axesStrides.
-          cpptype accumulator = 0;
           int64_t pos = idxoffs[0];
-          accumulator = inputNums.get()[pos].narrow<TAG>();
-
           auto idx = idxoffs.index;
-
-          if ((batchIndex == 1) && ((idx[1] == i) && (idx[0] < seqLength[i]))) {
-            dstSrcTuples.emplace_back(idxoffs[0], 0, accumulator);
-            auto iter = revDimPosList1.begin();
+          if ((batchIndex == 1) &&
+              ((idx[1] == seqLengthIndex) &&
+                  (idx[0] < sequenceLength[seqLengthIndex]))) {
+            dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
+            auto iter = reversePosList1.begin();
+            // Handling values with only idx[1] == iteration index which is
+            // sequence_lens tensor iteration index
+            // advancing the list iterator by idx[0],
+            // note, we have one list per timeSliceIndex
             std::advance(iter, idx[0]);
             (*iter).push_back(idxoffs[0]);
           } else if ((batchIndex == 0) &&
-                     ((idx[0] == i) && (idx[1] < seqLength[i]))) {
-            dstSrcTuples.emplace_back(idxoffs[0], 0, accumulator);
-            auto iter = revDimPosList1.begin();
+                     ((idx[0] == seqLengthIndex) &&
+                         (idx[1] < sequenceLength[seqLengthIndex]))) {
+            dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
+            auto iter = reversePosList1.begin();
             std::advance(iter, idx[1]);
             (*iter).push_back(idxoffs[0]);
           }
+          // Add the pos to the correspoding timeSliceIndex list.
         }
         if (enableVerbose) {
-          std::cout << " Printing revDimPosList " << std::endl;
+          std::cout << " Printing reversePosList1 " << std::endl;
           int iterindex = 0;
-          for (const auto &iter : revDimPosList1) {
+          for (const auto &iter : reversePosList1) {
             std::cout << " at : " << iterindex << std::endl;
             iterindex++;
             for (auto innerIter : iter) {
@@ -610,65 +631,75 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             std::cout << std::endl;
           }
         }
-        std::list<std::list<int64_t>> revDimPosList2;
-        revDimPosList2.resize(revDimSize);
-        auto dstSrcPairsIter = dstSrcTuples.begin();
+        // reversePosList2 is used for tracking the correspoding position
+        // in the timeSliceIndex list.
+        std::list<std::list<int64_t>> reversePosList2;
+        reversePosList2.resize(reversePosListSize);
+        auto dstSrcPairsIter = dstSrcPositionPairs.begin();
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
           auto idx = idxoffs.index;
-          if ((batchIndex == 1) && ((idx[1] == i) && (idx[0] < seqLength[i]))) {
-            auto iter2 = revDimPosList2.begin();
+          if ((batchIndex == 1) &&
+              ((idx[1] == seqLengthIndex) &&
+                  (idx[0] < sequenceLength[seqLengthIndex]))) {
+            auto iter2 = reversePosList2.begin();
             std::advance(iter2, idx[0]);
             (*iter2).push_back(idxoffs[0]);
             int posIndex = (*iter2).size() - 1;
-            auto iter1 = revDimPosList1.begin();
-            std::advance(iter1, (revDimPosList1.size() - 1 - idx[0]));
+            auto iter1 = reversePosList1.begin();
+            std::advance(iter1, (reversePosList1.size() - 1 - idx[0]));
             auto innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
-            std::get<1>(*dstSrcPairsIter) = *(innerListIter);
+            (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
           } else if ((batchIndex == 0) &&
-                     ((idx[0] == i) && (idx[1] < seqLength[i]))) {
-            auto iter2 = revDimPosList2.begin();
+                     ((idx[0] == seqLengthIndex) &&
+                         (idx[1] < sequenceLength[seqLengthIndex]))) {
+            auto iter2 = reversePosList2.begin();
             std::advance(iter2, idx[1]);
             (*iter2).push_back(idxoffs[0]);
             int posIndex = (*iter2).size() - 1;
-            auto iter1 = revDimPosList1.begin();
-            std::advance(iter1, (revDimPosList1.size() - 1 - idx[1]));
+            auto iter1 = reversePosList1.begin();
+            std::advance(iter1, (reversePosList1.size() - 1 - idx[1]));
             auto innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
-            std::get<1>(*dstSrcPairsIter) = *(innerListIter);
+            (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
           }
         }
         if (enableVerbose) {
-          std::cout << " Printing the Final dstSrcPairs " << std::endl;
+          std::cout << " Printing the Final dstSrcPositionPairs " << std::endl;
           int ipos = 0;
-          for (auto it : dstSrcTuples) {
-            std::cout << ipos++ << " : " << std::get<0>(it) << "  -- "
-                      << std::get<1>(it) << " -oldVal- " << std::get<2>(it)
+          for (auto it : dstSrcPositionPairs) {
+            std::cout << ipos++ << " : " << it.first << "  -- " << it.second
                       << std::endl;
           }
         }
-        auto dstSrcLookupIter = dstSrcTuples.begin();
+        auto dstSrcLookupIter = dstSrcPositionPairs.begin();
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+
           int64_t pos = idxoffs[0];
           // std::cout << " pos " << pos << " idxoffs.flattenedIndex "
           //           << idxoffs.flattenedIndex << " : "
-          //           << (*dstSrcLookupIter).first << std::endl;
-          if (pos < std::get<0>((*dstSrcLookupIter))) {
+          //           << (*dstSrcLookupIter).first << " - "
+          //           << (*dstSrcLookupIter).second << std::endl;
+
+          if (pos < ((*dstSrcLookupIter).first)) {
             continue;
           }
-          if (pos == std::get<0>(*dstSrcLookupIter)) {
+          if (pos == (*dstSrcLookupIter).first) {
             cpptype accumulator = 0;
             accumulator =
-                inputNums.get()[std::get<1>(*dstSrcLookupIter)].narrow<TAG>();
+                inputNums.get()[(*dstSrcLookupIter).second].narrow<TAG>();
             cpptype accumulator2 = 0;
             accumulator2 = inputNums.get()[idxoffs[0]].narrow<TAG>();
             dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
-            dstSrcLookupIter++;
             if (enableVerbose) {
               std::cout << " Assigning " << accumulator2
                         << " <== " << accumulator << std::endl;
+            }
+            dstSrcLookupIter++;
+            if (dstSrcLookupIter == dstSrcPositionPairs.end()) {
+              break;
             }
           }
         }
