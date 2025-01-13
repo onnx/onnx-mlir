@@ -184,38 +184,38 @@ func.func @test_matmul_batchsize(%arg0: tensor<?x8x16x16xf32>) -> tensor<?x8x16x
 
 // -----
 
-func.func @test_matmul_batchsize_diff_rank(%arg0: tensor<8x?x16x4xf32>) -> tensor<8x?x16x32xf32> {
+func.func @test_matmul_batchsize_diff_rank(%arg0: tensor<8x?x16x4xf32>) -> tensor<8x?x16x128xf32> {
   %shape = onnx.Constant dense<[-1, 4, 128]> : tensor<3xi64>
-  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x32xf32>
-  %1 = "onnx.MatMul"(%arg0, %0) : (tensor<8x?x16x4xf32>, tensor<?x4x32xf32>) -> tensor<8x?x16x32xf32>
-  "onnx.Return"(%1) : (tensor<8x?x16x32xf32>) -> ()
+  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x128xf32>
+  %1 = "onnx.MatMul"(%arg0, %0) : (tensor<8x?x16x4xf32>, tensor<?x4x128xf32>) -> tensor<8x?x16x128xf32>
+  "onnx.Return"(%1) : (tensor<8x?x16x128xf32>) -> ()
 
 // CHECK-LABEL:  func.func @test_matmul_batchsize_diff_rank
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<8x?x16x4xf32>) -> tensor<8x?x16x32xf32> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<8x?x16x4xf32>) -> tensor<8x?x16x128xf32> {
 // CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 0 : si64} : (tensor<8x?x16x4xf32>) -> ()
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 4, 128]> : tensor<3xi64>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x32xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x4x32xf32>) -> ()
-// CHECK:           [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<8x?x16x4xf32>, tensor<?x4x32xf32>) -> tensor<8x?x16x32xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 1 : si64, group_id = 0 : si64} : (tensor<8x?x16x32xf32>) -> ()
-// CHECK:           onnx.Return [[VAR_2_]] : tensor<8x?x16x32xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x128xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x4x128xf32>) -> ()
+// CHECK:           [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<8x?x16x4xf32>, tensor<?x4x128xf32>) -> tensor<8x?x16x128xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 1 : si64, group_id = 0 : si64} : (tensor<8x?x16x128xf32>) -> ()
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<8x?x16x128xf32>
 // CHECK:         }
 }
 
 // -----
 
-func.func @test_reshape_single_dyn_dim(%arg0: tensor<8x?x16x4xf32>) -> tensor<?x4x32xf32> {
+func.func @test_reshape_single_dyn_dim(%arg0: tensor<8x?x16x4xf32>) -> tensor<?x4x128xf32> {
   %shape = onnx.Constant dense<[-1, 4, 128]> : tensor<3xi64>
-  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x32xf32>
-  "onnx.Return"(%0) : (tensor<?x4x32xf32>) -> ()
+  %0 = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x128xf32>
+  "onnx.Return"(%0) : (tensor<?x4x128xf32>) -> ()
 
 // CHECK-LABEL:  func.func @test_reshape_single_dyn_dim
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<8x?x16x4xf32>) -> tensor<?x4x32xf32> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<8x?x16x4xf32>) -> tensor<?x4x128xf32> {
 // CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 0 : si64} : (tensor<8x?x16x4xf32>) -> ()
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 4, 128]> : tensor<3xi64>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x32xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x4x32xf32>) -> ()
-// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x4x32xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<8x?x16x4xf32>, tensor<3xi64>) -> tensor<?x4x128xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x4x128xf32>) -> ()
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x4x128xf32>
 // CHECK:         }
 }
 
