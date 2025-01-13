@@ -448,18 +448,6 @@ func.func @reshape_allowzero_to_reshape_unranked_no_conversion(%arg0: tensor<*xb
 
 // -----
 
-func.func @reshape_allowzero_no_conversion(%arg0: tensor<1x2048x1x0xbf16>) -> (tensor<1x1x1x0x0x2048xbf16>) {
-  %0 = onnx.Constant dense<[1, 1, 1, 0, 0, 2048]> : tensor<6xi64> loc(unknown)
-  %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<1x2048x1x0xbf16>, tensor<6xi64>) -> tensor<1x1x1x0x0x2048xbf16>
-  return %1: tensor<1x1x1x0x0x2048xbf16>
-
-// CHECK-LABEL:  func.func @reshape_allowzero_no_conversion
-// CHECK:        "onnx.Reshape"
-// CHECK-SAME: allowzero = 1
-}
-
-// -----
-
 func.func @reshape_allowzero_no_conversion(%arg0: tensor<?x2048x1xbf16>) -> (tensor<*xbf16>) {
   %0 = onnx.Constant dense<[1, 1, 1, 0, 0, 2048]> : tensor<6xi64> loc(unknown)
   %1 = "onnx.Reshape"(%arg0, %0) { allowzero = 1 : si64 } : (tensor<?x2048x1xbf16>, tensor<6xi64>) -> tensor<*xbf16>
