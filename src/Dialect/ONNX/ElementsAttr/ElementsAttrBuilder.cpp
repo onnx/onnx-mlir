@@ -534,6 +534,18 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
     wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      // Copying the input to the dstNums
+      for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+        // Traverse all the elements that reduce together into d.
+        // srcNums elements may be repeated if there are zeros in axesStrides.
+        cpptype accumulator = 0;
+        int64_t pos = idxoffs[0];
+        accumulator = inputNums.get()[pos].narrow<TAG>();
+        // std::cout << " idxoffs.flattenedIndex " << idxoffs.flattenedIndex
+        //           << std::endl;
+        dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+      }
       SmallVector<int64_t, 4> sequenceLength;
       // Traverse and populate each element d into sequenceLength.
       for (auto &idxoffs :
@@ -547,15 +559,6 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
                   << timeIndex << std::endl;
       }
 
-      // Traverse and populate each element d in dstNums.
-      for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
-        // Traverse all the elements that reduce together into d.
-        // srcNums elements may be repeated if there are zeros in axesStrides.
-        cpptype accumulator = 0;
-        int64_t pos = idxoffs[0];
-        accumulator = inputNums.get()[pos].narrow<TAG>();
-        dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
-      }
       // Iterating through the sequence_lens tensor values.
       for (size_t seqLengthIndex = 0; seqLengthIndex < sequenceLength.size();
            seqLengthIndex++) {
