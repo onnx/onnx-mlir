@@ -115,6 +115,10 @@ llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic("nnpa-quant-dynamic",
         clEnumVal(asymWeight, "Asymmetric quant for weights."),
         clEnumVal(symActivation, "Symmetric quant for activations."),
         clEnumVal(asymActivation, "Asymmetric quant for activations."),
+        // Use an empty string for the case where `--nnpa-quant-dynamic` is
+        // specified on the command line WITHOUT value, which is different from
+        // the case where `--nnpa-quant-dynamic` is NOT specified on the command
+        // line.
         clEnumValN(autoQuantOpt, "",
             "Compiler automatically finds the best options.")),
     llvm::cl::ValueOptional, llvm::cl::CommaSeparated,
