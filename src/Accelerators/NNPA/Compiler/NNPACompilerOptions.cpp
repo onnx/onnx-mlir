@@ -17,6 +17,9 @@
 
 namespace onnx_mlir {
 
+// Use external storage for the options so that they are globally accessible
+std::vector<std::string> nnpaQuantOpTypes; // common for both
+
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
     llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
                    "(once selected it will cancel the other targets):"),
@@ -101,19 +104,6 @@ llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<NNPAQuantType> nnpaQuantization("nnpa-quantization",
-    llvm::cl::desc("Enable quantization with a specific type. Only "
-                   "MatMul whose weight is a constant is supported."),
-    llvm::cl::values(
-        clEnumVal(DynSymI8,
-            "Dynamic Quantization to signed integer 8. Asymmetric "
-            "quant for activations and symmetric quant for weights."),
-        clEnumVal(SymSymI8,
-            "Dynamic Quantization to signed integer 8. Symmetric "
-            "quant for activations and symmetric quant for weights."),
-        clEnumVal(QNONE, "No quantization (default).")),
-    llvm::cl::init(QNONE), llvm::cl::cat(OnnxMlirOptions));
-
 llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic("nnpa-quant-dynamic",
     llvm::cl::desc(
         "Enable dynamic quantization of the input model. If enabled, it only "
@@ -128,15 +118,18 @@ llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic("nnpa-quant-dynamic",
         clEnumValN(autoQuantOpt, "",
             "Compiler automatically finds the best options.")),
     llvm::cl::ValueOptional, llvm::cl::CommaSeparated,
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::list<std::string> nnpaQuantOpTypes("nnpa-quant-op-types",
+llvm::cl::list<std::string, std::vector<std::string>> nnpaQuantOpTypesOpt(
+    "nnpa-quant-op-types",
     llvm::cl::desc(
         "A comma-separated list of types of operations that are quantized. "
-        "E.g. 'MatMul,Conv'. Strings for types are the same as ONNX operator "
+        "E.g. 'MatMul,Conv'. Strings for types are the same as ONNX "
+        "operator "
         "names in https://onnx.ai/onnx/operators/. By default or with "
         "specifying this option, the compiler will determine the operation "
         "types by itself."),
+    llvm::cl::location(nnpaQuantOpTypes), llvm::cl::ValueOptional,
     llvm::cl::CommaSeparated, llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU("nnpa-cpu-dql",

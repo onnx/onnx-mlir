@@ -47,7 +47,7 @@ public:
   uint64_t getVersionNumber() const final;
 
   //===--------------------------------------------------------------------===//
-  // Hooks for onnx-mlir-opt driver
+  // Hooks for onnx-mlir driver
   //===--------------------------------------------------------------------===//
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
@@ -57,6 +57,7 @@ public:
   //===--------------------------------------------------------------------===//
   virtual void registerDialects(mlir::DialectRegistry &registry) const final;
   virtual void registerPasses(int optLevel) const final;
+  virtual void configurePasses() const final;
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass
   //===--------------------------------------------------------------------===//

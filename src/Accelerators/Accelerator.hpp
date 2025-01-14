@@ -108,6 +108,9 @@ public:
   /// command line options.
   virtual void registerPasses(int optLevel) const = 0;
 
+  /// Configure passes for the accelerator.
+  virtual void configurePasses() const = 0;
+
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass
   //===--------------------------------------------------------------------===//

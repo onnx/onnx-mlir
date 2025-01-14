@@ -57,14 +57,6 @@ typedef enum {
 
 // Quantization type
 typedef enum {
-  DynSymI8, /* Dynamic quantization to signed integer 8. Asymmetric quant for
-               activations and symmetric quant for weights.*/
-  SymSymI8, /* Dynamic quantization to signed integer 8. Symmetric quant for
-               activations and symmetric quant for weights.*/
-  QNONE,    /* Only qualifying ops that are faster on NNPA. */
-} NNPAQuantType;
-
-typedef enum {
   symWeight,
   asymWeight,
   symActivation,
@@ -87,9 +79,8 @@ extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 extern llvm::cl::opt<bool> nnpaEnableSaturation;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
-extern llvm::cl::opt<NNPAQuantType> nnpaQuantization;
 extern llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic;
-extern llvm::cl::list<std::string> nnpaQuantOpTypes;
+extern std::vector<std::string> nnpaQuantOpTypes;
 
 } // namespace onnx_mlir
 #endif
