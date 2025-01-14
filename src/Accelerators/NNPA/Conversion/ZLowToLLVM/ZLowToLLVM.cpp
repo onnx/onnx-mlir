@@ -1152,18 +1152,18 @@ private:
 };
 
 template <typename REDUCE_OP>
-API getReduceAPI() {
-  return API::NULL_API;
+zdnn_reduce_ops getZDNNReduceOpType() {
+  return REDUCE_OP_MAXIMUM;
 }
 
 template <>
-API getReduceAPI<ZLowReduceMaxOp>() {
-  return API::ZDNN_REDUCEMAX;
+zdnn_reduce_ops getZDNNReduceOpType<ZLowReduceMaxOp>() {
+  return REDUCE_OP_MAXIMUM;
 }
 
 template <>
-API getReduceAPI<ZLowReduceMinOp>() {
-  return API::ZDNN_REDUCEMIN;
+zdnn_reduce_ops getZDNNReduceOpType<ZLowReduceMinOp>() {
+  return REDUCE_OP_MINIMUM;
 }
 
 template <typename REDUCE_OP>
@@ -1210,8 +1210,8 @@ public:
     Value one = create.llvm.constant(llvmI64Ty, static_cast<int64_t>(1));
 
     // Calculation for the output dimension
-    int64_t axis = dims.size();
-    std::vector<Value> outputDims;
+    int64_t axis = dims.size() - 1;
+    SmallVector<Value, 4> outputDims;
     for (int64_t i = 0; i < axis; ++i) {
       outputDims.emplace_back(dims[i]);
     }
@@ -1236,20 +1236,13 @@ public:
         zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // op_type
-    nnpa_reduce_operations opType;
-    StringRef opTypeStr = reduceOp.getOpType();
-    if (opTypeStr.equals_insensitive("REDUCE_OP_MINIMUM"))
-      opType = NNPA_REDUCE_OP_MINIMUM;
-    else if (opTypeStr.equals_insensitive("REDUCE_OP_MAXIMUM"))
-      opType = NNPA_REDUCE_OP_MAXIMUM;
-    else
-      llvm_unreachable("Unsupported operation type");
-    Value optype = create.llvm.constant(
-        rewriter.getI64Type(), static_cast<int64_t>(opType));
+    zdnn_reduce_ops zdnnOpType = getZDNNReduceOpType<REDUCE_OP>();
+    Value opType = create.llvm.constant(
+        rewriter.getI64Type(), static_cast<int64_t>(zdnnOpType));
 
     // Call the zDNN ReduceMax/ReduceMin API.
-    callApi(rewriter, loc, module, apiRegistry, getReduceAPI<REDUCE_OP>(),
-        {toOpaquePtr(rewriter, loc, module, inputZTensor.val), workArea, optype,
+    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_REDUCE,
+        {toOpaquePtr(rewriter, loc, module, inputZTensor.val), workArea, opType,
             toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
 
     rewriter.eraseOp(op);
