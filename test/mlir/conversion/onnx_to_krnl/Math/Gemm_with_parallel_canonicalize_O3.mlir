@@ -30,15 +30,15 @@ func.func @test_gemm_parallel(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>
 // CHECK:           krnl.permute([[BLOCK_TILE__2_]], [[BLOCK_TILE__3_]], [[BLOCK_IN__3_]], [[BLOCK_TILE__4_]], [[BLOCK_IN__4_]], [[BLOCK_TILE__0_]], [[BLOCK_TILE__0_]]_1, [[BLOCK_IN__1_]]) [0, 3, 5, 1, 6, 2, 4, 7] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
 // CHECK:           krnl.iterate([[BLOCK_TILE__2_]], [[BLOCK_TILE__4_]]) with ([[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#0 -> [[I_2_:%.+]] = 0 to 10){
 // CHECK-DAG:         [[VAR_2_:%.+]]:2 = krnl.get_induction_var_value([[BLOCK_TILE__2_]], [[BLOCK_TILE__4_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() {{.*}}: memref<32x256xf32>
-// CHECK-DAG:         [[RES_2_:%.+]] = memref.alloca() {{.*}}: memref<256x64xf32>
+// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<32x256xf32>
+// CHECK-DAG:         [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<256x64xf32>
 // CHECK:             krnl.copy_to_tile_buffer [[RES_2_]], [[PARAM_1_]]{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[CST_0_dot_000000_]] {padToNext = [], tileSize = []} : memref<256x64xf32>, memref<5x10xf32>
 // CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with (){
 // CHECK:               [[VAR_3_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK:               krnl.copy_to_tile_buffer [[RES_1_]], [[PARAM_0_]]{{.}}[[VAR_2_]]#1, [[VAR_3_]]{{.}}, [[CST_0_dot_000000_]] {padToNext = [], tileSize = [], transpose = true} : memref<32x256xf32>, memref<5x10xf32>
 // CHECK:               krnl.iterate([[BLOCK_TILE__3_]], [[BLOCK_TILE__1_]]) with (){
 // CHECK:                 [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[BLOCK_TILE__3_]], [[BLOCK_TILE__1_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:                 krnl.matmul [[RES_1_]]{{.}}[[VAR_3_]], [[VAR_2_]]#1], [[RES_1_]]_9{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[RES_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, ([[BLOCK_IN__1_]], [[BLOCK_IN__3_]], [[BLOCK_IN__4_]]), ([[VAR_4_]]#1, [[VAR_4_]]#0, [[VAR_2_]]#1), ([[CST_10_]], [[CST_10_]], [[CST_5_]]) {aTileSize = [], bTileSize = [], cTileSize = [], computeTileSize = [4, 16, 256], simdize = false} : memref<32x256xf32>, memref<256x64xf32>, memref<10x10xf32>, (!krnl.loop, !krnl.loop, !krnl.loop)
+// CHECK:                 krnl.matmul [[RES_1_]]{{.}}[[VAR_3_]], [[VAR_2_]]#1], [[RES_2_]]{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[RES_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, ([[BLOCK_IN__1_]], [[BLOCK_IN__3_]], [[BLOCK_IN__4_]]), ([[VAR_4_]]#1, [[VAR_4_]]#0, [[VAR_2_]]#1), ([[CST_10_]], [[CST_10_]], [[CST_5_]]) {aTileSize = [], bTileSize = [], cTileSize = [], computeTileSize = [4, 16, 256], simdize = false} : memref<32x256xf32>, memref<256x64xf32>, memref<10x10xf32>, (!krnl.loop, !krnl.loop, !krnl.loop)
 // CHECK:               }
 // CHECK:             }
 // CHECK:           }
@@ -82,15 +82,15 @@ func.func @test_gemm_parallel_success(%arg0 : tensor<1024x1024xf32>, %arg1 : ten
 // CHECK:           krnl.parallel([[BLOCK_TILE__2_]]) : !krnl.loop
 // CHECK:           krnl.iterate([[BLOCK_TILE__2_]], [[BLOCK_TILE__4_]]) with ([[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 1024, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 1024, [[LOOP_0_]]#0 -> [[I_2_:%.+]] = 0 to 1024){
 // CHECK-DAG:         [[VAR_2_:%.+]]:2 = krnl.get_induction_var_value([[BLOCK_TILE__2_]], [[BLOCK_TILE__4_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() {{.*}}: memref<32x256xf32>
-// CHECK-DAG:         [[RES_2_:%.+]] = memref.alloca() {{.*}}: memref<256x64xf32>
+// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<32x256xf32>
+// CHECK-DAG:         [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<256x64xf32>
 // CHECK:             krnl.copy_to_tile_buffer [[RES_2_]], [[PARAM_1_]]{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[CST_0_dot_000000_]] {padToNext = [], tileSize = []} : memref<256x64xf32>, memref<1024x1024xf32>
 // CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with (){
 // CHECK:               [[VAR_3_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK:               krnl.copy_to_tile_buffer [[RES_1_]], [[PARAM_0_]]{{.}}[[VAR_2_]]#1, [[VAR_3_]]{{.}}, [[CST_0_dot_000000_]] {padToNext = [], tileSize = [], transpose = true} : memref<32x256xf32>, memref<1024x1024xf32>
 // CHECK:               krnl.iterate([[BLOCK_TILE__3_]], [[BLOCK_TILE__1_]]) with (){
 // CHECK:                 [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[BLOCK_TILE__3_]], [[BLOCK_TILE__1_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:                 krnl.matmul [[RES_1_]]{{.}}[[VAR_3_]], [[VAR_2_]]#1], [[RES_1_]]_9{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[RES_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, ([[BLOCK_IN__1_]], [[BLOCK_IN__3_]], [[BLOCK_IN__4_]]), ([[VAR_4_]]#1, [[VAR_4_]]#0, [[VAR_2_]]#1), ([[CST_1024_]], [[CST_1024_]], [[CST_1024_]]) {aTileSize = [], bTileSize = [], cTileSize = [], computeTileSize = [4, 16, 256]} : memref<32x256xf32>, memref<256x64xf32>, memref<1024x1024xf32>, (!krnl.loop, !krnl.loop, !krnl.loop)
+// CHECK:                 krnl.matmul [[RES_1_]]{{.}}[[VAR_3_]], [[VAR_2_]]#1], [[RES_2_]]{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[RES_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, ([[BLOCK_IN__1_]], [[BLOCK_IN__3_]], [[BLOCK_IN__4_]]), ([[VAR_4_]]#1, [[VAR_4_]]#0, [[VAR_2_]]#1), ([[CST_1024_]], [[CST_1024_]], [[CST_1024_]]) {aTileSize = [], bTileSize = [], cTileSize = [], computeTileSize = [4, 16, 256]} : memref<32x256xf32>, memref<256x64xf32>, memref<1024x1024xf32>, (!krnl.loop, !krnl.loop, !krnl.loop)
 // CHECK:               }
 // CHECK:             }
 // CHECK:           }

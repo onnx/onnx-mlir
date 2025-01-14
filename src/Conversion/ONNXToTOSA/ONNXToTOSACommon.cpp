@@ -15,16 +15,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Quant/QuantTypes.h"
-#include "mlir/Dialect/Tosa/IR/TosaOps.h"
-
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 

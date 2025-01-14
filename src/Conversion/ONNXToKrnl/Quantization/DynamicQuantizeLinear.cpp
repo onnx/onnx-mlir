@@ -68,7 +68,7 @@ void emitDynamicQuantizationLinearScalarParameters(
     // Saturate zero point.
     Value saturateZeroPoint = create.math.clip(interZeroPoint, qMin, qMax);
     // Round zero point.
-    zeroPoint = create.math.round(saturateZeroPoint);
+    zeroPoint = create.krnl.roundEven(saturateZeroPoint);
   } else {
     zeroPoint = zero;
   }
@@ -78,12 +78,14 @@ void emitDynamicQuantizationLinearScalarParameters(
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
   ONNXDynamicQuantizeLinearOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableSIMD, bool enableParallel)
+      MLIRContext *ctx, bool enableSIMD, bool enableParallel,
+      bool enableFastMath)
       : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel), enableFastMath(enableFastMath) {}
 
   bool enableSIMD = false;
   bool enableParallel = false;
+  bool enableFastMath = false;
 
   using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
       IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
@@ -137,7 +139,7 @@ struct ONNXDynamicQuantizeLinearOpLowering
     emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
         yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
         zeroPoint, wantZeroPoint /*wanted one, so we have a zero point*/,
-        enableSIMD, enableParallel);
+        enableSIMD, enableParallel, enableFastMath);
 
     rewriter.replaceOp(op, {Y, YScale, YZeroPoint});
     onnxToKrnlSimdReport(op);
@@ -147,9 +149,9 @@ struct ONNXDynamicQuantizeLinearOpLowering
 
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    bool enableSIMD, bool enableParallel) {
+    bool enableSIMD, bool enableParallel, bool enableFastMath) {
   patterns.insert<ONNXDynamicQuantizeLinearOpLowering>(
-      typeConverter, ctx, enableSIMD, enableParallel);
+      typeConverter, ctx, enableSIMD, enableParallel, enableFastMath);
 }
 
 } // namespace onnx_mlir

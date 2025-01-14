@@ -65,7 +65,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]]#1 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[BLOCK_TILE__0_]]) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[BLOCK_TILE__0_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_3_:%.+]] = memref.alloca() {{.*}}: memref<4x4xf32>
+// CHECK-DAG:         [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<4x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_9_:%.+]] = affine.apply [[MAP_0_]]([[VAR_8_]]#1)
 // CHECK-DAG:         [[VAR_10_:%.+]] = affine.apply [[MAP_1_]]([[VAR_8_]]#1)
@@ -184,7 +184,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           [[BLOCK_TILE__3_:%.+]], [[BLOCK_IN__3_:%.+]] = krnl.block [[LOOP_3_]]#1 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[BLOCK_TILE__3_]]) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_3_]]#1 -> [[I_6_:%.+]] = 0 to 64){
 // CHECK-DAG:         [[VAR_8_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[BLOCK_TILE__3_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_15_:%.+]] = memref.alloca() {{.*}}: memref<4x4xf32>
+// CHECK-DAG:         [[RES_15_:%.+]] = memref.alloc() {{.*}}: memref<4x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_9_3_:%.+]] = affine.apply [[MAP_0_]]([[VAR_8_1_]]#1)
 // CHECK-DAG:         [[VAR_10_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_8_1_]]#1)
@@ -432,7 +432,8 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               krnl.store [[LOAD_VAR_reshape_MEM_6_1_1_1_]], [[VAR_reshape_68_]]{{.}}[[VAR_8_4_]]#0, [[VAR_8_4_]]#1, [[VAR_11_10_]]{{.}} : memref<2x64x93xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[RES_41_:%.+]] = memref.alloc() {{.*}}: memref<2x64x31x3xf32>
+// CHECK:           [[RES_41_:%.+]] = memref.alloc() {{.*}}: memref<2x64x31x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = builtin.unrealized_conversion_cast [[RES_41_]] : memref<2x64x31x3xf32> to tensor<2x64x31x3xf32>
 // CHECK-DAG:       [[RES_42_:%.+]] = memref.alloc() {{.*}}: memref<3xindex>
 // CHECK:           affine.store [[CST_2_]], [[RES_42_]][0] : memref<3xindex>
 // CHECK:           affine.store [[CST_64_]], [[RES_42_]][1] : memref<3xindex>
@@ -467,8 +468,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               krnl.store [[LOAD_VAR_reshape_MEM_6_1_1_1_1_]], [[VAR_reshape_75_]]{{.}}[[VAR_8_5_]]#0, [[VAR_8_5_]]#1, [[VAR_11_12_]]{{.}} : memref<2x64x93xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           [[VAR_7_:%.+]] = builtin.unrealized_conversion_cast [[RES_41_]] : memref<2x64x31x3xf32> to tensor<2x64x31x3xf32>
-// CHECK:           onnx.Return [[VAR_7_]] : tensor<2x64x31x3xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<2x64x31x3xf32>
 // CHECK:         }
 }
 

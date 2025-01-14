@@ -2,16 +2,17 @@
 
 add_onnx_mlir_library(OMKrnlToLLVM
   ConvertKrnlToLLVM.cpp
+  KrnlGlobalOpInterface.cpp
   KrnlFindIndex.cpp
   KrnlCall.cpp
   KrnlEntryPoint.cpp
-  KrnlGlobal.cpp
   KrnlInstrument.cpp
   KrnlMemcpy.cpp
   KrnlNone.cpp
   KrnlPrintTensor.cpp
   KrnlPrint.cpp
   KrnlRandomNormal.cpp
+  KrnlRoundEven.cpp
   KrnlStrlen.cpp
   KrnlStrncmp.cpp
   KrnlToLLVMHelper.cpp  
@@ -21,6 +22,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
 
   LINK_LIBS PUBLIC
   OMAccelerator
+  OMKrnlGlobalOpInterface
   OMSupport
   MLIRAffineToStandard
   MLIRArithTransforms

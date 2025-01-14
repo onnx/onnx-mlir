@@ -257,6 +257,12 @@ RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 
+/// Return the wide type of a value.
+WideNum asWideNum(double n, mlir::Type elemType);
+
+/// Checks whether a constant tensor's elements are all equal to a given scalar.
+bool isConstOf(mlir::Value constValue, double n);
+
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
@@ -267,6 +273,9 @@ int64_t mlirTypeToOnnxType(mlir::Type elemType);
 bool isScalarTensor(mlir::Value v);
 
 bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
+
+/// Get raw data from a dense attribute.
+void getRawData(mlir::Attribute dataAttr, std::vector<char> &data);
 
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
@@ -289,6 +298,43 @@ template <typename OP>
 bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
     mlir::Value &matchOperand0, mlir::Value &matchOperand1,
     int64_t matchThisOperandIndex);
+
+// This is to recognize a binary op, e.g. A*B where one of A and B is a constant
+// and the other one is defined by OP.
+// Note: this function can handle the communitive property of the binary op.
+//
+// For example, to recognize this pattern:
+// %x = "onnx.Tanh"()
+// %y = 0.5 * %x    // or %x * 0.5
+//
+// we call
+// ```
+//   ONNXTanhOp tanhOp;
+//   bool found = matchConstAndOp<ONNXTanhOp>(A, B, 0.5, tanhOp);
+// ```
+// where `A` and `B` are operands of ONNXMul that produces %y.
+template <typename OP>
+bool matchConstAndOp(mlir::Value A, mlir::Value B, double cst, OP &op);
+
+// This is to recognize a binary op, e.g. A*B where one of A and B is the given
+// value and the other one is defined by OP.
+// Note: this function can handle the communitive property of the binary op.
+//
+// For example, to recognize this pattern where %z is one of the inputs of *,
+// and the other input of * is defined by onnx.Tanh:
+// %x = "onnx.Tanh"()
+// %y = %z * %x    // or %x * %z
+//
+// we call
+// ```
+//   Value z;
+//   ONNXTanhOp tanhOp;
+//   bool found = matchConstAndOp<ONNXTanhOp>(A, B, z, tanhOp);
+// ```
+// where `A` and `B` are operands of ONNXMul that produces %y.
+template <typename OP>
+bool matchValueAndOp(
+    mlir::Value A, mlir::Value B, mlir::Value matchValue, OP &matchOp);
 
 /// Check if a value is to store dimensions, meaning it is a tensor of one
 /// element or concatenation of one-element tensors.
@@ -319,6 +365,14 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 
 std::string getNodeNameInPresenceOfOpt(
     mlir::Operation *op, bool useFileLine = true);
+
+//===----------------------------------------------------------------------===//
+// Support for DenseElementsAttr.
+//===----------------------------------------------------------------------===//
+
+/// Returns true if elementsAttr is a DenseResourceAttr with a blob that can not
+/// be received
+bool isElementAttrUninitializedDenseResource(mlir::ElementsAttr elementsAttr);
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp.inc"
 

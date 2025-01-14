@@ -52,11 +52,6 @@ void configurePassesNNPA() {
   // TODO: remove this if zDNN adds support for saturation.
   if (nnpaEnableSaturation)
     nnpaEnableCompilerStickUnstick = true;
-  // Currently nnpaEnableCompilerStickUnstick not supported on zOS.
-  // TODO enable on zOS
-  if (mtriple == "s390x-ibm-zos") {
-    nnpaEnableCompilerStickUnstick = false;
-  }
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {

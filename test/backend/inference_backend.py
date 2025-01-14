@@ -1108,41 +1108,41 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_gelu_default_1_expanded_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        "test_gelu_default_1_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_gelu_default_2_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_gelu_default_2_expanded_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        "test_gelu_default_2_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_gelu_tanh_1_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_gelu_tanh_1_expanded_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        "test_gelu_tanh_1_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_gelu_tanh_2_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_gelu_tanh_2_expanded_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        "test_gelu_tanh_2_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Gemm
         # ==MIN== 6
         "test_gemm_all_attributes_cpu": {
@@ -2451,9 +2451,17 @@ def get_test_models():
         },
         # ==OP== ReduceMax
         # ==MIN== 1
-        # ==LIM== do_not_keep_dim not supported.
-        # "test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # ==LIM== do_not_keep_dims not supported.
+        "test_reduce_max_default_axes_keepdim_example_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_reduce_max_default_axes_keepdims_random_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # "test_reduce_max_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_max_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_reduce_max_keepdims_example_cpu": {
@@ -2478,7 +2486,7 @@ def get_test_models():
         },
         # ==OP== ReduceMean
         # ==MIN== 1
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== do_not_keep_dims not supported.
         # "test_reduce_mean_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_mean_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_mean_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2505,9 +2513,17 @@ def get_test_models():
         },
         # ==OP== ReduceMin
         # ==MIN== 1
-        # ==LIM== do_not_keep_dim not supported.
-        # "test_reduce_min_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_reduce_min_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # ==LIM== do_not_keep_dims not supported.
+        "test_reduce_min_default_axes_keepdims_example_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_reduce_min_default_axes_keepdims_random_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # "test_reduce_min_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_min_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_reduce_min_keepdims_example_cpu": {

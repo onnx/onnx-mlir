@@ -89,6 +89,10 @@ def IsConstOfOnes : Constraint<
   CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
   "Value is an all-ones constant tensor">;
 
+def IsNotScalar: Constraint<
+  CPred<"!isScalarTensor($_self)">,
+  "Value is not a scalar value">;
+
 def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
   "Values have same type">;
@@ -334,6 +338,7 @@ def AddConstAssociative1 : NamedPat<"AddConstAssociative1",
     (ONNXAddOp $c1, $c2)),
   [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
 
+// Do not apply this when both x and c are scalar since it is cheap to do.
 def AddConstAssociative2 : NamedPat<"AddConstAssociative2",
   // From add(add(x, c), y).
   (ONNXAddOp
@@ -343,8 +348,10 @@ def AddConstAssociative2 : NamedPat<"AddConstAssociative2",
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
+   (IsNotScalar:$x), (IsNotScalar:$c)]>;
 
+// Do not apply this when both y and c are scalar since it is cheap to do.
 def AddConstAssociative3 : NamedPat<"AddConstAssociative3",
   // From add(x, add(y, c)).
   (ONNXAddOp
@@ -354,7 +361,8 @@ def AddConstAssociative3 : NamedPat<"AddConstAssociative3",
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs),
+   (IsNotScalar:$y), (IsNotScalar:$c)]>;
 
 def AddConstAssociative4 : NamedPat<"AddConstAssociative4",
   // From add(add(x, c1), add(y, c2)).
@@ -617,6 +625,7 @@ def MulConstAssociative1 : NamedPat<"MulConstAssociative1",
     (ONNXMulOp $c1, $c2)),
   [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
 
+// Do not apply this when both x and c are scalar since it is cheap to do.
 def MulConstAssociative2 : NamedPat<"MulConstAssociative2",
   // From mul(mul(x, c), y).
   (ONNXMulOp
@@ -626,8 +635,10 @@ def MulConstAssociative2 : NamedPat<"MulConstAssociative2",
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
+   (IsNotScalar:$x), (IsNotScalar:$c)]>;
 
+// Do not apply this when both y and c are scalar since it is cheap to do.
 def MulConstAssociative3 : NamedPat<"MulConstAssociative3",
   // From mul(x, mul(y, c)).
   (ONNXMulOp
@@ -637,7 +648,8 @@ def MulConstAssociative3 : NamedPat<"MulConstAssociative3",
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs),
+   (IsNotScalar:$y), (IsNotScalar:$c)]>;
 
 def MulConstAssociative4 : NamedPat<"MulConstAssociative4",
   // From mul(mul(x, c1), mul(y, c2)).
