@@ -361,11 +361,11 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, {}, nullptr, nullptr);
   // If no shape helper, or unimplemented, just abort.
-  if (!shapeHelper || !shapeHelper->isImplemented())
+  if (!shapeHelper)
     return false;
 
   // Compute shape.
-  if (failed(shapeHelper->computeShape())) {
+  if (!shapeHelper->isImplemented() || failed(shapeHelper->computeShape())) {
     delete shapeHelper;
     return false;
   }
@@ -961,12 +961,14 @@ void DimAnalysis::visitDim(
     bool outputHasOneDynamicDim =
         (llvm::count(outputType.getShape(), ShapedType::kDynamic) == 1);
     // Check if the products of static sizes in the data and output are equal.
-    // It's ok to count ShapedType::kDynamic (dynamic dimension) in the size.
     int64_t dataStaticSize = 1, outputStaticSize = 1;
-    for (int64_t i = 0; i < dataType.getRank(); ++i)
-      dataStaticSize *= dataType.getShape()[i];
-    for (int64_t i = 0; i < outputType.getRank(); ++i)
-      outputStaticSize *= outputType.getShape()[i];
+    for (int64_t i = 0; i < dataType.getRank(); ++i) {
+      dataStaticSize *= dataType.isDynamicDim(i) ? -1 : dataType.getShape()[i];
+    }
+    for (int64_t i = 0; i < outputType.getRank(); ++i) {
+      outputStaticSize *=
+          outputType.isDynamicDim(i) ? -1 : outputType.getShape()[i];
+    }
     // Conditions hold, the dynamic dimension can be from the data.
     if (dataHasOneDynamicDim && outputHasOneDynamicDim &&
         (dataStaticSize == outputStaticSize)) {
