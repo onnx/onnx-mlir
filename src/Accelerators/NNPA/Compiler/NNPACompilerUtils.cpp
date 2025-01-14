@@ -58,6 +58,7 @@ void configurePassesNNPA() {
   bool isDynQuant = !nnpaQuantDynamic.empty();
   bool isWeightSym = false;
   bool isActivationSym = false;
+  std::vector<std::string> quantOpTypes;
   if (isDynQuant) {
     for (unsigned i = 0; i < nnpaQuantDynamic.size(); ++i) {
       switch (nnpaQuantDynamic[i]) {
@@ -83,18 +84,18 @@ void configurePassesNNPA() {
         break;
       }
     }
-  }
-  if (!isWeightSym) {
-    // TODO: Support asymmetric quantiation for weights.
-    llvm::outs() << "Asymmetric quantization for weights hasn't yet supported. "
-                    "Turning off quantization.\n";
-    isDynQuant = false;
-  }
-  std::vector<std::string> quantOpTypes;
-  if (nnpaQuantOpTypes.empty()) {
-    quantOpTypes.emplace_back("MatMul");
-  } else {
-    quantOpTypes = nnpaQuantOpTypes;
+    if (!isWeightSym) {
+      // TODO: Support asymmetric quantiation for weights.
+      llvm::outs()
+          << "Asymmetric quantization for weights hasn't yet supported. "
+             "Turning off quantization.\n";
+      isDynQuant = false;
+    }
+    if (nnpaQuantOpTypes.empty()) {
+      quantOpTypes.emplace_back("MatMul");
+    } else {
+      quantOpTypes = nnpaQuantOpTypes;
+    }
   }
   configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
       isDynQuant, isActivationSym, isWeightSym, quantOpTypes);

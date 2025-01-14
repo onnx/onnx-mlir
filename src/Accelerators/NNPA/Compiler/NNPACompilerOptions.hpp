@@ -79,7 +79,7 @@ extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 extern llvm::cl::opt<bool> nnpaEnableSaturation;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
-extern llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic;
+extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;
 extern std::vector<std::string> nnpaQuantOpTypes;
 
 } // namespace onnx_mlir

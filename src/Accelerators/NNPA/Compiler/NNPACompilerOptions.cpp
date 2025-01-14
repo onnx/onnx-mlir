@@ -18,7 +18,8 @@
 namespace onnx_mlir {
 
 // Use external storage for the options so that they are globally accessible
-std::vector<std::string> nnpaQuantOpTypes; // common for both
+std::vector<NNPAQuantOptions> nnpaQuantDynamic; // common for both
+std::vector<std::string> nnpaQuantOpTypes;      // common for both
 
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
     llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
@@ -104,25 +105,28 @@ llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::list<NNPAQuantOptions> nnpaQuantDynamic("nnpa-quant-dynamic",
-    llvm::cl::desc(
-        "Enable dynamic quantization of the input model. If enabled, it only "
-        "quantizes from fp32 to i8. If an ONNX operation is already in i8, "
-        "no quantization is applied to that operation. Optionally, a "
-        "comma-separated list of quantization options can be specified as its "
-        "value, e.g. -nnpa-quant-dynamic=SymmetricActivation,SymmetricWeight."),
-    llvm::cl::values(clEnumVal(symWeight, "Symmetric quant for weights."),
-        clEnumVal(asymWeight, "Asymmetric quant for weights."),
-        clEnumVal(symActivation, "Symmetric quant for activations."),
-        clEnumVal(asymActivation, "Asymmetric quant for activations."),
-        // Use an empty string for the case where `--nnpa-quant-dynamic` is
-        // specified on the command line WITHOUT value, which is different from
-        // the case where `--nnpa-quant-dynamic` is NOT specified on the command
-        // line.
-        clEnumValN(autoQuantOpt, "",
-            "Compiler automatically finds the best options.")),
-    llvm::cl::ValueOptional, llvm::cl::CommaSeparated,
-    llvm::cl::cat(OnnxMlirCommonOptions));
+llvm::cl::list<NNPAQuantOptions, std::vector<NNPAQuantOptions>>
+    nnpaQuantDynamicOpt("nnpa-quant-dynamic",
+        llvm::cl::desc(
+            "Enable dynamic quantization of the input model. If enabled, it "
+            "only quantizes from fp32 to i8. If an ONNX operation is already "
+            "in i8, no quantization is applied to that operation. Optionally, "
+            "a comma-separated list of quantization options can be specified "
+            "as its value, e.g. -nnpa-quant-dynamic=symActivation,symWeight."),
+        llvm::cl::values(clEnumVal(symWeight, "Symmetric quant for weights."),
+            clEnumVal(asymWeight, "Asymmetric quant for weights."),
+            clEnumVal(symActivation, "Symmetric quant for activations."),
+            clEnumVal(asymActivation, "Asymmetric quant for activations."),
+            // Use an empty string for the case where `--nnpa-quant-dynamic` is
+            // specified on the command line WITHOUT value, which is different
+            // from the case where `--nnpa-quant-dynamic` is NOT specified on
+            // the command line.
+            clEnumValN(autoQuantOpt, "",
+                "Compiler automatically finds the best options. Default "
+                "option when `-nnpa-quant-dynamic` is specified without any "
+                "value.")),
+        llvm::cl::location(nnpaQuantDynamic), llvm::cl::ValueOptional,
+        llvm::cl::CommaSeparated, llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::list<std::string, std::vector<std::string>> nnpaQuantOpTypesOpt(
     "nnpa-quant-op-types",
