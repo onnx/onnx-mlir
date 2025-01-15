@@ -11,6 +11,8 @@
 #ifndef ONNX_MLIR_ELEM_ATTR_BUILDER_H
 #define ONNX_MLIR_ELEM_ATTR_BUILDER_H
 
+#include "mlir/IR/Threading.h"
+
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -91,8 +93,9 @@ public:
   template <typename Function = WideNum (*)(WideNum)>
   mlir::ElementsAttr transform(mlir::ElementsAttr elms,
       mlir::Type transformedElementType, Function fun) {
+    mlir::MLIRContext *ctx = elms.getElementType().getContext();
     return doTransform(
-        elms, transformedElementType, functionTransformer(std::move(fun)));
+        elms, transformedElementType, functionTransformer(std::move(fun), ctx));
   }
 
   // Returns an ElementsAttr that is the result of applying a binary function
@@ -244,10 +247,34 @@ private:
   // Constructs a transformer that changes every element to the result of
   // applying the given function to the element.
   template <typename Function = WideNum (*)(WideNum)>
-  static inline Transformer functionTransformer(Function fun) {
-    return [fun = std::move(fun)](llvm::MutableArrayRef<WideNum> data) -> void {
-      for (WideNum &n : data)
-        n = fun(n);
+  static inline Transformer functionTransformer(
+      Function fun, mlir::MLIRContext *ctx) {
+    return [fun = std::move(fun), ctx](
+               llvm::MutableArrayRef<WideNum> data) -> void {
+      std::mutex mtx;
+      size_t beginOffset = 0;
+      auto fetchBatch = [&](size_t threadNumber) {
+        const std::lock_guard<std::mutex> lock(mtx);
+        size_t batchSize = data.size() / ctx->getNumThreads();
+        size_t batchSizeMod = data.size() % ctx->getNumThreads();
+        if (threadNumber < batchSizeMod)
+          batchSize += 1;
+        auto batchBegin = data.begin() + beginOffset;
+        auto batchEnd = batchBegin + batchSize;
+        beginOffset += batchSize;
+        return llvm::make_range(batchBegin, batchEnd);
+      };
+
+      auto work = [&](size_t threadNumber) {
+        auto batch = fetchBatch(threadNumber);
+
+        for (WideNum &n : batch)
+          n = fun(n);
+      };
+      parallelFor(ctx, 0, ctx->getNumThreads(), work);
+
+      //      for (WideNum &n : data)
+      //        n = fun(n);
     };
   }
 
