@@ -28,8 +28,12 @@ make
 make OMCreatePyRuntimePackage
 
 # Install the package
-pip3 install src/Runtime/python/onnxmlir
+pip3 install -e src/Runtime/python/onnxmlir
+# -e is necessary for current package. Need to add resource description
+# to install the pre-compiled binary
 
 # Run test case
-python3 src/Runtime/python/onnxmlir/test/test_1.py
+cd src/Runtime/python/onnxmlir/tests
+python3 test_1.py
+# Current limitation on where the model is
 ```

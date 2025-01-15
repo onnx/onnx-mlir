@@ -74,6 +74,7 @@ class InferenceSession:
             self.model_basename.removesuffix(model_suffix),
         )
 
+        print("model: ", self.model_dirname)
         self.container_client = docker.from_env()
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
@@ -91,7 +92,6 @@ class InferenceSession:
                 },
             },
         )
-        print("afterwards tempdir: ", [f for f in os.listdir(self.output_dirname)])
         self.session = self.getSession()
 
     def getSession(self):
