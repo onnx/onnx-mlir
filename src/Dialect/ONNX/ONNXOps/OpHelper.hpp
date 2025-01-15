@@ -380,6 +380,14 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 std::string getNodeNameInPresenceOfOpt(
     mlir::Operation *op, bool useFileLine = true);
 
+//===----------------------------------------------------------------------===//
+// Support for DenseElementsAttr.
+//===----------------------------------------------------------------------===//
+
+/// Returns true if elementsAttr is a DenseResourceAttr with a blob that can not
+/// be received
+bool isElementAttrUninitializedDenseResource(mlir::ElementsAttr elementsAttr);
+
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp.inc"
 
 } // namespace onnx_mlir
