@@ -32,7 +32,7 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 void configureONNXToZHighLoweringPass(bool reportOnNNPAUnsupportedOps,
     bool isDynQuant, bool quantIsActivationSym, bool quantIsWeightSym,
-    llvm::ArrayRef<std::string> quantOpTypes);
+    std::vector<std::string> quantOpTypes);
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();

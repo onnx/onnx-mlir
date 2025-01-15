@@ -132,11 +132,10 @@ llvm::cl::list<std::string, std::vector<std::string>> nnpaQuantOpTypesOpt(
     "nnpa-quant-op-types",
     llvm::cl::desc(
         "A comma-separated list of types of operations that are quantized. "
-        "E.g. 'MatMul,Conv'. Strings for types are the same as ONNX "
-        "operator "
-        "names in https://onnx.ai/onnx/operators/. By default or with "
-        "specifying this option, the compiler will determine the operation "
-        "types by itself."),
+        "E.g. 'MatMul,Conv'. Strings for types are the same as ONNX operator "
+        "names in https://onnx.ai/onnx/operators/. Currently, only MatMul is "
+        "supported. Without specifying this option, the compiler will "
+        "determine the operation types by itself."),
     llvm::cl::location(nnpaQuantOpTypes), llvm::cl::ValueOptional,
     llvm::cl::CommaSeparated, llvm::cl::cat(OnnxMlirCommonOptions));
 

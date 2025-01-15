@@ -114,7 +114,7 @@ std::vector<std::string> ONNXToZHighLoweringConfiguration::Quant::opTypes = {};
 
 void configureONNXToZHighLoweringPass(bool optReportNNPAUnsupportedOps,
     bool isDynQuant, bool quantIsActivationSym, bool quantIsWeightSym,
-    ArrayRef<std::string> quantOpTypes) {
+    std::vector<std::string> quantOpTypes) {
   ONNXToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =
       optReportNNPAUnsupportedOps;
   ONNXToZHighLoweringConfiguration::isDynQuant = isDynQuant;
