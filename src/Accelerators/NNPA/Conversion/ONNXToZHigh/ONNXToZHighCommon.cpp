@@ -110,11 +110,12 @@ int ONNXToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
 bool ONNXToZHighLoweringConfiguration::isDynQuant = false;
 bool ONNXToZHighLoweringConfiguration::Quant::isActivationSym = false;
 bool ONNXToZHighLoweringConfiguration::Quant::isWeightSym = true;
-std::vector<std::string> ONNXToZHighLoweringConfiguration::Quant::opTypes = {};
+llvm::SmallVector<std::string>
+    ONNXToZHighLoweringConfiguration::Quant::opTypes = {};
 
 void configureONNXToZHighLoweringPass(bool optReportNNPAUnsupportedOps,
     bool isDynQuant, bool quantIsActivationSym, bool quantIsWeightSym,
-    std::vector<std::string> quantOpTypes) {
+    llvm::ArrayRef<std::string> quantOpTypes) {
   ONNXToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =
       optReportNNPAUnsupportedOps;
   ONNXToZHighLoweringConfiguration::isDynQuant = isDynQuant;

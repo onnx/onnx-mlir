@@ -38,7 +38,7 @@ struct ONNXToZHighLoweringConfiguration {
   struct Quant {
     static bool isActivationSym;
     static bool isWeightSym;
-    static std::vector<std::string> opTypes;
+    static llvm::SmallVector<std::string> opTypes;
   };
 };
 
