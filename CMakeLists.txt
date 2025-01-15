@@ -12,7 +12,6 @@ option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
 option(ONNX_MLIR_ENABLE_PYRUNTIME_LIT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
-#unset(ONNX_MLIR_ENABLE_PYRUNTIME_LIT CACHE)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -211,10 +210,6 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
-endif()
-
-if (ONNX_MLIR_ENABLE_STABLEHLO)
-  add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)

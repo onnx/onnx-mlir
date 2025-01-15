@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-message(STATUS "ONNX_MLIR_ENABLE_PYRUNTIME_LIT: ${ONNX_MLIR_ENABLE_PYRUNTIE_LIT}")
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
   function(llvm_update_compile_flags name)
   endfunction()
