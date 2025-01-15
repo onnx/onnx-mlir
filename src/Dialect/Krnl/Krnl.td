@@ -27,6 +27,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
 include "mlir/Dialect/Affine/IR/AffineMemoryOpInterfaces.td"
 include "src/Interface/SpecializedKernelOpInterface.td"
+include "src/Interface/KrnlGlobalOpInterface.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -406,7 +407,8 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable,
                        Index:$dest_offset, Index:$src_offset);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure,
+    DeclareOpInterfaceMethods<KrnlGlobalOpInterface>, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
@@ -565,6 +567,17 @@ def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
       `(` $parallel_loop_index `)` (`,` `num_threads` `(` $num_threads^ `)`)? 
       attr-dict `:` type($parallel_loop_index) 
   }];
+}
+
+def KrnlRoundEvenOp : Op<Krnl_Dialect, "round_even"> {
+  let summary = "Krnl round to nearest even operation";
+  let description = [{
+    Krnl round to nearest even operation.  Accept scalar or vector float values.
+    Vector must be 1D of a size that is a multiple of the hardware vector size.
+  }];
+
+  let arguments = (ins FloatLike:$in);
+  let results = (outs FloatLike:$out);
 }
 
 def KrnlErfOp : Op<Krnl_Dialect, "erf"> {

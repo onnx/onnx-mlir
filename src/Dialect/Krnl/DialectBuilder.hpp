@@ -265,6 +265,9 @@ struct KrnlBuilder : public DialectBuilder {
       std::optional<mlir::IntegerAttr> offset = std::nullopt,
       std::optional<mlir::IntegerAttr> alignment = std::nullopt) const;
 
+  // Math style functions
+  mlir::Value roundEven(mlir::Value input) const;
+
   // C library functions.
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value numElems) const;
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value numElems,

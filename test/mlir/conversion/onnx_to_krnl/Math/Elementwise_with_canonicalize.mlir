@@ -446,12 +446,13 @@ func.func @where(%arg0: tensor<2x2xi1>, %arg1: tensor<2x2xf32>, %arg2: tensor<2x
 
 // -----
 
+
 func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
   %0 = "onnx.Round"(%arg0) : (tensor<15xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // mlir2FileCheck.py
-// CHECK-LABEL:  func @round
+// CHECK-LABEL:  func.func @round
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<15xf32>) -> memref<15xf32> {
 // CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = arith.constant 5.000000e-01 : f32
 // CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
@@ -459,8 +460,8 @@ func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<15xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 15){
-// CHECK:             [[IV:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][[[IV]]] : memref<15xf32>
+// CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]{{.}} : memref<15xf32>
 // CHECK:             [[VAR_3_:%.+]] = math.floor [[LOAD_PARAM_0_MEM_]] : f32
 // CHECK:             [[VAR_4_:%.+]] = arith.subf [[LOAD_PARAM_0_MEM_]], [[VAR_3_]] : f32
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpf ogt, [[VAR_4_]], [[CST_5_dot_000000_]] : f32
@@ -477,7 +478,7 @@ func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
 // CHECK-DAG:         [[VAR_14_:%.+]] = arith.select [[VAR_12_]], [[VAR_13_]], [[VAR_3_]] : f32
 // CHECK-DAG:         [[VAR_15_:%.+]] = arith.cmpf oeq, [[VAR_4_]], [[CST_5_dot_000000_]] : f32
 // CHECK:             [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[VAR_14_]], [[VAR_7_]] : f32
-// CHECK:             krnl.store [[VAR_16_]], [[RES_]][[[IV]]] : memref<15xf32>
+// CHECK:             krnl.store [[VAR_16_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<15xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<15xf32>
 // CHECK:         }

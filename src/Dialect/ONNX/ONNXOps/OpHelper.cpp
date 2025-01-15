@@ -14,6 +14,7 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
@@ -604,6 +605,24 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
 template double getScalarValue<double>(ONNXConstantOp constantOp);
 template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 
+/// Return the wide type of a value.
+WideNum asWideNum(double n, Type elemType) {
+  return wideZeroDispatch(elemType, [n](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return WideNum::widen<TAG>(static_cast<cpptype>(n));
+  });
+}
+
+/// Checks whether a constant tensor's elements are all equal to a given scalar.
+bool isConstOf(Value constValue, double n) {
+  ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
+  Type elemType = constElements.getElementType();
+  assert(!elemType.isInteger(1) && "booleans are not supported");
+  WideNum w = asWideNum(n, elemType);
+  return ElementsAttrBuilder::allEqual(constElements, w);
+}
+
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
@@ -759,6 +778,29 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   return false;
 }
 
+/// Get raw data from a dense attribute.
+void getRawData(Attribute dataAttr, std::vector<char> &data) {
+  TypeSwitch<Attribute>(dataAttr)
+      .Case<DenseElementsAttr>([&](DenseElementsAttr denseAttr) {
+        if (!denseAttr.isSplat()) {
+          data = denseAttr.getRawData();
+        } else {
+          ShapedType denseShapeType =
+              mlir::cast<ShapedType>(denseAttr.getType());
+          std::vector<char> rawData = denseAttr.getRawData();
+          int64_t numElements = denseShapeType.getNumElements();
+          for (int i = 0; i < numElements; i++)
+            data.insert(data.end(), rawData.begin(), rawData.end());
+        }
+      })
+      .Case<DenseResourceElementsAttr>(
+          [&](DenseResourceElementsAttr denseResourceAttr) {
+            data = denseResourceAttr.getRawHandle().getBlob()->getData();
+          })
+      .Default(
+          [&](Attribute attr) { llvm_unreachable("Unsupported data type."); });
+}
+
 //===----------------------------------------------------------------------===//
 // Support for ReshapeOp.
 //===----------------------------------------------------------------------===//
@@ -876,6 +918,17 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
     }
   }
   return "NOTSET";
+}
+
+//===----------------------------------------------------------------------===//
+// Support for DenseElementsAttr.
+//===----------------------------------------------------------------------===//
+
+bool isElementAttrUninitializedDenseResource(mlir::ElementsAttr elementsAttr) {
+  const auto denseResourceElementsAttr =
+      mlir::dyn_cast<DenseResourceElementsAttr>(elementsAttr);
+  return denseResourceElementsAttr &&
+         !denseResourceElementsAttr.getRawHandle().getBlob();
 }
 
 } // namespace onnx_mlir

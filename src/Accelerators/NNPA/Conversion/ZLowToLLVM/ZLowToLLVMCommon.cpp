@@ -111,6 +111,8 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
   Value one = create.llvm.constant(llvmI64Ty, static_cast<int64_t>(1));
 
+  // Alloca is fine for LLVM structs; if we were to use alloc, we would also to
+  // manually insert free calls. So alloca makes total sense here.
   Value preTransformedDescPtr = create.llvm._alloca(
       krnl::getPointerType(context, llvmZTensorDescStructTy),
       llvmZTensorDescStructTy, one,

@@ -98,6 +98,7 @@ extern bool printBytecode;                                    // onnx-mlir only
 extern bool preserveBitcode;                                  // onnx-mlir only
 extern bool preserveLLVMIR;                                   // onnx-mlir only
 extern bool preserveMLIR;                                     // onnx-mlir only
+extern bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only
@@ -119,6 +120,7 @@ extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
 extern bool enableParallel;                                   // onnx-mlir only
 extern bool disableSimdOption;                                // onnx-mlir only
+extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only

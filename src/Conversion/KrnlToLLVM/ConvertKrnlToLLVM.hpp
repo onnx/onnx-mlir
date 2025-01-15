@@ -68,8 +68,9 @@ void populateLoweringKrnlFindIndexOpPattern(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlGlobalOpPattern(mlir::LLVMTypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+void populateLoweringKrnlGlobalOpInterfacePattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlInstrumentOpPattern(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
@@ -106,6 +107,10 @@ void populateLoweringKrnlVectorTypeCastOpPattern(
 
 void populateLoweringKrnlNoneOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+
+void populateLoweringKrnlRoundEvenOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
 void determineOwnershipForOutputOMTensors(mlir::ModuleOp &module,
     llvm::SmallVectorImpl<bool> &outputOMTensorOwnerships);
