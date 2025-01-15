@@ -9,13 +9,21 @@
 ################################################################################
 import numpy as np
 
-try:
-    from PyRuntimeC import OMExecutionSession as OMExecutionSession_
-except ImportError:
-    raise ImportError(
-        "Looks like you did not build the PyRuntimeC target, build it by running `make PyRuntimeC`."
-        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to `build/Debug` by default"
-    )
+if __package__ == "onnxmlir":
+    try:
+        from .PyRuntimeC import OMExecutionSession as OMExecutionSession_
+    except ImportError:
+        raise ImportError(
+            "Failure to load the prebuild PyRuntimeC.*.so."
+        )
+else:
+    try:
+        from PyRuntimeC import OMExecutionSession as OMExecutionSession_
+    except ImportError:
+        raise ImportError(
+            "Looks like you did not build the PyRuntimeC target, build it by running `make PyRuntimeC`."
+            "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to `build/Debug` by default"
+        )
 
 
 class OMExecutionSession(OMExecutionSession_):

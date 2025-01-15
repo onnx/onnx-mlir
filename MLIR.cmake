@@ -1,33 +1,39 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
-# won't change accordingly.
-unset(LLVM_DIR CACHE)
-if (NOT DEFINED MLIR_DIR)
-  message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
-    "Set the cmake option MLIR_DIR, e.g.,\n"
-    "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
-    )
+message(STATUS "ONNX_MLIR_ENABLE_PYRUNTIME_LIT: ${ONNX_MLIR_ENABLE_PYRUNTIE_LIT}")
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+  function(llvm_update_compile_flags name)
+  endfunction()
+else()
+  # Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
+  # won't change accordingly.
+  unset(LLVM_DIR CACHE)
+  if (NOT DEFINED MLIR_DIR)
+    message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
+      "Set the cmake option MLIR_DIR, e.g.,\n"
+      "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
+      )
+  endif()
+
+  find_package(MLIR REQUIRED CONFIG)
+
+  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+  include(TableGen)
+  include(AddLLVM)
+  include(AddMLIR)
+
+  include(HandleLLVMOptions)
+
+  include_directories(${LLVM_INCLUDE_DIRS})
+  include_directories(${MLIR_INCLUDE_DIRS})
+
+  add_definitions(${LLVM_DEFINITIONS})
 endif()
-
-find_package(MLIR REQUIRED CONFIG)
-
-message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
-list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-
-include(TableGen)
-include(AddLLVM)
-include(AddMLIR)
-
-include(HandleLLVMOptions)
-
-include_directories(${LLVM_INCLUDE_DIRS})
-include_directories(${MLIR_INCLUDE_DIRS})
-
-add_definitions(${LLVM_DEFINITIONS})
 
 set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
 message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
@@ -55,6 +61,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT LLVM_INSTALL_PREFIX)
 endif()
 message(STATUS "CMAKE_INSTALL_PREFIX     : " ${CMAKE_INSTALL_PREFIX})
 
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
 # The tablegen functions below are modeled based on the corresponding functions
 # in mlir: https://github.com/llvm/llvm-project/blob/main/mlir/cmake/modules/AddMLIR.cmake
 function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
@@ -126,6 +133,7 @@ function(add_onnx_mlir_interface interface)
   mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
   add_public_tablegen_target(OM${interface}IncGen)
 endfunction()
+endif()
 
 # add_onnx_mlir_library(name sources...
 #   This function (generally) has the same semantic as add_library. In
@@ -158,7 +166,9 @@ function(add_onnx_mlir_library name)
     )
 
   if (NOT ARG_EXCLUDE_FROM_OM_LIBS)
-    set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+    if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+      set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+    endif()
   endif()
 
   add_library(${name} ${ARG_UNPARSED_ARGUMENTS})
