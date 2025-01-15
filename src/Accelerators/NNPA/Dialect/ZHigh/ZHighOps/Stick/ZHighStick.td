@@ -149,7 +149,54 @@ def ReplaceONNXReciprocalSqrtPattern: Pat<
   [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
 >;
 
-// The folowing pattern was found in bertsquad and GPT models.
+// The following pattern was found in Roberta models.
+// ```
+//    %66 = "zhigh.Unstick"(%65) : (tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<12x384x64xf32>
+//    %67 = "onnx.Reshape"(%66, %2) {allowzero = 0 : si64} : (tensor<12x384x64xf32>, tensor<4xi64>) -> tensor<1x12x384x64xf32>
+//    %68 = "onnx.Transpose"(%67) {onnx_node_name = "Transpose_94", perm = [0, 2, 1, 3]} : (tensor<1x12x384x64xf32>) -> tensor<1x384x12x64xf32> 
+//    %69 = "onnx.Reshape"(%68, %9) {allowzero = 0 : si64, onnx_node_name = "Reshape_104"} : (tensor<1x384x12x64xf32>, tensor<3xi64>) -> tensor<1x384x768xf32>
+//    %70 = "zhigh.Stick"(%69) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// ```
+// When the input tensor %65 (here tensor<12x384x64xf16) with dims E3xE2xE1 and 3DS layout satisfies the following properties
+// 1) E2 % 32 == 0
+// 2) E1 % 64 == 0
+// Then we can guarantee that input value %65 has the same value
+// in the same memory location (*) than output %70.
+// (*) does not say the tensor are identical, just that they store
+//     the same value at the same byte offset in the memory.
+//
+// High level intuition for this is that the reshape / transpose / reshape
+// perform some memory layout operations, which results in no change in the
+// 3DS representation as that representation also perform layout changes.
+// 
+// Limitation: current pattern assume a BS of 1 and static sizes.
+
+def ReshapeTransposeReshapeRoberta3DSWithBS1Pattern : Pat<
+  // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick.
+  (ZHighStickOp:$stick
+    (ONNXReshapeOp:$reshape2
+      (ONNXTransposeOp:$transpose
+        (ONNXReshapeOp:$reshape1
+          (ZHighUnstickOp:$unstick $X),
+          $shape1, $_),
+        $perm),
+      $shape2, $_),
+    $layout3DS, $saturation),
+    // Output: initial X value unchanged.
+    (replaceWithValue $X),
+    // Conditions
+    [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+     (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
+     (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
+     (Is4DTransposePermutationEqualTo0213 $perm),
+     (IsTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+     (IsRightmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the last two dimensions. 
+   ]
+>;
+
+
+// The following pattern was found in bertsquad and GPT models.
 // ```
 // %0 = "zhigh.Unstick"(%X) {layout = "2D"} : tensor<?x768xf32, #zhigh.encoding<{dataLayout = "3DS"}>> -> tensor<?x768xf32>
 // %1 = "onnx.Reshape"(%0) : tensor<?x768xf32> -> tensor<?x256x12x64xf32>
@@ -194,7 +241,7 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
    (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
    (IsTiling2DTo4D $reshape1), // 1st reshape is tiling over each input dimension
-   (IsCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+   (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
   ]
 >;
 

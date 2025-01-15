@@ -348,8 +348,8 @@ bool isCollapsing4DTo2D(Value val) {
 }
 
 /// Check if a 4D tensor is collapsed into 3D by merging the first two
-/// dimensions.
-bool isCollapsing4DTo3D(Value val) {
+/// (leftmost) dimensions.
+bool isLeftmostCollapsing4DTo3D(Value val) {
   auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   if (!reshapeOp)
     return false;
@@ -375,6 +375,36 @@ bool isCollapsing4DTo3D(Value val) {
   return ((inputShape[0] * inputShape[1] == outputShape[0]) &&
           (inputShape[2] == outputShape[1]) &&
           (inputShape[3] == outputShape[2]));
+}
+
+/// Check if a 4D tensor is collapsed into 3D by merging the last two
+/// (rightmost) dimensions.
+bool isRightmostCollapsing4DTo3D(Value val) {
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 4D to 3D.
+  if (!(inputShape.size() == 4 && outputShape.size() == 3))
+    return false;
+
+  // Collapsing by merging the first two dimensions.
+  return ((inputShape[0] == outputShape[0]) &&
+          (inputShape[1] == outputShape[1]) &&
+          (inputShape[2] * inputShape[3] == outputShape[2]));
 }
 
 AffineMapAttr getTiling2DTo4DMap(OpBuilder &b, Value val) {
@@ -450,8 +480,9 @@ AffineMapAttr getCollapsing4DTo2DMap(OpBuilder &b, Value val) {
   return AffineMapAttr::get(map);
 }
 
+// hi alex, change to leftmost
 AffineMapAttr getCollapsing4DTo3DMap(OpBuilder &b, Value val) {
-  assert(isCollapsing4DTo3D(val) &&
+  assert(isLeftmostCollapsing4DTo3D(val) &&
          "ONNXReshapeOp is not suitable for getting a collapsing affine map");
 
   auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
@@ -482,6 +513,29 @@ AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
   AffineMap map =
       AffineMap::getPermutationMap(llvm::ArrayRef(perm), b.getContext());
   return AffineMapAttr::get(map);
+}
+
+/// Check the values of a transpose map to be equal to the permVals.
+bool isTransposePermutationEqualTo(
+    mlir::ArrayAttr permAttr, mlir::ArrayRef<int64_t> permVals) {
+  // Check same rank.
+  int64_t permAttrSize = ArrayAttrSize(permAttr);
+  int64_t permValSize = permVals.size();
+  if (permAttrSize != permValSize)
+    return false;
+  // Check same values; abort on failure.
+  for (int64_t i = 0; i < permAttrSize; ++i) {
+    int64_t v = ArrayAttrIntVal(permAttr, i);
+    if (permVals[i] != v)
+      return false;
+  }
+  // Identical, success.
+  return true;
+}
+
+bool is4DTransposePermutationEqualTo(
+    mlir::ArrayAttr permAttr, int64_t p0, int64_t p1, int64_t p2, int64_t p3) {
+  return isTransposePermutationEqualTo(permAttr, {p0, p1, p2, p3});
 }
 
 IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {

@@ -157,9 +157,15 @@ def IsCollapsing4DTo2D : Constraint<
 >;
 
 /// Check if ONNXReshapeOp is reshaping 4D to 3D by collapsing the first two input dimensions.
-def IsCollapsing4DTo3D : Constraint<
-  CPred<"::onnx_mlir::zhigh::isCollapsing4DTo3D($0)">,
-  "Is collapsing by ONNXReshapeOp"
+def IsLeftmostCollapsing4DTo3D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isLeftmostCollapsing4DTo3D($0)">,
+  "Is leftmost collapsing by ONNXReshapeOp"
+>;
+
+/// Check if ONNXReshapeOp is reshaping 4D to 3D by collapsing the last two input dimensions.
+def IsRightmostCollapsing4DTo3D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isRightmostCollapsing4DTo3D($0)">,
+  "Is rightmost collapsing by ONNXReshapeOp"
 >;
 
 def GetResultType : NativeCodeCall<
@@ -185,6 +191,12 @@ def GetCollapsing4DTo3DMap: NativeCodeCall<
 def GetTransposeMap : NativeCodeCall<
   "::onnx_mlir::zhigh::getTransposeMap($_builder, $0)"
 >;
+
+def Is4DTransposePermutationEqualTo0213 : Constraint<
+  CPred<"::onnx_mlir::zhigh::isTransposePermutationEqualTo($0, {0, 2, 1, 3})">,
+  "Is 4D Transpose with pattern (0, 2, 1, 3)"
+>;
+
 
 def IsIdentityAffineMap : Constraint<
   CPred<"$_self.isIdentity()">,

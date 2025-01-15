@@ -80,15 +80,26 @@ bool isTiling2DTo4D(mlir::Value val);
 mlir::AffineMapAttr getTiling2DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
 bool isTiling3DTo4D(mlir::Value val);
 mlir::AffineMapAttr getTiling3DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
-/// Check if ONNXReshapeOp is collapsing 4D into 3D/2D by merging the first two
-/// dimensions.
-bool isCollapsing4DTo3D(mlir::Value val);
+/// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the first two
+/// (leftmost) dimensions.
+bool isLeftmostCollapsing4DTo3D(mlir::Value val);
+/// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the last two
+/// (rightmost) dimensions.
+bool isRightmostCollapsing4DTo3D(mlir::Value val);
+// hi alex: add leftmost
 mlir::AffineMapAttr getCollapsing4DTo3DMap(mlir::OpBuilder &b, mlir::Value val);
+// hi alex, add leftmost
 bool isCollapsing4DTo2D(mlir::Value val);
 mlir::AffineMapAttr getCollapsing4DTo2DMap(mlir::OpBuilder &b, mlir::Value val);
 /// Get an affine map for the permutation array.
 mlir::AffineMapAttr getTransposeMap(
     mlir::OpBuilder &b, mlir::ArrayAttr permAttr);
+/// Check the values of a transpose map to be equal to the permVals.
+bool isTransposePermutationEqualTo(
+    mlir::ArrayAttr permAttr, mlir::ArrayRef<int64_t> permVals);
+// hi alex, think we can remove this one.
+bool is4DTransposePermutationEqualTo(
+    mlir::ArrayAttr permAttr, int64_t p0, int64_t p1, int64_t p2, int64_t p3);
 
 /// Get an axis for NHWC layout given an axis for NCHW layout.
 mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -142,6 +143,10 @@ void ZHighStickOp::getCanonicalizationPatterns(
   results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
   results.insert<ReshapeTransposeReshape2DTo3DSPattern>(context);
   results.insert<ReshapeTransposeReshape3DSTo2DPattern>(context);
+  if (debugTestCompilerOpt) {
+    fprintf(stderr, "hi alex, use roberta pattern\n");
+    results.insert<ReshapeTransposeReshapeRoberta3DSWithBS1Pattern>(context);
+  }
 }
 
 } // namespace zhigh
