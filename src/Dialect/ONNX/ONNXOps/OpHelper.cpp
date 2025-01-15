@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
@@ -870,6 +871,17 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
     }
   }
   return "NOTSET";
+}
+
+//===----------------------------------------------------------------------===//
+// Support for DenseElementsAttr.
+//===----------------------------------------------------------------------===//
+
+bool isElementAttrUninitializedDenseResource(mlir::ElementsAttr elementsAttr) {
+  const auto denseResourceElementsAttr =
+      mlir::dyn_cast<DenseResourceElementsAttr>(elementsAttr);
+  return denseResourceElementsAttr &&
+         !denseResourceElementsAttr.getRawHandle().getBlob();
 }
 
 } // namespace onnx_mlir
