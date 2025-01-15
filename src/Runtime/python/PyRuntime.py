@@ -13,9 +13,7 @@ if __package__ == "onnxmlir":
     try:
         from .PyRuntimeC import OMExecutionSession as OMExecutionSession_
     except ImportError:
-        raise ImportError(
-            "Failure to load the prebuild PyRuntimeC.*.so."
-        )
+        raise ImportError("Failure to load the prebuild PyRuntimeC.*.so.")
 else:
     try:
         from PyRuntimeC import OMExecutionSession as OMExecutionSession_

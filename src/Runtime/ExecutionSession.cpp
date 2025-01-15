@@ -16,7 +16,6 @@
 #include <errno.h>
 #include <string.h>
 
-
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -83,7 +82,7 @@ void ExecutionSession::Init(
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
 #else
   // Copy code from llvm/lib/Support/DynamicLibrary.cpp, especially the flags
-  // ToFix: copy the lock related code too. 
+  // ToFix: copy the lock related code too.
   _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
   if (!_sharedLibraryHandle)
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
@@ -96,7 +95,7 @@ void ExecutionSession::Init(
           queryEntryPointsNameWithTag.c_str()));
 #else
   _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
-     dlsym(_sharedLibraryHandle, queryEntryPointsNameWithTag.c_str()));
+      dlsym(_sharedLibraryHandle, queryEntryPointsNameWithTag.c_str()));
 #endif
 
   if (!_queryEntryPointsFunc)
@@ -151,7 +150,7 @@ void ExecutionSession::Init(
 }
 
 ExecutionSession::~ExecutionSession() {
-#ifndef ENABLE_PYRUNTIME_LIT 
+#ifndef ENABLE_PYRUNTIME_LIT
   if (_sharedLibraryHandle.isValid())
     llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
 #else
@@ -174,7 +173,7 @@ const std::string *ExecutionSession::queryEntryPoints(
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
-#ifndef ENABLE_PYRUNTIME_LIT 
+#ifndef ENABLE_PYRUNTIME_LIT
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
 #else

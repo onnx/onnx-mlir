@@ -25,7 +25,7 @@
 #include "llvm/Support/DynamicLibrary.h"
 typedef llvm::sys::DynamicLibrary DynamicLibraryHandleType;
 #else
-typedef void* DynamicLibraryHandleType;
+typedef void *DynamicLibraryHandleType;
 #endif
 
 namespace onnx_mlir {
