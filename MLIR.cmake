@@ -60,7 +60,6 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT LLVM_INSTALL_PREFIX)
 endif()
 message(STATUS "CMAKE_INSTALL_PREFIX     : " ${CMAKE_INSTALL_PREFIX})
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
 # The tablegen functions below are modeled based on the corresponding functions
 # in mlir: https://github.com/llvm/llvm-project/blob/main/mlir/cmake/modules/AddMLIR.cmake
 function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
@@ -132,7 +131,6 @@ function(add_onnx_mlir_interface interface)
   mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
   add_public_tablegen_target(OM${interface}IncGen)
 endfunction()
-endif()
 
 # add_onnx_mlir_library(name sources...
 #   This function (generally) has the same semantic as add_library. In
