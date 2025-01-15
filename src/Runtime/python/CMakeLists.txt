@@ -11,17 +11,32 @@ file(GENERATE
   )
 
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
-add_onnx_mlir_library(OMPyExecutionSessionBase
-  PyExecutionSessionBase.cpp
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+  add_onnx_mlir_library(OMPyExecutionSessionBase
+    PyExecutionSessionBase.cpp
 
-  EXCLUDE_FROM_OM_LIBS
+    EXCLUDE_FROM_OM_LIBS
 
-  LINK_LIBS PUBLIC
-  OMExecutionSession
-  OMMlirUtilities
-  pybind11::embed
-  pybind11::python_link_helper
+    LINK_LIBS PUBLIC
+    OMExecutionSession
+    OMMlirUtilities
+    pybind11::embed
+    pybind11::python_link_helper
+    )
+else()
+  add_compile_definitions(ENABLE_PYRUNTIME_LIT)
+  add_onnx_mlir_library(OMPyExecutionSessionBase
+    PyExecutionSessionBase.cpp
+
+    EXCLUDE_FROM_OM_LIBS
+
+    LINK_LIBS PUBLIC
+    OMExecutionSession
+    pybind11::embed
+    pybind11::python_link_helper
   )
+endif()
+
 if(MSVC)
   target_link_libraries(OMPyExecutionSessionBase
     PRIVATE pybind11::windows_extras
@@ -92,6 +107,19 @@ install(TARGETS PyRuntimeC
   DESTINATION lib
   )
 
+# Target to prepare onnxmlir package
+add_custom_target(OMCreatePyRuntimePackage
+        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlir ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir
+        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir
+        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/
+        DEPENDS PyRuntimeC
+     )
+
+if(ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+  return()
+endif()
+
 pybind11_add_module(PyCompileAndRuntimeC PyOMCompileExecutionSession.cpp)
 add_dependencies(PyCompileAndRuntimeC onnx_proto)
 target_compile_options(PyCompileAndRuntimeC
@@ -118,3 +146,4 @@ llvm_update_compile_flags(PyCompileAndRuntimeC)
 install(TARGETS PyCompileAndRuntimeC
   DESTINATION lib
   )
+
