@@ -70,6 +70,10 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   if (auto constantOp = getONNXConstantOp(input)) {
     ElementsAttr valueAttribute =
         mlir::cast<ElementsAttr>(constantOp.getValueAttr());
+    if (isElementAttrUninitializedDenseResource(valueAttribute)) {
+      return success(); // Return success to allow the parsing of MLIR with
+                        // elided attributes
+    }
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < inputShape[0]; ++i) {

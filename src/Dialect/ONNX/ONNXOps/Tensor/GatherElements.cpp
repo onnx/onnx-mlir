@@ -71,8 +71,13 @@ LogicalResult ONNXGatherElementsOp::verify() {
   // along axis of size s.
   ArrayRef<int64_t> dataShape = dataType.getShape();
   const int64_t dataDimAtAxis = dataShape[axis];
-  if (dataDimAtAxis >= 0)
-    if (ElementsAttr valueAttribute = getElementAttributeFromONNXValue(indices))
+  if (dataDimAtAxis >= 0) {
+    if (ElementsAttr valueAttribute =
+            getElementAttributeFromONNXValue(indices)) {
+      if (isElementAttrUninitializedDenseResource(valueAttribute)) {
+        return success(); // Return success to allow the parsing of MLIR with
+                          // elided attributes
+      }
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)
@@ -83,6 +88,8 @@ LogicalResult ONNXGatherElementsOp::verify() {
             onnx_mlir::Diagnostic::Range<int64_t>(
                 -dataDimAtAxis, dataDimAtAxis - 1));
       }
+    }
+  }
 
   return success();
 }
