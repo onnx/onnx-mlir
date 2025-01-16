@@ -122,9 +122,10 @@ llvm::cl::list<NNPAQuantOptions, std::vector<NNPAQuantOptions>>
             // from the case where `--nnpa-quant-dynamic` is NOT specified on
             // the command line.
             clEnumValN(autoQuantOpt, "",
-                "Compiler automatically finds the best options. Default "
-                "option when `-nnpa-quant-dynamic` is specified without any "
-                "value.")),
+                "Compiler automatically finds the best options. Once this "
+                "option (an empty string) is in the list, the other options "
+                "are ignored. This is the default option when "
+                "`-nnpa-quant-dynamic` is specified without any value.")),
         llvm::cl::location(nnpaQuantDynamic), llvm::cl::ValueOptional,
         llvm::cl::CommaSeparated, llvm::cl::cat(OnnxMlirCommonOptions));
 

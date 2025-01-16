@@ -56,38 +56,38 @@ void configurePassesNNPA() {
 
   // Configure ONNXToZHighLoweringPass.
   bool isDynQuant = !nnpaQuantDynamic.empty();
-  bool isWeightSym = false;
+  // Default/auto mode: symmetric for weighs and asymmetric for activations.
   bool isActivationSym = false;
+  bool isWeightSym = true;
   std::vector<std::string> quantOpTypes;
   if (isDynQuant) {
-    for (unsigned i = 0; i < nnpaQuantDynamic.size(); ++i) {
-      switch (nnpaQuantDynamic[i]) {
-      case NNPAQuantOptions::autoQuantOpt:
-        // Auto mode: symmetric for weighs and asymmetric for activations.
-        isWeightSym = true;
-        isActivationSym = false;
-        break;
-      case NNPAQuantOptions::symWeight:
-        isWeightSym = true;
-        break;
-      case NNPAQuantOptions::asymWeight:
-        isWeightSym = false;
-        break;
-      case NNPAQuantOptions::symActivation:
-        isActivationSym = true;
-        break;
-      case NNPAQuantOptions::asymActivation:
-        isActivationSym = false;
-        break;
-      default:
-        llvm_unreachable("Unsupported quantization options");
-        break;
+    // Set options for activations and weights if they are given.
+    // When auto mode is specified, the other specified options are ignored.
+    if (!llvm::is_contained(nnpaQuantDynamic, NNPAQuantOptions::autoQuantOpt)) {
+      for (unsigned i = 0; i < nnpaQuantDynamic.size(); ++i) {
+        switch (nnpaQuantDynamic[i]) {
+        case NNPAQuantOptions::symWeight:
+          isWeightSym = true;
+          break;
+        case NNPAQuantOptions::asymWeight:
+          isWeightSym = false;
+          break;
+        case NNPAQuantOptions::symActivation:
+          isActivationSym = true;
+          break;
+        case NNPAQuantOptions::asymActivation:
+          isActivationSym = false;
+          break;
+        default:
+          llvm_unreachable("Unsupported quantization options");
+          break;
+        }
       }
     }
     if (!isWeightSym) {
       // TODO: Support asymmetric quantiation for weights.
       llvm::outs()
-          << "Asymmetric quantization for weights hasn't yet supported. "
+          << "Asymmetric quantization for weights is not yet supported. "
              "Turning off quantization.\n";
       isDynQuant = false;
     }
