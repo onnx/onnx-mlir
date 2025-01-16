@@ -27,7 +27,7 @@ using namespace onnx_mlir;
 
 /// Report NNPA unsupported case.
 bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
-  if (OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps &&
+  if (ONNXToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps &&
       !message.empty()) {
     StringAttr opName = op->getName().getIdentifier();
     std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);

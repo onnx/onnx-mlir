@@ -138,6 +138,11 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
   });
 }
 
+void NNPAAccelerator::configurePasses() const {
+  LLVM_DEBUG(llvm::dbgs() << "Configuring passes for NNPA accelerator\n");
+  configurePassesNNPA();
+}
+
 mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
     const mlir::TensorType tensorType) const {
   assert(tensorType.hasRank() && "expected only ranked shapes");

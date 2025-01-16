@@ -181,6 +181,8 @@ int main(int argc, char **argv) {
   // Passes are configured with command line options so they must be configured
   // after command line parsing but before any passes are run.
   configurePasses();
+  for (auto *accel : accel::Accelerator::getAccelerators())
+    accel->configurePasses();
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     MLIRContext *ctx = pm.getContext();

@@ -30,9 +30,16 @@ const std::string NNPA_DEVICE = "nnpa";
 
 bool isEnableScalarBcastBinary();
 
-struct OnnxToZHighLoweringConfiguration {
+// Populated by configureONNXToZHighLoweringPass().
+struct ONNXToZHighLoweringConfiguration {
   static int optReportNNPAUnsupportedOps;
   static int reportOnNNPAUnsupportedOps;
+  static bool isDynQuant;
+  struct Quant {
+    static bool isActivationSym;
+    static bool isWeightSym;
+    static llvm::SmallVector<std::string> opTypes;
+  };
 };
 
 template <typename OP_TYPE>

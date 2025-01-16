@@ -24,10 +24,8 @@
 namespace onnx_mlir {
 
 // Exports ONNXtoZHigh patterns.
-void getONNXToZHighOneOpPatterns(
-    mlir::RewritePatternSet &patterns, NNPAQuantType quantMode);
-void getONNXToZHighMultipleOpPatterns(
-    mlir::RewritePatternSet &patterns, NNPAQuantType quantMode);
+void getONNXToZHighOneOpPatterns(mlir::RewritePatternSet &patterns);
+void getONNXToZHighMultipleOpPatterns(mlir::RewritePatternSet &patterns);
 
 // Exports ONNXtoZHigh dynamically legal checks.
 void getONNXToZHighOneOpDynamicallyLegal(

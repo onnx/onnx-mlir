@@ -109,6 +109,13 @@ public:
   virtual void registerPasses(int optLevel) const = 0;
 
   //===--------------------------------------------------------------------===//
+  // Hooks for both onnx-mlir and onnx-mlir-opt drivers
+  //===--------------------------------------------------------------------===//
+
+  /// Configure passes for the accelerator.
+  virtual void configurePasses() const = 0;
+
+  //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass
   //===--------------------------------------------------------------------===//
 
