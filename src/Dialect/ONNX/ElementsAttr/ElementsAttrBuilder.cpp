@@ -534,8 +534,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
     wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
-      // Traverse and populate each element d in dstNums.
-      // Copying the input to the dstNums
+      // This loop copies each element in  the input to the dstNums
       for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
         // Traverse all the elements that reduce together into d.
         // srcNums elements may be repeated if there are zeros in axesStrides.
@@ -558,31 +557,57 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         std::cout << " batch index " << batchIndex << " time index "
                   << timeIndex << std::endl;
       }
-
+      // op Length of sequence_lens should match the
+      // sizeof batch axis of the input
       // Iterating through the sequence_lens tensor values.
+      // This iteration means iterating through the batch index dimensions.
+      // For ex: for input with dims (3,3,1,2), and batch_index=1
+      // it will have three iterations at dim-1.
+
+      // This is the most outer loop, after each iteration it will have
+      // rearranged the data in correspoding batch_index dimension.
       for (size_t seqLengthIndex = 0; seqLengthIndex < sequenceLength.size();
            seqLengthIndex++) {
         if (enableVerbose) {
-          std::cout << "Iter - Index " << seqLengthIndex
+          std::cout << "Iteration - Index " << seqLengthIndex
                     << " seq length = " << sequenceLength[seqLengthIndex]
                     << std::endl;
         }
-        // maintains the list of positions dst,src
-        // `destination element` pos that get its value from `source position`
-        // for ex: (0,1,2) <= (2,1,0) Will have entries (0,2),(1,0),(2,0)
+        /*
+        dstSrcPositionPairs: maintains the list of positions dst,src.
+        Here destination means the poition whose value will be
+        overriden as part of rearrangement.
+        source means the position from where the value will be
+        picked up.
+        `destination element` pos thats get its value from `source position`
+        for ex: (0,1,2) <= (2,1,0),will have entries (0,2),(1,1),(2,0)
+        This list will not have positions not affected by the sequence_length
+        for example the input is (5,5,1,2) and the sequence_length
+        is [3,3,3]. Here the reversal will happen for first 3 entries, the
+        last two will be not affacted. And they will not be populated in
+        dstSrcPositionPairs
+        NOTE: dstSrcPositionPairs is created for every iteration.
+        meaning the content of this is for a given batchIndex dimension
+        ex: for input (3,3,1,2) seqlength [3,3,3], batch_index 1
+        for each value in dim-1 we will have ones list of dstSrcPostionPairs.
+        and one iteration.
+        */
         std::list<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
 
-        // list of positions per each timeIndex that needs to be reversed.
         /*
-        Example value of the list below indicates, for timeIndexSlice at 0
-        we have positions 0,1 and at slice 1 we have 6,7
-        This is for keeping track of the positions for each timeIndexSlice.
-        at : 0
-        0 1
-        at : 1
-        6 7
-        at : 2
-        12 13
+        reversePosList1:
+        This will have one list for each of the possible timeIndex values.
+        ex: for input (3,3,1,2) seqlength [3,3,3], batch_index 1
+        time_index is 0, and at dim-0, we will have three differnet values.
+        hence three lists. Each list will have its corresponding element's
+        flat position values.
+        list at 0  -> 0 1
+        list at 1  -> 6 7
+        list at 2  -> 12 13
+        Once the list is fully populated. It will be used to find the source
+        position for the current destination position. For ex: when at [0]th
+        list second position, we can find the second position in [2]nd list
+        second position value
         */
         std::list<std::list<int64_t>> reversePosList1;
         int reversePosListSize = 0;
@@ -595,29 +620,43 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         }
         // The reverseSequence length cannot be greater than the timeIndex dim
         // length
+
         reversePosListSize =
             (sequenceLength[seqLengthIndex] > maxValueForReversePosListSize)
                 ? maxValueForReversePosListSize
                 : sequenceLength[seqLengthIndex];
+        /* The number of lists trackes the positions of time_index's which
+           are to be reversed, this is defined by the sequence_lens value.
+           ex: for input (3,3,1,2) seqlength [2,2,2], batch_index 1
+           here the reversal is for first two entries of the timeIndex ( 0 and 1
+           ). The number of lists in the reversePosList1 will be 2.
+        */
         reversePosList1.resize(reversePosListSize);
-        // Iterating to produce the assignment list, destination part ..
+        // Below loop will populate the dstSrcPositionPairs with the dst
+        // positions only. This dst positions are the one's which need to
+        // overriden. It will also populate the reversePosList1.
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
-          // Traverse all the elements that reduce together into d.
           int64_t pos = idxoffs[0];
           auto idx = idxoffs.index;
+          /* for batch_index = 1, the criteria is the elements dim-1 should
+          be same as iteration index. and dim-0 should be less than
+          seq_length defined's value ( it indicates how many elements should be
+          reversed) ex: for input (3,3,1,2) seqlength [2,2,2], batch_index 1
+          Here this considers only elements with dim-0 value less than 2. ( 0
+          and 1 only)
+          */
           if ((batchIndex == 1) &&
               ((idx[1] == seqLengthIndex) &&
                   (idx[0] < sequenceLength[seqLengthIndex]))) {
-            // Handling values with only idx[1] == iteration index which is
-            // sequence_lens tensor iteration index.
-            // adding only destination pos, source pos will be added later.
+            // adding only destination pos, source pos will be added in next
+            // iteration.
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
             auto listIter = reversePosList1.begin();
             // advancing the list iterator by idx[0],
             // note, we have one list per timeSliceIndex
             // here the advancement is same as idx[0]
             std::advance(listIter, idx[0]);
-            // Add the pos to the correspoding timeSliceIndex list.
+            // Add the pos to the correspoding timeSliceIndex's list.
             (*listIter).push_back(idxoffs[0]);
           } else if ((batchIndex == 0) &&
                      ((idx[0] == seqLengthIndex) &&
@@ -640,11 +679,20 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             std::cout << std::endl;
           }
         }
-        // reversePosList2 is used for tracking the correspoding position
-        // in the timeSliceIndex list.
+        // reversePosList2 is simliar to reversePosList1.
         std::list<std::list<int64_t>> reversePosList2;
         reversePosList2.resize(reversePosListSize);
+        /* Starting the dstSrcPositionPairs iteration.
+           As the dst poisitions are encountered, the source position
+           assignement will be done. The assignments are done in the same order.
+           Now, we have the knowledge of each timeIndex's position lists in the
+           reversePosList1.
+        */
         auto dstSrcPairsIter = dstSrcPositionPairs.begin();
+        /*
+         In this loop, dstSrcPositionPairs's source position assignement
+         will be completed.
+        */
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
           auto idx = idxoffs.index;
           if ((batchIndex == 1) &&
@@ -653,18 +701,25 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             auto listIter2 = reversePosList2.begin();
             std::advance(listIter2, idx[0]);
             (*listIter2).push_back(idxoffs[0]);
-            // This will be same as the correspoding pos of list in
-            // reversePosList1
+            /*
+            ex: for input (3,3,1,2) seqlength [3,3,3], batch_index 1 , idx[1] ==
+            0 for idx[0] ==0, listIter2 will be list tracking positions with
+            idx[0] ==0 This size of the (*listIter2).size() at this stage will
+            help us to know the corresponding element position in the source
+            list.
+            */
+
             int posIndex = (*listIter2).size() - 1;
-            // get the iterator for same position in the reversePosList1
+            /*
+            get the iterator reversePosList1 and advance it to point to the
+            correct source list.
+            */
             auto iter1 = reversePosList1.begin();
-            // Here we are getting the list from end.
-            // analogy slice(0, 3, None) <-> slice(2, None, -1)
-            // for lists 0,1,2 we will get 2,1,0
             std::advance(iter1, (reversePosList1.size() - 1 - idx[0]));
+            // In the source list advance the iter to point to the corresponding
+            // postion.
             auto innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
-            // this is the source pos that needs to be assigned.
             (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
           } else if ((batchIndex == 0) &&
@@ -692,7 +747,10 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
           }
         }
         auto dstSrcLookupIter = dstSrcPositionPairs.begin();
-        // Populating the destination with correct values.
+        /*
+        This loop uses the dstSrcPositionPairs, and as the dst position is
+        encountered, it copies the source position value to the dst position.
+        */
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
 
           int64_t pos = idxoffs[0];
