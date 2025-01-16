@@ -197,6 +197,15 @@ def Is4DTransposePermutationEqualTo0213 : Constraint<
   "Is 4D Transpose with pattern (0, 2, 1, 3)"
 >;
 
+class IsShapeDimMultipleOf32<int index> : Constraint<
+  CPred<"::onnx_mlir::zhigh::isShapeDimMultipleOf($0, " # index # ", 32)">,
+  "The operand shape at given index is a multiple of 32"
+>;
+
+class IsShapeDimMultipleOf64<int index> : Constraint<
+  CPred<"::onnx_mlir::zhigh::isShapeDimMultipleOf($0, " # index # ", 64)">,
+  "The operand shape at given index is a multiple of 64"
+>;
 
 def IsIdentityAffineMap : Constraint<
   CPred<"$_self.isIdentity()">,

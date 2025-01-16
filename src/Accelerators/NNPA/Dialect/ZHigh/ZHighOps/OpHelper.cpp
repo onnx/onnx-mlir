@@ -218,7 +218,7 @@ ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(Type type) {
 // Utility functions.
 
 Value getMinusBcastConst(
-    mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
+    OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
   ShapedType xType = mlir::cast<ShapedType>(X.getType());
   assert(xType.hasStaticShape() && "expected static shape");
   float val = floatAttr.getValueAsDouble() * -1.0;
@@ -517,7 +517,7 @@ AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
 
 /// Check the values of a transpose map to be equal to the permVals.
 bool isTransposePermutationEqualTo(
-    mlir::ArrayAttr permAttr, mlir::ArrayRef<int64_t> permVals) {
+    ArrayAttr permAttr, mlir::ArrayRef<int64_t> permVals) {
   // Check same rank.
   int64_t permAttrSize = ArrayAttrSize(permAttr);
   int64_t permValSize = permVals.size();
@@ -533,9 +533,24 @@ bool isTransposePermutationEqualTo(
   return true;
 }
 
-bool is4DTransposePermutationEqualTo(
-    mlir::ArrayAttr permAttr, int64_t p0, int64_t p1, int64_t p2, int64_t p3) {
-  return isTransposePermutationEqualTo(permAttr, {p0, p1, p2, p3});
+bool isShapeDimMultipleOf(Value val, int64_t index, int64_t multipleVal) {
+  // Type must be shaped and ranked.
+  Type type = val.getType();
+  if (!isRankedShapedType(type))
+    return false;
+  // Index must be within bounds of the shape rank; negative is from back.
+  ArrayRef<int64_t> shape = getShape(type);
+  int64_t size = shape.size();
+  if (index < 0)
+    index += size;
+  if (index < 0 || index >= size)
+    return false;
+  // At this time, only reason about static shapes.
+  int64_t dim = shape[index];
+  if (ShapedType::isDynamic(dim))
+    return false;
+  // All good now, check if dim is a multiple of "multipleVal."
+  return dim % multipleVal == 0;
 }
 
 IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {

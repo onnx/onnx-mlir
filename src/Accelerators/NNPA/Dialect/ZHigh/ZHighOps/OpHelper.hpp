@@ -97,10 +97,9 @@ mlir::AffineMapAttr getTransposeMap(
 /// Check the values of a transpose map to be equal to the permVals.
 bool isTransposePermutationEqualTo(
     mlir::ArrayAttr permAttr, mlir::ArrayRef<int64_t> permVals);
-// hi alex, think we can remove this one.
-bool is4DTransposePermutationEqualTo(
-    mlir::ArrayAttr permAttr, int64_t p0, int64_t p1, int64_t p2, int64_t p3);
-
+/// Return true when shape(Value)[index] % multipleVal == 0.
+/// Negative indices, count from the back (-1 is last element).
+bool isShapeDimMultipleOf(mlir::Value val, int64_t index, int64_t multipleVal);
 /// Get an axis for NHWC layout given an axis for NCHW layout.
 mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);
 

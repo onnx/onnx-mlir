@@ -1117,8 +1117,6 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
       : ConversionPattern(OP_TYPE::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    MLIRContext *context = rewriter.getContext();
-    OP_TYPE reduceOp = mlir::cast<OP_TYPE>(op);
     Location loc = op->getLoc();
     Value data = operands[0];
 

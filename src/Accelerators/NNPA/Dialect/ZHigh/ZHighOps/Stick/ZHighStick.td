@@ -169,7 +169,7 @@ def ReplaceONNXReciprocalSqrtPattern: Pat<
 // perform some memory layout operations, which results in no change in the
 // 3DS representation as that representation also perform layout changes.
 // 
-// Limitation: current pattern assume a BS of 1 and static sizes.
+// Limitation: current pattern assume static sizes.
 
 def ReshapeTransposeReshapeRoberta3DSWithBS1Pattern : Pat<
   // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick.
@@ -184,17 +184,18 @@ def ReshapeTransposeReshapeRoberta3DSWithBS1Pattern : Pat<
     $layout3DS, $saturation),
     // Output: initial X value unchanged.
     (replaceWithValue $X),
-    // Conditions
+    // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
-     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
      (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
      (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
-     (Is4DTransposePermutationEqualTo0213 $perm),
+     (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
+     (IsShapeDimMultipleOf64<2> $X), // Third dim of input is a multiple of 64.
+     (Is4DTransposePermutationEqualTo0213 $perm), // Permute middle 2 dims.
      (IsTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
      (IsRightmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the last two dimensions. 
    ]
 >;
-
 
 // The following pattern was found in bertsquad and GPT models.
 // ```
