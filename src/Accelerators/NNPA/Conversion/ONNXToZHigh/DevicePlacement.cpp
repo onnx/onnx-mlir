@@ -161,7 +161,7 @@ void DevicePlacementPass::runOnOperation() {
 
   // Disable reporting on NNPA unsupported ops in this pass even if
   // `-opt-report=NNPAUnsupportedOps` is specified..
-  OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps = 0;
+  ONNXToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps = 0;
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
@@ -200,13 +200,13 @@ void DevicePlacementPass::runOnOperation() {
   // Call ONNXToZHigh pass for lowering multiple ONNX ops at once to ZHigh.
   // E.g. `onnx.ReLu (onnx.Conv)` to zhigh.Conv.
   RewritePatternSet Patterns2(context);
-  getONNXToZHighMultipleOpPatterns(Patterns2, nnpaQuantization);
+  getONNXToZHighMultipleOpPatterns(Patterns2);
   (void)applyAnalysisConversion(module, target, std::move(Patterns2),
       ConversionConfig{.legalizableOps = &legalizedOps2});
 
   // Call ONNXToZHigh pass for lowering a single ONNX op to ZHigh.
   RewritePatternSet Patterns3(context);
-  getONNXToZHighOneOpPatterns(Patterns3, nnpaQuantization);
+  getONNXToZHighOneOpPatterns(Patterns3);
   getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis);
   (void)applyAnalysisConversion(module, target, std::move(Patterns3),
       ConversionConfig{.legalizableOps = &legalizedOps3});
