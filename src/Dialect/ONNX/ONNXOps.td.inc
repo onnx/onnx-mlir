@@ -3178,7 +3178,6 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
   groups `num_groups` should be divisible by the number of channels so that there are
   an equal number of channels per group.
   
-<<<<<<< HEAD
   The overall computation has two stages: the first stage normalizes the elements to
   have zero mean and unit variance for each instance in each group, and the second
   stage scales and shifts the results of the first stage. The floating-point precision
@@ -3235,8 +3234,6 @@ def ONNXGroupNormalizationV18Op:ONNX_Op<"GroupNormalizationV18",
   groups `num_groups` should be divisible by the number of channels so that there are
   an equal number of channels per group.
   
-=======
->>>>>>> 20c926ee (fix: now use gen_onnx_mlir.py and change few details)
   When the number of groups is the same as the number of channels, this operator is
   equivalent to InstanceNormalization. When there is only one group, this operator
   is equivalent to LayerNormalization.
