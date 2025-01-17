@@ -58,6 +58,10 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   if (splitRank > 1)
     return emitOpError() << ": split has rank " << splitRank << " > 1";
   if (ElementsAttr entries = getElementAttributeFromONNXValue(splitValue)) {
+    if (isElementAttrUninitializedDenseResource(entries)) {
+      return success(); // Return success to allow the parsing of MLIR with
+                        // elided attributes
+    }
     if (splitRank == 0) {
       auto scalar = getScalarValue<int64_t>(entries, splitType);
       if (scalar <= 0)

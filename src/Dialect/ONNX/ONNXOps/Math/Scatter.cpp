@@ -76,6 +76,10 @@ LogicalResult ONNXScatterElementsOp::verify() {
   if (dataDimAtAxis >= 0) {
     if (ElementsAttr valueAttribute =
             getElementAttributeFromONNXValue(indices)) {
+      if (isElementAttrUninitializedDenseResource(valueAttribute)) {
+        return success(); // Return success to allow the parsing of MLIR with
+                          // elided attributes
+      }
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)
