@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <sys/time.h>
 
 using namespace mlir;
 
@@ -859,6 +860,8 @@ ElementsAttr ElementsAttrBuilder::scatterND(
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {
+  double totalTime = 0.;
+  struct timeval start_t, end_t, start_t1, end_t1;
   assert(!elms.empty());
   if (axes.empty())
     return elms;
@@ -900,6 +903,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   }
 
   ShapedType reducedType = type.clone(reducedShape);
+#if 1
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
     StridesRange<1> sRange(reducedShape, {reducedStrides});
     SmallVector<std::pair<int64_t, uint64_t>, 4> batch;
@@ -909,7 +913,9 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     std::mutex mtx;
     size_t beginOffset = 0;
     auto fetchBatch = [&](size_t threadNumber) {
-      const std::lock_guard<std::mutex> lock(mtx);
+      // Each thread fetches the same batch size. The remainder is set in the
+      // threads with small thread number.
+      Const std::lock_guard<std::mutex> lock(mtx);
       size_t batchSize = batch.size() / ctx->getNumThreads();
       size_t batchSizeMod = batch.size() % ctx->getNumThreads();
       if (threadNumber < batchSizeMod)
@@ -941,6 +947,82 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     };
     parallelFor(ctx, 0, ctx->getNumThreads(), work);
   });
+#elif 0
+  return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
+    // gettimeofday(&start_t, NULL);
+    StridesRange<1> axesRange(axesShape, {axesStrides});
+    auto axesIter = axesRange.begin();
+    auto axesEnd = axesRange.end();
+    assert(axesIter->at(0) == 0 && "initial src offset must be zero");
+
+    // This preparation is slow.
+    SmallVector<int64_t, 4> batch;
+    while (++axesIter != axesEnd)
+      batch.emplace_back(axesIter->at(0));
+
+    // Traverse and populate each element d in dstNums.
+    for (auto &idxoffs : StridesRange<1>(reducedShape, {reducedStrides})) {
+      WideNum &d = dstNums[idxoffs.flattenedIndex];
+      int64_t srcPos = idxoffs[0];
+      // Traverse all the elements that reduce together into d.
+      // srcNums elements may be repeated if there are zeros in axesStrides.
+      d = srcNums.get()[srcPos];
+
+      std::mutex mtx;
+      size_t beginOffset = 0;
+      auto fetchBatch = [&](size_t threadNumber) {
+        const std::lock_guard<std::mutex> lock(mtx);
+        size_t batchSize = batch.size() / ctx->getNumThreads();
+        size_t batchSizeMod = batch.size() % ctx->getNumThreads();
+        if (threadNumber < batchSizeMod)
+          batchSize += 1;
+        auto batchBegin = batch.begin() + beginOffset;
+        auto batchEnd = batchBegin + batchSize;
+        beginOffset += batchSize;
+        return llvm::make_range(batchBegin, batchEnd);
+      };
+
+      SmallVector<WideNum, 4> dThread(
+          ctx->getNumThreads(), WideNum::widen<BType::INT32>(0));
+      auto work = [&](size_t threadNumber) {
+        auto batch = fetchBatch(threadNumber);
+        for (auto b : batch) {
+          int64_t srcOffset = b;
+          dThread[threadNumber] =
+              reducer(dThread[threadNumber], srcNums.get()[srcPos + srcOffset]);
+        }
+      };
+      parallelFor(ctx, 0, ctx->getNumThreads(), work);
+
+      for (auto dd : dThread)
+        d = reducer(d, dd);
+    }
+    // gettimeofday(&end_t, NULL);
+    // totalTime = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) -
+    //                ((start_t.tv_sec * 1000000) + start_t.tv_usec)) /
+    //            1000;
+    // printf("@parallelPart@ total time, %f (milliseconds)\n", totalTime);
+  });
+#else
+  return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
+    // Traverse and populate each element d in dstNums.
+    for (auto &idxoffs : StridesRange<1>(reducedShape, {reducedStrides})) {
+      WideNum &d = dstNums[idxoffs.flattenedIndex];
+      int64_t srcPos = idxoffs[0];
+      // Traverse all the elements that reduce together into d.
+      // srcNums elements may be repeated if there are zeros in axesStrides.
+      StridesRange<1> axesRange(axesShape, {axesStrides});
+      auto axesIter = axesRange.begin();
+      auto axesEnd = axesRange.end();
+      assert(axesIter->at(0) == 0 && "initial src offset must be zero");
+      d = srcNums.get()[srcPos];
+      while (++axesIter != axesEnd) {
+        int64_t srcOffset = axesIter->at(0);
+        d = reducer(d, srcNums.get()[srcPos + srcOffset]);
+      }
+    }
+  });
+#endif
 }
 
 ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
