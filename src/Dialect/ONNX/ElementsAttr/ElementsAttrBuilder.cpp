@@ -504,6 +504,56 @@ bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
 Adapted from
 https://github.com/onnx/onnx/blob/091d3ad16155640a7b56b0aab8a364fb908894a8/onnx/reference/ops/op_reverse_sequence.py#L9
 */
+/*
+Psudo code for the reverseSequence implementation:
+
+result = input
+for i in enumerate(sequence_lens)
+  list<pair<destpos, sourcepos> dstSrcPositionPairs
+  list<list<position>> timeIndexPosList1 with size input[0] dimsize for
+batch_index=1 ( it will be input[1] dimsize for batch_index=0)
+
+  for idx on input
+    begin
+      if( batch_index==1 and idx[1] == i and idx[0] < sequence_lens[i] )
+        dstSrcPositionPairs.push(idx.pos,0) // the destination pos which will be
+        replaced is added, the source postion form where it will be replaced
+        will be computed later
+        timeIndexPosList1[idx[0]].push(idx.pos) // Add this pos to
+        the correspoding timeIndex list.
+      else if ( batch_index==0 and idx[0] == i and idx[1] < sequence_lens[i] )
+        dstSrcPositionPairs.push(idx.pos,0)
+        timeIndexPosList1[idx[1]].push(idx.pos)
+    end
+
+list<list<position>> timeIndexPosList2 with size input[0] dimsize for
+batch_index=1 ( it will be input[1] dimsize for batch_index=0)
+
+  for idx on input
+    begin
+      if( batch_index==1 and idx[1] == i and idx[0] < sequence_lens[i] )
+        timeIndexPosList2[idx[0]].push(idx.pos)
+        positionWithinList = timeIndexPosList2[idx[0]].size()
+
+        listAsPerRevSeq = timeIndexPosList1.size()-idx[0]-1
+        sourcePosition = timeIndexPosList1[listAsPerRevSeq][positionWithinList]
+        update the pair in dstSrcPositionPairs for idx.pos with sourcePosition
+      else if( batch_index==0 and idx[0] == i and idx[1] < sequence_lens[i] )
+        timeIndexPosList2[idx[1]].push(idx.pos)
+        positionWithinList = timeIndexPosList2[idx[1]].size()
+
+        listAsPerRevSeq = timeIndexPosList1.size()-idx[1]-1
+        sourcePosition = timeIndexPosList1[listAsPerRevSeq][positionWithinList]
+        update the pair in dstSrcPositionPairs for idx.pos with sourcePosition
+    end
+  get iterator for dstSrcPositionPairs.
+  for idx on input
+    begin
+      continue till the idx.pos equals iterator.destination
+      update the result[idx.pos] with value at iterator.source
+      increment the iterator
+    end
+*/
 ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
     ElementsAttr sequenceLength, uint64_t batchIndex, uint64_t timeIndex) {
   bool enableVerbose = false;
@@ -527,31 +577,23 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
   ArrayBuffer<WideNum> seqLengthNums = getWideNumsAndExpandedStrides(
       sequenceLength, seqLengthShape, seqLengthStrides);
 
-  ShapedType resultType = inputType.clone(inputShape);
   Type elementType = inputType.getElementType();
 
-  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+  return fromWideNums(inputType, [&](MutableArrayRef<WideNum> dstNums) {
     wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
       // This loop copies each element in  the input to the dstNums
       for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
-        // Traverse all the elements that reduce together into d.
-        // srcNums elements may be repeated if there are zeros in axesStrides.
-        cpptype accumulator = 0;
-        int64_t pos = idxoffs[0];
-        accumulator = inputNums.get()[pos].narrow<TAG>();
-        // std::cout << " idxoffs.flattenedIndex " << idxoffs.flattenedIndex
-        //           << std::endl;
-        dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+        dstNums[idxoffs.flattenedIndex] = inputNums.get()[idxoffs[0]];
       }
       SmallVector<int64_t, 4> sequenceLength;
       // Traverse and populate each element d into sequenceLength.
       for (auto &idxoffs :
           StridesRange<1>(seqLengthShape, {seqLengthStrides})) {
         int64_t pos = idxoffs[0];
-        auto accumulator = seqLengthNums.get()[pos].narrow<BType::INT64>();
-        sequenceLength.emplace_back(accumulator);
+        auto value = seqLengthNums.get()[pos].narrow<BType::INT64>();
+        sequenceLength.emplace_back(value);
       }
       if (enableVerbose) {
         std::cout << " batch index " << batchIndex << " time index "
@@ -566,12 +608,11 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
 
       // This is the most outer loop, after each iteration it will have
       // rearranged the data in correspoding batch_index dimension.
-      for (size_t seqLengthIndex = 0; seqLengthIndex < sequenceLength.size();
-           seqLengthIndex++) {
+      for (auto [seqLengthIndex, seqLengthValue] :
+          llvm::enumerate(sequenceLength)) {
         if (enableVerbose) {
           std::cout << "Iteration - Index " << seqLengthIndex
-                    << " seq length = " << sequenceLength[seqLengthIndex]
-                    << std::endl;
+                    << " seq length Value = " << seqLengthValue << std::endl;
         }
         /*
         dstSrcPositionPairs: maintains the list of positions dst,src.
@@ -595,7 +636,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         std::list<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
 
         /*
-        reversePosList1:
+        timeIndexPosList1:
         This will have one list for each of the possible timeIndex values.
         ex: for input (3,3,1,2) seqlength [3,3,3], batch_index 1
         time_index is 0, and at dim-0, we will have three differnet values.
@@ -606,35 +647,35 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         list at 2  -> 12 13
         Once the list is fully populated. It will be used to find the source
         position for the current destination position. For ex: when at [0]th
-        list second position, we can find the second position in [2]nd list
-        second position value
+        list second element position, we can find the second position in [2]nd
+        list second element position value
         */
-        std::list<std::list<int64_t>> reversePosList1;
-        int reversePosListSize = 0;
-        int maxValueForReversePosListSize = 0;
+        std::list<std::list<int64_t>> timeIndexPosList1;
+        int timeIndexPosListSize = 0;
+        int maxValueForTimeIndexPosListSize = 0;
         // time_axis dim size
         if (batchIndex == 1) {
-          maxValueForReversePosListSize = inputShape[0];
+          maxValueForTimeIndexPosListSize = inputShape[0];
         } else {
-          maxValueForReversePosListSize = inputShape[1];
+          maxValueForTimeIndexPosListSize = inputShape[1];
         }
         // The reverseSequence length cannot be greater than the timeIndex dim
         // length
 
-        reversePosListSize =
-            (sequenceLength[seqLengthIndex] > maxValueForReversePosListSize)
-                ? maxValueForReversePosListSize
-                : sequenceLength[seqLengthIndex];
+        timeIndexPosListSize =
+            (seqLengthValue > maxValueForTimeIndexPosListSize)
+                ? maxValueForTimeIndexPosListSize
+                : seqLengthValue;
         /* The number of lists trackes the positions of time_index's which
            are to be reversed, this is defined by the sequence_lens value.
            ex: for input (3,3,1,2) seqlength [2,2,2], batch_index 1
            here the reversal is for first two entries of the timeIndex ( 0 and 1
-           ). The number of lists in the reversePosList1 will be 2.
+           ). The number of lists in the timeIndexPosList1 will be 2.
         */
-        reversePosList1.resize(reversePosListSize);
+        timeIndexPosList1.resize(timeIndexPosListSize);
         // Below loop will populate the dstSrcPositionPairs with the dst
         // positions only. This dst positions are the one's which need to
-        // overriden. It will also populate the reversePosList1.
+        // overriden. It will also populate the timeIndexPosList1.
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
           int64_t pos = idxoffs[0];
           auto idx = idxoffs.index;
@@ -646,31 +687,29 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
           and 1 only)
           */
           if ((batchIndex == 1) &&
-              ((idx[1] == seqLengthIndex) &&
-                  (idx[0] < sequenceLength[seqLengthIndex]))) {
+              ((idx[1] == seqLengthIndex) && (idx[0] < seqLengthValue))) {
             // adding only destination pos, source pos will be added in next
             // iteration.
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
-            auto listIter = reversePosList1.begin();
+            auto listIter = timeIndexPosList1.begin();
             // advancing the list iterator by idx[0],
             // note, we have one list per timeSliceIndex
             // here the advancement is same as idx[0]
             std::advance(listIter, idx[0]);
             // Add the pos to the correspoding timeSliceIndex's list.
             (*listIter).push_back(idxoffs[0]);
-          } else if ((batchIndex == 0) &&
-                     ((idx[0] == seqLengthIndex) &&
-                         (idx[1] < sequenceLength[seqLengthIndex]))) {
+          } else if ((batchIndex == 0) && ((idx[0] == seqLengthIndex) &&
+                                              (idx[1] < seqLengthValue))) {
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
-            auto iter = reversePosList1.begin();
+            auto iter = timeIndexPosList1.begin();
             std::advance(iter, idx[1]);
             (*iter).push_back(idxoffs[0]);
           }
         }
         if (enableVerbose) {
-          std::cout << " Printing reversePosList1 " << std::endl;
+          std::cout << " Printing timeIndexPosList1 " << std::endl;
           int iterindex = 0;
-          for (const auto &iter : reversePosList1) {
+          for (const auto &iter : timeIndexPosList1) {
             std::cout << " at : " << iterindex << std::endl;
             iterindex++;
             for (auto innerIter : iter) {
@@ -679,14 +718,14 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             std::cout << std::endl;
           }
         }
-        // reversePosList2 is simliar to reversePosList1.
-        std::list<std::list<int64_t>> reversePosList2;
-        reversePosList2.resize(reversePosListSize);
+        // timeIndexPosList2 is simliar to timeIndexPosList1.
+        std::list<std::list<int64_t>> timeIndexPosList2;
+        timeIndexPosList2.resize(timeIndexPosListSize);
         /* Starting the dstSrcPositionPairs iteration.
            As the dst poisitions are encountered, the source position
            assignement will be done. The assignments are done in the same order.
            Now, we have the knowledge of each timeIndex's position lists in the
-           reversePosList1.
+           timeIndexPosList1.
         */
         auto dstSrcPairsIter = dstSrcPositionPairs.begin();
         /*
@@ -696,9 +735,8 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
           auto idx = idxoffs.index;
           if ((batchIndex == 1) &&
-              ((idx[1] == seqLengthIndex) &&
-                  (idx[0] < sequenceLength[seqLengthIndex]))) {
-            auto listIter2 = reversePosList2.begin();
+              ((idx[1] == seqLengthIndex) && (idx[0] < seqLengthValue))) {
+            auto listIter2 = timeIndexPosList2.begin();
             std::advance(listIter2, idx[0]);
             (*listIter2).push_back(idxoffs[0]);
             /*
@@ -711,26 +749,25 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
 
             int posIndex = (*listIter2).size() - 1;
             /*
-            get the iterator reversePosList1 and advance it to point to the
+            get the iterator timeIndexPosList1 and advance it to point to the
             correct source list.
             */
-            auto iter1 = reversePosList1.begin();
-            std::advance(iter1, (reversePosList1.size() - 1 - idx[0]));
+            auto iter1 = timeIndexPosList1.begin();
+            std::advance(iter1, (timeIndexPosList1.size() - 1 - idx[0]));
             // In the source list advance the iter to point to the corresponding
             // postion.
             auto innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
             (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
-          } else if ((batchIndex == 0) &&
-                     ((idx[0] == seqLengthIndex) &&
-                         (idx[1] < sequenceLength[seqLengthIndex]))) {
-            auto iter2 = reversePosList2.begin();
+          } else if ((batchIndex == 0) && ((idx[0] == seqLengthIndex) &&
+                                              (idx[1] < seqLengthValue))) {
+            auto iter2 = timeIndexPosList2.begin();
             std::advance(iter2, idx[1]);
             (*iter2).push_back(idxoffs[0]);
             int posIndex = (*iter2).size() - 1;
-            auto iter1 = reversePosList1.begin();
-            std::advance(iter1, (reversePosList1.size() - 1 - idx[1]));
+            auto iter1 = timeIndexPosList1.begin();
+            std::advance(iter1, (timeIndexPosList1.size() - 1 - idx[1]));
             auto innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
             (*dstSrcPairsIter).second = *(innerListIter);
@@ -763,15 +800,16 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             continue;
           }
           if (pos == (*dstSrcLookupIter).first) {
-            cpptype accumulator = 0;
-            accumulator =
+            cpptype replacingValue = 0;
+            replacingValue =
                 inputNums.get()[(*dstSrcLookupIter).second].narrow<TAG>();
-            cpptype accumulator2 = 0;
-            accumulator2 = inputNums.get()[idxoffs[0]].narrow<TAG>();
-            dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+            cpptype existingValue = 0;
+            existingValue = inputNums.get()[idxoffs[0]].narrow<TAG>();
+            dstNums[idxoffs.flattenedIndex] =
+                WideNum::widen<TAG>(replacingValue);
             if (enableVerbose) {
-              std::cout << " Assigning " << accumulator2
-                        << " <== " << accumulator << std::endl;
+              std::cout << " Assigning " << existingValue
+                        << " <== " << replacingValue << std::endl;
             }
             dstSrcLookupIter++;
             if (dstSrcLookupIter == dstSrcPositionPairs.end()) {
