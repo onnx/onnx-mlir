@@ -1050,7 +1050,6 @@ def ReverseSequenceofConst : NamedPat<"ReverseSequenceofConst",
     // From ReverseSequenceOp(c, ba, ta)    
     (ONNXReverseSequenceOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
                       (ONNXConstantOp:$sequence_lens $_, $_, $_, $_, $_, $_, $_, $_), $batch_axis, $time_axis),
-    // To c' where c' is transposed attribute
     (CreateReverseSequenceOfConst $resOp, $input, $sequence_lens),
     [(IsFromDenseONNXConstantOp:$input),(IsFromDenseONNXConstantOp:$sequence_lens)]>;
 
