@@ -192,7 +192,7 @@ def ReshapeTransposeReshapeRoberta3DSWithBS1Pattern : Pat<
      (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
      (IsShapeDimMultipleOf64<2> $X), // Third dim of input is a multiple of 64.
      (Is4DTransposePermutationEqualTo0213 $perm), // Permute middle 2 dims.
-     (IsTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+     (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
      (IsRightmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the last two dimensions. 
    ]
 >;
@@ -234,7 +234,7 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
           (returnType (GetResultType $reshape1))),
         (GetTransposeMap $perm),
         (returnType (GetResultType $transpose))),
-      (GetCollapsing4DTo3DMap $reshape2),
+      (GetLeftmostCollapsing4DTo3DMap $reshape2),
       (returnType (GetResultType $reshape2))),
     $layout3DS, $saturation),
   [(TensorHas2DLayout $X), (Is3DSLayout $layout3DS),
@@ -262,7 +262,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
       (ONNXShapeTransformOp // transpose
         (ONNXShapeTransformOp // reshape
           (ZHighUnstickOp $X),
-          (GetTiling3DTo4DMap $reshape1),
+          (GetLeftmostTiling3DTo4DMap $reshape1),
           (returnType (GetResultType $reshape1))),
         (GetTransposeMap $perm),
         (returnType (GetResultType $transpose))),
@@ -273,7 +273,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
    (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
    (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
-   (IsTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+   (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
    (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
   ]
 >;

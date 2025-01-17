@@ -145,8 +145,8 @@ def IsTiling2DTo4D : Constraint<
 >;
 
 /// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling each input dimension.
-def IsTiling3DTo4D : Constraint<
-  CPred<"::onnx_mlir::zhigh::isTiling3DTo4D($0)">,
+def IsLeftmostTiling3DTo4D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isLeftmostTiling3DTo4D($0)">,
   "Is tiling by ONNReshapeOp"
 >;
 
@@ -176,16 +176,16 @@ def GetTiling2DTo4DMap : NativeCodeCall<
   "::onnx_mlir::zhigh::getTiling2DTo4DMap($_builder, $0)"
 >;
 
-def GetTiling3DTo4DMap : NativeCodeCall<
-  "::onnx_mlir::zhigh::getTiling3DTo4DMap($_builder, $0)"
+def GetLeftmostTiling3DTo4DMap : NativeCodeCall<
+  "::onnx_mlir::zhigh::getLeftmostTiling3DTo4DMap($_builder, $0)"
 >;
 
 def GetCollapsing4DTo2DMap: NativeCodeCall<
   "::onnx_mlir::zhigh::getCollapsing4DTo2DMap($_builder, $0)"
 >;
 
-def GetCollapsing4DTo3DMap: NativeCodeCall<
-  "::onnx_mlir::zhigh::getCollapsing4DTo3DMap($_builder, $0)"
+def GetLeftmostCollapsing4DTo3DMap: NativeCodeCall<
+  "::onnx_mlir::zhigh::getLeftmostCollapsing4DTo3DMap($_builder, $0)"
 >;
 
 def GetTransposeMap : NativeCodeCall<

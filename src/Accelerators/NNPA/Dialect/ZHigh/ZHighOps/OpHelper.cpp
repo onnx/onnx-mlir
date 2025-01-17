@@ -290,7 +290,7 @@ bool isTiling2DTo4D(Value val) {
 
 /// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling the first input
 /// dimension.
-bool isTiling3DTo4D(Value val) {
+bool isLeftmostTiling3DTo4D(Value val) {
   auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
   if (!reshapeOp)
     return false;
@@ -432,8 +432,8 @@ AffineMapAttr getTiling2DTo4DMap(OpBuilder &b, Value val) {
   return AffineMapAttr::get(map);
 }
 
-AffineMapAttr getTiling3DTo4DMap(OpBuilder &b, Value val) {
-  assert(isTiling3DTo4D(val) &&
+AffineMapAttr getLeftmostTiling3DTo4DMap(OpBuilder &b, Value val) {
+  assert(isLeftmostTiling3DTo4D(val) &&
          "ONNXReshapeOp is not suitable for getting a tiling affine map");
 
   auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
@@ -480,8 +480,7 @@ AffineMapAttr getCollapsing4DTo2DMap(OpBuilder &b, Value val) {
   return AffineMapAttr::get(map);
 }
 
-// hi alex, change to leftmost
-AffineMapAttr getCollapsing4DTo3DMap(OpBuilder &b, Value val) {
+AffineMapAttr getLeftmostCollapsing4DTo3DMap(OpBuilder &b, Value val) {
   assert(isLeftmostCollapsing4DTo3D(val) &&
          "ONNXReshapeOp is not suitable for getting a collapsing affine map");
 

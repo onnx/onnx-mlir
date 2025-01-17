@@ -78,17 +78,16 @@ bool oneIsOfLayout(
 /// dimension.
 bool isTiling2DTo4D(mlir::Value val);
 mlir::AffineMapAttr getTiling2DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
-bool isTiling3DTo4D(mlir::Value val);
-mlir::AffineMapAttr getTiling3DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
+bool isLeftmostTiling3DTo4D(mlir::Value val);
+mlir::AffineMapAttr getLeftmostTiling3DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
 /// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the first two
 /// (leftmost) dimensions.
 bool isLeftmostCollapsing4DTo3D(mlir::Value val);
 /// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the last two
 /// (rightmost) dimensions.
 bool isRightmostCollapsing4DTo3D(mlir::Value val);
-// hi alex: add leftmost
-mlir::AffineMapAttr getCollapsing4DTo3DMap(mlir::OpBuilder &b, mlir::Value val);
-// hi alex, add leftmost
+mlir::AffineMapAttr getLeftmostCollapsing4DTo3DMap(
+    mlir::OpBuilder &b, mlir::Value val);
 bool isCollapsing4DTo2D(mlir::Value val);
 mlir::AffineMapAttr getCollapsing4DTo2DMap(mlir::OpBuilder &b, mlir::Value val);
 /// Get an affine map for the permutation array.
