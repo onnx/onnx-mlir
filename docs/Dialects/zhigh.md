@@ -793,6 +793,8 @@ Effects: `MemoryEffects::Effect{}`
 _ZHigh Stickified Constant operation_
 
 This operator produces a constant tensor to store stickified data.
+`value` attribute has original constant or stickified constant.
+`stickified` attribute indicates the `value` is already stickified or not.
 Stickified data is opaque and must be 4K-aligned. One who produces
 the stickified data must make sure its size in bytes consistent with
 the output tensor's size.
@@ -807,6 +809,7 @@ Effects: `MemoryEffects::Effect{}`
 
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>stickified</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
 <tr><td><code>value</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
 <tr><td><code>alignment</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
 </table>
