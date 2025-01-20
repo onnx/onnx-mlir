@@ -2,7 +2,7 @@
 
 # Overview 
  
-NNPA in IBM Telum II supports 8-bit signed-integer quantized matrix multiplications. This document shows how to compile an ONNX model for quantization on NNPA.
+NNPA in IBM Telum II supports 8-bit signed-integer quantized matrix multiplications. This document shows how to compile an ONNX model for 8-bit quantization on NNPA. When not following these steps, models will still be accelerated when targeting Telum systems using a mixture of 16-bit floating-point numbers for computations mapped to the Telum's Integrated AI accelerator and 32-bit floating-point numbers for computations mapped to the Telum CPUs.
 
 There are two approaches to using quantization in the onnx-mlir compiler, depending on the input ONNX model to the compile:
 - The input model is a quantized model that was quantized by other frameworks such as ONNX Runtime. In this case, the input ONNX model contains 8-bit operations, and the onnx-mlir compiler selects suitable 8-bit operations to run on NNPA. There is no special compile flags needed to enable quantization when compiling this quantized model. Hence, we do not discuss this case in this document.
