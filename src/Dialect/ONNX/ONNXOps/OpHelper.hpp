@@ -274,9 +274,6 @@ bool isScalarTensor(mlir::Value v);
 
 bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 
-/// Get raw data from a dense attribute.
-void getRawData(mlir::Attribute dataAttr, std::vector<char> &data);
-
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//

@@ -664,7 +664,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     //////////////////////////////////////////////////////////////////////
     // Reduction over all dimensions to a scalar value.
-    bool fullReduction = hasNoAxes || (rawAxesIE.size() == inRank);
+    bool fullReduction =
+        hasNoAxes || (rawAxesIE.size() == static_cast<uint64_t>(inRank));
     if (fullReduction && !isKeepdims && enableSIMD) {
       Value alloc, none;
       if (emitFullSIMDReductionFor<ONNXReductionOp, ONNXNoneOp>(
