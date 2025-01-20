@@ -412,31 +412,6 @@ private:
         rewriter.getI64Type(), {rewriter.getI64Type()});
   }
 
-  // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
-  void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
-      Value lhs, Value rhs, std::string errorMsg = "",
-      bool appendRHS = true) const {
-    MLIRContext *context = rewriter.getContext();
-    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    create.llvm.ifThenElse(/*cond=*/
-        [&](const LLVMBuilder &createLLVM) {
-          return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
-        }, /*then=*/
-        [&](const LLVMBuilder &createLLVM) {
-          MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
-          // Print an error message.
-          if (appendRHS)
-            create.krnl.printf(
-                StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
-          else
-            create.krnl.printf(StringRef(errorMsg + "\n"));
-          // Set errno.
-          krnl::emitErrNo(module, rewriter, loc, EINVAL);
-          // Return NULL.
-          create.llvm._return(create.llvm.null(getI8PointerType(context)));
-        });
-  }
-
   void emitVerificationCodeForInputTensors(ModuleOp &module,
       PatternRewriter &rewriter, Location loc,
       const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,

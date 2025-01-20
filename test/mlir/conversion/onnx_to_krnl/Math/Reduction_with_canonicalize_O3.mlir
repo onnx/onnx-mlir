@@ -40,6 +40,47 @@ func.func @test_reduce_scalar_axes(%arg0: tensor<?x64x?xf32>) -> tensor<?x?xf32>
 
 // -----
 
+// COM: Full reduction over all dimensions to a scalar value.
+func.func @test_reduce_all_to_scalar(%arg0: tensor<?x64x?xf32>) -> tensor<*xf32> {
+  %axes = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.ReduceMax"(%arg0, %axes) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<?x64x?xf32>, none) -> tensor<*xf32>
+  return %0: tensor<*xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
+// CHECK-LABEL:  func.func @test_reduce_all_to_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x64x?xf32>) -> memref<f32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<0xFF800000> : vector<32xf32>
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x64x?xf32>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<?x64x?xf32>
+// CHECK:           [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
+// CHECK-DAG:       [[VAR_1_:%.+]] = arith.muli [[VAR_0_]], [[VAR_dim_0_]] : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[VAR_1_]], [[RES_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_]]) : (memref<?x64x?xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<32xf32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() : memref<f32>
+// CHECK:           vector.store [[VAR_cst_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<32xf32>, vector<32xf32>
+// CHECK:           [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[VAR_1_]]){
+// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<32xf32>, vector<32xf32>
+// CHECK:             [[VAR_8_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_8_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<32xf32>, vector<32xf32>
+// CHECK:           }
+// CHECK:           [[LOAD_RES_1_MEM_1_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<32xf32>, vector<32xf32>
+// CHECK:           [[VAR_4_:%.+]] = vector.reduction <maxnumf>, [[LOAD_RES_1_MEM_1_]] : vector<32xf32> into f32
+// CHECK:           krnl.store [[VAR_4_]], [[RES_2_]][] : memref<f32>
+// CHECK:           return [[RES_2_]] : memref<f32>
+// CHECK:         }
+}
+
+// -----
+
 func.func private @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

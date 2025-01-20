@@ -69,6 +69,16 @@ std::string e2a_s(std::string e_s);
 void emitErrNo(mlir::ModuleOp module, mlir::OpBuilder &builder,
     mlir::Location loc, int err);
 
+/// Emit code for `IF lhs != rhs THEN return null ELSE do nothing`.
+void equalOrFailed(mlir::ModuleOp &module, mlir::OpBuilder &rewriter,
+    mlir::Location loc, mlir::Value lhs, mlir::Value rhs,
+    std::string errorMsg = "", bool appendRHS = true);
+
+/// Emit code for `IF lhs != rhs THEN return retVal ELSE do nothing`.
+void equalOrReturn(mlir::ModuleOp &module, mlir::OpBuilder &rewriter,
+    mlir::Location loc, mlir::Value lhs, mlir::Value rhs, mlir::Value retVal,
+    std::string errorMsg = "");
+
 /// Creates an LLVM pointer type with the given element type and address space.
 /// This function is meant to be used in code supporting both typed and opaque
 /// pointers, as it will create an opaque pointer with the given address space
