@@ -19,19 +19,22 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
-LogicalResult Diagnostic::emitAttributeOutOfRangeError(Operation &op,
-    const llvm::Twine &attrName, T attrVal, Range<T> validRange) {
+LogicalResult Diagnostic::emitAttributeOutOfRangeError(
+    Operation &op, const llvm::Twine &attrName, T attrVal, Range<T> range) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
   llvm::Twine msg(op.getName().getStringRef() + ": ");
+  std::string rangeMessage =
+      range.isValid() ? "" : " <<Warning, ill-formed range>>";
   return emitError(op.getLoc(), msg.concat("'" + attrName + "'")
                                     .concat(" value is ")
                                     .concat(std::to_string(attrVal))
                                     .concat(", accepted range is [")
-                                    .concat(std::to_string(validRange.min))
+                                    .concat(std::to_string(range.min))
                                     .concat(", ")
-                                    .concat(std::to_string(validRange.max))
-                                    .concat("]"));
+                                    .concat(std::to_string(range.max))
+                                    .concat("]")
+                                    .concat(rangeMessage));
 }
 
 template <typename T>
