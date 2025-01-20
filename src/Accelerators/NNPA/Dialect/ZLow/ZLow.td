@@ -44,7 +44,6 @@ def ZMemRef : MemRefOf<[DLF16]>;
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "src/Interface/KrnlGlobalOpInterface.td"
 
 def ZLowAddOp:ZLow_Op<"add", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
@@ -546,22 +545,6 @@ def ZLowConvertF32ToDLF16VectorOp:ZLow_Op<"vec_f32_to_dlf16", [Pure]> {
       build($_builder, $_state, resType, input1, input2);
     }]>
   ];
-}
-
-def ZLowStickifiedConstantOp:ZLow_Op<"stickifiedConstant", [MemRefsNormalizable,
-    DeclareOpInterfaceMethods<KrnlGlobalOpInterface>]> {
-  let summary = "ZLow Stickified Constant operation.";
-  let description = [{
-
-  }];
-  let arguments = (ins AnyAttr:$shape,
-                       StrAttr:$name,
-                       BoolAttr:$stickified,
-                       OptionalAttr<AnyAttr>:$value,
-                       OptionalAttr<StrAttr>:$layout,
-                       OptionalAttr<I64Attr>:$offset,
-                       DefaultValuedAttr<I64Attr, "4096">:$alignment);
-  let results = (outs ZMemRef:$output);
 }
 
 #endif // ZLOW_OPS
