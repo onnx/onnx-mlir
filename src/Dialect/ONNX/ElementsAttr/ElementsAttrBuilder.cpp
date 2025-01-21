@@ -575,7 +575,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         dstNums[idxoffs.flattenedIndex] = inputNums.get()[idxoffs[0]];
       }
       SmallVector<int64_t, 4> sequenceLength;
-      // Traverse and populate each element d into sequenceLength.
+      // Traverse and populate each element into sequenceLength.
       for (auto &idxoffs :
           StridesRange<1>(seqLengthShape, {seqLengthStrides})) {
         int64_t pos = idxoffs[0];
@@ -595,7 +595,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
           llvm::enumerate(sequenceLength)) {
         /*
         dstSrcPositionPairs: maintains the list of positions dst,src.
-        Here destination means the poition whose value will be
+        Here destination means the position whose value will be
         overriden as part of rearrangement.
         source means the position from where the value will be
         picked up.
@@ -747,11 +747,6 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
 
           int64_t pos = idxoffs[0];
-          // std::cout << " pos " << pos << " idxoffs.flattenedIndex "
-          //           << idxoffs.flattenedIndex << " : "
-          //           << (*dstSrcLookupIter).first << " - "
-          //           << (*dstSrcLookupIter).second << std::endl;
-
           if (pos < ((*dstSrcLookupIter).first)) {
             continue;
           }
