@@ -211,17 +211,6 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);
-  // `arith.maxnumf/arith.minnumf` can be replaced with
-  // `llvm.intr.maxnum/llvm.intr.minnum` by
-  // populateArithToLLVMConversionPatterns, or with `arith.cmpf` and
-  // `arith.select` by populateArithExpandOpsPatterns. Which is applied for
-  // depends on the order in which the pattterns are  applied. Currently, it
-  // should be replaced with `llvm.intr.maxnum/llvm.intr.minnum` because
-  // `arith.cmpf` and `arith.select do not work in float16 on ppc64le and cannot
-  // use SIMD, but currently there is no way to specify the order. From testing,
-  // following two line generates expected replacement We need to consider to
-  // specify the order, but we use this workaround for now.
-  arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
@@ -230,6 +219,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   if (enableParallel) {
     populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
   }
+  arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
@@ -475,8 +465,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Check constants with thresholds.
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
-  SmallVector<KrnlGlobalOpInterface> globalOfInterest;
-  module.walk([&](KrnlGlobalOpInterface op) {
+  SmallVector<KrnlGlobalOp> globalOfInterest;
+  module.walk([&](KrnlGlobalOp op) {
     // Ignore constants that are return values.
     bool isReturnedValue = false;
     for (Operation *user : op.getResult().getUsers()) {
@@ -492,23 +482,22 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     // For an unknown reason, enabling constants of bool caused segfault in the
     // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
     // See issue https://github.com/onnx/onnx-mlir/issues/2713.
-    if (llvm::cast<MemRefType>(op.getResult().getType())
+    if (llvm::cast<MemRefType>(op->getResult(0).getType())
             .getElementType()
             .isInteger(1))
       return WalkResult::advance();
 
     // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
-    uint64_t bufferSize = op.getBufferSize();
-    if (bufferSize <= singleThreshold)
+    ArrayRef<char> rawData = getRawData(op);
+    if (rawData.empty())
       return WalkResult::advance();
 
-    if (op.getValueAttr()) {
-      auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
-      if (valueAttr.isSplat())
-        return WalkResult::advance();
-    }
+    auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
+    if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
+      return WalkResult::advance();
+
     globalOfInterest.emplace_back(op);
-    totalSize += bufferSize;
+    totalSize += rawData.size();
     return WalkResult::advance();
   });
   // Do not use file if the total size of satisfied constants is <=
@@ -518,16 +507,15 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
   // Sort constants in the non-descending order of alignment values.
   // Non-alignment is the smallest value (-1), the others are positive.
-  llvm::sort(globalOfInterest,
-      [&](KrnlGlobalOpInterface left, KrnlGlobalOpInterface right) {
-        int64_t leftAlign = -1;
-        int64_t rightAlign = -1;
-        if (left.getAlignment().has_value())
-          leftAlign = left.getAlignment().value();
-        if (right.getAlignment().has_value())
-          rightAlign = right.getAlignment().value();
-        return (leftAlign < rightAlign);
-      });
+  llvm::sort(globalOfInterest, [&](KrnlGlobalOp left, KrnlGlobalOp right) {
+    int64_t leftAlign = -1;
+    int64_t rightAlign = -1;
+    if (left.getAlignment().has_value())
+      leftAlign = left.getAlignment().value();
+    if (right.getAlignment().has_value())
+      rightAlign = right.getAlignment().value();
+    return (leftAlign < rightAlign);
+  });
 
   // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
@@ -537,8 +525,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
   uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
-    KrnlGlobalOpInterface op = globalOfInterest[i];
-    ArrayRef<char> rawData = op.getBuffer();
+    KrnlGlobalOp op = globalOfInterest[i];
+    ArrayRef<char> rawData = getRawData(op);
 
     // Get alignment.
     int64_t alignment = -1;
@@ -556,11 +544,11 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     }
 
     op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
+    op.removeValueAttr();
     outfile.write(rawData.data(), rawData.size());
     totalConstSize += rawData.size();
-    op.removeValueAttr();
-    op.freeBuffer(rawData);
   }
+
   // No constant statisfying thresholds, do not store constants to file.
   if (totalConstSize == 0)
     return false;
@@ -569,6 +557,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(module.getBody());
   std::string fname = llvm::sys::path::filename(filepath).str() + '\0';
+  fname = (isZOS(module)) ? krnl::a2e_s(fname) : fname;
   mlir::StringAttr valueAttr = mlir::StringAttr::get(context, fname);
   create.llvm.globalOp(LLVM::LLVMArrayType::get(llvmI8Ty, fname.size()),
       /*isConstant=*/true, LLVM::Linkage::Internal,
@@ -612,15 +601,15 @@ void loadConstantsFromFile(ModuleOp &module,
   OpBuilder b(ctx);
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
+  Type llvmI1Ty = IntegerType::get(ctx, 1);
   Type llvmI8Ty = IntegerType::get(ctx, 8);
   Type llvmI64Ty = IntegerType::get(ctx, 64);
   Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
-  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
 
   // The following function will be emitted inside the IR to load constants from
   // file.
   std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmI1Ty, {}, false);
 
   // If calledByEntryPoint, this function will be called by entry points.
   // Otherwise, user program (C/C++/Java/Python) would call this function.
@@ -629,6 +618,7 @@ void loadConstantsFromFile(ModuleOp &module,
     Operation *firstEntryPointOp =
         getFirstEntryOpInBlock(module, entryGlobalOps);
     assert(firstEntryPointOp && "No entry function exists");
+    OpBuilder::InsertionGuard guard(b);
     b.setInsertionPoint(firstEntryPointOp);
     funcOp = create.llvm.func(
         loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
@@ -646,13 +636,16 @@ void loadConstantsFromFile(ModuleOp &module,
           std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
       auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
       assert(entryFunc && "Entry function not found");
+      OpBuilder::InsertionGuard guard(b);
       b.setInsertionPoint(
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
       FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
           module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
-          llvmVoidTy, {},
+          llvmI1Ty, {},
           /*isVarArg=*/false);
-      create.llvm.call({}, loadAllConstantsRef, {});
+      Value retVal = create.llvm.call({llvmI1Ty}, loadAllConstantsRef, {});
+      equalOrFailed(module, b, loc,
+          create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
     }
   } else {
     OpBuilder::InsertionGuard guard(b);
@@ -697,8 +690,11 @@ void loadConstantsFromFile(ModuleOp &module,
   // Call a function to mmap the binary file to memory.
   Value isleVal = create.llvm.constant(llvmI64Ty, isle);
   Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
-  RuntimeAPI::callApi(b, loc, apiRegistry, RuntimeAPI::API::MMAP_BINARY_FILE,
+  Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
+      RuntimeAPI::API::MMAP_BINARY_FILE,
       {packedGlobalPtr, fnameI8Ptr, sizeVal, isleVal});
+  equalOrReturn(module, b, loc,
+      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal, retVal);
 
   // Now set pointers for constants in the IR
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
@@ -725,11 +721,10 @@ void loadConstantsFromFile(ModuleOp &module,
     RuntimeAPI::callApi(b, loc, apiRegistry,
         RuntimeAPI::API::GET_EXTERNAL_CONSTANT_ADDR,
         {dataPtr, packedGlobalPtr, offsetVal});
-
     return WalkResult::advance();
   });
 
-  create.llvm._return();
+  create.llvm._return(create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)));
 }
 
 //===----------------------------------------------------------------------===//
@@ -972,8 +967,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlGlobalOpInterfacePattern(
-      typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);

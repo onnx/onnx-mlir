@@ -54,7 +54,8 @@ void configurePasses() {
       !disableSimdOption);
 }
 
-void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
+void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
+    bool donotScrubDisposableElementsAttr) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -66,8 +67,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  pm.addInstrumentation(
-      std::make_unique<DisposableGarbageCollector>(pm.getContext()));
+  if (!donotScrubDisposableElementsAttr)
+    pm.addInstrumentation(
+        std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
@@ -132,7 +134,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   pm.addPass(mlir::createSymbolDCEPass());
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
-  pm.addPass(createScrubDisposablePass());
+  if (!donotScrubDisposableElementsAttr)
+    pm.addPass(createScrubDisposablePass());
 
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.

@@ -4,61 +4,60 @@
 // COM: We expect that there are only one zlow.stick for the input and one zlow.unstick for the output.
 // COM: It is the necessary condition to get the best performance.
 
-CHECK-LABEL: func.func @main_graph
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: memref.alloc
-CHECK-NEXT: zlow.stick
-CHECK-DAG: zlow.stickifiedConstant
+// CHECK-LABEL: func.func @main_graph
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-NEXT: zlow.stick
 
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: memref.alloc
-CHECK-DAG: memref.alloc
-CHECK-DAG: krnl.global
-CHECK-DAG: memref.alloc
-CHECK-NEXT: zlow.lstm
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-NEXT: zlow.lstm
 
 // No stick and unstick between two LSTMs.
-CHECK-NOT: zlow.stick
-CHECK-NOT: zlow.unstick
-
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: memref.alloc
-CHECK-DAG: memref.alloc
-CHECK-DAG: krnl.global
-CHECK-DAG: memref.alloc
-CHECK-NEXT: zlow.lstm
-
+// CHECK-NOT: zlow.stick
+// CHECK-NOT: zlow.unstick
+// 
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-NEXT: zlow.lstm
+// 
 // No stick and unstick in between.
-CHECK-NOT: zlow.stick
-CHECK-NOT: zlow.unstick
-
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: memref.alloc
-CHECK-DAG: krnl.global
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-NEXT: zlow.matmul
-
+// CHECK-NOT: zlow.stick
+// CHECK-NOT: zlow.unstick
+// 
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-NEXT: zlow.matmul
+// 
 // No stick and unstick in between.
-CHECK-NOT: zlow.stick
-CHECK-NOT: zlow.unstick
-
-CHECK-DAG: zlow.stickifiedConstant
-CHECK-DAG: memref.alloc
-CHECK-DAG: krnl.global
-CHECK-NEXT: zlow.add
-
+// CHECK-NOT: zlow.stick
+// CHECK-NOT: zlow.unstick
+// 
+// CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: krnl.global
+// CHECK-NEXT: zlow.add
+// 
 // No stick and unstick in between.
-CHECK-NOT: zlow.stick
-CHECK-NOT: zlow.unstick
-
-CHECK-DAG: memref.alloc
-CHECK-DAG: krnl.global
-CHECK-NEXT: zlow.sigmoid
-
-CHECK: memref.alloc
-CHECK-NEXT: zlow.unstick
+// CHECK-NOT: zlow.stick
+// CHECK-NOT: zlow.unstick
+// 
+// CHECK-DAG: memref.alloc
+// CHECK-DAG: krnl.global
+// CHECK-NEXT: zlow.sigmoid
+// 
+// CHECK: memref.alloc
+// CHECK-NEXT: zlow.unstick
