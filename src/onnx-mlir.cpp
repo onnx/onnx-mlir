@@ -4,7 +4,7 @@
 
 //===------------------ onnx-mlir.cpp - Compiler Driver  ------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 // Main function for onnx-mlir.
@@ -15,6 +15,7 @@
 #include <regex>
 
 #include "mlir/IR/AsmState.h"
+#include "mlir/IR/Threading.h"
 #include "mlir/Support/Timing.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -68,7 +69,12 @@ int main(int argc, char *argv[]) {
   }
 
   // Create context after MLIRContextCLOptions are registered and parsed.
-  mlir::MLIRContext context;
+  mlir::MLIRContext context(mlir::MLIRContext::Threading::DISABLED);
+  llvm::DefaultThreadPool pool(
+      llvm::hardware_concurrency(compilationNumThreads));
+  if (compilationNumThreads > 1)
+    context.setThreadPool(pool);
+
   if (!context.isMultithreadingEnabled()) {
     assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
     LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");
