@@ -2611,7 +2611,6 @@ func.func @test_reverse_seq_sameseq_values_int() -> tensor<3x3x1x2xi32> {
 
 // -----
 //---------------------------------------------//
-// reverseSequence tests
 // CHECK-LABEL: @test_reverse_seq_batch_axis_1() -> tensor<3x3x1x2xf32>
 func.func @test_reverse_seq_batch_axis_1() -> tensor<3x3x1x2xf32> {
   %0 = onnx.Constant dense<[3,2,1]> : tensor<3xi64>
@@ -2638,7 +2637,6 @@ func.func @test_reverse_seq_sameseq_values_batch_axis_1() -> tensor<3x3x1x2xf32>
 
 // -----
 //---------------------------------------------//
-// reverseSequence tests
 // CHECK-LABEL: @test_reverse_seq_int_batch_axis_1() -> tensor<3x3x1x2xi32>
 func.func @test_reverse_seq_int_batch_axis_1() -> tensor<3x3x1x2xi32> {
   %0 = onnx.Constant dense<[3,2,1]> : tensor<3xi64>

@@ -510,34 +510,30 @@ result = input
 for i in enumerate(sequence_lens)
   list<pair<destpos, sourcepos> dstSrcPositionPairs
   list<list<position>> timeAxisPosList1 with size input[0] dimsize for
-batch_index=1 ( it will be input[1] dimsize for batch_index=0)
-
-  for idx on input
+batch_axis=1 ( it will be input[1] dimsize for batch_axis=0) for idx on input
     begin
-      if( batch_index==1 and idx[1] == i and idx[0] < sequence_lens[i] )
+      if( batch_axis==1 and idx[1] == i and idx[0] < sequence_lens[i] )
         dstSrcPositionPairs.push(idx.pos,0) // the destination pos which will be
         replaced is added, the source postion form where it will be replaced
         will be computed later
         timeAxisPosList1[idx[0]].push(idx.pos) // Add this pos to
         the correspoding timeAxis list.
-      else if ( batch_index==0 and idx[0] == i and idx[1] < sequence_lens[i] )
+      else if ( batch_axis==0 and idx[0] == i and idx[1] < sequence_lens[i] )
         dstSrcPositionPairs.push(idx.pos,0)
         timeAxisPosList1[idx[1]].push(idx.pos)
     end
 
 list<list<position>> timeAxisPosList2 with size input[0] dimsize for
-batch_index=1 ( it will be input[1] dimsize for batch_index=0)
-
-  for idx on input
+batch_axis=1 ( it will be input[1] dimsize for batch_axis=0) for idx on input
     begin
-      if( batch_index==1 and idx[1] == i and idx[0] < sequence_lens[i] )
+      if( batch_axis==1 and idx[1] == i and idx[0] < sequence_lens[i] )
         timeAxisPosList2[idx[0]].push(idx.pos)
         positionWithinList = timeAxisPosList2[idx[0]].size()
 
         listAsPerRevSeq = timeAxisPosList1.size()-idx[0]-1
         sourcePosition = timeAxisPosList1[listAsPerRevSeq][positionWithinList]
         update the pair in dstSrcPositionPairs for idx.pos with sourcePosition
-      else if( batch_index==0 and idx[0] == i and idx[1] < sequence_lens[i] )
+      else if( batch_axis==0 and idx[0] == i and idx[1] < sequence_lens[i] )
         timeAxisPosList2[idx[1]].push(idx.pos)
         positionWithinList = timeAxisPosList2[idx[1]].size()
 
