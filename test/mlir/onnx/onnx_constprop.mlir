@@ -2539,8 +2539,33 @@ func.func @test_reciprocal() -> tensor<1x2xf32> {
 // -----
 //---------------------------------------------//
 // reverseSequence tests
-// CHECK-LABEL: @test_convtrans() -> tensor<3x3x1x2xf32>
-func.func @test_convtrans() -> tensor<3x3x1x2xf32> {
+
+// CHECK-LABEL: @test_reverse_seq_2d_batchaxis() -> tensor<4x4xf32>
+func.func @test_reverse_seq_2d_batchaxis() -> tensor<4x4xf32> {
+  %0 = onnx.Constant dense<[4,3,2,1]> : tensor<4xi64>
+  %1 = onnx.Constant dense<[[0.0,4.0,8.0,12.0],[1.0,5.0,9.0,13.0],[2.0,6.0,10.0,14.0],[3.0,7.0,11.0,15.0]]> : tensor<4x4xf32>
+  %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<4x4xf32>, tensor<4xi64>) -> tensor<4x4xf32>
+  onnx.Return %2 : tensor<4x4xf32>  
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[3.000000e+00, 6.000000e+00, 9.000000e+00, 1.200000e+01], [2.000000e+00, 5.000000e+00, 8.000000e+00, 1.300000e+01], [1.000000e+00, 4.000000e+00, 1.000000e+01, 1.400000e+01], [0.000000e+00, 7.000000e+00, 1.100000e+01, 1.500000e+01]{{.}}> : tensor<4x4xf32>
+  // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
+}
+
+// -----
+//---------------------------------------------//
+// CHECK-LABEL: @test_reverse_seq_2d_timeaxis() -> tensor<4x4xf32>
+func.func @test_reverse_seq_2d_timeaxis() -> tensor<4x4xf32> {
+  %0 = onnx.Constant dense<[1,2,3,4]> : tensor<4xi64>
+  %1 = onnx.Constant dense<[[0.0,1.0,2.0,3.0],[4.0,5.0,6.0,7.0],[8.0,9.0,10.0,11.0],[12.0,13.0,14.0,15.0]]> : tensor<4x4xf32>
+  %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<4x4xf32>, tensor<4xi64>) -> tensor<4x4xf32>
+  onnx.Return %2 : tensor<4x4xf32>  
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[0.000000e+00, 1.000000e+00, 2.000000e+00, 3.000000e+00], [5.000000e+00, 4.000000e+00, 6.000000e+00, 7.000000e+00], [1.000000e+01, 9.000000e+00, 8.000000e+00, 1.100000e+01], [1.500000e+01, 1.400000e+01, 1.300000e+01, 1.200000e+01]{{.}}> : tensor<4x4xf32>
+  // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
+}
+
+// -----
+//---------------------------------------------//
+// CHECK-LABEL: @test_reverse_seq() -> tensor<3x3x1x2xf32>
+func.func @test_reverse_seq() -> tensor<3x3x1x2xf32> {
   %0 = onnx.Constant dense<[3,2,1]> : tensor<3xi64>
   %1 = onnx.Constant dense<[[[[1.1,2.1]],[[3.1,4.1]],[[5.1,6.1]]],[[[1.2,2.2]],[[3.2,4.2]],[[5.2,6.2]]],[[[1.3,2.3]],[[3.3,4.3]],[[5.3,6.3]]]]> : tensor<3x3x1x2xf32>
   %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<3x3x1x2xf32>, tensor<3xi64>) -> tensor<3x3x1x2xf32>
@@ -2551,8 +2576,8 @@ func.func @test_convtrans() -> tensor<3x3x1x2xf32> {
 
 // -----
 //---------------------------------------------//
-// CHECK-LABEL: @test_convtrans_sameseq_values() -> tensor<3x3x1x2xf32>
-func.func @test_convtrans_sameseq_values() -> tensor<3x3x1x2xf32> {
+// CHECK-LABEL: @test_reverse_seq_sameseq_values() -> tensor<3x3x1x2xf32>
+func.func @test_reverse_seq_sameseq_values() -> tensor<3x3x1x2xf32> {
   %0 = onnx.Constant dense<[3,3,3]> : tensor<3xi64>
   %1 = onnx.Constant dense<[[[[1.1,2.1]],[[3.1,4.1]],[[5.1,6.1]]],[[[1.2,2.2]],[[3.2,4.2]],[[5.2,6.2]]],[[[1.3,2.3]],[[3.3,4.3]],[[5.3,6.3]]]]> : tensor<3x3x1x2xf32>
   %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<3x3x1x2xf32>, tensor<3xi64>) -> tensor<3x3x1x2xf32>
@@ -2562,8 +2587,8 @@ func.func @test_convtrans_sameseq_values() -> tensor<3x3x1x2xf32> {
 }
 // -----
 //---------------------------------------------//
-// CHECK-LABEL: @test_convtrans_int() -> tensor<3x3x1x2xi32>
-func.func @test_convtrans_int() -> tensor<3x3x1x2xi32> {
+// CHECK-LABEL: @test_reverse_seq_int() -> tensor<3x3x1x2xi32>
+func.func @test_reverse_seq_int() -> tensor<3x3x1x2xi32> {
   %0 = onnx.Constant dense<[3,2,1]> : tensor<3xi64>
   %1 = onnx.Constant dense<[[[[11,21]],[[31,41]],[[51,61]]],[[[12,22]],[[32,42]],[[52,62]]],[[[13,23]],[[33,43]],[[53,63]]]]> : tensor<3x3x1x2xi32>
   %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<3x3x1x2xi32>, tensor<3xi64>) -> tensor<3x3x1x2xi32>
@@ -2573,12 +2598,65 @@ func.func @test_convtrans_int() -> tensor<3x3x1x2xi32> {
 }
 // -----
 //---------------------------------------------//
-// CHECK-LABEL: @test_convtrans_sameseq_values_int() -> tensor<3x3x1x2xi32>
-func.func @test_convtrans_sameseq_values_int() -> tensor<3x3x1x2xi32> {
+// CHECK-LABEL: @test_reverse_seq_sameseq_values_int() -> tensor<3x3x1x2xi32>
+func.func @test_reverse_seq_sameseq_values_int() -> tensor<3x3x1x2xi32> {
   %0 = onnx.Constant dense<[3,3,3]> : tensor<3xi64>
   %1 = onnx.Constant dense<[[[[11,21]],[[31,41]],[[51,61]]],[[[12,22]],[[32,42]],[[52,62]]],[[[13,23]],[[33,43]],[[53,63]]]]> : tensor<3x3x1x2xi32>
   %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<3x3x1x2xi32>, tensor<3xi64>) -> tensor<3x3x1x2xi32>
   onnx.Return %2 : tensor<3x3x1x2xi32>  
   // CHECK: {{.*}} = onnx.Constant dense<{{.}}[{{.}}[51, 61]{{.}}, {{.}}[31, 41]{{.}}, {{.}}[11, 21]{{.}}], [{{.}}[52, 62]{{.}}, {{.}}[32, 42]{{.}}, {{.}}[12, 22]{{.}}], [{{.}}[53, 63]{{.}}, {{.}}[33, 43]{{.}}, {{.}}[13, 23]{{.}}]{{.}}> : tensor<3x3x1x2xi32>
+  // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
+}
+
+
+// -----
+//---------------------------------------------//
+// reverseSequence tests
+// CHECK-LABEL: @test_reverse_seq_batch_axis_1() -> tensor<3x3x1x2xf32>
+func.func @test_reverse_seq_batch_axis_1() -> tensor<3x3x1x2xf32> {
+  %0 = onnx.Constant dense<[3,2,1]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[[[[1.1,2.1]],[[3.1,4.1]],[[5.1,6.1]]],[[[1.2,2.2]],[[3.2,4.2]],[[5.2,6.2]]],[[[1.3,2.3]],[[3.3,4.3]],[[5.3,6.3]]]]> : tensor<3x3x1x2xf32>
+  %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<3x3x1x2xf32>, tensor<3xi64>) -> tensor<3x3x1x2xf32>
+  onnx.Return %2 : tensor<3x3x1x2xf32>  
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[{{.}}[1.300000e+00, 2.300000e+00]{{.}}, {{.}}[3.200000e+00, 4.200000e+00]{{.}}, {{.}}[5.100000e+00, 6.100000e+00]{{.}}], [{{.}}[1.200000e+00, 2.200000e+00]{{.}}, {{.}}[3.100000e+00, 4.100000e+00]{{.}}, {{.}}[5.200000e+00, 6.1999998]{{.}}], [{{.}}[1.100000e+00, 2.100000e+00]{{.}}, {{.}}[3.300000e+00, 4.300000e+00]{{.}}, {{.}}[5.300000e+00, 6.300000e+00]{{.}}]{{.}}> : tensor<3x3x1x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
+}
+
+// -----
+//---------------------------------------------//
+// CHECK-LABEL: @test_reverse_seq_sameseq_values_batch_axis_1() -> tensor<3x3x1x2xf32>
+func.func @test_reverse_seq_sameseq_values_batch_axis_1() -> tensor<3x3x1x2xf32> {
+  %0 = onnx.Constant dense<[3,3,3]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[[[[1.1,2.1]],[[3.1,4.1]],[[5.1,6.1]]],[[[1.2,2.2]],[[3.2,4.2]],[[5.2,6.2]]],[[[1.3,2.3]],[[3.3,4.3]],[[5.3,6.3]]]]> : tensor<3x3x1x2xf32>
+  %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<3x3x1x2xf32>, tensor<3xi64>) -> tensor<3x3x1x2xf32>
+  onnx.Return %2 : tensor<3x3x1x2xf32>  
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[{{.}}[1.300000e+00, 2.300000e+00]{{.}}, {{.}}[3.300000e+00, 4.300000e+00]{{.}}, {{.}}[5.300000e+00, 6.300000e+00]{{.}}], [{{.}}[1.200000e+00, 2.200000e+00]{{.}}, {{.}}[3.200000e+00, 4.200000e+00]{{.}}, {{.}}[5.200000e+00, 6.1999998]{{.}}], [{{.}}[1.100000e+00, 2.100000e+00]{{.}}, {{.}}[3.100000e+00, 4.100000e+00]{{.}}, {{.}}[5.100000e+00, 6.100000e+00]{{.}}]{{.}}> : tensor<3x3x1x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
+}
+
+
+
+// -----
+//---------------------------------------------//
+// reverseSequence tests
+// CHECK-LABEL: @test_reverse_seq_int_batch_axis_1() -> tensor<3x3x1x2xi32>
+func.func @test_reverse_seq_int_batch_axis_1() -> tensor<3x3x1x2xi32> {
+  %0 = onnx.Constant dense<[3,2,1]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[[[[11,21]],[[31,41]],[[51,61]]],[[[12,22]],[[32,42]],[[52,62]]],[[[13,23]],[[33,43]],[[53,63]]]]> : tensor<3x3x1x2xi32>
+  %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<3x3x1x2xi32>, tensor<3xi64>) -> tensor<3x3x1x2xi32>
+  onnx.Return %2 : tensor<3x3x1x2xi32>  
+   // CHECK: {{.*}} = onnx.Constant dense<{{.}}[{{.}}[13, 23]{{.}}, {{.}}[32, 42]{{.}}, {{.}}[51, 61]{{.}}], [{{.}}[12, 22]{{.}}, {{.}}[31, 41]{{.}}, {{.}}[52, 62]{{.}}], [{{.}}[11, 21]{{.}}, {{.}}[33, 43]{{.}}, {{.}}[53, 63]{{.}}]{{.}}> : tensor<3x3x1x2xi32>
+  // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
+}
+
+// -----
+//---------------------------------------------//
+// CHECK-LABEL: @test_reverse_seq_sameseq_values_int_ba_1() -> tensor<3x3x1x2xi32>
+func.func @test_reverse_seq_sameseq_values_int_ba_1() -> tensor<3x3x1x2xi32> {
+  %0 = onnx.Constant dense<[3,3,3]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[[[[11,21]],[[31,41]],[[51,61]]],[[[12,22]],[[32,42]],[[52,62]]],[[[13,23]],[[33,43]],[[53,63]]]]> : tensor<3x3x1x2xi32>
+  %2 = "onnx.ReverseSequence"(%1, %0) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<3x3x1x2xi32>, tensor<3xi64>) -> tensor<3x3x1x2xi32>
+  onnx.Return %2 : tensor<3x3x1x2xi32>  
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[{{.}}[13, 23]{{.}}, {{.}}[33, 43]{{.}}, {{.}}[53, 63]{{.}}], [{{.}}[12, 22]{{.}}, {{.}}[32, 42]{{.}}, {{.}}[52, 62]{{.}}], [{{.}}[11, 21]{{.}}, {{.}}[31, 41]{{.}}, {{.}}[51, 61]{{.}}]{{.}}> : tensor<3x3x1x2xi32>
   // CHECK-NOT: {{.*}} = "onnx.ReverseSequence"{{.*}}
 }
