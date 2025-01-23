@@ -156,8 +156,7 @@ public:
       mlir::ElementsAttr elms, llvm::ArrayRef<uint64_t> perm);
 
   mlir::ElementsAttr reverseSequence(mlir::ElementsAttr input,
-      mlir::ElementsAttr sequenceLength, uint64_t batchIndex,
-      uint64_t timeIndex);
+      mlir::ElementsAttr sequenceLength, uint64_t batchAxis);
 
   // Returns a reshaped ElementsAttr.
   //

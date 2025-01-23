@@ -550,7 +550,7 @@ batch_axis=1 ( it will be input[1] dimsize for batch_axis=0) for idx on input
     end
 */
 ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
-    ElementsAttr sequenceLength, uint64_t batchAxis, uint64_t timeAxis) {
+    ElementsAttr sequenceLength, uint64_t batchAxis) {
 
   ShapedType inputType = input.getShapedType();
   ArrayRef<int64_t> inputShape = inputType.getShape();

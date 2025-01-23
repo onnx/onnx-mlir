@@ -882,13 +882,12 @@ Value ConstPropReverseSequence(PatternRewriter &rewriter, Value replacingValue,
       replacingValue.getDefiningOp<ONNXReverseSequenceOp>());
 
   auto batchAxis = reverseSequenceOP.getBatchAxis();
-  auto timeAxis = reverseSequenceOP.getTimeAxis();
 
   ElementsAttr inputElements = getConstValueElements(inputValue);
   ElementsAttr sequenceElements = getConstValueElements(sequenceValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr reverseSequencedElements = elementsBuilder.reverseSequence(
-      inputElements, sequenceElements, batchAxis, timeAxis);
+      inputElements, sequenceElements, batchAxis);
   return createReplacingConstantOp(
       rewriter, replacingValue, reverseSequencedElements);
 }
