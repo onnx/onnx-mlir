@@ -70,10 +70,12 @@ int main(int argc, char *argv[]) {
 
   // Create context after MLIRContextCLOptions are registered and parsed.
   mlir::MLIRContext context(mlir::MLIRContext::Threading::DISABLED);
-  llvm::DefaultThreadPool pool(
-      llvm::hardware_concurrency(compilationNumThreads));
-  if (compilationNumThreads > 1)
-    context.setThreadPool(pool);
+  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr;
+  if (compilationNumThreads > 1) {
+    threadPoolPtr = std::make_unique<llvm::DefaultThreadPool>(
+        llvm::hardware_concurrency(compilationNumThreads));
+    context.setThreadPool(*threadPoolPtr);
+  }
 
   if (!context.isMultithreadingEnabled()) {
     assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
