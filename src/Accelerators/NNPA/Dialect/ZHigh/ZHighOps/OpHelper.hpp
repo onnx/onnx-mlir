@@ -74,12 +74,14 @@ mlir::Value getConstantOfType(
 bool oneIsOfLayout(
     mlir::Type t1, mlir::Type t2, ZTensorEncodingAttr::DataLayout layout);
 
-/// Check if ONNXReshapeOp is reshaping 2D/3D to 4D by tiling each input
+/// Check if ONNXReshapeOp is reshaping 2D/3D to 4D by tiling an input
 /// dimension.
 bool isTiling2DTo4D(mlir::Value val);
 mlir::AffineMapAttr getTiling2DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
 bool isLeftmostTiling3DTo4D(mlir::Value val);
-mlir::AffineMapAttr getLeftmostTiling3DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
+bool isRightmostTiling3DTo4D(mlir::Value val, int64_t tilingSize);
+mlir::AffineMapAttr getLeftmostTiling3DTo4DMap(
+    mlir::OpBuilder &b, mlir::Value val);
 /// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the first two
 /// (leftmost) dimensions.
 bool isLeftmostCollapsing4DTo3D(mlir::Value val);

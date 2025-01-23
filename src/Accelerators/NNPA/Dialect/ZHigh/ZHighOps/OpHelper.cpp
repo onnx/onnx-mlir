@@ -283,7 +283,7 @@ bool isTiling2DTo4D(Value val) {
   if (!(inputShape.size() == 2 && outputShape.size() == 4))
     return false;
 
-  // Tiling over each input dimension.
+  // Tiling over each input dimension. Assume here that the dims are static.
   return ((inputShape[0] == outputShape[0] * outputShape[1]) &&
           (inputShape[1] == outputShape[2] * outputShape[3]));
 }
@@ -312,10 +312,48 @@ bool isLeftmostTiling3DTo4D(Value val) {
   if (!(inputShape.size() == 3 && outputShape.size() == 4))
     return false;
 
-  // Tiling over each input dimension.
+  // Tiling over each input dimension. Assume here that the dims are static.
   return ((inputShape[0] == outputShape[0] * outputShape[1]) &&
           (inputShape[1] == outputShape[2]) &&
           (inputShape[2] == outputShape[3]));
+}
+
+/// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling the last input
+/// dimension. If tilingSize>0, then check that it is tiling by that amount (or
+/// a multiple thereof).
+bool isRightmostTiling3DTo4D(Value val, int64_t tilingSize) {
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 3D to 4D.
+  if (!(inputShape.size() == 3 && outputShape.size() == 4))
+    return false;
+
+  // Check that the tiling size is given, then the last dim of the output is
+  // statically determined and is a multiples of tiling size.
+  if (tilingSize > 0)
+    if (ShapedType::isDynamic(outputShape[3]) ||
+        (outputShape[3] % tilingSize != 0))
+      return false;
+
+  // Tiling over each input dimension. Assume here that the dims are static.
+  return ((inputShape[0] == outputShape[0]) &&
+          (inputShape[1] == outputShape[1]) &&
+          (inputShape[2] == outputShape[2] * outputShape[3]));
 }
 
 /// Check if a 4D tensor is collapsed into 2D by merging the each two
@@ -342,7 +380,8 @@ bool isCollapsing4DTo2D(Value val) {
   if (!(inputShape.size() == 4 && outputShape.size() == 2))
     return false;
 
-  // Collapsing by merging the first two dimensions.
+  // Collapsing by merging the first two dimensions. Assume here that the dims
+  // are static.
   return ((inputShape[0] * inputShape[1] == outputShape[0]) &&
           (inputShape[2] * inputShape[3] == outputShape[1]));
 }
@@ -371,7 +410,8 @@ bool isLeftmostCollapsing4DTo3D(Value val) {
   if (!(inputShape.size() == 4 && outputShape.size() == 3))
     return false;
 
-  // Collapsing by merging the first two dimensions.
+  // Collapsing by merging the first two dimensions. Assume here that the dims
+  // are static.
   return ((inputShape[0] * inputShape[1] == outputShape[0]) &&
           (inputShape[2] == outputShape[1]) &&
           (inputShape[3] == outputShape[2]));
@@ -401,7 +441,8 @@ bool isRightmostCollapsing4DTo3D(Value val) {
   if (!(inputShape.size() == 4 && outputShape.size() == 3))
     return false;
 
-  // Collapsing by merging the first two dimensions.
+  // Collapsing by merging the first two dimensions. Assume here that the dims
+  // are static.
   return ((inputShape[0] == outputShape[0]) &&
           (inputShape[1] == outputShape[1]) &&
           (inputShape[2] * inputShape[3] == outputShape[2]));

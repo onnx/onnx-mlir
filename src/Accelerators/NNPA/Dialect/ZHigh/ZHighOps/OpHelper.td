@@ -144,10 +144,16 @@ def IsTiling2DTo4D : Constraint<
   "Is tiling by ONNReshapeOp"
 >;
 
-/// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling each input dimension.
+/// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling leftmost input dimension.
 def IsLeftmostTiling3DTo4D : Constraint<
   CPred<"::onnx_mlir::zhigh::isLeftmostTiling3DTo4D($0)">,
-  "Is tiling by ONNReshapeOp"
+  "Is leftmost tiling by ONNReshapeOp"
+>;
+
+/// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling rightmost input dimension.
+def IsRightmostTiling3DTo4DBy64 : Constraint<
+  CPred<"::onnx_mlir::zhigh::isRightmostTiling3DTo4D($0, 64)">,
+  "Is rightmost tiling of size 64 by ONNReshapeOp"
 >;
 
 /// Check if ONNXReshapeOp is reshaping 4D to 2D by collapsing the first two input dimensions.

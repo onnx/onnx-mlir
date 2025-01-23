@@ -171,7 +171,7 @@ def ReplaceONNXReciprocalSqrtPattern: Pat<
 // 
 // Limitation: current pattern assume static sizes.
 
-def ReshapeTransposeReshapeRoberta3DSWithBS1Pattern : Pat<
+def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
   // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick.
   (ZHighStickOp:$stick
     (ONNXReshapeOp:$reshape2
@@ -192,8 +192,47 @@ def ReshapeTransposeReshapeRoberta3DSWithBS1Pattern : Pat<
      (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
      (IsShapeDimMultipleOf64<2> $X), // Third dim of input is a multiple of 64.
      (Is4DTransposePermutationEqualTo0213 $perm), // Permute middle 2 dims.
-     (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+     (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling in the leftmost dimension
      (IsRightmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the last two dimensions. 
+   ]
+>;
+
+// Second pattern found in roberta
+//
+//    %33 = "zhigh.Unstick"(%32) : (tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x384x768xf32> // unstick
+//    %44 = "onnx.Reshape"(%33, %7) {allowzero = 0 : si64, onnx_node_name = "Reshape_64"} : (tensor<8x384x768xf32>, tensor<4xi64>) -> tensor<8x384x12x64xf32> // last goes from 768 to 12, 64
+//    %45 = "onnx.Transpose"(%44) {onnx_node_name = "Transpose_65", perm = [0, 2, 1, 3]} : (tensor<8x384x12x64xf32>) -> tensor<8x12x384x64xf32> // same permute
+//    %50 = "onnx.Reshape"(%45, %2) {allowzero = 0 : si64} : (tensor<8x12x384x64xf32>, tensor<3xi64>) -> tensor<96x384x64xf32>  // collapse first 2 dims
+//    %52 = "zhigh.Stick"(%50) {layout = "3DS"} : (tensor<96x384x64xf32>) -> tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+//
+// Namely unstick -> reshape (by tiling rightmost one to E1/64, 64) -> permute (2nd & 3rd) -> reshape (collapse first 2) -> stick
+// Shapes goes from 8 x 384 x (12*64 = 768) to (8*12 = 96) x 384 x 64
+//
+// pattern works only when input E2 % 32 and E1 % 64 == 0
+
+def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
+  // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick.
+  (ZHighStickOp:$stick
+    (ONNXReshapeOp:$reshape2
+      (ONNXTransposeOp:$transpose
+        (ONNXReshapeOp:$reshape1
+          (ZHighUnstickOp:$unstick $X),
+          $shape1, $_),
+        $perm),
+      $shape2, $_),
+    $layout3DS, $saturation),
+    // Output: initial X value unchanged.
+    (replaceWithValue $X),
+    // Conditions.
+    [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
+     (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
+     (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
+     (IsShapeDimMultipleOf64<2> $X), // Third dim of input is a multiple of 64.
+     (Is4DTransposePermutationEqualTo0213 $perm), // Permute middle 2 dims.
+     (IsRightmostTiling3DTo4DBy64 $reshape1), // 1st reshape is tiling by 64 the rightmost dimension
+     (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
    ]
 >;
 
