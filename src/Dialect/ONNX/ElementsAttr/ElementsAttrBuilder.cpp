@@ -627,7 +627,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(
         list second element position, we can find the second position in [2]nd
         list second element position value
         */
-        std::list<std::list<int64_t>> timeAxisPosList1;
+        SmallVector<SmallVector<int64_t>> timeAxisPosList1;
         int timeAxisPosListSize = 0;
         int maxValueFortimeAxisPosListSize = 0;
         // time_axis dim size
@@ -668,7 +668,8 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(
             // adding only destination pos, source pos will be added in next
             // iteration.
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
-            auto listIter = timeAxisPosList1.begin();
+            SmallVector<SmallVector<int64_t>>::iterator listIter =
+                timeAxisPosList1.begin();
             // advancing the list iterator by idx[0],
             // note, we have one list per timeSliceIndex
             // here the advancement is same as idx[0]
@@ -679,13 +680,14 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(
                      ((idx[0] == seqLengthIndex) &&
                          (static_cast<int64_t>(idx[1]) < seqLengthValue))) {
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
-            auto iter = timeAxisPosList1.begin();
+            SmallVector<SmallVector<int64_t>>::iterator iter =
+                timeAxisPosList1.begin();
             std::advance(iter, idx[1]);
             (*iter).push_back(idxoffs[0]);
           }
         }
         // timeAxisPosList2 is simliar to timeAxisPosList1.
-        std::list<std::list<int64_t>> timeAxisPosList2;
+        SmallVector<SmallVector<int64_t>> timeAxisPosList2;
         timeAxisPosList2.resize(timeAxisPosListSize);
         /* Starting the dstSrcPositionPairs iteration.
            As the dst poisitions are encountered, the source position
@@ -705,7 +707,8 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(
           if ((batchAxis == 1) &&
               ((idx[1] == seqLengthIndex) &&
                   (static_cast<int64_t>(idx[0]) < seqLengthValue))) {
-            auto listIter2 = timeAxisPosList2.begin();
+            SmallVector<SmallVector<int64_t>>::iterator listIter2 =
+                timeAxisPosList2.begin();
             std::advance(listIter2, idx[0]);
             (*listIter2).push_back(idxoffs[0]);
             /*
@@ -721,24 +724,27 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(
             get the iterator timeAxisPosList1 and advance it to point to the
             correct source list.
             */
-            auto iter1 = timeAxisPosList1.begin();
+            SmallVector<SmallVector<int64_t>>::iterator iter1 =
+                timeAxisPosList1.begin();
             std::advance(iter1, (timeAxisPosList1.size() - 1 - idx[0]));
             // In the source list advance the iter to point to the corresponding
             // postion.
-            auto innerListIter = (*iter1).begin();
+            SmallVector<int64_t>::iterator innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
             (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
           } else if ((batchAxis == 0) &&
                      ((idx[0] == seqLengthIndex) &&
                          (static_cast<int64_t>(idx[1]) < seqLengthValue))) {
-            auto iter2 = timeAxisPosList2.begin();
+            SmallVector<SmallVector<int64_t>>::iterator iter2 =
+                timeAxisPosList2.begin();
             std::advance(iter2, idx[1]);
             (*iter2).push_back(idxoffs[0]);
             int posIndex = (*iter2).size() - 1;
-            auto iter1 = timeAxisPosList1.begin();
+            SmallVector<SmallVector<int64_t>>::iterator iter1 =
+                timeAxisPosList1.begin();
             std::advance(iter1, (timeAxisPosList1.size() - 1 - idx[1]));
-            auto innerListIter = (*iter1).begin();
+            SmallVector<int64_t>::iterator innerListIter = (*iter1).begin();
             std::advance(innerListIter, posIndex);
             (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
