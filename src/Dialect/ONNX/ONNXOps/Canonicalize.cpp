@@ -202,11 +202,7 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
 
 /// Test if the input is a splat constant with a negative value or not.
 bool isNegativeSplatConstant(Value val) {
-  if (!isDenseONNXConstant(val))
-    return false;
-  ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
-  auto valAttr =
-      llvm::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+  ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
   if (!valAttr)
     return false;
 
@@ -238,9 +234,7 @@ bool areAllDimSizes(ValueRange vals) {
       Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
       if (!mlir::isa<IntegerType>(elemTy))
         return false;
-      ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
-      auto valAttr =
-          llvm::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+      ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
       if (!valAttr)
         return false;
       int64_t v = (*valAttr.getValues<APInt>().begin()).getSExtValue();
@@ -774,12 +768,9 @@ private:
   bool isDefinedByIntegerConstantOp(Value v) const {
     if (mlir::isa<BlockArgument>(v))
       return false;
-    Operation *definingOp = v.getDefiningOp();
     if (mlir::isa<IntegerType>(
             mlir::cast<ShapedType>(v.getType()).getElementType()) &&
-        isa<ONNXConstantOp>(definingOp) &&
-        mlir::isa<DenseElementsAttr>(
-            mlir::cast<ONNXConstantOp>(definingOp).getValueAttr()))
+        isDenseONNXConstant(v))
       return true;
     return false;
   }
@@ -820,10 +811,8 @@ private:
 
   // A helper function to get an integer constant from a value.
   int64_t getOneIntegerConstant(Value v) const {
-    Operation *definingOp = v.getDefiningOp();
-    DenseElementsAttr valueAttr = mlir::cast<DenseElementsAttr>(
-        mlir::cast<ONNXConstantOp>(definingOp).getValueAttr());
-    return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
+    return onnx_mlir::getScalarValue<int64_t>(
+        v.getDefiningOp<ONNXConstantOp>());
   }
 
   // A helper function to match the pattern of the given operation. It also
