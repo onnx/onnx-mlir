@@ -39,6 +39,7 @@ if args.no_convert:
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
+# To update all occurrence of the current ONNX opset, please grep "CURRENT_ONNX_OPSET" and update all locations accordingly.
 current_onnx_opset = 22
 
 converted_model = version_converter.convert_version(original_model, current_onnx_opset)
@@ -58,4 +59,4 @@ if args.save:
             + ".onnx"
         )
         onnx.save(converted_model, outFile)
-        print("The converted model is aved to " + outFile)
+        print("The converted model is saved to " + outFile)
