@@ -571,12 +571,12 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
       // This loop copies each element in  the input to the dstNums
-      for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+      for (const auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
         dstNums[idxoffs.flattenedIndex] = inputNums.get()[idxoffs[0]];
       }
-      SmallVector<int64_t, 4> sequenceLength;
+      SmallVector<int64_t> sequenceLength;
       // Traverse and populate each element into sequenceLength.
-      for (auto &idxoffs :
+      for (const auto &idxoffs :
           StridesRange<1>(seqLengthShape, {seqLengthStrides})) {
         int64_t pos = idxoffs[0];
         auto value = seqLengthNums.get()[pos].narrow<BType::INT64>();
@@ -587,11 +587,11 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
       // Iterating through the sequence_lens tensor values.
       // This iteration means iterating through the batch axis dimensions.
       // For ex: for input with dims (3,3,1,2), and batch_axis=1
-      // it will have three iterations at dim-1.
+      // it will have three iterations at dim[1].
 
       // This is the most outer loop, after each iteration it will have
       // rearranged the data in correspoding batch_axis dimension.
-      for (auto [seqLengthIndex, seqLengthValue] :
+      for (const auto [seqLengthIndex, seqLengthValue] :
           llvm::enumerate(sequenceLength)) {
         /*
         dstSrcPositionPairs: maintains the list of positions dst,src.
@@ -609,7 +609,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         NOTE: dstSrcPositionPairs is created for every iteration.
         meaning the content of this is for a given batchAxis dimension
         ex: for input (3,3,1,2) seqlength [3,3,3], batch_axis 1
-        for each value in dim-1 we will have ones list of dstSrcPostionPairs.
+        for each value in dim[1] we will have ones list of dstSrcPostionPairs.
         and one iteration.
         */
         std::list<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
@@ -618,12 +618,10 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         timeAxisPosList1:
         This will have one list for each of the possible timeAxis values.
         ex: for input (3,3,1,2) seqlength [3,3,3], batch_axis 1
-        time_axis is 0, and at dim-0, we will have three differnet values.
+        time_axis is 0, and at dim[0], we will have three differnet values.
         hence three lists. Each list will have its corresponding element's
         flat position values.
-        list at 0  -> 0 1
-        list at 1  -> 6 7
-        list at 2  -> 12 13
+
         Once the list is fully populated. It will be used to find the source
         position for the current destination position. For ex: when at [0]th
         list second element position, we can find the second position in [2]nd
@@ -654,17 +652,19 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         // Below loop will populate the dstSrcPositionPairs with the dst
         // positions only. This dst positions are the one's which need to
         // overriden. It will also populate the timeAxisPosList1.
-        for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+        for (const auto &idxoffs :
+            StridesRange<1>(inputShape, {inputStrides})) {
           auto idx = idxoffs.index;
-          /* for batch_axis = 1, the criteria is the elements dim-1 should
-          be same as iteration index. and dim-0 should be less than
+          /* for batch_axis = 1, the criteria is the elements dim[1] should
+          be same as iteration index. and dim[0] should be less than
           seq_length defined's value ( it indicates how many elements should be
           reversed) ex: for input (3,3,1,2) seqlength [2,2,2], batch_axis 1
-          Here this considers only elements with dim-0 value less than 2. ( 0
+          Here this considers only elements with dim[0] value less than 2. ( 0
           and 1 only)
           */
           if ((batchAxis == 1) &&
-              ((idx[1] == seqLengthIndex) && ((long)idx[0] < seqLengthValue))) {
+              ((idx[1] == seqLengthIndex) &&
+                  (static_cast<int64_t>(idx[0]) < seqLengthValue))) {
             // adding only destination pos, source pos will be added in next
             // iteration.
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
@@ -675,8 +675,9 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             std::advance(listIter, idx[0]);
             // Add the pos to the correspoding timeSliceIndex's list.
             (*listIter).push_back(idxoffs[0]);
-          } else if ((batchAxis == 0) && ((idx[0] == seqLengthIndex) &&
-                                             ((long)idx[1] < seqLengthValue))) {
+          } else if ((batchAxis == 0) &&
+                     ((idx[0] == seqLengthIndex) &&
+                         (static_cast<int64_t>(idx[1]) < seqLengthValue))) {
             dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
             auto iter = timeAxisPosList1.begin();
             std::advance(iter, idx[1]);
@@ -697,10 +698,12 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
          In this loop, dstSrcPositionPairs's source position assignement
          will be completed.
         */
-        for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+        for (const auto &idxoffs :
+            StridesRange<1>(inputShape, {inputStrides})) {
           auto idx = idxoffs.index;
           if ((batchAxis == 1) &&
-              ((idx[1] == seqLengthIndex) && ((long)idx[0] < seqLengthValue))) {
+              ((idx[1] == seqLengthIndex) &&
+                  (static_cast<int64_t>(idx[0]) < seqLengthValue))) {
             auto listIter2 = timeAxisPosList2.begin();
             std::advance(listIter2, idx[0]);
             (*listIter2).push_back(idxoffs[0]);
@@ -725,8 +728,9 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             std::advance(innerListIter, posIndex);
             (*dstSrcPairsIter).second = *(innerListIter);
             dstSrcPairsIter++;
-          } else if ((batchAxis == 0) && ((idx[0] == seqLengthIndex) &&
-                                             ((long)idx[1] < seqLengthValue))) {
+          } else if ((batchAxis == 0) &&
+                     ((idx[0] == seqLengthIndex) &&
+                         (static_cast<int64_t>(idx[1]) < seqLengthValue))) {
             auto iter2 = timeAxisPosList2.begin();
             std::advance(iter2, idx[1]);
             (*iter2).push_back(idxoffs[0]);
@@ -744,7 +748,8 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         This loop uses the dstSrcPositionPairs, and as the dst position is
         encountered, it copies the source position value to the dst position.
         */
-        for (auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+        for (const auto &idxoffs :
+            StridesRange<1>(inputShape, {inputStrides})) {
 
           int64_t pos = idxoffs[0];
           if (pos < ((*dstSrcLookupIter).first)) {
