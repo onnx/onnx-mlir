@@ -33,6 +33,7 @@ LogicalResult ONNXPadOpShapeHelper::computeShape() {
   Value padsOperand = operandAdaptor.getPads();
   Value axesOperand = operandAdaptor.getAxes();
 
+  // Get info about input data operand.
   if (!hasShapeAndRank(dataOperand)) {
     return failure();
   }
