@@ -549,8 +549,8 @@ batch_axis=1 ( it will be input[1] dimsize for batch_axis=0) for idx on input
       increment the iterator
     end
 */
-ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
-    ElementsAttr sequenceLength, uint64_t batchAxis) {
+ElementsAttr ElementsAttrBuilder::reverseSequence(
+    ElementsAttr input, ElementsAttr sequenceLength, uint64_t batchAxis) {
 
   ShapedType inputType = input.getShapedType();
   ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -612,7 +612,7 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
         for each value in dim[1] we will have ones list of dstSrcPostionPairs.
         and one iteration.
         */
-        std::list<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
+        SmallVector<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
 
         /*
         timeAxisPosList1:
@@ -693,7 +693,8 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
            Now, we have the knowledge of each timeAxis's position lists in the
            timeAxisPosList1.
         */
-        auto dstSrcPairsIter = dstSrcPositionPairs.begin();
+        SmallVector<std::pair<int64_t, int64_t>>::iterator dstSrcPairsIter =
+            dstSrcPositionPairs.begin();
         /*
          In this loop, dstSrcPositionPairs's source position assignement
          will be completed.
@@ -743,7 +744,8 @@ ElementsAttr ElementsAttrBuilder::reverseSequence(ElementsAttr input,
             dstSrcPairsIter++;
           }
         }
-        auto dstSrcLookupIter = dstSrcPositionPairs.begin();
+        SmallVector<std::pair<int64_t, int64_t>>::iterator dstSrcLookupIter =
+            dstSrcPositionPairs.begin();
         /*
         This loop uses the dstSrcPositionPairs, and as the dst position is
         encountered, it copies the source position value to the dst position.
