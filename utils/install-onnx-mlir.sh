@@ -5,6 +5,7 @@ if [[ -z "$pythonLocation" ]]; then
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
         -DCMAKE_BUILD_TYPE=Release \
+        -DONNX_MLIR_BUILD_TESTS=ON \
         -DLLVM_ENABLE_ASSERTIONS=ON \
         -DMLIR_DIR=${MLIR_DIR} \
         ..
@@ -12,6 +13,7 @@ else
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
         -DCMAKE_BUILD_TYPE=Release \
+        -DONNX_MLIR_BUILD_TESTS=ON \
         -DLLVM_ENABLE_ASSERTIONS=ON \
         -DPython3_ROOT_DIR=$pythonLocation \
         -DMLIR_DIR=${MLIR_DIR} \
