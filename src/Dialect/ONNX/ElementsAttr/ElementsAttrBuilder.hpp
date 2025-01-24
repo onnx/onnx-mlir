@@ -93,9 +93,8 @@ public:
   template <typename Function = WideNum (*)(WideNum)>
   mlir::ElementsAttr transform(mlir::ElementsAttr elms,
       mlir::Type transformedElementType, Function fun) {
-    mlir::MLIRContext *ctx = elms.getElementType().getContext();
     return doTransform(
-        elms, transformedElementType, functionTransformer(std::move(fun), ctx));
+        elms, transformedElementType, functionTransformer(std::move(fun)));
   }
 
   // Returns an ElementsAttr that is the result of applying a binary function
@@ -247,8 +246,8 @@ private:
   // Constructs a transformer that changes every element to the result of
   // applying the given function to the element.
   template <typename Function = WideNum (*)(WideNum)>
-  static inline Transformer functionTransformer(
-      Function fun, mlir::MLIRContext *ctx) {
+  inline Transformer functionTransformer(Function fun) {
+    mlir::MLIRContext *ctx = disposablePool.getContext();
     return [fun = std::move(fun), ctx](
                llvm::MutableArrayRef<WideNum> data) -> void {
       std::mutex mtx;

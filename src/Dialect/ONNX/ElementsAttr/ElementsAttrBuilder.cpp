@@ -188,21 +188,18 @@ ElementsAttr ElementsAttrBuilder::fromWideNums(
 //       demonstrates a speedup.
 ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum)) {
-  MLIRContext *ctx = lhs.getElementType().getContext();
   if (lhs.isSplat()) {
     WideNum lhsNum = getElementsSplatWideNum(lhs);
     return expandAndTransform(rhs, combinedType,
         functionTransformer(
-            [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); },
-            ctx));
+            [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); }));
   }
 
   if (rhs.isSplat()) {
     WideNum rhsNum = getElementsSplatWideNum(rhs);
     return expandAndTransform(lhs, combinedType,
         functionTransformer(
-            [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); },
-            ctx));
+            [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); }));
   }
 
   auto combinedShape = combinedType.getShape();
@@ -235,7 +232,6 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   assert(lhs.getElementType() == rhs.getElementType());
   assert(lhs.getElementType() == combinedType.getElementType());
 
-  MLIRContext *ctx = lhs.getElementType().getContext();
   if (cond.isSplat()) {
     bool condBool = getElementsSplatWideNum(cond).u64;
     return expand(condBool ? lhs : rhs, combinedType.getShape());
@@ -246,8 +242,7 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
     WideNum rhsNum = getElementsSplatWideNum(rhs);
     return expandAndTransform(cond, combinedType,
         functionTransformer(
-            [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; },
-            ctx));
+            [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; }));
   }
 
   auto combinedShape = combinedType.getShape();
@@ -379,7 +374,6 @@ double wideToDouble(WideNum n) {
 ElementsAttr ElementsAttrBuilder::castToIntElementType(
     ElementsAttr elms, IntegerType newElementType, bool round) {
   Type oldElementType = elms.getElementType();
-  MLIRContext *ctx = oldElementType.getContext();
   if (newElementType == oldElementType)
     return elms;
 
@@ -388,7 +382,7 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
     // Bool: +/-zero cast to 0, everything else including NaN cast to 1.
     transformer = wideZeroDispatchNonBool(oldElementType, [&](auto wideZero) {
       using cpptype = decltype(wideZero);
-      return functionTransformer(isWideNonZero<cpptype>, ctx);
+      return functionTransformer(isWideNonZero<cpptype>);
     });
   } else if (isa<FloatType>(oldElementType)) {
     constexpr bool ROUND = false, TRUNCATE = true;
@@ -396,19 +390,17 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
     if (newElementType.isUnsigned()) {
       uint64_t min = 0;
       uint64_t max = std::numeric_limits<uint64_t>::max() >> (64 - width);
-      transformer =
-          round ? functionTransformer(
-                      convertIntFromFP<ROUND, uint64_t>(min, max), ctx)
-                : functionTransformer(
-                      convertIntFromFP<TRUNCATE, uint64_t>(min, max), ctx);
+      transformer = round ? functionTransformer(
+                                convertIntFromFP<ROUND, uint64_t>(min, max))
+                          : functionTransformer(
+                                convertIntFromFP<TRUNCATE, uint64_t>(min, max));
     } else {
       int64_t min = std::numeric_limits<int64_t>::min() >> (64 - width);
       int64_t max = std::numeric_limits<int64_t>::max() >> (64 - width);
-      transformer =
-          round ? functionTransformer(
-                      convertIntFromFP<ROUND, int64_t>(min, max), ctx)
-                : functionTransformer(
-                      convertIntFromFP<TRUNCATE, int64_t>(min, max), ctx);
+      transformer = round ? functionTransformer(
+                                convertIntFromFP<ROUND, int64_t>(min, max))
+                          : functionTransformer(
+                                convertIntFromFP<TRUNCATE, int64_t>(min, max));
     }
   } else if (isa<IntegerType>(oldElementType)) {
     // We assume that casts to other integer types don't intend to truncate the
@@ -422,8 +414,8 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
       // different signs.
       // TODO: Consider relaxing the requirement and omit this transformation.
       transformer = newElementType.isUnsigned()
-                        ? functionTransformer(wideCast<uint64_t, int64_t>, ctx)
-                        : functionTransformer(wideCast<int64_t, uint64_t>, ctx);
+                        ? functionTransformer(wideCast<uint64_t, int64_t>)
+                        : functionTransformer(wideCast<int64_t, uint64_t>);
     } else {
       ElementsProperties props = getElementsProperties(elms);
       ShapedType newType = elms.getShapedType().clone(newElementType);
@@ -442,7 +434,6 @@ ElementsAttr ElementsAttrBuilder::castToFPElementType(
   if (newElementType == oldElementType)
     return elms;
 
-  MLIRContext *ctx = oldElementType.getContext();
   return wideZeroDispatchNonBool(oldElementType, [&](auto wideZero) {
     using cpptype = decltype(wideZero);
     Transformer transformer;
@@ -460,20 +451,16 @@ ElementsAttr ElementsAttrBuilder::castToFPElementType(
       // See https://github.com/onnx/onnx-mlir/issues/2369
       //
       // TODO: Change implementation to match the spec, or change the spec.
-      transformer = functionTransformer(
-          [max](WideNum n) {
-            double d = wideToDouble<cpptype>(n);
-            return WideNum::widen<BType::DOUBLE>(
-                // Order of operations is important to ensure NaN stays NaN:
-                d <= -max ? -max : (d >= max ? max : d));
-          },
-          ctx);
+      transformer = functionTransformer([max](WideNum n) {
+        double d = wideToDouble<cpptype>(n);
+        return WideNum::widen<BType::DOUBLE>(
+            // Order of operations is important to ensure NaN stays NaN:
+            d <= -max ? -max : (d >= max ? max : d));
+      });
     } else if constexpr (std::is_integral_v<cpptype>) {
-      transformer = functionTransformer(
-          [](WideNum n) {
-            return WideNum::widen<BType::DOUBLE>(wideToDouble<cpptype>(n));
-          },
-          ctx);
+      transformer = functionTransformer([](WideNum n) {
+        return WideNum::widen<BType::DOUBLE>(wideToDouble<cpptype>(n));
+      });
     } else {
       ElementsProperties props = getElementsProperties(elms);
       ShapedType newType = elms.getShapedType().clone(newElementType);
@@ -863,8 +850,6 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   if (axes.empty())
     return elms;
 
-  Type elementType = elms.getElementType();
-  MLIRContext *ctx = elementType.getContext();
   SmallVector<unsigned, 4> sortedAxes(axes);
   std::sort(sortedAxes.begin(), sortedAxes.end());
   assert(
