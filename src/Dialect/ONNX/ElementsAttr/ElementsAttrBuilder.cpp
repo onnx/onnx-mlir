@@ -850,6 +850,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   if (axes.empty())
     return elms;
 
+  Type elementType = elms.getElementType();
+  MLIRContext *ctx = elementType.getContext();
   SmallVector<unsigned, 4> sortedAxes(axes);
   std::sort(sortedAxes.begin(), sortedAxes.end());
   assert(
