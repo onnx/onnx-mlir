@@ -69,8 +69,17 @@ int main(int argc, char *argv[]) {
   }
 
   // Create context after MLIRContextCLOptions are registered and parsed.
-  mlir::MLIRContext context(mlir::MLIRContext::Threading::DISABLED);
+  // The multi-threading in MLIRContext is enabled by default. It must be
+  // disabled to control the number of threads. To use single thread, simply
+  // disable it. To use a specific number of threads, disable it once and then
+  // set a new thread pool.
+  mlir::MLIRContext context;
   std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr;
+  assert(compilationNumThreads >= 0 &&
+         "The number of threads for compilation by "
+         "'-j' option should be positive value.");
+  if (compilationNumThreads > 0)
+    context.disableMultithreading();
   if (compilationNumThreads > 1) {
     threadPoolPtr = std::make_unique<llvm::DefaultThreadPool>(
         llvm::hardware_concurrency(compilationNumThreads));
