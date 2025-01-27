@@ -672,12 +672,6 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<int, true> compilation_num_threads("j",
-    llvm::cl::desc("Use <int> threads for compilation. The default value is "
-                   "0, which spawns threads for all available CPUs.\n"),
-    llvm::cl::location(compilationNumThreads), llvm::cl::init(0),
-    llvm::cl::cat(OnnxMlirOptions));
-
 #if defined(_DEBUG)
 // Option only available in debug mode: set using command options.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
