@@ -12,15 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ElementsAttr/DisposableElementsAttr.hpp"
-#include "ONNXOps.hpp"
-#include "mlir/IR/BuiltinAttributes.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/LogicalResult.h"
-#include <cstdint>
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
