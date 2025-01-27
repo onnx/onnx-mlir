@@ -75,9 +75,6 @@ int main(int argc, char *argv[]) {
   // set a new thread pool.
   mlir::MLIRContext context;
   std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr;
-  assert(compilationNumThreads >= 0 &&
-         "The number of threads for compilation by "
-         "'-j' option should be positive value.");
   if (compilationNumThreads > 0)
     context.disableMultithreading();
   if (compilationNumThreads > 1) {
