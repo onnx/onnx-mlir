@@ -11,13 +11,8 @@ add_onnx_mlir_library(OMZLowOps
   DEPENDS
   OMZLowIncGen
   OMONNXZLowCombineIncGen
-  OMKrnlGlobalOpInterface
 
   LINK_LIBS PUBLIC
   MLIRIR
   OMMlirDialects
-  OMZHighOps
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_INCLUDE_PATH}
   )
