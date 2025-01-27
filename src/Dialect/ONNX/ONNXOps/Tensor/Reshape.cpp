@@ -137,15 +137,15 @@ LogicalResult ONNXReshapeOp::verify() {
 
   SmallVector<int64_t, 4> dims;
   if (!getI64ValuesFromONNXConstantOp(shape, dims)) {
-    return emitError("Shape comes from ConstantOp but cannot get int64_t values from it.");
+    return emitError(
+        "Shape comes from ConstantOp but cannot get int64_t values from it.");
   }
 
   auto isZero = [](int64_t val) {return val == 0; };
   auto isMinusOne = [](int64_t val) {return val == -1; };
 
   if (getAllowzero()) {
-    if (llvm::any_of(dims, isZero) &&
-        llvm::any_of(dims, isMinusOne)) {
+    if (llvm::any_of(dims, isZero) && llvm::any_of(dims, isMinusOne)) {
       return emitOpError(
           "Allowzero is set and shape contains both -1 and 0. Dimension "
           "corresponding to -1 cannot be determined uniquely.");
