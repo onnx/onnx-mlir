@@ -893,20 +893,23 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     for (auto &idxoffs : sRange)
       batch.emplace_back(std::make_pair(idxoffs.flattenedIndex, idxoffs[0]));
 
-    std::mutex mtx;
-    size_t beginOffset = 0;
     auto fetchBatch = [&](size_t threadNumber) {
-      // Each thread fetches the same batch size. The remainder is set in the
+      // Each thread fetches the same batch size. The leftovers are set in the
       // threads with small thread number.
-      const std::lock_guard<std::mutex> lock(mtx);
-      size_t batchSize = batch.size() / ctx->getNumThreads();
-      size_t batchSizeMod = batch.size() % ctx->getNumThreads();
-      if (threadNumber < batchSizeMod)
-        batchSize += 1;
-      auto batchBegin = batch.begin() + beginOffset;
-      auto batchEnd = batchBegin + batchSize;
-      beginOffset += batchSize;
-      return llvm::make_range(batchBegin, batchEnd);
+      size_t tileSize = floor(batch.size() / ctx->getNumThreads());
+      size_t leftovers = batch.size() % ctx->getNumThreads();
+      int beginOffset;
+      if (threadNumber < leftovers) {
+        // for the first few threads, it is as if the block size is larger by 1.
+        tileSize++;
+        beginOffset = threadNumber * tileSize;
+      } else {
+        // for the last threads, its as we shift the start by leftovers.
+        beginOffset = threadNumber * tileSize + leftovers;
+      }
+      int endOffset = beginOffset + tileSize;
+      return llvm::make_range(
+          batch.begin() + beginOffset, batch.begin() + endOffset);
     };
 
     auto work = [&](size_t threadNumber) {

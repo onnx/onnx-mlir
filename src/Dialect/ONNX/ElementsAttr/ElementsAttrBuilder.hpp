@@ -250,20 +250,24 @@ private:
     mlir::MLIRContext *ctx = disposablePool.getContext();
     return [fun = std::move(fun), ctx](
                llvm::MutableArrayRef<WideNum> data) -> void {
-      std::mutex mtx;
-      size_t beginOffset = 0;
       auto fetchBatch = [&](size_t threadNumber) {
-        // Each thread fetches the same batch size. The remainder is set in the
+        // Each thread fetches the same batch size. The leftovers are set in the
         // threads with small thread number.
-        const std::lock_guard<std::mutex> lock(mtx);
-        size_t batchSize = data.size() / ctx->getNumThreads();
-        size_t batchSizeMod = data.size() % ctx->getNumThreads();
-        if (threadNumber < batchSizeMod)
-          batchSize += 1;
-        auto batchBegin = data.begin() + beginOffset;
-        auto batchEnd = batchBegin + batchSize;
-        beginOffset += batchSize;
-        return llvm::make_range(batchBegin, batchEnd);
+        size_t tileSize = floor(data.size() / ctx->getNumThreads());
+        size_t leftovers = data.size() % ctx->getNumThreads();
+        int beginOffset;
+        if (threadNumber < leftovers) {
+          // for the first few threads, it is as if the block size is larger
+          // by 1.
+          tileSize++;
+          beginOffset = threadNumber * tileSize;
+        } else {
+          // for the last threads, its as we shift the start by leftovers.
+          beginOffset = threadNumber * tileSize + leftovers;
+        }
+        int endOffset = beginOffset + tileSize;
+        return llvm::make_range(
+            data.begin() + beginOffset, data.begin() + endOffset);
       };
 
       auto work = [&](size_t threadNumber) {
