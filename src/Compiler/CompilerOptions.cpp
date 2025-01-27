@@ -46,6 +46,7 @@ bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool disableMemRefPrefetch;                            // common for both
+int compilationNumThreads;                             // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -616,6 +617,12 @@ static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
     llvm::cl::desc("Disable Constant Propagation (default is false).\n"
                    "Set to 'true' to disable Constant Propagation."),
     llvm::cl::location(disableConstantProp), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int, true> compilation_num_threads("j",
+    llvm::cl::desc("Use <int> threads for compilation. The default value is "
+                   "0, which spawns threads for all available CPUs.\n"),
+    llvm::cl::location(compilationNumThreads), llvm::cl::init(0),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> extraLibPathsOpt(
