@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+  # This function is defined in llvm_project.
+  # Define a dummy function for PYRUNTIME_LIT.
+  # If needed, the definition from llvm_project can be copied.
   function(llvm_update_compile_flags name)
   endfunction()
 else()

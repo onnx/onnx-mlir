@@ -21,6 +21,11 @@
 #include <string>
 
 #include "OnnxMlirRuntime.h"
+
+// LLVM provides the wrapper class, llvm::sys::DynamicLibrary, for dynamic
+// library. When PYRUNTIME_LIT is built without the LLVM, the handle type for
+// dynamic library in Linux is used. DynamicLibraryHandleType is defined for
+// the two cases.
 #ifndef ENABLE_PYRUNTIME_LIT
 #include "llvm/Support/DynamicLibrary.h"
 typedef llvm::sys::DynamicLibrary DynamicLibraryHandleType;
