@@ -133,8 +133,8 @@ LogicalResult ONNXReshapeOp::verify() {
         "Shape comes from ConstantOp but cannot get int64_t values from it.");
   }
 
-  auto isZero = [](int64_t val) {return val == 0; };
-  auto isMinusOne = [](int64_t val) {return val == -1; };
+  auto isZero = [](int64_t val) { return val == 0; };
+  auto isMinusOne = [](int64_t val) { return val == -1; };
 
   if (getAllowzero()) {
     if (llvm::any_of(dims, isZero) && llvm::any_of(dims, isMinusOne)) {
