@@ -59,6 +59,21 @@ LogicalResult ONNXGridSampleOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGridSampleOp::verify() {
   ONNXGridSampleOpAdaptor operandAdaptor(*this);
+  auto op = mlir::cast<ONNXGridSampleOp>(*this);
+
+  const auto alignCorners = op.getAlignCorners();
+  if (alignCorners != 0 && alignCorners != 1) {
+    return emitOpError("align_corners needs to be 0 or 1");
+  }
+  const auto mode = op.getMode();
+  if (mode != "linear" && mode != "nearest" && mode != "cubic") {
+    return emitOpError("mode needs to be linear, nearest or cubic");
+  }
+  const auto paddingMode = op.getPaddingMode();
+  if (paddingMode != "zeros" && paddingMode != "border" &&
+      paddingMode != "reflection") {
+    return emitOpError("padding_mode needs to be zeros, border or reflection");
+  }
 
   if (!hasShapeAndRank(getOperation()))
     return success();
