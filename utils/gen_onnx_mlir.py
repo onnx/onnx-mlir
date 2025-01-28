@@ -109,7 +109,7 @@ version_dict = {
     "BitwiseOr": [18],
     "BitwiseXor": [18],
     "BlackmanWindow": [17],
-    "Cast": [19],
+    "Cast": [21],
     "CastLike": [19],
     "CastMap": [1],
     "CategoryMapper": [1],
