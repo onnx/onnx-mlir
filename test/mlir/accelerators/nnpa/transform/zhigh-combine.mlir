@@ -357,15 +357,16 @@ func.func @test_Roberta_bs1(%arg0: tensor<12x384x384xf32>, %arg1: tensor<12x384x
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_Roberta_bs1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x384x384xf32>, [[PARAM_1_:%.+]]: tensor<12x384x64xf32>, [[PARAM_2_:%.+]]: tensor<768x768xf32>) -> tensor<1x384x768xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<12x384x384xf32>) -> tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<12x384x64xf32>) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "2D"} : (tensor<768x768xf32>) -> tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.MatMul"([[VAR_3_]], [[VAR_4_]], [[VAR_0_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<1x384x768xf32>
-// CHECK:           onnx.Return [[VAR_6_]] : tensor<1x384x768xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1, 384, 768]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<12x384x384xf32>) -> tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<12x384x64xf32>) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_4_:%.+]] = "zhigh.MatMul"([[VAR_2_]], [[VAR_3_]], [[VAR_1_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Reshape"([[VAR_4_]], [[VAR_0_]]) {layout = "3DS"} : (tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<3xi64>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "2D"} : (tensor<768x768xf32>) -> tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_7_:%.+]] = "zhigh.MatMul"([[VAR_5_]], [[VAR_6_]], [[VAR_1_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_8_:%.+]] = "zhigh.Unstick"([[VAR_7_]]) : (tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<1x384x768xf32>
+// CHECK:           onnx.Return [[VAR_8_]] : tensor<1x384x768xf32>
 // CHECK:         }
 }
 
@@ -393,18 +394,18 @@ func.func @test_Roberta_bs8(%arg0: tensor<96x384x384xf32>, %arg1: tensor<96x384x
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_Roberta_bs8
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<96x384x384xf32>, [[PARAM_1_:%.+]]: tensor<96x384x64xf32>, [[PARAM_2_:%.+]]: tensor<768x768xf32>) -> tensor<8x384x768xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<96x384x384xf32>) -> tensor<96x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<96x384x64xf32>) -> tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<96x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "2D"} : (tensor<768x768xf32>) -> tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.MatMul"([[VAR_3_]], [[VAR_4_]], [[VAR_0_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x384x768xf32>
-// CHECK:           onnx.Return [[VAR_6_]] : tensor<8x384x768xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[8, 384, 768]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<96x384x384xf32>) -> tensor<96x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<96x384x64xf32>) -> tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_4_:%.+]] = "zhigh.MatMul"([[VAR_2_]], [[VAR_3_]], [[VAR_1_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<96x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Reshape"([[VAR_4_]], [[VAR_0_]]) {layout = "3DS"} : (tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<3xi64>) -> tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "2D"} : (tensor<768x768xf32>) -> tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_7_:%.+]] = "zhigh.MatMul"([[VAR_5_]], [[VAR_6_]], [[VAR_1_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<768x768xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_8_:%.+]] = "zhigh.Unstick"([[VAR_7_]]) : (tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x384x768xf32>
+// CHECK:           onnx.Return [[VAR_8_]] : tensor<8x384x768xf32>
 // CHECK:         }
 }
-
 
 // -----
 
@@ -472,14 +473,16 @@ func.func @test_Roberta_pattern2_bs1(%arg0: tensor<1x384x768xf32>, %arg1: tensor
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_Roberta_pattern2_bs1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<1x384x768xf32>, [[PARAM_2_:%.+]]: tensor<1x384x768xf32>) -> tensor<12x384x64xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_4_:%.+]] = "zhigh.Add"([[VAR_1_]], [[VAR_2_]]) : (tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.MatMul"([[VAR_3_]], [[VAR_4_]], [[VAR_0_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<12x384x64xf32>
-// CHECK:           onnx.Return [[VAR_6_]] : tensor<12x384x64xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[12, 384, 64]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.Add"([[VAR_2_]], [[VAR_3_]]) : (tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_6_:%.+]] = "zhigh.Reshape"([[VAR_5_]], [[VAR_0_]]) {layout = "3DS"} : (tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<3xi64>) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_7_:%.+]] = "zhigh.MatMul"([[VAR_4_]], [[VAR_6_]], [[VAR_1_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<12x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_8_:%.+]] = "zhigh.Unstick"([[VAR_7_]]) : (tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<12x384x64xf32>
+// CHECK:           onnx.Return [[VAR_8_]] : tensor<12x384x64xf32>
 // CHECK:         }
 }
 

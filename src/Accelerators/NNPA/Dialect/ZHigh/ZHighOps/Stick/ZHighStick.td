@@ -105,7 +105,7 @@ def ReplaceONNXSoftplusPattern: Pattern<
   (ZHighStickOp:$stickout (ONNXSoftplusOp:$out (ZHighUnstickOp $X)), $layout, $_),
   [
    // Get stickified constant of minus one with input shape.
-   // Donot saturate since input orignally from NNPA.
+   // Donot saturate since input originally from NNPA.
    (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $out), $layout, (NoneIntegerAttr)),
    // Get minus X with input shape.
    (ZHighMulOp:$minusX $X, $minusOne, (returnType $X)),
@@ -122,7 +122,7 @@ def ReplaceONNXSoftplusPattern: Pattern<
   [(IsStaticShapeTensor $X), (SameLayout $X, $stickout)]
 >;
 
-// Calulation of `1/sqrt(X)` or reciprocal square root is often found in
+// Calculation of `1/sqrt(X)` or reciprocal square root is often found in
 // deep learning models, but zDNN does not support it. Thus, we rewrite it into
 // zDNN-supported operations.
 //
@@ -182,8 +182,8 @@ def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
         $perm),
       $shape2, $_),
     $layout3DS, $saturation),
-    // Output: initial X value unchanged.
-    (replaceWithValue $X),
+    // Output: initial X value unchanged, but transformed with the new compatible shape.
+    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
      (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
@@ -221,8 +221,8 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
         $perm),
       $shape2, $_),
     $layout3DS, $saturation),
-    // Output: initial X value unchanged.
-    (replaceWithValue $X),
+    // Output: initial X value unchanged, but transformed with the compatible shape.
+    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
      (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.

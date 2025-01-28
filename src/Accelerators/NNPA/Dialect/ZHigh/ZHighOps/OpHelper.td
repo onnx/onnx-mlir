@@ -39,6 +39,16 @@ def NotSameLayout: Constraint<
 
 def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
+// Create an ONNX Shape Op with type
+def CreateShapeOp: NativeCodeCall<
+  "$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
+>;
+
+// Get a type for a tensor that stores the shape of another tensor.
+def GetShapeTypeOf: NativeCodeCall<
+  "RankedTensorType::get({mlir::cast<ShapedType>($0.getType()).getRank()}, $_builder.getIntegerType(64))"
+>;
+
 def GetLayout : NativeCodeCall<
   "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"

@@ -95,17 +95,6 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 //
 //===----------------------------------------------------------------------===//
 
-
-// Create an ONNX Shape Op with type
-def CreateShapeOp: NativeCodeCall<
-  "$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
->;
-
-// Get a type for a tensor that stores the shape of another tensor.
-def GetShapeTypeOf: NativeCodeCall<
-  "RankedTensorType::get({mlir::cast<ShapedType>($0.getType()).getRank()}, $_builder.getIntegerType(64))"
->;
-
 // Check unidirectional broadcasting from the first to second tensor.
 def IsUniBroadcastingFromFirstToSecond: Constraint<
   CPred<"isUniBroadcatableFirstToSecond($0, $1)">,
