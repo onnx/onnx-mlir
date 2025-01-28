@@ -19,6 +19,19 @@ func.func @test_cast_f32_i8(%arg0: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
 
 // -----
 
+func.func @test_cast_int4_and_uint4_to_from_int8_uint8(%arg0: tensor<1xi4>, %arg1: tensor<1xui4>) -> (tensor<1xi4>, tensor<1xui4>) {
+    %0 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = i8} : (tensor<1xi4>) -> tensor<1xi8>
+    %1 = "onnx.Cast"(%0) {saturate = 1 : si64, to = i4} : (tensor<1xi8>) -> tensor<1xi4>
+    %2 = "onnx.Cast"(%arg1) {saturate = 1 : si64, to = ui8} : (tensor<1xui4>) -> tensor<1xui8>
+    %3 = "onnx.Cast"(%2) {saturate = 1 : si64, to = ui4} : (tensor<1xui8>) -> tensor<1xui4>
+    onnx.Return %1, %3 : tensor<1xi4>, tensor<1xui4>
+    // CHECK-LABEL:   func.func @test_cast_int4_and_uint4_to_from_int8_uint8(
+    // TOSA does not support int4 casting
+    // CHECK-NOT: tosa.cast 
+}
+
+// -----
+
 func.func @test_cast_f16_i8(%arg0: tensor<13x21x1xf16>) -> tensor<13x21x1xi8> {
   %0 = "onnx.Cast"(%arg0) {to = i8} : (tensor<13x21x1xf16>) -> tensor<13x21x1xi8>
   "func.return"(%0) : (tensor<13x21x1xi8>) -> ()
