@@ -724,7 +724,7 @@ func.func @test_matmulinteger_wrong_B_broadcast(%arg0: tensor<16x32xui8>, %arg1:
 
 func.func @test_grid_sample_diff_ranks(%arg0: tensor<1x3x1152x1344xf32>, %arg1: tensor<1x1152x2xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.GridSample' op Input(=4) and grid(=3) have different dim sizes.}}
-  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x3x1152x1344xf32>, tensor<1x1152x2xf32>) -> tensor<*xf32>
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", padding_mode = "border"} : (tensor<1x3x1152x1344xf32>, tensor<1x1152x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
@@ -732,7 +732,7 @@ func.func @test_grid_sample_diff_ranks(%arg0: tensor<1x3x1152x1344xf32>, %arg1: 
 
 func.func @test_grid_sample_diff_batch(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<2x6x6x2xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.GridSample' op Input and grid must have the same batch value.}}
-  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<2x6x6x2xf32>) -> tensor<*xf32>
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<2x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
@@ -740,6 +740,6 @@ func.func @test_grid_sample_diff_batch(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor
 
 func.func @test_grid_sample_wrong_dim_grid(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<1x6x6x3xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.GridSample' op Grid last dim must have been '2' instead of '3'.}}
-  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x3xf32>) -> tensor<*xf32>
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x3xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
