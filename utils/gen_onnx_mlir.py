@@ -610,6 +610,10 @@ custom_definition_misc = dict(
 #     FLOAT8E5M2 = 19;      // follows IEEE 754, supports nan, inf, mostly used for gradients
 #     FLOAT8E5M2FNUZ = 20;  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
 #
+#     // 4-bit integer data types
+#     UINT4 = 21;  // Unsigned integer in range [0, 15]
+#     INT4 = 22;   // Signed integer in range [-8, 7], using two's-complement representation
+#
 #     // Future extensions go here.
 #   }
 onnx_types = (
@@ -634,6 +638,8 @@ onnx_types = (
     "float8e4m3fnuz",
     "float8e5m2",
     "float8e5m2fnuz",
+    "uint4",
+    "int4",
 )
 tblgen_types = (
     "BF16",
@@ -657,6 +663,8 @@ tblgen_types = (
     "F8E4M3FNUZ",
     "F8E5M2",
     "F8E5M2FNUZ",
+    "AnyUI4",
+    "AnyI4",
 )
 
 # Maximum count for actual type. Number more than MAX_NUM_TYPES will be used to encode
@@ -1047,10 +1055,12 @@ def parse_type_str(allowedType):
         "seq": "SeqOf",
         "map": "TupleOf",
         "bool": "I1",
+        "uint4": "UI<4>",
         "uint8": "UI8",
         "uint16": "UI16",
         "uint32": "UI32",
         "uint64": "UI64",
+        "int4": "I<4>",
         "int8": "I8",
         "int16": "I16",
         "int32": "I32",
