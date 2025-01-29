@@ -1116,19 +1116,20 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
     SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
 
-    // Allocate a buffer for the result MemRef.
+    // Allocate a buffer for the result MemRef. Follow this pattern to be
+    // similar to all the other zlow patterns. Will remove the alloc when
+    // lowering zlow.reshape to memref.reinterpret_cast once memrefs are
+    // normalized. See code in ReshapeToReinterpretCastPattern.
     Value alloc = insertAllocForZMemRef(zMemRefType, dims, op, rewriter);
 
-    // Get the original shape before it is vanished by lower passes.
-    // hi alex
-    // Value shape = insertShapeMemRefI64(rewriter, loc, dims);
+    // Note, we do not need to save the shape of the original operation, as this
+    // reshape is "no-op" that logically reorganize the shape of the operation
+    // into 2 equivalent shapes under their given layout.
 
     // Emit a ZLow operation.
     rewriter.create<ZLowReshapeOp>(
         loc, input, /* shape,*/ alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
-    fprintf(stderr, "hi alex, lowering of one zhigh reshape op\n");
-    op->dump();
     return success();
   }
 };

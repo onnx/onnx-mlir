@@ -692,9 +692,8 @@ def ZLowReshapeOp:ZLow_Op<"reshape", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a reshape (no data movement).
   }];
+  // Note that no shape is needed for this operation.
   let arguments = (ins ZMemRef:$X,
-                       // hi alex 
-                       // MemRefOf<[I64]>:$shape,
                        ZMemRef:$Out,
                        StrAttr:$layout);
 }

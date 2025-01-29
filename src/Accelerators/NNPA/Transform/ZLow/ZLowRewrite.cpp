@@ -34,10 +34,9 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace zlow {
 
-// hi alex: not sure it is the right place for it
-
-/// Transform the zlow.reshape into a memref.reinterpret_cast as we have now
-/// fully normalized the memrefs.
+/// Transform the zlow.reshape into a memref.reinterpret_cast as this pass
+/// operates after all memrefs are fully normalized, which is a requirement
+/// here.
 
 class ReshapeToReinterpretCastPattern : public OpRewritePattern<ZLowReshapeOp> {
 public:
