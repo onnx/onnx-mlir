@@ -13,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ENABLE_PYRUNTIME_LIT
+#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFP.hpp"
 #else
 // ToFix: how to handle float_16
@@ -37,7 +37,7 @@ namespace detail {
 //
 // This implementation is copied from https://github.com/PaddlePaddle/Paddle
 
-#ifndef ENABLE_PYRUNTIME_LIT
+#ifndef ENABLE_PYRUNTIME_LIGHT
 // ToFix: support for float_16
 // Now onnx_mlir::float_16 is not defined without SmallFP.h
 
@@ -183,7 +183,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
-#ifndef ENABLE_PYRUNTIME_LIT
+#ifndef ENABLE_PYRUNTIME_LIGHT
     else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
       dtype = ONNX_TYPE_FLOAT16;
 #endif

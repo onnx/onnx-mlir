@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   # This function is defined in llvm_project.
-  # Define a dummy function for PYRUNTIME_LIT.
+  # Define a dummy function for PYRUNTIME_LIGHT.
   # If needed, the definition from llvm_project can be copied.
   function(llvm_update_compile_flags name)
   endfunction()
@@ -166,7 +166,7 @@ function(add_onnx_mlir_library name)
     )
 
   if (NOT ARG_EXCLUDE_FROM_OM_LIBS)
-    if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+    if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
       set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
     endif()
   endif()

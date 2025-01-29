@@ -11,7 +11,7 @@ option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
-option(ONNX_MLIR_ENABLE_PYRUNTIME_LIT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
+option(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -74,7 +74,7 @@ set(ONNX_MLIR_INCLUDE_PATH ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_VENDOR ${PACKAGE_VENDOR} CACHE STRING
   "Vendor-specific text for showing with version information.")
 
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   include(CTest)
   include(ExternalProject)
 endif()
@@ -162,7 +162,7 @@ endif()
 set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(third_party/onnx)
   add_subdirectory(third_party/pybind11)
 else()
@@ -216,7 +216,7 @@ if (ONNX_MLIR_ENABLE_STABLEHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(src)
 else()
   add_subdirectory(utils)

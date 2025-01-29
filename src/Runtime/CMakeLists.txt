@@ -1,7 +1,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 
-if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 add_subdirectory(jni)
 add_subdirectory(omp)
 endif()
@@ -67,8 +67,8 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
-add_compile_definitions(ENABLE_PYRUNTIME_LIT)
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 

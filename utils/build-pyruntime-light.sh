@@ -4,7 +4,7 @@
 # Usually it is "your_path/onnx-mlir/build"
 # then you can run this script as "../util/build-pyruntime-lit.sh"
 
-cmake .. -DONNX_MLIR_ENABLE_PYRUNTIME_LIT=ON
+cmake .. -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON
 make
 make OMCreatePyRuntimePackage
 

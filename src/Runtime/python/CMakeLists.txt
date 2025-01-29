@@ -11,7 +11,7 @@ file(GENERATE
   )
 
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_onnx_mlir_library(OMPyExecutionSessionBase
     PyExecutionSessionBase.cpp
 
@@ -24,7 +24,7 @@ if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
     pybind11::python_link_helper
     )
 else()
-  add_compile_definitions(ENABLE_PYRUNTIME_LIT)
+  add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
   add_onnx_mlir_library(OMPyExecutionSessionBase
     PyExecutionSessionBase.cpp
 
@@ -116,7 +116,9 @@ add_custom_target(OMCreatePyRuntimePackage
         DEPENDS PyRuntimeC
      )
 
-if(ONNX_MLIR_ENABLE_PYRUNTIME_LIT)
+if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  # Since the compiler is not built when PYRUNTIME_LIGHT is enabled,
+  # PyCompileAndRuntime can not be simply built.
   return()
 endif()
 

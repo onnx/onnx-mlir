@@ -44,7 +44,7 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
-#ifndef ENABLE_PYRUNTIME_LIT
+#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFPConversion.h"
 #endif
 
@@ -54,7 +54,7 @@
 int *__attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
 
-#ifdef ENABLE_PYRUNTIME_LIT
+#ifdef ENABLE_PYRUNTIME_LIGHT
 // The implementation depends on src/Utility and llvm. Will be solved in
 // another PR. Here are just dummy definitions for compilation
 float om_f16_to_f32(uint16_t a) {
