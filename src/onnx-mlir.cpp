@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   // disable it. To use a specific number of threads, disable it once and then
   // set a new thread pool.
   mlir::MLIRContext context;
-  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr;
+  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr = nullptr;
   if (compilationNumThreads > 0)
     context.disableMultithreading();
   if (compilationNumThreads > 1) {
