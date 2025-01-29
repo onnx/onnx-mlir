@@ -1093,6 +1093,43 @@ struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
   }
 };
 
+// Reshape operation. Code similar to unary lowering, except that we use the
+// operation's specialized shape here.
+struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
+  ZHighToZLowReshapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(ZHighReshapeOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    Value input = operands[0];
+
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Shape helper.
+    ZHighReshapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
+
+    // Allocate a buffer for the result MemRef.
+    Value alloc = insertAllocForZMemRef(zMemRefType, dims, op, rewriter);
+
+    // Get the original shape before it is vanished by lower passes.
+    Value shape = insertShapeMemRefI64(rewriter, loc, dims);
+
+    // Emit a ZLow operation.
+    rewriter.create<ZLowReshapeOp>(
+        loc, input, shape, alloc, zMemRefType.layout);
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Lower ZHigh ReduceMax/ReduceMin to ZLow ReduceMax/ReduceMin
 //===----------------------------------------------------------------------===//
@@ -2283,6 +2320,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighTanhOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighSigmoidOp>>(
       typeConverter, ctx);
+  // Reshape operations.
+  patterns.insert<ZHighToZLowReshapeOpLowering>(typeConverter, ctx);
   // Neural network operations.
   patterns.insert<ZHighToZLowReduceOpLowering<ZHighReduceMaxOp>>(
       typeConverter, ctx);
