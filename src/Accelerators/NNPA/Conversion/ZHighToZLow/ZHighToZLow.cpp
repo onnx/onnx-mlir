@@ -1126,6 +1126,8 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
     rewriter.create<ZLowReshapeOp>(
         loc, input, shape, alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
+    fprintf(stderr, "hi alex, lowering of one zhigh reshape op\n");
+    op->dump();
     return success();
   }
 };
