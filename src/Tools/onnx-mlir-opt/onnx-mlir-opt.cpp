@@ -24,6 +24,7 @@
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Threading.h>
 #include <mlir/InitAllPasses.h>
 #include <mlir/Interfaces/ViewLikeInterface.h>
 #include <mlir/Pass/Pass.h>
