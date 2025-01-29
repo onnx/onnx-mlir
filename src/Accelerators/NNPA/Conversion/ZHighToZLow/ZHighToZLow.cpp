@@ -1120,11 +1120,12 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
     Value alloc = insertAllocForZMemRef(zMemRefType, dims, op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    Value shape = insertShapeMemRefI64(rewriter, loc, dims);
+    // hi alex
+    // Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowReshapeOp>(
-        loc, input, shape, alloc, zMemRefType.layout);
+        loc, input, /* shape,*/ alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     fprintf(stderr, "hi alex, lowering of one zhigh reshape op\n");
     op->dump();
