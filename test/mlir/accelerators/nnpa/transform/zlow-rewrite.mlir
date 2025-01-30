@@ -713,9 +713,10 @@ func.func @should_not_rewrite_unstick_transpose_stick_3(%arg0: memref<5x10xf16, 
 
 // -----
 
-// Test reshape, had to add a use of the reshape to make it work. Test only the reshape
+// Test reshape, had to add a use of the reshape to make it work. Test only the reshape.
+// Fail here because not memref normalized.
 #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
-func.func @handle_zlow_reshape(%arg0: memref<8x384x768xf16, #map>, %arg1: memref<96x64x384xf16, #map>) -> memref<96x384x384xf16, #map>{
+func.func @handle_zlow_reshape_fail(%arg0: memref<8x384x768xf16, #map>, %arg1: memref<96x64x384xf16, #map>) -> memref<96x384x384xf16, #map>{
     // Constants.
     %c64_i64 = arith.constant 64 : i64
     %c96_i64 = arith.constant 96 : i64
@@ -740,15 +741,46 @@ func.func @handle_zlow_reshape(%arg0: memref<8x384x768xf16, #map>, %arg1: memref
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
-// CHECK-LABEL:  func.func @handle_zlow_reshape
+// CHECK-LABEL:  func.func @handle_zlow_reshape_fail
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<8x384x768xf16, #map>, [[PARAM_1_:%.+]]: memref<96x64x384xf16, #map>) -> memref<96x384x384xf16, #map> {
 
-// CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: [96, 384, 64], strides: [24576, 64, 1] : memref<8x384x768xf16, #map> to memref<96x384x64xf16>
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<96x384x64xf16, #map>
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<8x384x768xf16, #map>, memref<96x384x64xf16, #map>) -> ()
 
 // CHECK:         }
 }
 
+// -----
 
+// Succeed now because memref normalized.
+
+func.func @handle_zlow_reshape_success(%arg0: memref<8x12x1x12x32x64xf16>, %arg1: memref<96x6x1x2x32x64xf16>) -> memref<96x6x1x12x32x64xf16> {
+  %c64_i64 = arith.constant 64 : i64
+  %c96_i64 = arith.constant 96 : i64
+  %c384_i64 = arith.constant 384 : i64
+  %c3 = arith.constant 3 : index
+  %c2 = arith.constant 2 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<96x1x1x12x32x64xf16>
+  "zlow.reshape"(%arg0, %alloc) {layout = "3DS"} : (memref<8x12x1x12x32x64xf16>, memref<96x1x1x12x32x64xf16>) -> ()
+  %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<96x6x1x12x32x64xf16>
+  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<4xi64>
+  krnl.store %c96_i64, %alloc_1[%c0] : memref<4xi64>
+  krnl.store %c384_i64, %alloc_1[%c1] : memref<4xi64>
+  krnl.store %c64_i64, %alloc_1[%c2] : memref<4xi64>
+  krnl.store %c384_i64, %alloc_1[%c3] : memref<4xi64>
+  %0 = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_3", shape = [96, 6, 1, 1, 32, 64], value = dense_resource<zhigh_3> : tensor<2359296xi8>} : () -> memref<96x6x1x1x32x64xf16>
+  "zlow.matmul"(%alloc, %arg1, %0, %alloc_1, %alloc_0) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = -1 : si64, transposeA = 0 : si64, transposeB = 0 : si64} : (memref<96x1x1x12x32x64xf16>, memref<96x6x1x2x32x64xf16>, memref<96x6x1x1x32x64xf16>, memref<4xi64>, memref<96x6x1x12x32x64xf16>) -> ()
+  return %alloc_0 : memref<96x6x1x12x32x64xf16>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @handle_zlow_reshape_success
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<8x12x1x12x32x64xf16>, [[PARAM_1_:%.+]]: memref<96x6x1x2x32x64xf16>) -> memref<96x6x1x12x32x64xf16> {
+
+// CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: [96, 1, 1, 12, 32, 64], strides: [24576, 24576, 24576, 2048, 64, 1] : memref<8x12x1x12x32x64xf16> to memref<96x1x1x12x32x64xf16>
+
+// CHECK:         }
+}
 
 // Do not rewrite because there is a AffineStoreOp without AffineLoadOp in pattern: unstick -> pad -> stick
 // TODO: support this pattern.
