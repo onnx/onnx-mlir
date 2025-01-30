@@ -4,7 +4,7 @@
 
 //===------------------ onnx-mlir.cpp - Compiler Driver  ------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 // Main function for onnx-mlir.
@@ -15,6 +15,7 @@
 #include <regex>
 
 #include "mlir/IR/AsmState.h"
+#include "mlir/IR/Threading.h"
 #include "mlir/Support/Timing.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -68,7 +69,20 @@ int main(int argc, char *argv[]) {
   }
 
   // Create context after MLIRContextCLOptions are registered and parsed.
+  // The multi-threading in MLIRContext is enabled by default. It must be
+  // disabled to control the number of threads. To use single thread, simply
+  // disable it. To use a specific number of threads, disable it once and then
+  // set a new thread pool.
   mlir::MLIRContext context;
+  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr = nullptr;
+  if (compilationNumThreads > 0)
+    context.disableMultithreading();
+  if (compilationNumThreads > 1) {
+    threadPoolPtr = std::make_unique<llvm::DefaultThreadPool>(
+        llvm::hardware_concurrency(compilationNumThreads));
+    context.setThreadPool(*threadPoolPtr);
+  }
+
   if (!context.isMultithreadingEnabled()) {
     assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
     LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");

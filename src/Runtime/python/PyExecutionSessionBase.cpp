@@ -13,7 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFP.hpp"
+#else
+// ToFix: how to handle float_16
+#endif
+
+// SuppressWarnings.h only defines macros, not functions.
 #include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
@@ -30,6 +36,11 @@ namespace detail {
 // Ref: https://github.com/pybind/pybind11/issues/1776
 //
 // This implementation is copied from https://github.com/PaddlePaddle/Paddle
+
+#ifndef ENABLE_PYRUNTIME_LIGHT
+// ToFix: support for float_16
+// Now onnx_mlir::float_16 is not defined without SmallFP.h
+
 template <>
 struct npy_format_descriptor<onnx_mlir::float_16> {
   static py::dtype dtype() {
@@ -48,6 +59,7 @@ struct npy_format_descriptor<onnx_mlir::float_16> {
   }
   static constexpr auto name = _("float16");
 };
+#endif
 
 } // namespace detail
 } // namespace pybind11
@@ -171,8 +183,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
+#ifndef ENABLE_PYRUNTIME_LIGHT
     else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
       dtype = ONNX_TYPE_FLOAT16;
+#endif
     else if (py::isinstance<py::array_t<double>>(inputPyArray))
       dtype = ONNX_TYPE_DOUBLE;
     else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))

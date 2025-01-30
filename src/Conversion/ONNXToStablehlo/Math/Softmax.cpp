@@ -126,10 +126,6 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
     Location loc = op->getLoc();
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    assert(mlir::cast<RankedTensorType>(operand.getType())
-               .getElementType()
-               .isF32() &&
-           "Currently Only float32 is supported for input");
 
     // Exponential operation
     Value ElementwiseExpStableHLO = rewriter.create<stablehlo::ExpOp>(

@@ -1,33 +1,41 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
-# won't change accordingly.
-unset(LLVM_DIR CACHE)
-if (NOT DEFINED MLIR_DIR)
-  message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
-    "Set the cmake option MLIR_DIR, e.g.,\n"
-    "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
-    )
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  # This function is defined in llvm_project.
+  # Define a dummy function for PYRUNTIME_LIGHT.
+  # If needed, the definition from llvm_project can be copied.
+  function(llvm_update_compile_flags name)
+  endfunction()
+else()
+  # Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
+  # won't change accordingly.
+  unset(LLVM_DIR CACHE)
+  if (NOT DEFINED MLIR_DIR)
+    message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
+      "Set the cmake option MLIR_DIR, e.g.,\n"
+      "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
+      )
+  endif()
+
+  find_package(MLIR REQUIRED CONFIG)
+
+  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+  include(TableGen)
+  include(AddLLVM)
+  include(AddMLIR)
+
+  include(HandleLLVMOptions)
+
+  include_directories(${LLVM_INCLUDE_DIRS})
+  include_directories(${MLIR_INCLUDE_DIRS})
+
+  add_definitions(${LLVM_DEFINITIONS})
 endif()
-
-find_package(MLIR REQUIRED CONFIG)
-
-message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
-list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-
-include(TableGen)
-include(AddLLVM)
-include(AddMLIR)
-
-include(HandleLLVMOptions)
-
-include_directories(${LLVM_INCLUDE_DIRS})
-include_directories(${MLIR_INCLUDE_DIRS})
-
-add_definitions(${LLVM_DEFINITIONS})
 
 set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
 message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
@@ -158,7 +166,9 @@ function(add_onnx_mlir_library name)
     )
 
   if (NOT ARG_EXCLUDE_FROM_OM_LIBS)
-    set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+    if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+      set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+    endif()
   endif()
 
   add_library(${name} ${ARG_UNPARSED_ARGUMENTS})
