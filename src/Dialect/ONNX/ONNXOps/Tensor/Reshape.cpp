@@ -85,8 +85,9 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
       IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
-      outputDims[i] = outputDims[i].selectOrSelf(
-          dimShape == -1, numOfElements.floorDiv(numOfElementsFromShape));
+      if (dimShape.isLiteralAndIdenticalTo(-1)) {
+        outputDims[i] = numOfElements.floorDiv(numOfElementsFromShape);
+      }
     } else {
       // ToFix: can not check getAllowzero because the operandAdaptor is
       // constructed without attributes
@@ -111,14 +112,37 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReshapeOp::verify() {
+  auto shape = getShape();
+
   // Cannot verify if shape has unknown rank.
-  if (!hasShapeAndRank(getShape()))
+  if (!hasShapeAndRank(shape))
     return success();
 
   // Only rank 1 shape tensors are supported.
-  auto shapeTy = cast<ShapedType>(getShape().getType());
+  auto shapeTy = cast<ShapedType>(shape.getType());
   if (shapeTy.getRank() != 1)
     return emitOpError("Shape tensor must have rank one");
+
+  // Cannot verify if shape is not from ConstantOp
+  if (!isDenseONNXConstant(shape))
+    return success();
+
+  SmallVector<int64_t, 4> dims;
+  if (!getI64ValuesFromONNXConstantOp(shape, dims)) {
+    return emitError(
+        "Shape comes from ConstantOp but cannot get int64_t values from it.");
+  }
+
+  auto isZero = [](int64_t val) { return val == 0; };
+  auto isMinusOne = [](int64_t val) { return val == -1; };
+
+  if (getAllowzero()) {
+    if (llvm::any_of(dims, isZero) && llvm::any_of(dims, isMinusOne)) {
+      return emitOpError(
+          "Allowzero is set and shape contains both -1 and 0. Dimension "
+          "corresponding to -1 cannot be determined uniquely.");
+    }
+  }
 
   // TODO: Check that any -1 dim is used correctly.
   // TODO: Check that any 0 dim is used correctly with allowzero.
