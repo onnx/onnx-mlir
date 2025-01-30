@@ -50,6 +50,11 @@ public:
     // shape before memref normalization.
     Value input = reshapeOp.getX();
     Value output = reshapeOp.getOut();
+    // Input must have no affine layout. In other words, it has been normalized.
+    if (hasNonIdentityLayout(input.getType()) ||
+        hasNonIdentityLayout(output.getType())) {
+      return failure();
+    }
     Operation *outputAllocOp = output.getDefiningOp();
     ShapedType outputType = mlir::cast<ShapedType>(output.getType());
     DimsExpr outputDims;
