@@ -155,6 +155,9 @@ public:
   mlir::ElementsAttr transpose(
       mlir::ElementsAttr elms, llvm::ArrayRef<uint64_t> perm);
 
+  mlir::ElementsAttr reverseSequence(mlir::ElementsAttr input,
+      mlir::ElementsAttr sequenceLength, uint64_t batchAxis);
+
   // Returns a reshaped ElementsAttr.
   //
   // Reuses elms' underlying data without a data copy, unless the underlying
