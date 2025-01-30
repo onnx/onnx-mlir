@@ -642,11 +642,13 @@ Type convertONNXTypeToMLIRType(
     return builder.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
     return ONNXStringType::get(builder.getContext());
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT4:
+    return builder.getIntegerType(/*width=*/4);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
+    return builder.getIntegerType(/*width=*/4, false);
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT4:
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
     llvm_unreachable("Unsupported data type encountered.");
     return nullptr;
@@ -695,6 +697,10 @@ int64_t mlirTypeToOnnxType(Type elemType) {
           onnxType = (type.isSigned() || type.isUnsigned())
                          ? onnx::TensorProto::UNDEFINED
                          : onnx::TensorProto::BOOL;
+          break;
+        case 4:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT4
+                                       : onnx::TensorProto::INT4;
           break;
         case 8:
           onnxType = type.isUnsigned() ? onnx::TensorProto::UINT8
