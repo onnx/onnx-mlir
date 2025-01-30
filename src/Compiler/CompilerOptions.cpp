@@ -33,6 +33,7 @@ std::vector<accel::Accelerator::Kind> maccel;          // common for both
 OptLevel OptimizationLevel;                            // common for both
 std::string mtriple;                                   // common for both
 std::string mcpu;                                      // common for both
+float nnpaEpsilon;                                     // common for both
 std::string march;                                     // common for both
 InstrumentStages instrumentStage;                      // common for both
 bool onnxConstPropRoundFPToInt;                        // common for both
@@ -159,6 +160,15 @@ static llvm::cl::opt<std::string, true> mcpuOpt("mcpu",
     llvm::cl::value_desc("Target a specific CPU type"),
     llvm::cl::location(mcpu), llvm::cl::cat(OnnxMlirCommonOptions),
     llvm::cl::ValueRequired);
+
+static llvm::cl::opt<float, true> nnpaEpsilonOpt("nnpa-epsilon",
+    // TODO: what text should go here.
+    llvm::cl::desc("A value added to inputs during computations to prevent "
+                   "undefined mathematical operations, \n"
+                   "such as division by zero or logarithms of zero. Default "
+                   "value set to 1e-5."),
+    llvm::cl::value_desc("Float value"), llvm::cl::location(nnpaEpsilon),
+    llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::init(1e-5));
 
 static llvm::cl::opt<std::string, true> marchOpt("march",
     llvm::cl::desc("Target architecture to generate code for."),
@@ -782,8 +792,8 @@ bool parseCustomEnvFlagsCommandLineOption(
     std::string envVal(envValCstr);
     if (envVal.find("-customEnvFlags") != std::string::npos) {
       if (errs)
-        *errs << "Warning: recursive use of --customEnvFlags in "
-                 "environment flag not permited\n";
+        *errs << "\nWarning: recursive use of --customEnvFlags in "
+                 "environment flag not permited\n\n";
       return false;
     }
     if (envVal.find("-v") != std::string::npos)
@@ -847,7 +857,15 @@ void setTargetArch(const std::string &arch) {
 
 void clearTargetArch() { march.clear(); }
 
-std::string getTargetArchOption() {
+std::string getTargetArchOption(bool forLLVMToolchain) {
+  // LLVM toolchain wants a --march=systemz for all z machines; the specific
+  // Z architecture will be specified with the LLVM Toolchain --mcpu.
+  if (forLLVMToolchain) {
+    // Handle special case for Z.
+    int64_t zArchNum = getZArchNum(march, mcpu);
+    if (zArchNum != -1)
+      return "--march=systemz";
+  }
   return (march != "") ? "--march=" + march : "";
 }
 
@@ -860,8 +878,27 @@ void setTargetCPU(const std::string &cpu) {
 
 void clearTargetCPU() { mcpu.clear(); }
 
-std::string getTargetCPUOption() {
-  return (mcpu != "") ? "--mcpu=" + mcpu : "";
+// As the LLVM tooling for Z may not support the latest, cap it by this
+// --mcpu=arch{MAX_LLVM_Z_ARCH_LEVEL} value.
+#define MAX_LLVM_Z_ARCH_LEVEL 14
+
+std::string getTargetCPUOption(bool forLLVMToolchain, bool cpuOnly) {
+  // With cpu only, return the mcpu value; without it, prepend with "--mcpu=".
+  std::string str = (cpuOnly ? "" : "--mcpu=");
+
+  // The LLVM toolchain wants the specific Z architecture to be expressed with
+  // the LLVM Toolchain --mcpu. Convert below the --march into their
+  // corresponding --mcpu equivalent.
+  if (forLLVMToolchain) {
+    // Handle special case for Z.
+    int64_t zArchNum = getZArchNum(march, mcpu);
+    if (zArchNum != -1) {
+      // Cap at max supported LLVM level.
+      zArchNum = std::min(zArchNum, (int64_t)MAX_LLVM_Z_ARCH_LEVEL);
+      return str.append("arch" + std::to_string(zArchNum));
+    }
+  }
+  return (mcpu != "") ? str + mcpu : "";
 }
 
 // Support for Accel.
@@ -1164,9 +1201,9 @@ std::string getExecPath() {
   auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
   if (execPath.empty()) {
     llvm::errs()
-        << "Warning: Could not find path to current executable, falling "
+        << "\nWarning: Could not find path to current executable, falling "
            "back to default install path: "
-        << kExecPath << "\n";
+        << kExecPath << "\n\n";
     return kExecPath;
   }
   return execPath;
@@ -1224,9 +1261,8 @@ std::string getLibraryPath() {
 // If the flag is true, getToolPath will simply return the path detected by
 // cmake at compile time. This is used for system wide tools such as cc, ld,
 // ar, etc. Note that this means the path is valid only on the system where
-// onnx-mlir is built. If onnx-mlir is subsequently run on a system that
-// does not have these tools installed in the "standard" places, it will
-// fail.
+// onnx-mlir is built. If onnx-mlir is subsequently run on a system that does
+// not have these tools installed in the "standard" places, it will fail.
 //
 // Setting flag = true is also used to simply look up non-path config such
 // as lrodataScript.
@@ -1280,8 +1316,8 @@ void initCompilerConfig() {
   // Test option requirements.
   if (!ONNXOpStats.empty() && emissionTarget <= EmitONNXIR)
     llvm::errs()
-        << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
-           "--EmitLLVMIR, or binary-generating emit commands.\n";
+        << "\nWarning: --onnx-op-stats requires targets like --EmitMLIR, "
+           "--EmitLLVMIR, or binary-generating emit commands.\n\n";
 
   // Library setup for EmitLib and EmitJNI targets
   if (emissionTarget == EmitLib || emissionTarget == EmitJNI) {

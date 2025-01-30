@@ -74,6 +74,7 @@ def get_test_models():
         ############################################################
         # Elementary ops, ordered in the order they are found in
         # onnx-mlir/third_party/onnx/onnx/backend/test/case/node.
+        # To rebuild after changes: make onnx_mlir_supported_ops
         # ==ARCH== cpu
         # ==OP== Abs
         # ==MIN== 6

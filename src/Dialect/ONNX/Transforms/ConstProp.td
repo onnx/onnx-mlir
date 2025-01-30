@@ -148,11 +148,11 @@ def CreateSubOfTwoConst :
 def CreateCastOfConst :
    NativeCodeCall<"ConstPropCast($_builder, $0, $1, $2, $3)">;
 
-def CreateAbsOfConst :
-   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXAbsOp>($_builder, $0, $1)">;
-
 def CreateBitwiseNotOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXBitwiseNotOp>($_builder, $0, $1)">;
+
+def CreateAbsOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXAbsOp>($_builder, $0, $1)">;
 
 def CreateCeilOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXCeilOp>($_builder, $0, $1)">;
@@ -430,18 +430,20 @@ def CastofConst : NamedPat<"CastofConst",
     (CreateCastOfConst $castOp, $input, $saturate, $to),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
-// Constant Propagation for Abs
-def AbsConstProp : NamedPat<"AbsofConst",
-    (ONNXAbsOp:$absOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
-    (CreateAbsOfConst $absOp, $input),
-    [(IsFromDenseONNXConstantOp:$input)]>;
-
 // Constant Propagation for BitwiseNot
 def BitwiseNotConstProp : NamedPat<"BitwiseNotofConst",
     // From bitwise_not(c).
     (ONNXBitwiseNotOp:$bitwiseNotOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To ~c
     (CreateBitwiseNotOfConst $bitwiseNotOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Abs
+def AbsConstProp : NamedPat<"AbsofConst",
+    // From abs(c).
+    (ONNXAbsOp:$ceilOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To new_c
+    (CreateAbsOfConst $ceilOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Ceil
@@ -563,6 +565,14 @@ def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
     (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To reciprocal(c)
     (CreateReciprocalOfConst $reciprocalOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Round
+def RoundofConst : NamedPat<"RoundofConst",
+    // From  onnx.Round(c)
+    (ONNXRoundOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To round_even(c)
+    (CreateRoundOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
 //===----------------------------------------------------------------------===//

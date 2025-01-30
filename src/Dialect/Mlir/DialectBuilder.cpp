@@ -1807,6 +1807,12 @@ void SCFBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
   }
 }
 
+void SCFBuilder::forLoopsIE(ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+    ArrayRef<int64_t> steps, ArrayRef<bool> useParallel,
+    SCFLoopBodyFn builderFn) const {
+  impl::forLoopsIE<SCFBuilder>(*this, lbs, ubs, steps, useParallel, builderFn);
+}
+
 void SCFBuilder::parallelLoops(ValueRange lbs, ValueRange ubs, ValueRange steps,
     SCFLoopBodyFn bodyFn) const {
   b().create<scf::ParallelOp>(loc(), lbs, ubs, steps,
@@ -2320,7 +2326,7 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
     StringRef funcName, Type funcType, bool createUniqueFunc) const {
   // If createUniqueFunc, we create two functions: name and name_postfix.
   // They have the same signatures and `name` will call `name_postfix`.
-  // `name_postfix` funtion is expected to be unique across all generated
+  // `name_postfix` function is expected to be unique across all generated
   // modules, allowing to run multiple models at the same time.
   LLVM::LLVMFuncOp funcOp =
       b().create<LLVM::LLVMFuncOp>(loc(), funcName, funcType);

@@ -14,7 +14,7 @@
 
 #ifndef ONNX_MLIR_COMPILER_OPTIONS_H
 #define ONNX_MLIR_COMPILER_OPTIONS_H
-#include "onnx-mlir/Compiler/OMCompilerTypes.h"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -78,6 +78,7 @@ extern std::vector<accel::Accelerator::Kind> maccel;          // common for both
 extern OptLevel OptimizationLevel;                            // common for both
 extern std::string mtriple;                                   // common for both
 extern std::string mcpu;                                      // common for both
+extern float nnpaEpsilon;                                     // common for both
 extern std::string march;                                     // common for both
 extern InstrumentStages instrumentStage;                      // common for both
 extern bool onnxConstPropRoundFPToInt;                        // common for both
@@ -160,11 +161,35 @@ std::string getTargetTripleOption();
 
 void setTargetArch(const std::string &arch);
 void clearTargetArch();
-std::string getTargetArchOption();
+
+// AMD: inlined to avoid linking errors
+// Sort out architectures for Z systems (hybrid archXX and zYY names).
+inline int64_t decodeZArchNum(std::string str) {
+  if (str == "arch12" || str == "z14") // Z14 and equivalents.
+    return 12;
+  if (str == "arch13" || str == "z15") // Z15 and equivalents.
+    return 13;
+  if (str == "arch14" || str == "z16") // Z16 and equivalents.
+    return 14;
+  if (str == "arch15")
+    return 15;
+  return -1;
+}
+
+// AMD: inlined to avoid linking errors
+inline int64_t getZArchNum(const std::string &arch, const std::string cpu) {
+  // Give priority to march, use (deprecated) mcpu if march is not defined.
+  int64_t num = decodeZArchNum(arch);
+  if (num == -1)
+    num = decodeZArchNum(cpu);
+  return num;
+}
+std::string getTargetArchOption(bool forLLVMToolchain = false);
 
 void setTargetCPU(const std::string &cpu);
 void clearTargetCPU();
-std::string getTargetCPUOption();
+std::string getTargetCPUOption(
+    bool forLLVMToolchain = false, bool cpuOnly = false);
 
 int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);

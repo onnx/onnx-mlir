@@ -36,6 +36,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
@@ -49,9 +50,9 @@ namespace onnx_mlir {
 
 void configurePassesNNPA() {
   configureOnnxToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps);
-  // Compiler generated sticks supports saturation, so force its usage.
-  // TODO: remove this if zDNN adds support for saturation.
-  if (nnpaEnableSaturation)
+  // z16 does not support for hardware saturation.
+  // So, force its usage to compiler generated sticks.
+  if (nnpaEnableSaturation && isLessEqualNNPALevel(NNPALevel::M14))
     nnpaEnableCompilerStickUnstick = true;
 }
 
@@ -84,7 +85,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 
-  pm.addPass(onnx_mlir::createONNXToZHighPass());
+  pm.addPass(onnx_mlir::createONNXToZHighPass(nnpaQuantization));
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
 
   // There are more opportunities for const propagation once all zhigh ops were
