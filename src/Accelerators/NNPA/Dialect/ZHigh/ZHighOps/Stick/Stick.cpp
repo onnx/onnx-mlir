@@ -11,8 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -145,6 +149,7 @@ void ZHighStickOp::getCanonicalizationPatterns(
   results.insert<ReshapeTransposeReshape3DSTo2DPattern>(context);
   results.insert<ReshapeTransposeReshapeRoberta3DSWPattern1>(context);
   results.insert<ReshapeTransposeReshapeRoberta3DSWPattern2>(context);
+  results.insert<ReshapeTransposeReshapeRoberta3DSWPattern3a>(context);
 }
 
 } // namespace zhigh

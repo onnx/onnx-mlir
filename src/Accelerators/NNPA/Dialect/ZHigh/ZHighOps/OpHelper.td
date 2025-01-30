@@ -41,8 +41,14 @@ def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
 // Create an ONNX Shape Op with type
 def CreateShapeOp: NativeCodeCall<
-  "$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
+  //"$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0);"
 >;
+
+def CreateShape1Op: NativeCodeCall<
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0);"
+>;
+
 
 // Get a type for a tensor that stores the shape of another tensor.
 def GetShapeTypeOf: NativeCodeCall<
@@ -213,6 +219,11 @@ def Is4DTransposePermutationEqualTo0213 : Constraint<
   "Is 4D Transpose with pattern (0, 2, 1, 3)"
 >;
 
+def Is4DTransposePermutationEqualTo0231 : Constraint<
+  CPred<"::onnx_mlir::zhigh::isTransposePermutationEqualTo($0, {0, 2, 3, 1})">,
+  "Is 4D Transpose with pattern (0, 2, 3, 1)"
+>;
+
 class IsShapeDimMultipleOf32<int index> : Constraint<
   CPred<"::onnx_mlir::zhigh::isShapeDimMultipleOf($0, " # index # ", 32)">,
   "The operand shape at given index is a multiple of 32"
@@ -236,6 +247,31 @@ def NoneIntegerAttr: NativeCodeCall<"IntegerAttr()">;
 
 def GetDefaultSaturation : NativeCodeCall<
   "::onnx_mlir::zhigh::getDefaultSaturation($_builder)"
+>;
+
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def GetZeroI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
+>;
+
+def GetOneI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))"
+>;
+
+class IsInt64NAttr<int n> : Constraint<
+  CPred<"$0.getValue().getSExtValue() == " # n>, 
+  "The signed extended int64 attribute equal to N"
+>;
+
+def IsCompatibleWithNNPALevelArch14: Constraint<
+  CPred<"isCompatibleWithNNPALevel(NNPALevel::M14)">,
+  "Input level is compatible with NNPA level"
+>;
+
+def IsCompatibleWithNNPALevelArch15: Constraint<
+  CPred<"isCompatibleWithNNPALevel(NNPALevel::M15)">,
+  "Input level is compatible with NNPA level"
 >;
 
 #endif // OP_HELPER
