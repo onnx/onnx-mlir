@@ -1,4 +1,4 @@
-ARG BASE_IMAGE="onnxmlir/onnx-mlir-llvm-static:amd64"
+ARG BASE_IMAGE="ghcr.io/onnxmlir/onnx-mlir-llvm-static:amd64"
 FROM ${BASE_IMAGE}
 
 RUN apt-get update
