@@ -73,6 +73,9 @@ def ReshapeElementsAttrToRank0 : NativeCodeCall<
 
 def ReplaceSequenceAt :  NativeCodeCall<
     "onnx_mlir::replaceSequenceAt($_builder, $_loc, $0)">;
+
+def UpgradeGridSampleV16Mode :  NativeCodeCall<
+    "onnx_mlir::upgradeGridSampleV16Mode($_builder, $0)">;
     
 def CanSequenceAtBeReplaced :
    Constraint<CPred<"::onnx_mlir::canSequenceAtBeReplaced($_self)">, "check whether the SequenceAt can be replaced with split">;
@@ -363,6 +366,12 @@ def ClipV11Pattern : Pat<
 def ClipV12Pattern : Pat<
   (ONNXClipV12Op $x, $min, $max),
   (ONNXClipOp $x, $min, $max)
+>;
+
+// Rewrite GridSample 16 to GridSample 22
+def GridSampleV16Pattern : Pat<
+  (ONNXGridSampleV16Op $x, $grid, $align_corners, $mode, $padding_mode),
+  (ONNXGridSampleOp $x, $grid, $align_corners, (UpgradeGridSampleV16Mode $mode), $padding_mode)
 >;
 
 def DFTV17Pattern : Pat<
