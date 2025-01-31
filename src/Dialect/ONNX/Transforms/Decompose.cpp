@@ -456,7 +456,6 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
     // Disable the ONNXConvTransposeOp decomposition patterns.
     return false;
   }
-  } 
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
