@@ -77,6 +77,7 @@ bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
+bool disableConvTransposeDecomposeOption;              // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -246,6 +247,12 @@ static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
     llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableConvTranposeDecomposeOptionOpt(
+    "disable-convtranspose-decompose",
+    llvm::cl::desc("Disable decomposition of ONNX ConvTranspose operator."),
+    llvm::cl::location(disableConvTransposeDecomposeOption),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
