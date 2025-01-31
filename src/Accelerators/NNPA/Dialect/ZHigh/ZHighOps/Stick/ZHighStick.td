@@ -183,7 +183,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
       $shape2, $_),
     $layout3DS, $saturation),
     // Output: initial X value unchanged, but transformed with the new compatible shape.
-    (ZHighReshapeOp $X, (CreateShape1Op $stick), (GetLayout $stick)),
+    (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
      (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
@@ -223,8 +223,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
       $shape2, $_),
     $layout3DS, $saturation),
     // Output: initial X value unchanged, but transformed with the compatible shape.
-    // hi alex (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
-    (ZHighReshapeOp $X, (CreateShape1Op $stick), (GetLayout $stick)),
+    (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
      (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
@@ -281,7 +280,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern3a : Pat<
     // Initial Y value unchanged, but transformed with the compatible shape.
     (ZHighMatMulOp 
         $X,
-        (ZHighReshapeOp $Y, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+        (ZHighReshapeOp $Y, (Create3DShapePermuteRightmostOp $stick), (GetLayout $stick)),
         $B,
         (GetZeroI64Attr), // X not transposed, 
         (GetOneI64Attr)), // Y is transposed.

@@ -35,11 +35,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
 
   // ONNXAbsOp
   mlir::Value abs(mlir::Value input) const;
@@ -184,12 +184,17 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXShapeOp (start is inclusive, default 0; end is exclusive, default
   // nullptr means all)
-  mlir::Value shape(mlir::Value input) const;
+  mlir::Value shape(mlir::Value input) const; // Infer the type.
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
   mlir::Value shape(
       mlir::Type outputType, mlir::Value input, int64_t start) const;
   mlir::Value shape(mlir::Type outputType, mlir::Value input, int64_t start,
       int64_t end) const;
+  // Get the shape of an input and permute the positions of the shape dims. Perm
+  // values are in the range [0, rank(input)). Say an 4D input with dims (d0,
+  // d1, d2, d3). Call to "Shape(input, [0, 1, 3, 2])" will produce a tensor
+  // with "[d0, d1, d3, d2]" values.
+  mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm) const;
 
   // ONNXSliceOp
   mlir::Value slice(mlir::Type outputType, mlir::Value input,

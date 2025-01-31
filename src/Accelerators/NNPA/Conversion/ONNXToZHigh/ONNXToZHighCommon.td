@@ -58,27 +58,4 @@ def ACT_RELUAttr: NativeCodeCall<"$_builder.getStringAttr(\"ACT_RELU\")">;
 
 def GetTypeOf : NativeCodeCall<"$0.getType()" >;
 
-// hi alex, migrated to OpHelper.td
-// 
-// def GetNullAttr : NativeCodeCall<"Attribute()">;
-// 
-// def GetZeroI64Attr: NativeCodeCall<
-//   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
-// >;
-// 
-// def GetOneI64Attr: NativeCodeCall<
-//   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))"
-// >;
-
-// hi alex, migrated
-// def IsCompatibleWithNNPALevelArch14: Constraint<
-//   CPred<"isCompatibleWithNNPALevel(NNPALevel::M14)">,
-//   "Input level is compatible with NNPA level"
-// >;
-// 
-// def IsCompatibleWithNNPALevelArch15: Constraint<
-//   CPred<"isCompatibleWithNNPALevel(NNPALevel::M15)">,
-//   "Input level is compatible with NNPA level"
-// >;
-
 #endif // ONNX_TO_ZHIGH_COMMON

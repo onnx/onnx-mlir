@@ -41,14 +41,12 @@ def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
 // Create an ONNX Shape Op with type
 def CreateShapeOp: NativeCodeCall<
-  //"$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
   "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0);"
 >;
 
-def CreateShape1Op: NativeCodeCall<
-  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0);"
+def Create3DShapePermuteRightmostOp: NativeCodeCall<
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0, {0, 2, 1});"
 >;
-
 
 // Get a type for a tensor that stores the shape of another tensor.
 def GetShapeTypeOf: NativeCodeCall<

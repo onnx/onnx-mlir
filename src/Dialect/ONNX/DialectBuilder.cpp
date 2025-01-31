@@ -376,6 +376,25 @@ Value OnnxBuilder::shape(
       toTensor(outputType), toTensor(input), endAttr, startAttr);
 }
 
+// Get the shape of an input and perform a permutation on it. Perm values are
+// in the range [0, rank(input)). Type is inferred. Operation get the dimensions
+// using onnx.dim and use onnx.concat to place the right value at the right
+// position.
+Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
+  int64_t inputRank = mlir::cast<ShapedType>(input.getType()).getRank();
+  int64_t permRank = perm.size();
+  llvm::SmallVector<Value, 4> permutedDims;
+  for (int64_t p = 0; p < permRank; ++p) {
+    int64_t d = perm[p];
+    assert(
+        d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
+    Value size = dim(input, d);
+    permutedDims.emplace_back(size);
+  }
+  Type outputType = RankedTensorType::get({permRank}, b().getI64Type());
+  return concat(outputType, permutedDims, 0);
+}
+
 Value OnnxBuilder::slice(Type outputType, Value input, Value starts, Value ends,
     Value axes, Value steps) const {
   return createTypedOpAndInferShapes<ONNXSliceOp>(toTensor(outputType),
