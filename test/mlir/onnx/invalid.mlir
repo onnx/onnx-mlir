@@ -182,6 +182,15 @@ func.func @test_constantofshape_verifier_4() -> tensor<2xi64> {
 
 // -----
 
+func.func @test_constantofshape_elided() -> tensor<2xi64> {
+   // Tests that we do not crash on elided elements
+   %0 = onnx.Constant dense_resource<__elided__> : tensor<2xi64>
+   %1 = "onnx.ConstantOfShape"(%0) : (tensor<2xi64>) -> tensor<2xi64>
+  "onnx.Return"(%1) : (tensor<2xi64>) -> ()
+}
+
+// -----
+
 func.func @test_flatten_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Flatten: 'axis' value is 5, accepted range is [-4, 4]}}
   %1 = "onnx.Flatten"(%arg0) {axis = 5 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
@@ -210,6 +219,15 @@ func.func @test_gatherElements_verifier_2(%data: tensor<2x2xf32>, %indices: tens
   // expected-error @+1 {{onnx.GatherElements: 'axis' value is 2, accepted range is [-2, 1]}}
   %1 = "onnx.GatherElements"(%data, %indices) {axis = 2 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_gatherElements_verifier_elided(%data: tensor<12x14x1024xf32>) -> tensor<12x14x14xf32> {
+  // Tests that we do not crash on elided elements
+  %indices = onnx.Constant dense_resource<__elided__> : tensor<12x14x14xi64>
+  %1 = "onnx.GatherElements"(%data, %indices) {axis = -1 : si64} : (tensor<12x14x1024xf32>, tensor<12x14x14xi64>) -> tensor<12x14x14xf32>
+  "onnx.Return"(%1) : (tensor<12x14x14xf32>) -> ()
 }
 
 // -----
@@ -307,6 +325,16 @@ func.func @test_gatherND_verifier_6(%arg0 : tensor<3x4x4x4xf32>) -> tensor<*xf32
   // expected-error @+2 {{onnx.GatherND: 'indices[0]' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3,2,2]> : tensor<3xi64>} : () -> tensor<3x3x2xi64>
   %1 = "onnx.GatherND"(%arg0, %indices) : (tensor<3x4x4x4xf32>, tensor<3x3x2xi64>)  -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_gatherND_verifier_elided(%arg0 : tensor<3x4x4x4xf32>) -> tensor<*xf32> {
+  // Test that we do not crash on elided elements
+  %indices = onnx.Constant dense_resource<__elided__> : tensor<3x3x2xi64>
+  %1 = "onnx.GatherND"(%arg0, %indices) : (tensor<3x4x4x4xf32>, tensor<3x3x2xi64>)  -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
 // -----
@@ -575,6 +603,15 @@ func.func @test_splitToSequence_verifier_6(%arg0: tensor<2x2xf32>) -> !onnx.Seq<
   // expected-error @+2 {{'onnx.SplitToSequence' op : split tensor entries sum to 1 != axis dimension size 2}}
   %0 = "onnx.Constant"(){value = dense<[0, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.SplitToSequence"(%arg0, %0) : (tensor<2x2xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<*xf32>>
+  "onnx.Return"(%1) : (!onnx.Seq<tensor<*xf32>>) -> ()
+}
+
+// -----
+
+func.func @test_splitToSequence_verifier_elided(%arg0: tensor<2x2xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  // Tests that we do not crash on elided elements
+  %0 = onnx.Constant dense_resource<__elided__> : tensor<i64>
+  %1 = "onnx.SplitToSequence"(%arg0, %0) : (tensor<2x2xf32>, tensor<i64>) -> !onnx.Seq<tensor<*xf32>>
   "onnx.Return"(%1) : (!onnx.Seq<tensor<*xf32>>) -> ()
 }
 

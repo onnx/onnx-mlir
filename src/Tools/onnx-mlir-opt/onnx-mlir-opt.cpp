@@ -24,6 +24,7 @@
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Threading.h>
 #include <mlir/InitAllPasses.h>
 #include <mlir/Interfaces/ViewLikeInterface.h>
 #include <mlir/Pass/Pass.h>
@@ -181,9 +182,21 @@ int main(int argc, char **argv) {
   // Passes are configured with command line options so they must be configured
   // after command line parsing but before any passes are run.
   configurePasses();
+  for (auto *accel : accel::Accelerator::getAccelerators())
+    accel->configurePasses();
 
+  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr = nullptr;
   auto passManagerSetupFn = [&](PassManager &pm) {
     MLIRContext *ctx = pm.getContext();
+    // Set number of threads in the MLIRContext
+    if (compilationNumThreads > 0)
+      ctx->disableMultithreading();
+    if (compilationNumThreads > 1) {
+      threadPoolPtr = std::make_unique<llvm::DefaultThreadPool>(
+          llvm::hardware_concurrency(compilationNumThreads));
+      ctx->setThreadPool(*threadPoolPtr);
+    }
+
     // MlirOptMain constructed ctx with our registry so we just load all our
     // already registered dialects.
     ctx->loadAllAvailableDialects();

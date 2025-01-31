@@ -21,9 +21,13 @@
 #include <sstream>
 #include <vector>
 
+#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
+#else
+#include <dlfcn.h>
+#endif
 
 #include "ExecutionSession.hpp"
 #include "OMTensorListHelper.hpp"
@@ -44,16 +48,24 @@ void ExecutionSession::Init(
 
   // If there is no tag, use the model filename without extension as a tag.
   if (tag == "") {
+    // ToFix: equivalent implementation of llvm utilities.
+    // The would not be an urgent issue, because tag is usually "NONE"
+#ifndef ENABLE_PYRUNTIME_LIGHT
     std::string fname = llvm::sys::path::filename(sharedLibPath).str();
     llvm::SmallString<256> fnameWithoutExt(fname);
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
     tag = fnameWithoutExt.str().lower();
+#endif
   }
 
   // tag = "NONE" to use functions without tag.
   std::string lowDashTag;
+  // ToFix: equivalent implementation of llv::StringRef
+#ifndef ENABLE_PYRUNTIME_LIGHT
+  // Assume tag is always NONE
   if (!llvm::StringRef(tag).equals_insensitive("NONE"))
     lowDashTag = "_" + tag;
+#endif
 
 #if defined(_WIN32)
   // Use functions without tags on Windows since we cannot define at compile
@@ -63,31 +75,55 @@ void ExecutionSession::Init(
 #endif
 
   // Init symbols used by execution session.
+#ifndef ENABLE_PYRUNTIME_LIGHT
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
+#else
+  // Copy code from llvm/lib/Support/DynamicLibrary.cpp, especially the flags
+  // ToFix: copy the lock related code too.
+  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+  if (!_sharedLibraryHandle)
+    throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
+#endif
 
   std::string queryEntryPointsNameWithTag = _queryEntryPointsName + lowDashTag;
+#ifndef ENABLE_PYRUNTIME_LIGHT
   _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           queryEntryPointsNameWithTag.c_str()));
+#else
+  _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
+      dlsym(_sharedLibraryHandle, queryEntryPointsNameWithTag.c_str()));
+#endif
+
   if (!_queryEntryPointsFunc)
     throw std::runtime_error(
         reportSymbolLoadingError(queryEntryPointsNameWithTag));
 
   std::string inputSignatureNameWithTag = _inputSignatureName + lowDashTag;
+#ifndef ENABLE_PYRUNTIME_LIGHT
   _inputSignatureFunc = reinterpret_cast<signatureFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           inputSignatureNameWithTag.c_str()));
+#else
+  _inputSignatureFunc = reinterpret_cast<signatureFuncType>(
+      dlsym(_sharedLibraryHandle, inputSignatureNameWithTag.c_str()));
+#endif
   if (!_inputSignatureFunc)
     throw std::runtime_error(
         reportSymbolLoadingError(inputSignatureNameWithTag));
 
   std::string outputSignatureNameWithTag = _outputSignatureName + lowDashTag;
+#ifndef ENABLE_PYRUNTIME_LIGHT
   _outputSignatureFunc = reinterpret_cast<signatureFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           outputSignatureNameWithTag.c_str()));
+#else
+  _outputSignatureFunc = reinterpret_cast<signatureFuncType>(
+      dlsym(_sharedLibraryHandle, outputSignatureNameWithTag.c_str()));
+#endif
   if (!_outputSignatureFunc)
     throw std::runtime_error(
         reportSymbolLoadingError(outputSignatureNameWithTag));
@@ -114,8 +150,13 @@ void ExecutionSession::Init(
 }
 
 ExecutionSession::~ExecutionSession() {
+#ifndef ENABLE_PYRUNTIME_LIGHT
   if (_sharedLibraryHandle.isValid())
     llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
+#else
+  if (!_sharedLibraryHandle)
+    dlclose(_sharedLibraryHandle);
+#endif
 }
 
 // =============================================================================
@@ -132,8 +173,13 @@ const std::string *ExecutionSession::queryEntryPoints(
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
+#ifndef ENABLE_PYRUNTIME_LIGHT
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
+#else
+  _entryPointFunc = reinterpret_cast<entryPointFuncType>(
+      dlsym(_sharedLibraryHandle, entryPointName.c_str()));
+#endif
   if (!_entryPointFunc)
     throw std::runtime_error(reportSymbolLoadingError(entryPointName));
   _entryPointName = entryPointName;
