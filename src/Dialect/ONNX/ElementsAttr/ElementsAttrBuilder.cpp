@@ -12,6 +12,7 @@
 
 #include "mlir/Dialect/Traits.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -498,6 +499,285 @@ bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
 }
 } // namespace
 
+// Adapted from
+// https://github.com/onnx/onnx/blob/091d3ad16155640a7b56b0aab8a364fb908894a8/onnx/reference/ops/op_reverse_sequence.py#L9
+
+// Pseudo code for the reverseSequence implementation:
+
+// result = input
+// for i in enumerate(sequence_lens)
+//   list<pair<destpos, sourcepos> dstSrcPositionPairs
+//   list<list<position>> timeAxisPosList1 with size input[0] dimsize for
+// batch_axis=1 ( it will be input[1] dimsize for batch_axis=0) for idx on input
+//     begin
+//       if( batch_axis==1 and idx[1] == i and idx[0] < sequence_lens[i] )
+//         dstSrcPositionPairs.push(idx.pos,0) // the destination pos which will
+//         be replaced is added, the source postion form where it will be
+//         replaced will be computed later
+//         timeAxisPosList1[idx[0]].push(idx.pos) // Add this pos to
+//         the correspoding timeAxis list.
+//       else if ( batch_axis==0 and idx[0] == i and idx[1] < sequence_lens[i] )
+//         dstSrcPositionPairs.push(idx.pos,0)
+//         timeAxisPosList1[idx[1]].push(idx.pos)
+//     end
+
+// list<list<position>> timeAxisPosList2 with size input[0] dimsize for
+// batch_axis=1 ( it will be input[1] dimsize for batch_axis=0) for idx on input
+//     begin
+//       if( batch_axis==1 and idx[1] == i and idx[0] < sequence_lens[i] )
+//         timeAxisPosList2[idx[0]].push(idx.pos)
+//         positionWithinList = timeAxisPosList2[idx[0]].size()
+
+//         listAsPerRevSeq = timeAxisPosList1.size()-idx[0]-1
+//         sourcePosition =
+//         timeAxisPosList1[listAsPerRevSeq][positionWithinList] update the pair
+//         in dstSrcPositionPairs for idx.pos with sourcePosition
+//       else if( batch_axis==0 and idx[0] == i and idx[1] < sequence_lens[i] )
+//         timeAxisPosList2[idx[1]].push(idx.pos)
+//         positionWithinList = timeAxisPosList2[idx[1]].size()
+
+//         listAsPerRevSeq = timeAxisPosList1.size()-idx[1]-1
+//         sourcePosition =
+//         timeAxisPosList1[listAsPerRevSeq][positionWithinList] update the pair
+//         in dstSrcPositionPairs for idx.pos with sourcePosition
+//     end
+//   get iterator for dstSrcPositionPairs.
+//   for idx on input
+//     begin
+//       continue till the idx.pos equals iterator.destination
+//       update the result[idx.pos] with value at iterator.source
+//       increment the iterator
+//     end
+
+ElementsAttr ElementsAttrBuilder::reverseSequence(
+    ElementsAttr input, ElementsAttr sequenceLength, uint64_t batchAxis) {
+
+  ShapedType inputType = input.getShapedType();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+
+  SmallVector<int64_t> inputStrides;
+  ArrayBuffer<WideNum> inputNums =
+      getWideNumsAndExpandedStrides(input, inputShape, inputStrides);
+
+  SmallVector<int64_t> seqLengthStrides;
+  ArrayRef<int64_t> seqLengthShape = sequenceLength.getShapedType().getShape();
+  ArrayBuffer<WideNum> seqLengthNums = getWideNumsAndExpandedStrides(
+      sequenceLength, seqLengthShape, seqLengthStrides);
+
+  Type elementType = inputType.getElementType();
+
+  return fromWideNums(inputType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // This loop copies each element in  the input to the dstNums
+      for (const auto &idxoffs : StridesRange<1>(inputShape, {inputStrides})) {
+        dstNums[idxoffs.flattenedIndex] = inputNums.get()[idxoffs[0]];
+      }
+      SmallVector<int64_t> sequenceLength;
+      // Traverse and populate each element into sequenceLength.
+      for (const auto &idxoffs :
+          StridesRange<1>(seqLengthShape, {seqLengthStrides})) {
+        int64_t pos = idxoffs[0];
+        auto value = seqLengthNums.get()[pos].narrow<BType::INT64>();
+        sequenceLength.emplace_back(value);
+      }
+      // op Length of sequence_lens should match the
+      // sizeof batch axis of the input
+      // Iterating through the sequence_lens tensor values.
+      // This iteration means iterating through the batch axis dimensions.
+      // For ex: for input with dims (3,3,1,2), and batch_axis=1
+      // it will have three iterations at dim[1].
+
+      // This is the most outer loop, after each iteration it will have
+      // rearranged the data in correspoding batch_axis dimension.
+      for (const auto [seqLengthIndex, seqLengthValue] :
+          llvm::enumerate(sequenceLength)) {
+
+        // dstSrcPositionPairs: maintains the list of positions dst,src.
+        // Here destination means the position whose value will be
+        // overriden as part of rearrangement.
+        // source means the position from where the value will be
+        // picked up.
+        // `destination element` pos thats get its value from `source position`
+        // for ex: (0,1,2) <= (2,1,0),will have entries (0,2),(1,1),(2,0)
+        // This list will not have positions not affected by the sequence_length
+        // for example the input is (5,5,1,2) and the sequence_length
+        // is [3,3,3]. Here the reversal will happen for first 3 entries, the
+        // last two will be not affacted. And they will not be populated in
+        // dstSrcPositionPairs
+        // NOTE: dstSrcPositionPairs is created for every iteration.
+        // meaning the content of this is for a given batchAxis dimension
+        // ex: for input (3,3,1,2) seqlength [3,3,3], batch_axis 1
+        // for each value in dim[1] we will have ones list of
+        // dstSrcPostionPairs. and one iteration.
+
+        SmallVector<std::pair<int64_t, int64_t>> dstSrcPositionPairs;
+
+        // timeAxisPosList1:
+        // This will have one list for each of the possible timeAxis values.
+        // ex: for input (3,3,1,2) seqlength [3,3,3], batch_axis 1
+        // time_axis is 0, and at dim[0], we will have three differnet values.
+        // hence three lists. Each list will have its corresponding element's
+        // flat position values.
+
+        // Once the list is fully populated. It will be used to find the source
+        // position for the current destination position. For ex: when at [0]th
+        // list second element position, we can find the second position in
+        // [2]nd list second element position value
+
+        SmallVector<SmallVector<int64_t>> timeAxisPosList1;
+        int timeAxisPosListSize = 0;
+        int maxValueFortimeAxisPosListSize = 0;
+        // time_axis dim size
+        if (batchAxis == 1) {
+          maxValueFortimeAxisPosListSize = inputShape[0];
+        } else {
+          maxValueFortimeAxisPosListSize = inputShape[1];
+        }
+        // The reverseSequence length cannot be greater than the timeAxis dim
+        // length
+
+        timeAxisPosListSize = (seqLengthValue > maxValueFortimeAxisPosListSize)
+                                  ? maxValueFortimeAxisPosListSize
+                                  : seqLengthValue;
+        //  The number of lists trackes the positions of time_axis's which
+        //    are to be reversed, this is defined by the sequence_lens value.
+        //    ex: for input (3,3,1,2) seqlength [2,2,2], batch_axis 1
+        //    here the reversal is for first two entries of the timeAxis ( 0 and
+        //    1
+        //    ). The number of lists in the timeAxisPosList1 will be 2.
+
+        timeAxisPosList1.resize(timeAxisPosListSize);
+        // Below loop will populate the dstSrcPositionPairs with the dst
+        // positions only. This dst positions are the one's which need to
+        // overriden. It will also populate the timeAxisPosList1.
+        for (const auto &idxoffs :
+            StridesRange<1>(inputShape, {inputStrides})) {
+          auto idx = idxoffs.index;
+          //  for batch_axis = 1, the criteria is the elements dim[1] should
+          // be same as iteration index. and dim[0] should be less than
+          // seq_length defined's value ( it indicates how many elements should
+          // be reversed) ex: for input (3,3,1,2) seqlength [2,2,2], batch_axis
+          // 1 Here this considers only elements with dim[0] value less than 2.
+          // ( 0 and 1 only)
+
+          if ((batchAxis == 1) &&
+              ((idx[1] == seqLengthIndex) &&
+                  (static_cast<int64_t>(idx[0]) < seqLengthValue))) {
+            // adding only destination pos, source pos will be added in next
+            // iteration.
+            dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
+            SmallVector<SmallVector<int64_t>>::iterator listIter =
+                timeAxisPosList1.begin();
+            // advancing the list iterator by idx[0],
+            // note, we have one list per timeSliceIndex
+            // here the advancement is same as idx[0]
+            std::advance(listIter, idx[0]);
+            // Add the pos to the correspoding timeSliceIndex's list.
+            (*listIter).push_back(idxoffs[0]);
+          } else if ((batchAxis == 0) &&
+                     ((idx[0] == seqLengthIndex) &&
+                         (static_cast<int64_t>(idx[1]) < seqLengthValue))) {
+            dstSrcPositionPairs.emplace_back(idxoffs[0], 0);
+            SmallVector<SmallVector<int64_t>>::iterator iter =
+                timeAxisPosList1.begin();
+            std::advance(iter, idx[1]);
+            (*iter).push_back(idxoffs[0]);
+          }
+        }
+        // timeAxisPosList2 is simliar to timeAxisPosList1.
+        SmallVector<SmallVector<int64_t>> timeAxisPosList2;
+        timeAxisPosList2.resize(timeAxisPosListSize);
+        //  Starting the dstSrcPositionPairs iteration.
+        //    As the dst poisitions are encountered, the source position
+        //    assignement will be done. The assignments are done in the same
+        //    order. Now, we have the knowledge of each timeAxis's position
+        //    lists in the timeAxisPosList1.
+
+        SmallVector<std::pair<int64_t, int64_t>>::iterator dstSrcPairsIter =
+            dstSrcPositionPairs.begin();
+
+        //  In this loop, dstSrcPositionPairs's source position assignement
+        //  will be completed.
+
+        for (const auto &idxoffs :
+            StridesRange<1>(inputShape, {inputStrides})) {
+          auto idx = idxoffs.index;
+          if ((batchAxis == 1) &&
+              ((idx[1] == seqLengthIndex) &&
+                  (static_cast<int64_t>(idx[0]) < seqLengthValue))) {
+            SmallVector<SmallVector<int64_t>>::iterator listIter2 =
+                timeAxisPosList2.begin();
+            std::advance(listIter2, idx[0]);
+            (*listIter2).push_back(idxoffs[0]);
+
+            // ex: for input (3,3,1,2) seqlength [3,3,3], batch_axis 1 , idx[1]
+            // == 0 for idx[0] ==0, listIter2 will be list tracking positions
+            // with idx[0] ==0 This size of the (*listIter2).size() at this
+            // stage will help us to know the corresponding element position in
+            // the source list.
+
+            int posIndex = (*listIter2).size() - 1;
+
+            // get the iterator timeAxisPosList1 and advance it to point to the
+            // correct source list.
+
+            SmallVector<SmallVector<int64_t>>::iterator iter1 =
+                timeAxisPosList1.begin();
+            std::advance(iter1, (timeAxisPosList1.size() - 1 - idx[0]));
+            // In the source list advance the iter to point to the corresponding
+            // postion.
+            SmallVector<int64_t>::iterator innerListIter = (*iter1).begin();
+            std::advance(innerListIter, posIndex);
+            (*dstSrcPairsIter).second = *(innerListIter);
+            dstSrcPairsIter++;
+          } else if ((batchAxis == 0) &&
+                     ((idx[0] == seqLengthIndex) &&
+                         (static_cast<int64_t>(idx[1]) < seqLengthValue))) {
+            SmallVector<SmallVector<int64_t>>::iterator iter2 =
+                timeAxisPosList2.begin();
+            std::advance(iter2, idx[1]);
+            (*iter2).push_back(idxoffs[0]);
+            int posIndex = (*iter2).size() - 1;
+            SmallVector<SmallVector<int64_t>>::iterator iter1 =
+                timeAxisPosList1.begin();
+            std::advance(iter1, (timeAxisPosList1.size() - 1 - idx[1]));
+            SmallVector<int64_t>::iterator innerListIter = (*iter1).begin();
+            std::advance(innerListIter, posIndex);
+            (*dstSrcPairsIter).second = *(innerListIter);
+            dstSrcPairsIter++;
+          }
+        }
+        SmallVector<std::pair<int64_t, int64_t>>::iterator dstSrcLookupIter =
+            dstSrcPositionPairs.begin();
+
+        // This loop uses the dstSrcPositionPairs, and as the dst position is
+        // encountered, it copies the source position value to the dst position.
+
+        for (const auto &idxoffs :
+            StridesRange<1>(inputShape, {inputStrides})) {
+
+          int64_t pos = idxoffs[0];
+          if (pos < ((*dstSrcLookupIter).first)) {
+            continue;
+          }
+          if (pos == (*dstSrcLookupIter).first) {
+            cpptype replacingValue = 0;
+            replacingValue =
+                inputNums.get()[(*dstSrcLookupIter).second].narrow<TAG>();
+            dstNums[idxoffs.flattenedIndex] =
+                WideNum::widen<TAG>(replacingValue);
+            dstSrcLookupIter++;
+            if (dstSrcLookupIter == dstSrcPositionPairs.end()) {
+              break;
+            }
+          }
+        }
+      }
+    });
+  });
+}
 ElementsAttr ElementsAttrBuilder::transpose(
     ElementsAttr elms, ArrayRef<uint64_t> perm) {
   if (isIdentityPermutation(perm))

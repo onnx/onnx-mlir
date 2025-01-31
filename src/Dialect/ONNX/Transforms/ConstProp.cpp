@@ -872,6 +872,27 @@ Value ConstPropTranspose(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for reverseSequence.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropReverseSequence(PatternRewriter &rewriter, Value replacingValue,
+    Value inputValue, Value sequenceValue) {
+
+  ONNXReverseSequenceOp reverseSequenceOP = cast<ONNXReverseSequenceOp>(
+      replacingValue.getDefiningOp<ONNXReverseSequenceOp>());
+
+  auto batchAxis = reverseSequenceOP.getBatchAxis();
+
+  ElementsAttr inputElements = getConstValueElements(inputValue);
+  ElementsAttr sequenceElements = getConstValueElements(sequenceValue);
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr reverseSequencedElements = elementsBuilder.reverseSequence(
+      inputElements, sequenceElements, batchAxis);
+  return createReplacingConstantOp(
+      rewriter, replacingValue, reverseSequencedElements);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for unsqueeze.
 //===----------------------------------------------------------------------===//
 
