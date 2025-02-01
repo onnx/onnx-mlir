@@ -89,6 +89,9 @@ public:
         return WalkResult::advance();
       // Could check opName but we already have a before/after pair, it can only
       // be of the same op.
+      fprintf(stderr, "hi alex, remove these two ops\n");
+      op->dump();
+      nextOp->dump();
       // Schedule both instrumentation to be removed as there is nothing between
       // the start and the stop of the instrumentation.
       eraseOpList.emplace_back(op);
