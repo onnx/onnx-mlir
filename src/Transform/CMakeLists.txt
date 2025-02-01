@@ -20,6 +20,7 @@ add_onnx_mlir_library(OMScfParallelPrivateRegion
 
 add_onnx_mlir_library(OMInstrument
   InstrumentPass.cpp
+  InstrumentCleanupPass.cpp
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include

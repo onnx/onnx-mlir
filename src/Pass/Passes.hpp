@@ -57,6 +57,8 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(
     const std::string &ops, unsigned actions);
+/// Pass for instrument cleanup.
+std::unique_ptr<mlir::Pass> createInstrumentCleanupPass();
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.

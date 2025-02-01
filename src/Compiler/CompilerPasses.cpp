@@ -276,6 +276,10 @@ void addKrnlToLLVMPasses(
   // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
+
+  if (profileIR)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
+
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
