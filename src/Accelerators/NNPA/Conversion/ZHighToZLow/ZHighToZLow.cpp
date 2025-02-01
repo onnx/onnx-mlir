@@ -1093,6 +1093,47 @@ struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
   }
 };
 
+// Reshape operation. Code similar to unary lowering, except that we use the
+// operation's specialized shape here.
+struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
+  ZHighToZLowReshapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(ZHighReshapeOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    Value input = operands[0];
+
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Shape helper.
+    ZHighReshapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
+
+    // Allocate a buffer for the result MemRef. Follow this pattern to be
+    // similar to all the other zlow patterns. Will remove the alloc when
+    // lowering zlow.reshape to memref.reinterpret_cast once memrefs are
+    // normalized. See code in ReshapeToReinterpretCastPattern.
+    Value alloc = insertAllocForZMemRef(zMemRefType, dims, op, rewriter);
+
+    // Note, we do not need to save the shape of the original operation, as this
+    // reshape is "no-op" that logically reorganize the shape of the operation
+    // into 2 equivalent shapes under their given layout.
+
+    // Emit a ZLow operation.
+    rewriter.create<ZLowReshapeOp>(
+        loc, input, /* shape,*/ alloc, zMemRefType.layout);
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Lower ZHigh ReduceMax/ReduceMin to ZLow ReduceMax/ReduceMin
 //===----------------------------------------------------------------------===//
@@ -1117,8 +1158,6 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
       : ConversionPattern(OP_TYPE::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    MLIRContext *context = rewriter.getContext();
-    OP_TYPE reduceOp = mlir::cast<OP_TYPE>(op);
     Location loc = op->getLoc();
     Value data = operands[0];
 
@@ -2285,6 +2324,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighTanhOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighSigmoidOp>>(
       typeConverter, ctx);
+  // Reshape operations.
+  patterns.insert<ZHighToZLowReshapeOpLowering>(typeConverter, ctx);
   // Neural network operations.
   patterns.insert<ZHighToZLowReduceOpLowering<ZHighReduceMaxOp>>(
       typeConverter, ctx);

@@ -687,4 +687,15 @@ def ZLowConvertF32ToDLF16VectorOp:ZLow_Op<"vec_f32_to_dlf16", [Pure]> {
   ];
 }
 
+def ZLowReshapeOp:ZLow_Op<"reshape", [MemRefsNormalizable]> {
+  let summary = "ZLow Reshape operation";
+  let description = [{
+  ZLow operation to perform a reshape (no data movement).
+  }];
+  // Note that no shape is needed for this operation.
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Out,
+                       StrAttr:$layout);
+}
+
 #endif // ZLOW_OPS
