@@ -8,7 +8,9 @@
 //
 // =============================================================================
 //
-// This file implements a Function level pass that inserts instrumentation.
+// This file implements a Function level pass that remove consecutive
+// instrumentation operations (first with "before" tag and second with "after")
+// as they do not measure anything.
 //
 //===----------------------------------------------------------------------===//
 
@@ -45,30 +47,58 @@ class InstrumentCleanupPass : public mlir::PassWrapper<InstrumentCleanupPass,
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentCleanupPass)
 
-  InstrumentCleanupPass() : {};
+  InstrumentCleanupPass(){};
   InstrumentCleanupPass(const InstrumentCleanupPass &pass)
       : mlir::PassWrapper<InstrumentCleanupPass,
             OperationPass<func::FuncOp>>() {}
 
 private:
 public:
-  StringRef getArgument() const override { return "instrument cleanup"; }
+  StringRef getArgument() const override { return "instrument-cleanup"; }
 
-  StringRef getDescription() const override { return "instrument cleanup on ops."; }
-
+  StringRef getDescription() const override {
+    return "instrument cleanup on ops.";
+  }
 
   void runOnOperation() override {
     llvm::SmallVector<Operation *> eraseOpList;
+    bool skipNext = false;
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) -> WalkResult {
-      KrnlInstrumentOp firstOp = mlir::dyn_cast<KrnlInstrumentOp>(op);
-      if (firstOp) {
-        fprintf(stderr, "hi alex, has an instrument op\n");
-        op->dump();
+      if (skipNext) {
+        skipNext = false;
+        return WalkResult::advance();
       }
+      KrnlInstrumentOp firstInstrOp = mlir::dyn_cast<KrnlInstrumentOp>(op);
+      // Check if we have a first instrumentation op with instr before.
+      if (!firstInstrOp)
+        return WalkResult::advance();
+      uint64_t firstTag = firstInstrOp.getTag();
+      if (!IS_INSTRUMENT_BEFORE_OP(firstTag))
+        return WalkResult::advance();
+      // Check if we have a second instrumentation op with instr after.
+      Operation *nextOp = op->getNextNode();
+      if (!nextOp)
+        return WalkResult::advance();
+      KrnlInstrumentOp secondInstrOp = mlir::dyn_cast<KrnlInstrumentOp>(nextOp);
+      if (!secondInstrOp)
+        return WalkResult::advance();
+      uint64_t secondTag = secondInstrOp.getTag();
+      if (!IS_INSTRUMENT_AFTER_OP(secondTag))
+        return WalkResult::advance();
+      // Could check opName but we already have a before/after pair, it can only
+      // be of the same op.
+      // Schedule both instrumentation to be removed as there is nothing between
+      // the start and the stop of the instrumentation.
+      eraseOpList.emplace_back(op);
+      eraseOpList.emplace_back(nextOp);
+      skipNext = true;
       return WalkResult::advance();
     });
+    // Remove ops.
+    for (Operation *op : eraseOpList)
+      op->erase();
   }
 };
 } // namespace onnx_mlir
