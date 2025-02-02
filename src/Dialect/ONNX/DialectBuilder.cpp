@@ -350,6 +350,13 @@ Value OnnxBuilder::round(Value input, bool scalarType) const {
         toTensor(input.getType()), toTensor(input));
 }
 
+Value OnnxBuilder::shape(Value input) const {
+  int64_t rank = getRank(input.getType());
+  Type outputType = RankedTensorType::get({rank}, b().getI64Type());
+  return createTypedOpAndInferShapes<ONNXShapeOp>(
+      toTensor(outputType), toTensor(input));
+}
+
 Value OnnxBuilder::shape(Type outputType, Value input) const {
   return createTypedOpAndInferShapes<ONNXShapeOp>(
       toTensor(outputType), toTensor(input));
