@@ -252,7 +252,7 @@ static llvm::cl::opt<bool, true> disableConvTranposeDecomposeOptionOpt(
     "disable-convtranspose-decompose",
     llvm::cl::desc("Disable decomposition of ONNX ConvTranspose operator."),
     llvm::cl::location(disableConvTransposeDecomposeOption),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
