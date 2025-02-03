@@ -317,11 +317,11 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
   ]
 >;
 
-// Pattern in CCFD model.
-// 4DS and 3DS have exactaly same data values when the second dim of 4DS is 1.
+// Pattern in the CCFD model.
+// 4DS and 3DS have exactly same data values when the second dim of 4DS is 1.
 // (The second dim of 4DS indicates unidirectional or bidirectional LSTM/GRU/RNN,
 // in which: 1 means unidirectional, 2 means bidirectional)
-// This is true mo matter shapes are dynamic or static.
+// This rewriting is true no matter dims (except the 2nd dim) are dynamic or static.
 def Stick3DSSqueezeUnstick4DSPattern: Pat<
   // Input: X -> unstick (4DS) -> Squeeze (axis=1) -> stick (3DS).
   (ZHighStickOp:$stick
@@ -330,8 +330,8 @@ def Stick3DSSqueezeUnstick4DSPattern: Pat<
   // Output: initial X value unchanged, but transformed with the new layout.
   (ZHighReshapeOp $X, (Create3DSShapeFrom4DS $X), (GetLayout $stick)),
   // Conditions.
-  [(TensorHas4DSLayout $X),     // Input are 4DS.
-   (TensorHas3DSLayout $stick), // Output are 3DS.
+  [(TensorHas4DSLayout $X),     // Input is 4DS.
+   (TensorHas3DSLayout $stick), // Output is 3DS.
    (IsConstOf<1> $axes),        // squeeze at axis 1.
   ]
 >;
