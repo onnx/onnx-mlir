@@ -79,7 +79,7 @@ op_dialect_version_map_["GlobalMaxPool"] = {1};
 op_dialect_version_map_["Gradient"] = {1};
 op_dialect_version_map_["Greater"] = {13};
 op_dialect_version_map_["GreaterOrEqual"] = {16};
-op_dialect_version_map_["GridSample"] = {16};
+op_dialect_version_map_["GridSample"] = {22, 16};
 op_dialect_version_map_["GroupNormalization"] = {21, 18};
 op_dialect_version_map_["HammingWindow"] = {17};
 op_dialect_version_map_["HannWindow"] = {17};
@@ -358,6 +358,8 @@ import_handler_map_["GreaterOrEqual"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
 import_handler_map_["GridSample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleOp>;
+import_handler_map_["GridSampleV16"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleV16Op>;
 import_handler_map_["GroupNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGroupNormalizationOp>;
 import_handler_map_["GroupNormalizationV18"] = 
