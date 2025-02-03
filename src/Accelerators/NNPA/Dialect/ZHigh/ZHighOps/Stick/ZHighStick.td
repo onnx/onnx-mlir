@@ -238,70 +238,6 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
    ]
 >;
 
-
-// Third pattern found in roberta (requires transposed matmul).
-//
-//  %38 = "zhigh.Unstick"(%37) : (tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x384x768xf32>
-//  %43 = "onnx.Reshape"(%38, %8) {allowzero = 0 : si64, onnx_node_name = "Reshape_75"} : (tensor<8x384x768xf32>, tensor<4xi64>) -> tensor<8x384x12x64xf32>
-//  %44 = "onnx.Transpose"(%43) {onnx_node_name = "Transpose_87", perm = [0, 2, 3, 1]} : (tensor<8x384x12x64xf32>) -> tensor<8x12x64x384xf32>
-//  %45 = "onnx.Reshape"(%44, %4) {allowzero = 0 : si64} : (tensor<8x12x64x384xf32>, tensor<3xi64>) -> tensor<96x64x384xf32>
-//  %47 = "zhigh.Stick"(%45) {layout = "3DS"} : (tensor<96x64x384xf32>) -> tensor<96x64x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-//
-//  %48 = "zhigh.MatMul"(%46, %47, %2) {transposeA = 0 : si64, transposeB = 0 : si64} :
-//        (tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<96x64x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) ->
-//        tensor<96x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-
-// Namely unstick -> reshape -> transpose -> reshape 2> stick -> matmul
-// The pattern is not like patterns 1 & 2 above, in that it does something like this:
-// 8 x 384 x (12 * 64 = 768) => (8 * 12 = 96) x 384 x 64 (similar to above but then...)
-// Final is 96 x 384 x 64, so last 2 dim swapped.
-// We can use the "transpose" functionality available in the matmul to "handle"
-// the transpose for free.
-//
-// so we replace the whole sequence by a "reshape -> matmul-transposeB"
-
-def ReshapeTransposeReshapeRoberta3DSWPattern3a : Pat<
-  // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick -> matmul (2nd input)
-  (ZHighMatMulOp:$matmul
-     $X, // X matmul input.
-    // Y matmul input.
-    (ZHighStickOp:$stick
-      (ONNXReshapeOp:$reshape2
-        (ONNXTransposeOp:$transpose
-          (ONNXReshapeOp:$reshape1
-            (ZHighUnstickOp:$unstick $Y),
-            $shape1, $_),
-          $perm),
-        $shape2, $_),
-      $layout3DS, $saturation),
-      $B, // B from matmul (we don't really care one way or another about this one).
-      $transposeA, $transposeB),
-    // Output: Matmul with Y transposed.
-    // Initial Y value unchanged, but transformed with the compatible shape.
-    (ZHighMatMulOp
-        $X,
-        (ZHighReshapeOp $Y, (Create3DShapePermuteRightmostOp $stick), (GetLayout $stick)),
-        $B,
-        (GetZeroI64Attr), // X not transposed,
-        (GetOneI64Attr)), // Y is transposed.
-    // Conditions.
-    [(IsCompatibleWithNNPALevelArch15), // Arch15 supports matmul with transposed inputs.
-      // Not testing anything for Tensor X and B, think its irrelevant here.
-     (TensorHas3DSLayout $Y), (Is3DSLayout $layout3DS), // Input/output are 3DS.
-     // Static shapes only.
-     (IsStaticShapeTensor $Y), (IsStaticShapeTensor $unstick),
-     (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
-     (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
-     (IsShapeDimMultipleOf32<1> $Y), // Second dim of input is a multiple of 32.
-     (IsShapeDimMultipleOf64<2> $Y), // Third dim of input is a multiple of 64.
-     (Is4DTransposePermutationEqualTo0231 $perm), // Permute lower 3 dims.
-     (IsRightmostTiling3DTo4DBy64 $reshape1), // 1st reshape is tiling by 64 the rightmost dimension
-     (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions.
-     (IsInt64NAttr<0> $transposeA), (IsInt64NAttr<0> $transposeB), // Matmul is not already transposed.
-   ]
->;
-
-
 // The following pattern was found in bertsquad and GPT models.
 // ```
 // %0 = "zhigh.Unstick"(%X) {layout = "2D"} : tensor<?x768xf32, #zhigh.encoding<{dataLayout = "3DS"}>> -> tensor<?x768xf32>
@@ -382,6 +318,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
    (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
   ]
 >;
+
 
 // Pattern in the CCFD model.
 // 4DS and 3DS have exactly same data values when the second dim of 4DS is 1.

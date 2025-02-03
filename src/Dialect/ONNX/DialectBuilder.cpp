@@ -381,16 +381,25 @@ Value OnnxBuilder::shape(
 // using onnx.dim and use onnx.concat to place the right value at the right
 // position.
 Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
-  int64_t inputRank = mlir::cast<ShapedType>(input.getType()).getRank();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+  int64_t inputRank = inputType.getRank();
+  auto inputShape = inputType.getShape();
   int64_t permRank = perm.size();
+  bool allStatic = true;
   llvm::SmallVector<Value, 4> permutedDims;
+  llvm::SmallVector<int64_t, 4> permutedShapes;
   for (int64_t p = 0; p < permRank; ++p) {
     int64_t d = perm[p];
     assert(
         d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
-    Value size = dim(input, d);
-    permutedDims.emplace_back(size);
+    if (ShapedType::isDynamic(inputShape[d]))
+      allStatic = false;
+    permutedDims.emplace_back(dim(input, d));
+    permutedShapes.emplace_back(inputShape[d]);
   }
+  // If static, then simply return an array of literals; otherwise, concat dims.
+  if (allStatic)
+    return constantInt64(permutedShapes);
   Type outputType = RankedTensorType::get({permRank}, b().getI64Type());
   return concat(outputType, permutedDims, 0);
 }

@@ -224,11 +224,6 @@ def Is4DTransposePermutationEqualTo0213 : Constraint<
   "Is 4D Transpose with pattern (0, 2, 1, 3)"
 >;
 
-def Is4DTransposePermutationEqualTo0231 : Constraint<
-  CPred<"::onnx_mlir::zhigh::isTransposePermutationEqualTo($0, {0, 2, 3, 1})">,
-  "Is 4D Transpose with pattern (0, 2, 3, 1)"
->;
-
 class IsShapeDimMultipleOf32<int index> : Constraint<
   CPred<"::onnx_mlir::zhigh::isShapeDimMultipleOf($0, " # index # ", 32)">,
   "The operand shape at given index is a multiple of 32"
@@ -264,8 +259,8 @@ class IsConstOf<int v>: Constraint<
  // e.g. 4DS tensor: tensor<3, 1, 4, 5>,
  // this function returns a tensor: tensor<3xi64> = [3, 4, 5]
  def Create3DSShapeFrom4DS: NativeCodeCall<
-   "::onnx_mlir::zhigh::create3DSShapeFrom4DS($_builder, $_loc, $0)"
- >;
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0, {0, 2, 3});"
+>;
 
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
