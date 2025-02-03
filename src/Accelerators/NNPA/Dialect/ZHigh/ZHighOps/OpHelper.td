@@ -109,6 +109,13 @@ def TensorHas3DSLayout: Constraint<
   "ZTensor has 3DS layout"
 >;
 
+def TensorHas4DSLayout: Constraint<
+  CPred<"::onnx_mlir::is4DSLayout("
+        "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+        "::onnx_mlir::zhigh::getZTensorLayout($0.getType())))">,
+  "ZTensor has 4DS layout"
+>;
+
 def TensorHasNHWCLayout: Constraint<
   CPred<"::onnx_mlir::isNHWCLayout("
         "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
@@ -236,6 +243,19 @@ def NoneIntegerAttr: NativeCodeCall<"IntegerAttr()">;
 
 def GetDefaultSaturation : NativeCodeCall<
   "::onnx_mlir::zhigh::getDefaultSaturation($_builder)"
+>;
+
+class IsConstOf<int v>: Constraint<
+  CPred<"onnx_mlir::isConstOf($0, " # v # ")">,
+  "Value is a s scalar constant of v"
+>;
+
+// Create an array tensor to contain three dimensions of layout 3DS.
+// The tensor is created from 4DS's shape by removing the value 1 at axis 1.
+// e.g. 4DS tensor: tensor<3, 1, 4, 5>,
+// this function returns a tensor: tensor<3xi64> = [3, 4, 5]
+def Create3DSShapeFrom4DS: NativeCodeCall<
+  "::onnx_mlir::zhigh::create3DSShapeFrom4DS($_builder, $_loc, $0)"
 >;
 
 #endif // OP_HELPER
