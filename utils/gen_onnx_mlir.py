@@ -291,7 +291,7 @@ version_dict = {
     "TreeEnsembleRegressor": [1],
     "Unique": [11],
     "Unsqueeze": [13, 11],
-    "Upsample": [9, 7],
+    "Upsample": [10, 7],
     "Where": [16],
     "Xor": [7],
     "ZipMap": [1],
