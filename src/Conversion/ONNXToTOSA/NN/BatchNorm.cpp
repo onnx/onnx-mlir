@@ -29,6 +29,11 @@ public:
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
 
     auto outType = getTypeConverter()->convertType(op.getResult().getType());
+    if (!cast<ShapedType>(outType).hasRank()) {
+      return rewriter.notifyMatchFailure(op,
+          "ONNXBatchNormalizationInferenceModeOp to "
+          "TOSA requires a ranked result type");
+    }
     auto outTensorType = cast<RankedTensorType>(outType);
 
     // The layout of the output is N x C x D1 x D2 … Dn. For batch
@@ -60,7 +65,7 @@ public:
     // epsilon's shape: constant -> {1, 1, 1, ...}
     newShape[1] = 1;
     auto eps = tosaBuilder.getSplattedConst(op.getEpsilon().convertToFloat(),
-        outTensorType.getElementType(), newShape);
+        outTensorType.getElementType(), newShape.size());
 
     // output = (input - mean) * scale * rsqrt(var + eps) + bias
     auto op1SubInputMean =

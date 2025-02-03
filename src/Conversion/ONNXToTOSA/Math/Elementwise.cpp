@@ -239,12 +239,12 @@ static LogicalResult legalizeFloatingPointPrelu(Operation *op,
   auto loc = op->getLoc();
   TosaBuilder tosaBuilder(rewriter, loc);
   Value constZero = tosaBuilder.getSplattedConst(
-      0.0, outputType.getElementType(), outputType.getShape());
+      0.0, outputType.getElementType(), outputType.getRank());
 
   auto mul = tosaBuilder.mul(input, alphaOrSlope);
   auto greaterEqual = tosaBuilder.greaterEqual(input, constZero);
   auto select = tosaBuilder.select(greaterEqual, input, mul);
-
+  copySingleResultType(op, select);
   rewriter.replaceOp(op, {select});
   return success();
 }
@@ -274,7 +274,7 @@ public:
     TosaBuilder tosaBuilder(rewriter, loc);
     return legalizeFloatingPointPrelu(op, rewriter, adaptor.getX(),
         tosaBuilder.getSplattedConst(
-            alpha, outputType.getElementType(), outputType.getShape()),
+            alpha, outputType.getElementType(), outputType.getRank()),
         outputType);
   }
 };
@@ -312,6 +312,7 @@ public:
     } else if constexpr (std::is_same_v<OnnxCompOp, ONNXLessOp>) {
       res = tosaBuilder.less(input1, input2);
     }
+    copySingleResultType(op, res);
     rewriter.replaceOp(op, {res});
     return success();
   }
@@ -393,7 +394,7 @@ public:
       // onnx.Cast and tosa.cast.
       if (resultTy.getElementType().getIntOrFloatBitWidth() != 1) {
         auto zero = tosaBuilder.getSplattedConst(
-            0.0f, inputTy.getElementType(), resultTy.getShape());
+            0.0f, inputTy.getElementType(), resultTy.getRank());
         auto positive = tosaBuilder.greaterEqual(input, zero);
 
         auto floor = tosaBuilder.unaryOp<mlir::tosa::FloorOp>(input);
@@ -421,6 +422,7 @@ public:
 
     if (isa<IntegerType>(resultElementType)) {
       Value divOp = tosaBuilder.intdiv(lhs, rhs);
+      copySingleResultType(op, divOp);
       rewriter.replaceOp(op, {divOp});
       return success();
     }
@@ -428,6 +430,7 @@ public:
     // tosa::ReciprocalOp and tosa::MulOp.
     Value reciprocalOp = tosaBuilder.unaryOp<mlir::tosa::ReciprocalOp>(rhs);
     Value mulOp = tosaBuilder.mul(lhs, reciprocalOp);
+    copySingleResultType(op, mulOp);
     rewriter.replaceOp(op, {mulOp});
     return success();
   }
@@ -472,20 +475,21 @@ public:
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
 
     Value one = tosaBuilder.getSplattedConst(
-        1.0, resultTensorType.getElementType(), resultTensorType.getShape());
+        1.0, resultTensorType.getElementType(), resultTensorType.getRank());
     Value alpha =
         tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
-            resultTensorType.getElementType(), resultTensorType.getShape());
+            resultTensorType.getElementType(), resultTensorType.getRank());
     Value constZero = tosaBuilder.getSplattedConst(
-        0.0, resultTensorType.getElementType(), resultTensorType.getShape());
+        0.0, resultTensorType.getElementType(), resultTensorType.getRank());
 
     Value exp = tosaBuilder.unaryOp<mlir::tosa::ExpOp>(input);
+    copySingleResultType(op, exp);
     Value expMinusOne = tosaBuilder.binaryOp<mlir::tosa::SubOp>(exp, one);
     Value alphaTimesExpMinusOne = tosaBuilder.mul(expMinusOne, alpha);
     Value greaterEqual = tosaBuilder.greaterEqual(input, constZero);
     auto select =
         tosaBuilder.select(greaterEqual, input, alphaTimesExpMinusOne);
-
+    copySingleResultType(op, select);
     rewriter.replaceOp(op, {select});
     return success();
   }
@@ -516,11 +520,16 @@ public:
     APFloat oneOverAlpha(alpha.getSemantics(), 1);
     oneOverAlpha.divide(alpha, APFloat::rmNearestTiesToEven);
 
+    if (!resultType.hasRank()) {
+      return rewriter.notifyMatchFailure(
+          op, "HardSigmoid: Static shape required to create splatted const");
+    }
+
     Value constBetaOverAlpha =
         tosaBuilder.getSplattedConst(betaOverAlpha.convertToDouble(),
-            resultElementType, resultType.getShape());
+            resultElementType, resultType.getRank());
     Value constAlpha = tosaBuilder.getSplattedConst(
-        alpha.convertToDouble(), resultElementType, resultType.getShape());
+        alpha.convertToDouble(), resultElementType, resultType.getRank());
 
     auto addOp =
         tosaBuilder.binaryOp<mlir::tosa::AddOp>(input, constBetaOverAlpha);
@@ -530,7 +539,7 @@ public:
         rewriter.getF32FloatAttr(0),
         rewriter.getF32FloatAttr(oneOverAlpha.convertToDouble()));
     auto mulOp = tosaBuilder.mul(clampOp, constAlpha);
-
+    copySingleResultType(op, mulOp);
     rewriter.replaceOp(op, {mulOp});
     return success();
   }
@@ -565,14 +574,19 @@ public:
     if (failed(IsFloat::checkType(rewriter, outputType.getElementType(), op))) {
       return failure();
     }
+    if (!outputType.hasRank()) {
+      return rewriter.notifyMatchFailure(
+          op, "ONNXSoftplusOp: Rank required to create splatted const");
+    }
 
     Value input = adaptor.getX();
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     auto one = tosaBuilder.getSplattedConst(
-        1.0, outputType.getElementType(), outputType.getShape());
+        1.0, outputType.getElementType(), outputType.getRank());
 
     auto expOp = tosaBuilder.unaryOp<mlir::tosa::ExpOp>(input);
+    copySingleResultType(op, expOp);
     auto expPlusOne = tosaBuilder.binaryOp<mlir::tosa::AddOp>(expOp, one);
     auto logOp = tosaBuilder.unaryOp<mlir::tosa::LogOp>(expPlusOne);
     rewriter.replaceOp(op, {logOp});
@@ -594,15 +608,19 @@ public:
     Value input = adaptor.getX();
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    if (!outputType.hasRank()) {
+      return rewriter.notifyMatchFailure(
+          op, "ONNXSeluOp: Rank required to create splatted const");
+    }
 
     Value alpha =
         tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
-            outputType.getElementType(), outputType.getShape());
+            outputType.getElementType(), outputType.getRank());
     Value gamma =
         tosaBuilder.getSplattedConst(adaptor.getGamma().convertToDouble(),
-            outputType.getElementType(), outputType.getShape());
+            outputType.getElementType(), outputType.getRank());
     Value constZero = tosaBuilder.getSplattedConst(
-        0.0, outputType.getElementType(), outputType.getShape());
+        0.0, outputType.getElementType(), outputType.getRank());
 
     Value exp = tosaBuilder.unaryOp<mlir::tosa::ExpOp>(input);
     Value expTimesAlpha = tosaBuilder.mul(exp, alpha);
@@ -630,15 +648,19 @@ public:
             rewriter, outputType.getElementType(), op))) {
       return failure();
     }
+    if (!outputType.hasRank()) {
+      return rewriter.notifyMatchFailure(
+          op, "ONNXThresholdedReluOp: Rank required to create splatted const");
+    }
 
     Value input = adaptor.getX();
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     auto alpha =
         tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
-            outputType.getElementType(), outputType.getShape());
+            outputType.getElementType(), outputType.getRank());
     auto zero = tosaBuilder.getSplattedConst(
-        0.0, outputType.getElementType(), outputType.getShape());
+        0.0, outputType.getElementType(), outputType.getRank());
 
     auto greater = tosaBuilder.greater(input, alpha);
     auto select = tosaBuilder.select(greater, input, zero);

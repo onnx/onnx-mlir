@@ -98,7 +98,7 @@ public:
         auto valueIt = valueAttr.getValues<FloatAttr>().begin();
         const float valueFloat = cast<FloatAttr>(*valueIt).getValueAsDouble();
         constTosaTensor = tosaBuilder.getSplattedConst(
-            valueFloat, valueAttr.getElementType());
+            valueFloat, valueAttr.getElementType(), 0);
       } else {
         assert(isTOSAInt(elementDtype) && "Already validated");
         auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
@@ -106,10 +106,10 @@ public:
         auto asIntegerTy = cast<IntegerType>(valueAttr.getElementType());
         if (asIntegerTy.isUnsigned()) {
           constTosaTensor = tosaBuilder.getSplattedConst(
-              valueAsAPInt.getZExtValue(), asIntegerTy);
+              valueAsAPInt.getZExtValue(), asIntegerTy, 0);
         } else {
           constTosaTensor = tosaBuilder.getSplattedConst(
-              valueAsAPInt.getSExtValue(), asIntegerTy);
+              valueAsAPInt.getSExtValue(), asIntegerTy, 0);
         }
       }
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
