@@ -74,22 +74,33 @@ mlir::Value getConstantOfType(
 bool oneIsOfLayout(
     mlir::Type t1, mlir::Type t2, ZTensorEncodingAttr::DataLayout layout);
 
-/// Check if ONNXReshapeOp is reshaping 2D/3D to 4D by tiling each input
+/// Check if ONNXReshapeOp is reshaping 2D/3D to 4D by tiling an input
 /// dimension.
 bool isTiling2DTo4D(mlir::Value val);
 mlir::AffineMapAttr getTiling2DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
-bool isTiling3DTo4D(mlir::Value val);
-mlir::AffineMapAttr getTiling3DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
-/// Check if ONNXReshapeOp is collapsing 4D into 3D/2D by merging the first two
-/// dimensions.
-bool isCollapsing4DTo3D(mlir::Value val);
-mlir::AffineMapAttr getCollapsing4DTo3DMap(mlir::OpBuilder &b, mlir::Value val);
+bool isLeftmostTiling3DTo4D(mlir::Value val);
+bool isRightmostTiling3DTo4D(mlir::Value val, int64_t tilingSize);
+mlir::AffineMapAttr getLeftmostTiling3DTo4DMap(
+    mlir::OpBuilder &b, mlir::Value val);
+/// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the first two
+/// (leftmost) dimensions.
+bool isLeftmostCollapsing4DTo3D(mlir::Value val);
+/// Check if ONNXReshapeOp is collapsing 4D into 3D by merging the last two
+/// (rightmost) dimensions.
+bool isRightmostCollapsing4DTo3D(mlir::Value val);
+mlir::AffineMapAttr getLeftmostCollapsing4DTo3DMap(
+    mlir::OpBuilder &b, mlir::Value val);
 bool isCollapsing4DTo2D(mlir::Value val);
 mlir::AffineMapAttr getCollapsing4DTo2DMap(mlir::OpBuilder &b, mlir::Value val);
 /// Get an affine map for the permutation array.
 mlir::AffineMapAttr getTransposeMap(
     mlir::OpBuilder &b, mlir::ArrayAttr permAttr);
-
+/// Check the values of a transpose map to be equal to the permVals.
+bool isTransposePermutationEqualTo(
+    mlir::ArrayAttr permAttr, mlir::ArrayRef<int64_t> permVals);
+/// Return true when shape(Value)[index] % multipleVal == 0.
+/// Negative indices, count from the back (-1 is last element).
+bool isShapeDimMultipleOf(mlir::Value val, int64_t index, int64_t multipleVal);
 /// Get an axis for NHWC layout given an axis for NCHW layout.
 mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);
 
@@ -98,6 +109,13 @@ bool hasNNPAUse(mlir::Value v);
 
 /// Get saturation settings.
 mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
+
+/// Create an array tensor to contain three dimensions of layout 3DS.
+/// The tensor is created from 4DS's shape by removing the value 1 at axis 1.
+/// e.g. 4DS tensor: tensor<3, 1, 4, 5>,
+/// this function returns a tensor: tensor<3xi64> = [3, 4, 5]
+mlir::Value create3DSShapeFrom4DS(
+    mlir::OpBuilder &builder, mlir::Location loc, mlir::Value val3DS);
 
 } // namespace zhigh
 } // namespace onnx_mlir
