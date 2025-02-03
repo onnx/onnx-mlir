@@ -247,15 +247,15 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
 //  %45 = "onnx.Reshape"(%44, %4) {allowzero = 0 : si64} : (tensor<8x12x64x384xf32>, tensor<3xi64>) -> tensor<96x64x384xf32>
 //  %47 = "zhigh.Stick"(%45) {layout = "3DS"} : (tensor<96x64x384xf32>) -> tensor<96x64x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 //
-//  %48 = "zhigh.MatMul"(%46, %47, %2) {transposeA = 0 : si64, transposeB = 0 : si64} : 
-//        (tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<96x64x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> 
+//  %48 = "zhigh.MatMul"(%46, %47, %2) {transposeA = 0 : si64, transposeB = 0 : si64} :
+//        (tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<96x64x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) ->
 //        tensor<96x384x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
 // Namely unstick -> reshape -> transpose -> reshape 2> stick -> matmul
 // The pattern is not like patterns 1 & 2 above, in that it does something like this:
 // 8 x 384 x (12 * 64 = 768) => (8 * 12 = 96) x 384 x 64 (similar to above but then...)
 // Final is 96 x 384 x 64, so last 2 dim swapped.
-// We can use the "transpose" functionality available in the matmul to "handle" 
+// We can use the "transpose" functionality available in the matmul to "handle"
 // the transpose for free.
 //
 // so we replace the whole sequence by a "reshape -> matmul-transposeB"
@@ -265,7 +265,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern3a : Pat<
   (ZHighMatMulOp:$matmul
      $X, // X matmul input.
     // Y matmul input.
-    (ZHighStickOp:$stick 
+    (ZHighStickOp:$stick
       (ONNXReshapeOp:$reshape2
         (ONNXTransposeOp:$transpose
           (ONNXReshapeOp:$reshape1
@@ -276,13 +276,13 @@ def ReshapeTransposeReshapeRoberta3DSWPattern3a : Pat<
       $layout3DS, $saturation),
       $B, // B from matmul (we don't really care one way or another about this one).
       $transposeA, $transposeB),
-    // Output: Matmul with Y transposed. 
+    // Output: Matmul with Y transposed.
     // Initial Y value unchanged, but transformed with the compatible shape.
-    (ZHighMatMulOp 
+    (ZHighMatMulOp
         $X,
         (ZHighReshapeOp $Y, (Create3DShapePermuteRightmostOp $stick), (GetLayout $stick)),
         $B,
-        (GetZeroI64Attr), // X not transposed, 
+        (GetZeroI64Attr), // X not transposed,
         (GetOneI64Attr)), // Y is transposed.
     // Conditions.
     [(IsCompatibleWithNNPALevelArch15), // Arch15 supports matmul with transposed inputs.
@@ -296,7 +296,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern3a : Pat<
      (IsShapeDimMultipleOf64<2> $Y), // Third dim of input is a multiple of 64.
      (Is4DTransposePermutationEqualTo0231 $perm), // Permute lower 3 dims.
      (IsRightmostTiling3DTo4DBy64 $reshape1), // 1st reshape is tiling by 64 the rightmost dimension
-     (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+     (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions.
      (IsInt64NAttr<0> $transposeA), (IsInt64NAttr<0> $transposeB), // Matmul is not already transposed.
    ]
 >;
@@ -380,6 +380,25 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
    (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
    (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+  ]
+>;
+
+// Pattern in the CCFD model.
+// 4DS and 3DS have exactly same data values when the second dim of 4DS is 1.
+// (The second dim of 4DS indicates unidirectional or bidirectional LSTM/GRU/RNN,
+// in which: 1 means unidirectional, 2 means bidirectional)
+// This rewriting is true no matter dims (except the 2nd dim) are dynamic or static.
+def Stick3DSSqueezeUnstick4DSPattern: Pat<
+  // Input: X -> unstick (4DS) -> Squeeze (axis=1) -> stick (3DS).
+  (ZHighStickOp:$stick
+    (ONNXSqueezeOp (ZHighUnstickOp:$unstick $X), $axes),
+    $_, $_),
+  // Output: initial X value unchanged, but transformed with the new layout.
+  (ZHighReshapeOp $X, (Create3DSShapeFrom4DS $X), (GetLayout $stick)),
+  // Conditions.
+  [(TensorHas4DSLayout $X),     // Input is 4DS.
+   (TensorHas3DSLayout $stick), // Output is 3DS.
+   (IsConstOf<1> $axes),        // squeeze at axis 1.
   ]
 >;
 

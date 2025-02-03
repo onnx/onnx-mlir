@@ -80,6 +80,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/Gather.cpp
   ONNXOps/Tensor/GatherElements.cpp
   ONNXOps/Tensor/GatherND.cpp
+  ONNXOps/Tensor/GridSample.cpp
   ONNXOps/Tensor/Identity.cpp
   ONNXOps/Tensor/NonZero.cpp
   ONNXOps/Tensor/OneHot.cpp

@@ -878,7 +878,7 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
 // Support for DenseElementsAttr.
 //===----------------------------------------------------------------------===//
 
-bool isElementAttrUninitializedDenseResource( ElementsAttr elementsAttr) {
+bool isElementAttrUninitializedDenseResource(ElementsAttr elementsAttr) {
   const auto denseResourceElementsAttr =
       mlir::dyn_cast<DenseResourceElementsAttr>(elementsAttr);
   return denseResourceElementsAttr &&

@@ -110,6 +110,13 @@ bool hasNNPAUse(mlir::Value v);
 /// Get saturation settings.
 mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
 
+/// Create an array tensor to contain three dimensions of layout 3DS.
+/// The tensor is created from 4DS's shape by removing the value 1 at axis 1.
+/// e.g. 4DS tensor: tensor<3, 1, 4, 5>,
+/// this function returns a tensor: tensor<3xi64> = [3, 4, 5]
+mlir::Value create3DSShapeFrom4DS(
+    mlir::OpBuilder &builder, mlir::Location loc, mlir::Value val3DS);
+
 } // namespace zhigh
 } // namespace onnx_mlir
 #endif

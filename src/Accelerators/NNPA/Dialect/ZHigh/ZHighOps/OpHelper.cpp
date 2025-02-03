@@ -636,5 +636,25 @@ IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
     return IntegerAttr();
 }
 
+// Create an array tensor to contain three dimensions of layout 3DS.
+// The tensor is created from 4DS's shape by removing the value 1 at axis 1.
+// e.g. 4DS tensor: tensor<3, 1, 4, 5>,
+// this function returns a tensor: tensor<3xi64> = [3, 4, 5]
+Value create3DSShapeFrom4DS(OpBuilder &builder, Location loc, Value val4DS) {
+  OnnxBuilder create(builder, loc);
+  ArrayRef<int64_t> shape4DS = getShape(val4DS.getType());
+  assert(shape4DS.size() == 4 && "The tensor must have rank of 4");
+  assert(shape4DS[1] == 1 && "The second dim must be 1");
+  if (hasStaticShape(val4DS.getType())) {
+    return create.constantInt64(
+        ArrayRef<int64_t>{shape4DS[0], shape4DS[2], shape4DS[3]});
+  }
+  Value dim0 = create.dim(val4DS, 0);
+  Value dim1 = create.dim(val4DS, 2);
+  Value dim2 = create.dim(val4DS, 3);
+  return create.concat(
+      RankedTensorType::get({3}, builder.getI64Type()), {dim0, dim1, dim2}, 0);
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir
