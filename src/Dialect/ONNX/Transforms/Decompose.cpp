@@ -30,6 +30,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -451,15 +452,14 @@ Value replaceSequenceAt(
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
-#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
+  if (onnx_mlir::disableConvTransposeDecomposeOption) {
+    // Disable the ONNXConvTransposeOp decomposition patterns.
+    return false;
+  }
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
-#else
-  // Disable the ONNXConvTransposeOp decomposition patterns.
-  return false;
-#endif
 }
 
 // Split on the specified axis. The length of each output is one.
