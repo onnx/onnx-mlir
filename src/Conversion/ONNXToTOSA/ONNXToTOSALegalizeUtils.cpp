@@ -56,9 +56,9 @@ llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
 }
 
 mlir::RankedTensorType reduceAxisToOne(
-    llvm::ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
+    int64_t rank, Type elementType, Attribute encoding) {
   return mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
+      llvm::SmallVector<int64_t, 4>(rank, 1), elementType, encoding);
 }
 
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {

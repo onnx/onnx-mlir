@@ -85,12 +85,12 @@ public:
 
     // Create an 1x..x1 constant containing the size of the gathered dimension.
     auto dimSize = tosaBuilder.getSplattedConst(
-        inputShape[axis], indicesType.getElementType(), indicesType.getShape());
+        inputShape[axis], indicesType.getElementType(), indicesType.getRank());
     auto indicesPlusDimSize =
         tosaBuilder.binaryOp<mlir::tosa::AddOp>(indices, dimSize);
 
     auto zero = tosaBuilder.getSplattedConst(
-        (int64_t)0, indicesType.getElementType(), indicesType.getShape());
+        (int64_t)0, indicesType.getElementType(), indicesType.getRank());
     auto indicesPositive = tosaBuilder.greaterEqual(indices, zero);
 
     auto newIndices =
