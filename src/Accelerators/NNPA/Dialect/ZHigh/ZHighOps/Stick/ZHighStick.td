@@ -105,7 +105,7 @@ def ReplaceONNXSoftplusPattern: Pattern<
   (ZHighStickOp:$stickout (ONNXSoftplusOp:$out (ZHighUnstickOp $X)), $layout, $_),
   [
    // Get stickified constant of minus one with input shape.
-   // Donot saturate since input orignally from NNPA.
+   // Donot saturate since input originally from NNPA.
    (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $out), $layout, (NoneIntegerAttr)),
    // Get minus X with input shape.
    (ZHighMulOp:$minusX $X, $minusOne, (returnType $X)),
@@ -122,7 +122,7 @@ def ReplaceONNXSoftplusPattern: Pattern<
   [(IsStaticShapeTensor $X), (SameLayout $X, $stickout)]
 >;
 
-// Calulation of `1/sqrt(X)` or reciprocal square root is often found in
+// Calculation of `1/sqrt(X)` or reciprocal square root is often found in
 // deep learning models, but zDNN does not support it. Thus, we rewrite it into
 // zDNN-supported operations.
 //
@@ -149,7 +149,94 @@ def ReplaceONNXReciprocalSqrtPattern: Pat<
   [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
 >;
 
-// The folowing pattern was found in bertsquad and GPT models.
+// The following pattern was found in Roberta models.
+// ```
+//    %66 = "zhigh.Unstick"(%65) : (tensor<12x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<12x384x64xf32>
+//    %67 = "onnx.Reshape"(%66, %2) {allowzero = 0 : si64} : (tensor<12x384x64xf32>, tensor<4xi64>) -> tensor<1x12x384x64xf32>
+//    %68 = "onnx.Transpose"(%67) {onnx_node_name = "Transpose_94", perm = [0, 2, 1, 3]} : (tensor<1x12x384x64xf32>) -> tensor<1x384x12x64xf32> 
+//    %69 = "onnx.Reshape"(%68, %9) {allowzero = 0 : si64, onnx_node_name = "Reshape_104"} : (tensor<1x384x12x64xf32>, tensor<3xi64>) -> tensor<1x384x768xf32>
+//    %70 = "zhigh.Stick"(%69) {layout = "3DS"} : (tensor<1x384x768xf32>) -> tensor<1x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// ```
+// When the input tensor %65 (here tensor<12x384x64xf16) with dims E3xE2xE1 and 3DS layout satisfies the following properties
+// 1) E2 % 32 == 0
+// 2) E1 % 64 == 0
+// Then we can guarantee that input value %65 has the same value
+// in the same memory location (*) than output %70.
+// (*) does not say the tensor are identical, just that they store
+//     the same value at the same byte offset in the memory.
+//
+// High level intuition for this is that the reshape / transpose / reshape
+// perform some memory layout operations, which results in no change in the
+// 3DS representation as that representation also perform layout changes.
+// 
+// Limitation: current pattern assume static sizes.
+
+def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
+  // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick.
+  (ZHighStickOp:$stick
+    (ONNXReshapeOp:$reshape2
+      (ONNXTransposeOp:$transpose
+        (ONNXReshapeOp:$reshape1
+          (ZHighUnstickOp:$unstick $X),
+          $shape1, $_),
+        $perm),
+      $shape2, $_),
+    $layout3DS, $saturation),
+    // Output: initial X value unchanged, but transformed with the new compatible shape.
+    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+    // Conditions.
+    [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
+     (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
+     (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
+     (IsShapeDimMultipleOf64<2> $X), // Third dim of input is a multiple of 64.
+     (Is4DTransposePermutationEqualTo0213 $perm), // Permute middle 2 dims.
+     (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling in the leftmost dimension
+     (IsRightmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the last two dimensions. 
+   ]
+>;
+
+// Second pattern found in roberta
+//
+//    %33 = "zhigh.Unstick"(%32) : (tensor<8x384x768xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x384x768xf32> // unstick
+//    %44 = "onnx.Reshape"(%33, %7) {allowzero = 0 : si64, onnx_node_name = "Reshape_64"} : (tensor<8x384x768xf32>, tensor<4xi64>) -> tensor<8x384x12x64xf32> // last goes from 768 to 12, 64
+//    %45 = "onnx.Transpose"(%44) {onnx_node_name = "Transpose_65", perm = [0, 2, 1, 3]} : (tensor<8x384x12x64xf32>) -> tensor<8x12x384x64xf32> // same permute
+//    %50 = "onnx.Reshape"(%45, %2) {allowzero = 0 : si64} : (tensor<8x12x384x64xf32>, tensor<3xi64>) -> tensor<96x384x64xf32>  // collapse first 2 dims
+//    %52 = "zhigh.Stick"(%50) {layout = "3DS"} : (tensor<96x384x64xf32>) -> tensor<96x384x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+//
+// Namely unstick -> reshape (by tiling rightmost one to E1/64, 64) -> permute (2nd & 3rd) -> reshape (collapse first 2) -> stick
+// Shapes goes from 8 x 384 x (12*64 = 768) to (8*12 = 96) x 384 x 64
+//
+// pattern works only when input E2 % 32 and E1 % 64 == 0
+
+def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
+  // Input: X -> unstick -> reshape1 -> transpose -> reshape 2 -> stick.
+  (ZHighStickOp:$stick
+    (ONNXReshapeOp:$reshape2
+      (ONNXTransposeOp:$transpose
+        (ONNXReshapeOp:$reshape1
+          (ZHighUnstickOp:$unstick $X),
+          $shape1, $_),
+        $perm),
+      $shape2, $_),
+    $layout3DS, $saturation),
+    // Output: initial X value unchanged, but transformed with the compatible shape.
+    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+    // Conditions.
+    [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
+     (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
+     (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
+     (IsShapeDimMultipleOf64<2> $X), // Third dim of input is a multiple of 64.
+     (Is4DTransposePermutationEqualTo0213 $perm), // Permute middle 2 dims.
+     (IsRightmostTiling3DTo4DBy64 $reshape1), // 1st reshape is tiling by 64 the rightmost dimension
+     (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+   ]
+>;
+
+// The following pattern was found in bertsquad and GPT models.
 // ```
 // %0 = "zhigh.Unstick"(%X) {layout = "2D"} : tensor<?x768xf32, #zhigh.encoding<{dataLayout = "3DS"}>> -> tensor<?x768xf32>
 // %1 = "onnx.Reshape"(%0) : tensor<?x768xf32> -> tensor<?x256x12x64xf32>
@@ -186,7 +273,7 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
           (returnType (GetResultType $reshape1))),
         (GetTransposeMap $perm),
         (returnType (GetResultType $transpose))),
-      (GetCollapsing4DTo3DMap $reshape2),
+      (GetLeftmostCollapsing4DTo3DMap $reshape2),
       (returnType (GetResultType $reshape2))),
     $layout3DS, $saturation),
   [(TensorHas2DLayout $X), (Is3DSLayout $layout3DS),
@@ -194,7 +281,7 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
    (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
    (IsTiling2DTo4D $reshape1), // 1st reshape is tiling over each input dimension
-   (IsCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+   (IsLeftmostCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
   ]
 >;
 
@@ -214,7 +301,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
       (ONNXShapeTransformOp // transpose
         (ONNXShapeTransformOp // reshape
           (ZHighUnstickOp $X),
-          (GetTiling3DTo4DMap $reshape1),
+          (GetLeftmostTiling3DTo4DMap $reshape1),
           (returnType (GetResultType $reshape1))),
         (GetTransposeMap $perm),
         (returnType (GetResultType $transpose))),
@@ -225,8 +312,27 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
    (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
    (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
-   (IsTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+   (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
    (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+  ]
+>;
+
+// Pattern in the CCFD model.
+// 4DS and 3DS have exactly same data values when the second dim of 4DS is 1.
+// (The second dim of 4DS indicates unidirectional or bidirectional LSTM/GRU/RNN,
+// in which: 1 means unidirectional, 2 means bidirectional)
+// This rewriting is true no matter dims (except the 2nd dim) are dynamic or static.
+def Stick3DSSqueezeUnstick4DSPattern: Pat<
+  // Input: X -> unstick (4DS) -> Squeeze (axis=1) -> stick (3DS).
+  (ZHighStickOp:$stick
+    (ONNXSqueezeOp (ZHighUnstickOp:$unstick $X), $axes),
+    $_, $_),
+  // Output: initial X value unchanged, but transformed with the new layout.
+  (ZHighReshapeOp $X, (Create3DSShapeFrom4DS $X), (GetLayout $stick)),
+  // Conditions.
+  [(TensorHas4DSLayout $X),     // Input is 4DS.
+   (TensorHas3DSLayout $stick), // Output is 3DS.
+   (IsConstOf<1> $axes),        // squeeze at axis 1.
   ]
 >;
 
