@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
-
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Threading.h"
 #include "llvm/ADT/STLExtras.h"
@@ -894,6 +893,9 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
       batch.emplace_back(std::make_pair(idxoffs.flattenedIndex, idxoffs[0]));
 
     auto fetchBatch = [&](size_t threadNumber) {
+      // retrun all data without spliting for serial execution.
+      if (threadNumber == -1)
+        return llvm::make_range(batch.begin(), batch.end());
       // Each thread fetches the same batch size. The leftovers are set in the
       // threads with small thread number.
       size_t tileSize = floor(batch.size() / ctx->getNumThreads());
@@ -931,7 +933,15 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
         }
       }
     };
-    parallelFor(ctx, 0, ctx->getNumThreads(), work);
+    // Using 'parallelFor()' introduces large overhead. It is not possible to
+    // disable multi-threading by calling 'ctx->isMultithreadingDisabled()'
+    // here. So, to avoid the overhead, run sequentially if input size is less
+    // than `minCount`.
+    constexpr size_t minCount = 1000;
+    if (batch.size() < minCount)
+      work(-1);
+    else
+      parallelFor(ctx, 0, ctx->getNumThreads(), work);
   });
 }
 

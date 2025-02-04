@@ -10,7 +10,6 @@
 
 #ifndef ONNX_MLIR_ELEM_ATTR_BUILDER_H
 #define ONNX_MLIR_ELEM_ATTR_BUILDER_H
-
 #include "mlir/IR/Threading.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
@@ -251,6 +250,9 @@ private:
     return [fun = std::move(fun), ctx](
                llvm::MutableArrayRef<WideNum> data) -> void {
       auto fetchBatch = [&](size_t threadNumber) {
+        // retrun all data without spliting for serial execution.
+        if (threadNumber == -1)
+          return llvm::make_range(data.begin(), data.end());
         // Each thread fetches the same batch size. The leftovers are set in the
         // threads with small thread number.
         size_t tileSize = floor(data.size() / ctx->getNumThreads());
@@ -275,7 +277,15 @@ private:
         for (WideNum &n : batch)
           n = fun(n);
       };
-      parallelFor(ctx, 0, ctx->getNumThreads(), work);
+      // Using 'parallelFor()' introduces large overhead. It is not possible to
+      // disable multi-threading by calling 'ctx->isMultithreadingDisabled()'
+      // here. So, to avoid the overhead, run sequentially if input size is less
+      // than `minCount`.
+      constexpr size_t minCount = 1000;
+      if (data.size() < minCount)
+        work(-1);
+      else
+        parallelFor(ctx, 0, ctx->getNumThreads(), work);
     };
   }
 
