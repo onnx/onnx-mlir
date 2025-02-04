@@ -113,19 +113,20 @@ static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
     // inferredDim is different from existingDim. Believe in existingDim.
     assert(inferredDims[i].isLiteral() && "isLiteral failed");
     if (existingDims[i] != inferredDims[i].getLiteral()) {
-      if (op)
+      if (op) {
         llvm::outs() << "\nWarning for operation " << op->getName()
                      << ": [Shape inference, dim " << i
                      << "] the inferred dim (" << inferredDims[i].getLiteral()
                      << ") is different from the existing dim ("
                      << existingDims[i]
                      << "). Use the existing dim instead.\n\n";
-      else
+      } else {
         llvm::outs() << "\nWarning: [Shape inference, dim " << i
                      << "] the inferred dim (" << inferredDims[i].getLiteral()
                      << ") is different from the existing dim ("
                      << existingDims[i]
                      << "). Use the existing dim instead.\n\n";
+      }
       inferredDims[i] = LitIE(existingDims[i]);
     }
   }
