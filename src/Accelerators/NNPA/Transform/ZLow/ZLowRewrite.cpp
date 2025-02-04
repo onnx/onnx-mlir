@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 #include <map>
 
@@ -32,6 +33,43 @@ using namespace mlir;
 
 namespace onnx_mlir {
 namespace zlow {
+
+/// Transform the zlow.reshape into a memref.reinterpret_cast as this pass
+/// operates after all memrefs are fully normalized, which is a requirement
+/// here.
+
+class ReshapeToReinterpretCastPattern : public OpRewritePattern<ZLowReshapeOp> {
+public:
+  using OpRewritePattern<ZLowReshapeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZLowReshapeOp reshapeOp, PatternRewriter &rewriter) const override {
+    Location loc = reshapeOp.getLoc();
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    IndexExprScope currScope(&rewriter, loc);
+    // Here, cannot use the shape found in the reshape op, as it is the original
+    // shape before memref normalization.
+    Value input = reshapeOp.getX();
+    Value output = reshapeOp.getOut();
+    // Input must have no affine layout. In other words, it has been normalized.
+    if (hasNonIdentityLayout(input.getType()) ||
+        hasNonIdentityLayout(output.getType())) {
+      return failure();
+    }
+    Operation *outputAllocOp = output.getDefiningOp();
+    ShapedType outputType = mlir::cast<ShapedType>(output.getType());
+    DimsExpr outputDims;
+    for (int64_t i = 0; i < (int64_t)outputType.getRank(); ++i) {
+      Value shape = create.mem.dim(output, i);
+      outputDims.emplace_back(DimIE(shape));
+    }
+    Value reinterpretCast = create.mem.reinterpretCast(input, outputDims);
+    // Reshape is no longer needed. And instead of allocating data, we simply
+    // replace the alloc by the reinterpret_cast.
+    rewriter.eraseOp(reshapeOp);
+    rewriter.replaceOp(outputAllocOp, reinterpretCast);
+    return success();
+  }
+};
 
 /// Remove unstick if there is no use of its second operand except itself.
 class UnstickRemovalPattern : public OpRewritePattern<ZLowUnstickOp> {
@@ -650,6 +688,7 @@ public:
     llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
+    patterns.insert<ReshapeToReinterpretCastPattern>(&getContext());
     patterns.insert<StickRemovalPattern>(&getContext());
     patterns.insert<UnstickRemovalPattern>(&getContext());
     patterns.insert<UnstickStickRemovalPattern>(&getContext());
