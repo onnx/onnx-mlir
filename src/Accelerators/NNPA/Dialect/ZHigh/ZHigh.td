@@ -1195,4 +1195,37 @@ def ZHighFixGRUYhOp:ZHigh_Op<"FixGRUYh", [Pure,
   }];
 }
 
+def ZHighReshapeOp:ZHigh_Op<"Reshape", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Reshape operation for Z Tensors";
+  let description = [{
+    ZHigh operation to perform a converts a Z Tensor from one type to an equivalent type
+    with a provided shape. The data is never copied or modified. When no layout is specified,
+    the output preserve the same layout as the source input.
+  }];
+  let arguments = (ins AnyTypeOf<[AnyZTensor]>:$source, // Input Z Tensor to be reshaped.
+                       TensorOf<[I64]>:$shape,          // Shape of output Z Tensor.
+                       OptionalAttr<StrAttr>:$layout);  // Layout of output Z Tensor, default same as input.
+  let results = (outs AnyTypeOf<[AnyZTensor]>:$result);
+
+  let builders = [
+    // Copied from matmul, needed for DDR.
+    OpBuilder<(ins "::mlir::Value":$source, "::mlir::Value":$shape, "::mlir::StringAttr":$layout), [{
+      Type elementType = mlir::cast<ShapedType>(source.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, source, shape, layout);
+    }]>
+  ];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighReshapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighReshapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 #endif // ZHIGH_OPS
