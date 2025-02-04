@@ -892,6 +892,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     for (auto &idxoffs : sRange)
       batch.emplace_back(std::make_pair(idxoffs.flattenedIndex, idxoffs[0]));
 
+    StridesRange<1> axesRange(axesShape, {axesStrides});
+
     auto fetchBatch = [&](size_t threadNumber) {
       // retrun all data without spliting for serial execution.
       if (threadNumber == -1)
@@ -922,7 +924,6 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
         int64_t srcPos = b.second;
         // Traverse all the elements that reduce together into d.
         // srcNums elements may be repeated if there are zeros in axesStrides.
-        StridesRange<1> axesRange(axesShape, {axesStrides});
         auto axesIter = axesRange.begin();
         auto axesEnd = axesRange.end();
         assert(axesIter->at(0) == 0 && "initial src offset must be zero");
@@ -935,10 +936,13 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     };
     // Using 'parallelFor()' introduces large overhead. It is not possible to
     // disable multi-threading by calling 'ctx->isMultithreadingDisabled()'
-    // here. So, to avoid the overhead, run sequentially if input size is less
-    // than `minCount`.
-    constexpr size_t minCount = 1000;
-    if (batch.size() < minCount)
+    // here. So, to avoid the overhead, call work() directry if input size is
+    // less than `minCount`.
+    // printf("batch.size() * axesRange.size() %ld\n", batch.size() *
+    // axesRange.size());
+    constexpr size_t minCount = 2000;
+    size_t inputCount = batch.size() * axesRange.size();
+    if (inputCount < minCount)
       work(-1);
     else
       parallelFor(ctx, 0, ctx->getNumThreads(), work);

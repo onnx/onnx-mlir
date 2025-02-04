@@ -279,8 +279,8 @@ private:
       };
       // Using 'parallelFor()' introduces large overhead. It is not possible to
       // disable multi-threading by calling 'ctx->isMultithreadingDisabled()'
-      // here. So, to avoid the overhead, run sequentially if input size is less
-      // than `minCount`.
+      // here. So, to avoid the overhead, call work() directry if input size is
+      // less than `minCount`.
       constexpr size_t minCount = 1000;
       if (data.size() < minCount)
         work(-1);
