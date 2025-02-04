@@ -385,21 +385,27 @@ Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
   int64_t inputRank = inputType.getRank();
   auto inputShape = inputType.getShape();
   int64_t permRank = perm.size();
-  bool allStatic = true;
+  bool isStatic = llvm::none_of(
+      inputShape, [](int64_t d) { return ShapedType::isDynamic(d); });
+  if (isStatic) {
+    // Static, no need to create dims. Gather shapes into a constant array.
+    llvm::SmallVector<int64_t, 4> permutedShapes;
+    for (int64_t p = 0; p < permRank; ++p) {
+      int64_t d = perm[p];
+      assert(d >= 0 && d < inputRank &&
+             "perm values expected in [0..rank(input))");
+      permutedShapes.emplace_back(inputShape[d]);
+    }
+    return constantInt64(permutedShapes);
+  }
+  // Dynamic shape: create the dims as needed and gather values in a concat.
   llvm::SmallVector<Value, 4> permutedDims;
-  llvm::SmallVector<int64_t, 4> permutedShapes;
   for (int64_t p = 0; p < permRank; ++p) {
     int64_t d = perm[p];
     assert(
         d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
-    if (ShapedType::isDynamic(inputShape[d]))
-      allStatic = false;
     permutedDims.emplace_back(dim(input, d));
-    permutedShapes.emplace_back(inputShape[d]);
   }
-  // If static, then simply return an array of literals; otherwise, concat dims.
-  if (allStatic)
-    return constantInt64(permutedShapes);
   Type outputType = RankedTensorType::get({permRank}, b().getI64Type());
   return concat(outputType, permutedDims, 0);
 }
