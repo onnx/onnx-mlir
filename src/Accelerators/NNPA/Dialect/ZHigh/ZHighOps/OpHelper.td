@@ -41,7 +41,11 @@ def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
 // Create an ONNX Shape Op with type
 def CreateShapeOp: NativeCodeCall<
-  "$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0);"
+>;
+
+def Create3DShapePermuteRightmostOp: NativeCodeCall<
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0, {0, 2, 1});"
 >;
 
 // Get a type for a tensor that stores the shape of another tensor.
@@ -248,14 +252,39 @@ def GetDefaultSaturation : NativeCodeCall<
 class IsConstOf<int v>: Constraint<
   CPred<"onnx_mlir::isConstOf($0, " # v # ")">,
   "Value is a s scalar constant of v"
+ >;
+
+ // Create an array tensor to contain three dimensions of layout 3DS.
+ // The tensor is created from 4DS's shape by removing the value 1 at axis 1.
+ // e.g. 4DS tensor: tensor<3, 1, 4, 5>,
+ // this function returns a tensor: tensor<3xi64> = [3, 4, 5]
+ def Create3DSShapeFrom4DS: NativeCodeCall<
+  "::onnx_mlir::OnnxBuilder($_builder, $_loc).shape($0, {0, 2, 3});"
 >;
 
-// Create an array tensor to contain three dimensions of layout 3DS.
-// The tensor is created from 4DS's shape by removing the value 1 at axis 1.
-// e.g. 4DS tensor: tensor<3, 1, 4, 5>,
-// this function returns a tensor: tensor<3xi64> = [3, 4, 5]
-def Create3DSShapeFrom4DS: NativeCodeCall<
-  "::onnx_mlir::zhigh::create3DSShapeFrom4DS($_builder, $_loc, $0)"
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def GetZeroI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
+>;
+
+def GetOneI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))"
+>;
+
+class IsInt64NAttr<int n> : Constraint<
+  CPred<"$0.getValue().getSExtValue() == " # n>,
+  "The signed extended int64 attribute equal to N"
+>;
+
+def IsCompatibleWithNNPALevelArch14: Constraint<
+  CPred<"isCompatibleWithNNPALevel(NNPALevel::M14)">,
+  "Input level is compatible with NNPA level"
+>;
+
+def IsCompatibleWithNNPALevelArch15: Constraint<
+  CPred<"isCompatibleWithNNPALevel(NNPALevel::M15)">,
+  "Input level is compatible with NNPA level"
 >;
 
 #endif // OP_HELPER
