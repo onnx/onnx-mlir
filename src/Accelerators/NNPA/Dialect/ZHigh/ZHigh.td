@@ -1209,6 +1209,15 @@ def ZHighReshapeOp:ZHigh_Op<"Reshape", [Pure,
                        OptionalAttr<StrAttr>:$layout);  // Layout of output Z Tensor, default same as input.
   let results = (outs AnyTypeOf<[AnyZTensor]>:$result);
 
+  let builders = [
+    // Copied from matmul, needed for DDR.
+    OpBuilder<(ins "::mlir::Value":$source, "::mlir::Value":$shape, "::mlir::StringAttr":$layout), [{
+      Type elementType = mlir::cast<ShapedType>(source.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, source, shape, layout);
+    }]>
+  ];
+
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * ZHighReshapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
