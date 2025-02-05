@@ -895,8 +895,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     StridesRange<1> axesRange(axesShape, {axesStrides});
 
     auto fetchBatch = [&](size_t threadNumber) {
-      // retrun all data without spliting for serial execution.
-      if (threadNumber == -1)
+      // retrun all data without spliting for sequential execution.
+      if (threadNumber == SIZE_MAX)
         return llvm::make_range(batch.begin(), batch.end());
       // Each thread fetches the same batch size. The leftovers are set in the
       // threads with small thread number.
@@ -934,16 +934,21 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
         }
       }
     };
-    // Using 'parallelFor()' introduces large overhead. It is not possible to
-    // disable multi-threading by calling 'ctx->isMultithreadingDisabled()'
-    // here. So, to avoid the overhead, call work() directry if input size is
-    // less than `minCount`.
-    // printf("batch.size() * axesRange.size() %ld\n", batch.size() *
-    // axesRange.size());
+    // Using 'parallelFor()' introduces large overhead. Followings are example
+    // results of 'test_reduce_sum_positive_axis()' in
+    // 'test/mlir/onnx/onnx_constprop.mlir' on MaxOS. From this results, we
+    // should not use parallel execution in small input.
+    //
+    //  Sequential(work())   | parallel(parallelFor())
+    // -----------------------------------------------
+    //   0.457 (msec)        |  0.185 (msec)
+    //
+    // To avoid this overhead, call work() directry if input size is less than
+    // `minCount`.
     constexpr size_t minCount = 2000;
     size_t inputCount = batch.size() * axesRange.size();
     if (inputCount < minCount)
-      work(-1);
+      work(SIZE_MAX); // Sequential
     else
       parallelFor(ctx, 0, ctx->getNumThreads(), work);
   });

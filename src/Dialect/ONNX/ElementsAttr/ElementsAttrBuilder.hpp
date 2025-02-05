@@ -250,8 +250,8 @@ private:
     return [fun = std::move(fun), ctx](
                llvm::MutableArrayRef<WideNum> data) -> void {
       auto fetchBatch = [&](size_t threadNumber) {
-        // retrun all data without spliting for serial execution.
-        if (threadNumber == -1)
+        // retrun all data without spliting for sequential execution.
+        if (threadNumber == SIZE_MAX)
           return llvm::make_range(data.begin(), data.end());
         // Each thread fetches the same batch size. The leftovers are set in the
         // threads with small thread number.
@@ -277,13 +277,12 @@ private:
         for (WideNum &n : batch)
           n = fun(n);
       };
-      // Using 'parallelFor()' introduces large overhead. It is not possible to
-      // disable multi-threading by calling 'ctx->isMultithreadingDisabled()'
-      // here. So, to avoid the overhead, call work() directry if input size is
-      // less than `minCount`.
+      // Using 'parallelFor()' introduces large overhead.
+      // To avoid this overhead, call work() directry if input size is less than
+      // `minCount`.
       constexpr size_t minCount = 1000;
       if (data.size() < minCount)
-        work(-1);
+        work(SIZE_MAX); // Sequential
       else
         parallelFor(ctx, 0, ctx->getNumThreads(), work);
     };
