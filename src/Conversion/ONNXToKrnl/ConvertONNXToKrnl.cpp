@@ -17,6 +17,9 @@
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 
+// hi alex
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Compiler/OptionUtils.hpp"
@@ -364,10 +367,11 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets
   // for this lowering.
+  // hi alex
   target.addLegalDialect<KrnlDialect, affine::AffineDialect,
       arith::ArithDialect, func::FuncDialect, linalg::LinalgDialect,
       math::MathDialect, vector::VectorDialect, memref::MemRefDialect,
-      shape::ShapeDialect, scf::SCFDialect>();
+      shape::ShapeDialect, scf::SCFDialect, cf::ControlFlowDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();

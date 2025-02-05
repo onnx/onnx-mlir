@@ -23,6 +23,9 @@
 #include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+// hi alex
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 
 // Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Compiler/CompilerOptions.hpp"
@@ -1202,9 +1205,20 @@ memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
 memref::AllocOp MemRefBuilder::alloc(
     MemRefType type, ValueRange dynSymbols) const {
   // Constant, ignore the dynamic symbols.
+  memref::AllocOp allocOp;
   if (dynSymbols.size() == 0)
-    return b().create<memref::AllocOp>(loc(), type);
-  return b().create<memref::AllocOp>(loc(), type, dynSymbols);
+    allocOp = b().create<memref::AllocOp>(loc(), type);
+  else
+    allocOp = b().create<memref::AllocOp>(loc(), type, dynSymbols);
+  if (0) { // hi alex
+    MathBuilder mathBuilder(*this);
+    Value memRef = allocOp.getResult();
+    Value zero = mathBuilder.constantIndex(0);
+    Value cmp = mathBuilder.neq(memRef, zero);
+    b().create<cf::AssertOp>(
+        loc(), cmp, "alloc returned NULL, ran out of memory.");
+  }
+  return allocOp;
 }
 
 memref::AllocOp MemRefBuilder::alloc(
@@ -1237,9 +1251,21 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   // Has array, use alignment.
   IntegerAttr alignmentAttr = computeAlignment(alignment);
   // Constant, ignore the dynamic symbols.
+  memref::AllocOp allocOp;
   if (dynSymbols.size() == 0)
-    return b().create<memref::AllocOp>(loc(), type, alignmentAttr);
-  return b().create<memref::AllocOp>(loc(), type, dynSymbols, alignmentAttr);
+    allocOp = b().create<memref::AllocOp>(loc(), type, alignmentAttr);
+  else
+    allocOp =
+        b().create<memref::AllocOp>(loc(), type, dynSymbols, alignmentAttr);
+  if (0) { // hi alex
+    MathBuilder mathBuilder(*this);
+    Value memRef = allocOp.getResult();
+    Value zero = mathBuilder.constantIndex(0);
+    Value cmp = mathBuilder.neq(memRef, zero);
+    b().create<cf::AssertOp>(
+        loc(), cmp, "alloc returned NULL, ran out of memory.");
+  }
+  return allocOp;
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
