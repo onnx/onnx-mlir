@@ -863,32 +863,32 @@ def get_test_models():
         # },
         # TODO uncomment when issue #3068 is resolved.
         # "vector.shape_cast operation fails on s390x"
-        #"test_dynamicquantizelinear_max_adjusted_cpu": {
+        # "test_dynamicquantizelinear_max_adjusted_cpu": {
         #    STATIC_SHAPE: {},
         #    DYNAMIC_SHAPE: {-1: {-1}},
         #    CONSTANT_INPUT: {-1},
         # },
         # TODO uncomment when issue #3068 is resolved.
         # "vector.shape_cast operation fails on s390x"
-        #"test_dynamicquantizelinear_max_adjusted_expanded_cpu": {
-        #    STATIC_SHAPE: {},
-        #    DYNAMIC_SHAPE: {-1: {-1}},
-        #    CONSTANT_INPUT: {-1},
-        #},
-        # TODO uncomment when issue #3068 is resolved.
-        # "vector.shape_cast operation fails on s390x"
-        #"test_dynamicquantizelinear_min_adjusted_cpu": {
+        # "test_dynamicquantizelinear_max_adjusted_expanded_cpu": {
         #    STATIC_SHAPE: {},
         #    DYNAMIC_SHAPE: {-1: {-1}},
         #    CONSTANT_INPUT: {-1},
         # },
         # TODO uncomment when issue #3068 is resolved.
         # "vector.shape_cast operation fails on s390x"
-        #"test_dynamicquantizelinear_min_adjusted_expanded_cpu": {
+        # "test_dynamicquantizelinear_min_adjusted_cpu": {
         #    STATIC_SHAPE: {},
         #    DYNAMIC_SHAPE: {-1: {-1}},
         #    CONSTANT_INPUT: {-1},
-        #},
+        # },
+        # TODO uncomment when issue #3068 is resolved.
+        # "vector.shape_cast operation fails on s390x"
+        # "test_dynamicquantizelinear_min_adjusted_expanded_cpu": {
+        #    STATIC_SHAPE: {},
+        #    DYNAMIC_SHAPE: {-1: {-1}},
+        #    CONSTANT_INPUT: {-1},
+        # },
         # ==OP== Einsum
         # ==MIN== 12
         # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. `inputs` must have static dimensions.
@@ -2831,7 +2831,7 @@ def get_test_models():
         # ==MIN== 11
         # TODO uncomment when issue #3068 is resolved.
         # "vector.shape_cast operation fails on s390x"
-        #"test_round_cpu": {
+        # "test_round_cpu": {
         #    STATIC_SHAPE: {},
         #    DYNAMIC_SHAPE: {-1: {-1}},
         #    CONSTANT_INPUT: {-1},
