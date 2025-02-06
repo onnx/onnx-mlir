@@ -933,17 +933,22 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
         }
       }
     };
-    // Using 'parallelFor()' introduces large overhead. Followings are example
-    // results of 'test_reduce_sum_positive_axis()' in
-    // 'test/mlir/onnx/onnx_constprop.mlir' on MaxOS. From this results, we
-    // should not use parallel execution in small input.
+    // Using 'parallelFor()' introduces large overhead. Followings are actual
+    // measurement results on IBM z16 to decide the 'minCount'. We measured
+    // 'onnx.ReduceSum()' in 'test/mlir/onnx/onnx_constprop_parallel.mlir' using
+    // several input size. From these results, we decided to use 2000 as the
+    // 'minCount'.
     //
-    //  Sequential(work())   | parallel(parallelFor())
-    // -----------------------------------------------
-    //   0.457 (msec)        |  0.185 (msec)
-    //
-    // To avoid this overhead, call work() directry if input size is less than
-    // `minCount`.
+    // inputCounts|Sequential  | Parallel with 2 threads
+    //            | (work())   | (parallelFor())
+    //            | (msec)     | (msec)
+    // --------------------------------------------------
+    //    400     |   0.065    |   0.153
+    //    800     |   0.115    |   0.164
+    //    1200    |   0.175    |   0.201
+    //    1600    |   0.226    |   0.228
+    //    2000    |   0.282    |   0.258
+    //    2400    |   0.336    |   0.284
     constexpr size_t minCount = 2000;
     size_t inputCount = batch.size() * axesRange.size();
     if (inputCount < minCount)
