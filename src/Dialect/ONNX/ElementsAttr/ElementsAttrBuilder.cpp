@@ -888,15 +888,14 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
     StridesRange<1> sRange(reducedShape, {reducedStrides});
+    StridesRange<1> axesRange(axesShape, {axesStrides});
     SmallVector<std::pair<int64_t, uint64_t>, 4> batch;
     for (auto &idxoffs : sRange)
       batch.emplace_back(std::make_pair(idxoffs.flattenedIndex, idxoffs[0]));
 
-    StridesRange<1> axesRange(axesShape, {axesStrides});
-
-    auto fetchBatch = [&](size_t threadNumber) {
+    auto fetchBatch = [&](size_t threadNumber, bool parallel) {
       // retrun all data without spliting for sequential execution.
-      if (threadNumber == SIZE_MAX)
+      if (!parallel)
         return llvm::make_range(batch.begin(), batch.end());
       // Each thread fetches the same batch size. The leftovers are set in the
       // threads with small thread number.
@@ -916,10 +915,10 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
           batch.begin() + beginOffset, batch.begin() + endOffset);
     };
 
-    auto work = [&](size_t threadNumber) {
-      auto batch = fetchBatch(threadNumber);
+    auto work = [&](size_t threadNumber, bool parallel = true) {
+      auto tile = fetchBatch(threadNumber, parallel);
       // Traverse and populate each element d in dstNums.
-      for (auto b : batch) {
+      for (auto b : tile) {
         WideNum &d = dstNums[b.first];
         int64_t srcPos = b.second;
         // Traverse all the elements that reduce together into d.
@@ -948,7 +947,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     constexpr size_t minCount = 2000;
     size_t inputCount = batch.size() * axesRange.size();
     if (inputCount < minCount)
-      work(SIZE_MAX); // Sequential
+      work(0, /*parallel*/ false);
     else
       parallelFor(ctx, 0, ctx->getNumThreads(), work);
   });

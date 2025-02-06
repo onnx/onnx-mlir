@@ -249,11 +249,11 @@ private:
     mlir::MLIRContext *ctx = disposablePool.getContext();
     return [fun = std::move(fun), ctx](
                llvm::MutableArrayRef<WideNum> data) -> void {
-      auto fetchBatch = [&](size_t threadNumber) {
+      auto fetchBatch = [&](size_t threadNumber, bool parallel) {
         // retrun all data without spliting for sequential execution.
-        if (threadNumber == SIZE_MAX)
+        if (!parallel)
           return llvm::make_range(data.begin(), data.end());
-        // Each thread fetches the same batch size. The leftovers are set in the
+        // Each thread fetches the same data size. The leftovers are set in the
         // threads with small thread number.
         size_t tileSize = floor(data.size() / ctx->getNumThreads());
         size_t leftovers = data.size() % ctx->getNumThreads();
@@ -272,9 +272,9 @@ private:
             data.begin() + beginOffset, data.begin() + endOffset);
       };
 
-      auto work = [&](size_t threadNumber) {
-        auto batch = fetchBatch(threadNumber);
-        for (WideNum &n : batch)
+      auto work = [&](size_t threadNumber, bool parallel = true) {
+        auto tile = fetchBatch(threadNumber, parallel);
+        for (WideNum &n : tile)
           n = fun(n);
       };
       // Using 'parallelFor()' introduces large overhead.
@@ -282,7 +282,7 @@ private:
       // `minCount`.
       constexpr size_t minCount = 1000;
       if (data.size() < minCount)
-        work(SIZE_MAX); // Sequential
+        work(0, /*parallel*/ false);
       else
         parallelFor(ctx, 0, ctx->getNumThreads(), work);
     };
