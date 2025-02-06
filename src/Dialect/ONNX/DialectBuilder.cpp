@@ -350,6 +350,13 @@ Value OnnxBuilder::round(Value input, bool scalarType) const {
         toTensor(input.getType()), toTensor(input));
 }
 
+Value OnnxBuilder::shape(Value input) const {
+  int64_t rank = getRank(input.getType());
+  Type outputType = RankedTensorType::get({rank}, b().getI64Type());
+  return createTypedOpAndInferShapes<ONNXShapeOp>(
+      toTensor(outputType), toTensor(input));
+}
+
 Value OnnxBuilder::shape(Type outputType, Value input) const {
   return createTypedOpAndInferShapes<ONNXShapeOp>(
       toTensor(outputType), toTensor(input));
@@ -367,6 +374,40 @@ Value OnnxBuilder::shape(
   IntegerAttr endAttr = getSignedInt64Attr(end);
   return createTypedOpAndInferShapes<ONNXShapeOp>(
       toTensor(outputType), toTensor(input), endAttr, startAttr);
+}
+
+// Get the shape of an input and perform a permutation on it. Perm values are
+// in the range [0, rank(input)). Type is inferred. Operation get the dimensions
+// using onnx.dim and use onnx.concat to place the right value at the right
+// position.
+Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+  int64_t inputRank = inputType.getRank();
+  auto inputShape = inputType.getShape();
+  int64_t permRank = perm.size();
+  bool isStatic = llvm::none_of(
+      inputShape, [](int64_t d) { return ShapedType::isDynamic(d); });
+  if (isStatic) {
+    // Static, no need to create dims. Gather shapes into a constant array.
+    llvm::SmallVector<int64_t, 4> permutedShapes;
+    for (int64_t p = 0; p < permRank; ++p) {
+      int64_t d = perm[p];
+      assert(d >= 0 && d < inputRank &&
+             "perm values expected in [0..rank(input))");
+      permutedShapes.emplace_back(inputShape[d]);
+    }
+    return constantInt64(permutedShapes);
+  }
+  // Dynamic shape: create the dims as needed and gather values in a concat.
+  llvm::SmallVector<Value, 4> permutedDims;
+  for (int64_t p = 0; p < permRank; ++p) {
+    int64_t d = perm[p];
+    assert(
+        d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
+    permutedDims.emplace_back(dim(input, d));
+  }
+  Type outputType = RankedTensorType::get({permRank}, b().getI64Type());
+  return concat(outputType, permutedDims, 0);
 }
 
 Value OnnxBuilder::slice(Type outputType, Value input, Value starts, Value ends,
