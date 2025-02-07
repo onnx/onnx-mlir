@@ -147,7 +147,9 @@ public:
     DenseI64ArrayAttr newPads =
         rewriter.getDenseI64ArrayAttr({pads[0], pads[2], pads[1], pads[3]});
 
-    TypeAttr accType = mlir::TypeAttr::get(rewriter.getF32Type());
+    Type convType =
+        (resultType.isF16()) ? rewriter.getF16Type() : rewriter.getF32Type();
+    TypeAttr accType = mlir::TypeAttr::get(convType);
 
     // Handle group parameter by creating multiple convs
     const int64_t group = adaptor.getGroup();
