@@ -46,13 +46,13 @@ def ONNXAbsOp:ONNX_Op<"Abs",
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Acos operation";
   let description = [{
   Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -75,13 +75,13 @@ def ONNXAcosOp:ONNX_Op<"Acos",
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Acosh operation";
   let description = [{
   Calculates the hyperbolic arccosine of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -293,13 +293,13 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Asin operation";
   let description = [{
   Calculates the arcsine (inverse of sine) of the given input tensor, element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -322,13 +322,13 @@ def ONNXAsinOp:ONNX_Op<"Asin",
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Asinh operation";
   let description = [{
   Calculates the hyperbolic arcsine of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -351,13 +351,13 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Atan operation";
   let description = [{
   Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -380,13 +380,13 @@ def ONNXAtanOp:ONNX_Op<"Atan",
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Atanh operation";
   let description = [{
   Calculates the hyperbolic arctangent of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -409,7 +409,7 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
-  [Pure, OpVersionTrait<19>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX AveragePool operation";
   let description = [{
   AveragePool consumes an input tensor X and applies average pooling across
@@ -426,7 +426,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
    ```
    output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - dilation[i] * (kernel_shape[i] - 1) - 1) / strides_spatial_shape[i] + 1)
    ```
-   if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`.
+   if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`. Sliding windows that would start in the right padded region are ignored.
   
    `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following when ceil_mode is enabled:
    ```
@@ -445,8 +445,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
    The output of each pooling window is divided by the number of elements (exclude pad when attribute count_include_pad is zero).
    
   }];
-  // FIXME(FXML-4136): Remove manual modification of BF16 type support and update upstream operation definition.
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
     DefaultValuedAttr<SI64Attr, "0">:$count_include_pad,
@@ -454,7 +453,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     I64ArrayAttr:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -602,7 +601,7 @@ def ONNXBatchNormalizationV9Op:ONNX_Op<"BatchNormalizationV9",
 }
 
 def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
-  [Pure, OpVersionTrait<15>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Bernoulli operation";
   let description = [{
   Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor
@@ -612,10 +611,10 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
   This operator is non-deterministic and may not produce the same values in different
   implementations (even if a seed is specified).
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     OptionalAttr<SI64Attr>:$dtype,
     OptionalAttr<F32Attr>:$seed);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[I1]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I1]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -1444,23 +1443,22 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Conv operation";
   let description = [{
   The convolution operator consumes an input tensor and a filter, and
   computes the output.
   }];
-  // FIXME(FXML-4136): Remove manual modification of BF16 type support and update upstream operation definition.
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$W,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X, "Value":$W, "Value":$B, "StringAttr":$auto_pad, "ArrayAttr":$dilations, "IntegerAttr":$group, "ArrayAttr":$kernel_shape, "ArrayAttr":$pads, "ArrayAttr":$strides), [{
       auto resultType = UnrankedTensorType::get(mlir::cast<ShapedType>(X.getType()).getElementType());
@@ -1533,7 +1531,7 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   The convolution transpose operator consumes an input tensor and a filter,
@@ -1551,9 +1549,9 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
   
       
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
@@ -1562,7 +1560,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
     OptionalAttr<I64ArrayAttr>:$output_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -1586,13 +1584,13 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Cos operation";
   let description = [{
   Calculates the cosine of the given input tensor, element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -1615,13 +1613,13 @@ def ONNXCosOp:ONNX_Op<"Cos",
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Cosh operation";
   let description = [{
   Calculates the hyperbolic cosine of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -1777,24 +1775,24 @@ def ONNXDFTV17Op:ONNX_Op<"DFTV17",
 }
 
 def ONNXDeformConvOp:ONNX_Op<"DeformConv",
-  [Pure, OpVersionTrait<19>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DeformConv operation";
   let description = [{
   Performs deformable convolution as described in https://arxiv.org/abs/1703.06211 and https://arxiv.org/abs/1811.11168.
   This operator specification supports the general N-D case. Note that most common use cases have 2D or 3D data.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$offset,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$mask,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$offset,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$mask,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     DefaultValuedAttr<SI64Attr, "1">:$offset_group,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 5;
@@ -1912,7 +1910,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Det operation";
   let description = [{
   Det calculates determinant of a square matrix or batches of square matrices.
@@ -1921,8 +1919,8 @@ def ONNXDetOp:ONNX_Op<"Det",
   The output is a tensor of shape `[*]`, containing the determinants of all input submatrices.
   e.g., When the input is 2-D, the output is a scalar(shape is empty: `[]`).
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -2001,7 +1999,7 @@ def ONNXDivOp:ONNX_Op<"Div",
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
-  [Pure, OpVersionTrait<13>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Dropout operation";
   let description = [{
@@ -2018,11 +2016,11 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
   ```
   This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$ratio,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$data,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, NoneType]>:$ratio,
     AnyTypeOf<[TensorOf<[I1]>, NoneType]>:$training_mode,
     OptionalAttr<SI64Attr>:$seed);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output,
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$output,
     AnyTypeOf<[TensorOf<[I1]>, NoneType]>:$mask);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -2158,7 +2156,7 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",
-  [Pure, OpVersionTrait<6>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Elu operation";
   let description = [{
   Elu takes one input data (Tensor<T>) and produces one output data
@@ -2166,10 +2164,9 @@ def ONNXEluOp:ONNX_Op<"Elu",
   0`, `f(x) = x for x >= 0`., is applied to the tensor elementwise.
   
   }];
-  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -2355,7 +2352,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D
@@ -2366,10 +2363,10 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
   The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
   TensorProto message and be valid as an output type.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I1]>]>:$input,
     OptionalAttr<SI64Attr>:$dtype,
     DefaultValuedAttr<SI64Attr, "0">:$k);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I1]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -2458,7 +2455,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
-  [Pure, OpVersionTrait<14>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GRU operation";
   let description = [{
@@ -2510,12 +2507,12 @@ def ONNXGRUOp:ONNX_Op<"GRU",
   * Ht = (1 - zt) (.) ht + zt (.) Ht-1
   This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$R,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$R,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
     AnyTypeOf<[TensorOf<[I32]>, NoneType]>:$sequence_lens,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h,
     OptionalAttr<F32ArrayAttr>:$activation_alpha,
     OptionalAttr<F32ArrayAttr>:$activation_beta,
     OptionalAttr<StrArrayAttr>:$activations,
@@ -2524,8 +2521,8 @@ def ONNXGRUOp:ONNX_Op<"GRU",
     OptionalAttr<SI64Attr>:$hidden_size,
     DefaultValuedAttr<SI64Attr, "0">:$layout,
     DefaultValuedAttr<SI64Attr, "0">:$linear_before_reset);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 6;
@@ -2907,7 +2904,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
@@ -2915,9 +2912,8 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
    the values in the same channel. This is equivalent to AveragePool with kernel size
    equal to the spatial dimension of input tensor.
   }];
-  // FIXME(FXML-4136): Remove manual modification of BF16 type support and update upstream operation definition.
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -2972,7 +2968,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
@@ -2980,8 +2976,8 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
    the values in the same channel. This is equivalent to MaxPool with kernel size
    equal to the spatial dimension of input tensor.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -3163,7 +3159,7 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
 }
 
 def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
-  [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<21>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in
@@ -3219,7 +3215,7 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
 }
 
 def ONNXGroupNormalizationV18Op:ONNX_Op<"GroupNormalizationV18",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in
@@ -3329,18 +3325,17 @@ def ONNXHannWindowOp:ONNX_Op<"HannWindow",
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
-  [Pure, OpVersionTrait<6>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HardSigmoid operation";
   let description = [{
   HardSigmoid takes one input data (Tensor<T>) and produces one output data
   (Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),
   is applied to the tensor elementwise.
   }];
-  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "0.2">:$alpha,
     DefaultValuedAttr<F32Attr, "0.5">:$beta);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -3363,15 +3358,15 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
 }
 
 def ONNXHardSwishOp:ONNX_Op<"HardSwish",
-  [Pure, OpVersionTrait<14>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HardSwish operation";
   let description = [{
   HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where
   the HardSwish function, y = x * max(0, min(1, alpha * x + beta)) = x * HardSigmoid<alpha, beta>(x),
   where alpha = 1/6 and beta = 0.5, is applied to the tensor elementwise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -3508,7 +3503,7 @@ def ONNXIfOp:ONNX_Op<"If",
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
-  [Pure, OpVersionTrait<6>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   Carries out instance normalization as described in the paper
@@ -3518,11 +3513,11 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
   where mean and variance are computed per instance per channel.
   
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$scale,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$scale,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$B,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -3649,7 +3644,7 @@ def ONNXLRNOp:ONNX_Op<"LRN",
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
-  [Pure, OpVersionTrait<14>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX LSTM operation";
   let description = [{
@@ -3704,14 +3699,14 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
   * Ht = ot (.) h(Ct)
   This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$R,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$R,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
     AnyTypeOf<[TensorOf<[I32]>, NoneType]>:$sequence_lens,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_c,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$P,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_c,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$P,
     OptionalAttr<F32ArrayAttr>:$activation_alpha,
     OptionalAttr<F32ArrayAttr>:$activation_beta,
     OptionalAttr<StrArrayAttr>:$activations,
@@ -3720,9 +3715,9 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
     OptionalAttr<SI64Attr>:$hidden_size,
     DefaultValuedAttr<SI64Attr, "0">:$input_forget,
     DefaultValuedAttr<SI64Attr, "0">:$layout);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_c);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_c);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 8;
@@ -4207,15 +4202,15 @@ def ONNXLoopOp:ONNX_Op<"Loop",
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LpNormalization operation";
   let description = [{
   Given a matrix, apply Lp-normalization along the provided axis.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
     DefaultValuedAttr<SI64Attr, "2">:$p);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -4238,7 +4233,7 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
-  [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LpPool operation";
   let description = [{
   LpPool consumes an input tensor X and applies Lp pooling across
@@ -4265,7 +4260,7 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
    pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial_shape[i] + {kernelSpatialShape} - input_spatial_shape[i]
    ```
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
     OptionalAttr<I64ArrayAttr>:$dilations,
@@ -4273,7 +4268,7 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
     DefaultValuedAttr<SI64Attr, "2">:$p,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -4392,7 +4387,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
-  [Pure, OpVersionTrait<12>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxPool operation";
   let description = [{
   MaxPool consumes an input tensor X and applies max pooling across
@@ -4409,7 +4404,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
    ```
    output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - dilation[i] * (kernel_shape[i] - 1) - 1) / strides_spatial_shape[i] + 1)
    ```
-   if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`.
+   if ceil_mode is enabled. `pad_shape[i]` is the sum of pads along axis `i`. Sliding windows that would start in the right padded region are ignored.
   
    `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following when ceil_mode is enabled:
    ```
@@ -4428,8 +4423,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
    The output of each pooling window is maximum number of elements exclude pad. 
    
   }];
-  // FIXME(FXML-4136): Remove manual modification of BF16 type support and update upstream operation definition.
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[UI8]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
     OptionalAttr<I64ArrayAttr>:$dilations,
@@ -4437,7 +4431,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     OptionalAttr<I64ArrayAttr>:$pads,
     DefaultValuedAttr<SI64Attr, "0">:$storage_order,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[BF16]>]>:$Y,
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[UI8]>]>:$Y,
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$Indices);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -4461,18 +4455,18 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxRoiPool operation";
   let description = [{
   ROI max pool consumes an input tensor X and region of interests (RoIs) to
    apply max pooling across each RoI, to produce output 4-D tensor of shape
    (num_rois, channels, pooled_shape[0], pooled_shape[1]).
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$rois,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$rois,
     I64ArrayAttr:$pooled_shape,
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -4495,7 +4489,7 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxUnpool operation";
   let description = [{
   MaxUnpool essentially computes the partial inverse of the MaxPool op.
@@ -4517,13 +4511,13 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
    which define the exact unpooling op. The attributes typically have the same values as the corresponding
    pooling op that the unpooling op is trying to invert.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     TensorOf<[I64]>:$I,
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$output_shape,
     I64ArrayAttr:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -4682,7 +4676,7 @@ def ONNXMinOp:ONNX_Op<"Min",
 }
 
 def ONNXMishOp:ONNX_Op<"Mish",
-  [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, SameOperandsAndResultElementType]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, SameOperandsAndResultElementType]> {
   let summary = "ONNX Mish operation";
   let description = [{
   Mish: A Self Regularized Non-Monotonic Neural Activation Function.
@@ -4693,8 +4687,8 @@ def ONNXMishOp:ONNX_Op<"Mish",
   mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + e^{x}))
   ```
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -4817,13 +4811,13 @@ def ONNXMulOp:ONNX_Op<"Mul",
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Multinomial operation";
   let description = [{
   Generate a tensor of samples from a multinomial distribution according to the probabilities
   of each of the possible outcomes.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     DefaultValuedAttr<SI64Attr, "6">:$dtype,
     DefaultValuedAttr<SI64Attr, "1">:$sample_size,
     OptionalAttr<F32Attr>:$seed);
@@ -4891,7 +4885,7 @@ def ONNXNegOp:ONNX_Op<"Neg",
 }
 
 def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
-  [Pure, OpVersionTrait<13>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NegativeLogLikelihoodLoss operation";
   let description = [{
   A NegativeLogLikelihoodLoss operator computes (weighted) negative log likelihood loss.
@@ -4996,12 +4990,12 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
   // -1.57
   ```
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$target,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$weight,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$weight,
     OptionalAttr<SI64Attr>:$ignore_index,
     DefaultValuedStrAttr<StrAttr, "mean">:$reduction);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$loss);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$loss);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -6063,7 +6057,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
-  [Pure, OpVersionTrait<14>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX RNN operation";
   let description = [{
@@ -6108,12 +6102,12 @@ def ONNXRNNOp:ONNX_Op<"RNN",
   * Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$R,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$R,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
     AnyTypeOf<[TensorOf<[I32]>, NoneType]>:$sequence_lens,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h,
     OptionalAttr<F32ArrayAttr>:$activation_alpha,
     OptionalAttr<F32ArrayAttr>:$activation_beta,
     DefaultValuedAttr<StrArrayAttr, "{\"Tanh\", \"Tanh\"}">:$activations,
@@ -6121,8 +6115,8 @@ def ONNXRNNOp:ONNX_Op<"RNN",
     DefaultValuedStrAttr<StrAttr, "forward">:$direction,
     OptionalAttr<SI64Attr>:$hidden_size,
     DefaultValuedAttr<SI64Attr, "0">:$layout);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 6;
@@ -6145,7 +6139,7 @@ def ONNXRNNOp:ONNX_Op<"RNN",
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution. The shape
@@ -6161,7 +6155,7 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     DefaultValuedAttr<F32Attr, "1.0">:$scale,
     OptionalAttr<F32Attr>:$seed,
     I64ArrayAttr:$shape);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -6184,7 +6178,7 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomNormalLike operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution.
@@ -6195,12 +6189,12 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
   The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
   TensorProto message, and be valid as an output type.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input,
     OptionalAttr<SI64Attr>:$dtype,
     DefaultValuedAttr<F32Attr, "0.0">:$mean,
     DefaultValuedAttr<F32Attr, "1.0">:$scale,
     OptionalAttr<F32Attr>:$seed);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6224,7 +6218,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution. The shape
@@ -6239,7 +6233,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
     DefaultValuedAttr<F32Attr, "0.0">:$low,
     OptionalAttr<F32Attr>:$seed,
     I64ArrayAttr:$shape);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -6262,7 +6256,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomUniformLike operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution.
@@ -6273,12 +6267,12 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
   The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
   TensorProto message and be valid as an output type.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input,
     OptionalAttr<SI64Attr>:$dtype,
     DefaultValuedAttr<F32Attr, "1.0">:$high,
     DefaultValuedAttr<F32Attr, "0.0">:$low,
     OptionalAttr<F32Attr>:$seed);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -7660,7 +7654,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
-  [Pure, OpVersionTrait<16>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RoiAlign operation";
   let description = [{
   Region of Interest (RoI) align operation described in the
@@ -7675,8 +7669,8 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
   the value of the sampled locations are computed directly
   through bilinear interpolation.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$rois,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$rois,
     TensorOf<[I64]>:$batch_indices,
     DefaultValuedStrAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
     DefaultValuedStrAttr<StrAttr, "avg">:$mode,
@@ -7684,7 +7678,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
     DefaultValuedAttr<SI64Attr, "1">:$output_width,
     DefaultValuedAttr<SI64Attr, "0">:$sampling_ratio,
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -7708,7 +7702,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Round operation";
   let description = [{
   Round takes one input Tensor and rounds the values, element-wise, meaning
@@ -7726,9 +7720,8 @@ def ONNXRoundOp:ONNX_Op<"Round",
   round([-4.5]) = [-4.0]
   ```
   }];
-  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -8234,7 +8227,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
-  [Pure, OpVersionTrait<6>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Selu operation";
   let description = [{
   Selu takes one input data (Tensor<T>) and produces one output data
@@ -8242,11 +8235,10 @@ def ONNXSeluOp:ONNX_Op<"Selu",
   `y = gamma * (alpha * e^x - alpha) for x <= 0`, `y = gamma * x for x > 0`,
   is applied to the tensor elementwise.
   }];
-  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.67326">:$alpha,
     DefaultValuedAttr<F32Attr, "1.0507">:$gamma);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -8672,14 +8664,13 @@ def ONNXSignOp:ONNX_Op<"Sign",
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sin operation";
   let description = [{
   Calculates the sine of the given input tensor, element-wise.
   }];
-  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -8702,13 +8693,13 @@ def ONNXSinOp:ONNX_Op<"Sin",
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sinh operation";
   let description = [{
   Calculates the hyperbolic sine of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -9018,16 +9009,15 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softplus operation";
   let description = [{
   Softplus takes one input data (Tensor<T>) and produces one output data
   (Tensor<T>) where the softplus function, y = ln(exp(x) + 1), is applied to
   the tensor elementwise.
   }];
-  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -9050,13 +9040,13 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softsign operation";
   let description = [{
   Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -9540,13 +9530,13 @@ def ONNXSumOp:ONNX_Op<"Sum",
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
-  [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tan operation";
   let description = [{
   Calculates the tangent of the given input tensor, element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -9662,16 +9652,16 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
-  [Pure, OpVersionTrait<10>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ThresholdedRelu operation";
   let description = [{
   ThresholdedRelu takes one input data (Tensor<T>) and produces one output data
   (Tensor<T>) where the rectified linear function, y = x for x > alpha, y = 0 otherwise,
   is applied to the tensor elementwise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
