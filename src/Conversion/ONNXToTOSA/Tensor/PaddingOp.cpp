@@ -40,6 +40,17 @@ public:
     Value data = adaptor.getData();
     Value pads = adaptor.getPads();
     Value constValue = adaptor.getConstantValue();
+
+    auto dataType = dyn_cast<RankedTensorType>(data.getType());
+    if (!dataType || !dataType.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(op, "input type has no static shape");
+    }
+
+    auto elementDtype = dataType.getElementType();
+    if (!isa<FloatType>(elementDtype) && !isTOSAInt(elementDtype)) {
+      return rewriter.notifyMatchFailure(op, "unsupported type");
+    }
+
     if (!adaptor.getAxes().getDefiningOp<ONNXNoneOp>()) {
       return rewriter.notifyMatchFailure(op, "only default axes are supported");
     }
@@ -78,27 +89,49 @@ public:
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
-    float valueFloat = 0.0F;
     if (!isa<NoneType>(constValue.getType())) {
       auto valueAttr = tosa::getValueFromTosaConst<ElementsAttr>(constValue);
-      auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-      // Need float for F32 Type
-      float valueFloat = cast<FloatAttr>(*valueIt).getValueAsDouble();
-
       TosaBuilder tosaBuilder(rewriter, loc);
-      Value constTosaTensor =
-          tosaBuilder.getSplattedConst(valueFloat, valueAttr.getElementType());
 
+      Value constTosaTensor;
+      if (isa<FloatType>(valueAttr.getElementType())) {
+        auto valueIt = valueAttr.getValues<FloatAttr>().begin();
+        const float valueFloat = cast<FloatAttr>(*valueIt).getValueAsDouble();
+        constTosaTensor = tosaBuilder.getSplattedConst(
+            valueFloat, valueAttr.getElementType(), 0);
+      } else {
+        assert(isTOSAInt(elementDtype) && "Already validated");
+        auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
+        auto valueAsAPInt = cast<IntegerAttr>(*valueIt).getValue();
+        auto asIntegerTy = cast<IntegerType>(valueAttr.getElementType());
+        if (asIntegerTy.isUnsigned()) {
+          constTosaTensor = tosaBuilder.getSplattedConst(
+              valueAsAPInt.getZExtValue(), asIntegerTy, 0);
+        } else {
+          constTosaTensor = tosaBuilder.getSplattedConst(
+              valueAsAPInt.getSExtValue(), asIntegerTy, 0);
+        }
+      }
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
+
     } else {
-      auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-      auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-      Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
-          op->getLoc(), constType, constAttr);
+      auto constType = RankedTensorType::get({}, elementDtype);
 
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1, constTosaTensor);
+      DenseElementsAttr constAttr;
+      if (isa<FloatType>(elementDtype)) {
+        constAttr = DenseElementsAttr::get(constType, 0.0F);
+      } else {
+        assert(isTOSAInt(elementDtype) && "Already validated");
+        auto tyAsInt = cast<IntegerType>(elementDtype);
+        constAttr = DenseElementsAttr::get(constType,
+            llvm::APInt(tyAsInt.getWidth(), 0, tyAsInt.getSignedness()));
+      }
+
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(op, resultType, data,
+          padsList1,
+          rewriter.create<mlir::tosa::ConstOp>(
+              op->getLoc(), constType, constAttr));
     }
 
     return success();

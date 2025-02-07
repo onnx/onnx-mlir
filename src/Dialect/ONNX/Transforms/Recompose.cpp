@@ -244,7 +244,9 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
         mlir::dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
     if (!epsilonOp)
       return reportFailure("RMS epsilon needs to be a constant");
-    epsilonAttr = epsilonOp.getValueFloatAttr();
+    const auto epsilonValue = getScalarValue<double>(epsilonOp);
+    epsilonAttr =
+        FloatAttr::get(Float32Type::get(epsilonOp->getContext()), epsilonValue);
     // Check axes.
     if (!hasShapeAndRank(dd))
       return reportFailure("RMS need rank and shape for input dd");
