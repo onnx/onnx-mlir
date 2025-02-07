@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  add_subdirectory(Support)
   add_subdirectory(Runtime)
   # Accelerators introduces a target AcceleratorsInc. Define a dummy one here
   add_custom_target(AcceleratorsInc
