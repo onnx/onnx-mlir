@@ -161,6 +161,11 @@ Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#s
 
 The ONNX-MLIR code of conduct is described at https://onnx.ai/codeofconduct.html.
 
+## Adopters
+<!-- Please open a PR to add your company/product here. -->
+
+* IBM [zDLC compiler](https://github.com/IBM/zDLC) uses onnx-mlir technology to transform ONNX models into executable binary for [IBM Telum](https://www.ibm.com/z/telum) servers.
+
 ## Projects related/using onnx-mlir
 
 * The [onnx-mlir-serving](https://github.com/IBM/onnx-mlir-serving) project implements a GRPC server written with C++ to serve onnx-mlir compiled models. Benefiting from C++ implementation, ONNX Serving has very low latency overhead and high throughput.
