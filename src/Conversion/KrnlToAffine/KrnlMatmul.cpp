@@ -449,7 +449,8 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    // hi alex Value TmpC = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    Value TmpC = create.mem.alloca(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
