@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Populate the accelerator list and add the accelerator subdirectories.
-# ONNX_MLIR_ACCELERATORS is the list of accelerators user specified
+# ONNX_MLIR_ACCELERATORS is the semicolon-separated list of accelerators user specified
+# Note that the list should be quoted, e.g. -DONNX_MLIR_ACCELERATORS='A;B'
 # ACCEL_TARGET_LIST is the list of cmake targets
 # ACCEL_LINK_LIST is the lists of accelerator libraries
 # ACCEL_INCLUDE_LIST is the list passed to inc generator
@@ -10,7 +11,8 @@ if (ONNX_MLIR_ACCELERATORS)
     add_subdirectory(${t})
 
     # If the accelerator can be built
-    if (${t}_ENABLED)
+    string(TOUPPER ${t} T)
+    if (${T}_ENABLED)
       list(APPEND ACCEL_TARGET_LIST "${t}Accel")
       list(APPEND ACCEL_LINK_LIST "OM${t}Accel")
       list(APPEND ACCEL_INCLUDE_LIST "${t}")

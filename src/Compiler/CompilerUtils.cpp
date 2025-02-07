@@ -1031,6 +1031,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   bool hasAccel = false;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     hasAccel = true;
+    accel->configurePasses();
     accel->addPasses(module, pm, emissionTarget, outputNameNoExt);
   }
   if (!hasAccel)
