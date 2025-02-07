@@ -12,6 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -31,7 +35,8 @@ struct ONNXGatherElementsOpLowering
     Location loc = ONNXLoc<ONNXGatherElementsOp>(op);
     ValueRange operands = adaptor.getOperands();
 
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -91,6 +96,26 @@ struct ONNXGatherElementsOpLowering
             LiteralIndexExpr zero(0);
             SymbolIndexExpr axisDim(dataDims[axis]);
             index = index.selectOrSelf(index < zero, index + axisDim);
+          }
+
+          // Check the dynamic requirement of GatherElement Op
+          // Refer to the comments in Gather.cpp
+          if (enableSafeCodeGen) {
+            // From onnx document:
+            // All index values are expected to be within bounds [-s, s-1]
+            // along axis of size s. It is an error if any of the index values
+            // are out of bounds.
+            // After the negative correction, the range should be [0, s-1]
+            Value upperBound = create.mem.dim(data, axis);
+            Value compareUpperBound =
+                create.math.slt(index.getValue(), upperBound);
+            rewriter.create<cf::AssertOp>(loc, compareUpperBound,
+                "indices of GatherOp is larger than the upper bound");
+            LiteralIndexExpr zero(0);
+            Value compareLowerBound =
+                create.math.sge(index.getValue(), zero.getValue());
+            rewriter.create<cf::AssertOp>(loc, compareLowerBound,
+                "indices of GatherOp is less than the lower bound");
           }
 
           // Access function for the 'data' tensor.

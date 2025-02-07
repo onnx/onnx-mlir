@@ -12,6 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -37,7 +41,8 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     Location loc = ONNXLoc<ONNXGatherOp>(op);
     ValueRange operands = adaptor.getOperands();
 
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -121,6 +126,32 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
           // When index may be negative, add axis Dim to it.
           if (indicesMayBeNegative)
             index = index.selectOrSelf(index < zeroIE, index + axisDim);
+
+          // The Gather op is data dependent: the value of index should be
+          // within the input data size.
+          // Add runtime check if enableSafeCodeGen is set true
+          // Implementation comments vs. createGenerateRuntimeVerificationPass
+          // This check is according to onnx op semantics, not general bound
+          // check for memref. Implementation of RuntimeVerification could be
+          // borrowed. Slightly difference is that onnx semenatics check is for
+          // each dimension independently, not the final address is within
+          // the memref bound.
+          if (enableSafeCodeGen) {
+            // From onnx document:
+            // All index values are expected to be within bounds [-s, s-1]
+            // along axis of size s. It is an error if any of the index values
+            // are out of bounds.
+            // After the negative correction, the range should be [0, s-1]
+            Value upperBound = create.mem.dim(data, axisLit);
+            Value compareUpperBound =
+                create.math.slt(index.getValue(), upperBound);
+            rewriter.create<cf::AssertOp>(loc, compareUpperBound,
+                "indices of GatherOp is larger than the upper bound");
+            Value compareLowerBound =
+                create.math.sge(index.getValue(), zeroIE.getValue());
+            rewriter.create<cf::AssertOp>(loc, compareLowerBound,
+                "indices of GatherOp is less than the lower bound");
+          }
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]
           SmallVector<IndexExpr, 4> dataAccessFct;
