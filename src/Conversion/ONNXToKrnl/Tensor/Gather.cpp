@@ -145,12 +145,21 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
             Value upperBound = create.mem.dim(data, axisLit);
             Value compareUpperBound =
                 create.math.slt(index.getValue(), upperBound);
+            // Report onnx_node_name if the op has the attribute
+            std::string nodeNameStr = op->getName().getStringRef().str() + " ";
+            StringAttr nodeName =
+                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+            if (nodeName && !nodeName.getValue().empty()) {
+              nodeNameStr = nodeNameStr + nodeName.getValue().str();
+            }
             rewriter.create<cf::AssertOp>(loc, compareUpperBound,
-                "indices of GatherOp is larger than the upper bound");
+                nodeNameStr +
+                    " indices of GatherOp is larger than the upper bound");
             Value compareLowerBound =
                 create.math.sge(index.getValue(), zeroIE.getValue());
             rewriter.create<cf::AssertOp>(loc, compareLowerBound,
-                "indices of GatherOp is less than the lower bound");
+                nodeNameStr +
+                    " indices of GatherOp is less than the lower bound");
           }
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]

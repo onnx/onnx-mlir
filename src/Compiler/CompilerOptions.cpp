@@ -246,10 +246,10 @@ static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
     llvm::cl::location(enableKrnlBufferReuse), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
-static llvm::cl::opt<bool, true> enableSafeCodeGenOpt(
-    "enable-safe-code-gen",
+static llvm::cl::opt<bool, true> enableSafeCodeGenOpt("enable-safe-code-gen",
     llvm::cl::desc("enable extra runtime check to be created in code gen. "
-                   "Such check will have cost at runtime, and is not needed if everything is correct."
+                   "Such check will have cost at runtime, and is not needed if"
+                   "the model and the data are correct."
                    "Failure of check will trigger assertion error."
                    "(default=false).\n"
                    "Set to 'true' if you want to enable the check."),

@@ -109,6 +109,12 @@ struct ONNXGatherElementsOpLowering
             Value upperBound = create.mem.dim(data, axis);
             Value compareUpperBound =
                 create.math.slt(index.getValue(), upperBound);
+            std::string nodeNameStr = op->getName().getStringRef().str() + " ";
+            StringAttr nodeName =
+                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+            if (nodeName && !nodeName.getValue().empty()) {
+              nodeNameStr = nodeNameStr + nodeName.getValue().str();
+            }
             rewriter.create<cf::AssertOp>(loc, compareUpperBound,
                 "indices of GatherOp is larger than the upper bound");
             LiteralIndexExpr zero(0);
