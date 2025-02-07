@@ -14,6 +14,7 @@ option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, an
 option(ONNX_MLIR_INSTALL_HEADERS "Install onnx-mlir headers" ON)
 option(ONNX_MLIR_INSTALL_LIBS "Install onnx-mlir libraries" ON)
 option(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS "Install onnx-mlir python bindings" ON)
+option(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -82,8 +83,10 @@ set(ONNX_MLIR_INCLUDE_PATH ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_VENDOR ${PACKAGE_VENDOR} CACHE STRING
   "Vendor-specific text for showing with version information.")
 
-include(CTest)
-include(ExternalProject)
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  include(CTest)
+  include(ExternalProject)
+endif()
 include(MLIR.cmake)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
@@ -168,27 +171,32 @@ endif()
 set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
-set(pybind11_FIND_QUIETLY ON)
-add_subdirectory(third_party/onnx EXCLUDE_FROM_ALL)
-add_subdirectory(third_party/pybind11)
-add_subdirectory(third_party/rapidcheck EXCLUDE_FROM_ALL)
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  add_subdirectory(third_party/onnx)
+  add_subdirectory(third_party/pybind11)
+else()
+  set(pybind11_FIND_QUIETLY ON)
+  add_subdirectory(third_party/onnx EXCLUDE_FROM_ALL)
+  add_subdirectory(third_party/pybind11)
+  add_subdirectory(third_party/rapidcheck EXCLUDE_FROM_ALL)
 
-if (ONNX_MLIR_ENABLE_STABLEHLO)
-  if (ONNX_MLIR_BUILD_INTREE)
-    message(FATAL_ERROR "In tree builds don't support stablehlo yet. "
-      "Please pass -DONNX_MLIR_ENABLE_STABLEHLO=OFF to cmake or build out-of-tree.")
+  if (ONNX_MLIR_ENABLE_STABLEHLO)
+    if (ONNX_MLIR_BUILD_INTREE)
+      message(FATAL_ERROR "In tree builds don't support stablehlo yet. "
+        "Please pass -DONNX_MLIR_ENABLE_STABLEHLO=OFF to cmake or build out-of-tree.")
+    endif()
+    add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
   endif()
-  add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
-endif()
 
-if (NOT ONNX_MLIR_BUILD_INTREE AND NOT TARGET benchmark)
-  set(BENCHMARK_USE_BUNDLED_GTEST OFF)
-  set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
-  set(BENCHMARK_ENABLE_TESTING OFF)
-  set(BENCHMARK_ENABLE_WERROR OFF)
-  # Since LLVM requires C++11 (or higher) it is safe to assume that std::regex is available.
-  set(HAVE_STD_REGEX ON CACHE BOOL "OK" FORCE)
-  add_subdirectory(third_party/benchmark)
+  if (NOT ONNX_MLIR_BUILD_INTREE AND NOT TARGET benchmark)
+    set(BENCHMARK_USE_BUNDLED_GTEST OFF)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+    set(BENCHMARK_ENABLE_TESTING OFF)
+    set(BENCHMARK_ENABLE_WERROR OFF)
+    # Since LLVM requires C++11 (or higher) it is safe to assume that std::regex is available.
+    set(HAVE_STD_REGEX ON CACHE BOOL "OK" FORCE)
+    add_subdirectory(third_party/benchmark)
+  endif()
 endif()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -223,8 +231,12 @@ if (ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
 
-add_subdirectory(utils)
-add_subdirectory(include)
-add_subdirectory(src)
-add_subdirectory(docs)
-add_subdirectory(test)
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  add_subdirectory(src)
+else()
+  add_subdirectory(utils)
+  add_subdirectory(include)
+  add_subdirectory(src)
+  add_subdirectory(docs)
+  add_subdirectory(test)
+endif()
