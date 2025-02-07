@@ -10,6 +10,7 @@
 
 #ifndef ONNX_MLIR_ELEM_ATTR_BUILDER_H
 #define ONNX_MLIR_ELEM_ATTR_BUILDER_H
+#include "mlir/IR/Threading.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
@@ -244,10 +245,46 @@ private:
   // Constructs a transformer that changes every element to the result of
   // applying the given function to the element.
   template <typename Function = WideNum (*)(WideNum)>
-  static inline Transformer functionTransformer(Function fun) {
-    return [fun = std::move(fun)](llvm::MutableArrayRef<WideNum> data) -> void {
-      for (WideNum &n : data)
-        n = fun(n);
+  inline Transformer functionTransformer(Function fun) {
+    mlir::MLIRContext *ctx = disposablePool.getContext();
+    return [fun = std::move(fun), ctx](
+               llvm::MutableArrayRef<WideNum> data) -> void {
+      auto fetchBatch = [&](size_t threadNumber, bool parallel) {
+        // retrun all data without spliting for sequential execution.
+        if (!parallel)
+          return llvm::make_range(data.begin(), data.end());
+        // Each thread fetches the same data size. The leftovers are set in the
+        // threads with small thread number.
+        size_t tileSize = floor(data.size() / ctx->getNumThreads());
+        size_t leftovers = data.size() % ctx->getNumThreads();
+        int beginOffset;
+        if (threadNumber < leftovers) {
+          // for the first few threads, it is as if the block size is larger
+          // by 1.
+          tileSize++;
+          beginOffset = threadNumber * tileSize;
+        } else {
+          // for the last threads, its as we shift the start by leftovers.
+          beginOffset = threadNumber * tileSize + leftovers;
+        }
+        int endOffset = beginOffset + tileSize;
+        return llvm::make_range(
+            data.begin() + beginOffset, data.begin() + endOffset);
+      };
+
+      auto work = [&](size_t threadNumber, bool parallel = true) {
+        auto tile = fetchBatch(threadNumber, parallel);
+        for (WideNum &n : tile)
+          n = fun(n);
+      };
+      // Using 'parallelFor()' introduces large overhead.
+      // To avoid this overhead, call work() directry if input size is less than
+      // `minCount`.
+      constexpr size_t minCount = 1000;
+      if (data.size() < minCount)
+        work(0, /*parallel*/ false);
+      else
+        parallelFor(ctx, 0, ctx->getNumThreads(), work);
     };
   }
 
