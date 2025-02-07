@@ -26,7 +26,10 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #else
+#include <algorithm>
 #include <dlfcn.h>
+#include <filesystem>
+
 #endif
 
 #include "ExecutionSession.hpp"
@@ -48,13 +51,17 @@ void ExecutionSession::Init(
 
   // If there is no tag, use the model filename without extension as a tag.
   if (tag == "") {
-    // ToFix: equivalent implementation of llvm utilities.
-    // The would not be an urgent issue, because tag is usually "NONE"
 #ifndef ENABLE_PYRUNTIME_LIGHT
     std::string fname = llvm::sys::path::filename(sharedLibPath).str();
     llvm::SmallString<256> fnameWithoutExt(fname);
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
     tag = fnameWithoutExt.str().lower();
+#else
+    // Implement directly with c++
+    std::filesystem::path path(sharedLibPath);
+    tag = path.stem().string();
+    std::transform(tag.begin(), tag.end(), tag.begin(),
+        [](unsigned char c){ return std::tolower(c); });
 #endif
   }
 
