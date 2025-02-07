@@ -450,7 +450,7 @@ private:
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
     // hi alex Value TmpC = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
-    Value TmpC = create.mem.alloca(CTmpType, BUFFER_ALIGN);
+    Value TmpC = create.mem.alloca(CTmpType);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
