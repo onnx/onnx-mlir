@@ -23,10 +23,9 @@
 #include "OnnxMlirRuntime.h"
 
 // LLVM provides the wrapper class, llvm::sys::DynamicLibrary, for dynamic
-// library. When PYRUNTIME_LIGHT is built without the LLVM, the handle type for
-// dynamic library in Linux is used. DynamicLibraryHandleType is defined for
-// the two cases.
-#ifndef ENABLE_PYRUNTIME_LIGHT
+// library. Use this library only on Windows. Therefore, the Runtime does not
+// depend on llvm for Runtime component.
+#if define(_WIN32)
 #include "llvm/Support/DynamicLibrary.h"
 typedef llvm::sys::DynamicLibrary DynamicLibraryHandleType;
 #else
