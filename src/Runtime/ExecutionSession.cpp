@@ -65,7 +65,7 @@ void ExecutionSession::Init(
   // llvm::StringRef(tag).equals_insensitive("NONE")
   std::string none = "NONE";
   bool equal_insensitive = std::equal(tag.begin(), tag.end(), none.begin(),
-       none.end(), [](char a, char b) { return tolower(a) == tolower(b); });
+      none.end(), [](char a, char b) { return tolower(a) == tolower(b); });
   if (!equal_insensitive)
     lowDashTag = "_" + tag;
 

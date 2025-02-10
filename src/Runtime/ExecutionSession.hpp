@@ -25,7 +25,7 @@
 // LLVM provides the wrapper class, llvm::sys::DynamicLibrary, for dynamic
 // library. Use this library only on Windows. Therefore, the Runtime does not
 // depend on llvm for Runtime component.
-#if define(_WIN32)
+#if defined(_WIN32)
 #include "llvm/Support/DynamicLibrary.h"
 typedef llvm::sys::DynamicLibrary DynamicLibraryHandleType;
 #else
