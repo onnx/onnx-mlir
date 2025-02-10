@@ -59,15 +59,30 @@ LogicalResult ONNXGridSampleOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGridSampleOp::verify() {
   ONNXGridSampleOpAdaptor operandAdaptor(*this);
+  auto op = mlir::cast<ONNXGridSampleOp>(*this);
+
+  const auto alignCorners = op.getAlignCorners();
+  if (alignCorners != 0 && alignCorners != 1) {
+    return emitOpError("align_corners needs to be 0 or 1");
+  }
+  const auto mode = op.getMode();
+  if (mode != "linear" && mode != "nearest" && mode != "cubic") {
+    return emitOpError("mode needs to be linear, nearest or cubic");
+  }
+  const auto paddingMode = op.getPaddingMode();
+  if (paddingMode != "zeros" && paddingMode != "border" &&
+      paddingMode != "reflection") {
+    return emitOpError("padding_mode needs to be zeros, border or reflection");
+  }
 
   if (!hasShapeAndRank(getOperation()))
     return success();
 
   auto inputShape =
-      cast<ShapedType>(operandAdaptor.getX().getType()).getShape();
+      mlir::cast<ShapedType>(operandAdaptor.getX().getType()).getShape();
   int64_t inputRank = inputShape.size();
   auto gridShape =
-      cast<ShapedType>(operandAdaptor.getGrid().getType()).getShape();
+      mlir::cast<ShapedType>(operandAdaptor.getGrid().getType()).getShape();
 
   // Check whether the ranks of input and grid are valid and are equal.
   // Input's dimensions of rank r+2 should be in the form of (N,C,D1,D2,...,Dr)
@@ -99,7 +114,7 @@ LogicalResult ONNXGridSampleOp::verify() {
 LogicalResult ONNXGridSampleOp::inferShapes(
     std::function<void(Region &)> /*doShapeInference*/) {
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
   ONNXGridSampleOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

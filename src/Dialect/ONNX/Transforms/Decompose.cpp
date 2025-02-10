@@ -391,6 +391,18 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
   return true;
 }
 
+Attribute upgradeGridSampleV16Mode(PatternRewriter &rewriter, Attribute mode) {
+  const auto stringMode = mlir::cast<StringAttr>(mode);
+  if (stringMode.strref() == "bilinear") {
+    return rewriter.getStringAttr("linear");
+  }
+  if (stringMode.strref() == "bicubic") {
+    return rewriter.getStringAttr("cubic");
+  }
+  assert(stringMode.strref() == "nearest");
+  return mode;
+}
+
 Value replaceSequenceAt(
     PatternRewriter &rewriter, Location loc, Value sequenceAtResult) {
   ONNXSequenceAtOp op = sequenceAtResult.getDefiningOp<ONNXSequenceAtOp>();
