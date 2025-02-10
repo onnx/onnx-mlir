@@ -367,7 +367,7 @@ private:
     assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
            "alignment of buffers cannot be smaller than the default alignment "
            "(which is set for SIMD correctness");
-    return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
   }
 
   // Initially, simdize with full K vector length.
@@ -462,7 +462,7 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
   }
 
   // Simdize along J / memory rows in B and C.
