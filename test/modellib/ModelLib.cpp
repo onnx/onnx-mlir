@@ -12,6 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef _WIN32
+#include <dlfcn.h>
+#endif
+
 #include "mlir/IR/BuiltinOps.h"
 
 #include "include/OnnxMlirRuntime.h"
@@ -69,9 +73,14 @@ bool ModelLibBuilder::checkInstructionFromEnv(
 bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   if (instructionName.empty())
     return true;
-  llvm::sys::DynamicLibrary sharedLibraryHandle =
+  DynamicLibraryHandleType sharedLibraryHandle =
       exec->getSharedLibraryHandle();
-  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+  void *addr;
+#if defined(_WIN32)
+  addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+#else
+  addr = dlsym(sharedLibraryHandle, instructionName.c_str());
+#endif
   if (!addr) {
     printf("%s not found.\n", instructionName.c_str());
     return false;
