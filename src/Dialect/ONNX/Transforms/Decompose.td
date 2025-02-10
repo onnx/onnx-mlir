@@ -368,10 +368,16 @@ def ClipV12Pattern : Pat<
   (ONNXClipOp $x, $min, $max)
 >;
 
-// Rewrite GridSample 16 to GridSample 22
+// Rewrite GridSample 20 to GridSample 22
+def GridSampleV20Pattern : Pat<
+  (ONNXGridSampleV20Op $x, $grid, $align_corners, $mode, $padding_mode),
+  (ONNXGridSampleOp $x, $grid, $align_corners, $mode, $padding_mode)
+>;
+
+// Rewrite GridSample 16 to GridSample 20
 def GridSampleV16Pattern : Pat<
   (ONNXGridSampleV16Op $x, $grid, $align_corners, $mode, $padding_mode),
-  (ONNXGridSampleOp $x, $grid, $align_corners, (UpgradeGridSampleV16Mode $mode), $padding_mode)
+  (ONNXGridSampleV20Op $x, $grid, $align_corners, (UpgradeGridSampleV16Mode $mode), $padding_mode)
 >;
 
 def DFTV17Pattern : Pat<

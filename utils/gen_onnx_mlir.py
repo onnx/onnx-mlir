@@ -160,7 +160,7 @@ version_dict = {
     "Gradient": [1],
     "Greater": [13],
     "GreaterOrEqual": [16],
-    "GridSample": [22, 16],
+    "GridSample": [22, 20, 16],
     "GroupNormalization": [21, 18],
     "HammingWindow": [17],
     "HannWindow": [17],
