@@ -334,5 +334,11 @@ protected:
 // Include inline code definitions.
 #include "DialectBuilder.hpp.inc"
 
+template <typename OnnxOp>
+void copySingleResultType(OnnxOp opToCopyFrom, mlir::Value &valueToCopyTo) {
+  assert(opToCopyFrom->getNumResults() == 1);
+  valueToCopyTo.setType(opToCopyFrom->getResult(0).getType());
+}
+
 } // namespace onnx_mlir
 #endif

@@ -108,14 +108,6 @@ LogicalResult checkBasicTosaRequirementsForBinaryOps(
   return success();
 }
 
-namespace {
-template <typename OnnxOp>
-void copySingleResultType(OnnxOp opToCopyFrom, Value &valueToCopyTo) {
-  assert(opToCopyFrom->getNumResults() == 1);
-  valueToCopyTo.setType(opToCopyFrom->getResult(0).getType());
-}
-} // namespace
-
 // Element-wise unary ops lowering to TOSA dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOpONNX, typename ElementwiseUnaryOpTOSA,
