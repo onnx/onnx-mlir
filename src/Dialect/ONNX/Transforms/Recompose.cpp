@@ -68,6 +68,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       res = create.onnx.RMSLayerNorm(xType, x, scale, noneVal, axis, epsilon);
     else
       res = create.onnx.layerNorm(xType, x, scale, noneVal, axis, epsilon);
+    copySingleResultType(mulOp, res);
     rewriter.replaceOp(mulOp, res);
     return success();
   }
@@ -429,6 +430,7 @@ struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     StringAttr approximateAttr =
         rewriter.getStringAttr(isExactGelu ? "none" : "tanh");
     Value res = create.onnx.gelu(x, approximateAttr);
+    copySingleResultType(mulOp, res);
     rewriter.replaceOp(mulOp, res);
     return success();
   }
@@ -625,6 +627,7 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
         aZeroPoint, b, bScale, bZeroPoint, outScale, outZeroPoint);
 
     rewriter.replaceOp(qlOp, res);
+    copySingleResultType(qlOp, res);
     return success();
   }
 
