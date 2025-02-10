@@ -21,16 +21,9 @@
 #include <sstream>
 #include <vector>
 
-#if defined(_WIN32)
-#include "llvm/ADT/SmallString.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Path.h"
-#else
 #include <algorithm>
 #include <dlfcn.h>
 #include <filesystem>
-
-#endif
 
 #include "ExecutionSession.hpp"
 #include "OMTensorListHelper.hpp"
