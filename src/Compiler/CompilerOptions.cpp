@@ -59,6 +59,7 @@ int repeatOnnxTransform;                               // onnx-mlir only
 std::string shapeInformation;                          // onnx-mlir only
 std::string dimParams;                                 // onnx-mlir only
 ModelSize modelSize;                                   // onnx-mlir only
+std::string externalDataDir;                           // onnx-mlir only
 bool storeConstantsToFile;                             // onnx-mlir only
 float constantsToFileTotalThreshold;                   // onnx-mlir only
 float constantsToFileSingleThreshold;                  // onnx-mlir only
@@ -391,6 +392,16 @@ static llvm::cl::opt<ModelSize, true> modelSizeOpt("modelSize",
             "Global constants are put into large read-only data section.")),
     llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string, true> externalDataDirOpt("external-data-dir",
+    llvm::cl::desc(
+        "ONNX constant initializers can be stored in a separate file. "
+        "The filename is stored in the ONNX model without a path. By default "
+        "the path is the same folder as the ONNX model. This allows that "
+        "default to be overridden.\n"
+        "Default is empty (use default)."),
+    llvm::cl::location(externalDataDir), llvm::cl::init(""),
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> storeConstantsToFileOpt(
     "store-constants-to-file",
