@@ -42,9 +42,12 @@ extern std::mutex unrollAndJamMutex;
 class KrnlMatmulLowering : public ConversionPattern {
 public:
   explicit KrnlMatmulLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      TypeConverter &typeConverter, MLIRContext *context, bool parallelEnabled)
       : ConversionPattern(
-            typeConverter, KrnlMatMulOp::getOperationName(), 1, context) {}
+            typeConverter, KrnlMatMulOp::getOperationName(), 1, context) {
+    this->parallelEnabled = parallelEnabled;
+  }
+  bool parallelEnabled = false;
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
@@ -350,12 +353,7 @@ private:
     MultiDialectBuilder<VectorBuilder, MemRefBuilder> create(createAffine);
     int64_t iLit(I.getLiteral()), VL(vectorLen.getLiteral());
     int64_t archVL = create.vec.getArchVectorLength(elementType);
-    /*
-    // Get operands.
-    KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
-        C(operandAdaptor.getC());
-    */
+
     // Generate the vector type conversions.
     assert(VL == archVL && "vector length and VL must be identical for now");
     VectorType vecType = VectorType::get({VL}, elementType);
@@ -367,6 +365,17 @@ private:
     assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
            "alignment of buffers cannot be smaller than the default alignment "
            "(which is set for SIMD correctness");
+    // Ok to use an alloca here because hoisting will take it out of the loop,
+    // as it is now generated before the scf.if which precluded the migration to
+    // outside the loops.
+
+    // But at this time, if parallel is enabled, alloca would be stuck inside of
+    // the parallel loop, which is not great. TODO: migrate alloca from inside
+    // the parallel loop to the OMP parallel region before the loop.
+
+    // Hi alex
+    if (parallelEnabled)
+      return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
   }
 
@@ -462,6 +471,17 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    // Ok to use an alloca here because hoisting will take it out of the loop,
+    // as it is now generated before the scf.if which precluded the migration to
+    // outside the loops.
+
+    // But at this time, if parallel is enabled, alloca would be stuck inside of
+    // the parallel loop, which is not great. TODO: migrate alloca from inside
+    // the parallel loop to the OMP parallel region before the loop.
+
+    // Hi alex
+    if (parallelEnabled)
+      return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
   }
 
@@ -581,8 +601,8 @@ private:
 }; // namespace krnl
 
 void populateLoweringKrnlMatmultOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<KrnlMatmulLowering>(typeConverter, ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx, bool parallelEnabled) {
+  patterns.insert<KrnlMatmulLowering>(typeConverter, ctx, parallelEnabled);
 }
 
 } // namespace krnl

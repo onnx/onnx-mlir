@@ -277,7 +277,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         emissionTarget = EmitMLIR;
       else {
         // Partially lower Krnl ops to Affine dialect.
-        addKrnlToAffinePasses(pm);
+        addKrnlToAffinePasses(pm, optLevel);
         // Optimizations at ZLow that needs affine map in MemRef.
         pm.addPass(zlow::createZLowRewritePass());
         // Late generation of code for stick/unstick, needed to be after a
@@ -289,7 +289,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         normalizeMemRefsPasses(pm);
         // Some Krnl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
-        addKrnlToAffinePasses(pm);
+        addKrnlToAffinePasses(pm, optLevel);
         // Optimizations at ZLow after normalizing MemRefs.
         pm.addPass(zlow::createZLowRewritePass());
         // The createZLowStickExpansion pass may create parallel constructs,

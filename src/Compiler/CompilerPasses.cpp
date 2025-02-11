@@ -212,9 +212,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::krnl::createConvertKrnlToAffinePass());
+void addKrnlToAffinePasses(mlir::PassManager &pm, int optLevel) {
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::krnl::createConvertKrnlToAffinePass(
+      /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel));
 }
 
 void addKrnlToLLVMPasses(
@@ -246,7 +246,6 @@ void addKrnlToLLVMPasses(
 
   // Hoist allocations out of loop nests to avoid stack overflow.
   pm.addPass(bufferization::createBufferLoopHoistingPass());
-
 
   // Use MLIR buffer deallocation pass to emit buffer deallocs.
   // Currently this has to be done *after* lowering the affine dialect because
@@ -329,7 +328,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
           instrumentSignatures, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
-      addKrnlToAffinePasses(pm);
+      addKrnlToAffinePasses(pm, OptimizationLevel);
   }
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
