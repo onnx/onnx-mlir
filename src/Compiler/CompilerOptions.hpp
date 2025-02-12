@@ -91,6 +91,7 @@ extern std::string opsForCall;                                // common for both
 extern bool disableKrnlOpFusion;                              // common for both
 extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
+extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern uint64_t compilationNumThreads;                        // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
