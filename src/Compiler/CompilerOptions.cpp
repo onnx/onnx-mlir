@@ -44,6 +44,7 @@ std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
+bool enableConvTranposeDecomposeToConv;                // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -252,6 +253,13 @@ static llvm::cl::opt<bool, true> disableConvTranposeDecomposeOptionOpt(
     "disable-convtranspose-decompose",
     llvm::cl::desc("Disable decomposition of ONNX ConvTranspose operator."),
     llvm::cl::location(disableConvTransposeDecomposeOption),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableConvTranposeDecomposeToConvOptionOpt(
+    "enable-convtranspose-decompose-conv",
+    llvm::cl::desc(
+        "Enable decomposition of ONNX ConvTranspose operator to Conv."),
+    llvm::cl::location(enableConvTranposeDecomposeToConv),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only

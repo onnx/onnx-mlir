@@ -22,6 +22,9 @@
 
 #include <numeric>
 
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
@@ -280,7 +283,201 @@ Value reverseWeightTensor(
   Value result = create.onnx.transposeInt64(transposedInput, perms2);
   return result;
 }
+Value reshapeOfConvOutput(
+    PatternRewriter &rewriter, Location loc, ONNXConvOp convOp, Value input) {
 
+  ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
+  Type elementType = getElementType(input.getType());
+  (void)convShapeHelper.computeShapeAndUpdateType(elementType);
+  int inputRank = convShapeHelper.getOutputDims().size();
+  SmallVector<int64_t, 4> inputShape;
+  auto numElements = 1;
+  for (int i = 0; i < inputRank; ++i) {
+    int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
+                    ? convShapeHelper.getOutputDims()[i].getLiteral()
+                    : ShapedType::kDynamic;
+    inputShape.emplace_back(d);
+    numElements = numElements * d;
+  }
+
+  auto int64Type = mlir::IntegerType::get(rewriter.getContext(), 64);
+  auto constType = RankedTensorType::get(1, int64Type);
+  auto reshapeOnnxConst =
+      rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+          DenseElementsAttr::get(constType, rewriter.getI64IntegerAttr(-1)));
+  auto reshapeOutputType =
+      RankedTensorType::get(numElements, rewriter.getF32Type());
+  return rewriter.create<ONNXReshapeOp>(
+      loc, reshapeOutputType, input, reshapeOnnxConst);
+}
+Value scatterNDForConvTranspose(PatternRewriter &rewriter, Location loc,
+    Value data, Value indices, Value updates) {
+  RankedTensorType dataType = mlir::cast<RankedTensorType>(data.getType());
+  // RankedTensorType updatesType =
+  //     mlir::cast<RankedTensorType>(updates.getType());
+
+  // for (auto sh : updatesType.getShape()) {
+  //   std::cout << " update sh " << sh << std::endl;
+  // }
+  return rewriter.create<ONNXScatterNDOp>(
+      loc, dataType, data, indices, updates, mlir::StringAttr());
+}
+Value sliceOfWeightTensorForPhase(
+    PatternRewriter &rewriter, Location loc, Value input, int phase) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
+  RankedTensorType inputType = mlir::cast<RankedTensorType>(input.getType());
+  assert(inputType.hasRank() && "Need rank to reverse weight tensor.");
+  auto shape = inputType.getShape();
+  MLIRContext *context = rewriter.getContext();
+
+  auto int64Type = mlir::IntegerType::get(context, 64);
+  auto getONNXConstOpForSlice =
+      [&](SmallVector<int64_t> values) -> ONNXConstantOp {
+    SmallVector<mlir::Attribute, 4> elements;
+    for (auto val : values) {
+      elements.push_back(mlir::IntegerAttr::get(int64Type, val));
+    }
+    auto constType = RankedTensorType::get(values.size(), int64Type);
+    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+        DenseElementsAttr::get(constType, llvm::ArrayRef(elements)));
+  };
+
+  ONNXConstantOp startOnnxConst;
+  llvm::SmallVector<int64_t> startVector;
+  switch (phase) {
+  case 1:
+    startVector = {0, 0, 0, 0};
+    break;
+  case 2:
+    startVector = {0, 0, 0, 1};
+    break;
+  case 3:
+    startVector = {0, 0, 1, 0};
+    break;
+  case 4:
+    startVector = {0, 0, 1, 1};
+    break;
+  }
+  startOnnxConst = getONNXConstOpForSlice(startVector);
+  llvm::SmallVector<int64_t> newShape = {
+      shape[0], shape[1], shape[2] / 2, shape[3] / 2};
+
+  auto endOnnxConst = getONNXConstOpForSlice(SmallVector<int64_t, 4>(shape));
+  llvm::SmallVector<int64_t> stepVector = {1, 1, 2, 2};
+  auto stepOnnxConst = getONNXConstOpForSlice(stepVector);
+  llvm::SmallVector<int64_t> axisVector = {0, 1, 2, 3};
+  auto axisOnnxConst = getONNXConstOpForSlice(axisVector);
+  auto newOuputShapedType = inputType.get(newShape, inputType.getElementType());
+  auto sliceOp = create.onnx.slice(newOuputShapedType, input, startOnnxConst,
+      endOnnxConst, axisOnnxConst, stepOnnxConst);
+  return sliceOp;
+}
+Value ph1WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 1);
+}
+Value ph2WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 2);
+}
+Value ph3WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 3);
+}
+Value ph4WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 4);
+}
+
+Value scatterIndexForScatterND(PatternRewriter &rewriter, Location loc,
+    ONNXConvTransposeOp op, int phase) {
+
+  auto outputTy = dyn_cast<RankedTensorType>(op.getType());
+  assert(outputTy && "unimplemented: input must have known sizes");
+  MLIRContext *context = rewriter.getContext();
+  auto int64Type = mlir::IntegerType::get(context, 64);
+  auto shouldSelect = [&](int i, int j) {
+    switch (phase) {
+    case 1:
+      return (i % 2 == 0 && j % 2 == 0);
+      break;
+    case 2:
+      return (i % 2 == 0 && j % 2 != 0);
+      break;
+    case 3:
+      return (i % 2 != 0 && j % 2 == 0);
+      break;
+    case 4:
+      return (i % 2 != 0 && j % 2 != 0);
+      break;
+    }
+    return false;
+  };
+  auto getONNXConstOpForScatterNDIndex = [&]() -> ONNXConstantOp {
+    auto outputShape = outputTy.getShape();
+    assert(outputTy.getRank() == 4 && "must be of rank 4");
+    SmallVector<mlir::Attribute> indices;
+    // 1 256 20 32
+    for (int chan = 0; chan < outputShape[1]; chan++) {
+      for (int row = 0; row < outputShape[2]; row++) {
+        for (int column = 0; column < outputShape[3]; column++) {
+          if (shouldSelect(row, column)) {
+            // std::cout << " Phase " << phase << " i = " << row
+            //           << " j = " << column << std::endl;
+            indices.push_back(mlir::IntegerAttr::get(int64Type, 0));
+            indices.push_back(mlir::IntegerAttr::get(int64Type, chan));
+            indices.push_back(mlir::IntegerAttr::get(int64Type, row));
+            indices.push_back(mlir::IntegerAttr::get(int64Type, column));
+          }
+        }
+      }
+    }
+    SmallVector<int64_t, 2> indicesShape;
+    indicesShape.push_back(indices.size() / 4);
+    indicesShape.push_back(4);
+
+    auto indicesTensorType = RankedTensorType::get(indicesShape, int64Type);
+    auto dense = DenseElementsAttr::get(indicesTensorType, indices);
+    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(), dense);
+  };
+  return getONNXConstOpForScatterNDIndex();
+}
+Value ph1ScatterIndex(
+    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
+  return scatterIndexForScatterND(rewriter, loc, op, 1);
+}
+Value ph2ScatterIndex(
+    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
+  return scatterIndexForScatterND(rewriter, loc, op, 2);
+}
+Value ph3ScatterIndex(
+    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
+  return scatterIndexForScatterND(rewriter, loc, op, 3);
+}
+Value ph4ScatterIndex(
+    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
+  return scatterIndexForScatterND(rewriter, loc, op, 4);
+}
+Value getOnnxConstForConvTranspose(
+    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
+  auto outputTy = dyn_cast<RankedTensorType>(op.getType());
+  assert(outputTy && "unimplemented: input must have known sizes");
+
+  // auto shape = outputTy.getShape();
+  // MLIRContext *context = rewriter.getContext();
+  // auto elementType = outputTy.getElementType();
+
+  // auto int64Type = mlir::IntegerType::get(context, 64);
+
+  return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+      DenseElementsAttr::get(outputTy, rewriter.getF32FloatAttr(0)));
+}
+ArrayAttr getAttrForPhaseConv(
+    PatternRewriter &rewriter, Location loc, ArrayAttr valAttr) {
+  assert(mlir::dyn_cast<IntegerAttr>(valAttr.getValue()[0]) &&
+         "Attribute must be integer");
+  int nElements = valAttr.getValue().size();
+  SmallVector<int64_t, 4> wrapper(nElements, 0);
+  for (int i = 0; i < nElements; ++i)
+    wrapper[i] = mlir::cast<IntegerAttr>(valAttr.getValue()[i]).getInt() / 2;
+  return rewriter.getI64ArrayAttr(wrapper);
+}
 // Calculate padding size used in Conv op from pads for ConvTranspose op.
 ArrayAttr getPadsConvTranspose(
     PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
@@ -461,7 +658,16 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 }
-
+bool shouldDecomposeConvTransposeOpToConv(Value convTransposeResult) {
+  if (!onnx_mlir::enableConvTranposeDecomposeToConv) {
+    // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
+    return false;
+  }
+  ONNXConvTransposeOp op =
+      mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
+  return hasShapeAndRank(convTransposeResult) &&
+         hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
+}
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
     PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {
