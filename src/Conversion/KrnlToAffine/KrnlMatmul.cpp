@@ -224,28 +224,33 @@ public:
     if (simdize) {
       // SIMD code generator.
       if (matVectorProduct) {
-        Value TmpProd = allocForGenSimdMatVect(create.affineKMem, elementType,
-            iComputeTileSize, jComputeTileSize, kComputeTileSize, vectorLen,
-            fullUnrollAndJam);
+        // Alloc of temp outside of inner if/then/else.
+        Value TmpSimdProd = allocForGenSimdMatVect(create.affineKMem,
+            elementType, iComputeTileSize, jComputeTileSize, kComputeTileSize,
+            vectorLen, fullUnrollAndJam);
+        Value TmpScalarProd = allocForGenScalar(create.affineKMem, elementType,
+            iTrip, jTrip, kTrip, /*unroll*/ false);
         // clang-format off
         create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
           /* then full tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
-          genSimdMatVect(createAffine, matmulOp, TmpProd, elementType, aStart, bStart,
+          genSimdMatVect(createAffine, matmulOp, TmpSimdProd, elementType, aStart, bStart,
             cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
             vectorLen, fullUnrollAndJam);
         }, /* else has partial tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
-          genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+          genScalar(createAffine, matmulOp, TmpScalarProd, elementType, aStart, bStart, cStart,
             iTrip, jTrip, kTrip, /*unroll*/ false);
         });
         // clang-format on
       } else {
-        Value TmpC = allocForGenSimdMat(create.affineKMem, elementType,
+        Value TmpSimdC = allocForGenSimdMatMat(create.affineKMem, elementType,
             iComputeTileSize, jComputeTileSize, kComputeTileSize, vectorLen,
             fullUnrollAndJam);
+        Value TmpScalarC = allocForGenScalar(create.affineKMem, elementType,
+            iTrip, jPartialTrip, kTrip, /*unroll*/ false);
         // clang-format off
         create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
           /* then full tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
-          genSimdMatMat(createAffine, matmulOp, TmpC, elementType, aStart, bStart,
+          genSimdMatMat(createAffine, matmulOp, TmpSimdC, elementType, aStart, bStart,
              cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
             vectorLen, fullUnrollAndJam);
           }, 
@@ -255,10 +260,10 @@ public:
           // Test if SIMD dim (M) is full.
           createAffine.ifThenElseIE(indexScope, jFullTiles,
             /* full SIMD */ [&](const AffineBuilderKrnlMem &createAffine) {
-            genSimdMatMat(createAffine, matmulOp, TmpC, elementType, aStart, bStart,
+            genSimdMatMat(createAffine, matmulOp, TmpSimdC, elementType, aStart, bStart,
                cStart, iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
           }, /* else partial SIMD */ [&](const AffineBuilderKrnlMem &createAffine) {
-            genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+            genScalar(createAffine, matmulOp, TmpScalarC, elementType, aStart, bStart, cStart,
               iTrip, jPartialTrip, kTrip, /*unroll*/ false);
           });
         });
@@ -266,14 +271,19 @@ public:
       }
     } else {
       // Scalar code generator.
+      Value TmpThenC =
+          allocForGenScalar(create.affineKMem, elementType, iComputeTileSize,
+              jComputeTileSize, kComputeTileSize, fullUnrollAndJam);
+      Value TmpElseC = allocForGenScalar(
+          create.affineKMem, elementType, iTrip, jTrip, kTrip, false);
       // clang-format off
       create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
         /* then full */ [&](const AffineBuilderKrnlMem &createAffine) {
-        genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+        genScalar(createAffine, matmulOp, TmpThenC, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           fullUnrollAndJam);
       }, /* else partial */ [&](const AffineBuilderKrnlMem &createAffine) {
-        genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+        genScalar(createAffine, matmulOp, TmpElseC, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);
       });
       // clang-format on
@@ -283,10 +293,25 @@ public:
   }
 
 private:
-  void genScalar(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
-      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
-      ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
+  Value allocForGenScalar(const AffineBuilderKrnlMem &createAffine,
+      Type elementType, IndexExpr I, IndexExpr J, IndexExpr K,
       bool unrollJam) const {
+    // Get operands.
+    MemRefBuilder createMemRef(createAffine);
+    int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    //
+    if (parallelEnabled)
+      return createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    return createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
+  }
+
+  void genScalar(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+      Value TmpC, Type elementType, ArrayRef<IndexExpr> aStart,
+      ArrayRef<IndexExpr> bStart, ArrayRef<IndexExpr> cStart, IndexExpr I,
+      IndexExpr J, IndexExpr K, bool unrollJam) const {
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
     MemRefBuilder createMemRef(createAffine);
@@ -294,10 +319,6 @@ private:
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
         C(operandAdaptor.getC());
     int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
-    // Have to privatize CTmpType by unroll factor (1 if none).
-    MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
-    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
 
     // For i, j loops.
     LiteralIndexExpr zeroIE(0);
@@ -372,8 +393,7 @@ private:
     // But at this time, if parallel is enabled, alloca would be stuck inside of
     // the parallel loop, which is not great. TODO: migrate alloca from inside
     // the parallel loop to the OMP parallel region before the loop.
-
-    // Hi alex
+    // Grep for this pattern in all 3 instances of "parallelEnabled".
     if (parallelEnabled)
       return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
@@ -458,7 +478,7 @@ private:
     }
   }
 
-  Value allocForGenSimdMat(const AffineBuilderKrnlMem &createAffine,
+  Value allocForGenSimdMatMat(const AffineBuilderKrnlMem &createAffine,
       Type elementType, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
@@ -478,8 +498,6 @@ private:
     // But at this time, if parallel is enabled, alloca would be stuck inside of
     // the parallel loop, which is not great. TODO: migrate alloca from inside
     // the parallel loop to the OMP parallel region before the loop.
-
-    // Hi alex
     if (parallelEnabled)
       return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
