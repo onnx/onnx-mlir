@@ -847,9 +847,8 @@ struct ConvertKrnlToAffinePass
   ConvertKrnlToAffinePass() = default;
   ConvertKrnlToAffinePass(const ConvertKrnlToAffinePass &pass)
       : PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>>() {}
-  ConvertKrnlToAffinePass(bool enableSIMD, bool enableParallel) {
-    this->enableSIMD = enableSIMD;
-    this->enableParallel = enableParallel;
+  ConvertKrnlToAffinePass(bool parallelEnabled) {
+    this->parallelEnabled = parallelEnabled;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-affine"; }
@@ -858,9 +857,7 @@ struct ConvertKrnlToAffinePass
 
   void runOnOperation() final;
 
-  Option<bool> enableSIMD{*this, "enable-simd",
-      llvm::cl::desc("Enable SIMD code gen"), llvm::cl::init(false)};
-  Option<bool> enableParallel{*this, "enable-parallel",
+  Option<bool> parallelEnabled{*this, "parallel-enabled",
       llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
 };
 
@@ -1021,8 +1018,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   RewritePatternSet patterns(ctx);
   AffineTypeConverter typeConverter;
 
-  populateKrnlToAffineConversion(
-      typeConverter, patterns, ctx, enableSIMD, enableParallel);
+  populateKrnlToAffineConversion(typeConverter, patterns, ctx, parallelEnabled);
 
   // Create list for recording the <loop, unroll factor> pairs associated with
   // this function.
@@ -1060,14 +1056,12 @@ std::unique_ptr<Pass> createConvertKrnlToAffinePass() {
   return std::make_unique<ConvertKrnlToAffinePass>();
 }
 
-std::unique_ptr<Pass> createConvertKrnlToAffinePass(
-    bool enableSIMD, bool enableParallel) {
-  return std::make_unique<ConvertKrnlToAffinePass>(enableSIMD, enableParallel);
+std::unique_ptr<Pass> createConvertKrnlToAffinePass(bool parallelEnabled) {
+  return std::make_unique<ConvertKrnlToAffinePass>(parallelEnabled);
 }
 
 void populateKrnlToAffineConversion(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel) {
+    RewritePatternSet &patterns, MLIRContext *ctx, bool parallelEnabled) {
   krnl::populateLoweringKrnlCopyFromBufferOpPattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlCopyToBufferOpPattern(typeConverter, patterns, ctx);
@@ -1076,7 +1070,7 @@ void populateKrnlToAffineConversion(TypeConverter &typeConverter,
   krnl::populateLoweringKrnlGetLinearOffsetIndexOpPattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMatmultOpPattern(
-      typeConverter, patterns, ctx, enableParallel);
+      typeConverter, patterns, ctx, parallelEnabled);
   krnl::populateLoweringKrnlMemsetOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlPrefetchOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlTerminatorOpPattern(typeConverter, patterns, ctx);
