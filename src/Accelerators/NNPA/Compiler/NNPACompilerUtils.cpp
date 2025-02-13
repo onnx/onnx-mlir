@@ -52,7 +52,7 @@ void configurePassesNNPA() {
   // z16 does not support for hardware saturation.
   // So, force its usage to compiler generated sticks.
   if (nnpaEnableSaturation && isLessEqualNNPALevel(NNPALevel::M14))
-    nnpaEnableCompilerStickUnstick = true;
+    nnpaDisableCompilerStickUnstick = false;
 
   // Configure ONNXToZHighLoweringPass.
   bool isDynQuant = !nnpaQuantDynamic.empty();
@@ -173,7 +173,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
   // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
   // these ops, e.g vectorize the computation.
-  if (nnpaEnableZHighToOnnx)
+  if (!nnpaDisableZHighToOnnx)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
 
   // Constant propagation at ZHighIR: constant stickify.
@@ -272,7 +272,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         // Late generation of code for stick/unstick, needed to be after a
         // ZLowRewrite pass.
-        if (nnpaEnableCompilerStickUnstick)
+        if (!nnpaDisableCompilerStickUnstick)
           pm.addPass(zlow::createZLowStickExpansionPass(enableParallel));
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
@@ -284,7 +284,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         // The createZLowStickExpansion pass may create parallel constructs,
         // they need to be handled here.
-        if (nnpaEnableCompilerStickUnstick && enableParallel)
+        if (!nnpaDisableCompilerStickUnstick && enableParallel)
           pm.addPass(mlir::createConvertSCFToOpenMPPass());
 
         pm.addPass(mlir::createCanonicalizerPass());
