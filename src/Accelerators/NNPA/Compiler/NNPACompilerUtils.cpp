@@ -145,16 +145,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
 
-  // Clip zhigh.Stick inputs if required. This is to avoid out-of-range of
-  // dlfloat. Do constant propagation after clipping to remove ONNX ops used for
-  // clipping such as ONNXMax if applicable.
-  // This pass will be removed and replaced by nnpa-saturation in the future.
-  if (!nnpaEnableSaturation && nnpaClipToDLFloatRange) {
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighClipToDLFloatPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-  }
-
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
   if (enableONNXHybridPass) {

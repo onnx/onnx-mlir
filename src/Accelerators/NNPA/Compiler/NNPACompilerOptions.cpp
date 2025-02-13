@@ -30,13 +30,6 @@ llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
         clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
     llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> nnpaClipToDLFloatRange("nnpa-clip-to-dlfloat-range",
-    llvm::cl::desc("Clip CPU tensors to dlfloat range before stickification to "
-                   "avoid out-of-range. Only clip Softmax inputs at this "
-                   "moment. Default is true. This option will be removed and "
-                   "replaced by --nnpa-saturation in the future."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
-
 llvm::cl::opt<bool> nnpaDisableZHighToOnnx("disable-zhigh-to-onnx",
     llvm::cl::desc(
         "By default we convert a pattern `stick -> element-wise op -> "
