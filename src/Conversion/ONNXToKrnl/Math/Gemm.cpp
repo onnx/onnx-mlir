@@ -248,6 +248,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           [&](const KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
             // If parallel, will stay inside, otherwise will migrate out.
+            // Since they are not in an if structure, migration out is not an
+            // issue.
             Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
             Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
             Value rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
@@ -313,6 +315,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           [&](const KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
             // If parallel, it will stay inside, otherwise it will migrate out.
+            // Since allocs are not in an if structure, migration is not an
+            // issue.
             Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
             Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
             if (bTrans)
