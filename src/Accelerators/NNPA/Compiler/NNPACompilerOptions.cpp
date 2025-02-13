@@ -30,13 +30,13 @@ llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
         clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
     llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
+llvm::cl::opt<bool> nnpaDisableZHighToOnnx("disable-zhigh-to-onnx",
     llvm::cl::desc(
-        "Enabling this will convert a pattern `stick -> element-wise op -> "
+        "By default we convert a pattern `stick -> element-wise op -> "
         "unstick` back to an ONNX element-wise op. This conversion is called "
         "after applying all optimizations to remove stick/unstick at ZHigh "
-        "level. Default is true."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+        "level. Use this option to disable this optimization."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
     "enable-zhigh-decompose-stick-unstick",
