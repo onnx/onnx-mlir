@@ -42,9 +42,12 @@ extern std::mutex unrollAndJamMutex;
 class KrnlMatmulLowering : public ConversionPattern {
 public:
   explicit KrnlMatmulLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      TypeConverter &typeConverter, MLIRContext *context, bool parallelEnabled)
       : ConversionPattern(
-            typeConverter, KrnlMatMulOp::getOperationName(), 1, context) {}
+            typeConverter, KrnlMatMulOp::getOperationName(), 1, context) {
+    this->parallelEnabled = parallelEnabled;
+  }
+  bool parallelEnabled = false;
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
@@ -221,22 +224,33 @@ public:
     if (simdize) {
       // SIMD code generator.
       if (matVectorProduct) {
+        // Alloc of temp outside of inner if/then/else.
+        Value TmpSimdProd = allocForGenSimdMatVect(create.affineKMem,
+            elementType, iComputeTileSize, jComputeTileSize, kComputeTileSize,
+            vectorLen, fullUnrollAndJam);
+        Value TmpScalarProd = allocForGenScalar(create.affineKMem, elementType,
+            iTrip, jTrip, kTrip, /*unroll*/ false);
         // clang-format off
         create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
           /* then full tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
-          genSimdMatVect(createAffine, matmulOp, elementType, aStart, bStart,
+          genSimdMatVect(createAffine, matmulOp, TmpSimdProd, elementType, aStart, bStart,
             cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
             vectorLen, fullUnrollAndJam);
         }, /* else has partial tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
-          genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+          genScalar(createAffine, matmulOp, TmpScalarProd, elementType, aStart, bStart, cStart,
             iTrip, jTrip, kTrip, /*unroll*/ false);
         });
         // clang-format on
       } else {
+        Value TmpSimdC = allocForGenSimdMatMat(create.affineKMem, elementType,
+            iComputeTileSize, jComputeTileSize, kComputeTileSize, vectorLen,
+            fullUnrollAndJam);
+        Value TmpScalarC = allocForGenScalar(create.affineKMem, elementType,
+            iTrip, jPartialTrip, kTrip, /*unroll*/ false);
         // clang-format off
         create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
           /* then full tiles */ [&](const AffineBuilderKrnlMem &createAffine) {
-          genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
+          genSimdMatMat(createAffine, matmulOp, TmpSimdC, elementType, aStart, bStart,
              cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
             vectorLen, fullUnrollAndJam);
           }, 
@@ -246,33 +260,30 @@ public:
           // Test if SIMD dim (M) is full.
           createAffine.ifThenElseIE(indexScope, jFullTiles,
             /* full SIMD */ [&](const AffineBuilderKrnlMem &createAffine) {
-            genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
+            genSimdMatMat(createAffine, matmulOp, TmpSimdC, elementType, aStart, bStart,
                cStart, iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
           }, /* else partial SIMD */ [&](const AffineBuilderKrnlMem &createAffine) {
-            // TODO: evaluate if get performance from partial SIMD
-            if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
-              // has a known trip count along the simd dimension of at least 2
-              // elements, use simd again.
-              genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
-                cStart, iTrip, jPartialTrip, kTrip, vectorLen, /*unroll*/ false);
-            } else {
-              genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
-                iTrip, jPartialTrip, kTrip, /*unroll*/ false);
-            }
+            genScalar(createAffine, matmulOp, TmpScalarC, elementType, aStart, bStart, cStart,
+              iTrip, jPartialTrip, kTrip, /*unroll*/ false);
           });
         });
         // clang-format on
       }
     } else {
       // Scalar code generator.
+      Value TmpThenC =
+          allocForGenScalar(create.affineKMem, elementType, iComputeTileSize,
+              jComputeTileSize, kComputeTileSize, fullUnrollAndJam);
+      Value TmpElseC = allocForGenScalar(
+          create.affineKMem, elementType, iTrip, jTrip, kTrip, false);
       // clang-format off
       create.affineKMem.ifThenElseIE(indexScope, allFullTiles,
         /* then full */ [&](const AffineBuilderKrnlMem &createAffine) {
-        genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+        genScalar(createAffine, matmulOp, TmpThenC, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           fullUnrollAndJam);
       }, /* else partial */ [&](const AffineBuilderKrnlMem &createAffine) {
-        genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+        genScalar(createAffine, matmulOp, TmpElseC, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);
       });
       // clang-format on
@@ -282,10 +293,25 @@ public:
   }
 
 private:
-  void genScalar(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
-      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
-      ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
+  Value allocForGenScalar(const AffineBuilderKrnlMem &createAffine,
+      Type elementType, IndexExpr I, IndexExpr J, IndexExpr K,
       bool unrollJam) const {
+    // Get operands.
+    MemRefBuilder createMemRef(createAffine);
+    int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    //
+    if (parallelEnabled)
+      return createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    return createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
+  }
+
+  void genScalar(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+      Value TmpC, Type elementType, ArrayRef<IndexExpr> aStart,
+      ArrayRef<IndexExpr> bStart, ArrayRef<IndexExpr> cStart, IndexExpr I,
+      IndexExpr J, IndexExpr K, bool unrollJam) const {
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
     MemRefBuilder createMemRef(createAffine);
@@ -293,10 +319,6 @@ private:
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
         C(operandAdaptor.getC());
     int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
-    // Have to privatize CTmpType by unroll factor (1 if none).
-    MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
-    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
 
     // For i, j loops.
     LiteralIndexExpr zeroIE(0);
@@ -342,11 +364,46 @@ private:
     }
   }
 
+  Value allocForGenSimdMatVect(const AffineBuilderKrnlMem &createAffine,
+      Type elementType, IndexExpr I, IndexExpr J, IndexExpr K,
+      IndexExpr vectorLen, bool unrollJam) const {
+    // can simdize only if I & K is compile time
+    assert(I.isLiteral() && K.isLiteral() && vectorLen.isLiteral() &&
+           "can only simdize with compile time "
+           "blocking factor on simd axis");
+    MultiDialectBuilder<VectorBuilder, MemRefBuilder> create(createAffine);
+    int64_t iLit(I.getLiteral()), VL(vectorLen.getLiteral());
+    int64_t archVL = create.vec.getArchVectorLength(elementType);
+
+    // Generate the vector type conversions.
+    assert(VL == archVL && "vector length and VL must be identical for now");
+    VectorType vecType = VectorType::get({VL}, elementType);
+    int64_t iUnrollFactor = iLit;
+    assert(iUnrollFactor % VL == 0 && "i blocking should be a multiple of VL");
+
+    // Have to privatize CTmpType by unroll factor.
+    MemRefType CTmpType = MemRefType::get({iUnrollFactor}, vecType);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
+           "alignment of buffers cannot be smaller than the default alignment "
+           "(which is set for SIMD correctness");
+    // Ok to use an alloca here because hoisting will take it out of the loop,
+    // as it is now generated before the scf.if which precluded the migration to
+    // outside the loops.
+
+    // But at this time, if parallel is enabled, alloca would be stuck inside of
+    // the parallel loop, which is not great. TODO: migrate alloca from inside
+    // the parallel loop to the OMP parallel region before the loop.
+    // Grep for this pattern in all 3 instances of "parallelEnabled".
+    if (parallelEnabled)
+      return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
+  }
+
   // Initially, simdize with full K vector length.
   void genSimdMatVect(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
-      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
-      ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
-      IndexExpr vectorLen, bool unrollJam) const {
+      Value TmpProd, Type elementType, ArrayRef<IndexExpr> aStart,
+      ArrayRef<IndexExpr> bStart, ArrayRef<IndexExpr> cStart, IndexExpr I,
+      IndexExpr J, IndexExpr K, IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if I & K is compile time
     assert(I.isLiteral() && K.isLiteral() && vectorLen.isLiteral() &&
            "can only simdize with compile time "
@@ -367,12 +424,6 @@ private:
     int64_t iUnrollFactor = iLit;
     assert(iUnrollFactor % VL == 0 && "i blocking should be a multiple of VL");
 
-    // Have to privatize CTmpType by unroll factor.
-    MemRefType CTmpType = MemRefType::get({iUnrollFactor}, vecType);
-    assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
-           "alignment of buffers cannot be smaller than the default alignment "
-           "(which is set for SIMD correctness");
-    Value TmpProd = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     // Init with zero.
     Value fZero = create.math.constant(elementType, 0);
     Value vFZero = create.vec.broadcast(vecType, fZero);
@@ -427,11 +478,36 @@ private:
     }
   }
 
+  Value allocForGenSimdMatMat(const AffineBuilderKrnlMem &createAffine,
+      Type elementType, IndexExpr I, IndexExpr J, IndexExpr K,
+      IndexExpr vectorLen, bool unrollJam) const {
+    // can simdize only if K is compile time
+    MultiDialectBuilder<MemRefBuilder> create(createAffine);
+
+    // Generate the vector type conversions.
+    int64_t VL = vectorLen.getLiteral();
+    VectorType vecType = VectorType::get({VL}, elementType);
+    int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    // Ok to use an alloca here because hoisting will take it out of the loop,
+    // as it is now generated before the scf.if which precluded the migration to
+    // outside the loops.
+
+    // But at this time, if parallel is enabled, alloca would be stuck inside of
+    // the parallel loop, which is not great. TODO: migrate alloca from inside
+    // the parallel loop to the OMP parallel region before the loop.
+    if (parallelEnabled)
+      return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
+    return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
+  }
+
   // Simdize along J / memory rows in B and C.
   void genSimdMatMat(const AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
-      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
-      ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
-      IndexExpr vectorLen, bool unrollJam) const {
+      Value TmpC, Type elementType, ArrayRef<IndexExpr> aStart,
+      ArrayRef<IndexExpr> bStart, ArrayRef<IndexExpr> cStart, IndexExpr I,
+      IndexExpr J, IndexExpr K, IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
@@ -446,10 +522,6 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
-    // Have to privatize CTmpType by unroll factor (1 if none).
-    MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
-    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
@@ -547,8 +619,8 @@ private:
 }; // namespace krnl
 
 void populateLoweringKrnlMatmultOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<KrnlMatmulLowering>(typeConverter, ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx, bool parallelEnabled) {
+  patterns.insert<KrnlMatmulLowering>(typeConverter, ctx, parallelEnabled);
 }
 
 } // namespace krnl
