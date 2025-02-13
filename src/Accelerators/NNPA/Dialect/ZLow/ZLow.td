@@ -259,8 +259,7 @@ def ZLowReduceMaxOp:ZLow_Op<"reducemax", [MemRefsNormalizable]> {
                        MemRefOf<[I8]>:$work_area,
                        MemRefOf<[I64]>:$shape,
                        ZMemRef:$Out,
-                       StrAttr:$layout,
-                       StrAttr:$op_type);
+                       StrAttr:$layout);
 }
 
 def ZLowReduceMinOp:ZLow_Op<"reducemin", [MemRefsNormalizable]> {
@@ -272,8 +271,7 @@ def ZLowReduceMinOp:ZLow_Op<"reducemin", [MemRefsNormalizable]> {
                        MemRefOf<[I8]>:$work_area,
                        MemRefOf<[I64]>:$shape,
                        ZMemRef:$Out,
-                       StrAttr:$layout,
-                       StrAttr:$op_type);
+                       StrAttr:$layout);
 }
 
 def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable,

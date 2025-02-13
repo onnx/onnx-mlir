@@ -953,49 +953,29 @@ bool isSuitableForZDNN<ONNXGemmOp>(
 // Common function for ReduceMax and ReduceMin
 template <typename OP_TYPE>
 static bool checkReduceParam(OP_TYPE op) {
-  IndexExprBuilderForAnalysis createIE(op.getLoc());
+  OpBuilder b(op);
+  Location loc = op.getLoc();
+  IndexExprBuilderForAnalysis createIE(loc);
+  IndexExprScope ieScope(&b, loc);
+
+  Value data = op.getData();
+  Value axesVal = op.getAxes();
+  int64_t keepdims = op.getKeepdims();
+  int64_t noop_with_empty_axes = op.getNoopWithEmptyAxes();
 
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPALevel::M15))
     return onnxToZHighInCompatibilityReport(op.getOperation(), NNPALevel::M15);
 
   // Check data type.
-  Value data = op.getData();
+  int64_t rank = getRank(data.getType());
   if (!isValidElementTypeAndRank(op.getOperation(), data))
     return false;
 
-  // Check axes value
-  Value axesVal = op.getAxes();
-  if (!isDenseONNXConstant(axesVal))
-    return false;
-
-  ONNXConstantOp axesConstant =
-      mlir::cast<ONNXConstantOp>(axesVal.getDefiningOp());
-  int64_t axesInt = getScalarValue<int64_t>(axesConstant);
-
-  int64_t keepdims = op.getKeepdims();
-  int64_t noop_with_empty_axes = op.getNoopWithEmptyAxes();
-  int64_t rank = createIE.getShapedTypeRank(data);
-
-  // Check if axes (int64) is exactly a size of one
-  if (floor(log10(axesInt)) + 1 == 1) {
-    int64_t axis = axesInt;
-    // Accepted range is [-r, r-1] where r = rank(data)
-    if (axis < -rank || axis > rank - 1) {
-      std::string message =
-          "The `axis` is out of the accepted range which is [-r, r-1]";
-      return onnxToZHighUnsupportedReport(op, message);
-    }
-    if ((axis != -1) && (axis != rank - 1)) {
-      std::string message = "The `axis` must be the innermost dimension. ";
-      return onnxToZHighUnsupportedReport(op, message);
-    }
-  } else {
-    std::string message = "Axes can only be a scalar size of one. ";
-    return onnxToZHighUnsupportedReport(op, message);
-  }
-
-  // REMINDER: Should we check the input tensor rank.
+  // NNPA does not support reduction over all axes.
+  if (isNoneValue(axesVal))
+    return onnxToZHighUnsupportedReport(
+        op.getOperation(), "Does not support reduction over all axes.");
 
   // Check keepdims and noop_with_empty_axes, we only support the default
   // value. Attributes: keepdims (default is 1) and noop_with_empty_axes
@@ -1007,6 +987,28 @@ static bool checkReduceParam(OP_TYPE op) {
                           std::to_string(keepdims) + ") must be 1.";
     return onnxToZHighUnsupportedReport(op, message);
   }
+
+  // Check axes value
+  DimsExpr axesIE;
+  createIE.getIntFromArrayAsDims(axesVal, axesIE);
+  if (axesIE.size() != 1)
+    return onnxToZHighUnsupportedReport(
+        op.getOperation(), "Does not support multiple reduction axes.");
+  if (!axesIE[0].isLiteral())
+    return onnxToZHighUnsupportedReport(
+        op.getOperation(), "Reduction axis is unknown at compile time.");
+  int64_t axis = axesIE[0].getLiteral();
+  // Accepted range is [-r, r-1] where r = rank(data)
+  if (axis < -rank || axis > rank - 1) {
+    std::string message =
+        "Reduction axis is out of the accepted range which is [-r, r-1]";
+    return onnxToZHighUnsupportedReport(op, message);
+  }
+  if ((axis != -1) && (axis != rank - 1)) {
+    std::string message = "Reduction axis must be the innermost dimension. ";
+    return onnxToZHighUnsupportedReport(op, message);
+  }
+
   return true;
 }
 
@@ -1014,26 +1016,16 @@ static bool checkReduceParam(OP_TYPE op) {
 template <>
 bool isSuitableForZDNN<ONNXReduceMaxOp>(
     ONNXReduceMaxOp op, const DimAnalysis *dimAnalysis) {
-
   // Check parameter restrictions for ReduceMax
-  bool isReduceMax = checkReduceParam<ONNXReduceMaxOp>(op);
-  if (!isReduceMax)
-    return false;
-
-  return true;
+  return checkReduceParam<ONNXReduceMaxOp>(op);
 }
 
 /// Check legality for ONNXReduceMin.
 template <>
 bool isSuitableForZDNN<ONNXReduceMinOp>(
     ONNXReduceMinOp op, const DimAnalysis *dimAnalysis) {
-
   // Check parameter restrictions for ReduceMin
-  bool isReduceMin = checkReduceParam<ONNXReduceMinOp>(op);
-  if (!isReduceMin)
-    return false;
-
-  return true;
+  return checkReduceParam<ONNXReduceMinOp>(op);
 }
 
 /// Check legality for ONNXReduceMeanV13.
