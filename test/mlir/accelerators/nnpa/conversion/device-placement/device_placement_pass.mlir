@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --device-placement --mcpu=z16 --maccel=NNPA --split-input-file %s | FileCheck %s
+// RUN: onnx-mlir-opt --device-placement --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s
 
 module attributes {llvm.data_layout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64", llvm.target_triple = "s390x-ibm-linux", "onnx-mlir.symbol-postfix" = "model"} {
   func.func @mnist(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> {

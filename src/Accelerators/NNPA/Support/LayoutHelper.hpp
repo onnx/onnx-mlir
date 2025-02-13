@@ -35,6 +35,12 @@ const std::string LAYOUT_ZRH = "ZRH";
 const std::string LAYOUT_BFICO = "BFICO";
 const std::string LAYOUT_BZRH = "BZRH";
 
+// Quantized transform type.
+const std::string QTYPE_DLFLOAT16 = "DLFLOAT16";
+const std::string QTYPE_INT8 = "INT8";
+const std::string QTYPE_WEIGHTS = "WEIGHTS";
+const std::string QTYPE_UNDEFINED = "UNDEFINED";
+
 zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
     int64_t rank, mlir::StringAttr layoutAttr);
 

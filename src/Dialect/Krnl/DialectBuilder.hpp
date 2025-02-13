@@ -75,8 +75,7 @@ struct KrnlBuilder : public DialectBuilder {
   // Iterate over optimized loops given the original loops, lbs and ubs. Lambda
   // function implement the body of the loop, and receive a KRNL builder and the
   // loop indices.
-  using KrnlLoopBodyFn =
-      mlir::function_ref<void(const KrnlBuilder &, mlir::ValueRange)>;
+  using KrnlLoopBodyFn = impl::LoopBodyFn<KrnlBuilder>;
   using KrnlLoopBody2Fn = mlir::function_ref<void(
       const KrnlBuilder &, mlir::ValueRange, mlir::ValueRange)>;
 
@@ -105,6 +104,17 @@ struct KrnlBuilder : public DialectBuilder {
   // Common loop interface (krnl/affine/scf).
   void forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step, bool useParallel,
       KrnlLoopBodyFn builderFn) const;
+  void forLoopsIE(mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+      mlir::ArrayRef<int64_t> steps, mlir::ArrayRef<bool> useParallel,
+      KrnlLoopBodyFn builderFn) const;
+
+  // Loop with explicit parallelism. Loop body is invoked on each parallel
+  // thread with its threadID (0..threadNum-1) and its corresponding lb and ub
+  // (using static schedule). When threadNum==1 (compile time literal), we
+  // simply call the builderFn for the entire range as there is no
+  // parallelism, namely we call builderFn(builder, {0, lb, ub}).
+  void forExplicitParallelLoopIE(IndexExpr lb, IndexExpr ub,
+      IndexExpr threadNum, KrnlLoopBodyFn builderFn) const;
 
   // Common simd loop interface (krnl/affine/scf).
   /*
@@ -284,6 +294,8 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::StringRef msg, IndexExpr input, bool endsWithNewLine = false) const;
   void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
       bool endsWithNewLine = false) const;
+  // Use "%s" for signature, "%t" for detailed type, "%d" for data, "%e" for end
+  // of string (recommended). If no "%X" pattern is given, we assume "%s%d".
   void printTensor(mlir::StringRef msg, mlir::Value input) const;
 
   // Onnx-mlir runtime functions.

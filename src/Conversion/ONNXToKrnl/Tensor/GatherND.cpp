@@ -137,8 +137,8 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     DimsExpr lbs(2, LitIE(0)), ubs = {newIndicesShape[0], newIndicesShape[1]};
 
     if (emitPrintStmts) {
-      create.krnl.printTensor("reshapedIndices: ", reshapedIndices);
-      create.krnl.printTensor("reshapedData: ", reshapedData);
+      create.krnl.printTensor("reshapedIndices%s%d%e", reshapedIndices);
+      create.krnl.printTensor("reshapedData%s%d%e", reshapedData);
     }
 
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

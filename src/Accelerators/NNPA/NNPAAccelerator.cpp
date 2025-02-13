@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPAAccelerator.cpp -----------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -52,9 +52,9 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
   LLVM_DEBUG(llvm::dbgs() << "Creating an NNPA accelerator\n");
 
   // Print a warning if mcpu is not set or < z16.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    llvm::outs() << "Warning: No NNPA code is generated because --mcpu is not "
-                    "set or < z16.\n";
+  if (!isCompatibleWithNNPALevel(NNPALevel::M14))
+    llvm::outs() << "\nWarning: No NNPA code is generated because:\n"
+                    "  --march is not set/older than z16.\n\n";
 
   acceleratorTargets.push_back(this);
   // Order is important! libRuntimeNNPA depends on libzdnn
@@ -63,7 +63,12 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
-uint64_t NNPAAccelerator::getVersionNumber() const { return ZDNN_VERNUM; }
+// Return accelerator version number based on compile NNPA version
+uint64_t NNPAAccelerator::getVersionNumber() const {
+  if (isCompatibleWithNNPALevel(NNPALevel::M15))
+    return NNPA_ZDNN_VERSIONS[NNPALevel::M15];
+  return NNPA_ZDNN_VERSIONS[NNPALevel::M14];
+}
 
 void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
@@ -162,8 +167,10 @@ void NNPAAccelerator::conversionTargetONNXToKrnl(
 void NNPAAccelerator::rewritePatternONNXToKrnl(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
     mlir::MLIRContext *ctx) const {
-  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(
-      patterns, typeConverter, ctx, enableParallel);
+  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(patterns,
+      typeConverter, ctx,
+      /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
+      enableParallel);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(

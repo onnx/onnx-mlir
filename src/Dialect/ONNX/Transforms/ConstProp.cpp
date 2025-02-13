@@ -34,6 +34,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <fenv.h>
 #include <math.h>
 #include <numeric>
 
