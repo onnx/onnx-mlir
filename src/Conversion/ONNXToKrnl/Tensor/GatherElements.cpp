@@ -122,7 +122,6 @@ struct ONNXGatherElementsOpLowering
             Value outBound =
                 create.math.ori(compareUpperBound, compareLowerBound);
             auto ifOp = rewriter.create<scf::IfOp>(loc, outBound, false);
-
             rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
             std::string msg = nodeNameStr +
                               ": Value of indices is out of bound. " +
