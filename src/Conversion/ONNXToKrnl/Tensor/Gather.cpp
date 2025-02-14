@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -142,24 +141,37 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
             // along axis of size s. It is an error if any of the index values
             // are out of bounds.
             // After the negative correction, the range should be [0, s-1]
-            Value upperBound = create.mem.dim(data, axisLit);
-            Value compareUpperBound =
-                create.math.slt(index.getValue(), upperBound);
             // Report onnx_node_name if the op has the attribute
-            std::string nodeNameStr = op->getName().getStringRef().str() + " ";
+            std::string nodeNameStr = "Warning: ";
+            nodeNameStr += op->getName().getStringRef().str() + " ";
             StringAttr nodeName =
                 op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
             if (nodeName && !nodeName.getValue().empty()) {
-              nodeNameStr = nodeNameStr + nodeName.getValue().str();
+              nodeNameStr += nodeName.getValue().str();
             }
-            rewriter.create<cf::AssertOp>(loc, compareUpperBound,
-                nodeNameStr +
-                    " indices of GatherOp is larger than the upper bound");
+
+            Value upperBound = create.mem.dim(data, axisLit);
+            Value compareUpperBound =
+                create.math.sge(index.getValue(), upperBound);
             Value compareLowerBound =
-                create.math.sge(index.getValue(), zeroIE.getValue());
-            rewriter.create<cf::AssertOp>(loc, compareLowerBound,
-                nodeNameStr +
-                    " indices of GatherOp is less than the lower bound");
+                create.math.slt(index.getValue(), zeroIE.getValue());
+            Value outBound =
+                create.math.ori(compareUpperBound, compareLowerBound);
+            auto ifOp = rewriter.create<scf::IfOp>(loc, outBound, false);
+            
+            rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+            std::string msg = nodeNameStr +
+                              ": Value of indices is out of bound. " +
+                              "The out-of-bound indices value is: ";
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+            create.krnl.printf(msg, indexVal, true);
+            msg = "The out-of-bound index is replaced with zero.\n";
+            create.krnl.printf(msg);
+            rewriter.setInsertionPointAfter(ifOp);
+            // The modification of index could be put into IfOp to save
+            // some condition check, but the code will become complicated.
+            index = index.selectOrSelf(index < zeroIE, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, zeroIE);
           }
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]

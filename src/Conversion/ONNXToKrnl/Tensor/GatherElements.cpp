@@ -11,9 +11,7 @@
 // This file lowers the ONNX GatherElements Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
-
-#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -56,7 +54,7 @@ struct ONNXGatherElementsOpLowering
     // Operands and attributes.
     Value data = adaptor.getData();
     Value indices = adaptor.getIndices();
-    int64_t axis = adaptor.getAxis();
+    int64_t axisLit = adaptor.getAxis();
     int64_t dataRank = mlir::cast<MemRefType>(data.getType()).getRank();
     int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
     int64_t outputRank = outputMemRefType.getShape().size();
@@ -67,8 +65,9 @@ struct ONNXGatherElementsOpLowering
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
 
     // Negative value means counting dimensions from the back.
-    axis = axis < 0 ? axis + dataRank : axis;
+    axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 
+    LiteralIndexExpr zeroIE(0);
     DimsExpr dataDims, indicesDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
     create.krnlIE.getShapeAsDims(indices, indicesDims);
@@ -83,6 +82,7 @@ struct ONNXGatherElementsOpLowering
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
+          SymbolIndexExpr axisDim(dataDims[axisLit]);
 
           // Access function for indices and output.
           DimsExpr accessFct;
@@ -94,7 +94,6 @@ struct ONNXGatherElementsOpLowering
 
           if (indicesMayBeNegative) {
             LiteralIndexExpr zero(0);
-            SymbolIndexExpr axisDim(dataDims[axis]);
             index = index.selectOrSelf(index < zero, index + axisDim);
           }
 
@@ -106,28 +105,44 @@ struct ONNXGatherElementsOpLowering
             // along axis of size s. It is an error if any of the index values
             // are out of bounds.
             // After the negative correction, the range should be [0, s-1]
-            Value upperBound = create.mem.dim(data, axis);
-            Value compareUpperBound =
-                create.math.slt(index.getValue(), upperBound);
-            std::string nodeNameStr = op->getName().getStringRef().str() + " ";
+            // Report onnx_node_name if the op has the attribute
+            std::string nodeNameStr = "Warning: ";
+            nodeNameStr += op->getName().getStringRef().str() + " ";
             StringAttr nodeName =
                 op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
             if (nodeName && !nodeName.getValue().empty()) {
-              nodeNameStr = nodeNameStr + nodeName.getValue().str();
+              nodeNameStr += nodeName.getValue().str();
             }
-            rewriter.create<cf::AssertOp>(loc, compareUpperBound,
-                "indices of GatherOp is larger than the upper bound");
-            LiteralIndexExpr zero(0);
+
+            Value upperBound = create.mem.dim(data, axisLit);
+            Value compareUpperBound =
+                create.math.sge(index.getValue(), upperBound);
             Value compareLowerBound =
-                create.math.sge(index.getValue(), zero.getValue());
-            rewriter.create<cf::AssertOp>(loc, compareLowerBound,
-                "indices of GatherOp is less than the lower bound");
+                create.math.slt(index.getValue(), zeroIE.getValue());
+            Value outBound =
+                create.math.ori(compareUpperBound, compareLowerBound);
+            auto ifOp = rewriter.create<scf::IfOp>(loc, outBound, false);
+
+            rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+            std::string msg = nodeNameStr +
+                              ": Value of indices is out of bound. " +
+                              "The out-of-bound indices value is: ";
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+            create.krnl.printf(msg, indexVal, true);
+            msg = "The out-of-bound index is replaced with zero.\n";
+            create.krnl.printf(msg);
+
+            rewriter.setInsertionPointAfter(ifOp);
+            // The modification of index could be put into IfOp to save
+            // some condition check, but the IE of index will has SSA issue.
+            index = index.selectOrSelf(index < zeroIE, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, zeroIE);
           }
 
           // Access function for the 'data' tensor.
           DimsExpr dataAccessFct;
           for (int64_t i = 0; i < dataRank; ++i)
-            dataAccessFct.emplace_back((i == axis) ? index : accessFct[i]);
+            dataAccessFct.emplace_back((i == axisLit) ? index : accessFct[i]);
 
           // Gather values from the 'data' tensor and save them.
           Value dataVal = createKrnl.loadIE(data, dataAccessFct);
