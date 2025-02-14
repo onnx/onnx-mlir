@@ -501,14 +501,18 @@ static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
 
 static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
     "instrument-signature",
-    llvm::cl::desc("Specify which high-level operations should print their"
-                   " input type(s) and shape(s)\n"
-                   "\"ALL\" or \"\" for all available operations.\n"
-                   "\"NONE\" for no instrument (default).\n"
-                   "\"ops1,ops2, ...\" for the multiple ops.\n"
-                   "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
-                   "Asterisk is also available.\n"
-                   "e.g. \"onnx.*\" for all onnx operations.\n"),
+    llvm::cl::desc(
+        "Specify which high-level operations should print their"
+        " input type(s) and shape(s)\n"
+        "\"ALL\" or \"\" for all available operations.\n"
+        "\"NONE\" for no instrument (default).\n"
+        "\"ops1,ops2, ...\" for the multiple ops.\n"
+        "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
+        "Asterisk is also available.\n"
+        "e.g. \"onnx.*\" for all onnx operations.\n"
+        "If this option is started with \"onnx_node_name\"\n"
+        "the attribute of \"onnx_node_name\", instead of the op name\n"
+        "will be used to match the op, and the data value will be printed.\n"),
     llvm::cl::location(instrumentSignatures), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 

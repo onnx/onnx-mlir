@@ -322,15 +322,19 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
 //===----------------------------------------------------------------------===//
 // ONNX PrintSignatureOp.
 def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
-  let summary = "ONNX Op to print type signature of its input operands";
+  let summary = "ONNX Op to print type signature or data of its input operands";
   let description = [{
-    Print type signature of the op's input operands. This operation is introduced early
-    so as to preserve the name of the original ONNX op.
+    Print type signature of the op's input operands.
+    The parameter op_name specifies a string to be printed with the output, and usually the op_name and onnx_node_name are used.
+    This operation is introduced early so as to preserve the name of the original ONNX op.
+    The argument print_data control whether signature of data of the tensors to be printed.
+    When print_data == 1, the data of the tensor will be printed. Otherwise, the shape of the tensor will be printed.
+    The argument input specifies all the tensor to be printed.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins StrAttr:$op_name, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
 }
 
 //===----------------------------------------------------------------------===//

@@ -72,15 +72,34 @@ public:
   void runOnOperation() override {
     onnx_mlir::EnableByRegexOption traceSpecificOpPattern(
         /*emptyIsNone*/ false);
+    // If the signaturePattern is started with "onnx_node_name: ",
+    // the node will be selected by the string attribute of onnx_node_name.
+    std::string header = "onnx_node_name:";
+    std::cout << signaturePattern << "\n";
+    bool useNodeName = false;
+    if (signaturePattern.rfind(header, 0) == 0) {
+      signaturePattern.erase(0, header.length());
+      useNodeName = true;
+      std::cout << signaturePattern << "\n";
+    }
+
     traceSpecificOpPattern.setRegexString(signaturePattern);
     // Iterate on the operations nested in this function.
     getOperation().walk([&](mlir::Operation *op) {
       std::string opName = op->getName().getStringRef().str();
+      std::string matchString = opName;
+      if (useNodeName) {
+        StringAttr onnxNodeName =
+            op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+        if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+          matchString = onnxNodeName.getValue().str();
+        }
+      }
       auto dialect = op->getDialect();
       if (isa<func::FuncDialect>(dialect) || isa<ONNXPrintSignatureOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
         // as ONNX print signature ops.
-      } else if (traceSpecificOpPattern.isEnabled(opName)) {
+      } else if (traceSpecificOpPattern.isEnabled(matchString)) {
         // Add signature printing op.
         Location loc = op->getLoc();
         OpBuilder builder(op);
@@ -94,7 +113,9 @@ public:
         // Since we may use the result of an operation, we must insert the
         // print operation after the operation.
         builder.setInsertionPointAfter(op);
-        builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operAndRes);
+        // When one node is selected, print the details of the tensor.
+        builder.create<ONNXPrintSignatureOp>(
+            loc, fullNameAttr, useNodeName ? 1 : 0, operAndRes);
       }
     });
   }
