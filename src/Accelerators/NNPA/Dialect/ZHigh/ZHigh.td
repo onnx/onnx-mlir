@@ -654,14 +654,13 @@ def ZHighReduceMaxOp:ZHigh_Op<"ReduceMax", [Pure, SameOperandsAndResultLayout,
      ZHigh operation to perform a ReduceMax.
      op_type: REDUCE_OP_MAXIMUM or REDUCE_OP_MINIMUM.
    }];
-   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$data,
-                       DefaultValuedStrAttr<StrAttr, "REDUCE_OP_MAXIMUM">:$op_type);
+   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$data);
    let results = (outs AnyTypeOf<[AnyZTensor]>:$output);
    let builders = [
-    OpBuilder<(ins "::mlir::Value":$data, "::mlir::StringAttr":$op_type), [{
+    OpBuilder<(ins "::mlir::Value":$data), [{
       Type elementType = mlir::cast<ShapedType>(data.getType()).getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, data, op_type);
+      build($_builder, $_state, resType, data);
     }]>
   ];
    let extraClassDefinition = [{
@@ -682,14 +681,13 @@ def ZHighReduceMinOp:ZHigh_Op<"ReduceMin", [Pure, SameOperandsAndResultLayout,
      ZHigh operation to perform a ReduceMin.
      op_type: REDUCE_OP_MAXIMUM or REDUCE_OP_MINIMUM.
    }];
-   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$data,
-                       DefaultValuedStrAttr<StrAttr, "REDUCE_OP_MINIMUM">:$op_type);
+   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$data);
    let results = (outs AnyTypeOf<[AnyZTensor]>:$output);
    let builders = [
-    OpBuilder<(ins "::mlir::Value":$data, "::mlir::StringAttr":$op_type), [{
+    OpBuilder<(ins "::mlir::Value":$data), [{
       Type elementType = mlir::cast<ShapedType>(data.getType()).getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, data, op_type);
+      build($_builder, $_state, resType, data);
     }]>
   ];
    let extraClassDefinition = [{
