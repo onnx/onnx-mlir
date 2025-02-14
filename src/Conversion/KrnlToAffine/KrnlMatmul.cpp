@@ -47,6 +47,7 @@ public:
             typeConverter, KrnlMatMulOp::getOperationName(), 1, context) {
     this->parallelEnabled = parallelEnabled;
   }
+
   bool parallelEnabled = false;
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -302,7 +303,7 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    //
+
     if (parallelEnabled)
       return createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
@@ -394,6 +395,7 @@ private:
     // the parallel loop, which is not great. TODO: migrate alloca from inside
     // the parallel loop to the OMP parallel region before the loop.
     // Grep for this pattern in all 3 instances of "parallelEnabled".
+
     if (parallelEnabled)
       return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
@@ -498,6 +500,7 @@ private:
     // But at this time, if parallel is enabled, alloca would be stuck inside of
     // the parallel loop, which is not great. TODO: migrate alloca from inside
     // the parallel loop to the OMP parallel region before the loop.
+
     if (parallelEnabled)
       return create.mem.alignedAlloc(CTmpType, BUFFER_ALIGN);
     return create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);

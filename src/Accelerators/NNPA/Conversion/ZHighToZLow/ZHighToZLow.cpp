@@ -561,7 +561,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     Value alloc = insertAllocForZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
     if (isNHWCLayout(layout)) {
-      if (nnpaEnableCompilerStickUnstick) {
+      if (!nnpaDisableCompilerStickUnstick) {
         // Compiler-generated stick hasn't supported NCHW yet.
         // Explicitly transpose NCHW to NHWC.
         input = create.onnx.toMemref(
@@ -818,7 +818,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     // Allocate a buffer for the result MemRef.
     Value alloc = nullptr;
     if (isNHWCLayout(layout)) {
-      if (nnpaEnableCompilerStickUnstick) {
+      if (!nnpaDisableCompilerStickUnstick) {
         // Compiler-generated unstick hasn't supported NCHW yet.
         // This code allocates a NHWC buffer. It gets dims from the NCHW input.
         SmallVector<IndexExpr> dimList;
@@ -845,7 +845,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
-    if (isNHWCLayout(layout) && nnpaEnableCompilerStickUnstick)
+    if (isNHWCLayout(layout) && !nnpaDisableCompilerStickUnstick)
       // Compiler-generated unstick hasn't supported NCHW yet.
       // Explicitly transpose NHWC to NCHW.
       alloc =
