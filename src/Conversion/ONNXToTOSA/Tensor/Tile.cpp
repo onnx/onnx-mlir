@@ -17,6 +17,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include <mlir/Dialect/Tosa/IR/TosaOps.h>
+#include <mlir/Dialect/Tosa/Utils/ConversionUtils.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
@@ -68,11 +69,11 @@ public:
       return rewriter.notifyMatchFailure(
           op, "onnx.tile can only be lowered with constant repetitions");
     }
-    auto newReps = rewriter.getDenseI64ArrayAttr(
-        llvm::to_vector(denseReps.getValues<int64_t>()));
 
-    onnx_mlir::tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(
-        rewriter, op, newOutputType, adaptor.getInput(), newReps);
+    onnx_mlir::tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(rewriter, op,
+        newOutputType, adaptor.getInput(),
+        mlir::tosa::getTosaConstShape(rewriter, op->getLoc(),
+            llvm::to_vector(denseReps.getValues<int64_t>())));
     return success();
   }
 

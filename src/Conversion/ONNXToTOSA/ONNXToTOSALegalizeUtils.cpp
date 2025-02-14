@@ -114,7 +114,7 @@ mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
 
   // Create a new pad vec in the right format
   // ONNX : [b1, b2, b3, b4, e1, e2, e3, e4]
-  // TOSA :[[b1, e1], [b2, e2], [b3, e3], [b4, e4]]
+  // TOSA :[b1, e1, b2, e2, b3, e3, b4, e4]
 
   // Adds any initial or last vals, not included in onnxPads.
   llvm::SmallVector<int64_t, 8> tosaPads{initialVals};
@@ -125,11 +125,9 @@ mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
     tosaPads.push_back(onnxPads[i + dimSize]);
   }
   tosaPads.insert(tosaPads.end(), lastVals.begin(), lastVals.end());
-
-  // TOSA format groups dimensions by 2.
-  const unsigned int numberOfDims = tosaPads.size() / 2;
   TosaBuilder tosaBuilder(rewriter, loc);
-  return tosaBuilder.getConst(tosaPads, {numberOfDims, 2});
+  return tosaBuilder.getConst(
+      tosaPads, {static_cast<int64_t>(tosaPads.size())});
 }
 
 mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,

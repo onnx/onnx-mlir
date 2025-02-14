@@ -6,10 +6,12 @@ func.func @test_pad_f32(%arg0: tensor<20x16x44x32xf32>) ->  tensor<24x22x52x42xf
     %1 = "onnx.Constant"() {value = dense<[4.5000]> : tensor<1xf32>} : () -> tensor<1xf32> 
     %2 = "onnx.Pad"(%arg0, %0, %1, %noval) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>, none) -> tensor<24x22x52x42xf32> 
     return %2 :   tensor<24x22x52x42xf32> 
-// CHECK-LABEL: test_pad_f32
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<4.500000e+00> : tensor<f32>}> : () -> tensor<f32>
-// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
+// CHECK-LABEL:  func.func @test_pad_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xf32>) -> tensor<24x22x52x42xf32> {
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "tosa.const"() <{value = dense<4.500000e+00> : tensor<f32>}> : () -> tensor<f32>
+// CHECK:           [[VAR_5_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_3_]], [[VAR_4_]] : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<24x22x52x42xf32>
+// CHECK:           return [[VAR_5_]] : tensor<24x22x52x42xf32>
 }
 
 // -----
@@ -29,10 +31,12 @@ func.func @test_novalue_pad_f32(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16
     %1 = "onnx.NoValue"() {value} : () -> none
     %2 = "onnx.Pad"(%arg0, %0, %1, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, none, none) -> tensor<20x16x45x33xf32> 
     return %2 :   tensor<20x16x45x33xf32> 
-// CHECK-LABEL: test_novalue_pad_f32
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 0], [0, 0], [1, 0], [1, 0]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
-// CHECK: tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
+// CHECK-LABEL:  func.func @test_novalue_pad_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xf32>) -> tensor<20x16x45x33xf32> {
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<[0, 0, 0, 0, 1, 0, 1, 0]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
+// CHECK:           [[VAR_4_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_2_]], [[VAR_3_]] : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<20x16x45x33xf32>
+// CHECK:           return [[VAR_4_]] : tensor<20x16x45x33xf32>
 }
 
 // -----
@@ -61,10 +65,13 @@ func.func @test_pad_i64(%arg0: tensor<20x16x44x32xi64>) ->  tensor<24x22x52x42xi
     %1 = "onnx.Constant"() {value = dense<[4]> : tensor<1xi64>} : () -> tensor<1xi64> 
     %2 = "onnx.Pad"(%arg0, %0, %1, %noval) {mode = "constant"} : (tensor<20x16x44x32xi64>, tensor<8xi64>, tensor<1xi64>, none) -> tensor<24x22x52x42xi64> 
     return %2 :   tensor<24x22x52x42xi64> 
-// CHECK-LABEL: test_pad_i64
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<4> : tensor<i64>}> : () -> tensor<i64>
-// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
+// CHECK-LABEL:  func.func @test_pad_i64
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xi64>) -> tensor<24x22x52x42xi64> {
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<4> : tensor<i64>}> : () -> tensor<i64>
+// CHECK:           [[VAR_6_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_3_]], [[VAR_5_]] : (tensor<20x16x44x32xi64>, tensor<8xi64>, tensor<i64>) -> tensor<24x22x52x42xi64>
+// CHECK:           return [[VAR_6_]] : tensor<24x22x52x42xi64>
+
 }
 
 // -----
@@ -84,10 +91,12 @@ func.func @test_novalue_pad_i64(%arg0: tensor<20x16x44x32xi64>) ->  tensor<20x16
     %1 = "onnx.NoValue"() {value} : () -> none
     %2 = "onnx.Pad"(%arg0, %0, %1, %1) {mode = "constant"} : (tensor<20x16x44x32xi64>, tensor<8xi64>, none, none) -> tensor<20x16x45x33xi64> 
     return %2 :   tensor<20x16x45x33xi64> 
-// CHECK-LABEL: test_novalue_pad_i64
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 0], [0, 0], [1, 0], [1, 0]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<0> : tensor<i64>}> : () -> tensor<i64>
-// CHECK: tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
+// CHECK-LABEL:  func.func @test_novalue_pad_i64
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xi64>) -> tensor<20x16x45x33xi64> {
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<[0, 0, 0, 0, 1, 0, 1, 0]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<0> : tensor<i64>}> : () -> tensor<i64>
+// CHECK:           [[VAR_4_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_2_]], [[VAR_3_]] : (tensor<20x16x44x32xi64>, tensor<8xi64>, tensor<i64>) -> tensor<20x16x45x33xi64>
+// CHECK:           return [[VAR_4_]] : tensor<20x16x45x33xi64>
 }
 
 // -----
@@ -116,10 +125,13 @@ func.func @test_pad_ui32(%arg0: tensor<20x16x44x32xui32>) ->  tensor<24x22x52x42
     %1 = "onnx.Constant"() {value = dense<[4]> : tensor<1xui32>} : () -> tensor<1xui32> 
     %2 = "onnx.Pad"(%arg0, %0, %1, %noval) {mode = "constant"} : (tensor<20x16x44x32xui32>, tensor<8xi64>, tensor<1xui32>, none) -> tensor<24x22x52x42xui32> 
     return %2 :   tensor<24x22x52x42xui32> 
-// CHECK-LABEL: test_pad_ui32
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<4> : tensor<ui32>}> : () -> tensor<ui32>
-// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
+// CHECK-LABEL:  func.func @test_pad_ui32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xui32>) -> tensor<24x22x52x42xui32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<4> : tensor<ui32>}> : () -> tensor<ui32>
+// CHECK:           [[VAR_6_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_3_]], [[VAR_5_]] : (tensor<20x16x44x32xui32>, tensor<8xi64>, tensor<ui32>) -> tensor<24x22x52x42xui32>
+// CHECK:           return [[VAR_6_]] : tensor<24x22x52x42xui32>
 }
 
 // -----
@@ -129,9 +141,11 @@ func.func @test_pad_bf16(%arg0: tensor<20x16x44x32xbf16>) ->  tensor<24x22x52x42
     %1 = "onnx.Constant"() {value = dense<[4.500000e+00]> : tensor<1xbf16>} : () -> tensor<1xbf16> 
     %2 = "onnx.Pad"(%arg0, %0, %1, %noval) {mode = "constant"} : (tensor<20x16x44x32xbf16>, tensor<8xi64>, tensor<1xbf16>, none) -> tensor<24x22x52x42xbf16> 
     return %2 :   tensor<24x22x52x42xbf16> 
-// CHECK-LABEL: test_pad_bf16
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<4.500000e+00> : tensor<bf16>}> : () -> tensor<bf16>
-// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
+// CHECK-LABEL:  func.func @test_pad_bf16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xbf16>) -> tensor<24x22x52x42xbf16> {
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<4.500000e+00> : tensor<bf16>}> : () -> tensor<bf16>
+// CHECK:           [[VAR_6_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_3_]], [[VAR_5_]] : (tensor<20x16x44x32xbf16>, tensor<8xi64>, tensor<bf16>) -> tensor<24x22x52x42xbf16>
+// CHECK:           return [[VAR_6_]] : tensor<24x22x52x42xbf16>
 }
 

@@ -189,8 +189,8 @@ class ONNXConstantOpPattern : public OpRewritePattern<mlir::ONNXCastOp> {
 public:
   ONNXConstantOpPattern(mlir::MLIRContext *context, PatternBenefit benefit)
       : mlir::OpRewritePattern<mlir::ONNXCastOp>(context, benefit),
-        fromFloatType(FloatType::getF32(context)),
-        toFloatType(FloatType::getBF16(context)) {}
+        fromFloatType(Float32Type::get(context)),
+        toFloatType(BFloat16Type::get(context)) {}
 
   LogicalResult matchAndRewrite(
       mlir::ONNXCastOp castOp, PatternRewriter &rewriter) const override {
@@ -248,8 +248,8 @@ class GenericPattern : public OpRewritePattern<mlir::ONNXCastOp> {
 public:
   GenericPattern(mlir::MLIRContext *context, PatternBenefit benefit)
       : mlir::OpRewritePattern<mlir::ONNXCastOp>(context, benefit),
-        fromFloatType(FloatType::getF32(context)),
-        toFloatType(FloatType::getBF16(context)) {}
+        fromFloatType(Float32Type::get(context)),
+        toFloatType(BFloat16Type::get(context)) {}
 
   LogicalResult matchAndRewrite(
       mlir::ONNXCastOp castOp, PatternRewriter &rewriter) const override {
@@ -438,8 +438,8 @@ class CastToCastPattern : public OpRewritePattern<mlir::ONNXCastOp> {
 public:
   CastToCastPattern(mlir::MLIRContext *context)
       : mlir::OpRewritePattern<mlir::ONNXCastOp>(context),
-        fromFloatType(FloatType::getF32(context)),
-        toFloatType(FloatType::getBF16(context)) {}
+        fromFloatType(Float32Type::get(context)),
+        toFloatType(BFloat16Type::get(context)) {}
 
   LogicalResult matchAndRewrite(
       mlir::ONNXCastOp castOp, PatternRewriter &rewriter) const override {
@@ -513,7 +513,7 @@ public:
     RewritePatternSet greedyPatterns(&ctx);
 
     onnx_mlir::getLegalizeQuarkQuantizedOpsPatterns(greedyPatterns);
-    if (failed(applyPatternsAndFoldGreedily(op, std::move(greedyPatterns))))
+    if (failed(applyPatternsGreedily(op, std::move(greedyPatterns))))
       return signalPassFailure();
   }
 };

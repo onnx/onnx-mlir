@@ -25,6 +25,7 @@
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/Transforms/DialectConversion.h>
+#include <mlir/Dialect/Tosa/Utils/ConversionUtils.h>
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/Casting.h>
@@ -86,8 +87,8 @@ public:
       newInput = tosaBuilder.reshape(adaptor.getInput(), newShape);
     }
 
-    auto denseShape =
-        getMultiplies(op, cast<RankedTensorType>(newInput.getType()).getShape(),
+    const auto multiplies =
+        getMultiplies(cast<RankedTensorType>(newInput.getType()).getShape(),
             outputType.getShape());
     auto resultElementType = cast<RankedTensorType>(inputType).getElementType();
     auto newResultElementType =
@@ -101,8 +102,9 @@ public:
         llvm::SmallVector<int64_t>(
             outputType.getShape().size(), ShapedType::kDynamic),
         newResultElementType);
-    onnx_mlir::tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(
-        rewriter, op, newTileOutputType, newInput, denseShape);
+    onnx_mlir::tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(rewriter, op,
+        newTileOutputType, newInput,
+        mlir::tosa::getTosaConstShape(rewriter, op->getLoc(), multiplies));
     return success();
   }
 
@@ -148,7 +150,7 @@ private:
     return result;
   }
 
-  static DenseI64ArrayAttr getMultiplies(ONNXExpandOp &op,
+  static llvm::SmallVector<int64_t> getMultiplies(
       const llvm::ArrayRef<int64_t> &inputShape,
       const llvm::ArrayRef<int64_t> &outputShape) {
     llvm::SmallVector<int64_t> multipliesArray;
@@ -159,7 +161,7 @@ private:
         multipliesArray.push_back(outputShape[i] / inputShape[i]);
       }
     }
-    return DenseI64ArrayAttr::get(op.getContext(), multipliesArray);
+    return multipliesArray;
   }
 };
 
