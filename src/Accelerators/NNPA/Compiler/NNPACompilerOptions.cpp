@@ -30,13 +30,13 @@ llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
         clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
     llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
+llvm::cl::opt<bool> nnpaDisableZHighToOnnx("disable-zhigh-to-onnx",
     llvm::cl::desc(
-        "Enabling this will convert a pattern `stick -> element-wise op -> "
+        "By default we convert a pattern `stick -> element-wise op -> "
         "unstick` back to an ONNX element-wise op. This conversion is called "
         "after applying all optimizations to remove stick/unstick at ZHigh "
-        "level. Default is true."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+        "level. Use this option to disable this optimization."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
     "enable-zhigh-decompose-stick-unstick",
@@ -49,11 +49,11 @@ llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
 
 // Enabled default now, could also enable it only if parallel is on as parallel
 // stick/unstick is quite a bit faster than sequential.
-llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
-    "enable-compiler-stick-unstick",
-    llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
-                   "stick/unstick code. Default is true."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
+llvm::cl::opt<bool> nnpaDisableCompilerStickUnstick(
+    "disable-compiler-stick-unstick",
+    llvm::cl::desc("Disable the compiler to generate some "
+                   "stick/unstick code. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
     "nnpa-enable-scalar-bcast-binary",
@@ -94,7 +94,7 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
 
 llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
     llvm::cl::desc("Enable saturating f32 values before stickify them."
-                   "This option turns enable-compiler-stick-unstick on."
+                   "This option turns off disable-compiler-stick-unstick."
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
