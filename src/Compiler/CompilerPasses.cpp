@@ -173,8 +173,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // signature and instrument passes at the same time as time may include printf
   // overheads.
   if (instrumentSignatures != "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
-        instrumentSignatures));
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentONNXSignaturePass(instrumentSignatures));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -325,8 +325,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
-          ONNXOpStats);
+      addONNXToKrnlPasses(
+          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
