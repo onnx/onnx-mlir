@@ -298,29 +298,39 @@ Value getFinalOutputFromFourConvOutput(PatternRewriter &rewriter, Location loc,
     ONNXConvOp convOp, Value conv1Output, Value conv2Output, Value conv3Output,
     Value conv4Output) {
 
+  auto int64Type = mlir::IntegerType::get(rewriter.getContext(), 64);
+
   ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
   Type elementType = getElementType(conv1Output.getType());
   (void)convShapeHelper.computeShapeAndUpdateType(elementType);
-  int inputRank = convShapeHelper.getOutputDims().size();
-  SmallVector<int64_t, 4> outputShape;
-  for (int i = 0; i < inputRank; ++i) {
+  int outputRank = convShapeHelper.getOutputDims().size();
+  SmallVector<int64_t, 4> convOutputShape;
+  for (int i = 0; i < outputRank; ++i) {
     int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
                     ? convShapeHelper.getOutputDims()[i].getLiteral()
                     : ShapedType::kDynamic;
-    outputShape.emplace_back(d);
+    convOutputShape.emplace_back(d);
   }
-  SmallVector<int64_t, 4> outputShapePlusOneDim(outputShape);
-  outputShapePlusOneDim.push_back(1);
 
-  auto int64Type = mlir::IntegerType::get(rewriter.getContext(), 64);
-  auto constTypeForReshape = RankedTensorType::get(inputRank + 1, int64Type);
-  SmallVector<mlir::Attribute, 4> elements;
-  for (auto val : outputShapePlusOneDim) {
-    elements.push_back(mlir::IntegerAttr::get(int64Type, val));
-  }
-  auto onnxConstForReshapeAddOneDim = rewriter.create<ONNXConstantOp>(loc,
-      mlir::Attribute(),
-      DenseElementsAttr::get(constTypeForReshape, llvm::ArrayRef(elements)));
+  auto getOnnxConstOpForReshape = [&](SmallVector<int64_t, 4> outputShape) {
+    SmallVector<mlir::Attribute, 4> elements;
+    for (auto val : outputShape) {
+      elements.push_back(mlir::IntegerAttr::get(int64Type, val));
+    }
+    auto constTypeForReshape =
+        RankedTensorType::get(outputShape.size(), int64Type);
+
+    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+        DenseElementsAttr::get(constTypeForReshape, llvm::ArrayRef(elements)));
+  };
+
+  // The four convOutputs are adjusted to add an extra dimension at the
+  // innermost level.
+  SmallVector<int64_t, 4> outputShapePlusOneDim(convOutputShape);
+  outputShapePlusOneDim.push_back(1);
+  auto onnxConstForReshapeAddOneDim =
+      getOnnxConstOpForReshape(outputShapePlusOneDim);
+
   auto reshapeOutputType =
       RankedTensorType::get(outputShapePlusOneDim, elementType);
 
@@ -336,30 +346,26 @@ Value getFinalOutputFromFourConvOutput(PatternRewriter &rewriter, Location loc,
   SmallVector<int64_t, 4> outputShapeFirstConcat(outputShapePlusOneDim);
   outputShapeFirstConcat[outputShapeFirstConcat.size() - 1] = 2;
   auto firstConcatOutputType =
-      RankedTensorType::get(outputShapeFirstConcat, rewriter.getF32Type());
+      RankedTensorType::get(outputShapeFirstConcat, elementType);
 
+  // Below concats result will have the innermost dim as 2.
   auto firstConcat = rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
       ValueRange{reshapeOutputAddOneDimConv1, reshapeOutputAddOneDimConv3}, -1);
   auto secondConcat = rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
       ValueRange{reshapeOutputAddOneDimConv4, reshapeOutputAddOneDimConv2}, -1);
-  SmallVector<int64_t, 4> outputShapeForDimAdjust(outputShape);
-  auto dimValueAtLastIndex = outputShape[outputShape.size() - 1] * 2;
+
+  // Reshaping to modify the two innermost levels,ensuring the second innermost
+  // level is set to 1
+  SmallVector<int64_t, 4> outputShapeForDimAdjust(convOutputShape);
+  auto dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
   outputShapeForDimAdjust[outputShapeForDimAdjust.size() - 1] = 1;
   outputShapeForDimAdjust.push_back(dimValueAtLastIndex);
 
-  auto constTypeForDimAdjust =
-      RankedTensorType::get(outputShapeForDimAdjust.size(), int64Type);
-
-  SmallVector<mlir::Attribute, 4> elements2;
-  for (auto val : outputShapeForDimAdjust) {
-    elements2.push_back(mlir::IntegerAttr::get(int64Type, val));
-  }
-  auto onnxConstForReshapeDimAdjust = rewriter.create<ONNXConstantOp>(loc,
-      mlir::Attribute(),
-      DenseElementsAttr::get(constTypeForDimAdjust, llvm::ArrayRef(elements2)));
+  auto onnxConstForReshapeDimAdjust =
+      getOnnxConstOpForReshape(outputShapeForDimAdjust);
 
   auto reshapeOutputForDimAdjustType =
-      RankedTensorType::get(outputShapeForDimAdjust, rewriter.getF32Type());
+      RankedTensorType::get(outputShapeForDimAdjust, elementType);
 
   auto reshapeOutputDimAdjustOfFirstConcat = rewriter.create<ONNXReshapeOp>(loc,
       reshapeOutputForDimAdjustType, firstConcat, onnxConstForReshapeDimAdjust);
@@ -371,34 +377,28 @@ Value getFinalOutputFromFourConvOutput(PatternRewriter &rewriter, Location loc,
   outputShapeForFinalConcat[outputShapeForFinalConcat.size() - 2] = 2;
 
   auto finalConcatOutputType =
-      RankedTensorType::get(outputShapeForFinalConcat, rewriter.getF32Type());
+      RankedTensorType::get(outputShapeForFinalConcat, elementType);
 
+  // Final Concat is performed on the two reshaped outputs at the
+  // second innermost level
   auto finalConcat = rewriter.create<ONNXConcatOp>(loc, finalConcatOutputType,
       ValueRange{reshapeOutputDimAdjustOfFirstConcat,
           reshapeOutputDimAdjustOfSecondConcat},
       -2);
-  SmallVector<int64_t, 4> outputShapeForResult(outputShape);
-  dimValueAtLastIndex = outputShape[outputShape.size() - 1] * 2;
-  auto dimValueAtSecondLastIndex = outputShape[outputShape.size() - 2] * 2;
+  SmallVector<int64_t, 4> outputShapeForResult(convOutputShape);
+  dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
+  auto dimValueAtSecondLastIndex =
+      convOutputShape[convOutputShape.size() - 2] * 2;
   outputShapeForResult[outputShapeForResult.size() - 2] =
       dimValueAtSecondLastIndex;
   outputShapeForResult[outputShapeForResult.size() - 1] = dimValueAtLastIndex;
 
-  auto constTypeForLastReshape =
-      RankedTensorType::get(outputShapeForResult.size(), int64Type);
+  auto onnxConstForLastReshape = getOnnxConstOpForReshape(outputShapeForResult);
 
-  SmallVector<mlir::Attribute, 4> elements3;
-  for (auto val : outputShapeForResult) {
-    elements3.push_back(mlir::IntegerAttr::get(int64Type, val));
-  }
-
-  auto onnxConstForLastReshape =
-      rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
-          DenseElementsAttr::get(
-              constTypeForLastReshape, llvm::ArrayRef(elements3)));
   auto finalOutputType =
-      RankedTensorType::get(outputShapeForResult, rewriter.getF32Type());
-
+      RankedTensorType::get(outputShapeForResult, elementType);
+  // Result is reshaped back to match the original convtranspose output
+  // dimensions
   auto finalOutput = rewriter.create<ONNXReshapeOp>(
       loc, finalOutputType, finalConcat, onnxConstForLastReshape);
   return finalOutput;
