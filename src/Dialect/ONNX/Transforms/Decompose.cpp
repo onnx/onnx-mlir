@@ -283,20 +283,23 @@ Value reverseWeightTensor(
   Value result = create.onnx.transposeInt64(transposedInput, perms2);
   return result;
 }
-/*
-  ~k           ~k           ~fe
- % o, o    <- wt4 e, e  <- o, o
- % e, e    <- wt1 o, o  <- e, e
- % o, e    <- wt2 e, o  <- o, e
- % e, o    <- wt3 o, e  <- e, o
 
+// The convOutputs are adjusted to add an extra dimension at the innermost
+// level. The outputs of conv1 and conv3 are concatenated at this innermost
+// level, resulting in concat1_output. Similarly, the outputs of conv4 and conv2
+// are concatenated at the innermost level, creating concat2_output. These
+// concatenated outputs are then reshaped to modify the two innermost levels,
+// ensuring the second innermost level is set to 1.
+// Finally, a concatenation is performed on the two reshaped outputs at the
+// second innermost level, after which the result is reshaped back to match the
+// original convtranspose output dimensions.
 
-*/
-Value getConcatOfFourConvOutput(PatternRewriter &rewriter, Location loc,
-    ONNXConvOp convOp, Value input1, Value input2, Value input3, Value input4) {
+Value getFinalOutputFromFourConvOutput(PatternRewriter &rewriter, Location loc,
+    ONNXConvOp convOp, Value conv1Output, Value conv2Output, Value conv3Output,
+    Value conv4Output) {
 
   ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
-  Type elementType = getElementType(input1.getType());
+  Type elementType = getElementType(conv1Output.getType());
   (void)convShapeHelper.computeShapeAndUpdateType(elementType);
   int inputRank = convShapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> outputShape;
@@ -310,24 +313,26 @@ Value getConcatOfFourConvOutput(PatternRewriter &rewriter, Location loc,
   outputShapePlusOneDim.push_back(1);
 
   auto int64Type = mlir::IntegerType::get(rewriter.getContext(), 64);
-  auto constType = RankedTensorType::get(inputRank + 1, int64Type);
+  auto constTypeForReshape = RankedTensorType::get(inputRank + 1, int64Type);
   SmallVector<mlir::Attribute, 4> elements;
   for (auto val : outputShapePlusOneDim) {
     elements.push_back(mlir::IntegerAttr::get(int64Type, val));
   }
-  auto onnxConstForReshapeAddOneDim =
-      rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
-          DenseElementsAttr::get(constType, llvm::ArrayRef(elements)));
+  auto onnxConstForReshapeAddOneDim = rewriter.create<ONNXConstantOp>(loc,
+      mlir::Attribute(),
+      DenseElementsAttr::get(constTypeForReshape, llvm::ArrayRef(elements)));
   auto reshapeOutputType =
-      RankedTensorType::get(outputShapePlusOneDim, rewriter.getF32Type());
+      RankedTensorType::get(outputShapePlusOneDim, elementType);
+
   auto reshapeOutputAddOneDimConv1 = rewriter.create<ONNXReshapeOp>(
-      loc, reshapeOutputType, input1, onnxConstForReshapeAddOneDim);
+      loc, reshapeOutputType, conv1Output, onnxConstForReshapeAddOneDim);
   auto reshapeOutputAddOneDimConv2 = rewriter.create<ONNXReshapeOp>(
-      loc, reshapeOutputType, input2, onnxConstForReshapeAddOneDim);
+      loc, reshapeOutputType, conv2Output, onnxConstForReshapeAddOneDim);
   auto reshapeOutputAddOneDimConv3 = rewriter.create<ONNXReshapeOp>(
-      loc, reshapeOutputType, input3, onnxConstForReshapeAddOneDim);
+      loc, reshapeOutputType, conv3Output, onnxConstForReshapeAddOneDim);
   auto reshapeOutputAddOneDimConv4 = rewriter.create<ONNXReshapeOp>(
-      loc, reshapeOutputType, input4, onnxConstForReshapeAddOneDim);
+      loc, reshapeOutputType, conv4Output, onnxConstForReshapeAddOneDim);
+
   SmallVector<int64_t, 4> outputShapeFirstConcat(outputShapePlusOneDim);
   outputShapeFirstConcat[outputShapeFirstConcat.size() - 1] = 2;
   auto firstConcatOutputType =
@@ -398,45 +403,6 @@ Value getConcatOfFourConvOutput(PatternRewriter &rewriter, Location loc,
       loc, finalOutputType, finalConcat, onnxConstForLastReshape);
   return finalOutput;
 }
-Value reshapeOfConvOutput(
-    PatternRewriter &rewriter, Location loc, ONNXConvOp convOp, Value input) {
-
-  ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
-  Type elementType = getElementType(input.getType());
-  (void)convShapeHelper.computeShapeAndUpdateType(elementType);
-  int inputRank = convShapeHelper.getOutputDims().size();
-  SmallVector<int64_t, 4> inputShape;
-  auto numElements = 1;
-  for (int i = 0; i < inputRank; ++i) {
-    int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
-                    ? convShapeHelper.getOutputDims()[i].getLiteral()
-                    : ShapedType::kDynamic;
-    inputShape.emplace_back(d);
-    numElements = numElements * d;
-  }
-
-  auto int64Type = mlir::IntegerType::get(rewriter.getContext(), 64);
-  auto constType = RankedTensorType::get(1, int64Type);
-  auto reshapeOnnxConst =
-      rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
-          DenseElementsAttr::get(constType, rewriter.getI64IntegerAttr(-1)));
-  auto reshapeOutputType =
-      RankedTensorType::get(numElements, rewriter.getF32Type());
-  return rewriter.create<ONNXReshapeOp>(
-      loc, reshapeOutputType, input, reshapeOnnxConst);
-}
-Value scatterNDForConvTranspose(PatternRewriter &rewriter, Location loc,
-    Value data, Value indices, Value updates) {
-  RankedTensorType dataType = mlir::cast<RankedTensorType>(data.getType());
-  // RankedTensorType updatesType =
-  //     mlir::cast<RankedTensorType>(updates.getType());
-
-  // for (auto sh : updatesType.getShape()) {
-  //   std::cout << " update sh " << sh << std::endl;
-  // }
-  return rewriter.create<ONNXScatterNDOp>(
-      loc, dataType, data, indices, updates, mlir::StringAttr());
-}
 Value sliceOfWeightTensorForPhase(
     PatternRewriter &rewriter, Location loc, Value input, int phase) {
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
@@ -498,90 +464,6 @@ Value ph3WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
 }
 Value ph4WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
   return sliceOfWeightTensorForPhase(rewriter, loc, input, 4);
-}
-
-Value scatterIndexForScatterND(PatternRewriter &rewriter, Location loc,
-    ONNXConvTransposeOp op, int phase) {
-
-  auto outputTy = dyn_cast<RankedTensorType>(op.getType());
-  assert(outputTy && "unimplemented: input must have known sizes");
-  MLIRContext *context = rewriter.getContext();
-  auto int64Type = mlir::IntegerType::get(context, 64);
-  auto shouldSelect = [&](int i, int j) {
-    switch (phase) {
-    case 1:
-      return (i % 2 == 0 && j % 2 == 0);
-      break;
-    case 2:
-      return (i % 2 == 0 && j % 2 != 0);
-      break;
-    case 3:
-      return (i % 2 != 0 && j % 2 == 0);
-      break;
-    case 4:
-      return (i % 2 != 0 && j % 2 != 0);
-      break;
-    }
-    return false;
-  };
-  auto getONNXConstOpForScatterNDIndex = [&]() -> ONNXConstantOp {
-    auto outputShape = outputTy.getShape();
-    assert(outputTy.getRank() == 4 && "must be of rank 4");
-    SmallVector<mlir::Attribute> indices;
-    // 1 256 20 32
-    for (int chan = 0; chan < outputShape[1]; chan++) {
-      for (int row = 0; row < outputShape[2]; row++) {
-        for (int column = 0; column < outputShape[3]; column++) {
-          if (shouldSelect(row, column)) {
-            // std::cout << " Phase " << phase << " i = " << row
-            //           << " j = " << column << std::endl;
-            indices.push_back(mlir::IntegerAttr::get(int64Type, 0));
-            indices.push_back(mlir::IntegerAttr::get(int64Type, chan));
-            indices.push_back(mlir::IntegerAttr::get(int64Type, row));
-            indices.push_back(mlir::IntegerAttr::get(int64Type, column));
-          }
-        }
-      }
-    }
-    SmallVector<int64_t, 2> indicesShape;
-    indicesShape.push_back(indices.size() / 4);
-    indicesShape.push_back(4);
-
-    auto indicesTensorType = RankedTensorType::get(indicesShape, int64Type);
-    auto dense = DenseElementsAttr::get(indicesTensorType, indices);
-    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(), dense);
-  };
-  return getONNXConstOpForScatterNDIndex();
-}
-Value ph1ScatterIndex(
-    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
-  return scatterIndexForScatterND(rewriter, loc, op, 1);
-}
-Value ph2ScatterIndex(
-    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
-  return scatterIndexForScatterND(rewriter, loc, op, 2);
-}
-Value ph3ScatterIndex(
-    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
-  return scatterIndexForScatterND(rewriter, loc, op, 3);
-}
-Value ph4ScatterIndex(
-    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
-  return scatterIndexForScatterND(rewriter, loc, op, 4);
-}
-Value getOnnxConstForConvTranspose(
-    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
-  auto outputTy = dyn_cast<RankedTensorType>(op.getType());
-  assert(outputTy && "unimplemented: input must have known sizes");
-
-  // auto shape = outputTy.getShape();
-  // MLIRContext *context = rewriter.getContext();
-  // auto elementType = outputTy.getElementType();
-
-  // auto int64Type = mlir::IntegerType::get(context, 64);
-
-  return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
-      DenseElementsAttr::get(outputTy, rewriter.getF32FloatAttr(0)));
 }
 ArrayAttr getAttrForPhaseConv(
     PatternRewriter &rewriter, Location loc, ArrayAttr valAttr) {

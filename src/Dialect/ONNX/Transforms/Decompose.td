@@ -528,14 +528,8 @@ def ReduceSumSquareV13OpPattern2
 def reverseWeightConvTranspose: NativeCodeCall<
   "onnx_mlir::reverseWeightTensor($_builder, $_loc, $0)">;
 
-def reshapeOfConvOutput: NativeCodeCall<
-  "onnx_mlir::reshapeOfConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0)">;
-
-def scatterNDForConvTranspose: NativeCodeCall<
-  "onnx_mlir::scatterNDForConvTranspose($_builder, $_loc, $0, $1, $2)">;
-
-def getConcatOfFourConvOutput: NativeCodeCall<
-  "onnx_mlir::getConcatOfFourConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0,$1,$2,$3)">;
+def getFinalOutputFromFourConvOutput: NativeCodeCall<
+  "onnx_mlir::getFinalOutputFromFourConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0,$1,$2,$3)">;
 
 def ph1WeightForConv: NativeCodeCall<
   "onnx_mlir::ph1WeightTensor($_builder, $_loc, $0)">;
@@ -548,21 +542,6 @@ def ph3WeightForConv: NativeCodeCall<
 
 def ph4WeightForConv: NativeCodeCall<
   "onnx_mlir::ph4WeightTensor($_builder, $_loc, $0)">;
-
-def ph1ScatterIndex: NativeCodeCall<
-  "onnx_mlir::ph1ScatterIndex($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
-
-def ph2ScatterIndex: NativeCodeCall<
-  "onnx_mlir::ph2ScatterIndex($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
-
-def ph3ScatterIndex: NativeCodeCall<
-  "onnx_mlir::ph3ScatterIndex($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
-
-def ph4ScatterIndex: NativeCodeCall<
-  "onnx_mlir::ph4ScatterIndex($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
-
-def getOnnxConstForConvTranspose: NativeCodeCall<
-  "onnx_mlir::getOnnxConstForConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
 
 def getAttrForPhaseConv: NativeCodeCall<
   "onnx_mlir::getAttrForPhaseConv($_builder, $_loc, $0)">;
@@ -616,7 +595,7 @@ def ConvTransposeOpAsConv2dPattern1: Pattern<
       (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),
     (ONNXConvOp:$conv_res4 $x, $ph4_w, $b,
       (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),    
-    (getConcatOfFourConvOutput:$output  $conv_res1, $conv_res2, $conv_res3, $conv_res4),  
+    (getFinalOutputFromFourConvOutput:$output  $conv_res1, $conv_res2, $conv_res3, $conv_res4),  
    ],
    [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOpTo4Conv:$res $kernel_shape,$pads,$strides)], [],
    (addBenefit 0)
