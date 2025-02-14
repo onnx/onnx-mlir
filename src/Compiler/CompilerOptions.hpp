@@ -125,7 +125,7 @@ extern bool enableParallel;                                   // onnx-mlir only
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
-extern bool enableConvTransposeDecomposeOption;              // onnx-mlir only
+extern bool enableConvTransposeDecomposeOption;               // onnx-mlir only
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only
