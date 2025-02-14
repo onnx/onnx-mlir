@@ -55,7 +55,7 @@ struct ONNXPrintSignatureLowering
     std::string printControl = "%e";
     if (printSignatureOp.getPrintData() == 1) {
       // The data of tensor will be printed
-      printControl = "%d";
+      printControl = "%d%e";
     }
     Value lastVal = printVal.pop_back_val();
     // Print all but the last one.

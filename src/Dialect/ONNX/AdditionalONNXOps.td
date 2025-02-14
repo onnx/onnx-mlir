@@ -324,12 +324,14 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
 def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
   let summary = "ONNX Op to print type signature or data of its input operands";
   let description = [{
-    Print type signature of the op's input operands.
-    The parameter op_name specifies a string to be printed with the output, and usually the op_name and onnx_node_name are used.
+    Print type signature or data of the input operands of this op.
+    The parameter op_name specifies a string to be printed before the tensors.
+    and usually the op_name and onnx_node_name are used.
     This operation is introduced early so as to preserve the name of the original ONNX op.
-    The argument print_data control whether signature of data of the tensors to be printed.
-    When print_data == 1, the data of the tensor will be printed. Otherwise, the shape of the tensor will be printed.
-    The argument input specifies all the tensor to be printed.
+    The argument print_data control whether the data of the tensors to be printed.
+    When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
+    The argument input specifies the tensor to be printed. They could be a list
+    of the inputs and outputs of an ONNX op.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
