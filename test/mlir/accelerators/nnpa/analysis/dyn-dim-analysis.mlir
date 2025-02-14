@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --onnx-dim-analysis %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --onnx-dim-analysis %s -split-input-file | FileCheck %s
 
 // COM: test zdnn unary operations. Use Relu as a sample.
 func.func @test_stick_unary_unstick(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
@@ -104,7 +104,7 @@ func.func @test_stick_matmul_unstick(%arg0 : tensor<?x?x?xf32>) -> tensor<?x?x?x
   %3 = "zhigh.Stick"(%2) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
   %none = "onnx.NoValue"() {value} : () -> none
-  %4 = "zhigh.MatMul"(%1, %3, %none) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %4 = "zhigh.MatMul"(%1, %3, %none) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
   %5 = "zhigh.Unstick"(%4) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf32>
   "onnx.Return"(%5) : (tensor<?x?x?xf32>) -> ()
@@ -131,7 +131,7 @@ func.func @test_stick_matmul_unstick(%arg0 : tensor<?x?x?xf32>) -> tensor<?x?x?x
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK:           [[VAR_4_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 2 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()

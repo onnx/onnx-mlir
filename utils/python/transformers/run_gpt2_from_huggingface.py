@@ -91,7 +91,7 @@ with open(config_json_path) as f:
 
 # Create CompileExecutionSession to compile and run the model,
 compile_flags = "-O3 -v --onnx-op-stats TXT"
-# compile_flags = "-O3 -mcpu=z16 -maccel=NNPA -v --onnx-op-stats TXT"
+# compile_flags = "-O3 --march=z16 --maccel=NNPA -v --onnx-op-stats TXT"
 decoder_sess = OMCompileExecutionSession(
     decoder_model_path, compile_flags + " -tag=decoder", reuse_compiled_model=1
 )

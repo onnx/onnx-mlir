@@ -56,7 +56,7 @@ LogicalResult handleIncludePadAttr(
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
       rewriter, pads, loc, {0, 0, 0, 0}, {});
   auto constTosaTensor =
-      tosaBuilder.getSplattedConst(0.0, inputType.getElementType());
+      tosaBuilder.getSplattedConst(0.0, inputType.getElementType(), 0);
 
   auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,
       mlir::RankedTensorType::get(

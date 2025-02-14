@@ -1,0 +1,16 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+
+<
+   ir_version: 7,
+   opset_import: ["" : 7],
+   producer_name: "backend-test"
+>
+test_abs (float[3,4,5] x) => (float[3,4,5] y) {
+   y = Acos (x)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32> {onnx.name = "x"}) -> (tensor<3x4x5xf32> {onnx.name = "y"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Acos"([[PARAM_0_]]) : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4x5xf32>
+// CHECK:         }

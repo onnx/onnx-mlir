@@ -15,7 +15,10 @@
 #ifndef ONNX_MLIR_STICKIFY_H
 #define ONNX_MLIR_STICKIFY_H
 
+extern "C" {
 #include "zdnn.h"
+}
+
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -27,6 +30,10 @@ void set_info_pre_transformed_desc(zdnn_tensor_desc *pre_tfrmd_desc,
 /// Generate a transformed descriptor.
 zdnn_status generate_transformed_desc(
     const zdnn_tensor_desc *pre_tfrmd_desc, zdnn_tensor_desc *tfrmd_desc);
+
+zdnn_status generate_quantized_transformed_desc(
+    const zdnn_tensor_desc *pre_tfrmd_desc, zdnn_quantized_transform_types,
+    zdnn_tensor_desc *tfrmd_desc);
 
 /// Generate a concatenated transformed descriptor.
 zdnn_status generate_transformed_desc_concatenated(
@@ -66,4 +73,5 @@ void allochelper_ztensor_free(zdnn_ztensor *ztensor);
 ///          ZDNN_CONVERT_FAILURE
 ///
 zdnn_status stickify(zdnn_ztensor *ztensor, ...);
+zdnn_status quantized_stickify(zdnn_ztensor *ztensor, const void *in_buf);
 #endif

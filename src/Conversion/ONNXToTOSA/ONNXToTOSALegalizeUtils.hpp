@@ -39,9 +39,9 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank);
 llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector);
 
-// Create a RankedTensorType with shape and all elements being 1
-mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType, mlir::Attribute encoding = {});
+// Create a RankedTensorType with the given rank and all dims being 1
+mlir::RankedTensorType reduceAxisToOne(
+    int64_t rank, mlir::Type elementType, mlir::Attribute encoding = {});
 
 // Returns the value TOSA ConstOp
 template <typename T>

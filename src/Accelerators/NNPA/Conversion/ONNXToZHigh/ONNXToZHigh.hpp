@@ -18,13 +18,16 @@
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 namespace onnx_mlir {
 
 // Exports ONNXtoZHigh patterns.
-void getONNXToZHighOneOpPatterns(mlir::RewritePatternSet &patterns);
-void getONNXToZHighMultipleOpPatterns(mlir::RewritePatternSet &patterns);
+void getONNXToZHighOneOpPatterns(
+    mlir::RewritePatternSet &patterns, NNPAQuantType quantMode);
+void getONNXToZHighMultipleOpPatterns(
+    mlir::RewritePatternSet &patterns, NNPAQuantType quantMode);
 
 // Exports ONNXtoZHigh dynamically legal checks.
 void getONNXToZHighOneOpDynamicallyLegal(

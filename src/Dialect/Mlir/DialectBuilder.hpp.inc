@@ -84,6 +84,45 @@ void storeIE(const BUILDER &b, mlir::Value val, mlir::Value memref,
   store<BUILDER, STORE_OP>(b, val, memref, indexValues, offsets);
 }
 
+
+//===----------------------------------------------------------------------===//
+// Templates for multi-dimensional loop iterator.
+//===----------------------------------------------------------------------===//
+
+template <class BUILDER>
+void recursionForLoopsIE(const BUILDER &builder, mlir::ArrayRef<IndexExpr> lbs,
+    mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
+    mlir::ArrayRef<bool> useParallel,
+    llvm::SmallVector<mlir::Value> &loopIndices,
+    LoopBodyFn<BUILDER> builderFn) {
+  int64_t d = loopIndices.size();
+  if (d < (int64_t)lbs.size()) {
+    // Issue a loop and recurse again.
+    builder.forLoopIE(lbs[d], ubs[d], steps[d], useParallel[d],
+        [&](const BUILDER &b, mlir::ValueRange loopInd) {
+          loopIndices.emplace_back(loopInd[0]);
+          recursionForLoopsIE(
+              b, lbs, ubs, steps, useParallel, loopIndices, builderFn);
+        });
+  } else {
+    // Call lambda function
+    BUILDER b(builder);
+    builderFn(b, loopIndices);
+  }
+}
+
+template <class BUILDER>
+void forLoopsIE(const BUILDER &builder, mlir::ArrayRef<IndexExpr> lbs,
+    mlir::ArrayRef<IndexExpr> ubs, mlir::ArrayRef<int64_t> steps,
+    mlir::ArrayRef<bool> useParallel, LoopBodyFn<BUILDER> builderFn) {
+  assert(lbs.size() == ubs.size() && "expect same size");
+  assert(lbs.size() == steps.size() && "expect same size");
+  assert(lbs.size() == useParallel.size() && "expect same size");
+  llvm::SmallVector<mlir::Value> loopIndices;
+  recursionForLoopsIE<BUILDER>(
+      builder, lbs, ubs, steps, useParallel, loopIndices, builderFn);
+}
+
 } // namespace impl
 
 //===----------------------------------------------------------------------===//
@@ -655,21 +694,19 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
   }
 }
 
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopsIE(
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    mlir::ArrayRef<int64_t> steps, mlir::ArrayRef<bool> useParallel,
+    GenericAffineLoopBodyFn builderFn) const {
+  impl::forLoopsIE(*this, lbs, ubs, steps, useParallel, builderFn);
+}
+
 // Sequential only version.
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopIE(IndexExpr lb,
     IndexExpr ub, int64_t step, GenericAffineLoopBodyFn builderFn) const {
   forLoopIE(lb, ub, step, false /*use parallel*/, builderFn);
-}
-
-template <class LOAD_OP, class STORE_OP>
-inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forLoopsIE(
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    mlir::ArrayRef<int64_t> steps, GenericAffineLoopBodyFn builderFn) const {
-  assert(lbs.size() == ubs.size() && "expected identical sizes");
-  assert(lbs.size() == steps.size() && "expected identical sizes");
-  llvm::SmallVector<mlir::Value> loopIndices;
-  recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -769,29 +806,6 @@ mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
   b().template create<mlir::affine::AffineYieldOp>(loc());
-}
-
-// Support for multiple forLoopIE loops.
-template <class LOAD_OP, class STORE_OP>
-void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForLoopsIE(
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    mlir::ArrayRef<int64_t> steps,
-    llvm::SmallVectorImpl<mlir::Value> &loopIndices,
-    GenericAffineLoopBodyFn builderFn) const {
-  int d = loopIndices.size();
-  if (d < (int)lbs.size()) {
-    // Issue a loop and recurse again.
-    forLoopIE(lbs[d], ubs[d], steps[d],
-        [&](const GenericAffineBuilder &createAffine,
-            mlir::ValueRange loopInd) {
-          loopIndices.emplace_back(loopInd[0]);
-          recursionForLoopsIE(lbs, ubs, steps, loopIndices, builderFn);
-        });
-  } else {
-    // Call lambda function
-    GenericAffineBuilder createAffine(b(), loc());
-    builderFn(createAffine, loopIndices);
-  }
 }
 
 // Support for adding blocks.

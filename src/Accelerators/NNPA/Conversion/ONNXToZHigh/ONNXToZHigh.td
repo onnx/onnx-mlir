@@ -2,7 +2,7 @@
 
 //===- ONNXToZHigh.td - Replacing ONNX Ops by ZHigh Ops -*- tablegen ------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,6 +31,8 @@ include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 /// >;
 
 def IsEnableScalarBcastBinary: Constraint<CPred<"isEnableScalarBcastBinary()">>;
+
+def HasOneUse : Constraint<CPred<"$_self.hasOneUse()">, "op has exactly one use">;
 
 def IsNotNoneType : Constraint<CPred<"!mlir::isa<NoneType>(($_self).getType())">>;
 
@@ -91,6 +93,8 @@ def GetI64ZeroAttr :
 class GetI64ArrayAttr<int n> :
         NativeCodeCall<"$_builder.getI64ArrayAttr(" # n # ")">;
 
+def GetFloatAttr : NativeCodeCall<"$_builder.getFloatAttr($0.getType(), $0.getValueAsDouble())">;
+
 def GetUnrankedTensorTypeOf : NativeCodeCall<
   "UnrankedTensorType::get(mlir::cast<ShapedType>($0.getType()).getElementType())"
 >;
@@ -109,6 +113,36 @@ def IsF32ScalarConstantTensor: Constraint<
 def GetScalarF32AttrFromConstant :
         NativeCodeCall<"getScalarF32AttrFromConstant($0)">;
 
+def IsConstOfHalf : Constraint<
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.5)">,
+  "Value is all halves (0.5) for a constant tensor">;
+
+def IsConstOfOnes : Constraint<
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
+  "Value is an all-ones constant tensor">;
+
+def IsConstOfTwos : Constraint<
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 2.0)">,
+  "Value is all twos for a constant tensor">;
+
+def IsConstOfThrees : Constraint<
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 3.0)">,
+  "Value is all threes for a constant tensor">;
+
+def IsFloatType : Constraint<
+  CPred<"isFloatType($_self)">,
+  "Value has element type of float">;
+
+//===----------------------------------------------------------------------===//
+// ONNXLeakyReluOp %X = ZHighUnstickOp (ZHighLeakyReluOp (ZHighStickOp %X))
+//===----------------------------------------------------------------------===//
+def replaceONNXLeakyReluPattern : Pat<
+  (ONNXLeakyReluOp $x, $alpha),
+  (ZHighUnstickOp (ZHighLeakyReluOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)), (GetFloatAttr $alpha),
+                               (returnType $s_x))),
+  [(IsCompatibleWithNNPALevelArch15)]
+>;
+
 //===----------------------------------------------------------------------===//
 // ONNXReluOp %X = ZHighUnstickOp (ZHighReluOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
@@ -116,6 +150,17 @@ def replaceONNXReluPattern : Pat<
   (ONNXReluOp $x),
   (ZHighUnstickOp (ZHighReluOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
                                (returnType $s_x)))
+>;
+
+//===----------------------------------------------------------------------===//
+// ONNXGeluOp %X = ZHighUnstickOp (ZHighGeluOp (ZHighStickOp %X), $approximate)
+//===----------------------------------------------------------------------===//
+def replaceONNXGeluPattern : Pat<
+  (ONNXGeluOp:$res $x, $approximate),
+  (ZHighUnstickOp (ZHighGeluOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
+                                 $approximate,
+                                 (returnType $s_x))),
+  [(IsCompatibleWithNNPALevelArch15)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -295,6 +340,38 @@ def replaceONNXMaxPattern : Pat<
 >;
 
 //===----------------------------------------------------------------------===//
+// ONNXDivOp(1, (ONNXSqrtOp %X)) = ZHighUnstickOp
+//                                 (ZHighInvSqrtOp (ZHighStickOp %X))
+//===----------------------------------------------------------------------===//
+def replaceDiv1SqrtPattern : Pat<
+  (ONNXDivOp $a, (ONNXSqrtOp $x)),
+  (ZHighUnstickOp (ZHighInvSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
+                               (returnType $s_x))),
+  [(IsCompatibleWithNNPALevelArch15),(IsConstOfOnes:$a),(IsFloatType:$a)]
+>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReciprocalOp(ONNXSqrtOp %X) = ZHighUnstickOp
+//                                   (ZHighInvSqrtOp (ZHighStickOp %X))
+//===----------------------------------------------------------------------===//
+def replaceReciprocalSqrtPattern : Pat<
+  (ONNXReciprocalOp (ONNXSqrtOp $x)),
+  (ZHighUnstickOp (ZHighInvSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
+                                   (returnType $s_x))),
+  [(IsCompatibleWithNNPALevelArch15)]
+>;
+
+//===----------------------------------------------------------------------===//
+// ONNXSqrtOp %X = ZHighUnstickOp (ZHighSqrtOp (ZHighStickOp %X))
+//===----------------------------------------------------------------------===//
+def replaceONNXSqrtPattern : Pat<
+  (ONNXSqrtOp $x),
+  (ZHighUnstickOp (ZHighSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
+                                  (returnType $s_x))),
+  [(IsCompatibleWithNNPALevelArch15)]
+>;
+
+//===----------------------------------------------------------------------===//
 // ONNXSoftmaxOp %X = ONNXSqueezeOp
 //                        (ZHighUnstickOp
 //                            (ZHighSoftmaxOp
@@ -378,13 +455,38 @@ def replaceONNXLogSoftmaxPattern : Pattern<
 //===----------------------------------------------------------------------===//
 // ONNXReduceMeanV13Op %X = (ZHighUnstickOp
 //                          (ZHighMeanReduce2DOp
-//                             (ZHighStickOp %X))))
+//                             (ZHighStickOp %X)))
 //===----------------------------------------------------------------------===//
 def replaceONNXReduceMeanV13Pattern : Pat<
   (ONNXReduceMeanV13Op:$res $x, $_, $_),
   (ZHighUnstickOp (ZHighMeanReduce2DOp (ZHighStickOp $x, (NHWCLayoutAttr), (GetDefaultSaturation))))
 >;
 
+//===----------------------------------------------------------------------===//
+// ONNXReduceMaxOp %X =
+//                 (ZHighUnstickOp
+//                     (ZHighReduceMaxOp
+//                         (ZHighStickOp %X)))
+//===----------------------------------------------------------------------===//
+def replaceONNXReduceMaxPattern : Pat<
+  (ONNXReduceMaxOp:$res $data, $axes, $keepdims, $noop_with_empty_axes),
+  (ZHighUnstickOp (ZHighReduceMaxOp (ZHighStickOp:$s_x $data, (NoneLayoutAttr), 
+                                    (GetDefaultSaturation)))),
+  [(IsCompatibleWithNNPALevelArch15)]
+>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReduceMinOp %X =
+//                 (ZHighUnstickOp
+//                     (ZHighReduceMinOp
+//                         (ZHighStickOp %X)))
+//===----------------------------------------------------------------------===//
+def replaceONNXReduceMinPattern : Pat<
+  (ONNXReduceMinOp:$res $data, $axes, $keepdims, $noop_with_empty_axes),
+  (ZHighUnstickOp (ZHighReduceMinOp (ZHighStickOp:$s_x $data, (NoneLayoutAttr), 
+                                    (GetDefaultSaturation)))),
+  [(IsCompatibleWithNNPALevelArch15)]
+>;
 //===----------------------------------------------------------------------===//
 // ONNXMaxPoolSingleOutOp %X =
 //                 (ZHighUnstickOp
@@ -478,7 +580,7 @@ def GetMatMulLayoutStringAttr : NativeCodeCall<
 >;
 
 def GetMatMulBiasLayoutStringAttr : NativeCodeCall<
-  "$_builder.getStringAttr((($0 == 3) && ($1 == 3)) ? LAYOUT_2DS : LAYOUT_1D)"
+  "$_builder.getStringAttr(((($0 == 3) && ($1 == 3)) || (($0 == 2) && ($1 == 3))) ? LAYOUT_2DS : LAYOUT_1D)"
 >;
 
 //===----------------------------------------------------------------------===//
@@ -495,7 +597,7 @@ def replaceONNXMatMulPattern : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (CreateNoneValue)))
+        (CreateNoneValue), (GetZeroI64Attr), (GetZeroI64Attr)))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -533,7 +635,8 @@ def replaceONNXMatMulAddPattern1 : Pat<
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (GetDefaultSaturation)))),
+                                                         (GetRank $y)), (GetDefaultSaturation)),
+        (GetZeroI64Attr), (GetZeroI64Attr))),
   [(IsMatMulLegalForZDNN $m), (HasRankOf<2> $y), (HasRankOf<1> $b),
    (HaveSameLastDimR2R1 $y, $b)], [],
   (addBenefit 0)
@@ -548,16 +651,112 @@ def replaceONNXMatMulAddPattern2 : Pat<
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (GetDefaultSaturation)))),
+                                                         (GetRank $y)), (GetDefaultSaturation)),
+        (GetZeroI64Attr), (GetZeroI64Attr))),
   [(IsMatMulLegalForZDNN $m), (HasRankOf<2> $y), (HasRankOf<1> $b),
    (HaveSameLastDimR2R1 $y, $b)], [],
   (addBenefit 0)
 >;
 
 //===----------------------------------------------------------------------===//
+// Replace onnx.add and onnx.matmul with bcast1 tensors with ZHighMatMul
+//===----------------------------------------------------------------------===//
+
+def replaceONNXMatMulAddPatternBcast1A : Pat<
+  // From Add $b, (MatMul $x, $y)
+  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
+  // To ZHighMatMulOp
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+        (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
+                                                         (GetRank $y)), (GetDefaultSaturation)),
+        (GetZeroI64Attr), (GetZeroI64Attr))),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
+   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<2> $b)], [],
+  (addBenefit 0)
+>;
+
+def replaceONNXMatMulAddPatternBcast1B : Pat<
+  // From Add (MatMul $x, $y), $b
+  (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
+  // To ZHighMatMulOp
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+	(ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+	(ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
+							 (GetRank $y)), (GetDefaultSaturation)),
+	(GetZeroI64Attr), (GetZeroI64Attr))),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
+   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<2> $b)], [],
+  (addBenefit 0)
+>;
+
+//===----------------------------------------------------------------------===//
+// Replace onnx.matmul when following onnx.transpose
+//    with ZHighMatMul with either A or B transposed
+//===----------------------------------------------------------------------===//
+
+// TODO: This could likely be done in a cleaner way, such as comparing array vs array...
+// Make sure the transpose permutation is the default as ZHighMatMul only supports default
+def IsStandardTranspose : Constraint<
+  CPred<"((mlir::cast<ArrayAttr>($0).size() == 2 ) " #
+  " && (mlir::cast<IntegerAttr>(mlir::cast<ArrayAttr>($0)[0]).getInt() == 1)" #
+  " && (mlir::cast<IntegerAttr>(mlir::cast<ArrayAttr>($0)[1]).getInt() == 0))" #
+  " || ((mlir::cast<ArrayAttr>($0).size() == 3 ) " #
+  " && (mlir::cast<IntegerAttr>(mlir::cast<ArrayAttr>($0)[0]).getInt() == 0)" #
+  " && (mlir::cast<IntegerAttr>(mlir::cast<ArrayAttr>($0)[1]).getInt() == 2)" #
+  " && (mlir::cast<IntegerAttr>(mlir::cast<ArrayAttr>($0)[2]).getInt() == 1))">
+>;
+
+def replaceONNXTransBMatMulPattern : Pat<
+  (ONNXMatMulOp:$m $x,(ONNXTransposeOp $y,$perm)),
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+        (CreateNoneValue), (GetI64ZeroAttr), (GetI64NAttr<1>)
+      )
+  ),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m), (IsStandardTranspose $perm)]
+>;
+
+def replaceONNXTransAMatMulPattern : Pat<
+  (ONNXMatMulOp:$m (ONNXTransposeOp $x,$perm), $y),
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+        (CreateNoneValue), (GetI64NAttr<1>), (GetI64ZeroAttr)
+      )
+  ),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m), (IsStandardTranspose $perm)]
+>;
+
+def replaceONNXTransABMatMulPattern : Pat<
+  (ONNXMatMulOp:$m (ONNXTransposeOp $x,$perma), (ONNXTransposeOp $y,$permb)),
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+        (CreateNoneValue), (GetI64NAttr<1>), (GetI64NAttr<1>)
+      )
+  ),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
+   (IsStandardTranspose $perma), (IsStandardTranspose $permb)]
+>;
+
+//===----------------------------------------------------------------------===//
 // GEMM
 //===----------------------------------------------------------------------===//
 def IsTransposed: Constraint<CPred<"(mlir::cast<IntegerAttr>($_self).getSInt() == 1)">>;
+
+def IsAorBTransposed: Constraint<
+  CPred<"(mlir::cast<IntegerAttr>($0).getSInt() == 1) ||"
+        "(mlir::cast<IntegerAttr>($1).getSInt() == 1)" >
+>;
 
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
@@ -604,7 +803,8 @@ def replaceONNXGemmBiasNoneOr1DPattern : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $a, (_2DLayoutAttr), (GetDefaultSaturation)),
         (ZHighStickOp $b, (_2DLayoutAttr), (GetDefaultSaturation)),
-        (ZHighStickOp $c, (_1DLayoutAttr), (GetDefaultSaturation)))),
+        (ZHighStickOp $c, (_1DLayoutAttr), (GetDefaultSaturation)),
+        (GetZeroI64Attr), (GetZeroI64Attr))),
   [(IsBiasNoneOr1D:$c)], [],
   (addBenefit 0)
 >;
@@ -616,11 +816,37 @@ def replaceONNXGemmBias2DPattern : Pat<
        (ZHighMatMulOp
           (ZHighStickOp $a, (_2DLayoutAttr), (GetDefaultSaturation)),
           (ZHighStickOp $b, (_2DLayoutAttr), (GetDefaultSaturation)),
-          (CreateNoneValue)),
+          (CreateNoneValue),
+          (GetZeroI64Attr), (GetZeroI64Attr)),
        (returnType $res)),
     $c),
   [(HasRankOf<2> $c)], [],
   (addBenefit 0)
+>;
+
+//===----------------------------------------------------------------------===//
+// Replace onnx.Gemm when transA or transB set to ZHighMatMulOp with transpose.
+//
+// ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB =
+//   ZHighUnstickOp
+//       (ZHighMatMulOp
+//           (ZHighStickOp $a, (_2DLayoutAttr)),
+//           (ZHighStickOp $b, (_2DLayoutAttr)),
+//           (ZHighStickOp $c, (_1DLayoutAttr)),
+//           $transA, $transB))
+//===----------------------------------------------------------------------===//
+def replaceONNXGemmTransPattern : Pat<
+  (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $a, (_2DLayoutAttr), (GetDefaultSaturation)),
+        (ZHighStickOp $b, (_2DLayoutAttr), (GetDefaultSaturation)),
+        (ZHighStickOp $c, (_1DLayoutAttr), (GetDefaultSaturation)),
+        $transA, $transB)),
+  [(IsAorBTransposed $transA, $transB),
+   (IsCompatibleWithNNPALevelArch15),
+   (IsBiasNoneOr1D:$c)], [],
+  (addBenefit 1)
 >;
 
 //===----------------------------------------------------------------------===//

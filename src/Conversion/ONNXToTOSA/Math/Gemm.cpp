@@ -49,6 +49,10 @@ public:
     FloatAttr beta = adaptor.getBetaAttr();
     auto AType = mlir::cast<TensorType>(A.getType());
     auto BType = mlir::cast<TensorType>(B.getType());
+    if (!AType.hasRank() || !BType.hasRank()) {
+      return rewriter.notifyMatchFailure(
+          op, "Lowering Gemm to MatMul requires ranked A and B.");
+    }
     auto shapeA = AType.getShape();
     auto shapeB = BType.getShape();
     auto resultType = mlir::cast<TensorType>(
@@ -103,7 +107,7 @@ public:
     if (alpha && alpha.getValueAsDouble() != 1.) {
       Value splattedConstAlpha = tosaBuilder.getSplattedConst(
           static_cast<float>(alpha.getValueAsDouble()), AType.getElementType(),
-          newShapeA);
+          newShapeA.size());
       alphaMulResult = tosaBuilder.mul(splattedConstAlpha, A, 0);
     }
 
@@ -112,7 +116,7 @@ public:
     if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
       Value splattedConstBeta = tosaBuilder.getSplattedConst(
           static_cast<float>(beta.getValueAsDouble()), AType.getElementType(),
-          newShapeA);
+          newShapeA.size());
       betaMulResult = tosaBuilder.mul(splattedConstBeta, C, 0);
     }
 

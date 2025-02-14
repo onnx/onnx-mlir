@@ -41,6 +41,9 @@ struct OnnxBuilder : DialectBuilder {
   OnnxOpType createTypedOpAndInferShapes(
       mlir::Type result_ty, Args &&... args) const;
 
+  // ONNXAbsOp
+  mlir::Value abs(mlir::Value input) const;
+
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -73,6 +76,10 @@ struct OnnxBuilder : DialectBuilder {
       llvm::StringRef autoPad, mlir::ArrayRef<int64_t> dilations, int64_t group,
       mlir::ArrayRef<int64_t> kernelShape, mlir::ArrayRef<int64_t> pads,
       mlir::ArrayRef<int64_t> strides) const;
+
+  // ONNXDequantizeLinearOp
+  mlir::Value dequantizeLinear(mlir::Type resType, mlir::Value X,
+      mlir::Value scale, mlir::Value zeroPoint, int axis = 1) const;
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
@@ -333,6 +340,12 @@ protected:
 
 // Include inline code definitions.
 #include "DialectBuilder.hpp.inc"
+
+template <typename OnnxOp>
+void copySingleResultType(OnnxOp opToCopyFrom, mlir::Value &valueToCopyTo) {
+  assert(opToCopyFrom->getNumResults() == 1);
+  valueToCopyTo.setType(opToCopyFrom->getResult(0).getType());
+}
 
 } // namespace onnx_mlir
 #endif

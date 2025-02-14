@@ -68,6 +68,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       res = create.onnx.RMSLayerNorm(xType, x, scale, noneVal, axis, epsilon);
     else
       res = create.onnx.layerNorm(xType, x, scale, noneVal, axis, epsilon);
+    copySingleResultType(mulOp, res);
     rewriter.replaceOp(mulOp, res);
     return success();
   }
@@ -244,7 +245,9 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
         mlir::dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
     if (!epsilonOp)
       return reportFailure("RMS epsilon needs to be a constant");
-    epsilonAttr = epsilonOp.getValueFloatAttr();
+    const auto epsilonValue = getScalarValue<double>(epsilonOp);
+    epsilonAttr =
+        FloatAttr::get(Float32Type::get(epsilonOp->getContext()), epsilonValue);
     // Check axes.
     if (!hasShapeAndRank(dd))
       return reportFailure("RMS need rank and shape for input dd");
@@ -427,6 +430,7 @@ struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     StringAttr approximateAttr =
         rewriter.getStringAttr(isExactGelu ? "none" : "tanh");
     Value res = create.onnx.gelu(x, approximateAttr);
+    copySingleResultType(mulOp, res);
     rewriter.replaceOp(mulOp, res);
     return success();
   }
@@ -623,6 +627,7 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
         aZeroPoint, b, bScale, bZeroPoint, outScale, outZeroPoint);
 
     rewriter.replaceOp(qlOp, res);
+    copySingleResultType(qlOp, res);
     return success();
   }
 
