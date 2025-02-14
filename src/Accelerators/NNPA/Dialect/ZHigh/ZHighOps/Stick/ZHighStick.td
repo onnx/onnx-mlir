@@ -183,10 +183,11 @@ def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
       $shape2, $_),
     $layout3DS, $saturation),
     // Output: initial X value unchanged, but transformed with the new compatible shape.
-    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+    (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
-     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+     // Static shapes only.
      (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
      (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
      (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
@@ -222,10 +223,11 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
       $shape2, $_),
     $layout3DS, $saturation),
     // Output: initial X value unchanged, but transformed with the compatible shape.
-    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+    (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
-     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+     // Static shapes only.
      (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
      (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
      (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
@@ -316,6 +318,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
    (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
   ]
 >;
+
 
 // Pattern in the CCFD model.
 // 4DS and 3DS have exactly same data values when the second dim of 4DS is 1.
