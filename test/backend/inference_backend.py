@@ -850,14 +850,14 @@ def get_test_models():
         "test_dynamicquantizelinear_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
-           CONSTANT_INPUT: {-1},
+            CONSTANT_INPUT: {-1},
         },
-         "test_dynamicquantizelinear_expanded_cpu": {
+        "test_dynamicquantizelinear_expanded_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-         "test_dynamicquantizelinear_max_adjusted_cpu": {
+        "test_dynamicquantizelinear_max_adjusted_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
