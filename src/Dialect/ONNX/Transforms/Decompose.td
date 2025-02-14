@@ -580,9 +580,9 @@ def ShouldDecomposeConvTransposeOp: Constraint<
   "X and W have static spatial dims and ConvTransposeOp decomposition is enabled"
 >;
 
-def ShouldDecomposeConvTransposeOpToConv: Constraint<
-  CPred<"onnx_mlir::shouldDecomposeConvTransposeOpToConv($_self, $0)">,
-  "X and W have static spatial dims, even symmetrical kernel_shape and ConvTransposeOp decomposition is enabled"
+def ShouldDecomposeConvTransposeOpTo4Conv: Constraint<
+  CPred<"onnx_mlir::shouldDecomposeConvTransposeOpTo4Conv($_self, $0, $1, $2)">,
+  "X and W have static spatial dims, even symmetrical kernel_shape, pads, strides  and ConvTransposeOp decomposition is enabled"
 >;
 
 def HasStaticSpatialDims: Constraint<
@@ -618,7 +618,7 @@ def ConvTransposeOpAsConv2dPattern1: Pattern<
       (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),    
     (getConcatOfFourConvOutput:$output  $conv_res1, $conv_res2, $conv_res3, $conv_res4),  
    ],
-   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOpToConv:$res $kernel_shape)], [],
+   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOpTo4Conv:$res $kernel_shape,$pads,$strides)], [],
    (addBenefit 0)
 >;
 

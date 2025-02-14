@@ -776,7 +776,7 @@ Value replaceSequenceAt(
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
-  if (onnx_mlir::disableConvTransposeDecomposeOption) {
+  if (!onnx_mlir::enableConvTransposeDecomposeOption) {
     // Disable the ONNXConvTransposeOp decomposition patterns.
     return false;
   }
@@ -785,28 +785,33 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 }
-bool shouldDecomposeConvTransposeOpToConv(
-    Value convTransposeResult, ArrayAttr kernelShapeAttr) {
-  if (!onnx_mlir::enableConvTranposeDecomposeToConv) {
+bool shouldDecomposeConvTransposeOpTo4Conv(Value convTransposeResult,
+    ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
+    ArrayAttr stridesShapeAttr) {
+  if (!onnx_mlir::enableConvTranposeDecomposeTo4Conv) {
     // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
     return false;
   }
-  assert(mlir::dyn_cast<IntegerAttr>(kernelShapeAttr.getValue()[0]) &&
-         "Attribute must be integer");
-  int nElements = kernelShapeAttr.getValue().size();
-  SmallVector<int64_t, 4> wrapper(nElements, 0);
-  for (int i = 0; i < nElements; ++i) {
-    wrapper[i] =
-        mlir::cast<IntegerAttr>(kernelShapeAttr.getValue()[i]).getInt();
-  }
-  bool symmetricEvenKernel = std::all_of(wrapper.begin(), wrapper.end(),
-      [&wrapper](int64_t i) { return (i == wrapper[0]) && (i % 2 == 0); });
+  auto isSymmetricEvenAttribute = [&](ArrayAttr arrayAttr) -> bool {
+    assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
+           "Attribute must be integer");
+    int nElements = arrayAttr.getValue().size();
+    SmallVector<int64_t, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
+    }
+    bool isSymmetricEven = std::all_of(wrapper.begin(), wrapper.end(),
+        [&wrapper](int64_t i) { return (i == wrapper[0]) && (i % 2 == 0); });
+    return isSymmetricEven;
+  };
 
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW()) &&
-         symmetricEvenKernel;
+         isSymmetricEvenAttribute(kernelShapeAttr) &&
+         isSymmetricEvenAttribute(padsShapeAttr) &&
+         isSymmetricEvenAttribute(stridesShapeAttr);
 }
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
