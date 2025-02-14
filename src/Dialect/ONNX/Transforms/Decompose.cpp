@@ -792,16 +792,20 @@ bool shouldDecomposeConvTransposeOpTo4Conv(Value convTransposeResult,
     // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
     return false;
   }
-  auto isSymmetricEvenAttribute = [&](ArrayAttr arrayAttr) -> bool {
+  auto isSymmetricEvenAttribute = [](ArrayAttr arrayAttr,
+                                      bool checkForNonZero) -> bool {
     assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
            "Attribute must be integer");
     int nElements = arrayAttr.getValue().size();
-    SmallVector<int64_t, 4> wrapper(nElements, 0);
+    SmallVector<int64_t, 4> elements(nElements, 0);
     for (int i = 0; i < nElements; ++i) {
-      wrapper[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
+      elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
     }
-    bool isSymmetricEven = std::all_of(wrapper.begin(), wrapper.end(),
-        [&wrapper](int64_t i) { return (i == wrapper[0]) && (i % 2 == 0); });
+    bool isSymmetricEven = std::all_of(elements.begin(), elements.end(),
+        [&elements, &checkForNonZero](int64_t i) {
+          return (i == elements[0]) && (i % 2 == 0) &&
+                 (checkForNonZero ? elements[0] != 0 : true);
+        });
     return isSymmetricEven;
   };
 
@@ -809,9 +813,9 @@ bool shouldDecomposeConvTransposeOpTo4Conv(Value convTransposeResult,
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW()) &&
-         isSymmetricEvenAttribute(kernelShapeAttr) &&
-         isSymmetricEvenAttribute(padsShapeAttr) &&
-         isSymmetricEvenAttribute(stridesShapeAttr);
+         isSymmetricEvenAttribute(kernelShapeAttr, false) &&
+         isSymmetricEvenAttribute(padsShapeAttr, true) &&
+         isSymmetricEvenAttribute(stridesShapeAttr, false);
 }
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(

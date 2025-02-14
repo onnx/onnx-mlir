@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --disable-convtranspose-decompose --enable-convtranspose-decompose-4conv %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --enable-convtranspose-decompose-4conv %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -50,15 +50,45 @@
 
   // -----
 
-  func.func @test_convtrans_garuda_odd_kernel(%arg0: tensor<1x128x10x16xf32>, %arg1: tensor<128x32x3x3xf32>) -> tensor<1x32x20x32xf32> {
+  func.func @test_convtrans_odd_kernel(%arg0: tensor<1x128x10x16xf32>, %arg1: tensor<128x32x3x3xf32>) -> tensor<1x32x20x32xf32> {
     %0 = "onnx.Constant" () { value= dense<0.02> : tensor<32xf32>} : ()-> tensor<32xf32>
-    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [0,0,1,1], strides = [2, 2]} : (tensor<1x128x10x16xf32>, tensor<128x32x3x3xf32>, tensor<32xf32>) -> tensor<1x32x20x32xf32>
+    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [0, 0, 1, 1], strides = [2, 2]} : (tensor<1x128x10x16xf32>, tensor<128x32x3x3xf32>, tensor<32xf32>) -> tensor<1x32x20x32xf32>
     onnx.Return %1 : tensor<1x32x20x32xf32>
   }
-// CHECK-LABEL:   func.func @test_convtrans_garuda_odd_kernel(
+// CHECK-LABEL:   func.func @test_convtrans_odd_kernel(
 // CHECK-SAME:                                                %[[VAL_0:.*]]: tensor<1x128x10x16xf32>,
 // CHECK-SAME:                                                %[[VAL_1:.*]]: tensor<128x32x3x3xf32>) -> tensor<1x32x20x32xf32> {
 // CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<2.000000e-02> : tensor<32xf32>
 // CHECK:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [0, 0, 1, 1], strides = [2, 2]} : (tensor<1x128x10x16xf32>, tensor<128x32x3x3xf32>, tensor<32xf32>) -> tensor<1x32x20x32xf32>
 // CHECK:           onnx.Return %[[VAL_3]] : tensor<1x32x20x32xf32>
+// CHECK:         }
+
+  // -----
+
+  func.func @test_convtrans_zero_pad(%arg0: tensor<1x512x10x16xf32>, %arg1: tensor<512x256x6x6xf32>) -> tensor<1x256x24x36xf32> {    
+    %0 = "onnx.Constant" () { value= dense<0.02> : tensor<256xf32>} : ()-> tensor<256xf32>
+    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 6], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x512x10x16xf32>, tensor<512x256x6x6xf32>, tensor<256xf32>) -> tensor<1x256x24x36xf32>
+    onnx.Return %1 : tensor<1x256x24x36xf32>
+  }
+// CHECK-LABEL:   func.func @test_convtrans_zero_pad(
+// CHECK-SAME:                                       %[[VAL_0:.*]]: tensor<1x512x10x16xf32>,
+// CHECK-SAME:                                       %[[VAL_1:.*]]: tensor<512x256x6x6xf32>) -> tensor<1x256x24x36xf32> {
+// CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<2.000000e-02> : tensor<256xf32>
+// CHECK:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 6], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x512x10x16xf32>, tensor<512x256x6x6xf32>, tensor<256xf32>) -> tensor<1x256x24x36xf32>
+// CHECK:           onnx.Return %[[VAL_3]] : tensor<1x256x24x36xf32>
+// CHECK:         }
+
+  // -----
+
+  func.func @test_convtrans_asym_kernel(%arg0: tensor<1x512x10x16xf32>, %arg1: tensor<512x256x4x6xf32>) -> tensor<1x256x18x32xf32> {    
+    %0 = "onnx.Constant" () { value= dense<0.02> : tensor<256xf32>} : ()-> tensor<256xf32>
+    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [4, 6], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [2, 2, 2, 2], strides = [2, 2]} : (tensor<1x512x10x16xf32>, tensor<512x256x4x6xf32>, tensor<256xf32>) -> tensor<1x256x18x32xf32>
+    onnx.Return %1 : tensor<1x256x18x32xf32>
+  }
+// CHECK-LABEL:   func.func @test_convtrans_asym_kernel(
+// CHECK-SAME:                                          %[[VAL_0:.*]]: tensor<1x512x10x16xf32>,
+// CHECK-SAME:                                          %[[VAL_1:.*]]: tensor<512x256x4x6xf32>) -> tensor<1x256x18x32xf32> {
+// CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<2.000000e-02> : tensor<256xf32>
+// CHECK:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [4, 6], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [2, 2, 2, 2], strides = [2, 2]} : (tensor<1x512x10x16xf32>, tensor<512x256x4x6xf32>, tensor<256xf32>) -> tensor<1x256x18x32xf32>
+// CHECK:           onnx.Return %[[VAL_3]] : tensor<1x256x18x32xf32>
 // CHECK:         }
