@@ -22,6 +22,9 @@
 
 #include <numeric>
 
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
@@ -281,6 +284,197 @@ Value reverseWeightTensor(
   return result;
 }
 
+// The convOutputs are adjusted to add an extra dimension at the innermost
+// level. The outputs of conv1 and conv3 are concatenated at this innermost
+// level, resulting in concat1_output. Similarly, the outputs of conv4 and conv2
+// are concatenated at the innermost level, creating concat2_output. These
+// concatenated outputs are then reshaped to modify the two innermost levels,
+// ensuring the second innermost level is set to 1.
+// Finally, a concatenation is performed on the two reshaped outputs at the
+// second innermost level, after which the result is reshaped back to match the
+// original convtranspose output dimensions.
+
+Value getFinalOutputFromFourConvOutput(PatternRewriter &rewriter, Location loc,
+    ONNXConvOp convOp, Value conv1Output, Value conv2Output, Value conv3Output,
+    Value conv4Output) {
+
+  auto int64Type = mlir::IntegerType::get(rewriter.getContext(), 64);
+
+  ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
+  Type elementType = getElementType(conv1Output.getType());
+  (void)convShapeHelper.computeShapeAndUpdateType(elementType);
+  int outputRank = convShapeHelper.getOutputDims().size();
+  SmallVector<int64_t, 4> convOutputShape;
+  for (int i = 0; i < outputRank; ++i) {
+    int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
+                    ? convShapeHelper.getOutputDims()[i].getLiteral()
+                    : ShapedType::kDynamic;
+    convOutputShape.emplace_back(d);
+  }
+
+  auto getOnnxConstOpForReshape = [&](SmallVector<int64_t, 4> outputShape) {
+    SmallVector<mlir::Attribute, 4> elements;
+    for (auto val : outputShape) {
+      elements.push_back(mlir::IntegerAttr::get(int64Type, val));
+    }
+    auto constTypeForReshape =
+        RankedTensorType::get(outputShape.size(), int64Type);
+
+    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+        DenseElementsAttr::get(constTypeForReshape, llvm::ArrayRef(elements)));
+  };
+
+  // The four convOutputs are adjusted to add an extra dimension at the
+  // innermost level.
+  SmallVector<int64_t, 4> outputShapePlusOneDim(convOutputShape);
+  outputShapePlusOneDim.push_back(1);
+  auto onnxConstForReshapeAddOneDim =
+      getOnnxConstOpForReshape(outputShapePlusOneDim);
+
+  auto reshapeOutputType =
+      RankedTensorType::get(outputShapePlusOneDim, elementType);
+
+  auto reshapeOutputAddOneDimConv1 = rewriter.create<ONNXReshapeOp>(
+      loc, reshapeOutputType, conv1Output, onnxConstForReshapeAddOneDim);
+  auto reshapeOutputAddOneDimConv2 = rewriter.create<ONNXReshapeOp>(
+      loc, reshapeOutputType, conv2Output, onnxConstForReshapeAddOneDim);
+  auto reshapeOutputAddOneDimConv3 = rewriter.create<ONNXReshapeOp>(
+      loc, reshapeOutputType, conv3Output, onnxConstForReshapeAddOneDim);
+  auto reshapeOutputAddOneDimConv4 = rewriter.create<ONNXReshapeOp>(
+      loc, reshapeOutputType, conv4Output, onnxConstForReshapeAddOneDim);
+
+  SmallVector<int64_t, 4> outputShapeFirstConcat(outputShapePlusOneDim);
+  outputShapeFirstConcat[outputShapeFirstConcat.size() - 1] = 2;
+  auto firstConcatOutputType =
+      RankedTensorType::get(outputShapeFirstConcat, elementType);
+
+  // Below concats result will have the innermost dim as 2.
+  auto firstConcat = rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+      ValueRange{reshapeOutputAddOneDimConv1, reshapeOutputAddOneDimConv3}, -1);
+  auto secondConcat = rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+      ValueRange{reshapeOutputAddOneDimConv4, reshapeOutputAddOneDimConv2}, -1);
+
+  // Reshaping to modify the two innermost levels,ensuring the second innermost
+  // level is set to 1
+  SmallVector<int64_t, 4> outputShapeForDimAdjust(convOutputShape);
+  auto dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
+  outputShapeForDimAdjust[outputShapeForDimAdjust.size() - 1] = 1;
+  outputShapeForDimAdjust.push_back(dimValueAtLastIndex);
+
+  auto onnxConstForReshapeDimAdjust =
+      getOnnxConstOpForReshape(outputShapeForDimAdjust);
+
+  auto reshapeOutputForDimAdjustType =
+      RankedTensorType::get(outputShapeForDimAdjust, elementType);
+
+  auto reshapeOutputDimAdjustOfFirstConcat = rewriter.create<ONNXReshapeOp>(loc,
+      reshapeOutputForDimAdjustType, firstConcat, onnxConstForReshapeDimAdjust);
+  auto reshapeOutputDimAdjustOfSecondConcat =
+      rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
+          secondConcat, onnxConstForReshapeDimAdjust);
+
+  SmallVector<int64_t, 4> outputShapeForFinalConcat(outputShapeForDimAdjust);
+  outputShapeForFinalConcat[outputShapeForFinalConcat.size() - 2] = 2;
+
+  auto finalConcatOutputType =
+      RankedTensorType::get(outputShapeForFinalConcat, elementType);
+
+  // Final Concat is performed on the two reshaped outputs at the
+  // second innermost level
+  auto finalConcat = rewriter.create<ONNXConcatOp>(loc, finalConcatOutputType,
+      ValueRange{reshapeOutputDimAdjustOfFirstConcat,
+          reshapeOutputDimAdjustOfSecondConcat},
+      -2);
+  SmallVector<int64_t, 4> outputShapeForResult(convOutputShape);
+  dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
+  auto dimValueAtSecondLastIndex =
+      convOutputShape[convOutputShape.size() - 2] * 2;
+  outputShapeForResult[outputShapeForResult.size() - 2] =
+      dimValueAtSecondLastIndex;
+  outputShapeForResult[outputShapeForResult.size() - 1] = dimValueAtLastIndex;
+
+  auto onnxConstForLastReshape = getOnnxConstOpForReshape(outputShapeForResult);
+
+  auto finalOutputType =
+      RankedTensorType::get(outputShapeForResult, elementType);
+  // Result is reshaped back to match the original convtranspose output
+  // dimensions
+  auto finalOutput = rewriter.create<ONNXReshapeOp>(
+      loc, finalOutputType, finalConcat, onnxConstForLastReshape);
+  return finalOutput;
+}
+Value sliceOfWeightTensorForPhase(
+    PatternRewriter &rewriter, Location loc, Value input, int phase) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
+  RankedTensorType inputType = mlir::cast<RankedTensorType>(input.getType());
+  assert(inputType.hasRank() && "Need rank to reverse weight tensor.");
+  auto shape = inputType.getShape();
+  MLIRContext *context = rewriter.getContext();
+
+  auto int64Type = mlir::IntegerType::get(context, 64);
+  auto getONNXConstOpForSlice =
+      [&](SmallVector<int64_t> values) -> ONNXConstantOp {
+    SmallVector<mlir::Attribute, 4> elements;
+    for (auto val : values) {
+      elements.push_back(mlir::IntegerAttr::get(int64Type, val));
+    }
+    auto constType = RankedTensorType::get(values.size(), int64Type);
+    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+        DenseElementsAttr::get(constType, llvm::ArrayRef(elements)));
+  };
+
+  ONNXConstantOp startOnnxConst;
+  llvm::SmallVector<int64_t> startVector;
+  switch (phase) {
+  case 1:
+    startVector = {0, 0, 1, 1};
+    break;
+  case 2:
+    startVector = {0, 0, 0, 0};
+    break;
+  case 3:
+    startVector = {0, 0, 1, 0};
+    break;
+  case 4:
+    startVector = {0, 0, 0, 1};
+    break;
+  }
+  startOnnxConst = getONNXConstOpForSlice(startVector);
+  llvm::SmallVector<int64_t> newShape = {
+      shape[0], shape[1], shape[2] / 2, shape[3] / 2};
+
+  auto endOnnxConst = getONNXConstOpForSlice(SmallVector<int64_t, 4>(shape));
+  llvm::SmallVector<int64_t> stepVector = {1, 1, 2, 2};
+  auto stepOnnxConst = getONNXConstOpForSlice(stepVector);
+  llvm::SmallVector<int64_t> axisVector = {0, 1, 2, 3};
+  auto axisOnnxConst = getONNXConstOpForSlice(axisVector);
+  auto newOuputShapedType = inputType.get(newShape, inputType.getElementType());
+  auto sliceOp = create.onnx.slice(newOuputShapedType, input, startOnnxConst,
+      endOnnxConst, axisOnnxConst, stepOnnxConst);
+  return sliceOp;
+}
+Value ph1WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 1);
+}
+Value ph2WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 2);
+}
+Value ph3WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 3);
+}
+Value ph4WeightTensor(PatternRewriter &rewriter, Location loc, Value input) {
+  return sliceOfWeightTensorForPhase(rewriter, loc, input, 4);
+}
+ArrayAttr getAttrForPhaseConv(
+    PatternRewriter &rewriter, Location loc, ArrayAttr valAttr) {
+  assert(mlir::dyn_cast<IntegerAttr>(valAttr.getValue()[0]) &&
+         "Attribute must be integer");
+  int nElements = valAttr.getValue().size();
+  SmallVector<int64_t, 4> wrapper(nElements, 0);
+  for (int i = 0; i < nElements; ++i)
+    wrapper[i] = mlir::cast<IntegerAttr>(valAttr.getValue()[i]).getInt() / 2;
+  return rewriter.getI64ArrayAttr(wrapper);
+}
 // Calculate padding size used in Conv op from pads for ConvTranspose op.
 ArrayAttr getPadsConvTranspose(
     PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
@@ -464,7 +658,7 @@ Value replaceSequenceAt(
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
-  if (onnx_mlir::disableConvTransposeDecomposeOption) {
+  if (!onnx_mlir::enableConvTransposeDecomposeOption) {
     // Disable the ONNXConvTransposeOp decomposition patterns.
     return false;
   }
@@ -473,7 +667,38 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 }
+bool shouldDecomposeConvTransposeOpTo4Conv(Value convTransposeResult,
+    ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
+    ArrayAttr stridesShapeAttr) {
+  if (!onnx_mlir::enableConvTranposeDecomposeTo4Conv) {
+    // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
+    return false;
+  }
+  auto isSymmetricEvenAttribute = [](ArrayAttr arrayAttr,
+                                      bool checkForNonZero) -> bool {
+    assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
+           "Attribute must be integer");
+    int nElements = arrayAttr.getValue().size();
+    SmallVector<int64_t, 4> elements(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
+    }
+    bool isSymmetricEven = std::all_of(elements.begin(), elements.end(),
+        [&elements, &checkForNonZero](int64_t i) {
+          return (i == elements[0]) && (i % 2 == 0) &&
+                 (checkForNonZero ? elements[0] != 0 : true);
+        });
+    return isSymmetricEven;
+  };
 
+  ONNXConvTransposeOp op =
+      mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
+  return hasShapeAndRank(convTransposeResult) &&
+         hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW()) &&
+         isSymmetricEvenAttribute(kernelShapeAttr, false) &&
+         isSymmetricEvenAttribute(padsShapeAttr, true) &&
+         isSymmetricEvenAttribute(stridesShapeAttr, false);
+}
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
     PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {

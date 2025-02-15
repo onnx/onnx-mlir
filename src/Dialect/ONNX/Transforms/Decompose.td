@@ -528,6 +528,24 @@ def ReduceSumSquareV13OpPattern2
 def reverseWeightConvTranspose: NativeCodeCall<
   "onnx_mlir::reverseWeightTensor($_builder, $_loc, $0)">;
 
+def getFinalOutputFromFourConvOutput: NativeCodeCall<
+  "onnx_mlir::getFinalOutputFromFourConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0,$1,$2,$3)">;
+
+def ph1WeightForConv: NativeCodeCall<
+  "onnx_mlir::ph1WeightTensor($_builder, $_loc, $0)">;
+
+def ph2WeightForConv: NativeCodeCall<
+  "onnx_mlir::ph2WeightTensor($_builder, $_loc, $0)">;
+
+def ph3WeightForConv: NativeCodeCall<
+  "onnx_mlir::ph3WeightTensor($_builder, $_loc, $0)">;
+
+def ph4WeightForConv: NativeCodeCall<
+  "onnx_mlir::ph4WeightTensor($_builder, $_loc, $0)">;
+
+def getAttrForPhaseConv: NativeCodeCall<
+  "onnx_mlir::getAttrForPhaseConv($_builder, $_loc, $0)">;
+
 def getPadsConvTranspose: NativeCodeCall<
   "onnx_mlir::getPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
 
@@ -541,6 +559,11 @@ def ShouldDecomposeConvTransposeOp: Constraint<
   "X and W have static spatial dims and ConvTransposeOp decomposition is enabled"
 >;
 
+def ShouldDecomposeConvTransposeOpTo4Conv: Constraint<
+  CPred<"onnx_mlir::shouldDecomposeConvTransposeOpTo4Conv($_self, $0, $1, $2)">,
+  "X and W have static spatial dims, even symmetrical kernel_shape, pads, strides  and ConvTransposeOp decomposition is enabled"
+>;
+
 def HasStaticSpatialDims: Constraint<
   CPred<"onnx_mlir::hasStaticSpatialDims($_self)">,
   "has static spatial dims"
@@ -551,6 +574,32 @@ def insertPadsConvTransposeInput: NativeCodeCall<
 
 def insertAdditionalPadsConvTranspose: NativeCodeCall<
   "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1.getDefiningOp<ONNXConvTransposeOp>())">;
+def ConvTransposeOpAsConv2dPattern1: Pattern<
+   (ONNXConvTransposeOp:$res $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (ph1WeightForConv:$ph1_w $reversed_w),
+    (ph2WeightForConv:$ph2_w $reversed_w),
+    (ph3WeightForConv:$ph3_w $reversed_w),
+    (ph4WeightForConv:$ph4_w $reversed_w),
+    (getAttrForPhaseConv:$new_kernel $kernel_shape),
+    (getAttrForPhaseConv:$new_pads $pads),
+    (getAttrForPhaseConv:$new_strides $strides),
+    (ONNXConvOp:$conv_res1 $x, $ph1_w, $b,
+       (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),
+    (ONNXConvOp:$conv_res2 $x, $ph2_w, $b,
+      (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),
+    (ONNXConvOp:$conv_res3 $x, $ph3_w, $b,
+      (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),
+    (ONNXConvOp:$conv_res4 $x, $ph4_w, $b,
+      (GetNullStringAttr), $dilation, $group, $new_kernel, $new_pads, $new_strides),    
+    (getFinalOutputFromFourConvOutput:$output  $conv_res1, $conv_res2, $conv_res3, $conv_res4),  
+   ],
+   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOpTo4Conv:$res $kernel_shape,$pads,$strides)], [],
+   (addBenefit 0)
+>;
 
 def ConvTransposeOpPattern1: Pattern<
    (ONNXConvTransposeOp:$res $x, $w, $b,

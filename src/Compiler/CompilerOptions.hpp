@@ -91,6 +91,7 @@ extern bool disableKrnlOpFusion;                              // common for both
 extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool disableMemRefPrefetch;                            // common for both
+extern bool enableConvTranposeDecomposeTo4Conv;               // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
@@ -124,7 +125,7 @@ extern bool enableParallel;                                   // onnx-mlir only
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
-extern bool disableConvTransposeDecomposeOption;              // onnx-mlir only
+extern bool enableConvTransposeDecomposeOption;               // onnx-mlir only
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only

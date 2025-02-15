@@ -45,6 +45,7 @@ std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
+bool enableConvTranposeDecomposeTo4Conv;               // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -79,7 +80,7 @@ bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
-bool disableConvTransposeDecomposeOption;              // onnx-mlir only
+bool enableConvTransposeDecomposeOption;               // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -260,9 +261,16 @@ static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableConvTranposeDecomposeOptionOpt(
-    "disable-convtranspose-decompose",
-    llvm::cl::desc("Disable decomposition of ONNX ConvTranspose operator."),
-    llvm::cl::location(disableConvTransposeDecomposeOption),
+    "enable-convtranspose-decompose",
+    llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator."),
+    llvm::cl::location(enableConvTransposeDecomposeOption),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableConvTranposeDecomposeTo4ConvOptionOpt(
+    "enable-convtranspose-decompose-4conv",
+    llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator to 4 "
+                   "phased Conv."),
+    llvm::cl::location(enableConvTranposeDecomposeTo4Conv),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
