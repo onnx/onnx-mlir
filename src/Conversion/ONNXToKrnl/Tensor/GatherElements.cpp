@@ -67,6 +67,9 @@ struct ONNXGatherElementsOpLowering
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 
+    // Insert safety check code
+    genSafeCodeForGatherAlike(rewriter, loc, op, data, indices, axisLit);
+
     LiteralIndexExpr zeroIE(0);
     DimsExpr dataDims, indicesDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
@@ -93,49 +96,14 @@ struct ONNXGatherElementsOpLowering
           IndexExpr index = NonAffineIndexExpr(indexVal);
 
           if (indicesMayBeNegative) {
-            LiteralIndexExpr zero(0);
-            index = index.selectOrSelf(index < zero, index + axisDim);
+            index = index.selectOrSelf(index < zeroIE, index + axisDim);
           }
 
           // Check the dynamic requirement of GatherElement Op
           // Refer to the comments in Gather.cpp
           if (enableSafeCodeGen) {
-            // From onnx document:
-            // All index values are expected to be within bounds [-s, s-1]
-            // along axis of size s. It is an error if any of the index values
-            // are out of bounds.
-            // After the negative correction, the range should be [0, s-1]
-            // Report onnx_node_name if the op has the attribute
-            std::string nodeNameStr = "Warning: ";
-            nodeNameStr += op->getName().getStringRef().str() + " ";
-            StringAttr nodeName =
-                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-            if (nodeName && !nodeName.getValue().empty()) {
-              nodeNameStr += nodeName.getValue().str();
-            }
-
-            Value upperBound = create.mem.dim(data, axisLit);
-            Value compareUpperBound =
-                create.math.sge(index.getValue(), upperBound);
-            Value compareLowerBound =
-                create.math.slt(index.getValue(), zeroIE.getValue());
-            Value outBound =
-                create.math.ori(compareUpperBound, compareLowerBound);
-            auto ifOp = rewriter.create<scf::IfOp>(loc, outBound, false);
-            rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
-            std::string msg = nodeNameStr +
-                              ": Value of indices is out of bound. " +
-                              "The out-of-bound indices value is: ";
-            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-            create.krnl.printf(msg, indexVal, true);
-            msg = "The out-of-bound index is replaced with zero.\n";
-            create.krnl.printf(msg);
-
-            rewriter.setInsertionPointAfter(ifOp);
-            // The modification of index could be put into IfOp to save
-            // some condition check, but the IE of index will has SSA issue.
-            index = index.selectOrSelf(index < zeroIE, zeroIE);
-            index = index.selectOrSelf(index >= axisDim, zeroIE);
+            index = index.selectOrSelf(index < 0, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, axisDim - 1);
           }
 
           // Access function for the 'data' tensor.

@@ -71,6 +71,9 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 
+    // Check the value of indices and change it to zero if out-of-bound
+    genSafeCodeForGatherAlike(rewriter, loc, op, data, indices, axisLit);
+
     int64_t outputRank = shapeHelper.getOutputDims().size();
     int iIndexStart = 0;
     int jIndexStart = iIndexStart + axisLit;
@@ -122,55 +125,14 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
           Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
           // Loaded value is an index that is not affine
           IndexExpr index = NonAffineIndexExpr(indexVal);
+
           // When index may be negative, add axis Dim to it.
           if (indicesMayBeNegative)
             index = index.selectOrSelf(index < zeroIE, index + axisDim);
 
-          // The Gather op is data dependent: the value of index should be
-          // within the input data size.
-          // Add runtime check if enableSafeCodeGen is set true
-          // Implementation comments vs. createGenerateRuntimeVerificationPass
-          // This check is according to onnx op semantics, not general bound
-          // check for memref. Implementation of RuntimeVerification could be
-          // borrowed. Slightly difference is that onnx semenatics check is for
-          // each dimension independently, not the final address is within
-          // the memref bound.
           if (enableSafeCodeGen) {
-            // From onnx document:
-            // All index values are expected to be within bounds [-s, s-1]
-            // along axis of size s. It is an error if any of the index values
-            // are out of bounds.
-            // After the negative correction, the range should be [0, s-1]
-            // Report onnx_node_name if the op has the attribute
-            std::string nodeNameStr = "Warning: ";
-            nodeNameStr += op->getName().getStringRef().str() + " ";
-            StringAttr nodeName =
-                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-            if (nodeName && !nodeName.getValue().empty()) {
-              nodeNameStr += nodeName.getValue().str();
-            }
-
-            Value upperBound = create.mem.dim(data, axisLit);
-            Value compareUpperBound =
-                create.math.sge(index.getValue(), upperBound);
-            Value compareLowerBound =
-                create.math.slt(index.getValue(), zeroIE.getValue());
-            Value outBound =
-                create.math.ori(compareUpperBound, compareLowerBound);
-            auto ifOp = rewriter.create<scf::IfOp>(loc, outBound, false);
-            rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
-            std::string msg = nodeNameStr +
-                              ": Value of indices is out of bound. " +
-                              "The out-of-bound indices value is: ";
-            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-            create.krnl.printf(msg, indexVal, true);
-            msg = "The out-of-bound index is replaced with zero.\n";
-            create.krnl.printf(msg);
-            rewriter.setInsertionPointAfter(ifOp);
-            // The modification of index could be put into IfOp to save
-            // some condition check, but the code will become complicated.
-            index = index.selectOrSelf(index < zeroIE, zeroIE);
-            index = index.selectOrSelf(index >= axisDim, zeroIE);
+            index = index.selectOrSelf(index < 0, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, axisDim - 1);
           }
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]
