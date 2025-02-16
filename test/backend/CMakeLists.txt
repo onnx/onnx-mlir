@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+if (NOT ONNX_MLIR_BUILD_TESTS)
+  set(EXCLUDE_FROM_ALL ON)
+endif()
+
 file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conftest.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/conftest.py

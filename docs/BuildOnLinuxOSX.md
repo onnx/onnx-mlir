@@ -57,6 +57,10 @@ This project uses lit ([LLVM's Integrated Tester](https://llvm.org/docs/CommandG
 
 To build ONNX-MLIR, use the following commands (maybe with additional `-DCMAKE_CXX_FLAGS` argument described [below](#enable-cpu-optimizations)):
 
+To build a version with extended tests, keep the `-DONNX_MLIR_BUILD_TESTS=ON` line below.
+Note that the extended tests requires the installation of `onnx` via a pip install of `third_party/onnx`. To build a version without a dependence on `third_party/onnx`, remove the `-DONNX_MLIR_BUILD_TESTS=ON` line or set to `OFF`.
+The lightweight Literal tests are build regardless of this option.
+
 [same-as-file]: <> ({"ref": "utils/install-onnx-mlir.sh", "skip-doc": 2})
 ```bash
 git clone --recursive https://github.com/onnx/onnx-mlir.git
@@ -68,6 +72,7 @@ if [[ -z "$pythonLocation" ]]; then
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
         -DCMAKE_BUILD_TYPE=Release \
+        -DONNX_MLIR_BUILD_TESTS=ON \
         -DLLVM_ENABLE_ASSERTIONS=ON \
         -DMLIR_DIR=${MLIR_DIR} \
         ..
@@ -75,6 +80,7 @@ else
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
         -DCMAKE_BUILD_TYPE=Release \
+        -DONNX_MLIR_BUILD_TESTS=ON \
         -DLLVM_ENABLE_ASSERTIONS=ON \
         -DPython3_ROOT_DIR=$pythonLocation \
         -DMLIR_DIR=${MLIR_DIR} \

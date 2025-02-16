@@ -12,7 +12,14 @@ To display a model, add.onnx, use command:
   python pre-onnx-mlir add.onnx -v --no_convert
 """
 
-import onnx
+try:
+    import onnx
+except ImportError:
+    print(
+        "Failed to include the `onnx` package; please install to successfully use this script."
+    )
+    exit(1)
+
 import argparse
 from onnx import version_converter, helper
 

@@ -8,8 +8,16 @@
 ################################################################################
 
 import numpy as np
-import onnx
-import onnx.parser
+
+try:
+    import onnx
+    import onnx.parser
+except ImportError:
+    print(
+        "Failed to include the `onnx` package; please install to successfully use this script."
+    )
+    exit(1)
+
 from collections import namedtuple
 
 OnnxMlirNodeTestCase = namedtuple(
