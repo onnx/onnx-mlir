@@ -925,7 +925,9 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
         IndexExpr index = NonAffineIndexExpr(indexVal);
 
         // index should be in range of [-r, r-1], where r = dim size of
-        // data[axis]
+        // data[axis].
+        // Assume that the index is loaded from tensor with negative value
+        // correction.
         Value errorCondition =
             ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
         rewriter.create<scf::IfOp>(
