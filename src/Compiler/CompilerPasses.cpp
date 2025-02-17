@@ -71,6 +71,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Legalize quark-quantized modules to their supported operations.
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   if (!disableRecomposeOption)

@@ -44,6 +44,7 @@ add_onnx_mlir_library(OMONNXRewrite
   ScrubDisposablePass.cpp
   SetONNXNodeName.cpp
   Recompose.cpp
+  LegalizeQuarkQuantizedOps.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

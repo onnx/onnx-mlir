@@ -103,6 +103,9 @@ std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 
+/// Pass for legalizing quark-quantized models.
+std::unique_ptr<mlir::Pass> createLegalizeQuarkQuantizedOpsPass();
+
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();

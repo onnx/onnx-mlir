@@ -130,6 +130,10 @@ void registerOMPasses(int optLevel) {
     return createConvertONNXToTOSAPass();
   });
 
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createLegalizeQuarkQuantizedOpsPass();
+  });
+
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToStablehloPass();
