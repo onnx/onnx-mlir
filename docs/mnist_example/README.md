@@ -205,7 +205,7 @@ int main() {
   // When the parameter, owning is set to "true", the OMTensor will free the data
   // pointer (img_data) upon destruction. If owning is set to false, the data pointer will
   // not be freed upon destruction.
-  OMTensor *tensor = omTensorCreateWithOwnership(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/true);
+  OMTensor *tensor = omTensorCreateWithOwnership(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/false);
 
   // Create a tensor list using omTensorListCreate (returns a pointer to the OMTensorList).
   inputTensors[0] = tensor;
