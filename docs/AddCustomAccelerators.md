@@ -20,8 +20,9 @@ The folder content is flexible depending on each accelerator. However, we recomm
 To build accelerators in onnx-mlir, use the cmake variable `ONNX_MLIR_ACCELERATORS` when building onnx-mlir. `ONNX_MLIR_ACCELERATORS` accepts a semicolon-separated list of accelerator names. For example,
 ```bash
 $ cd build
-$ cmake .. -DONNX_MLIR_ACCELERATORS=accel1;accel2
+$ cmake .. -DONNX_MLIR_ACCELERATORS='accel1;accel2'
 ```
+Note that the list should be quoted.
 
 ### 1.2 Compile a model to run with selected accelerators.
 
@@ -91,6 +92,13 @@ virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
 /// Register accelerator transformation passes to make available as
 /// command line options.
 virtual void registerPasses(int optLevel) const = 0;
+
+//===--------------------------------------------------------------------===//
+// Hooks for both onnx-mlir and onnx-mlir-opt drivers
+//===--------------------------------------------------------------------===//
+
+/// Configure passes for the accelerator.
+virtual void configurePasses() const = 0;
 
 //===--------------------------------------------------------------------===//
 // Hooks for onnx-to-krnl pass

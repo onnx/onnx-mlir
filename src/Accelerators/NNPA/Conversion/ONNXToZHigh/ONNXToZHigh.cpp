@@ -644,8 +644,8 @@ public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
 
   replaceONNXMatMulByDynQuantI8Pattern(
-      MLIRContext *context, PatternBenefit benefit = 1, bool symForA = false)
-      : OpRewritePattern<ONNXMatMulOp>(context, benefit), symForA(symForA) {}
+      MLIRContext *context, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXMatMulOp>(context, benefit) {}
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp mmOp, PatternRewriter &rewriter) const override {
@@ -655,7 +655,8 @@ public:
     Value B = mmOp.getB();
 
     // Dynamic quantization helper.
-    DynQuantI8PatternHelper dqHelper(rewriter, loc, op, A, B, nullptr, symForA);
+    DynQuantI8PatternHelper dqHelper(rewriter, loc, op, A, B, nullptr,
+        ONNXToZHighLoweringConfiguration::Quant::isActivationSym);
 
     // Match
     if (!isSuitableForZDNN<ONNXMatMulOp>(mmOp) || failed(dqHelper.match()))
@@ -666,9 +667,6 @@ public:
     rewriter.replaceOp(op, res);
     return success();
   }
-
-private:
-  bool symForA = false;
 };
 
 /**
@@ -684,8 +682,8 @@ public:
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
   replaceONNXMatMulAddByDynQuantI8Pattern(
-      MLIRContext *context, PatternBenefit benefit = 1, bool symForA = false)
-      : OpRewritePattern<ONNXAddOp>(context, benefit), symForA(symForA) {}
+      MLIRContext *context, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXAddOp>(context, benefit) {}
 
   LogicalResult matchAndRewrite(
       ONNXAddOp addOp, PatternRewriter &rewriter) const override {
@@ -704,7 +702,8 @@ public:
     Value B = mmOp.getB();
 
     // Match A, B, C.
-    DynQuantI8PatternHelper dqHelper(rewriter, loc, op, A, B, C, symForA);
+    DynQuantI8PatternHelper dqHelper(rewriter, loc, op, A, B, C,
+        ONNXToZHighLoweringConfiguration::Quant::isActivationSym);
     if (succeeded(dqHelper.match())) {
       Value res = dqHelper.rewriteSym();
       rewriter.replaceOp(op, res);
@@ -713,9 +712,6 @@ public:
 
     return failure();
   }
-
-private:
-  bool symForA = false;
 };
 
 /**
@@ -732,8 +728,8 @@ public:
   using OpRewritePattern<ONNXGemmOp>::OpRewritePattern;
 
   replaceONNXGemmByDynQuantI8Pattern(
-      MLIRContext *context, PatternBenefit benefit = 1, bool symForA = false)
-      : OpRewritePattern<ONNXGemmOp>(context, benefit), symForA(symForA) {}
+      MLIRContext *context, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXGemmOp>(context, benefit) {}
 
   LogicalResult matchAndRewrite(
       ONNXGemmOp gemmOp, PatternRewriter &rewriter) const override {
@@ -747,8 +743,9 @@ public:
     bool transB = (gemmOp.getTransB() != 0);
 
     // Dynamic quantization helper.
-    DynQuantI8PatternHelper dqHelper(
-        rewriter, loc, op, A, B, isNoneValue(C) ? nullptr : C, symForA);
+    DynQuantI8PatternHelper dqHelper(rewriter, loc, op, A, B,
+        isNoneValue(C) ? nullptr : C,
+        ONNXToZHighLoweringConfiguration::Quant::isActivationSym);
 
     // Match
     // TODO: if B is a constant and it is transposed, we can do transpose
@@ -765,9 +762,6 @@ public:
     rewriter.replaceOp(op, res);
     return success();
   }
-
-private:
-  bool symForA = false;
 };
 
 class replaceONNXMatMulIntegerPattern
@@ -1535,28 +1529,11 @@ struct ONNXToZHighLoweringPass
   ONNXToZHighLoweringPass() = default;
   ONNXToZHighLoweringPass(const ONNXToZHighLoweringPass &pass)
       : PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>>() {}
-  ONNXToZHighLoweringPass(NNPAQuantType quantMode) {
-    this->quantMode = quantMode;
-  }
   void runOnOperation() final;
-
-public:
-  Option<NNPAQuantType> quantMode{*this, "quantization",
-      llvm::cl::desc("Enable quantization"),
-      llvm::cl::values(
-          clEnumVal(DynSymI8,
-              "Dynamic Quantization to signed integer 8. Asymmetric quant for "
-              "activations and symmetric quant for weights."),
-          clEnumVal(SymSymI8,
-              "Dynamic Quantization to signed integer 8. Symmetric quant for "
-              "activations and symmetric quant for weights."),
-          clEnumVal(QNONE, "No quantization (default).")),
-      llvm::cl::init(QNONE)};
 };
 } // end anonymous namespace.
 
-void getONNXToZHighOneOpPatterns(
-    RewritePatternSet &patterns, NNPAQuantType quantMode) {
+void getONNXToZHighOneOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<normalizeONNXGemmTransAPattern>(context);
   patterns.insert<normalizeONNXGemmTransBPattern>(context);
@@ -1602,17 +1579,21 @@ void getONNXToZHighOneOpPatterns(
   patterns.insert<replaceONNXSumOpPatternSingleton>(context);
   patterns.insert<replaceONNXTanhPattern>(context);
 
-  // Pattern for i8 dynamic quantization, symmetric mode.
+  // Pattern for i8 dynamic quantization.
   if (isCompatibleWithNNPALevel(NNPALevel::M15) &&
-      (quantMode == NNPAQuantType::DynSymI8 ||
-          quantMode == NNPAQuantType::SymSymI8)) {
+      ONNXToZHighLoweringConfiguration::isDynQuant) {
     // Bump up the pattern benefit to run these before non-quantization
     // patterns.
     PatternBenefit quantPriority(QUANT_PATTERN_BENEFIT);
-    patterns.insert<replaceONNXMatMulByDynQuantI8Pattern>(
-        context, quantPriority, quantMode == NNPAQuantType::SymSymI8);
-    patterns.insert<replaceONNXGemmByDynQuantI8Pattern>(
-        context, quantPriority, quantMode == NNPAQuantType::SymSymI8);
+    if (llvm::any_of(ONNXToZHighLoweringConfiguration::Quant::opTypes,
+            [](std::string s) {
+              return StringRef(s).equals_insensitive("MatMul");
+            })) {
+      patterns.insert<replaceONNXMatMulByDynQuantI8Pattern>(
+          context, quantPriority);
+      patterns.insert<replaceONNXGemmByDynQuantI8Pattern>(
+          context, quantPriority);
+    }
   }
 }
 
@@ -1648,8 +1629,7 @@ void getONNXToZHighOneOpDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXQLinearMatMulOp>(target, dimAnalysis);
 }
 
-void getONNXToZHighMultipleOpPatterns(
-    RewritePatternSet &patterns, NNPAQuantType quantMode) {
+void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<replaceONNXMatMulAddPattern1>(context);
   patterns.insert<replaceONNXMatMulAddPattern2>(context);
@@ -1663,15 +1643,19 @@ void getONNXToZHighMultipleOpPatterns(
   patterns.insert<replaceMatMulIntegerSubGraphFromMulPattern>(context);
   patterns.insert<fuseZHighQuantizedMatMulONNXAddPattern>(context);
 
-  // Pattern for i8 dynamic quantization, symmetric mode.
+  // Pattern for i8 dynamic quantization.
   if (isCompatibleWithNNPALevel(NNPALevel::M15) &&
-      (quantMode == NNPAQuantType::DynSymI8 ||
-          quantMode == NNPAQuantType::SymSymI8)) {
+      (ONNXToZHighLoweringConfiguration::isDynQuant)) {
     // Bump up the pattern benefit to run these before non-quantization
     // patterns.
     PatternBenefit quantPriority(QUANT_PATTERN_BENEFIT);
-    patterns.insert<replaceONNXMatMulAddByDynQuantI8Pattern>(
-        context, quantPriority, quantMode == NNPAQuantType::SymSymI8);
+    if (llvm::any_of(ONNXToZHighLoweringConfiguration::Quant::opTypes,
+            [](std::string s) {
+              return StringRef(s).equals_insensitive("MatMul");
+            })) {
+      patterns.insert<replaceONNXMatMulAddByDynQuantI8Pattern>(
+          context, quantPriority);
+    }
   }
 
   // Shape inference for newly-added operations.
@@ -1687,8 +1671,8 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // Enable reporting on NNPA unsupported ops when specifying
   // `--opt-report=NNPAUnsupportedOps`.
-  OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
-      OnnxToZHighLoweringConfiguration::optReportNNPAUnsupportedOps;
+  ONNXToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
+      ONNXToZHighLoweringConfiguration::optReportNNPAUnsupportedOps;
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
@@ -1706,8 +1690,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // a single ONNX Op, because the single op lowering might have conditions that
   // prohibit the combined ops lowering happened.
   RewritePatternSet combinedPatterns(&getContext());
-  onnx_mlir::getONNXToZHighMultipleOpPatterns(
-      combinedPatterns, this->quantMode);
+  onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
@@ -1719,7 +1702,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  onnx_mlir::getONNXToZHighOneOpPatterns(patterns, this->quantMode);
+  onnx_mlir::getONNXToZHighOneOpPatterns(patterns);
 
   // This is to make sure we don't want to alloc any MemRef at this high-level
   // representation.
@@ -1740,10 +1723,6 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> createONNXToZHighPass() {
   return std::make_unique<ONNXToZHighLoweringPass>();
-}
-
-std::unique_ptr<Pass> createONNXToZHighPass(NNPAQuantType quantMode) {
-  return std::make_unique<ONNXToZHighLoweringPass>(quantMode);
 }
 
 } // namespace onnx_mlir
