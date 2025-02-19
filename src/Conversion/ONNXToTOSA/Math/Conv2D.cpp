@@ -41,7 +41,7 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
     const llvm::ArrayRef<int64_t> weightShape, Value &newInput,
     Value &newWeight, Value &bias, const int64_t groups,
     DenseI64ArrayAttr &pads, DenseI64ArrayAttr &strides,
-    DenseI64ArrayAttr &dilations) {
+    DenseI64ArrayAttr &dilations, TypeAttr &accType) {
   // Set up constants outside of loop
   const int64_t sizeOfSliceInput = weightShape[1];
   const int64_t sizeOfSliceKernel = weightShape[0] / groups;
@@ -72,7 +72,7 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
         mlir::cast<ShapedType>(resultType).getElementType());
     Value tempConv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(rewriter,
         op->getLoc(), newConvOutputType, newSliceInput, newSliceWeight,
-        newSliceBias, pads, strides, dilations);
+        newSliceBias, pads, strides, dilations, accType);
     // Add value to vector
     sliceValues.push_back(tempConv2D);
   }
@@ -147,6 +147,10 @@ public:
     DenseI64ArrayAttr newPads =
         rewriter.getDenseI64ArrayAttr({pads[0], pads[2], pads[1], pads[3]});
 
+    Type convType =
+        (resultType.isF16()) ? rewriter.getF16Type() : rewriter.getF32Type();
+    TypeAttr accType = mlir::TypeAttr::get(convType);
+
     // Handle group parameter by creating multiple convs
     const int64_t group = adaptor.getGroup();
     Value conv2D = NULL;
@@ -157,11 +161,11 @@ public:
 
       conv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(rewriter,
           convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
-          newPads, strides, dilations);
+          newPads, strides, dilations, accType);
     } else {
       conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
           weightShape, newInput, newWeight, bias, group, newPads, strides,
-          dilations);
+          dilations, accType);
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
