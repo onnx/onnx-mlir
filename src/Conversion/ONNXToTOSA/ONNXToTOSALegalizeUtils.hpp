@@ -53,9 +53,9 @@ T getValueFromTosaConst(mlir::Value &val) {
 // This function is made to work with both onnx.const and tosa.const
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val);
 
-// Takes a 1-d `tensor` with k elements and reshapes it into an `rank`-d tensor
-// with shape {1, ..., 1, k, 1, ..., 1 }
-// where `k` it at position `axis`.
+// Takes a 1-d `tensor` with k elements and reshapes it into an `rank`-d or
+// scalar tensor with shape {1, ..., 1, k, 1, ..., 1 } where `k` it at position
+// `axis`.
 mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
     mlir::Value tensor, size_t axis, size_t rank);
 
@@ -63,7 +63,7 @@ mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
 TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
-    mlir::Type result_ty, Args &&... args) {
+    mlir::Type result_ty, Args &&...args) {
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
@@ -92,7 +92,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
 
 template <typename TosaOp, typename... Args>
 void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::Type result_ty, Args &&... args) {
+    mlir::Operation *op, mlir::Type result_ty, Args &&...args) {
   auto result =
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
