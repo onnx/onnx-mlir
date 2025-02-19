@@ -770,5 +770,14 @@ void emitSymmetricQuantRecscaleToScalar(
     mlir::Operation *op, mlir::Value input, uint64_t bitWidth,
     mlir::Value &recscale, bool enableSIMD, bool enableParallel);
 
+// Generate safe code for GatherOp and GatherElementsOp.
+// Insert runtime check for the value of indices.
+// If the value is out of scope of the `axis` dimension of input data,
+// warning message will be printed and the value will be change to zero to
+// avoid crash or assertion error.
+void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Value data,
+    mlir::Value indices, int64_t axisLit);
+
 } // namespace onnx_mlir
 #endif
