@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2023 The IBM Research Authors.
+# Copyright 2019-20235 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -29,15 +29,16 @@ from onnx import numpy_helper
 from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
 
-######################################################################################
+################################################################################
 # Test environment and set global environment variables.
 
 if not os.environ.get("ONNX_MLIR_HOME", None):
     raise RuntimeError(
-        "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
-        "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
-        "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
+        "Environment variable ONNX_MLIR_HOME is not set, please set it to the"
+        " path to the HOME directory for onnx-mlir. The HOME directory for"
+        " onnx-mlir refers to the parent folder containing the bin, lib, etc"
+        " sub-folders in which ONNX-MLIR executables and libraries can be found,"
+        " typically `onnx-mlir/build/Debug`."
     )
 ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
 ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
@@ -47,18 +48,20 @@ sys.path.append(RUNTIME_DIR)
 
 VERBOSE = os.environ.get("VERBOSE", False)
 
-######################################################################################
+################################################################################
 # Check and import Onnx Mlir Execution session / python interface.
 
 try:
     from PyRuntime import OMExecutionSession
 except ImportError:
     raise ImportError(
-        "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
-        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
+        "Looks like you did not build the PyRuntime target, build it by running"
+        " `make PyRuntime`. You may need to set ONNX_MLIR_HOME to"
+        " `onnx-mlir/build/Debug` since `make PyRuntime` outputs to"
+        " `build/Debug` by default."
     )
 
-######################################################################################
+################################################################################
 # Support functions for parsing environment.
 
 
@@ -87,7 +90,7 @@ def check_non_negative(argname, value):
     return value
 
 
-######################################################################################
+################################################################################
 # Command arguments.
 
 parser = argparse.ArgumentParser()
@@ -219,7 +222,8 @@ data_group.add_argument(
     "--load-ref-from-numpy",
     metavar="PATH",
     type=str,
-    help="Path to a python script that defines variables inputs and outputs that are a list of numpy arrays. "
+    help="Path to a python script that defines variables inputs and outputs that are"
+    " a list of numpy arrays. "
     " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]."
     " Variable outputs can be omitted if --verify is not used.",
 )
@@ -286,11 +290,12 @@ def verify_arg():
     if args.verify and args.verify.lower() == "onnxruntime":
         if not args.model or (args.model and not args.model.endswith(".onnx")):
             raise RuntimeError(
-                "Set input onnx model using argument --model when verifying using onnxruntime."
+                "Set input onnx model using argument --model when verifying"
+                " using onnxruntime."
             )
 
 
-######################################################################################
+################################################################################
 # Support functions for RunONNXModel functionality.
 # Functions are free of args (all needed parameters are passed to the function).
 
@@ -646,7 +651,7 @@ def data_without_top_bottom_quartile(data, percent):
     return data[trim:-trim]
 
 
-######################################################################################
+################################################################################
 # Inference Session implementing RunONNXModel.
 #
 # Constructor: fetch the model and compile if needed.
@@ -664,9 +669,9 @@ class InferenceSession:
     """
 
     # Init load the model or compile it, and build an execution session.
-    # For init, either options have been parsed because this file is executed as a main,
-    # or a model_file is expected as parameter to init. In either case, args will be parsed
-    # and thus be available.
+    # For init, either options have been parsed because this file is executed
+    # as a main, or a model_file is expected as parameter to init.
+    # In either case, args will be parsed and thus be available.
     #
     # Object variables are:
     #  default_model_name
@@ -741,7 +746,6 @@ class InferenceSession:
             self.model_dir = args.load_model
         else:
             # Compile the ONNX model.
-            # TODO: does the temp dir needs to be cleared? Or else can it be a local var?
             self.temp_dir = tempfile.TemporaryDirectory()
             print("Temporary directory has been created at {}\n".format(self.temp_dir))
             print("Compiling the model ...")
@@ -1037,7 +1041,8 @@ class InferenceSession:
     output_names – name of the outputs (optional)
     input_feed – dictionary { input_name: input_value }
     RETURNS:
-    list of results, every result is either a numpy array, a sparse tensor, a list or a dictionary.
+    list of results, every result is either a numpy array, a sparse tensor, or
+    a list or a dictionary.
     
     For onnxmlir, the run_options is ignored. If 'input_feed' is None, the
     input could be randomly generated or read from file, as args specified.
@@ -1073,7 +1078,7 @@ class InferenceSession:
             return outs
 
 
-######################################################################################
+################################################################################
 # Standalone driver
 
 
