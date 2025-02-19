@@ -52,20 +52,24 @@ struct ONNXPrintSignatureLowering
     }
     // Control how the tensor will be printed
     // Print the only the shape.
-    std::string printControl = "%e";
+    std::string printControl = ", %t%e";
     if (printSignatureOp.getPrintData() == 1) {
       // The data of tensor will be printed
-      printControl = "%d%e";
+      printControl = "%t%d\n";
+      msg += "\n";
     }
     Value lastVal = printVal.pop_back_val();
     // Print all but the last one.
     for (Value oper : printVal) {
-      create.krnl.printTensor(msg + ", %t" + printControl, oper);
+      create.krnl.printTensor(msg + printControl, oper);
       msg = "%i";
     }
     // Print the last one with replace with new op.
+    if (printSignatureOp.getPrintData() == 0) {
+      printControl = ", %t\n%e";
+    }
     rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(
-        op, msg + ", %t\n" + printControl, lastVal);
+        op, msg + printControl, lastVal);
     return success();
   }
 };
