@@ -29,6 +29,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
 #include "mlir/IR/Value.h"
+#include "mlir/IR/Verifier.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -1581,6 +1582,92 @@ public:
   }
 };
 
+namespace {
+class IgnoreDiagnostic {
+public:
+  IgnoreDiagnostic(DiagnosticEngine &diagEngine) : diagEngine(diagEngine) {
+    id = diagEngine.registerHandler(
+        [](mlir::Diagnostic & /*diag*/) { return success(); });
+  }
+
+  ~IgnoreDiagnostic() {
+    // Reset to the previous state.
+    diagEngine.eraseHandler(id);
+  }
+
+private:
+  DiagnosticEngine &diagEngine;
+  DiagnosticEngine::HandlerID id;
+};
+
+[[nodiscard]] bool isCustomMicrosoftOp(
+    ONNXCustomOp customOp, StringRef expectedName) {
+  if (!customOp.getFunctionName().equals_insensitive(expectedName)) {
+    return false;
+  }
+
+  const auto domAttr = customOp->getAttrOfType<StringAttr>("domain_name");
+  return domAttr && domAttr.getValue().equals_insensitive("com.microsoft");
+}
+
+} // namespace
+
+template <typename OpToCreate, typename Derived>
+struct CustomOpMicrosoftQDuantizeLinear
+    : public OpRewritePattern<ONNXCustomOp> {
+  using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+
+    if (!isCustomMicrosoftOp(
+            customOp, static_cast<const Derived *>(this)->expectedName))
+      return failure();
+    assert(customOp->getNumOperands() == 3);
+
+    const auto scale = customOp->getOperand(1);
+    if (isScalarTensor(scale)) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Only supports per-tensor quantization for now");
+    }
+    const auto zeroPoint = customOp->getOperand(1);
+    if (isScalarTensor(zeroPoint)) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Only supports per-tensor quantization for now");
+    }
+
+    auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
+        customOp.getResult(0).getType(), customOp->getOperand(0), scale,
+        zeroPoint);
+
+    IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
+    if (failed(mlir::verify(newOp))) {
+      rewriter.eraseOp(newOp);
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, newOp);
+    return success();
+  }
+};
+
+struct CustomOpMicrosoftQuantizeLinear
+    : public CustomOpMicrosoftQDuantizeLinear<ONNXQuantizeLinearOp,
+          CustomOpMicrosoftQuantizeLinear> {
+  const std::string expectedName = "QuantizeLinear";
+  using CustomOpMicrosoftQDuantizeLinear<ONNXQuantizeLinearOp,
+      CustomOpMicrosoftQuantizeLinear>::CustomOpMicrosoftQDuantizeLinear;
+};
+
+struct CustomOpMicrosoftDequantizeLinear
+    : public CustomOpMicrosoftQDuantizeLinear<ONNXDequantizeLinearOp,
+          CustomOpMicrosoftDequantizeLinear> {
+  const std::string expectedName = "DequantizeLinear";
+  using CustomOpMicrosoftQDuantizeLinear<ONNXDequantizeLinearOp,
+      CustomOpMicrosoftDequantizeLinear>::CustomOpMicrosoftQDuantizeLinear;
+};
+
 // Transform InstanceNormalization into LayerNormalization
 struct InstanceNormIntoLayerNormPattern
     : public OpRewritePattern<ONNXInstanceNormalizationOp> {
@@ -2039,6 +2126,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
+  patterns.insert<CustomOpMicrosoftQuantizeLinear>(context);
+  patterns.insert<CustomOpMicrosoftDequantizeLinear>(context);
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern1>(context);
   patterns.insert<GroupNormIntoLayerNormPattern2>(context);
