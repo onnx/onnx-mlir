@@ -11,9 +11,7 @@
 // This file lowers the ONNX GatherElements Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
-
-#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -56,7 +54,7 @@ struct ONNXGatherElementsOpLowering
     // Operands and attributes.
     Value data = adaptor.getData();
     Value indices = adaptor.getIndices();
-    int64_t axis = adaptor.getAxis();
+    int64_t axisLit = adaptor.getAxis();
     int64_t dataRank = mlir::cast<MemRefType>(data.getType()).getRank();
     int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
     int64_t outputRank = outputMemRefType.getShape().size();
@@ -67,8 +65,12 @@ struct ONNXGatherElementsOpLowering
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
 
     // Negative value means counting dimensions from the back.
-    axis = axis < 0 ? axis + dataRank : axis;
+    axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 
+    // Insert safety check code
+    genSafeCodeForGatherAlike(rewriter, loc, op, data, indices, axisLit);
+
+    LiteralIndexExpr zeroIE(0);
     DimsExpr dataDims, indicesDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
     create.krnlIE.getShapeAsDims(indices, indicesDims);
@@ -83,6 +85,7 @@ struct ONNXGatherElementsOpLowering
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
+          SymbolIndexExpr axisDim(dataDims[axisLit]);
 
           // Access function for indices and output.
           DimsExpr accessFct;
@@ -93,41 +96,20 @@ struct ONNXGatherElementsOpLowering
           IndexExpr index = NonAffineIndexExpr(indexVal);
 
           if (indicesMayBeNegative) {
-            LiteralIndexExpr zero(0);
-            SymbolIndexExpr axisDim(dataDims[axis]);
-            index = index.selectOrSelf(index < zero, index + axisDim);
+            index = index.selectOrSelf(index < zeroIE, index + axisDim);
           }
 
           // Check the dynamic requirement of GatherElement Op
           // Refer to the comments in Gather.cpp
           if (enableSafeCodeGen) {
-            // From onnx document:
-            // All index values are expected to be within bounds [-s, s-1]
-            // along axis of size s. It is an error if any of the index values
-            // are out of bounds.
-            // After the negative correction, the range should be [0, s-1]
-            Value upperBound = create.mem.dim(data, axis);
-            Value compareUpperBound =
-                create.math.slt(index.getValue(), upperBound);
-            std::string nodeNameStr = op->getName().getStringRef().str() + " ";
-            StringAttr nodeName =
-                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-            if (nodeName && !nodeName.getValue().empty()) {
-              nodeNameStr = nodeNameStr + nodeName.getValue().str();
-            }
-            rewriter.create<cf::AssertOp>(loc, compareUpperBound,
-                "indices of GatherOp is larger than the upper bound");
-            LiteralIndexExpr zero(0);
-            Value compareLowerBound =
-                create.math.sge(index.getValue(), zero.getValue());
-            rewriter.create<cf::AssertOp>(loc, compareLowerBound,
-                "indices of GatherOp is less than the lower bound");
+            index = index.selectOrSelf(index < 0, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, axisDim - 1);
           }
 
           // Access function for the 'data' tensor.
           DimsExpr dataAccessFct;
           for (int64_t i = 0; i < dataRank; ++i)
-            dataAccessFct.emplace_back((i == axis) ? index : accessFct[i]);
+            dataAccessFct.emplace_back((i == axisLit) ? index : accessFct[i]);
 
           // Gather values from the 'data' tensor and save them.
           Value dataVal = createKrnl.loadIE(data, dataAccessFct);
