@@ -49,12 +49,14 @@ class InferenceSession:
         if "compile_options" in kwargs.keys():
             self.compile_options = kwargs["compile_options"]
         else:
-            self.compile_options = "" 
+            self.compile_options = ""
 
         if "compiler_container" in kwargs.keys():
             self.compiler_container = kwargs["compiler_container"]
             if "compiler_path" not in kwargs.keys():
-                print("Please specify the path to your compiler when you are not using the default image")
+                print(
+                    "Please specify the path to your compiler when you are not using the default image"
+                )
                 exit(1)
         else:
             # Default image
@@ -75,21 +77,24 @@ class InferenceSession:
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
 
-    def checkCompiler(self) :
+    def checkCompiler(self):
         if self.compiler_container == None:
             if not os.path.exists(self.compiler_path):
                 print("the compiler path does not exist: ", self.compiler_path)
                 exit(-1)
         else:
             import docker
+
             self.container_client = docker.from_env()
             try:
                 msg = self.container_client.containers.run(
-                    self.compiler_container,
-                    "test -e "+self.compiler_path
+                    self.compiler_container, "test -e " + self.compiler_path
                 )
             except Exception as e:
-                print("the compiler path does not exist in container: ", self.compiler_path)
+                print(
+                    "the compiler path does not exist in container: ",
+                    self.compiler_path,
+                )
                 exit(-1)
 
     def Compile(self):
@@ -106,7 +111,6 @@ class InferenceSession:
             self.container_model_dirname = "/myinput"
             self.container_output_dirname = "/myoutput"
 
-
         # Construct compilation command
         command_str = self.compiler_path
 
@@ -120,7 +124,8 @@ class InferenceSession:
         # ToFix: should use temporary directory for compilation, and
         # use "-o" to put the compiled library in the temporary directory.
         self.compiled_model = os.path.join(
-            self.output_dirname, self.model_basename.removesuffix(self.model_suffix) + ".so"
+            self.output_dirname,
+            self.model_basename.removesuffix(self.model_suffix) + ".so",
         )
         command_str += " -o " + os.path.join(
             self.container_output_dirname,
@@ -133,6 +138,7 @@ class InferenceSession:
             subprocess.run(command_str.split(" "))
         else:
             import docker
+
             msg = self.container_client.containers.run(
                 self.compiler_container,
                 command_str,
@@ -203,4 +209,3 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
-
