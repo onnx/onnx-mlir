@@ -1,5 +1,4 @@
 import numpy as np
-import docker
 import os
 import sys
 import tempfile
@@ -82,6 +81,7 @@ class InferenceSession:
                 print("the compiler path does not exist: ", self.compiler_path)
                 exit(-1)
         else:
+            import docker
             self.container_client = docker.from_env()
             try:
                 msg = self.container_client.containers.run(
@@ -132,6 +132,7 @@ class InferenceSession:
         if self.compiler_container is None:
             subprocess.run(command_str.split(" "))
         else:
+            import docker
             msg = self.container_client.containers.run(
                 self.compiler_container,
                 command_str,
@@ -202,3 +203,4 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
+
