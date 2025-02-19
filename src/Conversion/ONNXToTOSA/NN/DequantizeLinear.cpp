@@ -41,6 +41,12 @@ public:
           loc, "expected valid tensor result type");
     }
 
+    auto xType = dyn_cast_if_present<ShapedType>(
+        getTypeConverter()->convertType(x.getType()));
+    if (!xType || xType.getElementType().isUnsignedInteger(16)) {
+      return failure(); // Skip for now
+    }
+
     auto zeroPoint = adaptor.getXZeroPoint();
     auto zpTy = zeroPoint.getType();
     if (isa<NoneType>(zpTy)) {
