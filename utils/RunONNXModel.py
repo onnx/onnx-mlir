@@ -663,7 +663,11 @@ class InferenceSession:
     options: parsed and added into args.
     """
 
-    # Init load the model or compile it, and build an execution session
+    # Init load the model or compile it, and build an execution session.
+    # For init, either options have been parsed because this file is executed as a main,
+    # or a model_file is expected as parameter to init. In either case, args will be parsed
+    # and thus be available.
+    #
     # Object variables are:
     #  default_model_name
     #  model_dir
@@ -672,18 +676,20 @@ class InferenceSession:
     #  input_names, output_names
     #  temp_dir
 
-    def __init__(self, model_file, **kwargs):
+    def __init__(self, model_file=None, **kwargs):
         global args
-        # Override global args with options passes, if any.
-        if "options" in kwargs.keys():
-            options = kwargs["options"]
-            args = parser.parse_args(shlex.split(options))
+
+        # Get options passes, if any.
+        options = kwargs["options"] if "options" in kwargs.keys() else ""
+        # Add model file to options, if given.
         if model_file:
             if model_file.endswith(".onnx") or model_file.endswith(".mlir"):
-                args.model = model_file
+                options += " --model=" + model_file
             else:
-                args.load_model = model_file
-
+                options += " --load-model=" + model_file
+        # Parse options
+        if options:
+            args = parser.parse_args(shlex.split(options))
         # Default model name that will be used for the compiled model.
         # e.g. model.so, model.constants.bin, ...
         self.default_model_name = args.default_model_name
@@ -849,18 +855,7 @@ class InferenceSession:
     Print input if requested.
     """
 
-    def setup(self, input_feed):
-        # Get shape information if given.
-        # args.shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
-        input_shapes = {}
-        if args.shape_info:
-            for input_shape in args.shape_info.strip().split(","):
-                input_index_shape = input_shape.split(":")
-                input_index = input_index_shape[0]
-                assert not (input_index in input_shapes), "Duplicate input indices"
-                dims = [int(d) for d in input_index_shape[1].split("x")]
-                input_shapes[int(input_index)] = dims
-
+    def setup(self, input_feed=None):
         # Define inputs.
         self.inputs = []
         if input_feed:
@@ -921,13 +916,12 @@ class InferenceSession:
     def run_one_inference(self):
         return self.session.run(self.inputs)
 
-
     """
     Perform a short analysis of time spent in the model.
     When requested outputs are printed and/or verified.
     """
 
-    def teardown(self, outs, perf_results):
+    def teardown(self, outs, perf_results=None):
         # Print statistics info, e.g., min/max/stddev inference time.
         if args.n_iteration > 1:
             print(
@@ -1051,7 +1045,7 @@ class InferenceSession:
     allow different shape from run to run. 
     """
 
-    def run(self, output_name, input_feed, **kwargs):
+    def run(self, output_name=None, input_feed=None, **kwargs):
         # Setup inputs.
         self.setup(input_feed)
         # Running inference.
@@ -1079,17 +1073,24 @@ class InferenceSession:
             return outs
 
 
+######################################################################################
 # Standalone driver
+
+
 def main():
+    # In main mode, parse the args here.
+    global args
+    args = parser.parse_args()
     if not (args.model or args.load_model):
         print("error: no input model, use argument --model and/or --load-model.")
         print(parser.format_usage())
         exit(1)
 
-    session = InferenceSession(None)
-    return session.run(None, None)
+    # Create inference session and perform a run, which load, compute, and possibly
+    # verify data.
+    session = InferenceSession()
+    return session.run()
 
 
-args = parser.parse_args()
 if __name__ == "__main__":
     main()
