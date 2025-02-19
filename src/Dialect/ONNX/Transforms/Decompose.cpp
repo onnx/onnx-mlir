@@ -1583,22 +1583,7 @@ public:
 };
 
 namespace {
-class IgnoreDiagnostic {
-public:
-  IgnoreDiagnostic(DiagnosticEngine &diagEngine) : diagEngine(diagEngine) {
-    id = diagEngine.registerHandler(
-        [](mlir::Diagnostic & /*diag*/) { return success(); });
-  }
 
-  ~IgnoreDiagnostic() {
-    // Reset to the previous state.
-    diagEngine.eraseHandler(id);
-  }
-
-private:
-  DiagnosticEngine &diagEngine;
-  DiagnosticEngine::HandlerID id;
-};
 
 [[nodiscard]] bool isCustomMicrosoftOp(
     ONNXCustomOp customOp, StringRef expectedName) {
@@ -1627,15 +1612,12 @@ struct CustomOpMicrosoftQDuantizeLinear
     assert(customOp->getNumOperands() == 3);
 
     const auto scale = customOp->getOperand(1);
-    if (isScalarTensor(scale)) {
+    const auto zeroPoint = customOp->getOperand(2);
+    if (!isScalarTensor(scale) || !isScalarTensor(zeroPoint)) {
       return rewriter.notifyMatchFailure(
           customOp, "Only supports per-tensor quantization for now");
     }
-    const auto zeroPoint = customOp->getOperand(1);
-    if (isScalarTensor(zeroPoint)) {
-      return rewriter.notifyMatchFailure(
-          customOp, "Only supports per-tensor quantization for now");
-    }
+    // Axis is ignored if scale and zeroPoint are scalars
 
     auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
         customOp.getResult(0).getType(), customOp->getOperand(0), scale,
@@ -1646,7 +1628,6 @@ struct CustomOpMicrosoftQDuantizeLinear
       rewriter.eraseOp(newOp);
       return rewriter.notifyMatchFailure(customOp, "Failed verification");
     }
-
     rewriter.replaceOp(customOp, newOp);
     return success();
   }
