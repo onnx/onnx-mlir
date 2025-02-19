@@ -51,13 +51,15 @@ public:
       : mlir::PassWrapper<InstrumentONNXSignaturePass,
             OperationPass<func::FuncOp>>() {
     signaturePattern = pass.signaturePattern;
+    nodeNamePattern = pass.nodeNamePattern;
   }
-  InstrumentONNXSignaturePass(const std::string pattern) {
-    signaturePattern = pattern;
-  }
+  InstrumentONNXSignaturePass(
+      const std::string opPattern, const std::string nodePattern)
+      : signaturePattern(opPattern), nodeNamePattern(nodePattern) {}
 
 private:
   std::string signaturePattern;
+  std::string nodeNamePattern;
 
 public:
   StringRef getArgument() const override {
@@ -71,51 +73,54 @@ public:
 
   void runOnOperation() override {
     onnx_mlir::EnableByRegexOption traceSpecificOpPattern(
+
         /*emptyIsNone*/ false);
-    // If the signaturePattern is started with "onnx_node_name: ",
-    // the node will be selected by the string attribute of onnx_node_name.
-    std::string header = "onnx_node_name:";
-    std::cout << signaturePattern << "\n";
-    bool useNodeName = false;
-    if (signaturePattern.rfind(header, 0) == 0) {
-      signaturePattern.erase(0, header.length());
-      useNodeName = true;
-      std::cout << signaturePattern << "\n";
-    }
+    onnx_mlir::EnableByRegexOption traceSpecificNodePattern(
+        /*emptyIsNone*/ false);
 
     traceSpecificOpPattern.setRegexString(signaturePattern);
+    traceSpecificNodePattern.setRegexString(nodeNamePattern);
     // Iterate on the operations nested in this function.
     getOperation().walk([&](mlir::Operation *op) {
-      std::string opName = op->getName().getStringRef().str();
-      std::string matchString = opName;
-      if (useNodeName) {
-        StringAttr onnxNodeName =
-            op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-        if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-          matchString = onnxNodeName.getValue().str();
-        }
-      }
       auto dialect = op->getDialect();
+      Location loc = op->getLoc();
+      // Define a lambda function to check whether the node is selected by
+      // its op name or node name, and if yes, insert ONNXSignatureOp
+      auto checkAndInsert = [&](onnx_mlir::EnableByRegexOption &pattern,
+                                std::string matchString, int detail) {
+        if (pattern.isEnabled(matchString)) {
+          // Add signature printing op.
+          OpBuilder builder(op);
+          std::string opName = op->getName().getStringRef().str();
+          std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+          std::string fullName = opName + ", " + nodeName;
+          StringAttr fullNameAttr = builder.getStringAttr(fullName);
+          // Enqueue all input operands, and then the results.
+          llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
+          for (Value res : op->getResults())
+            operAndRes.emplace_back(res);
+          // Since we may use the result of an operation, we must insert the
+          // print operation after the operation.
+          builder.setInsertionPointAfter(op);
+          // When one node is selected, print the details of the tensor.
+          builder.create<ONNXPrintSignatureOp>(
+              loc, fullNameAttr, detail, operAndRes);
+        }
+      };
+
       if (isa<func::FuncDialect>(dialect) || isa<ONNXPrintSignatureOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
         // as ONNX print signature ops.
-      } else if (traceSpecificOpPattern.isEnabled(matchString)) {
-        // Add signature printing op.
-        Location loc = op->getLoc();
-        OpBuilder builder(op);
-        std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
-        std::string fullName = opName + ", " + nodeName;
-        StringAttr fullNameAttr = builder.getStringAttr(fullName);
-        // Enqueue all input operands, and then the results.
-        llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
-        for (Value res : op->getResults())
-          operAndRes.emplace_back(res);
-        // Since we may use the result of an operation, we must insert the
-        // print operation after the operation.
-        builder.setInsertionPointAfter(op);
-        // When one node is selected, print the details of the tensor.
-        builder.create<ONNXPrintSignatureOp>(
-            loc, fullNameAttr, useNodeName ? 1 : 0, operAndRes);
+      } else if (signaturePattern != "NONE") {
+        std::string opName = op->getName().getStringRef().str();
+        checkAndInsert(traceSpecificOpPattern, opName, 0);
+      } else if (nodeNamePattern != "NONE") {
+        StringAttr onnxNodeName =
+            op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+        if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+          std::string nodeNameString = onnxNodeName.getValue().str();
+          checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+        }
       }
     });
   }
@@ -126,6 +131,6 @@ public:
  * Create an instrumentation pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXSignaturePass(
-    const std::string pattern) {
-  return std::make_unique<InstrumentONNXSignaturePass>(pattern);
+    const std::string pattern, const std::string nodePattern) {
+  return std::make_unique<InstrumentONNXSignaturePass>(pattern, nodePattern);
 }

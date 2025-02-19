@@ -172,9 +172,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Print Signatures of each op at runtime if enabled. Should not run
   // signature and instrument passes at the same time as time may include printf
   // overheads.
-  if (instrumentSignatures != "NONE")
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentONNXSignaturePass(instrumentSignatures));
+  if (instrumentSignatures != "NONE" || instrumentOnnxNode != "NONE")
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
+        instrumentSignatures, instrumentOnnxNode));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
