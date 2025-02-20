@@ -118,6 +118,7 @@ extern std::string instrumentOps;                             // onnx-mlir only
 extern unsigned instrumentControlBits;                        // onnx-mlir only
 extern std::string parallelizeOps;                            // onnx-mlir only
 extern std::string instrumentSignatures;                      // onnx-mlir only
+extern std::string instrumentOnnxNode;                        // onnx-mlir only
 extern std::string ONNXOpStats;                               // onnx-mlir only
 extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
