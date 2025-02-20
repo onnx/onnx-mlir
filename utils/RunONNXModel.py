@@ -654,11 +654,14 @@ def data_without_top_bottom_quartile(data, percent):
 ################################################################################
 # Inference Session implementing RunONNXModel.
 #
-# Constructor: fetch the model and compile if needed.
-# Setup: initialize the inputs, which can come from various sources.
-# run_one_inference: run one inference using the inputs set in Setup.
-# run: perform one or more inferences depending on -w/-n and perform timing.
-# teardown: verify values generated in run, save model/input,...
+# Constructor: fetch the model and compile if needed, save model if requested.
+# process_inputs: initialize the inputs, which can come from various sources.
+# run_inference: run one inference using the inputs set in process_inputs.
+# process_output: verify values generated in run, save outputs,...
+# process_perf_results: compute and print performance data.
+#
+# run_performance_test: process inputs, perform several inferences (warmup and perf),
+#   process performance results and validate outputs,
 
 
 class InferenceSession:
@@ -677,7 +680,7 @@ class InferenceSession:
     #  default_model_name
     #  model_dir
     #  session
-    #  inputs (definition of inputs delayed to setup).
+    #  inputs (definition of inputs delayed to process_inputs).
     #  input_names, output_names
     #  temp_dir
 
@@ -855,11 +858,11 @@ class InferenceSession:
         os.environ["OM_CONSTANT_PATH"] = self.model_dir
 
     """
-    Setup: define the inputs for the model and store them in self.inputs.
+    process_inputs: define the model inputs for the model and store them in self.inputs.
     Print input if requested.
     """
 
-    def setup(self, input_feed=None):
+    def process_inputs(self, input_feed=None):
         # Define inputs.
         self.inputs = []
         if input_feed:
@@ -917,37 +920,14 @@ class InferenceSession:
     Perform one inference without any timing.
     """
 
-    def run_one_inference(self):
+    def run_inference(self):
         return self.session.run(self.inputs)
 
     """
-    Perform a short analysis of time spent in the model.
-    When requested outputs are printed and/or verified.
+    When requested outputs are printed, verified, and/or saved.
     """
 
-    def teardown(self, outs, perf_results=None):
-        # Print statistics info, e.g., min/max/stddev inference time.
-        if args.n_iteration > 1:
-            print(
-                "  Statistics 1 (excluding warmup),"
-                " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
-                    np.min(perf_results),
-                    np.max(perf_results),
-                    np.mean(perf_results),
-                    np.std(perf_results, dtype=np.float64),
-                )
-            )
-            t_perf_results = data_without_top_bottom_quartile(perf_results, 25)
-            print(
-                "  Statistics 2 (no warmup/quart.),"
-                " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
-                    np.min(t_perf_results),
-                    np.max(t_perf_results),
-                    np.mean(t_perf_results),
-                    np.std(t_perf_results, dtype=np.float64),
-                )
-            )
-
+    def process_outputs(self, outs):
         # Print the output if required.
         if args.print_output:
             for i, out in enumerate(outs):
@@ -1032,9 +1012,36 @@ class InferenceSession:
                     verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
 
     """
+    Perform a short analysis of time spent in the model.
+    """
+
+    def process_perf_results(self, perf_results):
+        # Print statistics info, e.g., min/max/stddev inference time.
+        if args.n_iteration > 1:
+            print(
+                "  Statistics 1 (excluding warmup),"
+                " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
+                    np.min(perf_results),
+                    np.max(perf_results),
+                    np.mean(perf_results),
+                    np.std(perf_results, dtype=np.float64),
+                )
+            )
+            t_perf_results = data_without_top_bottom_quartile(perf_results, 25)
+            print(
+                "  Statistics 2 (no warmup/quart.),"
+                " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
+                    np.min(t_perf_results),
+                    np.max(t_perf_results),
+                    np.mean(t_perf_results),
+                    np.std(t_perf_results, dtype=np.float64),
+                )
+            )
+
+    """
     From onnxruntime API:
 
-    run(output_names, input_feed)
+    run_performance_test(output_names, input_feed)
     Compute the predictions.
 
     PARAMETERS:
@@ -1050,27 +1057,29 @@ class InferenceSession:
     allow different shape from run to run. 
     """
 
-    def run(self, output_name=None, input_feed=None, **kwargs):
-        # Setup inputs.
-        self.setup(input_feed)
+    def run_performance_test(self, output_name=None, input_feed=None, **kwargs):
+        # Process inputs, saved in self.inputs.
+        self.process_inputs(input_feed)
         # Running inference.
         print("Running inference ...")
         for i in range(args.warmup):
             start = time.perf_counter()
-            outs = self.run_one_inference()
+            outs = self.run_inference()  # Using inputs from self.inputs.
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
 
         perf_results = []
         for i in range(args.n_iteration):
             start = time.perf_counter()
-            outs = self.run_one_inference()
+            outs = self.run_inference()  # Using inputs from self.inputs.
             end = time.perf_counter()
             elapsed = end - start
             perf_results += [elapsed]
             print("  {} iteration, {}, seconds".format(ordinal(i + 1), elapsed))
 
-        self.teardown(outs, perf_results)
+        # Print performance results and verify output.
+        self.process_perf_results(perf_results)
+        self.process_outputs(outs)
         if output_name:
             res = {output_name[i]: outs[i] for i in range(len(outs))}
             return res
@@ -1091,10 +1100,10 @@ def main():
         print(parser.format_usage())
         exit(1)
 
-    # Create inference session and perform a run, which load, compute, and possibly
-    # verify data.
+    # Create inference session and perform a performance run test, which load,
+    # compute, and possibly verify data.
     session = InferenceSession()
-    return session.run()
+    return session.run_performance_test()
 
 
 if __name__ == "__main__":
