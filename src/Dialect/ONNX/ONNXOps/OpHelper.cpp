@@ -760,6 +760,17 @@ bool isScalarTensor(Value v) {
               (getRank(v.getType()) == 1 && getShape(v.getType())[0] == 1)));
 }
 
+IgnoreDiagnostic::IgnoreDiagnostic(DiagnosticEngine &diagEngine)
+    : diagEngine(diagEngine) {
+  id = diagEngine.registerHandler(
+      [](mlir::Diagnostic & /*diag*/) { return success(); });
+}
+
+IgnoreDiagnostic::~IgnoreDiagnostic() {
+  // Reset to the previous state.
+  diagEngine.eraseHandler(id);
+}
+
 bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   Value exponent = op->getY();
   ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
