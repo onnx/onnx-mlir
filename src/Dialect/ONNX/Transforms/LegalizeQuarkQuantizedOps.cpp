@@ -7,6 +7,14 @@
 #include <llvm/Support/raw_os_ostream.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include "mlir/IR/Matchers.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeRange.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Support/LogicalResult.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tosa/IR/TosaOps.h>
 #include <mlir/IR/BuiltinAttributes.h>
@@ -26,26 +34,18 @@
 #include <mlir/Transforms/DialectConversion.h>
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/LegalizeQuarkQuantizedOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
 namespace {
-
-enum class FPConversion {
-  UnknownType,
-  F32,
-  F16,
-  BF16,
-  F8E4M3FN,
-  F8E4M3B11FNUZ,
-  F8E4M3FNUZ,
-  F8E5M2,
-  F8E5M2FNUZ
-};
 
 class IgnoreDiagnostic {
 public:
@@ -65,7 +65,20 @@ private:
 };
 
 Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
-    SmallVector<Value> &operands, llvm::SmallVector<Type> &types) {
+    SmallVector<Value> &operands, llvm::SmallVector<Type> &types,
+    const FloatType toFloatType) {
+
+  // Requires special treatment for ONNXCastOp.
+  if (auto onnxCastOp = dyn_cast<mlir::ONNXCastOp>(op)) {
+    // llvm::errs() << "here\n";
+    assert(operands.size() == 1 && "CastOp must have a simple operand");
+    auto inputValue = operands.back();
+    auto onnxCastTy = cast<mlir::TensorType>(inputValue.getType());
+    auto newOnnxCastTy = onnxCastTy.clone(toFloatType);
+    return rewriter.create<mlir::ONNXCastOp>(op->getLoc(), newOnnxCastTy,
+        operands.back(), onnxCastOp.getSaturate(), toFloatType);
+  }
+
   // adapted from
   // third-party/llvm-project/mlir/lib/Conversion/MemRefToSPIRV/MapMemRefStorageClassPass.cpp
 
@@ -78,83 +91,116 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
 }
 
 bool isQuarkGeneratedCastOp(
-    Operation *op, const FloatType fromType, const FloatType toType) {
+    Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
   if (!isa<mlir::ONNXCastOp>(op)) {
     return false;
   }
   auto castOp = cast<mlir::ONNXCastOp>(op);
-  return castOp.getTo() == toType &&
+  return castOp.getTo() == toFloatType &&
          cast<TensorType>(castOp.getInput().getType()).getElementType() ==
-             fromType;
+             fromFloatType;
 }
 
 bool isInputCastOp(
-    Operation *op, const FloatType fromType, const FloatType toType) {
-  return isQuarkGeneratedCastOp(op, toType, fromType);
+    Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
+  return isQuarkGeneratedCastOp(op, toFloatType, fromFloatType);
 }
 
 bool isOutputCastOp(
-    Operation *op, const FloatType fromType, const FloatType toType) {
-  return isQuarkGeneratedCastOp(op, fromType, toType);
+    Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
+  return isQuarkGeneratedCastOp(op, fromFloatType, toFloatType);
 }
 
-llvm::APFloat convert(llvm::APFloat apFloat, FloatType toType) {
-  bool ignored;
-  apFloat.convert(
-      toType.getFloatSemantics(), llvm::APFloat::rmNearestTiesToEven, &ignored);
-  return apFloat;
+llvm::APFloat convertF32ToBf16(
+    const llvm::fltSemantics &bf16Semantics, uint32_t f32Value) {
+  return llvm::APFloat(bf16Semantics,
+      llvm::APInt(sizeof(uint16_t) * 8, static_cast<uint16_t>(f32Value >> 16)));
 }
 
-mlir::DenseElementsAttr getDenseElementAttrFromConstOp(Operation *constOp,
-    FloatType dstFloatType, mlir::ShapedType dstShapedTy,
-    DenseElementsAttr denseValueAttr) {
+mlir::DenseElementsAttr getDenseElementAttrFromConstOp(
+    const llvm::fltSemantics &bf16Semantics, ShapedType toShapedTy,
+    DenseElementsAttr &constantValues) {
   std::vector<APFloat> newValues;
-  llvm::transform(denseValueAttr.template getValues<llvm::APFloat>(),
-      std::back_inserter(newValues),
-      [&](llvm::APFloat apFloat) -> llvm::APFloat {
-        return convert(apFloat, dstFloatType);
+  // constantValues.dump();
+  llvm::transform(constantValues.getValues<APFloat>(),
+      std::back_inserter(newValues), [&](APFloat fp32Apfloat) -> llvm::APFloat {
+        return convertF32ToBf16(
+            bf16Semantics, fp32Apfloat.bitcastToAPInt().getZExtValue());
       });
   // Create a new const op with the same data and shape but 'ToFPTy'
   // element type
-  return mlir::DenseElementsAttr::get(dstShapedTy, llvm::ArrayRef(newValues));
+  // toShapedTy.dump();
+  return mlir::DenseElementsAttr::get(toShapedTy, llvm::ArrayRef(newValues));
 }
 
-LogicalResult createNewConstantOp(PatternRewriter &rewriter,
-    mlir::ONNXConstantOp constantOp, FloatType dstFloatTy,
-    ShapedType dstShapedTy) {
-
-  auto sparseValue =
-      dyn_cast_or_null<ElementsAttr>(constantOp.getSparseValueAttr());
+mlir::Value createNewConstantOp(PatternRewriter &rewriter,
+    mlir::ONNXConstantOp constantOp, FloatType fromFloatTy, FloatType toFloatTy,
+    ShapedType toShapedTy) {
 
   // Avoid rewriting any const whose element type is not 'FromFPTy'
-  ElementsAttr valueAttr;
-  if (sparseValue) {
+  ElementsAttr valueAttr = cast<ElementsAttr>(constantOp.getValueAttr());
+
+  if (valueAttr.getElementType() != fromFloatTy) {
+    return constantOp;
+  }
+
+  if (valueAttr.getElementType() == toFloatTy) {
+    llvm::errs() << "Here I am\n";
+    return constantOp;
+  }
+
+  ElementsAttr newValueAttr;
+
+  auto &bf16Semantics = toFloatTy.getFloatSemantics();
+  // toFloatTy.dump();
+
+  if (valueAttr.isSplat()) {
+    auto f32Value = valueAttr.getSplatValue<llvm::APFloat>();
+    newValueAttr = mlir::DenseElementsAttr::get(
+        toShapedTy, convertF32ToBf16(bf16Semantics,
+                        f32Value.bitcastToAPInt().getZExtValue()));
+  } else {
+    onnx_mlir::OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    DenseElementsAttr valueElements =
+        elementsBuilder.toDenseElementsAttr(valueAttr);
+    newValueAttr = getDenseElementAttrFromConstOp(
+        bf16Semantics, toShapedTy, valueElements);
+  }
+
+  // toShapedTy.dump();
+  auto constantValue = rewriter.create<mlir::ONNXConstantOp>(
+      constantOp->getLoc(), toShapedTy, Attribute(), newValueAttr,
+      mlir::FloatAttr(), mlir::ArrayAttr(), mlir::IntegerAttr(),
+      mlir::ArrayAttr(), mlir::StringAttr(), mlir::ArrayAttr());
+  return constantValue;
+}
+
+LogicalResult createAndReplaceConstantOp(PatternRewriter &rewriter,
+    mlir::ONNXCastOp outputCastOp, mlir::ONNXConstantOp constantOp,
+    FloatType fromFloatTy, FloatType toFloatTy) {
+
+  auto shapedTy = cast<ShapedType>(constantOp->getResult(0).getType());
+  if (shapedTy.getElementType() != fromFloatTy) {
     return rewriter.notifyMatchFailure(
         constantOp->getLoc(), "operation doesn't need type conversion");
   }
-  valueAttr = dyn_cast<ElementsAttr>(constantOp.getValueAttr());
 
-  if (valueAttr.getType() == dstShapedTy) {
+  auto toShapedTy = shapedTy.clone(toFloatTy);
+  if (shapedTy == toShapedTy) {
     return rewriter.notifyMatchFailure(
         constantOp->getLoc(), "operation doesn't need type conversion");
   }
 
-  // Avoid rewriting non-dense constants (for now)
-  auto denseValueAttr = dyn_cast<DenseElementsAttr>(valueAttr);
-  if (!denseValueAttr) {
+  if (!onnx_mlir::isDenseONNXConstant(constantOp.getResult())) {
     return rewriter.notifyMatchFailure(
-        constantOp->getLoc(), "not a dense value");
+        constantOp->getLoc(), "Constant should have a dense attribute.");
   }
 
-  auto newDenseValueAttrTy = denseValueAttr.getType().clone(dstFloatTy);
-  auto newValueAttr = getDenseElementAttrFromConstOp(
-      constantOp, dstFloatTy, newDenseValueAttrTy, denseValueAttr);
+  auto valueAttr = createNewConstantOp(
+      rewriter, constantOp, fromFloatTy, toFloatTy, toShapedTy);
 
   // Replace the original const op with the new one
-  rewriter.replaceOpWithNewOp<mlir::ONNXConstantOp>(constantOp, dstShapedTy,
-      Attribute(), newValueAttr, mlir::FloatAttr(), mlir::ArrayAttr(),
-      mlir::IntegerAttr(), mlir::ArrayAttr(), mlir::StringAttr(),
-      mlir::ArrayAttr());
+  rewriter.replaceOp(outputCastOp, valueAttr);
 
   return success();
 }
@@ -164,6 +210,8 @@ LogicalResult createNewConstantOp(PatternRewriter &rewriter,
 /// converts a sequence of onnx.Casts and Ops(F32) to a single Bf16 operation.
 /// Example:
 ///
+///    OpA (ty=bf16)    OpB (ty=bf16)
+///       \               /
 ///  onnx.Cast(bf16)   onnx.Cast(bf16)  {to=f32}
 ///          \          /
 ///        onnx.Add(f32,f32)
@@ -172,160 +220,196 @@ LogicalResult createNewConstantOp(PatternRewriter &rewriter,
 ///
 ///   is converted to:
 ///
-///      onnx.Add(bf16, bf16)
+///      onnx.Add(OpA, OpB)
 ///
 class GenericPattern : public OpRewritePattern<mlir::ONNXCastOp> {
 public:
-  GenericPattern(const FloatType fromType, const FloatType toType,
-      mlir::MLIRContext *context)
-      : mlir::OpRewritePattern<mlir::ONNXCastOp>(context), fromType(fromType),
-        toType(toType) {}
+  GenericPattern(mlir::MLIRContext *context)
+      : mlir::OpRewritePattern<mlir::ONNXCastOp>(context),
+        fromFloatType(FloatType::getF32(context)),
+        toFloatType(FloatType::getBF16(context)) {}
 
   LogicalResult matchAndRewrite(
       mlir::ONNXCastOp castOp, PatternRewriter &rewriter) const override {
-    auto castInput = castOp.getInput();
-    if (!isOutputCastOp(castOp, fromType, toType)) {
+    if (!isOutputCastOp(castOp, fromFloatType, toFloatType)) {
       return rewriter.notifyMatchFailure(castOp->getLoc(),
           "Conversion should start from an "
           "ONNXCastOp(from=f32 to=bf16)");
     }
 
-    auto *op = castInput.getDefiningOp();
+    auto *op = castOp.getInput().getDefiningOp();
     if (!op) {
       return rewriter.notifyMatchFailure(
           castOp->getLoc(), "Block Argument found.");
     }
 
-    auto shapedTy = cast<ShapedType>(op->getResult(0).getType());
-    auto dstShapedTy = shapedTy.clone(toType);
+    if (op->getNumRegions() > 0) {
+      return rewriter.notifyMatchFailure(castOp->getLoc(),
+          "Does not support conversion of operations with region.");
+    }
+
+    if (!isa<mlir::ONNXDialect>(op->getDialect())) {
+      return rewriter.notifyMatchFailure(
+          castOp->getLoc(), "Only supports onnx-mlir operations.");
+    }
+
+    if (llvm::any_of(llvm::concat<const mlir::Type>(
+                         op->getOperandTypes(), op->getResultTypes()),
+            [&](const Type ty) { return isa<UnrankedTensorType>(ty); })) {
+      return rewriter.notifyMatchFailure(
+          castOp->getLoc(), "Only supports ranked types.");
+    }
 
     if (auto constOp = dyn_cast<mlir::ONNXConstantOp>(op)) {
-      return createNewConstantOp(rewriter, constOp, toType, dstShapedTy);
+      return createAndReplaceConstantOp(
+          rewriter, castOp, constOp, fromFloatType, toFloatType);
     }
 
     SmallVector<Value> operands;
+    SmallVector<Operation *> createdOpsTracker;
     llvm::transform(
         op->getOperands(), std::back_inserter(operands), [&](Value operand) {
+          // llvm::errs() << "Operand value";
+          // operand.dump();
           auto *operandOp = operand.getDefiningOp();
           if (!operandOp)
             return operand;
 
-          if (onnx_mlir::isNoneValue(operand)) {
+          if (onnx_mlir::isNoneValue(operand))
             return operand;
-          }
+
           if (auto constOp = dyn_cast<mlir::ONNXConstantOp>(operandOp)) {
-            auto newValueAttr = constOp.getValueAttr();
-            Value constValue = rewriter.create<ONNXConstantOp>(
-                operandOp->getLoc(), mlir::Attribute(), newValueAttr);
+            auto shapedTy = cast<ShapedType>(constOp->getResult(0).getType());
+            auto toShapedTy = shapedTy.clone(toFloatType);
+
+            auto constValue = createNewConstantOp(
+                rewriter, constOp, fromFloatType, toFloatType, toShapedTy);
+
+            createdOpsTracker.push_back(constValue.getDefiningOp());
             return constValue;
           }
-          operandOp->dump();
-          return operandOp->getOperand(0);
+
+          if (!isInputCastOp(operandOp, fromFloatType, toFloatType)) {
+            return operand;
+          }
+          return cast<mlir::ONNXCastOp>(operandOp).getInput();
         });
 
+    if (llvm::any_of(llvm::concat<const mlir::Type>(
+                         op->getOperandTypes(), op->getResultTypes()),
+            [&](const Type ty) {
+              auto unrankedType = dyn_cast<UnrankedTensorType>(ty);
+              return unrankedType &&
+                     unrankedType.getElementType() == fromFloatType;
+            })) {
+      return rewriter.notifyMatchFailure(
+          castOp->getLoc(), "Only supports ranked types.");
+    }
+    // llvm::errs() << "here2\n";
+    if (llvm::any_of(operands, [&](auto operand) {
+          auto tensorType = dyn_cast<TensorType>(operand.getType());
+          return tensorType && tensorType.getElementType() == fromFloatType;
+        })) {
+      return rewriter.notifyMatchFailure(
+          castOp->getLoc(), "Missing input ONNXCastOp(from=bf16 to=f32)");
+    }
+    // llvm::errs() << "here3\n";
     SmallVector<Type> resultTypes;
     llvm::SmallDenseMap<Operation *, int64_t> resultOps;
     llvm::transform(op->getOpResults(), std::back_inserter(resultTypes),
         [&](OpResult result) -> Type {
           auto *opResult = result.getOwner();
+          if (onnx_mlir::isNoneValue(result)) {
+            return result.getType();
+          }
 
           llvm::for_each(opResult->getUsers(), [&](Operation *userOp) {
             resultOps[userOp] = result.getResultNumber();
           });
           if (llvm::none_of(opResult->getUsers(), [&](Operation *userOp) {
                 resultOps[userOp] = result.getResultNumber();
-                return isOutputCastOp(userOp, fromType, toType);
+                return isOutputCastOp(userOp, fromFloatType, toFloatType);
               })) {
             return result.getType();
           }
           assert(llvm::all_of(opResult->getUsers(), [&](Operation *userOp) {
-            return isOutputCastOp(userOp, fromType, toType);
+            return isOutputCastOp(userOp, fromFloatType, toFloatType);
           }));
           auto resultType = cast<TensorType>(result.getType());
-          return resultType.clone(toType);
+          return resultType.clone(toFloatType);
         });
 
-    // TODO: FXML-4779 - allow operations with regions to be converted.
-    bool hasNoRegion = op->getNumRegions() == 0;
-    bool isNewTypeCompatible = hasNoRegion;
-
-    Operation *newOp = nullptr;
-    if (hasNoRegion) {
-      // Try to create the ONNX operation with the new type.
-      newOp = createOpWithNewType(rewriter, op, operands, resultTypes);
-
-      // MLIR has validators for operations that fail if the types are
-      // unsupported. We make use of this here by seeing if the type
-      // replacement in 'newOp' is acceptable. If it isn't, we fallback to the
-      // casting solution. Note that IgnoreDiagnostic is there to absorb
-      // diagnostics that would be produced in the cases 'newOp' is not
-      // acceptable. Since we will not use the 'newOp, the diagnostic is
-      // irrelevant.
-      IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
-      isNewTypeCompatible &= succeeded(mlir::verify(newOp));
+    // Try to create the ONNX operation with the new type.
+    Operation *newOp =
+        createOpWithNewType(rewriter, op, operands, resultTypes, toFloatType);
+    // llvm::errs() << "here6\n";
+    // MLIR has validators for operations that fail if the types are
+    // unsupported. We make use of this here by seeing if the type
+    // replacement in 'newOp' is acceptable. If it isn't, we fallback to the
+    // casting solution. Note that IgnoreDiagnostic is there to absorb
+    // diagnostics that would be produced in the cases 'newOp' is not
+    // acceptable. Since we will not use the 'newOp, the diagnostic is
+    // irrelevant.
+    IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
+    bool isNewTypeCompatible;
+    if (auto info = newOp->getName().getRegisteredInfo()) {
+      // llvm::errs() << "here17\n";
+      isNewTypeCompatible = succeeded(info->verifyInvariants(newOp));
+    } else {
+      // llvm::errs() << "here18\n";
+      isNewTypeCompatible = succeeded(mlir::verify(newOp));
     }
-
+    if (isa<mlir::ONNXCastOp>(op)) {
+      mlir::OpPrintingFlags flags;
+      flags.elideLargeElementsAttrs(16);
+      op->getParentOp()->print(llvm::errs(), flags);
+    }
+    // llvm::errs() << "here19\n";
+    // mlir::OpPrintingFlags flags;
+    // flags.elideLargeElementsAttrs(16);
     if (!isNewTypeCompatible) {
+      // op->getParentOp()->print(llvm::errs(), flags);
+      // newOp->getResult(resultOps[castOp]).dump();
+      llvm::for_each(
+          createdOpsTracker, [&](auto *createdOp) { createdOp->erase(); });
       newOp->erase();
+      // llvm::errs() << "here10\n";
+      // castOp.dump();
       return rewriter.notifyMatchFailure(
           castOp->getLoc(), "cannot create operation with this type");
     }
+    // flags.elideLargeElementsAttrs(16);
+    // llvm::errs() << "Starting\n";
+    // op->getParentOp()->print(llvm::errs(), flags);
+    // castOp.dump();
+    // newOp->getResult(resultOps[castOp]).dump();
 
     for (auto [op, resultNumber] : resultOps) {
-      if (op == castOp)
-        continue;
       rewriter.replaceAllOpUsesWith(op, newOp->getResult(resultNumber));
     }
-    rewriter.replaceOp(castOp, newOp->getResult(resultOps[castOp]));
+
     return success();
   }
 
 private:
-  const FloatType fromType;
-  const FloatType toType;
+  const FloatType fromFloatType;
+  const FloatType toFloatType;
 };
 
 /// Pass for converting all 'FromFPTy' values to 'ToFPTy' in a FuncOp
-class LegalizeOpsWithCastToType : public PassWrapper<LegalizeOpsWithCastToType,
-                                      OperationPass<func::FuncOp>> {
+class LegalizeOpsWithCasttoFloatType
+    : public PassWrapper<LegalizeOpsWithCasttoFloatType,
+          OperationPass<func::FuncOp>> {
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LegalizeOpsWithCastToType)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LegalizeOpsWithCasttoFloatType)
 
-  LegalizeOpsWithCastToType() = default;
-  LegalizeOpsWithCastToType(const LegalizeOpsWithCastToType &pass)
-      : mlir::PassWrapper<LegalizeOpsWithCastToType,
+  LegalizeOpsWithCasttoFloatType() = default;
+  LegalizeOpsWithCasttoFloatType(const LegalizeOpsWithCasttoFloatType &pass)
+      : mlir::PassWrapper<LegalizeOpsWithCasttoFloatType,
             OperationPass<func::FuncOp>>() {}
-
-  Option<FPConversion> fromType{*this, "from-type",
-      ::llvm::cl::desc("Source element type that needs to be converted"),
-      ::llvm::cl::init(FPConversion::F32),
-      ::llvm::cl::values(
-          clEnumValN(FPConversion::UnknownType, "", "Unknown type"),
-          clEnumValN(FPConversion::F32, "f32", "Convert from F32"),
-          clEnumValN(FPConversion::BF16, "bf16", "Convert from BF16"))};
-
-  ::mlir::Pass::Option<FPConversion> toType{*this, "to-type",
-      ::llvm::cl::desc("Destination element type to legalize operations "
-                       "surrounded by casts."),
-      ::llvm::cl::init(FPConversion::BF16),
-      ::llvm::cl::values(
-          clEnumValN(FPConversion::UnknownType, "", "Unknown type"),
-          clEnumValN(FPConversion::F32, "f32", "Convert to F32"),
-          clEnumValN(FPConversion::BF16, "bf16", "Convert to BF16"))};
 
   StringRef getArgument() const override {
     return "legalize-quark-quantized-ops";
-  }
-
-  static inline FloatType getFPType(MLIRContext *ctx, FPConversion type) {
-    switch (type) {
-    case FPConversion::BF16:
-      return FloatType::getBF16(ctx);
-    case FPConversion::F32:
-      return FloatType::getF32(ctx);
-    default:
-      llvm_unreachable("unknown type");
-    }
   }
 
   void runOnOperation() override {
@@ -333,29 +417,28 @@ public:
     auto &ctx = this->getContext();
     Operation *op = this->getOperation();
 
-    // auto module = op->getParentOfType<ModuleOp>();
-    // if (!module->hasAttr("producer.name")) {
-    //   return;
-    // }
-
-    op->dump();
+    // mlir::OpPrintingFlags flags;
+    // flags.elideLargeElementsAttrs(16);
+    // llvm::errs() << "Starting\n";
+    // op->print(llvm::errs(), flags);
     RewritePatternSet greedyPatterns(&ctx);
 
-    // Some patterns above may add some reshape, match them
-    greedyPatterns.insert<GenericPattern>(
-        getFPType(&ctx, this->fromType), getFPType(&ctx, this->toType), &ctx);
-
-    GreedyRewriteConfig config;
-    config.strictMode = GreedyRewriteStrictness::ExistingOps;
-    if (failed(applyPatternsAndFoldGreedily(
-            op, std::move(greedyPatterns), config)))
+    onnx_mlir::getLegalizeQuarkQuantizedOpsPatterns(greedyPatterns);
+    if (failed(applyPatternsAndFoldGreedily(op, std::move(greedyPatterns))))
       return signalPassFailure();
+    // llvm::errs() << "Finishing\n";
+    // op->print(llvm::errs(), flags);
   }
 };
 
 } // namespace
 
+void onnx_mlir::getLegalizeQuarkQuantizedOpsPatterns(
+    RewritePatternSet &patterns) {
+  patterns.insert<GenericPattern>(patterns.getContext());
+}
+
 /// Factory function for creating the bf16-to-f32 pass object
 std::unique_ptr<mlir::Pass> onnx_mlir::createLegalizeQuarkQuantizedOpsPass() {
-  return std::make_unique<LegalizeOpsWithCastToType>();
+  return std::make_unique<LegalizeOpsWithCasttoFloatType>();
 }

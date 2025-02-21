@@ -72,7 +72,7 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableRecomposition);
+    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization = false);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();

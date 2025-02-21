@@ -109,3 +109,7 @@ add_onnx_mlir_library(OMONNXStandardFuncReturnPass
   OMONNXOps
   OMShapeInference
   )
+
+
+target_compile_options(OMONNXRewrite PRIVATE -g -O0)
+# target_compile_options(obj.OMONNXRewrite PRIVATE -g -O0)
