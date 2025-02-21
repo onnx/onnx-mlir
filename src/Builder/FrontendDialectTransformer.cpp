@@ -1162,10 +1162,10 @@ private:
     // Note the minimum supported opset only applies to the default domain.
     if (isDefaultDomain(node.domain()) && current_opset < opset_list.back() &&
         current_opset < MINIMUM_SUPPORTED_OPSET)
-      llvm::errs() << "Warning: ONNX " << node.op_type()
+      llvm::errs() << "\nWarning: ONNX " << node.op_type()
                    << " in your model is using Opset " << current_opset
                    << ", which is quite old. Please consider regenerating your "
-                      "model with a newer Opset.\n";
+                      "model with a newer Opset.\n\n";
 
     for (int i = opset_list.size() - 1; i > 0; i--) {
       if (current_opset < opset_list[i - 1]) {
@@ -1638,9 +1638,9 @@ int readAndStripComments(
     if (line->contains("//")) {
       // Not stripping end-of-line comments because there's no robust way to
       // distinguish them from valid uses of // in the json itself.
-      llvm::errs() << "Warning: possible invalid end-of-line // comment in "
+      llvm::errs() << "\nWarning: possible invalid end-of-line // comment in "
                       "json input file "
-                   << fname.str() << ":" << line.line_number() << "\n";
+                   << fname.str() << ":" << line.line_number() << "\n\n";
     }
     contents.append(*line);
   }

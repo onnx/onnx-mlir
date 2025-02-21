@@ -468,8 +468,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
                .appendStr(getOptimizationLevelUniqueOption(
                    {getLLVMOptions(), getXoptOption()}))
                .appendStr(getTargetTripleOption())
-               .appendStr(getTargetArchOption())
-               .appendStr(getTargetCPUOption())
+               .appendStr(getTargetArchOption(/*forLLVM toolchain*/ true))
+               .appendStr(getTargetCPUOption(/*forLLVM*/ true))
                .appendList(getXoptOption())
                .appendList(getLLVMOptions())
                .appendList({"-o", optimizedBitcodeNameWithExt})
@@ -492,8 +492,8 @@ static int genModelObject(
                .appendStr(getOptimizationLevelUniqueOption(
                    {getLLVMOptions(), getXllcOption()}))
                .appendStr(getTargetTripleOption())
-               .appendStr(getTargetArchOption())
-               .appendStr(getTargetCPUOption())
+               .appendStr(getTargetArchOption(/*LLVM toolchain*/ true))
+               .appendStr(getTargetCPUOption(/*LLVM*/ true))
                .appendList(getXllcOption())
                .appendList(getLLVMOptions())
                .appendStr("-filetype=obj")
@@ -888,14 +888,16 @@ static const llvm::Target *getLLVMTarget(
   return LLVMTarget;
 }
 
-/// Return the module datalayout string. The datalayout string is determined
+/// Return the module data layout string. The data layout string is determined
 /// by creating a target machine using the target triple and target cpu.
 static std::string getDataLayout(const Location &loc) {
   const llvm::Target &LLVMTarget = *getLLVMTarget(mtriple, loc);
   llvm::TargetOptions ops;
+  std::string mcpuForLLVMToolchain = getTargetCPUOption(
+      /*forLLVM*/ true, /*cpu only*/ true);
   auto targetMachine =
       std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
-          mtriple, mcpu, "" /*features*/, ops, std::nullopt)};
+          mtriple, mcpuForLLVMToolchain, "" /*features*/, ops, std::nullopt)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;
@@ -903,7 +905,7 @@ static std::string getDataLayout(const Location &loc) {
 
   const llvm::DataLayout &dl = targetMachine->createDataLayout();
   std::string dataLayoutString = dl.getStringRepresentation();
-  assert(dataLayoutString != "" && "Expecting a valid target datalayout");
+  assert(dataLayoutString != "" && "Expecting a valid target data layout");
 
   return dataLayoutString;
 }
@@ -1030,6 +1032,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   bool hasAccel = false;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     hasAccel = true;
+    accel->configurePasses();
     accel->addPasses(module, pm, emissionTarget, outputNameNoExt);
   }
   if (!hasAccel)

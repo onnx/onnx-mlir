@@ -2,7 +2,7 @@
 
 //===-- ZLowOps.td -- ZLow Dialect Operation Definitions -*- tablegen ------==//
 //
-// Copyright 2019-2020 The IBM Research Authors
+// Copyright 2019-2024 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -36,8 +36,13 @@ class ZLow_Op<string mnemonic, list<Trait> traits = []> :
 def DLF16 : Type<CPred<"$_self.isF16()">, "dlfloat16 type">,
                  BuildableType<"$_builder.getF16Type()">;
 
+// 0-rank MemRef for scalar.
+def ODMemRefF32: MemRefRankOf<[F32], [0]>;
+
 // MemRef-like type for zTensor.
 def ZMemRef : MemRefOf<[DLF16]>;
+// Quantized zTensor.
+def ZQMemRef : MemRefOf<[DLF16, I8]>;
 
 //===----------------------------------------------------------------------===//
 // ZLow Operations
@@ -121,6 +126,19 @@ def ZLowExpOp:ZLow_Op<"exp", [MemRefsNormalizable,
                        StrAttr:$layout);
 }
 
+
+def ZLowInvSqrtOp:ZLow_Op<"invsqrt", [MemRefsNormalizable]> {
+  let summary = "ZLow invsqrt operation";
+  let description = [{
+  ZLow operation to perform a invsqrt.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       StrAttr:$layout);
+}
+
+
 def ZLowMinOp:ZLow_Op<"min", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow min operation";
@@ -147,11 +165,34 @@ def ZLowMaxOp:ZLow_Op<"max", [MemRefsNormalizable,
                        StrAttr:$layout);
 }
 
+def ZLowLeakyReluOp:ZLow_Op<"leakyrelu", [MemRefsNormalizable]> {
+  let summary = "ZLow leakyrelu operation";
+  let description = [{
+  ZLow operation to perform a leakyrelu.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       DefaultValuedAttr<F32Attr, "0.01">:$alpha,
+                       StrAttr:$layout);
+}
+
 def ZLowReluOp:ZLow_Op<"relu", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow relu operation";
   let description = [{
   ZLow operation to perform a relu.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       StrAttr:$layout);
+}
+
+def ZLowGeluOp:ZLow_Op<"gelu", [MemRefsNormalizable]> {
+  let summary = "ZLow gelu operation";
+  let description = [{
+  ZLow operation to perform a gelu.
   }];
   let arguments = (ins ZMemRef:$X,
                        MemRefOf<[I64]>:$shape,
@@ -198,11 +239,82 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable,
                        StrAttr:$act_func);
 }
 
+def ZLowSqrtOp:ZLow_Op<"sqrt", [MemRefsNormalizable]> {
+  let summary = "ZLow sqrt operation";
+  let description = [{
+  ZLow operation to perform a sqrt.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       StrAttr:$layout);
+}
+
+def ZLowReduceMaxOp:ZLow_Op<"reducemax", [MemRefsNormalizable]> {
+  let summary = "ZLow reducemax operation";
+  let description = [{
+  ZLow operation to perform a reducemax.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I8]>:$work_area,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       StrAttr:$layout);
+}
+
+def ZLowReduceMinOp:ZLow_Op<"reducemin", [MemRefsNormalizable]> {
+  let summary = "ZLow reducemin operation";
+  let description = [{
+  ZLow operation to perform a reducemin.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I8]>:$work_area,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       StrAttr:$layout);
+}
+
 def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow matmul operation";
   let description = [{
   ZLow operation to perform a matmul.
+  * In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
+  shape is a 1D MemRef (memref<3xi64>) whose items are:
+    * 1st item: m
+    * 2nd item: n
+    * 3rd item: p
+  * In case of stacked: X(s, m, n) * Y(s, n, p) + Bias(s, p)
+       or broadcasting1: X(m, n) * Y(s, n, p) + Bias(s, p)
+       or broadcasting23: X(s, m, n) * Y(n, p) + Bias(p)
+  shape is a 1D MemRef (memref<4xi64>) whose items are:
+    * 1st item: s
+    * 2nd item: m
+    * 3rd item: n
+    * 4th item: p
+  * is_bcast1:  -1 broadcasting1, 0: no broadcasting1.
+  * is_bcast23: -1 broadcasting23, 0: no broadcasting23.
+  * is_stacked: -1 stacked, 0: unstacked.
+  * transposeA: !0 transpose A, 0: do not transpose A.
+  * transposeB: !0 transpose B, 0: do not transpose B.
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       ZMemRef:$Bias,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
+                       DefaultValuedAttr<SI64Attr, "0">:$is_bcast1,
+                       DefaultValuedAttr<SI64Attr, "-1">:$is_bcast23,
+                       DefaultValuedAttr<SI64Attr, "-1">:$is_stacked,
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeA,
+                       DefaultValuedAttr<SI64Attr, "0">:$transposeB);
+}
+
+def ZLowQuantizedMatMulOp:ZLow_Op<"quantizedMatmul", [MemRefsNormalizable]> {
+  let summary = "ZLow quantized matmul operation";
+  let description = [{
+  ZLow operation to perform a matmul.
+  work_area: a 4K-aligned buffer having the same layout as bias but dlfloat16 type.
   * In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
   shape is a 1D MemRef (memref<3xi64>) whose items are:
     * 1st item: m
@@ -217,14 +329,27 @@ def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable,
     * 4th item: p
   * is_bcast: -1 broadcasting, 0: no broadcasting.
   * is_stacked: -1 stacked, 0: unstacked.
+  * DequantizeOutput: -1 output is dequantized, 0: output is not dequantized.
+  * PreComputedBias: -1 bias is re-computed, 0: bias is not pre-computed.
+
+  Values for `q_type` are "DLFLOAT16", "INT8", "WEIGHTS", "UNDEFINED".
+
   }];
-  let arguments = (ins ZMemRef:$X,
-                       ZMemRef:$Y,
-                       ZMemRef:$Bias,
+  let arguments = (ins ZQMemRef:$X, ODMemRefF32:$x_rec_scale, ODMemRefF32:$x_offset,
+                       ZQMemRef:$Y, ODMemRefF32:$y_rec_scale, ODMemRefF32:$y_offset,
+                       ZQMemRef:$Bias, ODMemRefF32:$bias_rec_scale, ODMemRefF32:$bias_offset,
+                       AnyTypeOf<[ZQMemRef, NoneType]>:$work_area,
                        MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+                       ZQMemRef:$Out, ODMemRefF32:$out_rec_scale, ODMemRefF32:$out_offset,
+                       StrAttr:$x_q_type,
+                       StrAttr:$y_q_type,
+                       StrAttr:$bias_q_type,
+                       StrAttr:$out_q_type,
                        DefaultValuedAttr<SI64Attr, "-1">:$is_bcast,
-                       DefaultValuedAttr<SI64Attr, "-1">:$is_stacked);
+                       DefaultValuedAttr<SI64Attr, "-1">:$is_stacked,
+                       DefaultValuedAttr<SI64Attr, "0">:$pre_computed_bias,
+                       DefaultValuedAttr<SI64Attr, "0">:$disable_clipping,
+                       DefaultValuedAttr<SI64Attr, "0">:$dequantize_output);
 }
 
 def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable,
@@ -338,6 +463,21 @@ def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable,
                        MemRefOf<[F16, F32]>:$h_gate,
                        ZMemRef:$out,
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
+}
+
+def ZLowQuantizedStickOp:ZLow_Op<"quantizedStick", [MemRefsNormalizable]> {
+  let summary = "ZLow stick operation for quantization";
+  let description = [{
+  "ZLow operation to perform a quantization stick."
+  "Type is one of values: dlfloat16, int8, and weights."
+  }];
+  let arguments = (ins MemRefOf<[I8, F32]>:$X,
+                       MemRefRankOf<[F32], [0]>:$rec_scale,
+                       MemRefRankOf<[F32], [0]>:$offset,
+                       ZQMemRef:$out,
+                       StrAttr:$layout,
+                       StrAttr:$q_type);
+  let hasVerifier = 1;
 }
 
 def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable,

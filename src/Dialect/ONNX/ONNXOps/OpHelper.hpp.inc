@@ -33,6 +33,22 @@ bool definedBy(mlir::Value v) {
   return !mlir::isa<mlir::BlockArgument>(v) && llvm::isa<OP>(v.getDefiningOp());
 }
 
+template <typename OP1, typename OP2>
+bool areDefinedBy(mlir::Value A, mlir::Value B, mlir::Value &matchedOP1, mlir::Value
+  &matchedOP2) {
+  if (A.getDefiningOp<OP1>() && B.getDefiningOp<OP2>()) {
+    matchedOP1 = A;
+    matchedOP2 = B;
+    return true;
+  }
+  if (A.getDefiningOp<OP2>() && B.getDefiningOp<OP1>()) {
+    matchedOP1 = B;
+    matchedOP2 = A;
+    return true;
+  }
+  return false;
+}
+
 // Support for recognizing patterns. Detects if the operation "op" has an input
 // operand number "matchThisOperandIndex" that is defined by an operation of
 // type "OP". If that is the case, "matchOperand" will be set to that operand,

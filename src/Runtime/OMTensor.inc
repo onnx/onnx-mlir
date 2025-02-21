@@ -44,13 +44,29 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
+#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFPConversion.h"
+#endif
 
 #if defined(__APPLE__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
 // generated llvm IR, but it somehow doesn't come out of the box on MacOS.
 int *__attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
+
+#ifdef ENABLE_PYRUNTIME_LIGHT
+// The implementation depends on src/Utility and llvm. Will be solved in
+// another PR. Here are just dummy definitions for compilation
+float om_f16_to_f32(uint16_t a) {
+  return (float) 0;
+}
+
+uint16_t  om_f32_to_f16(uint16_t a) {
+  return (uint16_t) 0;
+}
+#endif
+
+
 
 // On some platforms LLVM generates f16 conversion code that calls some
 // of these C runtime functions.
@@ -480,7 +496,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 /* Helper macros to print data for 1-4D tensors  */
 #define LOOP_1(INDEX, IV, UB)                                                  \
   fprintf(fout, "[");                                                          \
-  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -491,7 +507,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_2(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -501,7 +517,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_3(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -511,11 +527,31 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_4(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t (IV) = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
     LOOP_3((INDEX) + 1, __VA_ARGS__)                                           \
+  }                                                                            \
+  fprintf(fout, "]");
+
+#define LOOP_5(INDEX, IV, UB, ...)                                             \
+  fprintf(fout, "[");                                                          \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                 \
+    if (IV)                                                                    \
+      fprintf(fout, ", ");                                                     \
+    indexes[(INDEX)] = (IV);                                                   \
+    LOOP_4((INDEX) + 1, __VA_ARGS__)                                           \
+  }                                                                            \
+  fprintf(fout, "]");
+
+#define LOOP_6(INDEX, IV, UB, ...)                                             \
+  fprintf(fout, "[");                                                          \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                 \
+    if (IV)                                                                    \
+      fprintf(fout, ", ");                                                     \
+    indexes[(INDEX)] = (IV);                                                   \
+    LOOP_5((INDEX) + 1, __VA_ARGS__)                                           \
   }                                                                            \
   fprintf(fout, "]");
 
@@ -544,6 +580,14 @@ static void printData(FILE *fout, const OMTensor *tensor) {
   case 4: {
     int64_t indexes[4];
     LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
+  } break;
+  case 5: {
+    int64_t indexes[5];
+    LOOP_5(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3], m, shape[4])
+  } break;
+  case 6: {
+    int64_t indexes[6];
+    LOOP_6(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3],  m, shape[4],  n, shape[5])
   } break;
   default:
     assert(false && "not implemented");
@@ -577,6 +621,7 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
     msg += 2;
     len -= 2;
   }
+  bool hadOneOrMoreFormats = false;
   while (len > 0) {
     if (msg[0] == '%') {
       if (len < 2) {
@@ -586,12 +631,15 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
       if (msg[1] == 'd') { /* Letter `d` for data. */
         assert(tensor && "attempt to print a null OMTensor");
         printData(fout, tensor);
+        hadOneOrMoreFormats = true;
       } else if (msg[1] == 's') { /* Letter `s` for signature. */
         assert(tensor && "attempt to print a null OMTensor");
         printSignature(fout, tensor);
+        hadOneOrMoreFormats = true;
       } else if (msg[1] == 't') { /* Letter `t` for type only. */
         assert(tensor && "attempt to print a null OMTensor");
         printType(fout, tensor);
+        hadOneOrMoreFormats = true;
       } else if (msg[1] == 'e') { /* Letter `e` for end. */
         return;
       } else {
@@ -606,6 +654,13 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
     fprintf(fout, "%c", msg[0]);
     msg++;
     len--;
+  }
+  if (!hadOneOrMoreFormats) {
+    // default per Krnl.td: %s%d
+    fprintf(fout, "\n");
+    printSignature(fout, tensor);
+    printData(fout, tensor);
+    fprintf(fout, "\n");
   }
 }
 

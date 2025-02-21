@@ -36,6 +36,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
@@ -48,11 +49,56 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 void configurePassesNNPA() {
-  configureOnnxToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps);
-  // Compiler generated sticks supports saturation, so force its usage.
-  // TODO: remove this if zDNN adds support for saturation.
-  if (nnpaEnableSaturation)
+  // z16 does not support for hardware saturation.
+  // So, force its usage to compiler generated sticks.
+  if (nnpaEnableSaturation && isLessEqualNNPALevel(NNPALevel::M14))
     nnpaEnableCompilerStickUnstick = true;
+
+  // Configure ONNXToZHighLoweringPass.
+  bool isDynQuant = !nnpaQuantDynamic.empty();
+  // Default/auto mode: symmetric for weighs and asymmetric for activations.
+  bool isActivationSym = false;
+  bool isWeightSym = true;
+  std::vector<std::string> quantOpTypes;
+  if (isDynQuant) {
+    // Set options for activations and weights if they are given.
+    // When auto mode is specified, the other specified options are ignored.
+    if (!llvm::is_contained(nnpaQuantDynamic, NNPAQuantOptions::autoQuantOpt)) {
+      for (unsigned i = 0; i < nnpaQuantDynamic.size(); ++i) {
+        switch (nnpaQuantDynamic[i]) {
+        case NNPAQuantOptions::symWeight:
+          isWeightSym = true;
+          break;
+        case NNPAQuantOptions::asymWeight:
+          isWeightSym = false;
+          break;
+        case NNPAQuantOptions::symActivation:
+          isActivationSym = true;
+          break;
+        case NNPAQuantOptions::asymActivation:
+          isActivationSym = false;
+          break;
+        default:
+          llvm_unreachable("Unsupported quantization options");
+          break;
+        }
+      }
+    }
+    if (!isWeightSym) {
+      // TODO: Support asymmetric quantiation for weights.
+      llvm::outs()
+          << "Asymmetric quantization for weights is not yet supported. "
+             "Turning off quantization.\n";
+      isDynQuant = false;
+    }
+    if (nnpaQuantOpTypes.empty()) {
+      quantOpTypes.emplace_back("MatMul");
+    } else {
+      quantOpTypes = nnpaQuantOpTypes;
+    }
+  }
+  configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
+      isDynQuant, isActivationSym, isWeightSym, quantOpTypes);
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
@@ -84,6 +130,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 
+  // Lowering ONNX to ZHigh.
   pm.addPass(onnx_mlir::createONNXToZHighPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
 
@@ -190,7 +237,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
-  configurePassesNNPA();
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {

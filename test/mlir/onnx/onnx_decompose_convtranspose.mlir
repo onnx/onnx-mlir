@@ -1,15 +1,14 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx %s -split-input-file | FileCheck %s
-
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --enable-convtranspose-decompose %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx %s -split-input-file | FileCheck %s --check-prefix=DISABLED
 
 // -----
 
 // Test unit strides. Only convert weight tensor
-
   func.func @test_convtrans_unitstrides(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x5x5xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x5x5xf32>
     onnx.Return %1 : tensor<1x2x5x5xf32>
-
+  }
 // CHECK-LABEL:  func.func @test_convtrans_unitstrides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>) -> tensor<1x2x5x5xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<8xi64>
@@ -24,18 +23,22 @@
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Pad"([[VAR_8_]], [[VAR_0_]], [[VAR_2_]], [[VAR_2_]]) {mode = "constant"} : (tensor<1x2x5x5xf32>, tensor<8xi64>, none, none) -> tensor<1x2x5x5xf32>
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Pad"([[VAR_9_]], [[VAR_0_]], [[VAR_2_]], [[VAR_2_]]) {mode = "constant"} : (tensor<1x2x5x5xf32>, tensor<8xi64>, none, none) -> tensor<1x2x5x5xf32>
 // CHECK:           onnx.Return [[VAR_10_]] : tensor<1x2x5x5xf32>
-
-  }
+// DISABLED-LABEL:   func.func @test_convtrans_unitstrides(
+// DISABLED-SAME:                                          %[[VAL_0:.*]]: tensor<1x1x3x3xf32>,
+// DISABLED-SAME:                                          %[[VAL_1:.*]]: tensor<1x2x3x3xf32>) -> tensor<1x2x5x5xf32> {
+// DISABLED:           %[[VAL_2:.*]] = "onnx.NoValue"() {value} : () -> none
+// DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x5x5xf32>
+// DISABLED:           onnx.Return %[[VAL_3]] : tensor<1x2x5x5xf32>
+// DISABLED:         }
 
 // -----
 
 // Test 1d input
-
   func.func @test_convtrans1d_unitstrides(%arg0: tensor<1x1x3xf32>, %arg1: tensor<1x2x3xf32>) -> tensor<1x2x5xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3xf32>, tensor<1x2x3xf32>, none) -> tensor<1x2x5xf32>
     onnx.Return %1 : tensor<1x2x5xf32>
-
+  }
 // CHECK-LABEL:  func.func @test_convtrans1d_unitstrides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3xf32>) -> tensor<1x2x5xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<6xi64>
@@ -48,17 +51,22 @@
 // CHECK:           [[VAR_7_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_6_]], [[VAR_2_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 2]} : (tensor<1x1x3xf32>, tensor<2x1x3xf32>, none) -> tensor<1x2x5xf32>
 // CHECK:           [[VAR_8_:%.+]] = "onnx.Pad"([[VAR_7_]], [[VAR_0_]], [[VAR_2_]], [[VAR_2_]]) {mode = "constant"} : (tensor<1x2x5xf32>, tensor<6xi64>, none, none) -> tensor<1x2x5xf32>
 // CHECK:           onnx.Return [[VAR_8_]] : tensor<1x2x5xf32>
-  }
+// DISABLED-LABEL:   func.func @test_convtrans1d_unitstrides(
+// DISABLED-SAME:                                            %[[VAL_0:.*]]: tensor<1x1x3xf32>,
+// DISABLED-SAME:                                            %[[VAL_1:.*]]: tensor<1x2x3xf32>) -> tensor<1x2x5xf32> {
+// DISABLED:           %[[VAL_2:.*]] = "onnx.NoValue"() {value} : () -> none
+// DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3xf32>, tensor<1x2x3xf32>, none) -> tensor<1x2x5xf32>
+// DISABLED:           onnx.Return %[[VAL_3]] : tensor<1x2x5xf32>
+// DISABLED:         }
 
 // -----
 
 // Test 3d input
-
   func.func @test_convtrans3d_unitstrides(%arg0: tensor<1x1x3x4x5xf32>, %arg1: tensor<1x2x3x3x3xf32>) -> tensor<1x2x5x6x7xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3x4x5xf32>, tensor<1x2x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
     onnx.Return %1 : tensor<1x2x5x6x7xf32>
-
+  }
 // CHECK-LABEL:  func.func @test_convtrans3d_unitstrides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x4x5xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3x3xf32>) -> tensor<1x2x5x6x7xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<10xi64>
@@ -77,17 +85,22 @@
 // CHECK:           [[VAR_13_:%.+]] = "onnx.Pad"([[VAR_12_]], [[VAR_0_]], [[VAR_3_]], [[VAR_3_]]) {mode = "constant"} : (tensor<1x2x5x6x7xf32>, tensor<10xi64>, none, none) -> tensor<1x2x5x6x7xf32>
 // CHECK:           [[VAR_14_:%.+]] = "onnx.Pad"([[VAR_13_]], [[VAR_0_]], [[VAR_3_]], [[VAR_3_]]) {mode = "constant"} : (tensor<1x2x5x6x7xf32>, tensor<10xi64>, none, none) -> tensor<1x2x5x6x7xf32>
 // CHECK:           onnx.Return [[VAR_14_]] : tensor<1x2x5x6x7xf32>
-  }
+// DISABLED-LABEL:   func.func @test_convtrans3d_unitstrides(
+// DISABLED-SAME:                                            %[[VAL_0:.*]]: tensor<1x1x3x4x5xf32>,
+// DISABLED-SAME:                                            %[[VAL_1:.*]]: tensor<1x2x3x3x3xf32>) -> tensor<1x2x5x6x7xf32> {
+// DISABLED:           %[[VAL_2:.*]] = "onnx.NoValue"() {value} : () -> none
+// DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3x4x5xf32>, tensor<1x2x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
+// DISABLED:           onnx.Return %[[VAL_3]] : tensor<1x2x5x6x7xf32>
+// DISABLED:         }
 
 // -----
 
 // Test non unit strides. Added pads between elements  in input data.
-
   func.func @test_convtrans_strides(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x7x3xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 2, 1, 2], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x7x3xf32>
     onnx.Return %1 : tensor<1x2x7x3xf32>
-
+  }
 // CHECK-LABEL:  func.func @test_convtrans_strides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>) -> tensor<1x2x7x3xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<8xi64>
@@ -114,7 +127,13 @@
 // CHECK:           [[VAR_20_:%.+]] = "onnx.Pad"([[VAR_19_]], [[VAR_0_]], [[VAR_5_]], [[VAR_5_]]) {mode = "constant"} : (tensor<1x2x7x3xf32>, tensor<8xi64>, none, none) -> tensor<1x2x7x3xf32>
 // CHECK:           [[VAR_21_:%.+]] = "onnx.Pad"([[VAR_20_]], [[VAR_0_]], [[VAR_5_]], [[VAR_5_]]) {mode = "constant"} : (tensor<1x2x7x3xf32>, tensor<8xi64>, none, none) -> tensor<1x2x7x3xf32>
 // CHECK:           onnx.Return [[VAR_21_]] : tensor<1x2x7x3xf32>
-  }
+// DISABLED-LABEL:   func.func @test_convtrans_strides(
+// DISABLED-SAME:                                      %[[VAL_0:.*]]: tensor<1x1x3x3xf32>,
+// DISABLED-SAME:                                      %[[VAL_1:.*]]: tensor<1x2x3x3xf32>) -> tensor<1x2x7x3xf32> {
+// DISABLED:           %[[VAL_2:.*]] = "onnx.NoValue"() {value} : () -> none
+// DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 2, 1, 2], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x7x3xf32>
+// DISABLED:           onnx.Return %[[VAL_3]] : tensor<1x2x7x3xf32>
+// DISABLED:         }
 
 // -----
 
@@ -124,7 +143,7 @@
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, output_shape = [10, 8], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x10x8xf32>
     onnx.Return %1 : tensor<1x2x10x8xf32>
-
+  }
 // CHECK-LABEL:  func.func @test_convtrans_outputpadding
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>) -> tensor<1x2x10x8xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, 0, 0, 1, 0]> : tensor<8xi64>
@@ -151,7 +170,13 @@
 // CHECK:           [[VAR_20_:%.+]] = "onnx.Pad"([[VAR_19_]], [[VAR_0_]], [[VAR_5_]], [[VAR_5_]]) {mode = "constant"} : (tensor<1x2x9x7xf32>, tensor<8xi64>, none, none) -> tensor<1x2x10x7xf32>
 // CHECK:           [[VAR_21_:%.+]] = "onnx.Pad"([[VAR_20_]], [[VAR_1_]], [[VAR_5_]], [[VAR_5_]]) {mode = "constant"} : (tensor<1x2x10x7xf32>, tensor<8xi64>, none, none) -> tensor<1x2x10x8xf32>
 // CHECK:           onnx.Return [[VAR_21_]] : tensor<1x2x10x8xf32>
-  }
+// DISABLED-LABEL:   func.func @test_convtrans_outputpadding(
+// DISABLED-SAME:                                            %[[VAL_0:.*]]: tensor<1x1x3x3xf32>,
+// DISABLED-SAME:                                            %[[VAL_1:.*]]: tensor<1x2x3x3xf32>) -> tensor<1x2x10x8xf32> {
+// DISABLED:           %[[VAL_2:.*]] = "onnx.NoValue"() {value} : () -> none
+// DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64, output_shape = [10, 8], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x10x8xf32>
+// DISABLED:           onnx.Return %[[VAL_3]] : tensor<1x2x10x8xf32>
+// DISABLED:         }  
 
 // -----
 
@@ -161,7 +186,7 @@
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "test", output_padding = [1, 1], output_shape = [10, 8], strides = [3, 2]} : (tensor<?x?x3x3xf32>, tensor<?x?x3x3xf32>, none) -> tensor<?x?x10x8xf32>
     onnx.Return %1 : tensor<?x?x10x8xf32>
-
+  }
 // CHECK-LABEL:  func.func @test_convtranspose_unknown_spatial_dim
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3x3xf32>, [[PARAM_1_:%.+]]: tensor<?x?x3x3xf32>) -> tensor<?x?x10x8xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, 0, 0, 1, 0]> : tensor<8xi64>
@@ -188,4 +213,10 @@
 // CHECK:           [[VAR_20_:%.+]] = "onnx.Pad"([[VAR_19_]], [[VAR_0_]], [[VAR_5_]], [[VAR_5_]]) {mode = "constant"} : (tensor<?x?x9x7xf32>, tensor<8xi64>, none, none) -> tensor<?x?x10x7xf32>
 // CHECK:           [[VAR_21_:%.+]] = "onnx.Pad"([[VAR_20_]], [[VAR_1_]], [[VAR_5_]], [[VAR_5_]]) {mode = "constant"} : (tensor<?x?x10x7xf32>, tensor<8xi64>, none, none) -> tensor<?x?x10x8xf32>
 // CHECK:           onnx.Return [[VAR_21_]] : tensor<?x?x10x8xf32>
-  }
+// DISABLED-LABEL:   func.func @test_convtranspose_unknown_spatial_dim(
+// DISABLED-SAME:                                                      %[[VAL_0:.*]]: tensor<?x?x3x3xf32>,
+// DISABLED-SAME:                                                      %[[VAL_1:.*]]: tensor<?x?x3x3xf32>) -> tensor<?x?x10x8xf32> {
+// DISABLED:           %[[VAL_2:.*]] = "onnx.NoValue"() {value} : () -> none
+// DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "test", output_padding = [1, 1], output_shape = [10, 8], strides = [3, 2]} : (tensor<?x?x3x3xf32>, tensor<?x?x3x3xf32>, none) -> tensor<?x?x10x8xf32>
+// DISABLED:           onnx.Return %[[VAL_3]] : tensor<?x?x10x8xf32>
+// DISABLED:         }

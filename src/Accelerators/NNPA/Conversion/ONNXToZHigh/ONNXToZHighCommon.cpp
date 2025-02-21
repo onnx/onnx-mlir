@@ -103,13 +103,30 @@ Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
       RankedTensorType::get({r}, rewriter.getI64Type()), dims, 0);
 }
 
-int OnnxToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =
+int ONNXToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =
     0; // 0: Compile option (--opt-report=NNPAUnsupportedOps) not specified.
-int OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
+int ONNXToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
     0; // 0: no reporting.
-void configureOnnxToZHighLoweringPass(bool optReportNNPAUnsupportedOps) {
-  OnnxToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =
+bool ONNXToZHighLoweringConfiguration::isDynQuant = false;
+bool ONNXToZHighLoweringConfiguration::Quant::isActivationSym = false;
+bool ONNXToZHighLoweringConfiguration::Quant::isWeightSym = true;
+llvm::SmallVector<std::string>
+    ONNXToZHighLoweringConfiguration::Quant::opTypes = {};
+
+void configureONNXToZHighLoweringPass(bool optReportNNPAUnsupportedOps,
+    bool isDynQuant, bool quantIsActivationSym, bool quantIsWeightSym,
+    llvm::ArrayRef<std::string> quantOpTypes) {
+  ONNXToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =
       optReportNNPAUnsupportedOps;
+  ONNXToZHighLoweringConfiguration::isDynQuant = isDynQuant;
+  if (isDynQuant) {
+    ONNXToZHighLoweringConfiguration::Quant::isActivationSym =
+        quantIsActivationSym;
+    ONNXToZHighLoweringConfiguration::Quant::isWeightSym = quantIsWeightSym;
+    ONNXToZHighLoweringConfiguration::Quant::opTypes.insert(
+        ONNXToZHighLoweringConfiguration::Quant::opTypes.begin(),
+        quantOpTypes.begin(), quantOpTypes.end());
+  }
 }
 
 } // namespace onnx_mlir

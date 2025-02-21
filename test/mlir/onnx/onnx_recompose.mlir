@@ -463,6 +463,54 @@ func.func @rms_layer_norm_v2(%x: tensor<1x384x768xf32>, %scale: tensor<768xf32>,
 
 // -----
 
+// RMS Layer norm (containing pow(varEps, -0.5))
+
+func.func @rms_layer_norm_v3(%x: tensor<1x384x768xf32>) -> (tensor<1x384x768xf32>) {
+  %neg_half = onnx.Constant dense<-5.000000e-01> : tensor<f32>
+  %eps = onnx.Constant dense<1.2E+0> : tensor<f32>
+  %xx = "onnx.Mul"(%x, %x) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  %var = "onnx.ReduceMeanV13"(%xx) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_42"} : (tensor<1x384x768xf32>) -> tensor<1x384x1xf32>
+  %varEps = "onnx.Add"(%eps, %var) : (tensor<f32>, tensor<1x384x1xf32>) -> tensor<1x384x1xf32>
+  %invStdDev = "onnx.Pow"(%varEps, %neg_half) : (tensor<1x384x1xf32>, tensor<f32>) -> tensor<1x384x1xf32>
+  %Y = "onnx.Mul"(%invStdDev, %x) : (tensor<1x384x1xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  return %Y : tensor<1x384x768xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @rms_layer_norm_v3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>) -> tensor<1x384x768xf32> {
+// CHECK:           [[PARAM_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK:           [[PARAM_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none)
+// CHECK:           return [[Y_]] : tensor<1x384x768xf32>
+// CHECK:         }
+}
+
+// -----
+
+// RMS Layer norm (containing pow(varEps, -0.5))
+
+func.func @rms_layer_norm_v3_dyn_shape(%x: tensor<1x?x768xf32>) -> (tensor<1x?x768xf32>) {
+  %neg_half = onnx.Constant dense<-5.000000e-01> : tensor<f32>
+  %eps = onnx.Constant dense<1.2E+0> : tensor<f32>
+  %xx = "onnx.Mul"(%x, %x) : (tensor<1x?x768xf32>, tensor<1x?x768xf32>) -> tensor<1x?x768xf32>
+  %var = "onnx.ReduceMeanV13"(%xx) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_42"} : (tensor<1x?x768xf32>) -> tensor<1x?x1xf32>
+  %varEps = "onnx.Add"(%eps, %var) : (tensor<f32>, tensor<1x?x1xf32>) -> tensor<1x?x1xf32>
+  %invStdDev = "onnx.Pow"(%varEps, %neg_half) : (tensor<1x?x1xf32>, tensor<f32>) -> tensor<1x?x1xf32>
+  %Y = "onnx.Mul"(%invStdDev, %x) : (tensor<1x?x1xf32>, tensor<1x?x768xf32>) -> tensor<1x?x768xf32>
+  return %Y : tensor<1x?x768xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @rms_layer_norm_v3_dyn_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?x768xf32>) -> tensor<1x?x768xf32> {
+// CHECK:           [[PARAM_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK:           [[PARAM_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x?x768xf32>, tensor<768xf32>, none) -> (tensor<1x?x768xf32>, none)
+// CHECK:           return [[Y_]] : tensor<1x?x768xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: QLinearMatMul
 func.func @qlinear_matmul(%arg0: tensor<?x?x768xi8>, %arg1: tensor<f32>, %arg2: tensor<i8>, %arg3: tensor<768x768xi8>, %arg4: tensor<f32>, %arg5: tensor<i8>, %arg6: tensor<f32>, %arg7: tensor<i8>) -> (tensor<?x?x768xi8>) {
     %0 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?x?x768xi8>, tensor<f32>, tensor<i8>) -> tensor<?x?x768xf32>

@@ -282,6 +282,36 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 template <typename OP>
 bool definedBy(mlir::Value v);
 
+// This is to match if two values A and B are bijectively defined by OP1 and
+// OP2. In other words,
+// - if A is defined by OP1, then B would be defined by OP2.
+// - if A is defined by OP2, then B would be defined by OP1.
+//
+// In both case, the output has two values,
+// - the first one is the value defined by OP1,
+// - the second one is the value defined by OP2.
+//
+// For example, to recognize BOTH A*B+C and C+A*B, where C is defined by
+// ONNXConstant
+// ```
+// %C = onnx.Constant
+// %AB = onnx.MatMul(A, B)
+// onnx.Add(%AB, %C);
+// ```
+//
+// We can use:
+// Value lhs = addOp.getOperation(0);
+// Value rhs = addOp.getOperation(1);
+// ValueRange matchedValued;
+//
+// Value AB, C;
+// areDefinedBy<ONNXMatMulOp, ONNXConstantOp>(lhs, rhs, AB, C);
+//
+// Note: The order of A and B are not important, they can be swapped.
+template <typename OP1, typename OP2>
+bool areDefinedBy(mlir::Value A, mlir::Value B, mlir::Value &matchedOP1,
+    mlir::Value &matchedOP2);
+
 // Check if the operation defining `op->operand[matchThisOperandIndex]` matches
 // `OP`. If it does, set matchOperand to that operand, and matchOp to that
 // defining op. Otherwise, don't change the match values.

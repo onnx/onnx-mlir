@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <functional>
+
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -283,11 +285,14 @@ Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
     MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder,
     AffineBuilder>;
+using PreProcessFn = std::function<mlir::Value(mlir::Value)>;
 
 //===----------------------------------------------------------------------===//
 // Helper function to perform reduction when an entire tensor is reduced to a
 // single value. Support the reduction for up to 2 operations at once. If only
 // one is needed, then pass ONNXNoneOp in the second slot.
+// If PreProcessFn is given, each input value is preprocessed by the function
+// before doing reduction.
 // Return true if we can optimize the reduction, false otherwise.
 
 template <typename BUILDER, typename ONNXReductionOp1,
@@ -296,7 +301,8 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
     Operation *op, MDBuilder &create, Type elementType, IndexExpr lb,
     IndexExpr ub, int64_t VL, bool simdOnly, IndexExpr t, int64_t tNum,
     bool hasTwoRed, Value input1, Value input2, Value tmp1, Value tmp2,
-    Value output1, Value output2, Value divisorForMean) {
+    PreProcessFn preProc1, PreProcessFn preProc2, Value output1, Value output2,
+    Value divisorForMean) {
 
   VectorType vecType = VectorType::get({VL}, elementType);
 
@@ -340,6 +346,8 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
       [&](const BUILDER &b, Value inputVal, Value tmpVal, int64_t VL) {
         Type currType = (VL > 1) ? vecType : elementType;
         // Perform reduction of tmp and input.
+        if (preProc1)
+          inputVal = preProc1(inputVal);
         return emitScalarOpFor<ONNXReductionOp1>(
             rewriter, create.getLoc(), op, currType, {tmpVal, inputVal});
       });
@@ -360,6 +368,8 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
         [&](const BUILDER &b, Value inputVal, Value tmpVal, int64_t VL) {
           Type currType = (VL > 1) ? vecType : elementType;
           // Perform reduction of tmp and input.
+          if (preProc2)
+            inputVal = preProc2(inputVal);
           return emitScalarOpFor<ONNXReductionOp2>(
               rewriter, create.getLoc(), op, currType, {tmpVal, inputVal});
         });
@@ -383,8 +393,8 @@ void emitOneStepOfFullSIMDReduction(ConversionPatternRewriter &rewriter,
 
 template <typename ONNXReductionOp1, typename ONNXReductionOp2>
 bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Value &alloc1, Value &alloc2,
-    bool enableParallel) {
+    Operation *op, Value input, PreProcessFn preProc1, PreProcessFn preProc2,
+    Value &alloc1, Value &alloc2, bool enableParallel) {
   // Create scope.
   IndexExprScope scope(&rewriter, loc);
   MDBuilder create(rewriter, loc);
@@ -454,8 +464,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     // OK to use Krnl builder here as we have a simple loop structure.
     emitOneStepOfFullSIMDReduction<KrnlBuilder, ONNXReductionOp1,
         ONNXReductionOp2>(rewriter, op, create, elementType, lb, ub, totVL,
-        simdOnly, t, tNum, hasTwoRed, flatInput, flatInput, tmp1, tmp2, alloc1,
-        alloc2, divisorForMean);
+        simdOnly, t, tNum, hasTwoRed, flatInput, flatInput, tmp1, tmp2,
+        preProc1, preProc2, alloc1, alloc2, divisorForMean);
   } else {
     // Performs 2 rounds: first round compute a parallel partial reduction
     // where each (possibly virtual) thread is responsible for one chunk.
@@ -477,22 +487,20 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     }
 
     IndexExpr tNumIE = LitIE(tNum);
-    IndexExpr blockSize = ub.ceilDiv(tNum);
     bool simdOnly = false; // Refine, but since we are chunking input, safer.
-    create.krnl.forLoopIE(zero, tNumIE, /*step*/ 1, /*par*/ true,
-        [&](const KrnlBuilder &ck, mlir::ValueRange loopInd) {
+    create.krnl.forExplicitParallelLoopIE(
+        lb, ub, tNumIE, [&](const KrnlBuilder &ck, mlir::ValueRange loopInd) {
           IndexExprScope scope(ck);
           MDBuilder create(ck);
           IndexExpr t = DimIE(loopInd[0]);
-          IndexExpr currLB = t * SymIE(blockSize);
-          IndexExpr currUB = currLB + SymIE(blockSize);
-          currUB = IndexExpr::min(currUB, SymIE(ub));
+          IndexExpr currLB = SymIE(loopInd[1]);
+          IndexExpr currUB = SymIE(loopInd[2]);
           // Use SCF builder because the partition of outer loop into block
           // makes the formulas non-affine.
           emitOneStepOfFullSIMDReduction<SCFBuilder, ONNXReductionOp1,
               ONNXReductionOp2>(rewriter, op, create, elementType, currLB,
               currUB, totVL, simdOnly, t, tNum, hasTwoRed, flatInput, flatInput,
-              tmp1, tmp2, output1, output2, nullptr);
+              tmp1, tmp2, preProc1, preProc2, output1, output2, nullptr);
           // Result here, each iteration would have generate 1 value in
           // output1 &2,
         });
@@ -509,7 +517,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     emitOneStepOfFullSIMDReduction<KrnlBuilder, ONNXReductionOp1,
         ONNXReductionOp2>(rewriter, op, create, elementType, finalLB, finalUB,
         /*VL*/ 1, /*simd only*/ false, t, /*thread num */ 1, hasTwoRed, output1,
-        output2, tmp1, tmp2, alloc1, alloc2, divisorForMean);
+        output2, tmp1, tmp2, preProc1, preProc2, alloc1, alloc2,
+        divisorForMean);
   }
 
   if (hasTwoRed)
@@ -527,8 +536,8 @@ void emitMinMaxReductionToScalar(ConversionPatternRewriter &rewriter,
     bool enableSIMD, bool enableParallel) {
   // Try optimized path first.
   if (enableSIMD &&
-      emitFullSIMDReductionFor<ONNXReduceMinOp, ONNXReduceMaxOp>(
-          rewriter, loc, op, input, minAlloc, maxAlloc, enableParallel)) {
+      emitFullSIMDReductionFor<ONNXReduceMinOp, ONNXReduceMaxOp>(rewriter, loc,
+          op, input, nullptr, nullptr, minAlloc, maxAlloc, enableParallel)) {
     return;
   }
   // Could not optimize the pattern, generate default path.
@@ -543,6 +552,37 @@ void emitMinMaxReductionToScalar(ConversionPatternRewriter &rewriter,
       create.onnx.reduceMax(outputType, input, none, false));
 }
 
+void emitSymmetricQuantRecscaleToScalar(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Value input, uint64_t bitWidth,
+    Value &recscale, bool enableSIMD, bool enableParallel) {
+  Type elemType = getElementType(input.getType());
+  assert(elemType.isF32() && "Only support f32");
+  double range = static_cast<double>((1 << (bitWidth - 1)) - 1);
+
+  // Try optimized path first.
+  Value absmaxMemRef, noused;
+  MultiDialectBuilder<OnnxBuilder, KrnlBuilder, MathBuilder> create(
+      rewriter, loc);
+  if (enableSIMD &&
+      emitFullSIMDReductionFor<ONNXReduceMaxOp, ONNXNoneOp>(
+          rewriter, loc, op, input, [&](Value v) { return create.math.abs(v); },
+          nullptr, absmaxMemRef, noused, enableParallel)) {
+    Value cst = create.math.constant(elemType, range);
+    Value absmax = create.krnl.load(absmaxMemRef);
+    recscale = create.math.div(cst, absmax);
+    return;
+  }
+
+  // Could not optimize the pattern, generate default path.
+  Value none = create.onnx.none();
+  RankedTensorType scalarTy = RankedTensorType::get({}, elemType);
+  Value cst = create.onnx.constant(
+      DenseElementsAttr::get(scalarTy, static_cast<float>(range)));
+  Value recscaleMemRef = create.onnx.toMemref(
+      create.onnx.div(cst, create.onnx.reduceMax(scalarTy,
+                               create.onnx.abs(input), none, false, false)));
+  recscale = create.krnl.load(recscaleMemRef);
+}
 //===----------------------------------------------------------------------===//
 // Generic reduction code (for current and legacy using "if constexpr".
 // Function use SIMD if all reductions occur consecutively in the innermost
@@ -668,8 +708,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         hasNoAxes || (rawAxesIE.size() == static_cast<uint64_t>(inRank));
     if (fullReduction && !isKeepdims && enableSIMD) {
       Value alloc, none;
-      if (emitFullSIMDReductionFor<ONNXReductionOp, ONNXNoneOp>(
-              rewriter, loc, op, input, alloc, none, enableParallel)) {
+      if (emitFullSIMDReductionFor<ONNXReductionOp, ONNXNoneOp>(rewriter, loc,
+              op, input, nullptr, nullptr, alloc, none, enableParallel)) {
         rewriter.replaceOp(op, alloc);
         return success();
       }
@@ -790,7 +830,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 #if REDUCTION_MULTIPLE_OF_VL_ONLY
           // Currently fails with krnl to affine without this. Should
           // consider an affine simd iterate/reduce. onnx-mlir
-          // -shapeInformation=0:4x8 reducemean2.mlir -O3 -march=arm64
+          // -shapeInformation=0:4x8 reducemean2.mlir -O3 --march=arm64
           if (!simdOnly) {
             totVL =
                 capVLForSimdOnly(memRefInType, totVL, simdLoopStaticTripCount);

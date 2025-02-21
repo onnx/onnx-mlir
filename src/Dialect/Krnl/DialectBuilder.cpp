@@ -251,6 +251,41 @@ void KrnlBuilder::forLoopIE(IndexExpr lb, IndexExpr ub, int64_t step,
   iterateIE(originalLoopDef, optLoopDef, {lb}, {ub}, builderFn);
 }
 
+void KrnlBuilder::forLoopsIE(ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+    ArrayRef<int64_t> steps, ArrayRef<bool> useParallel,
+    KrnlLoopBodyFn builderFn) const {
+  impl::forLoopsIE(*this, lbs, ubs, steps, useParallel, builderFn);
+}
+
+void KrnlBuilder::forExplicitParallelLoopIE(IndexExpr lb, IndexExpr ub,
+    IndexExpr threadNum, KrnlLoopBodyFn builderFn) const {
+  IndexExpr zero = LitIE(0);
+  if (threadNum.isLiteralAndIdenticalTo(1)) {
+    // Sequential case as we have only 1 thread (parallel disabled statically).
+    llvm::SmallVector<Value, 4> params = {
+        zero.getValue(), lb.getValue(), ub.getValue()};
+    builderFn(*this, params);
+    return;
+  }
+  // Compute blockSize: the number of elements of (lb...ub) per thread.
+  IndexExpr trip = ub - lb; // Expected to be positive, aka ub>lb.
+  IndexExpr blockSize = trip.ceilDiv(threadNum);
+  // Explicit parallelism: iterate over all threads 0..threadNum in parallel.
+  forLoopIE(zero, threadNum, /*step*/ 1, /*parallel*/ true,
+      [&](const KrnlBuilder &ck, ValueRange loopInd) {
+        IndexExprScope scope(ck);
+        IndexExpr t = DimIE(loopInd[0]);
+        IndexExpr tTimesBlockSize = t * SymIE(blockSize);
+        IndexExpr currLB = SymIE(lb) + tTimesBlockSize;
+        IndexExpr currUB = currLB + SymIE(blockSize);
+        currUB = IndexExpr::min(currUB, SymIE(ub));
+        // Passes the thread ID, its lower bound, and its upper bound.
+        llvm::SmallVector<Value, 4> params = {
+            t.getValue(), currLB.getValue(), currUB.getValue()};
+        builderFn(ck, params);
+      });
+}
+
 void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
