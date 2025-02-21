@@ -65,8 +65,10 @@ private:
 };
 
 Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
-    SmallVector<Value> &operands, llvm::SmallVector<Type> &types,
-    const FloatType toFloatType) {
+    SmallVector<Value> &operands, llvm::SmallVector<Location> &locs,
+    llvm::SmallVector<Type> &types, const FloatType toFloatType) {
+
+  auto fusedLoc = FusedLoc::get(op->getContext(), locs);
 
   // Requires special treatment for ONNXCastOp.
   if (auto onnxCastOp = dyn_cast<mlir::ONNXCastOp>(op)) {
@@ -75,7 +77,7 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
     auto inputValue = operands.back();
     auto onnxCastTy = cast<mlir::TensorType>(inputValue.getType());
     auto newOnnxCastTy = onnxCastTy.clone(toFloatType);
-    return rewriter.create<mlir::ONNXCastOp>(op->getLoc(), newOnnxCastTy,
+    return rewriter.create<mlir::ONNXCastOp>(fusedLoc, newOnnxCastTy,
         operands.back(), onnxCastOp.getSaturate(), toFloatType);
   }
 
@@ -83,8 +85,8 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
   // third-party/llvm-project/mlir/lib/Conversion/MemRefToSPIRV/MapMemRefStorageClassPass.cpp
 
   // Start composing new op
-  OperationState state(op->getLoc(), op->getName().getStringRef(), operands,
-      types, op->getAttrs(), op->getSuccessors());
+  OperationState state(fusedLoc, op->getName().getStringRef(), operands, types,
+      op->getAttrs(), op->getSuccessors());
 
   // Create the new op
   return rewriter.create(state);
@@ -134,8 +136,8 @@ mlir::DenseElementsAttr getDenseElementAttrFromConstOp(
 }
 
 mlir::Value createNewConstantOp(PatternRewriter &rewriter,
-    mlir::ONNXConstantOp constantOp, FloatType fromFloatTy, FloatType toFloatTy,
-    ShapedType toShapedTy) {
+    mlir::ONNXConstantOp constantOp, Location loc, FloatType fromFloatTy,
+    FloatType toFloatTy, ShapedType toShapedTy) {
 
   // Avoid rewriting any const whose element type is not 'FromFPTy'
   ElementsAttr valueAttr = cast<ElementsAttr>(constantOp.getValueAttr());
@@ -168,16 +170,17 @@ mlir::Value createNewConstantOp(PatternRewriter &rewriter,
   }
 
   // toShapedTy.dump();
-  auto constantValue = rewriter.create<mlir::ONNXConstantOp>(
-      constantOp->getLoc(), toShapedTy, Attribute(), newValueAttr,
-      mlir::FloatAttr(), mlir::ArrayAttr(), mlir::IntegerAttr(),
-      mlir::ArrayAttr(), mlir::StringAttr(), mlir::ArrayAttr());
+  auto constantValue = rewriter.create<mlir::ONNXConstantOp>(loc, toShapedTy,
+      Attribute(), newValueAttr, mlir::FloatAttr(), mlir::ArrayAttr(),
+      mlir::IntegerAttr(), mlir::ArrayAttr(), mlir::StringAttr(),
+      mlir::ArrayAttr());
   return constantValue;
 }
 
 LogicalResult createAndReplaceConstantOp(PatternRewriter &rewriter,
     mlir::ONNXCastOp outputCastOp, mlir::ONNXConstantOp constantOp,
-    FloatType fromFloatTy, FloatType toFloatTy) {
+    llvm::SmallVector<Location> &constantLocs, FloatType fromFloatTy,
+    FloatType toFloatTy) {
 
   auto shapedTy = cast<ShapedType>(constantOp->getResult(0).getType());
   if (shapedTy.getElementType() != fromFloatTy) {
@@ -196,8 +199,10 @@ LogicalResult createAndReplaceConstantOp(PatternRewriter &rewriter,
         constantOp->getLoc(), "Constant should have a dense attribute.");
   }
 
+  auto constFusedLocs = FusedLoc::get(constantOp->getContext(), constantLocs);
+
   auto valueAttr = createNewConstantOp(
-      rewriter, constantOp, fromFloatTy, toFloatTy, toShapedTy);
+      rewriter, constantOp, constFusedLocs, fromFloatTy, toFloatTy, toShapedTy);
 
   // Replace the original const op with the new one
   rewriter.replaceOp(outputCastOp, valueAttr);
@@ -260,13 +265,19 @@ public:
           castOp->getLoc(), "Only supports ranked types.");
     }
 
+    llvm::SmallVector<Location> newOpLocations{op->getLoc(), castOp->getLoc()};
+
     if (auto constOp = dyn_cast<mlir::ONNXConstantOp>(op)) {
-      return createAndReplaceConstantOp(
-          rewriter, castOp, constOp, fromFloatType, toFloatType);
+      return createAndReplaceConstantOp(rewriter, castOp, constOp,
+          newOpLocations, fromFloatType, toFloatType);
     }
 
+    // Track operations to be erase if verifier fails to validate legalization.
+    // This would happen when the target datatype (BF16) used isn't compatible
+    // with the new op.
+    SmallVector<Operation *> createdOpsTrackerForFailedVerifier;
+
     SmallVector<Value> operands;
-    SmallVector<Operation *> createdOpsTracker;
     llvm::transform(
         op->getOperands(), std::back_inserter(operands), [&](Value operand) {
           // llvm::errs() << "Operand value";
@@ -282,16 +293,19 @@ public:
             auto shapedTy = cast<ShapedType>(constOp->getResult(0).getType());
             auto toShapedTy = shapedTy.clone(toFloatType);
 
-            auto constValue = createNewConstantOp(
-                rewriter, constOp, fromFloatType, toFloatType, toShapedTy);
+            auto constValue = createNewConstantOp(rewriter, constOp,
+                constOp->getLoc(), fromFloatType, toFloatType, toShapedTy);
 
-            createdOpsTracker.push_back(constValue.getDefiningOp());
+            createdOpsTrackerForFailedVerifier.push_back(
+                constValue.getDefiningOp());
             return constValue;
           }
 
           if (!isInputCastOp(operandOp, fromFloatType, toFloatType)) {
             return operand;
           }
+
+          newOpLocations.push_back(operandOp->getLoc());
           return cast<mlir::ONNXCastOp>(operandOp).getInput();
         });
 
@@ -340,8 +354,8 @@ public:
         });
 
     // Try to create the ONNX operation with the new type.
-    Operation *newOp =
-        createOpWithNewType(rewriter, op, operands, resultTypes, toFloatType);
+    Operation *newOp = createOpWithNewType(
+        rewriter, op, operands, newOpLocations, resultTypes, toFloatType);
     // llvm::errs() << "here6\n";
     // MLIR has validators for operations that fail if the types are
     // unsupported. We make use of this here by seeing if the type
@@ -368,10 +382,10 @@ public:
     // mlir::OpPrintingFlags flags;
     // flags.elideLargeElementsAttrs(16);
     if (!isNewTypeCompatible) {
-      // op->getParentOp()->print(llvm::errs(), flags);
-      // newOp->getResult(resultOps[castOp]).dump();
-      llvm::for_each(
-          createdOpsTracker, [&](auto *createdOp) { createdOp->erase(); });
+      // Make sure to erase any additional op that was created so that the
+      // rewriter doesn't trigger any changes by this pass.
+      llvm::for_each(createdOpsTrackerForFailedVerifier,
+          [&](auto *createdOp) { createdOp->erase(); });
       newOp->erase();
       // llvm::errs() << "here10\n";
       // castOp.dump();
