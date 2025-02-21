@@ -47,16 +47,16 @@ std::vector<Type> ONNXRandomNormalOp::resultTypeInference() {
   Type elementType;
   if (auto attr = getDtypeAttr()) {
     if (getDtype() == 0) {
-      elementType = FloatType::getF16(getContext());
+      elementType = Float16Type::get(getContext());
     } else if (getDtype() == 1) {
-      elementType = FloatType::getF32(getContext());
+      elementType = Float32Type::get(getContext());
     } else if (getDtype() == 2) {
-      elementType = FloatType::getF64(getContext());
+      elementType = Float64Type::get(getContext());
     } else {
       llvm_unreachable("dtype not supported for RandomNormal");
     }
   } else {
-    elementType = FloatType::getF32(getContext());
+    elementType = Float32Type::get(getContext());
   }
   return {UnrankedTensorType::get(elementType)};
 }
@@ -68,11 +68,11 @@ std::vector<Type> ONNXRandomNormalOp::resultTypeInference() {
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto elementTypeID = getDtype();
-  Type elementType = FloatType::getF32(getContext());
+  Type elementType = Float32Type::get(getContext());
   if (elementTypeID == 0)
-    elementType = FloatType::getF16(getContext());
+    elementType = Float16Type::get(getContext());
   else if (elementTypeID == 2)
-    elementType = FloatType::getF64(getContext());
+    elementType = Float64Type::get(getContext());
 
   ONNXRandomNormalOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

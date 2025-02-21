@@ -62,7 +62,7 @@ public:
 
     // Get memRefDescriptor, the new memref descriptor.
     MemRefDescriptor memRefDescriptor =
-        MemRefDescriptor::undef(rewriter, loc, targetStructType);
+        MemRefDescriptor::poison(rewriter, loc, targetStructType);
     auto targetElementPtrType = memRefDescriptor.getElementPtrType();
 
     // Set the new memref to the same buffer as the source memref.
@@ -78,7 +78,7 @@ public:
 
     int64_t offset;
     SmallVector<int64_t, 4> strides;
-    if (failed(getStridesAndOffset(targetType, strides, offset)))
+    if (failed(targetType.getStridesAndOffset(strides, offset)))
       return failure();
 
     // Unhandled dynamic offset.

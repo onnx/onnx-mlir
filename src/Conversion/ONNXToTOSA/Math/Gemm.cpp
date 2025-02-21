@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
@@ -67,13 +68,14 @@ public:
 
     llvm::SmallVector<int64_t> dynamicTensorShape = {
         ShapedType::kDynamic, ShapedType::kDynamic, ShapedType::kDynamic};
-    A = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
+
+    tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
         RankedTensorType::get(dynamicTensorShape, AType.getElementType()), A,
-        rewriter.getDenseI64ArrayAttr(newShapeA))
-            .getResult();
+        mlir::tosa::getTosaConstShape(rewriter, op.getLoc(), newShapeA))
+        .getResult();
     B = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
         RankedTensorType::get(dynamicTensorShape, BType.getElementType()), B,
-        rewriter.getDenseI64ArrayAttr(newShapeB))
+        mlir::tosa::getTosaConstShape(rewriter, op.getLoc(), newShapeB))
             .getResult();
 
     // If transA or transB are present, create Transpose operators.
