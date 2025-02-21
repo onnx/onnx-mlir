@@ -3,12 +3,12 @@
 // Semi hand-written model.
 // When converted to onnxtext, onnx-mlir didn't like the result.
 
-// CHECK: [[SCALE:%.+]] = onnx.Constant dense<-1.08420217E-19> : tensor<f32>
-// CHECK: [[ZERO_P:%.+]] = onnx.Constant dense<0> : tensor<i8>
-// CHECK: [[DQ:%.+]] = "onnx.Custom"(%arg0, [[SCALE]], [[ZERO_P]]) {domain_name = "com.microsoft", function_name = "DequantizeLinear", onnx_node_name = "myDequantizeLinear", output_element_type = f32, shape_infer_pattern = "MDBroadcast"} : (tensor<1x64x112x112xi8>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xf32>
-// CHECK: [[RELU:%.+]] = "onnx.Relu"([[DQ]]) {onnx_node_name = "myrelu1Relu"} : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
-// CHECK: [[Q:%.+]] = "onnx.Custom"([[RELU]], [[SCALE]], [[ZERO_P]]) {domain_name = "com.microsoft", function_name = "QuantizeLinear", onnx_node_name = "myQuantizeLinear_1", output_element_type = i8, shape_infer_pattern = "MDBroadcast"} : (tensor<1x64x112x112xf32>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xi8>
-// CHECK: return [[Q]] : tensor<1x64x112x112xi8>
+// CHECK-DAG:       [[SCALE:%.+]] = onnx.Constant dense<-1.08420217E-19> : tensor<f32>
+// CHECK-DAG:       [[ZERO_P:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK:           [[DQ:%.+]] = "onnx.DequantizeLinear"(%arg0, [[SCALE]], [[ZERO_P]]) {axis = 1 : si64, onnx_node_name = "myDequantizeLinear_0"} : (tensor<1x64x112x112xi8>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xf32>
+// CHECK:           [[RELU:%.+]] = "onnx.Relu"([[DQ]]) {onnx_node_name = "myrelu1Relu"} : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
+// CHECK:           [[Q:%.+]] = "onnx.QuantizeLinear"([[RELU]], [[SCALE]], [[ZERO_P]]) {axis = 1 : si64, onnx_node_name = "myQuantizeLinear_1_1", saturate = 1 : si64} : (tensor<1x64x112x112xf32>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xi8>
+// CHECK:           return [[Q]] : tensor<1x64x112x112xi8>
 {
   "irVersion": "8",
   "producerName": "pytorch",

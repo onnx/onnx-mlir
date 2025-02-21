@@ -109,3 +109,16 @@ func.func @default_axis(%arg0 : tensor<32xf32>) -> tensor<32xi8> {
 
 // CHECK-LABEL: default_axis
 // CHECK-NOT: onnx.QuantizeLinear
+
+// -----
+
+
+func.func @all_scalar(%arg0 : tensor<f32>) -> tensor<i8> {
+  %0 = onnx.Constant dense<3.125000e-02> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64} : (tensor<f32>, tensor<f32>, tensor<i8>) -> tensor<i8>
+  return %2 : tensor<i8>
+}
+
+// CHECK-LABEL: all_scalar
+// CHECK-NOT: onnx.QuantizeLinear

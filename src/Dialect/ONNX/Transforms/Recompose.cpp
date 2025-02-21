@@ -815,6 +815,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     return true;
   });
 
+  // AMD Disabled
   // // Recompose QLinearMatMul, starting from QuantizeLinear.
   // // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
   // target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
@@ -840,6 +841,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   MLIRContext *context = patterns.getContext();
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
+  // AMD Disabled
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
 }
 
