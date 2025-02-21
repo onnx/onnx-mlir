@@ -72,25 +72,19 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
-  // Legalize quark-quantized modules to their supported operations.
-  if (enableQuarkQuantizedLegalization) {
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
-  }
-
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !disableRecomposeOption, /*enableQuarkQuantizedLegalization=*/false));
+        !disableRecomposeOption, enableQuarkQuantizedLegalization));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-          !disableRecomposeOption, /*enableQuarkQuantizedLegalization=*/false));
+          !disableRecomposeOption, false));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -102,6 +96,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
           enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     }
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
     if (onnxOpTransformThreshold > 0) {
       // Dynamic iterate in ONNXOpTransformPass
