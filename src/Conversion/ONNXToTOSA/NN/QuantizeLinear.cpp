@@ -41,9 +41,6 @@ public:
       return rewriter.notifyMatchFailure(
           loc, "expected valid tensor result type");
     }
-    if (resultType.getElementType().isUnsignedInteger(16)) {
-      return failure(); // Skip for now
-    }
 
     if (auto zpTy = dyn_cast<ShapedType>(adaptor.getYZeroPoint().getType());
         zpTy && !zpTy.hasStaticShape()) {
