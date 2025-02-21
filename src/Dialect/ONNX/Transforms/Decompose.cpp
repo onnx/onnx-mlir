@@ -1584,7 +1584,6 @@ public:
 
 namespace {
 
-
 [[nodiscard]] bool isCustomMicrosoftOp(
     ONNXCustomOp customOp, StringRef expectedName) {
   if (!customOp.getFunctionName().equals_insensitive(expectedName)) {
