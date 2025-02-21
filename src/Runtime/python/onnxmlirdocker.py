@@ -1,9 +1,19 @@
 import numpy as np
-import docker
 import os
 import sys
 import tempfile
 import json
+import subprocess
+
+
+class config:
+    image_path_dictionary = {
+        "ghcr.io/onnxmlir/onnx-mlir": "/usr/local/bin/bin/onnx-mlir",
+        "ghcr.io/onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+        "onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+    }
+
+    default_compiler_image = "ghcr.io/onnxmlir/onnx-mlir-dev"
 
 
 def get_names_in_signature(signature):
@@ -15,12 +25,34 @@ def get_names_in_signature(signature):
     return names
 
 
+# Return the compiler path of an image based on the image_path_dictionary
+def find_compiler_path(image_name):
+    dict = config.image_path_dictionary
+    if image_name in dict:
+        return dict[image_name]
+    else:
+        return None
+
+
 class InferenceSession:
     def __init__(self, model_path, **kwargs):
+        self.debug = False
+        self.session = None
+        self.handleParameters(model_path, **kwargs)
+        if self.session is not None:
+            return self.session
+        self.checkCompiler()
+        self.Compile()
+        self.session = self.getSession()
+
+    def handleParameters(self, model_path, **kwargs):
+        if "debug" in kwargs.keys():
+            self.debug = kwargs["debug"]
+        self.model_path = model_path
         if model_path.endswith(".mlir"):
-            model_suffix = ".mlir"
+            self.model_suffix = ".mlir"
         elif model_path.endswith(".onnx"):
-            model_suffix = ".onnx"
+            self.model_suffix = ".onnx"
         elif model_path.endswith(".so"):
             self.compiled_lib = os.path.abspath(model_path)
             self.session = self.getSession()
@@ -29,70 +61,107 @@ class InferenceSession:
             print("Invalid input model path. Must end with .onnx or .mlir or .onnxtext")
             exit(1)
 
-        if "compile-options" in kwargs.keys():
-            self.compile_options = kwargs["compile-options"]
-        else:
-            self.compile_options = ""
-
-        if "onnx-mlir-container" in kwargs.keys():
-            self.compiler_container = kwargs["onnx-mlir-container"]
-        else:
-            # Default image
-            # The compiler command may have different path in different image
-            # self.onnx_mlir_image = "ghcr.io/onnxmlir/onnx-mlir-dev"
-            self.onnx_mlir_image = "onnxmlir/onnx-mlir-dev"
-
-        # Path to mount the model to the image
-        self.container_model_dirname = "/myinput"
-        self.container_output_dirname = "/myoutput"
-
-        self.model_path = model_path
-
-        # Construct compilation command
-
-        # Assume we are using onnx-mlir-dev container
-        command_str = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
         absolute_path = os.path.abspath(self.model_path)
         self.model_basename = os.path.basename(absolute_path)
         self.model_dirname = os.path.dirname(absolute_path)
 
+        if "compile_options" in kwargs.keys():
+            self.compile_options = kwargs["compile_options"]
+        else:
+            self.compile_options = ""
+
+        if "compiler_image" in kwargs.keys():
+            self.compiler_image = kwargs["compiler_image"]
+            self.compiler_path = find_compiler_path(self.compiler_image)
+            if self.compiler_path is None and "compiler_path" not in kwargs.keys():
+                print(
+                    "Please specify the path to your compiler when you are not using the default image"
+                )
+                exit(1)
+        else:
+            # Default image
+            self.compiler_image = config.default_compiler_image
+            self.compiler_path = find_compiler_path(self.compiler_image)
+
+        if "compiler_path" in kwargs.keys():
+            self.compiler_path = kwargs["compiler_path"]
+
+    def checkCompiler(self):
+        if self.compiler_image == None:
+            if not os.path.exists(self.compiler_path):
+                print("the compiler path does not exist: ", self.compiler_path)
+                exit(-1)
+        else:
+            import docker
+
+            self.container_client = docker.from_env()
+            try:
+                msg = self.container_client.containers.run(
+                    self.compiler_image, "test -e " + self.compiler_path
+                )
+            except Exception as e:
+                print(
+                    "the compiler path does not exist in container: ",
+                    self.compiler_path,
+                )
+                exit(-1)
+
+    def Compile(self):
+        # Temporary directory for compilation
+        self.output_tempdir = tempfile.TemporaryDirectory()
+        self.output_dirname = self.output_tempdir.name
+
+        if self.compiler_image is None:
+            # Use the uniform variable for local compiler and docker image
+            self.container_model_dirname = self.model_dirname
+            self.container_output_dirname = self.output_dirname
+        else:
+            # Path to mount the model and output in container
+            self.container_model_dirname = "/myinput"
+            self.container_output_dirname = "/myoutput"
+
+        # Construct compilation command
+        command_str = self.compiler_path
+
         # Compiled library
-        command_str += " " + self.compile_options
+        if self.compile_options != "":
+            command_str += " " + self.compile_options
         command_str += " " + os.path.join(
             self.container_model_dirname, self.model_basename
         )
 
         # ToFix: should use temporary directory for compilation, and
         # use "-o" to put the compiled library in the temporary directory.
-        self.output_tempdir = tempfile.TemporaryDirectory()
-        self.output_dirname = self.output_tempdir.name
         self.compiled_model = os.path.join(
-            self.output_dirname, self.model_basename.removesuffix(model_suffix) + ".so"
+            self.output_dirname,
+            self.model_basename.removesuffix(self.model_suffix) + ".so",
         )
         command_str += " -o " + os.path.join(
             self.container_output_dirname,
-            self.model_basename.removesuffix(model_suffix),
+            self.model_basename.removesuffix(self.model_suffix),
         )
 
-        print("model: ", self.model_dirname)
-        self.container_client = docker.from_env()
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
-        msg = self.container_client.containers.run(
-            self.onnx_mlir_image,
-            command_str,
-            volumes={
-                self.model_dirname: {
-                    "bind": self.container_model_dirname,
-                    "mode": "rw",
+        if self.compiler_image is None:
+            subprocess.run(command_str.split(" "))
+        else:
+            import docker
+
+            msg = self.container_client.containers.run(
+                self.compiler_image,
+                command_str,
+                volumes={
+                    self.model_dirname: {
+                        "bind": self.container_model_dirname,
+                        "mode": "rw",
+                    },
+                    self.output_dirname: {
+                        "bind": self.container_output_dirname,
+                        "mode": "rw",
+                    },
                 },
-                self.output_dirname: {
-                    "bind": self.container_output_dirname,
-                    "mode": "rw",
-                },
-            },
-        )
-        self.session = self.getSession()
+            )
 
     def getSession(self):
         # When the script is used in package onnxmlir, the files to be imported
