@@ -6,6 +6,16 @@ import json
 import subprocess
 
 
+class config:
+    image_path_dictionary = {
+        "ghcr.io/onnxmlir/onnx-mlir": "/usr/local/bin/bin/onnx-mlir",
+        "ghcr.io/onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+        "onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+    }
+
+    default_compiler_image = "ghcr.io/onnxmlir/onnx-mlir-dev"
+
+
 def get_names_in_signature(signature):
     names = []
     # Load the input signature.
@@ -13,6 +23,15 @@ def get_names_in_signature(signature):
     for sig in signature_dict:
         names.append(sig["name"])
     return names
+
+
+# Return the compiler path of an image based on the image_path_dictionary
+def find_compiler_path(image_name):
+    dict = config.image_path_dictionary
+    if image_name in dict:
+        return dict[image_name]
+    else:
+        return None
 
 
 class InferenceSession:
@@ -49,47 +68,42 @@ class InferenceSession:
         if "compile_options" in kwargs.keys():
             self.compile_options = kwargs["compile_options"]
         else:
-            self.compile_options = "" 
+            self.compile_options = ""
 
-        if "compiler_container" in kwargs.keys():
-            self.compiler_container = kwargs["compiler_container"]
-            if "compiler_path" not in kwargs.keys():
-                print("Please specify the path to your compiler when you are not using the default image")
+        if "compiler_image" in kwargs.keys():
+            self.compiler_image = kwargs["compiler_image"]
+            self.compiler_path = find_compiler_path(self.compiler_image)
+            if self.compiler_path is None and "compiler_path" not in kwargs.keys():
+                print(
+                    "Please specify the path to your compiler when you are not using the default image"
+                )
                 exit(1)
         else:
             # Default image
-            # The compiler command may have different path in different image
-
-            self.compiler_container = "ghcr.io/onnxmlir/onnx-mlir-dev"
-            self.compiler_path = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
-
-            # Other possible default
-            """
-            self.compiler_container = "ghcr.io/onnxmlir/onnx-mlir"
-            self.compiler_path = "/usr/local/bin/bin/onnx-mlir"
-
-            self.compiler_container = "onnxmlir/onnx-mlir-dev"
-            self.compiler_path = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
-            """
+            self.compiler_image = config.default_compiler_image
+            self.compiler_path = find_compiler_path(self.compiler_image)
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
 
-    def checkCompiler(self) :
-        if self.compiler_container == None:
+    def checkCompiler(self):
+        if self.compiler_image == None:
             if not os.path.exists(self.compiler_path):
                 print("the compiler path does not exist: ", self.compiler_path)
                 exit(-1)
         else:
             import docker
+
             self.container_client = docker.from_env()
             try:
                 msg = self.container_client.containers.run(
-                    self.compiler_container,
-                    "test -e "+self.compiler_path
+                    self.compiler_image, "test -e " + self.compiler_path
                 )
             except Exception as e:
-                print("the compiler path does not exist in container: ", self.compiler_path)
+                print(
+                    "the compiler path does not exist in container: ",
+                    self.compiler_path,
+                )
                 exit(-1)
 
     def Compile(self):
@@ -97,7 +111,7 @@ class InferenceSession:
         self.output_tempdir = tempfile.TemporaryDirectory()
         self.output_dirname = self.output_tempdir.name
 
-        if self.compiler_container is None:
+        if self.compiler_image is None:
             # Use the uniform variable for local compiler and docker image
             self.container_model_dirname = self.model_dirname
             self.container_output_dirname = self.output_dirname
@@ -105,7 +119,6 @@ class InferenceSession:
             # Path to mount the model and output in container
             self.container_model_dirname = "/myinput"
             self.container_output_dirname = "/myoutput"
-
 
         # Construct compilation command
         command_str = self.compiler_path
@@ -120,7 +133,8 @@ class InferenceSession:
         # ToFix: should use temporary directory for compilation, and
         # use "-o" to put the compiled library in the temporary directory.
         self.compiled_model = os.path.join(
-            self.output_dirname, self.model_basename.removesuffix(self.model_suffix) + ".so"
+            self.output_dirname,
+            self.model_basename.removesuffix(self.model_suffix) + ".so",
         )
         command_str += " -o " + os.path.join(
             self.container_output_dirname,
@@ -129,12 +143,13 @@ class InferenceSession:
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
-        if self.compiler_container is None:
+        if self.compiler_image is None:
             subprocess.run(command_str.split(" "))
         else:
             import docker
+
             msg = self.container_client.containers.run(
-                self.compiler_container,
+                self.compiler_image,
                 command_str,
                 volumes={
                     self.model_dirname: {
@@ -203,4 +218,3 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
-
