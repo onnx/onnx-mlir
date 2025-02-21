@@ -229,8 +229,8 @@ LogicalResult createAndReplaceConstantOp(PatternRewriter &rewriter,
 ///
 class GenericPattern : public OpRewritePattern<mlir::ONNXCastOp> {
 public:
-  GenericPattern(mlir::MLIRContext *context)
-      : mlir::OpRewritePattern<mlir::ONNXCastOp>(context),
+  GenericPattern(mlir::MLIRContext *context, PatternBenefit benefit)
+      : mlir::OpRewritePattern<mlir::ONNXCastOp>(context, benefit),
         fromFloatType(FloatType::getF32(context)),
         toFloatType(FloatType::getBF16(context)) {}
 
@@ -280,8 +280,6 @@ public:
     SmallVector<Value> operands;
     llvm::transform(
         op->getOperands(), std::back_inserter(operands), [&](Value operand) {
-          // llvm::errs() << "Operand value";
-          // operand.dump();
           auto *operandOp = operand.getDefiningOp();
           if (!operandOp)
             return operand;
@@ -330,28 +328,40 @@ public:
     // llvm::errs() << "here3\n";
     SmallVector<Type> resultTypes;
     llvm::SmallDenseMap<Operation *, int64_t> resultOps;
-    llvm::transform(op->getOpResults(), std::back_inserter(resultTypes),
-        [&](OpResult result) -> Type {
-          auto *opResult = result.getOwner();
-          if (onnx_mlir::isNoneValue(result)) {
-            return result.getType();
-          }
 
-          llvm::for_each(opResult->getUsers(), [&](Operation *userOp) {
-            resultOps[userOp] = result.getResultNumber();
-          });
-          if (llvm::none_of(opResult->getUsers(), [&](Operation *userOp) {
-                resultOps[userOp] = result.getResultNumber();
-                return isOutputCastOp(userOp, fromFloatType, toFloatType);
-              })) {
-            return result.getType();
-          }
-          assert(llvm::all_of(opResult->getUsers(), [&](Operation *userOp) {
+    for (const auto &result : op->getOpResults()) {
+      auto *opResult = result.getOwner();
+      if (onnx_mlir::isNoneValue(result)) {
+        resultTypes.push_back(result.getType());
+        continue;
+      }
+
+      SmallVector<Operation *> opResultUsers{
+          opResult->getUsers().begin(), opResult->getUsers().end()};
+      llvm::for_each(opResultUsers, [&](Operation *userOp) {
+        resultOps[userOp] = result.getResultNumber();
+      });
+
+      size_t numOutputCastOps =
+          llvm::count_if(opResultUsers, [&](auto *userOp) {
             return isOutputCastOp(userOp, fromFloatType, toFloatType);
-          }));
-          auto resultType = cast<TensorType>(result.getType());
-          return resultType.clone(toFloatType);
-        });
+          });
+
+      if (numOutputCastOps == 0) {
+        resultTypes.push_back(result.getType());
+        continue;
+      }
+
+      if (numOutputCastOps != opResultUsers.size()) {
+        llvm::for_each(createdOpsTrackerForFailedVerifier,
+            [&](auto *createdOp) { createdOp->erase(); });
+        return rewriter.notifyMatchFailure(
+            castOp->getLoc(), "Missing input ONNXCastOp(from=bf16 to=f32)");
+      }
+
+      auto resultType = cast<TensorType>(result.getType());
+      resultTypes.push_back(resultType.clone(toFloatType));
+    }
 
     // Try to create the ONNX operation with the new type.
     Operation *newOp = createOpWithNewType(
@@ -372,11 +382,6 @@ public:
     } else {
       // llvm::errs() << "here18\n";
       isNewTypeCompatible = succeeded(mlir::verify(newOp));
-    }
-    if (isa<mlir::ONNXCastOp>(op)) {
-      mlir::OpPrintingFlags flags;
-      flags.elideLargeElementsAttrs(16);
-      op->getParentOp()->print(llvm::errs(), flags);
     }
     // llvm::errs() << "here19\n";
     // mlir::OpPrintingFlags flags;
@@ -449,7 +454,8 @@ public:
 
 void onnx_mlir::getLegalizeQuarkQuantizedOpsPatterns(
     RewritePatternSet &patterns) {
-  patterns.insert<GenericPattern>(patterns.getContext());
+  PatternBenefit highPriority(1000);
+  patterns.insert<GenericPattern>(patterns.getContext(), highPriority);
 }
 
 /// Factory function for creating the bf16-to-f32 pass object
