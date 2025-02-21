@@ -70,9 +70,9 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
 
   auto fusedLoc = FusedLoc::get(op->getContext(), locs);
 
-  // Requires special treatment for ONNXCastOp.
+  // Requires special treatment for ONNXCastOp as we need to modify the its 'to'
+  // attribute.
   if (auto onnxCastOp = dyn_cast<mlir::ONNXCastOp>(op)) {
-    // llvm::errs() << "here\n";
     assert(operands.size() == 1 && "CastOp must have a simple operand");
     auto inputValue = operands.back();
     auto onnxCastTy = cast<mlir::TensorType>(inputValue.getType());
@@ -80,9 +80,6 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
     return rewriter.create<mlir::ONNXCastOp>(fusedLoc, newOnnxCastTy,
         operands.back(), onnxCastOp.getSaturate(), toFloatType);
   }
-
-  // adapted from
-  // third-party/llvm-project/mlir/lib/Conversion/MemRefToSPIRV/MapMemRefStorageClassPass.cpp
 
   // Start composing new op
   OperationState state(fusedLoc, op->getName().getStringRef(), operands, types,
@@ -123,15 +120,11 @@ mlir::DenseElementsAttr getDenseElementAttrFromConstOp(
     const llvm::fltSemantics &bf16Semantics, ShapedType toShapedTy,
     DenseElementsAttr &constantValues) {
   std::vector<APFloat> newValues;
-  // constantValues.dump();
   llvm::transform(constantValues.getValues<APFloat>(),
       std::back_inserter(newValues), [&](APFloat fp32Apfloat) -> llvm::APFloat {
         return convertF32ToBf16(
             bf16Semantics, fp32Apfloat.bitcastToAPInt().getZExtValue());
       });
-  // Create a new const op with the same data and shape but 'ToFPTy'
-  // element type
-  // toShapedTy.dump();
   return mlir::DenseElementsAttr::get(toShapedTy, llvm::ArrayRef(newValues));
 }
 
@@ -141,21 +134,17 @@ mlir::Value createNewConstantOp(PatternRewriter &rewriter,
 
   // Avoid rewriting any const whose element type is not 'FromFPTy'
   ElementsAttr valueAttr = cast<ElementsAttr>(constantOp.getValueAttr());
-
   if (valueAttr.getElementType() != fromFloatTy) {
     return constantOp;
   }
 
   if (valueAttr.getElementType() == toFloatTy) {
-    llvm::errs() << "Here I am\n";
     return constantOp;
   }
 
   ElementsAttr newValueAttr;
 
   auto &bf16Semantics = toFloatTy.getFloatSemantics();
-  // toFloatTy.dump();
-
   if (valueAttr.isSplat()) {
     auto f32Value = valueAttr.getSplatValue<llvm::APFloat>();
     newValueAttr = mlir::DenseElementsAttr::get(
@@ -169,7 +158,6 @@ mlir::Value createNewConstantOp(PatternRewriter &rewriter,
         bf16Semantics, toShapedTy, valueElements);
   }
 
-  // toShapedTy.dump();
   auto constantValue = rewriter.create<mlir::ONNXConstantOp>(loc, toShapedTy,
       Attribute(), newValueAttr, mlir::FloatAttr(), mlir::ArrayAttr(),
       mlir::IntegerAttr(), mlir::ArrayAttr(), mlir::StringAttr(),
@@ -248,6 +236,18 @@ public:
           castOp->getLoc(), "Block Argument found.");
     }
 
+    // Avoid running the pass on unranked types.
+    if (llvm::any_of(llvm::concat<const mlir::Type>(
+                         op->getOperandTypes(), op->getResultTypes()),
+            [&](const Type ty) {
+              auto unrankedType = dyn_cast<UnrankedTensorType>(ty);
+              return unrankedType &&
+                     unrankedType.getElementType() == fromFloatType;
+            })) {
+      return rewriter.notifyMatchFailure(
+          castOp->getLoc(), "Only supports ranked types.");
+    }
+
     if (op->getNumRegions() > 0) {
       return rewriter.notifyMatchFailure(castOp->getLoc(),
           "Does not support conversion of operations with region.");
@@ -276,6 +276,10 @@ public:
     // This would happen when the target datatype (BF16) used isn't compatible
     // with the new op.
     SmallVector<Operation *> createdOpsTrackerForFailedVerifier;
+    auto removeTrackedOps = [&]() {
+      llvm::for_each(createdOpsTrackerForFailedVerifier,
+          [&](auto *createdOp) { createdOp->erase(); });
+    };
 
     SmallVector<Value> operands;
     llvm::transform(
@@ -307,25 +311,17 @@ public:
           return cast<mlir::ONNXCastOp>(operandOp).getInput();
         });
 
-    if (llvm::any_of(llvm::concat<const mlir::Type>(
-                         op->getOperandTypes(), op->getResultTypes()),
-            [&](const Type ty) {
-              auto unrankedType = dyn_cast<UnrankedTensorType>(ty);
-              return unrankedType &&
-                     unrankedType.getElementType() == fromFloatType;
-            })) {
-      return rewriter.notifyMatchFailure(
-          castOp->getLoc(), "Only supports ranked types.");
-    }
-    // llvm::errs() << "here2\n";
     if (llvm::any_of(operands, [&](auto operand) {
           auto tensorType = dyn_cast<TensorType>(operand.getType());
           return tensorType && tensorType.getElementType() == fromFloatType;
         })) {
+      // Make sure to erase any additional op that was created so that the
+      // rewriter doesn't trigger any changes by this pass.
+      removeTrackedOps();
       return rewriter.notifyMatchFailure(
           castOp->getLoc(), "Missing input ONNXCastOp(from=bf16 to=f32)");
     }
-    // llvm::errs() << "here3\n";
+
     SmallVector<Type> resultTypes;
     llvm::SmallDenseMap<Operation *, int64_t> resultOps;
 
@@ -353,8 +349,9 @@ public:
       }
 
       if (numOutputCastOps != opResultUsers.size()) {
-        llvm::for_each(createdOpsTrackerForFailedVerifier,
-            [&](auto *createdOp) { createdOp->erase(); });
+        // Make sure to erase any additional op that was created so that the
+        // rewriter doesn't trigger any changes by this pass.
+        removeTrackedOps();
         return rewriter.notifyMatchFailure(
             castOp->getLoc(), "Missing input ONNXCastOp(from=bf16 to=f32)");
       }
@@ -366,7 +363,7 @@ public:
     // Try to create the ONNX operation with the new type.
     Operation *newOp = createOpWithNewType(
         rewriter, op, operands, newOpLocations, resultTypes, toFloatType);
-    // llvm::errs() << "here6\n";
+
     // MLIR has validators for operations that fail if the types are
     // unsupported. We make use of this here by seeing if the type
     // replacement in 'newOp' is acceptable. If it isn't, we fallback to the
@@ -375,33 +372,22 @@ public:
     // acceptable. Since we will not use the 'newOp, the diagnostic is
     // irrelevant.
     IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
-    bool isNewTypeCompatible;
+    bool isNewOpValid;
     if (auto info = newOp->getName().getRegisteredInfo()) {
-      // llvm::errs() << "here17\n";
-      isNewTypeCompatible = succeeded(info->verifyInvariants(newOp));
+      isNewOpValid = succeeded(info->verifyInvariants(newOp));
     } else {
-      // llvm::errs() << "here18\n";
-      isNewTypeCompatible = succeeded(mlir::verify(newOp));
+      isNewOpValid = succeeded(mlir::verify(newOp));
     }
-    // llvm::errs() << "here19\n";
-    // mlir::OpPrintingFlags flags;
-    // flags.elideLargeElementsAttrs(16);
-    if (!isNewTypeCompatible) {
+
+    if (!isNewOpValid) {
       // Make sure to erase any additional op that was created so that the
       // rewriter doesn't trigger any changes by this pass.
-      llvm::for_each(createdOpsTrackerForFailedVerifier,
-          [&](auto *createdOp) { createdOp->erase(); });
+      removeTrackedOps();
       newOp->erase();
-      // llvm::errs() << "here10\n";
-      // castOp.dump();
+
       return rewriter.notifyMatchFailure(
           castOp->getLoc(), "cannot create operation with this type");
     }
-    // flags.elideLargeElementsAttrs(16);
-    // llvm::errs() << "Starting\n";
-    // op->getParentOp()->print(llvm::errs(), flags);
-    // castOp.dump();
-    // newOp->getResult(resultOps[castOp]).dump();
 
     for (auto [op, resultNumber] : resultOps) {
       rewriter.replaceAllOpUsesWith(op, newOp->getResult(resultNumber));
@@ -436,17 +422,11 @@ public:
     auto &ctx = this->getContext();
     Operation *op = this->getOperation();
 
-    // mlir::OpPrintingFlags flags;
-    // flags.elideLargeElementsAttrs(16);
-    // llvm::errs() << "Starting\n";
-    // op->print(llvm::errs(), flags);
     RewritePatternSet greedyPatterns(&ctx);
 
     onnx_mlir::getLegalizeQuarkQuantizedOpsPatterns(greedyPatterns);
     if (failed(applyPatternsAndFoldGreedily(op, std::move(greedyPatterns))))
       return signalPassFailure();
-    // llvm::errs() << "Finishing\n";
-    // op->print(llvm::errs(), flags);
   }
 };
 

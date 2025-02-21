@@ -124,8 +124,14 @@ struct ONNXHybridTransformPass
       // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
       for (auto *dialect : context->getLoadedDialects())
         dialect->getCanonicalizationPatterns(cumulativePatterns);
-      for (RegisteredOperationName op : context->getRegisteredOperations())
+      for (RegisteredOperationName op : context->getRegisteredOperations()) {
+        // Since we are manipulating ONNXCastOp's, disable any canonicalization
+        // for it.
+        if (quarkQuantizedOpsLegalization && op.getStringRef() == "onnx.Cast") {
+          continue;
+        }
         op.getCanonicalizationPatterns(cumulativePatterns, context);
+      }
     }
 
     if (constantPropagation) {

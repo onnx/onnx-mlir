@@ -460,6 +460,10 @@ struct SimplifyShapeRelatedOpsPass
     : public PassWrapper<SimplifyShapeRelatedOpsPass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SimplifyShapeRelatedOpsPass)
 
+  SimplifyShapeRelatedOpsPass(
+      bool disableCastOpCanonicalizations)
+      : PassWrapper(), disableCastOpCanonicalizations(disableCastOpCanonicalizations) {}
+
   StringRef getArgument() const override {
     return "simplify-shape-related-ops-onnx";
   }
@@ -472,6 +476,7 @@ struct SimplifyShapeRelatedOpsPass
 
 private:
   void topDownShapeSimplification(MLIRContext *context, ModuleOp moduleOp);
+  bool disableCastOpCanonicalizations;
 };
 
 void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
@@ -495,7 +500,9 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
 
   // Canonicalize shape-related ops during this pass to simplify rules in this
   // pass.
-  ONNXCastOp::getCanonicalizationPatterns(patterns, context);
+  if (!this->disableCastOpCanonicalizations) {
+    ONNXCastOp::getCanonicalizationPatterns(patterns, context);
+  }
   ONNXDimOp::getCanonicalizationPatterns(patterns, context);
   ONNXReshapeOp::getCanonicalizationPatterns(patterns, context);
   ONNXSliceOp::getCanonicalizationPatterns(patterns, context);
@@ -536,8 +543,8 @@ namespace onnx_mlir {
 /*!
  * Create a SimplifyShapeRelatedOps pass.
  */
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass() {
-  return std::make_unique<SimplifyShapeRelatedOpsPass>();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(bool disableCastOpCanonicalizations) {
+  return std::make_unique<SimplifyShapeRelatedOpsPass>(disableCastOpCanonicalizations);
 }
 
 } // namespace onnx_mlir
