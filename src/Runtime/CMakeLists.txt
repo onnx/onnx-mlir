@@ -67,8 +67,8 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
+# Windows use the wrapper class for dynamic library provided by llvm
+if (WIN32)
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
