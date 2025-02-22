@@ -69,10 +69,10 @@ public:
     llvm::SmallVector<int64_t> dynamicTensorShape = {
         ShapedType::kDynamic, ShapedType::kDynamic, ShapedType::kDynamic};
 
-    tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
+    A = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
         RankedTensorType::get(dynamicTensorShape, AType.getElementType()), A,
         mlir::tosa::getTosaConstShape(rewriter, op.getLoc(), newShapeA))
-        .getResult();
+            .getResult();
     B = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
         RankedTensorType::get(dynamicTensorShape, BType.getElementType()), B,
         mlir::tosa::getTosaConstShape(rewriter, op.getLoc(), newShapeB))

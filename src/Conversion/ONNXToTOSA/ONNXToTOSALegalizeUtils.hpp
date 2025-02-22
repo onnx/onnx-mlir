@@ -44,7 +44,8 @@ T getValueFromTosaConst(mlir::Value &val) {
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
 TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
-    mlir::Type result_ty, Args &&... args) {
+    mlir::Type result_ty, Args &&...args) {
+
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
@@ -64,6 +65,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   // the new result shaped type. This is because rescale can include a cast to
   // different bit-width types and does not have a TypeAttr to define the
   // target type.
+  assert(returnedShapes.size() >= 1 && "Expected at least one returned shape");
   auto predictedShape = returnedShapes[0];
   if (predictedShape.hasRank())
     updateType(nullptr, op, predictedShape.getDims(),
@@ -73,7 +75,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
 
 template <typename TosaOp, typename... Args>
 void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::Type result_ty, Args &&... args) {
+    mlir::Operation *op, mlir::Type result_ty, Args &&...args) {
   auto result =
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
