@@ -21,10 +21,11 @@ func.func @gemm_to_fc_broadcast(%arg0: tensor<2x5xf32>, %arg1: tensor<4x5xf32>, 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x5xf32>, [[PARAM_1_:%.+]]: tensor<4x5xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>) -> tensor<2x4xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<4xf32>}> : () -> tensor<4xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = tosa.fully_connected [[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]] : (tensor<2x5xf32>, tensor<4x5xf32>, tensor<4xf32>) -> tensor<2x4xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.reshape [[PARAM_2_]] {new_shape = array<i64: 1, 1>} : (tensor<1xf32>) -> tensor<1x1xf32>
-// CHECK:           [[VAR_3_:%.+]] = tosa.add [[VAR_1_]], [[VAR_2_]] : (tensor<2x4xf32>, tensor<1x1xf32>) -> tensor<2x4xf32>
-// CHECK:           return [[VAR_3_]] : tensor<2x4xf32>
-// CHECK:         }
+// CHECK-NEXT:      [[VAR_2_:%.+]] = tosa.const_shape {value = dense<1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-NEXT:      [[VAR_3_:%.+]] = tosa.reshape [[PARAM_2_]], [[VAR_2_]] : (tensor<1xf32>, !tosa.shape<2>) -> tensor<1x1xf32>
+// CHECK-NEXT:      [[VAR_4_:%.+]] = tosa.add [[VAR_1_]], [[VAR_3_]] : (tensor<2x4xf32>, tensor<1x1xf32>) -> tensor<2x4xf32>
+// CHECK-NEXT:      return [[VAR_4_]] : tensor<2x4xf32>
+// CHECK-NEXT:   }
 }
 
 // -----
