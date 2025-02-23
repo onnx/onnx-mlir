@@ -28,14 +28,14 @@ namespace onnx_mlir {
 
 namespace {
 
-void handleIncludePadAttr(
-    ConversionPatternRewriter &rewriter, Operation *op, Value input) {
+void handleIncludePadAttr(ConversionPatternRewriter &rewriter, Operation *op,
+                          Value input) {
   Location loc = op->getLoc();
 
   // Get shape.
   IndexExprBuilderForTosa createTosaIE(rewriter, loc);
-  ONNXGenericPoolOpShapeHelper<ONNXAveragePoolOp> shapeHelper(
-      op, {}, &createTosaIE);
+  ONNXGenericPoolOpShapeHelper<ONNXAveragePoolOp> shapeHelper(op, {},
+                                                              &createTosaIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
   // Build an array with padding.
@@ -44,32 +44,35 @@ void handleIncludePadAttr(
 
   // Create Padding and ConstPad tosa::ConstOp's
   TosaBuilder tosaBuilder(rewriter, loc);
-  Value padding = tosa::buildOnnxToTosaPaddingConstOp(
-      rewriter, intValues, loc, {0, 0, 0, 0}, {});
+  Value padding = tosa::buildOnnxToTosaPaddingConstOp(rewriter, intValues, loc,
+                                                      {0, 0, 0, 0}, {});
   auto constTosaTensor = tosaBuilder.getSplattedConst(0.0);
 
   auto inputType = mlir::cast<mlir::TensorType>(input.getType());
-  auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,
+  auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(
+      rewriter, loc,
       mlir::RankedTensorType::get(
-          llvm::SmallVector<int64_t, 4>(
-              inputType.getShape().size(), ShapedType::kDynamic),
+          llvm::SmallVector<int64_t, 4>(inputType.getShape().size(),
+                                        ShapedType::kDynamic),
           inputType.getElementType()),
       input, padding, constTosaTensor);
 
   // In-place update of AveragePool by setting operand to PadOp
   // and pads attribute to {0, 0, 0, 0}.
   rewriter.modifyOpInPlace(op, [&]() { op->setOperand(0, padOp); });
-  rewriter.modifyOpInPlace(op,
-      [&]() { op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0})); });
+  rewriter.modifyOpInPlace(op, [&]() {
+    op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0}));
+  });
 }
 
 class ONNXAveragePoolOpLoweringToTOSA
     : public OpConversionPattern<ONNXAveragePoolOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXAveragePoolOp averagePoolOp,
-      ONNXAveragePoolOpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const final {
+  LogicalResult
+  matchAndRewrite(ONNXAveragePoolOp averagePoolOp,
+                  ONNXAveragePoolOpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
 
     // With 'countIncludePad' and 'ceilMode', there are 4 cases of attributes
     // that have an impact on the padding of the TOSA AveragePoolOp. The only
@@ -101,8 +104,8 @@ public:
             rewriter, averagePoolOp);
 
     if (failed(newAveragePoolOp)) {
-      return rewriter.notifyMatchFailure(
-          averagePoolOp, "Could not create averagepool op.");
+      return rewriter.notifyMatchFailure(averagePoolOp,
+                                         "Could not create averagepool op.");
     }
     rewriter.replaceOp(averagePoolOp, *newAveragePoolOp);
     return success();
@@ -111,9 +114,9 @@ public:
 
 } // namespace
 
-void populateLoweringONNXAveragePoolOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
+void populateLoweringONNXAveragePoolOpToTOSAPattern(
+    ConversionTarget &target, RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXAveragePoolOpLoweringToTOSA>(ctx);
 }
 
