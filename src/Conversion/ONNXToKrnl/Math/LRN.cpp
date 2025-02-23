@@ -52,7 +52,7 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
     float alphaLit = adaptor.getAlpha().convertToFloat();
     float betaLit = adaptor.getBeta().convertToFloat();
     int sizeLit = adaptor.getSize();
-    auto f32Type = FloatType::getF32(rewriter.getContext());
+    auto f32Type = Float32Type::get(rewriter.getContext());
     Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
         create.math.constant(f32Type, alphaLit / static_cast<float>(sizeLit));

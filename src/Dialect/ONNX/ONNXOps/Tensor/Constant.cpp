@@ -54,10 +54,10 @@ std::vector<Type> ONNXConstantOp::resultTypeInference() {
   } else if (auto attr = getSparseValueAttr()) {
     type = mlir::cast<ElementsAttr>(attr).getShapedType();
   } else if (auto attr = getValueFloatAttr()) {
-    type = RankedTensorType::get({}, FloatType::getF32(getContext()));
+    type = RankedTensorType::get({}, Float32Type::get(getContext()));
   } else if (auto attr = getValueFloatsAttr()) {
     int64_t size = attr.size();
-    type = RankedTensorType::get({size}, FloatType::getF32(getContext()));
+    type = RankedTensorType::get({size}, Float32Type::get(getContext()));
   } else if (auto attr = getValueIntAttr()) {
     type = RankedTensorType::get({}, IntegerType::get(getContext(), 64));
   } else if (auto attr = getValueIntsAttr()) {
