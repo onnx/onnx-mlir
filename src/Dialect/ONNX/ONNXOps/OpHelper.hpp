@@ -272,6 +272,17 @@ int64_t mlirTypeToOnnxType(mlir::Type elemType);
 /// Check if a value is a scalar tensor.
 bool isScalarTensor(mlir::Value v);
 
+class IgnoreDiagnostic {
+public:
+  IgnoreDiagnostic(mlir::DiagnosticEngine &diagEngine);
+
+  ~IgnoreDiagnostic();
+
+private:
+  mlir::DiagnosticEngine &diagEngine;
+  mlir::DiagnosticEngine::HandlerID id;
+};
+
 bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 
 //===----------------------------------------------------------------------===//
