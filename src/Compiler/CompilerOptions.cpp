@@ -707,7 +707,7 @@ static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
 static llvm::cl::opt<bool, true> enable_timing("enable-timing",
     llvm::cl::desc("Enable compile timing (default is false)\n"
                    "Set to 'true' if you want to enable compile timing."),
-    llvm::cl::location(enableTiming), llvm::cl::init(true),
+    llvm::cl::location(enableTiming), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
