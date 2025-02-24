@@ -135,6 +135,13 @@ mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
 mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
     mlir::Value tensor, size_t axis, size_t rank) {
   auto inTy = cast<ShapedType>(tensor.getType());
+  if (rank == 0) {
+    // target rank is a scalar
+    llvm::SmallVector<int64_t> newShape;
+    return rewriter.createOrFold<mlir::tosa::ReshapeOp>(loc,
+        RankedTensorType::get(newShape, inTy.getElementType()), tensor,
+        newShape);
+  }
   llvm::SmallVector<int64_t> newShape(rank, 1);
   newShape[axis] = inTy.getNumElements();
   auto resultTy = RankedTensorType::get(newShape, inTy.getElementType());

@@ -53,9 +53,9 @@ T getValueFromTosaConst(mlir::Value &val) {
 // This function is made to work with both onnx.const and tosa.const
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val);
 
-// Takes a 1-d `tensor` with k elements and reshapes it into an `rank`-d tensor
-// with shape {1, ..., 1, k, 1, ..., 1 }
-// where `k` it at position `axis`.
+// Takes a 1-d `tensor` with k elements and reshapes it into an `rank`-d or
+// scalar tensor with shape {1, ..., 1, k, 1, ..., 1 } where `k` it at position
+// `axis`.
 mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
     mlir::Value tensor, size_t axis, size_t rank);
 

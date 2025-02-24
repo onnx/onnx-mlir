@@ -94,3 +94,16 @@ func.func @f8E4M3FN(%arg0: tensor<5xf8E4M3FN>, %arg1: tensor<f32>) -> tensor<5xf
 // CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
 // CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
 // CHECK:           return %[[VAL_4]] : tensor<5xf32>
+
+// -----
+
+
+func.func @all_scalar(%arg0 : tensor<i8>) -> tensor<f32> {
+  %0 = onnx.Constant dense<3.125000e-02> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.DequantizeLinear"(%arg0, %0, %1) {axis = 1 : si64} : (tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<f32>
+  return %2 : tensor<f32>
+}
+
+// CHECK-LABEL: all_scalar
+// CHECK-NOT: onnx.DequantizeLinear

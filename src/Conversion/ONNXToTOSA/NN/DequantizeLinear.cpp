@@ -63,9 +63,10 @@ public:
 
     int64_t axis = op.getAxis();
     // See https://github.com/onnx/onnx/issues/6067
-    if (axis == 1 && resultType.getRank() == 1)
+    if (axis == 1 && (resultType.getRank() == 1 || resultType.getRank() == 0))
       axis = 0;
-    if (axis < -resultType.getRank() || axis >= resultType.getRank()) {
+    if (resultType.getRank() != 0 &&
+        (axis < -resultType.getRank() || axis >= resultType.getRank())) {
       return rewriter.notifyMatchFailure(loc, "axis is invalid");
     }
     if (axis < 0)

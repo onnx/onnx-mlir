@@ -815,16 +815,17 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     return true;
   });
 
-  // Recompose QLinearMatMul, starting from QuantizeLinear.
-  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
-  target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
-      [](ONNXQuantizeLinearOp op) {
-        Value a, aScale, aZeroPoint, b, bScale, bZeroPoint, outScale,
-            outZeroPoint;
-        return !RecomposeQLinearMatMulFromQuantizeLinearPattern::
-            matchQLinearMatMulPattern(op, a, aScale, aZeroPoint, b, bScale,
-                bZeroPoint, outScale, outZeroPoint);
-      });
+  // AMD Disabled
+  // // Recompose QLinearMatMul, starting from QuantizeLinear.
+  // // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
+  // target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
+  //     [](ONNXQuantizeLinearOp op) {
+  //       Value a, aScale, aZeroPoint, b, bScale, bZeroPoint, outScale,
+  //           outZeroPoint;
+  //       return !RecomposeQLinearMatMulFromQuantizeLinearPattern::
+  //           matchQLinearMatMulPattern(op, a, aScale, aZeroPoint, b, bScale,
+  //               bZeroPoint, outScale, outZeroPoint);
+  //     });
 
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
@@ -840,7 +841,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   MLIRContext *context = patterns.getContext();
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
-  patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
+  // AMD Disabled as downstream has no special support for it
+  // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
 }
 
 /*!

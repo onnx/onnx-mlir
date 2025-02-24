@@ -146,6 +146,18 @@ Value TosaBuilder::getSplattedConst(float val, Type dtype, int64_t rank) {
       loc(), RankedTensorType::get(constType.getShape(), dtype), constOp);
 }
 
+mlir::Value TosaBuilder::getSingleValueConst(
+    float val, mlir::Type dtype, ArrayRef<int64_t> shape) {
+  auto constType = RankedTensorType::get(shape, rewriter().getF32Type());
+  auto constAttr = DenseElementsAttr::get(
+      RankedTensorType::get(shape, rewriter().getF32Type()), {val});
+
+  auto constOp =
+      rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+  return rewriter().createOrFold<mlir::tosa::CastOp>(
+      loc(), RankedTensorType::get(constType.getShape(), dtype), constOp);
+}
+
 Value TosaBuilder::transpose(Value &value, llvm::ArrayRef<int32_t> perm) {
   int64_t valueRank = mlir::cast<RankedTensorType>(value.getType()).getRank();
   assert((valueRank == static_cast<int64_t>(perm.size())) &&
