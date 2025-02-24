@@ -40,7 +40,7 @@ func.func @krnl_matmul_seq_perfect_blocks(%arg0: memref<128x256xf32>, %arg1: mem
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 + 64)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 + 32)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1) -> (-d0 + d1)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1) -> (d0 - d1)>
 // CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<(d0) -> (d0 + 1)>
 // CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<(d0) -> (d0 + 2)>
 // CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<(d0) -> (d0 + 3)>
@@ -62,21 +62,21 @@ func.func @krnl_matmul_seq_perfect_blocks(%arg0: memref<128x256xf32>, %arg1: mem
 // CHECK-DAG:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<256x64xf32>
 // CHECK:               affine.for [[I_4_:%.+]] = 0 to 256 {
 // CHECK:                 affine.for [[I_5_:%.+]] = 0 to 64 {
-// CHECK:                   [[LOAD_PARAM_1_MEM_:%.+]] = affine.load [[PARAM_1_]]{{.}}[[I_3_]] + [[I_4_]], [[I_2_]] + [[I_5_]]{{.}} : memref<256x512xf32>
+// CHECK:                   [[LOAD_PARAM_1_MEM_:%.+]] = affine.load [[PARAM_1_]]{{.}}[[I_4_]] + [[I_3_]], [[I_5_]] + [[I_2_]]{{.}} : memref<256x512xf32>
 // CHECK:                   affine.store [[LOAD_PARAM_1_MEM_]], [[RES_2_]]{{.}}[[I_4_]], [[I_5_]]{{.}} : memref<256x64xf32>
 // CHECK:                 }
 // CHECK:               }
 // CHECK:               affine.for [[I_6_:%.+]] = 0 to 128 step 32 {
 // CHECK:                 affine.for [[I_7_:%.+]] = 0 to 32 {
 // CHECK:                   affine.for [[I_8_:%.+]] = 0 to 256 {
-// CHECK:                     [[LOAD_PARAM_1_MEM_1_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_6_]] + [[I_7_]], [[I_3_]] + [[I_8_]]{{.}} : memref<128x256xf32>
+// CHECK:                     [[LOAD_PARAM_1_MEM_1_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_7_]] + [[I_6_]], [[I_8_]] + [[I_3_]]{{.}} : memref<128x256xf32>
 // CHECK:                     affine.store [[LOAD_PARAM_1_MEM_1_]], [[RES_1_]]{{.}}[[I_7_]], [[I_8_]]{{.}} : memref<32x256xf32>
 // CHECK:                   }
 // CHECK:                 }
 // CHECK:                 affine.for [[I_9_:%.+]] = [[MAP_0_]]([[I_2_]]) to [[MAP_1_]]([[I_2_]]) step 16 {
 // CHECK:                   affine.for [[I_10_:%.+]] = [[MAP_0_]]([[I_6_]]) to [[MAP_2_]]([[I_6_]]) step 4 {
-// CHECK-DAG:                 [[LOAD_PARAM_1_MEM_1_:%.+]] = affine.apply [[MAP_3_]]([[I_6_]], [[I_10_]])
-// CHECK-DAG:                 [[VAR_1_:%.+]] = affine.apply [[MAP_3_]]([[I_2_]], [[I_9_]])
+// CHECK-DAG:                 [[LOAD_PARAM_1_MEM_1_:%.+]] = affine.apply [[MAP_3_]]([[I_10_]], [[I_6_]])
+// CHECK-DAG:                 [[VAR_1_:%.+]] = affine.apply [[MAP_3_]]([[I_9_]], [[I_2_]])
 // CHECK-DAG:                 [[RES_3_:%.+]] = memref.alloca() {{.*}}: memref<4xvector<16xf32>>
 // skip this one                affine.if [[SET_1_]]() {
 // CHECK:                       [[LOAD_RES_MEM_:%.+]] = vector.load [[RES_]]{{.}}[[I_10_]], [[I_9_]]{{.}} : memref<128x512xf32>, vector<16xf32>
