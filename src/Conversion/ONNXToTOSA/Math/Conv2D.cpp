@@ -129,11 +129,8 @@ public:
     Value newWeight = tosaBuilder.transpose(weights, {0, 2, 3, 1});
 
     if (mlir::isa<NoneType>(bias.getType())) {
-      DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
-          RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()),
-          {0.0F});
-      bias = rewriter.create<mlir::tosa::ConstOp>(
-          convOp->getLoc(), newBiasAttr.getType(), newBiasAttr);
+      bias = tosaBuilder.getSingleValueConst(
+          0.0F, inputType.getElementType(), {weightShape[0]});
     }
 
     DenseI64ArrayAttr dilations =

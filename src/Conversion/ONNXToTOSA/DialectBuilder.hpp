@@ -87,14 +87,20 @@ struct TosaBuilder : DialectBuilder {
       llvm::ArrayRef<int8_t> vec, llvm::ArrayRef<int64_t> shape);
   mlir::Value getConst(
       llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
-  // Create a floating-point constant operator from a float
-  // The tensor will have the same rank as shape but all dimensions will
-  // have size 1 (differs from tensorflow impl.)
-  // If dtype is provided, it also cast the value to the appropriate dtype.
+
+  /// Create a floating-point constant operator from a float
+  /// The tensor will have the same rank as shape but all dimensions will
+  /// have size 1 (differs from tensorflow impl.)
+  /// If dtype is provided, it also cast the value to the appropriate dtype.
   mlir::Value getSplattedConst(float val, mlir::Type dtype, int64_t rank);
 
-  // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set
-  // to `value`.
+  /// Create a single-valued constant of \p dtype element type and
+  /// \p shape shape.
+  mlir::Value getSingleValueConst(
+      float val, mlir::Type dtype, llvm::ArrayRef<int64_t> shape);
+
+  /// Creates a constant of shape <1x1x...x1> of rank `rank` with all values
+  /// set to `value`.
   template <typename T>
   mlir::Value getSplattedConst(T value, size_t rank) {
     llvm::SmallVector<int64_t, 4> tmpTensor(rank, 1);
