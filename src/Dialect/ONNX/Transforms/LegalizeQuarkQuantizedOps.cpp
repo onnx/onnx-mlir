@@ -47,23 +47,6 @@ using namespace mlir;
 
 namespace {
 
-class IgnoreDiagnostic {
-public:
-  IgnoreDiagnostic(DiagnosticEngine &diagEngine) : diagEngine(diagEngine) {
-    id = diagEngine.registerHandler(
-        [](mlir::Diagnostic & /*diag*/) { return success(); });
-  }
-
-  ~IgnoreDiagnostic() {
-    // Reset to the previous state.
-    diagEngine.eraseHandler(id);
-  }
-
-private:
-  DiagnosticEngine &diagEngine;
-  DiagnosticEngine::HandlerID id;
-};
-
 Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
     SmallVector<Value> &operands, llvm::SmallVector<Location> &locs,
     llvm::SmallVector<Type> &types, const FloatType toFloatType) {
@@ -194,7 +177,7 @@ LogicalResult createAndReplaceConstantOp(PatternRewriter &rewriter,
 ///
 ///    ONNXConstant (ty=f32)
 ///       \               /
-///  onnx.Cast(bf16) {to=f32}
+///  onnx.Cast(f32) {to=bf16}
 ///
 ///   is converted to:
 ///
@@ -397,7 +380,7 @@ public:
     // diagnostics that would be produced in the cases 'newOp' is not
     // acceptable. Since we will not use the 'newOp, the diagnostic is
     // irrelevant.
-    IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
+    onnx_mlir::IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
     bool isNewOpValid;
     if (auto info = newOp->getName().getRegisteredInfo()) {
       isNewOpValid = succeeded(info->verifyInvariants(newOp));
