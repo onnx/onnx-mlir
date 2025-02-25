@@ -180,8 +180,8 @@ public:
              "parameters in the model.\n";
     }
     if (model.has_producer_name()) {
-      module_->setAttr("producer.name",
-          StringAttr::get(&context_, model.producer_name()));
+      module_->setAttr(
+          "producer.name", StringAttr::get(&context_, model.producer_name()));
     }
     return module_;
   }
