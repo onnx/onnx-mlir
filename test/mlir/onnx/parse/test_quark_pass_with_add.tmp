@@ -1,0 +1,17 @@
+module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", llvm.target_triple = "x86_64-unknown-linux-gnu", "onnx-mlir.symbol-postfix" = "test_quark_pass_with_add", producer.name = "quark.onnx"} {
+  func.func @main_graph(%arg0: tensor<1x1x32x32xf32> {onnx.name = "input"}) -> (tensor<1x1x30x30xbf16> {onnx.name = "cast_out0"}) {
+    %0 = onnx.Constant dense<[[[[0.000000e+00, 1.000000e+00, -1.000000e+00], [0.000000e+00, 1.000000e+00, 0.000000e+00], [-1.000000e+00, 1.000000e+00, -1.000000e+00]]]]> : tensor<1x1x3x3xf32>
+    %1 = onnx.Constant dense<1.500000e+00> : tensor<1xf32>
+    %2 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = bf16} : (tensor<1x1x32x32xf32>) -> tensor<1x1x32x32xbf16>
+    %3 = "onnx.Cast"(%0) {saturate = 1 : si64, to = bf16} : (tensor<1x1x3x3xf32>) -> tensor<1x1x3x3xbf16>
+    %4 = "onnx.Cast"(%1) {saturate = 1 : si64, to = bf16} : (tensor<1xf32>) -> tensor<1xbf16>
+    %5 = "onnx.Cast"(%2) {saturate = 1 : si64, to = f32} : (tensor<1x1x32x32xbf16>) -> tensor<1x1x32x32xf32>
+    %6 = "onnx.Cast"(%3) {saturate = 1 : si64, to = f32} : (tensor<1x1x3x3xbf16>) -> tensor<1x1x3x3xf32>
+    %7 = "onnx.Cast"(%4) {saturate = 1 : si64, to = f32} : (tensor<1xbf16>) -> tensor<1xf32>
+    %8 = "onnx.Conv"(%5, %6, %7) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x1x32x32xf32>, tensor<1x1x3x3xf32>, tensor<1xf32>) -> tensor<1x1x30x30xf32>
+    %9 = "onnx.Cast"(%8) {saturate = 1 : si64, to = bf16} : (tensor<1x1x30x30xf32>) -> tensor<1x1x30x30xbf16>
+    %10 = "onnx.Cast"(%9) {saturate = 1 : si64, to = f32} : (tensor<1x1x30x30xbf16>) -> tensor<1x1x30x30xbf16>
+    onnx.Return %10 : tensor<1x1x30x30xbf16>
+  }
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+}

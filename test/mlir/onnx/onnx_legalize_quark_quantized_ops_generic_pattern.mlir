@@ -79,38 +79,36 @@ func.func @onnx_add_static(%arg0: tensor<1x256x128xbf16>, %arg1: tensor<1xbf16>)
 
 // -----
 
-func.func @onnx_add_static_with_splat_constant(%arg0: tensor<1x256x128xbf16>, %arg1: tensor<1xbf16>) -> tensor<1x256x128xbf16> {
+func.func @onnx_add_static_with_splat_constant(%arg0: tensor<1xbf16>) -> tensor<3xbf16> {
     %cst = onnx.Constant {value = dense<-1.984375> : tensor<3xbf16>} : tensor<3xbf16>
     %0 = "onnx.Cast"(%cst) { saturate = 1 : si64, to = f32} : (tensor<3xbf16>) -> tensor<3xf32>
-    %1 = "onnx.Cast"(%arg1) { saturate = 1 : si64, to = f32} : (tensor<1xbf16>) -> tensor<1xf32>
-    %2 = "onnx.Add"(%0, %1) : (tensor<3xf32>, tensor<1xf32>) -> tensor<1x256x128xf32>
-    %3 = "onnx.Cast"(%2) { saturate = 1 : si64, to = bf16} : (tensor<1x256x128xf32>) -> tensor<1x256x128xbf16>
-    return %3 : tensor<1x256x128xbf16>
+    %1 = "onnx.Cast"(%arg0) { saturate = 1 : si64, to = f32} : (tensor<1xbf16>) -> tensor<1xf32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<3xf32>, tensor<1xf32>) -> tensor<3xf32>
+    %3 = "onnx.Cast"(%2) { saturate = 1 : si64, to = bf16} : (tensor<3xf32>) -> tensor<3xbf16>
+    return %3 : tensor<3xbf16>
 }
 // CHECK-LABEL:   func.func @onnx_add_static_with_splat_constant(
-// CHECK-SAME:                                             %[[VAL_0:.*]]: tensor<1x256x128xbf16>,
-// CHECK-SAME:                                             %[[VAL_1:.*]]: tensor<1xbf16>) -> tensor<1x256x128xbf16> {
-// CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<-1.984380e+00> : tensor<3xbf16>
-// CHECK:           %[[VAL_3:.*]] = "onnx.Add"(%[[VAL_2]], %[[VAL_1]]) : (tensor<3xbf16>, tensor<1xbf16>) -> tensor<1x256x128xbf16>
-// CHECK:           return %[[VAL_3]] : tensor<1x256x128xbf16>
+// CHECK-SAME:                                             %[[VAL_0:.*]]: tensor<1xbf16>) -> tensor<3xbf16> {
+// CHECK:           %[[VAL_1:.*]] = onnx.Constant dense<-1.984380e+00> : tensor<3xbf16>
+// CHECK:           %[[VAL_2:.*]] = "onnx.Add"(%[[VAL_1]], %[[VAL_0]]) : (tensor<3xbf16>, tensor<1xbf16>) -> tensor<3xbf16>
+// CHECK:           return %[[VAL_2]] : tensor<3xbf16>
 // CHECK:         }
 
 // -----
 
-func.func @onnx_add_static_with_constants(%arg0: tensor<1x256x128xbf16>, %arg1: tensor<1xbf16>) -> tensor<1x256x128xbf16> {
+func.func @onnx_add_static_with_constants(%arg0: tensor<1xbf16>) -> tensor<3xbf16> {
     %cst = onnx.Constant dense<[-8.192000e+03, -1.187500e+00, 1.187500e+00]> : tensor<3xbf16>
     %0 = "onnx.Cast"(%cst) { saturate = 1 : si64, to = f32} : (tensor<3xbf16>) -> tensor<3xf32>
-    %1 = "onnx.Cast"(%arg1) { saturate = 1 : si64, to = f32} : (tensor<1xbf16>) -> tensor<1xf32>
-    %2 = "onnx.Add"(%0, %1) : (tensor<3xf32>, tensor<1xf32>) -> tensor<1x256x128xf32>
-    %3 = "onnx.Cast"(%2) { saturate = 1 : si64, to = bf16} : (tensor<1x256x128xf32>) -> tensor<1x256x128xbf16>
-    return %3 : tensor<1x256x128xbf16>
+    %1 = "onnx.Cast"(%arg0) { saturate = 1 : si64, to = f32} : (tensor<1xbf16>) -> tensor<1xf32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<3xf32>, tensor<1xf32>) -> tensor<3xf32>
+    %3 = "onnx.Cast"(%2) { saturate = 1 : si64, to = bf16} : (tensor<3xf32>) -> tensor<3xbf16>
+    return %3 : tensor<3xbf16>
 }
 // CHECK-LABEL:   func.func @onnx_add_static_with_constants(
-// CHECK-SAME:                                              %[[VAL_0:.*]]: tensor<1x256x128xbf16>,
-// CHECK-SAME:                                              %[[VAL_1:.*]]: tensor<1xbf16>) -> tensor<1x256x128xbf16> {
-// CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<[-8.192000e+03, -1.187500e+00, 1.187500e+00]> : tensor<3xbf16>
-// CHECK:           %[[VAL_3:.*]] = "onnx.Add"(%[[VAL_2]], %[[VAL_1]]) : (tensor<3xbf16>, tensor<1xbf16>) -> tensor<1x256x128xbf16>
-// CHECK:           return %[[VAL_3]] : tensor<1x256x128xbf16>
+// CHECK-SAME:                                              %[[VAL_0:.*]]: tensor<1xbf16>) -> tensor<3xbf16> {
+// CHECK:           %[[VAL_1:.*]] = onnx.Constant dense<[-8.192000e+03, -1.187500e+00, 1.187500e+00]> : tensor<3xbf16>
+// CHECK:           %[[VAL_2:.*]] = "onnx.Add"(%[[VAL_1]], %[[VAL_0]]) : (tensor<3xbf16>, tensor<1xbf16>) -> tensor<3xbf16>
+// CHECK:           return %[[VAL_2]] : tensor<3xbf16>
 // CHECK:         }
 
 // -----
@@ -199,4 +197,20 @@ func.func @LayerNorm_no_conversion_no_input_cast(%arg0: tensor<256xf32>, %arg1: 
 // CHECK:           %[[VAL_3:.*]], %[[VAL_4:.*]], %[[VAL_5:.*]] = "onnx.LayerNormalization"(%arg2, %arg1, %arg0) {axis = -1 : si64, epsilon = 9.99999996E-13 : f32, onnx_node_name = "LayerNorm_24", stash_type = 1 : si64} : (tensor<1x256x256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<1x256x256xf32>, none, none)
 // CHECK:           %[[VAL_6:.*]] = "onnx.Cast"(%[[VAL_3]]) {saturate = 1 : si64, to = bf16} : (tensor<1x256x256xf32>) -> tensor<1x256x256xbf16>
 // CHECK:           onnx.Return %[[VAL_6]] : tensor<1x256x256xbf16>
+// CHECK:         }
+
+// -----
+
+func.func @Pad_V2_no_bf16_type(%arg0: tensor<1x1x1x1xbf16>) -> tensor<1x1x9x9xbf16> {
+    %0 = "onnx.Cast"(%arg0) { saturate = 1 : si64, to = f32} : (tensor<1x1x1x1xbf16>) -> tensor<1x1x1x1xf32>
+    %1 = "onnx.PadV2"(%0) {mode = "reflect", pads = [0, 0, 4, 4, 0, 0, 4, 4]} : (tensor<1x1x1x1xf32>) -> tensor<1x1x9x9xf32>
+    %3 = "onnx.Cast"(%1) { saturate = 1 : si64, to = bf16} : (tensor<1x1x9x9xf32>) -> tensor<1x1x9x9xbf16>
+    onnx.Return %3 : tensor<1x1x9x9xbf16>
+}
+// CHECK-LABEL:   func.func @Pad_V2_no_bf16_type(
+// CHECK-SAME:                     %[[VAL_0:.*]]: tensor<1x1x1x1xbf16>) -> tensor<1x1x9x9xbf16> {
+// CHECK:           %[[VAL_1:.*]] = "onnx.Cast"(%[[VAL_0]]) {saturate = 1 : si64, to = f32} : (tensor<1x1x1x1xbf16>) -> tensor<1x1x1x1xf32>
+// CHECK:           %[[VAL_2:.*]] = "onnx.PadV2"(%[[VAL_1]]) {mode = "reflect", pads = [0, 0, 4, 4, 0, 0, 4, 4], value = 0.000000e+00 : f32} : (tensor<1x1x1x1xf32>) -> tensor<1x1x9x9xf32>
+// CHECK:           %[[VAL_3:.*]] = "onnx.Cast"(%[[VAL_2]]) {saturate = 1 : si64, to = bf16} : (tensor<1x1x9x9xf32>) -> tensor<1x1x9x9xbf16>
+// CHECK:           onnx.Return %[[VAL_3]] : tensor<1x1x9x9xbf16>
 // CHECK:         }

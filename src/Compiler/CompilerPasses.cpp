@@ -325,8 +325,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     enableQuarkQuantizedLegalization =
         module->getOperation()
             ->getAttrOfType<mlir::StringAttr>("producer.name")
-            .strref()
-            .contains("quark.onnx");
+            .strref() == "quark.onnx";
   }
 
   // NOTE: FlexML sets the targetCPU flag to false, as we do not want to run
