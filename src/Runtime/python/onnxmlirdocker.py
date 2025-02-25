@@ -14,7 +14,7 @@ class config:
     }
 
     default_compiler_image_name = "ghcr.io/onnxmlir/onnx-mlir-dev"
-    default_container_tool = "docker"
+    default_container_engine = "docker"
 
 
 def get_names_in_signature(signature):
@@ -84,13 +84,13 @@ class InferenceSession:
             self.compiler_image_name = config.default_compiler_image_name
             self.compiler_path = find_compiler_path(self.compiler_image_name)
 
-        if "container_tool" in kwargs.keys():
-            self.container_tool = kwargs["container_tool"]
-            if self.container_tool != "docker" and self.container_tool != "podman":
-                print("container tool has to be either docker or podman")
+        if "container_engine" in kwargs.keys():
+            self.container_tool = kwargs["container_engine"]
+            if self.container_engine != "docker" and self.container_engine != "podman":
+                print("container engine has to be either docker or podman")
                 exit(1)
         else:
-            self.container_tool = config.default_container_tool
+            self.container_engine = config.default_container_engine
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
@@ -102,13 +102,13 @@ class InferenceSession:
                 exit(-1)
         else:
             # Import container tool, either docker or podman package
-            if self.container_tool == "docker":
-                import docker as ct
+            if self.container_engine == "docker":
+                import docker as ce
             else:
-                import podman as ct
+                import podman as ce
             # The docker and podman package has the same interface
             # Get container client using env setting.
-            self.container_client = ct.from_env()
+            self.container_client = ce.from_env()
 
             # Pull the image if not already available
             try:
@@ -167,7 +167,7 @@ class InferenceSession:
         # But wrong time error occurred with "r" mode
         if self.compiler_image_name is None:
             subprocess.run(command_str.split(" "))
-            self.container = NONE
+            self.container = None
         else:
             # ToFix: try detach=True?
             try:
