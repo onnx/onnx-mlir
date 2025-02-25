@@ -251,15 +251,10 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  if (useOldBufferization) {
-    pm.addNestedPass<func::FuncOp>(
-        mlir::bufferization::createBufferDeallocationPass());
-  } else {
-    bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
-    mlir::bufferization::buildBufferDeallocationPipeline(
-        pm, bufferDeallocOptions);
-    pm.addPass(mlir::createBufferizationToMemRefPass());
-  }
+  bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      pm, bufferDeallocOptions);
+  pm.addPass(bufferization::createOwnershipBasedBufferDeallocationPass());
 
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
