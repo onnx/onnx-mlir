@@ -69,12 +69,13 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
       op->getAttrs(), op->getSuccessors());
 
   // Create the new op
+  rewriter.setInsertionPoint(op);
   return rewriter.create(state);
 }
 
 bool isQuarkGeneratedCastOp(
     Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
-  if (!isa<mlir::ONNXCastOp>(op)) {
+  if (!isa_and_nonnull<mlir::ONNXCastOp>(op)) {
     return false;
   }
   auto castOp = cast<mlir::ONNXCastOp>(op);
@@ -332,24 +333,33 @@ public:
     }
 
     SmallVector<Type> resultTypes;
-    llvm::SmallDenseMap<Operation *, int64_t> resultOps;
+    llvm::SmallDenseMap<Value, int64_t> opResultsMap;
 
+    // We now need to create the output types, and map the values of each result
+    // to the op's result number. This will allow us to replace multiple
+    // ONNXCast ops that are used by multiple results to each of the result of
+    // the new operation.
     for (const auto &result : op->getOpResults()) {
-      auto *opResult = result.getOwner();
       if (onnx_mlir::isNoneValue(result)) {
         resultTypes.push_back(result.getType());
         continue;
       }
 
-      SmallVector<Operation *> opResultUsers{
-          opResult->getUsers().begin(), opResult->getUsers().end()};
-      llvm::for_each(opResultUsers, [&](Operation *userOp) {
-        resultOps[userOp] = result.getResultNumber();
+      SmallVector<OpOperand *> opResultUsers = llvm::to_vector(llvm::map_range(
+          result.getUses(), [](OpOperand &use) { return &use; }));
+
+      llvm::for_each(opResultUsers, [&](mlir::OpOperand *user) {
+        if (isOutputCastOp(user->getOwner(), fromFloatType, toFloatType)) {
+          opResultsMap[user->getOwner()->getResult(0)] =
+              result.getResultNumber();
+        } else {
+          opResultsMap[result] = result.getResultNumber();
+        }
       });
 
       size_t numOutputCastOps =
-          llvm::count_if(opResultUsers, [&](auto *userOp) {
-            return isOutputCastOp(userOp, fromFloatType, toFloatType);
+          llvm::count_if(opResultUsers, [&](mlir::OpOperand *user) {
+            return isOutputCastOp(user->getOwner(), fromFloatType, toFloatType);
           });
 
       if (numOutputCastOps == 0) {
@@ -357,6 +367,8 @@ public:
         continue;
       }
 
+      // Sanity check so that the every result that connected to an ONNXCast
+      // isn't always connected to anything else.
       if (numOutputCastOps != opResultUsers.size()) {
         // Make sure to erase any additional op that was created so that the
         // rewriter doesn't trigger any changes by this pass.
@@ -398,10 +410,9 @@ public:
           castOp->getLoc(), "cannot create operation with this type");
     }
 
-    for (auto [op, resultNumber] : resultOps) {
-      rewriter.replaceAllOpUsesWith(op, newOp->getResult(resultNumber));
+    for (auto [value, resultNumber] : opResultsMap) {
+      rewriter.replaceAllUsesWith(value, newOp->getResult(resultNumber));
     }
-
     return success();
   }
 
