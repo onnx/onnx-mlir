@@ -73,7 +73,7 @@ Operation *createOpWithNewType(PatternRewriter &rewriter, Operation *op,
   return rewriter.create(state);
 }
 
-bool isQuarkGeneratedCastOp(
+bool isCastFromTo(
     Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
   if (!isa_and_nonnull<mlir::ONNXCastOp>(op)) {
     return false;
@@ -86,18 +86,19 @@ bool isQuarkGeneratedCastOp(
 
 bool isInputCastOp(
     Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
-  return isQuarkGeneratedCastOp(op, toFloatType, fromFloatType);
+  return isCastFromTo(op, toFloatType, fromFloatType);
 }
 
 bool isOutputCastOp(
     Operation *op, const FloatType fromFloatType, const FloatType toFloatType) {
-  return isQuarkGeneratedCastOp(op, fromFloatType, toFloatType);
+  return isCastFromTo(op, fromFloatType, toFloatType);
 }
 
 llvm::APFloat convertF32ToBf16(
-    const llvm::fltSemantics &bf16Semantics, uint32_t f32Value) {
+    const llvm::fltSemantics &bf16Semantics, uint32_t f32bits) {
+  constexpr size_t bf16SizeInBits = 16;
   return llvm::APFloat(bf16Semantics,
-      llvm::APInt(sizeof(uint16_t) * 8, static_cast<uint16_t>(f32Value >> 16)));
+      llvm::APInt(bf16SizeInBits, static_cast<uint16_t>(f32bits >> 16)));
 }
 
 mlir::DenseElementsAttr getDenseElementAttrFromConstOp(
