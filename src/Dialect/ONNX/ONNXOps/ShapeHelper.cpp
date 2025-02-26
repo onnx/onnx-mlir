@@ -81,11 +81,6 @@ static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
   if (existingDims.size() < 1 || inferredDims.size() < 1)
     return;
 
-  if (existingDims.size() != inferredDims.size()) {
-    op->dump();
-    llvm::errs() << "existingDims.size() " << existingDims.size() << "\n";
-    llvm::errs() << "inferredDims.size() " << inferredDims.size() << "\n";
-  }
   assert((existingDims.size() == inferredDims.size()) &&
          "Inferred shape and existing shape are inconsistent in the number "
          "of elements");
