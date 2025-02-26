@@ -21,7 +21,8 @@ namespace onnx_mlir {
 void configurePasses();
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
-    bool donotScrubDisposableElementsAttr = false);
+    bool donotScrubDisposableElementsAttr = false,
+    bool enableQuarkQuantizedLegalization = false);
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     std::string instrumentSignatureString, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);

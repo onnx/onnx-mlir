@@ -64,7 +64,8 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
     const std::string pattern);
 
 /// Pass for simplifying shape-related ONNX operations.
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
+    bool disableCastOpCanonicalizations = false);
 
 /// Pass for replacing ONNXReturnOp with func::ReturnOp.
 std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
@@ -72,7 +73,7 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableRecomposition);
+    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization = false);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
@@ -102,6 +103,9 @@ std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
+
+/// Pass for legalizing quark-quantized models.
+std::unique_ptr<mlir::Pass> createLegalizeQuarkQuantizedOpsPass();
 
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.

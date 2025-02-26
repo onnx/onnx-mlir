@@ -23,6 +23,7 @@
 #include "src/Dialect/ONNX/Transforms/ConstProp.hpp"
 #include "src/Dialect/ONNX/Transforms/ConvOpt.hpp"
 #include "src/Dialect/ONNX/Transforms/Decompose.hpp"
+#include "src/Dialect/ONNX/Transforms/LegalizeQuarkQuantizedOps.hpp"
 #include "src/Dialect/ONNX/Transforms/Recompose.hpp"
 #include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
@@ -79,6 +80,12 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable recomposition in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> quarkQuantizedOpsLegalization{*this,
+      "quark-quantized-ops-legalization",
+      llvm::cl::desc(
+          "Enable legalization quark-quantized operations from F32 -> BF16"),
+      llvm::cl::init(false)};
+
   Option<int> maxNumRewritesOffset{*this, "max-num-rewrites-offset",
       llvm::cl::desc("Rewrites limit: -1 means no limit, otherwise "
                      "added to func #ops * max-num-rewrites-multiplier"),
@@ -89,8 +96,10 @@ struct ONNXHybridTransformPass
 
   FrozenRewritePatternSet patterns;
 
-  ONNXHybridTransformPass(bool enableRecomposition) {
+  ONNXHybridTransformPass(
+      bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization) {
     this->recomposition = enableRecomposition;
+    this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -107,12 +116,22 @@ struct ONNXHybridTransformPass
       getShapeInferencePatterns(cumulativePatterns);
     }
 
+    if (quarkQuantizedOpsLegalization) {
+      getLegalizeQuarkQuantizedOpsPatterns(cumulativePatterns);
+    }
+
     if (canonicalization) {
       // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
       for (auto *dialect : context->getLoadedDialects())
         dialect->getCanonicalizationPatterns(cumulativePatterns);
-      for (RegisteredOperationName op : context->getRegisteredOperations())
+      for (RegisteredOperationName op : context->getRegisteredOperations()) {
+        // Since we are manipulating ONNXCastOp's, disable any canonicalization
+        // for it.
+        if (quarkQuantizedOpsLegalization && op.getStringRef() == "onnx.Cast") {
+          continue;
+        }
         op.getCanonicalizationPatterns(cumulativePatterns, context);
+      }
     }
 
     if (constantPropagation) {
@@ -160,6 +179,7 @@ struct ONNXHybridTransformPass
 } // namespace
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
-    bool enableRecomposition) {
-  return std::make_unique<ONNXHybridTransformPass>(enableRecomposition);
+    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization) {
+  return std::make_unique<ONNXHybridTransformPass>(
+      enableRecomposition, enableQuarkQuantizedOpsLegalization);
 }
