@@ -13,7 +13,8 @@ class config:
         "onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
     }
 
-    default_compiler_image = "ghcr.io/onnxmlir/onnx-mlir-dev"
+    default_compiler_image_name = "ghcr.io/onnxmlir/onnx-mlir-dev"
+    default_container_engine = "docker"
 
 
 def get_names_in_signature(signature):
@@ -70,9 +71,9 @@ class InferenceSession:
         else:
             self.compile_options = ""
 
-        if "compiler_image" in kwargs.keys():
-            self.compiler_image = kwargs["compiler_image"]
-            self.compiler_path = find_compiler_path(self.compiler_image)
+        if "compiler_image_name" in kwargs.keys():
+            self.compiler_image_name = kwargs["compiler_image_name"]
+            self.compiler_path = find_compiler_path(self.compiler_image_name)
             if self.compiler_path is None and "compiler_path" not in kwargs.keys():
                 print(
                     "Please specify the path to your compiler when you are not using the default image"
@@ -80,24 +81,45 @@ class InferenceSession:
                 exit(1)
         else:
             # Default image
-            self.compiler_image = config.default_compiler_image
-            self.compiler_path = find_compiler_path(self.compiler_image)
+            self.compiler_image_name = config.default_compiler_image_name
+            self.compiler_path = find_compiler_path(self.compiler_image_name)
+
+        if "container_engine" in kwargs.keys():
+            self.container_tool = kwargs["container_engine"]
+            if self.container_engine != "docker" and self.container_engine != "podman":
+                print("container engine has to be either docker or podman")
+                exit(1)
+        else:
+            self.container_engine = config.default_container_engine
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
 
     def checkCompiler(self):
-        if self.compiler_image == None:
+        if self.compiler_image_name == None:
             if not os.path.exists(self.compiler_path):
                 print("the compiler path does not exist: ", self.compiler_path)
                 exit(-1)
         else:
-            import docker
+            # Import container tool, either docker or podman package
+            if self.container_engine == "docker":
+                import docker as ce
+            else:
+                import podman as ce
+            # The docker and podman package has the same interface
+            # Get container client using env setting.
+            self.container_client = ce.from_env()
 
-            self.container_client = docker.from_env()
+            # Pull the image if not already available
             try:
+                image = self.container_client.images.get(self.compiler_image_name)
+            except ct.errors.ImageNotFound:
+                image = self.container_client.images.pull(self.compiler_image_name)
+
+            try:
+                # Chek whether the specified compiler exists or not
                 msg = self.container_client.containers.run(
-                    self.compiler_image, "test -e " + self.compiler_path
+                    self.compiler_image_name, "test -e " + self.compiler_path
                 )
             except Exception as e:
                 print(
@@ -111,7 +133,7 @@ class InferenceSession:
         self.output_tempdir = tempfile.TemporaryDirectory()
         self.output_dirname = self.output_tempdir.name
 
-        if self.compiler_image is None:
+        if self.compiler_image_name is None:
             # Use the uniform variable for local compiler and docker image
             self.container_model_dirname = self.model_dirname
             self.container_output_dirname = self.output_dirname
@@ -143,25 +165,29 @@ class InferenceSession:
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
-        if self.compiler_image is None:
+        if self.compiler_image_name is None:
             subprocess.run(command_str.split(" "))
+            self.container = None
         else:
-            import docker
-
-            msg = self.container_client.containers.run(
-                self.compiler_image,
-                command_str,
-                volumes={
-                    self.model_dirname: {
-                        "bind": self.container_model_dirname,
-                        "mode": "rw",
+            # ToFix: try detach=True?
+            try:
+                msg = self.container_client.containers.run(
+                    self.compiler_image_name,
+                    command_str,
+                    volumes={
+                        self.model_dirname: {
+                            "bind": self.container_model_dirname,
+                            "mode": "rw",
+                        },
+                        self.output_dirname: {
+                            "bind": self.container_output_dirname,
+                            "mode": "rw",
+                        },
                     },
-                    self.output_dirname: {
-                        "bind": self.container_output_dirname,
-                        "mode": "rw",
-                    },
-                },
-            )
+                )
+            except Exception as e:
+                print("compilation error")
+                exit(-1)
 
     def getSession(self):
         # When the script is used in package onnxmlir, the files to be imported
