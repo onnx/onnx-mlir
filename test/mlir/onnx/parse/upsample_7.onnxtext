@@ -1,0 +1,15 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+<
+   ir_version: 10,
+   opset_import: ["" : 7]
+>
+upsample_V7 (float[1,3,32,32] input_data) => (float[1,3,64,64] upsampled_data) {
+   upsampled_data = Upsample <mode: string = "nearest", scales: floats = [1, 1, 2, 2]> (input_data)
+}
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32> {onnx.name = "input_data"}) -> (tensor<1x3x64x64xf32> {onnx.name = "upsampled_data"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.UpsampleV7"([[PARAM_0_]]) {mode = "nearest", scales = [1.000000e+00 : f32, 1.000000e+00 : f32, 2.000000e+00 : f32, 2.000000e+00 : f32]} : (tensor<1x3x32x32xf32>) -> tensor<1x3x64x64xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x3x64x64xf32>
+// CHECK:         }
