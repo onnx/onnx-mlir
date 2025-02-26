@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --enable-quark-quantizer-legalization=true --printIR %s | FileCheck %s
 // Json generated with utils/onnx2json.py
 // CHECK-LABEL:   func.func @main_graph(
 // CHECK-SAME:                          %[[VAL_0:.*]]: tensor<1x1x32x32xbf16> {onnx.name = "input"}) -> (tensor<1x1x30x30xbf16> {onnx.name = "cast_out0"}) {

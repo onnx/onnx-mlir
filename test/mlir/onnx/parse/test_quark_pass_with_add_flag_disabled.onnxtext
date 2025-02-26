@@ -1,11 +1,8 @@
-// RUN: onnx-mlir --EmitONNXIR --enable-quark-quantizer-legalization=true  --printIR %s | FileCheck %s
-
-// Here producer_name isn't 'quark.onnx'
-
+// RUN: onnx-mlir --EmitONNXIR  --printIR %s | FileCheck %s
 <
    ir_version: 9,
    opset_import: ["" : 19],
-   producer_name: "Not quark.onnx quantizer"
+   producer_name: "quark.onnx"
 >
 
 main (float[1,1,32,32] input) => (bfloat16[1,1,30,30] cast_out0)

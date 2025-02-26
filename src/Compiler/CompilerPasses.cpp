@@ -321,7 +321,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   bool enableQuarkQuantizedLegalization = false;
-  if (module->getOperation()->hasAttr("producer.name")) {
+  if (module->getOperation()->hasAttr("producer.name") &&
+      onnx_mlir::enableQuarkQuantizerLegalization) {
     enableQuarkQuantizedLegalization =
         module->getOperation()
             ->getAttrOfType<mlir::StringAttr>("producer.name")
