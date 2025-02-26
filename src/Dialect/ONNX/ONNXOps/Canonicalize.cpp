@@ -1644,10 +1644,8 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
-  // AMD Disabled: This canonicalization is disabled because it changes the
-  // values of tensors used as part of a validation with another internal tool.
-  // result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
-  //     context);
+  result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
+      context);
 }
 
 /// on the ONNXDropoutOp.
