@@ -668,15 +668,23 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 }
-bool shouldDecomposeConvTransposeOpTo4Conv(Value convTransposeResult,
+bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
     ArrayAttr stridesShapeAttr) {
   if (!onnx_mlir::enableConvTranposeDecomposeTo4Conv) {
     // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
     return false;
   }
-  auto isSymmetricEvenAttribute = [](ArrayAttr arrayAttr,
-                                      bool checkForNonZero) -> bool {
+
+  ONNXConvTransposeOp op =
+      mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
+  bool shapeChecks = hasShapeAndRank(convTransposeResult) &&
+                     hasStaticSpatialDims(op.getX()) &&
+                     hasStaticSpatialDims(op.getW());
+  if (!shapeChecks)
+    return false;
+  auto getVectorFromArrayAttr =
+      [](ArrayAttr arrayAttr) -> SmallVector<int64_t, 4> {
     assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
            "Attribute must be integer");
     int nElements = arrayAttr.getValue().size();
@@ -684,21 +692,130 @@ bool shouldDecomposeConvTransposeOpTo4Conv(Value convTransposeResult,
     for (int i = 0; i < nElements; ++i) {
       elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
     }
-    bool isSymmetricEven = std::all_of(elements.begin(), elements.end(),
-        [&elements, &checkForNonZero](int64_t i) {
-          return (i == elements[0]) && (i % 2 == 0) &&
-                 (checkForNonZero ? elements[0] != 0 : true);
-        });
-    return isSymmetricEven;
+    return elements;
   };
+  auto kernelShape = getVectorFromArrayAttr(kernelShapeAttr);
+  auto padsShape = getVectorFromArrayAttr(padsShapeAttr);
+  auto stridesShape = getVectorFromArrayAttr(stridesShapeAttr);
+  ONNXConvTransposeOpShapeHelper convTransposeShapeHelper(
+      op.getOperation(), {});
+  convTransposeShapeHelper.computeShapeAndAssertOnFailure();
 
-  ONNXConvTransposeOp op =
-      mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
-  return hasShapeAndRank(convTransposeResult) &&
-         hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW()) &&
-         isSymmetricEvenAttribute(kernelShapeAttr, false) &&
-         isSymmetricEvenAttribute(padsShapeAttr, true) &&
-         isSymmetricEvenAttribute(stridesShapeAttr, false);
+  int inputRank = convTransposeShapeHelper.getOutputDims().size();
+  SmallVector<int64_t, 4> outputShape;
+  for (int i = 0; i < inputRank; ++i) {
+    int64_t d = convTransposeShapeHelper.getOutputDims()[i].isLiteral()
+                    ? convTransposeShapeHelper.getOutputDims()[i].getLiteral()
+                    : ShapedType::kDynamic;
+    outputShape.emplace_back(d);
+  }
+  assert(stridesShape.size() == 2);
+  if (stridesShape[0] != stridesShape[1])
+    return false;
+  if (stridesShape[0] > 3)
+    return false;
+  bool hDivisisbleByStride =
+      (outputShape[outputShape.size() - 2] % stridesShape[0] == 0);
+  bool wDivisisbleByStride =
+      (outputShape[outputShape.size() - 1] % stridesShape[0] == 0);
+  return hDivisisbleByStride && wDivisisbleByStride;
+}
+Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
+    ONNXConvTransposeOp op, Value input, Value weights, Value bias,
+    ArrayAttr dilations, IntegerAttr group, ArrayAttr kernel_shape,
+    ArrayAttr pads, ArrayAttr strides) {
+
+  RankedTensorType weightsType =
+      mlir::cast<RankedTensorType>(weights.getType());
+  assert(weightsType.hasRank() && "Weight tensor must have rank.");
+
+  auto getVectorFromArrayAttr =
+      [](ArrayAttr arrayAttr) -> SmallVector<int64_t, 4> {
+    assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
+           "Attribute must be integer");
+    int nElements = arrayAttr.getValue().size();
+    SmallVector<int64_t, 4> elements(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
+    }
+    return elements;
+  };
+  auto kernelShape = getVectorFromArrayAttr(kernel_shape);
+  auto padsShape = getVectorFromArrayAttr(pads);
+  auto stridesShape = getVectorFromArrayAttr(strides);
+  ONNXConvTransposeOpShapeHelper convTransposeShapeHelper(
+      op.getOperation(), {});
+  convTransposeShapeHelper.computeShapeAndAssertOnFailure();
+
+  int inputRank = convTransposeShapeHelper.getOutputDims().size();
+  SmallVector<int64_t, 4> outputShape;
+  for (int i = 0; i < inputRank; ++i) {
+    int64_t d = convTransposeShapeHelper.getOutputDims()[i].isLiteral()
+                    ? convTransposeShapeHelper.getOutputDims()[i].getLiteral()
+                    : ShapedType::kDynamic;
+    outputShape.emplace_back(d);
+  }
+  int numPhases = stridesShape[0] * stridesShape[1];
+  if (numPhases == 1) {
+    SmallVector<int64_t, 4> convPadsShape;
+    convPadsShape.push_back(kernelShape[0] - 1 - padsShape[0]);
+    convPadsShape.push_back(kernelShape[1] - 1 - padsShape[1]);
+    convPadsShape.push_back(kernelShape[0] - 1 - padsShape[2]);
+    convPadsShape.push_back(kernelShape[1] - 1 - padsShape[3]);
+    auto convPadsArrayAttr = rewriter.getI64ArrayAttr(convPadsShape);
+
+    return rewriter.create<ONNXConvOp>(loc, op.getY().getType(), input, weights,
+        bias, mlir::StringAttr(), dilations, group, kernel_shape,
+        convPadsArrayAttr, strides);
+  }
+  MLIRContext *context = rewriter.getContext();
+  auto int64Type = mlir::IntegerType::get(context, 64);
+
+  auto getONNXConstOpForSlice =
+      [&](SmallVector<int64_t> values) -> ONNXConstantOp {
+    SmallVector<mlir::Attribute, 4> elements;
+    for (auto val : values) {
+      elements.push_back(mlir::IntegerAttr::get(int64Type, val));
+    }
+    auto constType = RankedTensorType::get(values.size(), int64Type);
+    return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
+        DenseElementsAttr::get(constType, llvm::ArrayRef(elements)));
+  };
+  int64_t end_pos = stridesShape[0];
+  SmallVector<mlir::Value> wts_slices;
+  int kernel_step = stridesShape[0];
+  int kernel_size = kernelShape[0] / stridesShape[0];
+
+  auto axisOnnxConstant = getONNXConstOpForSlice({2, 3});
+  auto stepOnnxConstant = getONNXConstOpForSlice({kernel_step, kernel_step});
+  auto wts_shape = weightsType.getShape();
+  auto newWeightsShapedType =
+      weightsType.get({wts_shape[0], wts_shape[1], kernel_size, kernel_size},
+          weightsType.getElementType());
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
+  int slice_num = 0;
+  std::cout << "DEBUG: step is " << kernel_step << std::endl;
+  for (int column_pos = 0; column_pos < end_pos; column_pos++) {
+    for (int row_pos = 0; row_pos < end_pos; row_pos++) {
+      int end_row_pos = (kernel_size * kernel_step) + column_pos;
+      int end_column_pos = (kernel_size * kernel_step) + row_pos;
+      llvm::SmallVector<int64_t> startVector;
+      llvm::SmallVector<int64_t> endVector;
+      startVector = {row_pos, column_pos};
+      endVector = {end_row_pos, end_column_pos};
+      auto startOnnxConstant = getONNXConstOpForSlice(startVector);
+      auto endOnnxConstant = getONNXConstOpForSlice(endVector);
+      std::cout << "DEBUG: wts slice " << slice_num << " start: [" << row_pos
+                << "," << column_pos << "] end:  [" << end_row_pos << ","
+                << end_column_pos << "]" << std::endl;
+      slice_num++;
+      wts_slices.push_back(
+          create.onnx.slice(newWeightsShapedType, weights, startOnnxConstant,
+              endOnnxConstant, axisOnnxConstant, stepOnnxConstant));
+    }
+  }
+
+  return rewriter.create<ONNXNoneOp>(loc);
 }
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
