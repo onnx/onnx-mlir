@@ -120,12 +120,12 @@ def strtobool(s: str) -> bool:
 def compute_file_sha1(file_name):
     """Compute sha1 of a file."""
 
-    sha1sum = hashlib.sha1()
+    sha3_256sum = hashlib.sha3_256()
     try:
         with open(file_name, "rb") as f:
             for data in iter(lambda: f.read(READ_CHUNK_SIZE), b""):
-                sha1sum.update(data)
-        return sha1sum.hexdigest()
+                sha3_256sum.update(data)
+        return sha3_256sum.hexdigest()
     except:
         return ""
 

@@ -63,7 +63,7 @@ std::unique_ptr<mlir::Pass> createInstrumentCleanupPass();
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
-    const std::string pattern);
+    const std::string opPattern, const std::string nodePattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
@@ -108,6 +108,7 @@ std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
+std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass(bool parallelEnabled);
 
 /// Pass for lowering Seq in Krnl dialect.
 std::unique_ptr<mlir::Pass> createConvertSeqToMemrefPass();

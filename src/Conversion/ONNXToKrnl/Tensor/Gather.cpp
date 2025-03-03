@@ -12,6 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/SCF/IR/SCF.h"
+
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -37,7 +40,8 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     Location loc = ONNXLoc<ONNXGatherOp>(op);
     ValueRange operands = adaptor.getOperands();
 
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -66,6 +70,9 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
 
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
+
+    // Check the value of indices and change it to zero if out-of-bound
+    genSafeCodeForGatherAlike(rewriter, loc, op, data, indices, axisLit);
 
     int64_t outputRank = shapeHelper.getOutputDims().size();
     int iIndexStart = 0;
@@ -118,9 +125,15 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
           Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
           // Loaded value is an index that is not affine
           IndexExpr index = NonAffineIndexExpr(indexVal);
+
           // When index may be negative, add axis Dim to it.
           if (indicesMayBeNegative)
             index = index.selectOrSelf(index < zeroIE, index + axisDim);
+
+          if (enableSafeCodeGen) {
+            index = index.selectOrSelf(index < 0, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, axisDim - 1);
+          }
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]
           SmallVector<IndexExpr, 4> dataAccessFct;

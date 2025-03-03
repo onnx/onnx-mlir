@@ -14,10 +14,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -880,6 +882,77 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
       static_cast<long long int>(vectorLength),
       static_cast<long long int>(simdLoopTripCount));
+}
+
+// The Gather op is data dependent: the value of index should be
+// within the input data size.
+// Add runtime check if enableSafeCodeGen is set true
+// Implementation comments vs. createGenerateRuntimeVerificationPass
+// This check is according to onnx op semantics, not general bound
+// check for memref. Implementation of RuntimeVerification could be
+// borrowed. Slightly difference is that onnx semenatics check is for
+// each dimension independently, not the final address is within
+// the memref bound.
+void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, Operation *op, Value data, Value indices,
+    int64_t axisLit) {
+  // Do nothing if not enabled
+  if (!enableSafeCodeGen)
+    return;
+
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+      MathBuilder>
+      create(rewriter, loc);
+
+  // Check all the element of indices
+  DimsExpr dataDims, indicesDims;
+  create.krnlIE.getShapeAsDims(data, dataDims);
+  create.krnlIE.getShapeAsDims(indices, indicesDims);
+  SymbolIndexExpr axisDim(dataDims[axisLit]);
+  int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
+  ValueRange loopDef = create.krnl.defineLoops(indicesRank);
+  LiteralIndexExpr zeroIE(0);
+  DimsExpr lbs(indicesRank, zeroIE);
+  create.krnl.iterateIE(loopDef, loopDef, lbs, indicesDims,
+      [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+        IndexExprScope innerLoopScope(createKrnl);
+
+        // Access function for indices
+        DimsExpr accessFct;
+        getIndexExprList<DimIndexExpr>(loopInd, accessFct);
+        // Compute index = indices[i][j]...[n]
+        Value indexVal = createKrnl.loadIE(indices, accessFct);
+        IndexExpr index = NonAffineIndexExpr(indexVal);
+
+        // index should be in range of [-r, r-1], where r = dim size of
+        // data[axis].
+        // Assume that the index is loaded from tensor with negative value
+        // correction.
+        Value errorCondition =
+            ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
+        rewriter.create<scf::IfOp>(
+            loc, errorCondition,
+            /*thenBuilder=*/
+            [&](OpBuilder &thenBuilder, Location thenLoc) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                  thenBuilder, loc);
+              std::string nodeNameStr = "Warning: ";
+              nodeNameStr += op->getName().getStringRef().str() + " ";
+              StringAttr nodeName =
+                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+              if (nodeName && !nodeName.getValue().empty()) {
+                nodeNameStr += nodeName.getValue().str();
+              }
+              std::string msg = nodeNameStr +
+                                ": Value of indices is out of bound. " +
+                                "The out-of-bound indices value is: ";
+              create.krnl.printf(msg, indexVal, true);
+              msg = "The out-of-bound index is replaced with zero.\n";
+              create.krnl.printf(msg);
+              thenBuilder.create<scf::YieldOp>(thenLoc);
+            },
+            /*elseBuilder=*/nullptr);
+      });
 }
 
 } // namespace onnx_mlir
