@@ -44,6 +44,7 @@
 #include "src/Dialect/ONNX/Transforms/DecomposeEinsum.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
+#include "llvm/ADT/ArrayRef.h"
 
 #define DEBUG_TYPE "decompose"
 
@@ -728,7 +729,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   RankedTensorType weightsType =
       mlir::cast<RankedTensorType>(weights.getType());
   assert(weightsType.hasRank() && "Weight tensor must have rank.");
-
+  Type elementType = getElementType(op.getType());
   auto getVectorFromArrayAttr =
       [](ArrayAttr arrayAttr) -> SmallVector<int64_t, 4> {
     assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
@@ -748,12 +749,12 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   convTransposeShapeHelper.computeShapeAndAssertOnFailure();
 
   int inputRank = convTransposeShapeHelper.getOutputDims().size();
-  SmallVector<int64_t, 4> outputShape;
+  SmallVector<int64_t, 4> convTransposeOutputShape;
   for (int i = 0; i < inputRank; ++i) {
     int64_t d = convTransposeShapeHelper.getOutputDims()[i].isLiteral()
                     ? convTransposeShapeHelper.getOutputDims()[i].getLiteral()
                     : ShapedType::kDynamic;
-    outputShape.emplace_back(d);
+    convTransposeOutputShape.emplace_back(d);
   }
   int numPhases = stridesShape[0] * stridesShape[1];
   if (numPhases == 1) {
@@ -770,9 +771,10 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   }
   MLIRContext *context = rewriter.getContext();
   auto int64Type = mlir::IntegerType::get(context, 64);
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
 
-  auto getONNXConstOpForSlice =
-      [&](SmallVector<int64_t> values) -> ONNXConstantOp {
+  auto getONNXConstOpFromVector =
+      [&](SmallVector<int64_t, 4> values) -> ONNXConstantOp {
     SmallVector<mlir::Attribute, 4> elements;
     for (auto val : values) {
       elements.push_back(mlir::IntegerAttr::get(int64Type, val));
@@ -781,38 +783,381 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
     return rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(),
         DenseElementsAttr::get(constType, llvm::ArrayRef(elements)));
   };
+  bool shouldPadWeights = (kernelShape[0] == 3 && stridesShape[0] == 2);
+  if (shouldPadWeights) {
+    SmallVector<int64_t, 4> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
+    assert(padsShape[0] == padsShape[1]);
+    assert(padsShape[2] == padsShape[3]);
+    assert(padsShape[0] == 1 || padsShape[2] == 1);
+    if (padsShape[0] == 1) {
+      weightsPadValue[2] = 1;
+      weightsPadValue[3] = 1;
+    }
+    if (padsShape[2] == 1) {
+      weightsPadValue[6] = 1;
+      weightsPadValue[7] = 1;
+    }
+
+    auto onnxPadsValueConstant = getONNXConstOpFromVector(weightsPadValue);
+    RankedTensorType scalarTy =
+        RankedTensorType::get({}, rewriter.getF32Type());
+    Value onnxPaddingConstantZero = create.onnx.constant(
+        DenseElementsAttr::get(scalarTy, static_cast<float>(0)));
+
+    auto onnxAxisValueConstantNone = create.onnx.none();
+    auto wts_shape = weightsType.getShape();
+    auto paddedWeightsShapedType = weightsType.get(
+        {wts_shape[0], wts_shape[1], wts_shape[2] + 1, wts_shape[3] + 1},
+        weightsType.getElementType());
+    weightsType = paddedWeightsShapedType;
+
+    weights = rewriter.create<ONNXPadOp>(loc, paddedWeightsShapedType, weights,
+        onnxPadsValueConstant, onnxPaddingConstantZero,
+        onnxAxisValueConstantNone, rewriter.getStringAttr("constant"));
+    kernelShape = {4, 4};
+  }
   int64_t end_pos = stridesShape[0];
   SmallVector<mlir::Value> wts_slices;
   int kernel_step = stridesShape[0];
   int kernel_size = kernelShape[0] / stridesShape[0];
 
-  auto axisOnnxConstant = getONNXConstOpForSlice({2, 3});
-  auto stepOnnxConstant = getONNXConstOpForSlice({kernel_step, kernel_step});
+  auto axisOnnxConstant = getONNXConstOpFromVector({2, 3});
+  auto stepOnnxConstant = getONNXConstOpFromVector({kernel_step, kernel_step});
   auto wts_shape = weightsType.getShape();
   auto newWeightsShapedType =
       weightsType.get({wts_shape[0], wts_shape[1], kernel_size, kernel_size},
           weightsType.getElementType());
-  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   int slice_num = 0;
-  std::cout << "DEBUG: step is " << kernel_step << std::endl;
+  // std::cout << "DEBUG: step is " << kernel_step << std::endl;
   for (int column_pos = 0; column_pos < end_pos; column_pos++) {
     for (int row_pos = 0; row_pos < end_pos; row_pos++) {
-      int end_row_pos = (kernel_size * kernel_step) + column_pos;
-      int end_column_pos = (kernel_size * kernel_step) + row_pos;
-      llvm::SmallVector<int64_t> startVector;
-      llvm::SmallVector<int64_t> endVector;
+      int end_row_pos = (kernel_size * kernel_step) + row_pos;
+      int end_column_pos = (kernel_size * kernel_step) + column_pos;
+      llvm::SmallVector<int64_t, 4> startVector;
+      llvm::SmallVector<int64_t, 4> endVector;
       startVector = {row_pos, column_pos};
       endVector = {end_row_pos, end_column_pos};
-      auto startOnnxConstant = getONNXConstOpForSlice(startVector);
-      auto endOnnxConstant = getONNXConstOpForSlice(endVector);
-      std::cout << "DEBUG: wts slice " << slice_num << " start: [" << row_pos
-                << "," << column_pos << "] end:  [" << end_row_pos << ","
-                << end_column_pos << "]" << std::endl;
+      auto startOnnxConstant = getONNXConstOpFromVector(startVector);
+      auto endOnnxConstant = getONNXConstOpFromVector(endVector);
+      // std::cout << "DEBUG: wts slice " << slice_num << " start: [" << row_pos
+      // << "," << column_pos << "] end:  [" << end_row_pos << ","
+      // << end_column_pos << "]" << std::endl;
       slice_num++;
       wts_slices.push_back(
           create.onnx.slice(newWeightsShapedType, weights, startOnnxConstant,
               endOnnxConstant, axisOnnxConstant, stepOnnxConstant));
     }
+  }
+  auto kernelShapeArrayAttr =
+      rewriter.getI64ArrayAttr({kernel_size, kernel_size});
+  SmallVector<int64_t, 4> convOutputShape(convTransposeOutputShape);
+  convOutputShape[convOutputShape.size() - 1] =
+      convOutputShape[convOutputShape.size() - 1] / stridesShape[0];
+  convOutputShape[convOutputShape.size() - 2] =
+      convOutputShape[convOutputShape.size() - 2] / stridesShape[0];
+  ShapedType convTransposeOutputType =
+      mlir::cast<ShapedType>(op.getY().getType());
+  auto convOutputType = RankedTensorType::get(
+      (shouldPadWeights)
+          ? llvm::ArrayRef({convOutputShape[0], convOutputShape[1],
+                convOutputShape[2] + 1, convOutputShape[3] + 1})
+          : convOutputShape,
+      convTransposeOutputType.getElementType());
+  if (numPhases == 4) {
+    auto padsArrayAttr = rewriter.getI64ArrayAttr({1, 1, 1, 1});
+    auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
+    // kernel, pad, stride
+    Value conv1 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[3], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    Value conv2 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[0], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    Value conv3 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[1], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    Value conv4 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[2], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    // Need to slice the ofm for the pad added to weights pad.
+    if (shouldPadWeights) {
+      auto startOnnxConstant = getONNXConstOpFromVector({1, 1});
+      auto endOnnxConstant = getONNXConstOpFromVector(
+          {convOutputShape[convOutputShape.size() - 2] + 2,
+              convOutputShape[convOutputShape.size() - 1] + 2});
+      auto axisOnnxConstant = getONNXConstOpFromVector({2, 3});
+      auto stepOnnxConstant = getONNXConstOpFromVector({1, 1});
+      auto convSliceOutputType = RankedTensorType::get(
+          llvm::ArrayRef({convOutputShape[0], convOutputShape[1],
+              convOutputShape[2], convOutputShape[3]}),
+          convTransposeOutputType.getElementType());
+      conv1 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv1,
+          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+          stepOnnxConstant);
+
+      startOnnxConstant = getONNXConstOpFromVector({0, 0});
+      endOnnxConstant =
+          getONNXConstOpFromVector({convOutputShape[convOutputShape.size() - 2],
+              convOutputShape[convOutputShape.size() - 1]});
+      conv2 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv2,
+          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+          stepOnnxConstant);
+
+      startOnnxConstant = getONNXConstOpFromVector({1, 0});
+      endOnnxConstant = getONNXConstOpFromVector(
+          {convOutputShape[convOutputShape.size() - 2] + 2,
+              convOutputShape[convOutputShape.size() - 1]});
+      conv3 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv3,
+          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+          stepOnnxConstant);
+
+      startOnnxConstant = getONNXConstOpFromVector({0, 1});
+      endOnnxConstant =
+          getONNXConstOpFromVector({convOutputShape[convOutputShape.size() - 2],
+              convOutputShape[convOutputShape.size() - 1] + 2});
+      conv4 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv4,
+          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+          stepOnnxConstant);
+    }
+
+    // The four convOutputs are adjusted to add an extra dimension at the
+    // innermost level.
+    SmallVector<int64_t, 4> outputShapePlusOneDim(convOutputShape);
+    outputShapePlusOneDim.push_back(1);
+    auto onnxConstForReshapeAddOneDim =
+        getONNXConstOpFromVector(outputShapePlusOneDim);
+
+    auto reshapeOutputType =
+        RankedTensorType::get(outputShapePlusOneDim, elementType);
+
+    auto reshapeOutputAddOneDimConv1 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv1, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv2 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv2, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv3 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv3, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv4 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv4, onnxConstForReshapeAddOneDim);
+
+    SmallVector<int64_t, 4> outputShapeFirstConcat(outputShapePlusOneDim);
+    outputShapeFirstConcat[outputShapeFirstConcat.size() - 1] = 2;
+    auto firstConcatOutputType =
+        RankedTensorType::get(outputShapeFirstConcat, elementType);
+
+    // Below concats result will have the innermost dim as 2.
+    auto firstConcat =
+        (shouldPadWeights)
+            ? rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+                  ValueRange{
+                      reshapeOutputAddOneDimConv3, reshapeOutputAddOneDimConv1},
+                  -1)
+            : rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+                  ValueRange{
+                      reshapeOutputAddOneDimConv1, reshapeOutputAddOneDimConv3},
+                  -1);
+    auto secondConcat =
+        (shouldPadWeights)
+            ? rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+                  ValueRange{
+                      reshapeOutputAddOneDimConv2, reshapeOutputAddOneDimConv4},
+                  -1)
+            : rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+                  ValueRange{
+                      reshapeOutputAddOneDimConv4, reshapeOutputAddOneDimConv2},
+                  -1);
+
+    // Reshaping to modify the two innermost levels,ensuring the second
+    // innermost level is set to 1
+    SmallVector<int64_t, 4> outputShapeForDimAdjust(convOutputShape);
+    auto dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
+    outputShapeForDimAdjust[outputShapeForDimAdjust.size() - 1] = 1;
+    outputShapeForDimAdjust.push_back(dimValueAtLastIndex);
+
+    auto onnxConstForReshapeDimAdjust =
+        getONNXConstOpFromVector(outputShapeForDimAdjust);
+
+    auto reshapeOutputForDimAdjustType =
+        RankedTensorType::get(outputShapeForDimAdjust, elementType);
+    auto reshapeOutputDimAdjustOfFirstConcat =
+        rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
+            firstConcat, onnxConstForReshapeDimAdjust);
+    auto reshapeOutputDimAdjustOfSecondConcat =
+        rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
+            secondConcat, onnxConstForReshapeDimAdjust);
+
+    SmallVector<int64_t, 4> outputShapeForFinalConcat(outputShapeForDimAdjust);
+    outputShapeForFinalConcat[outputShapeForFinalConcat.size() - 2] = 2;
+
+    auto finalConcatOutputType =
+        RankedTensorType::get(outputShapeForFinalConcat, elementType);
+
+    // Final Concat is performed on the two reshaped outputs at the
+    // second innermost level
+    auto finalConcat =
+        (shouldPadWeights)
+            ? rewriter.create<ONNXConcatOp>(loc, finalConcatOutputType,
+                  ValueRange{reshapeOutputDimAdjustOfSecondConcat,
+                      reshapeOutputDimAdjustOfFirstConcat},
+                  -2)
+            : rewriter.create<ONNXConcatOp>(loc, finalConcatOutputType,
+                  ValueRange{reshapeOutputDimAdjustOfFirstConcat,
+                      reshapeOutputDimAdjustOfSecondConcat},
+                  -2);
+
+    SmallVector<int64_t, 4> outputShapeForResult(convOutputShape);
+    dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
+    auto dimValueAtSecondLastIndex =
+        convOutputShape[convOutputShape.size() - 2] * 2;
+    outputShapeForResult[outputShapeForResult.size() - 2] =
+        dimValueAtSecondLastIndex;
+    outputShapeForResult[outputShapeForResult.size() - 1] = dimValueAtLastIndex;
+
+    auto onnxConstForLastReshape =
+        getONNXConstOpFromVector(outputShapeForResult);
+
+    auto finalOutputType =
+        RankedTensorType::get(outputShapeForResult, elementType);
+    // Result is reshaped back to match the original convtranspose output
+    // dimensions
+    auto finalOutput = rewriter.create<ONNXReshapeOp>(
+        loc, finalOutputType, finalConcat, onnxConstForLastReshape);
+    return finalOutput;
+  }
+  if (numPhases == 9) {
+    auto padsArrayAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
+    auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
+    auto conv1 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[8], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv2 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[5], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv3 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[6], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv4 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[7], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv5 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[4], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv6 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[1], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv7 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[2], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv8 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[3], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv9 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
+        wts_slices[0], bias, mlir::StringAttr(), dilations, group,
+        kernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+
+    // The four convOutputs are adjusted to add an extra dimension at the
+    // innermost level.
+    SmallVector<int64_t, 4> outputShapePlusOneDim(convOutputShape);
+    outputShapePlusOneDim.push_back(1);
+    auto onnxConstForReshapeAddOneDim =
+        getONNXConstOpFromVector(outputShapePlusOneDim);
+
+    auto reshapeOutputType =
+        RankedTensorType::get(outputShapePlusOneDim, elementType);
+
+    auto reshapeOutputAddOneDimConv1 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv1, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv2 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv2, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv3 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv3, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv4 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv4, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv5 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv5, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv6 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv6, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv7 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv7, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv8 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv8, onnxConstForReshapeAddOneDim);
+    auto reshapeOutputAddOneDimConv9 = rewriter.create<ONNXReshapeOp>(
+        loc, reshapeOutputType, conv9, onnxConstForReshapeAddOneDim);
+
+    SmallVector<int64_t, 4> outputShapeFirstConcat(outputShapePlusOneDim);
+    outputShapeFirstConcat[outputShapeFirstConcat.size() - 1] = 3;
+    auto firstConcatOutputType =
+        RankedTensorType::get(outputShapeFirstConcat, elementType);
+
+    // Below concats result will have the innermost dim as 2.
+    auto firstRowConcat =
+        rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+            ValueRange{reshapeOutputAddOneDimConv1, reshapeOutputAddOneDimConv2,
+                reshapeOutputAddOneDimConv7},
+            -1);
+    auto secondRowConcat =
+        rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+            ValueRange{reshapeOutputAddOneDimConv4, reshapeOutputAddOneDimConv5,
+                reshapeOutputAddOneDimConv6},
+            -1);
+    auto thirdRowConcat =
+        rewriter.create<ONNXConcatOp>(loc, firstConcatOutputType,
+            ValueRange{reshapeOutputAddOneDimConv3, reshapeOutputAddOneDimConv8,
+                reshapeOutputAddOneDimConv9},
+            -1);
+
+    // Reshaping to modify the two innermost levels,ensuring the second
+    // innermost level is set to 1
+    SmallVector<int64_t, 4> outputShapeForDimAdjust(convOutputShape);
+    auto dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 3;
+    outputShapeForDimAdjust[outputShapeForDimAdjust.size() - 1] = 1;
+    outputShapeForDimAdjust.push_back(dimValueAtLastIndex);
+
+    auto onnxConstForReshapeDimAdjust =
+        getONNXConstOpFromVector(outputShapeForDimAdjust);
+
+    auto reshapeOutputForDimAdjustType =
+        RankedTensorType::get(outputShapeForDimAdjust, elementType);
+    auto reshapeOutputDimAdjustOfFirstConcat =
+        rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
+            firstRowConcat, onnxConstForReshapeDimAdjust);
+    auto reshapeOutputDimAdjustOfSecondConcat =
+        rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
+            secondRowConcat, onnxConstForReshapeDimAdjust);
+    auto reshapeOutputDimAdjustOfThirdConcat =
+        rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
+            thirdRowConcat, onnxConstForReshapeDimAdjust);
+
+    SmallVector<int64_t, 4> outputShapeForFinalConcat(outputShapeForDimAdjust);
+    outputShapeForFinalConcat[outputShapeForFinalConcat.size() - 2] = 3;
+
+    auto finalConcatOutputType =
+        RankedTensorType::get(outputShapeForFinalConcat, elementType);
+
+    // Final Concat is performed on the two reshaped outputs at the
+    // second innermost level
+    auto finalConcat = rewriter.create<ONNXConcatOp>(loc, finalConcatOutputType,
+        ValueRange{reshapeOutputDimAdjustOfFirstConcat,
+            reshapeOutputDimAdjustOfSecondConcat,
+            reshapeOutputDimAdjustOfThirdConcat},
+        -2);
+    SmallVector<int64_t, 4> outputShapeForResult(convOutputShape);
+    dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 3;
+    auto dimValueAtSecondLastIndex =
+        convOutputShape[convOutputShape.size() - 2] * 3;
+    outputShapeForResult[outputShapeForResult.size() - 2] =
+        dimValueAtSecondLastIndex;
+    outputShapeForResult[outputShapeForResult.size() - 1] = dimValueAtLastIndex;
+
+    auto onnxConstForLastReshape =
+        getONNXConstOpFromVector(outputShapeForResult);
+
+    auto finalOutputType =
+        RankedTensorType::get(outputShapeForResult, elementType);
+    // Result is reshaped back to match the original convtranspose output
+    // dimensions
+    auto finalOutput = rewriter.create<ONNXReshapeOp>(
+        loc, finalOutputType, finalConcat, onnxConstForLastReshape);
+    return finalOutput;
   }
 
   return rewriter.create<ONNXNoneOp>(loc);
