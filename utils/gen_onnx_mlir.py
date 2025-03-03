@@ -291,7 +291,7 @@ version_dict = {
     "TreeEnsembleRegressor": [1],
     "Unique": [11],
     "Unsqueeze": [13, 11],
-    "Upsample": [9, 7],
+    "Upsample": [10, 7],
     "Where": [16],
     "Xor": [7],
     "ZipMap": [1],
@@ -1399,6 +1399,15 @@ def gen_op_versions(file):
     file.write(s)
 
 
+def gen_opsets(file, defined_versions_collected):
+    indent = inc_indent()
+    s = ""
+    for name, versions in defined_versions_collected.items():
+        s += indent + 'op_opsets_map_["' + name + '"] = '
+        s += "{" + "{}".format(", ".join(str(x) for x in versions)) + "};\n"
+    file.write(s)
+
+
 """
 special cases:
 * Split: attr split default value: sizeof(output1) namely 1
@@ -1463,6 +1472,10 @@ def build_operator_schemas():
         list()
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
     existing_ops = set()  # type: Set[Text]
+    # Domain, name, versions
+    opsets: dict[str, dict[str, list[int]]] = defaultdict(
+        lambda: defaultdict(list)
+    )  # type: (Dict[Text, Dict[Text, List[int]]])
     for domain, _support_map in sorted(index.items()):
         if not should_render_domain(domain):
             continue
@@ -1471,6 +1484,7 @@ def build_operator_schemas():
             processed_name_map = list()
             for n, unsorted_versions in sorted(_name_map.items()):
                 versions = sorted(unsorted_versions, key=lambda s: s.since_version)
+                opsets[domain][n].extend(reversed([s.since_version for s in versions]))
                 schema = versions[-1]
                 if schema.name in existing_ops:
                     continue
@@ -1520,7 +1534,7 @@ def build_operator_schemas():
                         sys.exit()
             processed_support_map.append((_support, processed_name_map))
         operator_schemas.append((domain, processed_support_map))
-    return operator_schemas
+    return operator_schemas, opsets
 
 
 def main(args):  # type: (Type[Args]) -> None
@@ -1548,7 +1562,8 @@ def main(args):  # type: (Type[Args]) -> None
     gen_op_versions(op_importer)
 
     new_version_dict = dict()
-    for domain, support_map in build_operator_schemas():
+    operator_schemas, operation_opsets = build_operator_schemas()
+    for domain, support_map in operator_schemas:
         for _, name_map in support_map:
             # Generate Op with version number if not the latest version.
             previous_name = ""
@@ -1560,6 +1575,16 @@ def main(args):  # type: (Type[Args]) -> None
                     r = gen_op_def(schema, with_version)
                     op_def.write(r)
                     previous_name = schema.name
+
+    opsets_collected = dict()  # type: (Dict[str, List[int]])
+    for domain, ops in operation_opsets.items():
+        for op, versions in ops.items():
+            assert (
+                op not in opsets_collected
+            ), "Operation with same name exists in multiple domains"
+            opsets_collected[op] = versions
+
+    gen_opsets(op_importer, opsets_collected)
 
     if check_operation_version:
         for key in version_dict:
