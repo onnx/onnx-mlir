@@ -91,7 +91,7 @@ extern bool disableKrnlOpFusion;                              // common for both
 extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool disableMemRefPrefetch;                            // common for both
-extern bool enableConvTranposeDecomposeTo4Conv;               // common for both
+extern bool enableConvTranposeDecomposeToPhasedConv;          // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only

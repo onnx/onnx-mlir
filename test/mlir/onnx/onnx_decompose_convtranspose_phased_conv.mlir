@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --enable-convtranspose-decompose-4conv %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --enable-convtranspose-decompose-phased-conv %s -split-input-file | FileCheck %s
 
 func.func @test_convtrans_4phase_kernel_shape_66(%arg0: tensor<1x512x10x16xf32>, %arg1: tensor<512x256x6x6xf32>) -> tensor<1x256x20x32xf32> {    
   %0 = "onnx.Constant" () { value= dense<0.02> : tensor<256xf32>} : ()-> tensor<256xf32>
@@ -36,6 +36,58 @@ func.func @test_convtrans_4phase_kernel_shape_66(%arg0: tensor<1x512x10x16xf32>,
 // CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
 // CHECK:           %[[VAL_28:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
 // CHECK:           %[[VAL_29:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
+// CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_26]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
+// CHECK:           %[[VAL_31:.*]] = "onnx.Reshape"(%[[VAL_27]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
+// CHECK:           %[[VAL_32:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
+// CHECK:           %[[VAL_33:.*]] = "onnx.Reshape"(%[[VAL_29]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
+// CHECK:           %[[VAL_34:.*]] = "onnx.Concat"(%[[VAL_30]], %[[VAL_32]]) {axis = -1 : si64} : (tensor<1x256x10x16x1xf32>, tensor<1x256x10x16x1xf32>) -> tensor<1x256x10x16x2xf32>
+// CHECK:           %[[VAL_35:.*]] = "onnx.Concat"(%[[VAL_33]], %[[VAL_31]]) {axis = -1 : si64} : (tensor<1x256x10x16x1xf32>, tensor<1x256x10x16x1xf32>) -> tensor<1x256x10x16x2xf32>
+// CHECK:           %[[VAL_36:.*]] = "onnx.Reshape"(%[[VAL_34]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x256x10x16x2xf32>, tensor<5xi64>) -> tensor<1x256x10x1x32xf32>
+// CHECK:           %[[VAL_37:.*]] = "onnx.Reshape"(%[[VAL_35]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x256x10x16x2xf32>, tensor<5xi64>) -> tensor<1x256x10x1x32xf32>
+// CHECK:           %[[VAL_38:.*]] = "onnx.Concat"(%[[VAL_36]], %[[VAL_37]]) {axis = -2 : si64} : (tensor<1x256x10x1x32xf32>, tensor<1x256x10x1x32xf32>) -> tensor<1x256x10x2x32xf32>
+// CHECK:           %[[VAL_39:.*]] = "onnx.Reshape"(%[[VAL_38]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<1x256x10x2x32xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
+// CHECK:           onnx.Return %[[VAL_39]] : tensor<1x256x20x32xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_convtrans_4phase_kernel_shape_66_nobias(%arg0: tensor<1x512x10x16xf32>, %arg1: tensor<512x256x6x6xf32>) -> tensor<1x256x20x32xf32> {      
+  %0 = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 6], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [2, 2, 2, 2], strides = [2, 2]} : (tensor<1x512x10x16xf32>, tensor<512x256x6x6xf32>, none) -> tensor<1x256x20x32xf32>
+  onnx.Return %1 : tensor<1x256x20x32xf32>
+
+// CHECK-LABEL:   func.func @test_convtrans_4phase_kernel_shape_66_nobias(
+// CHECK-SAME:                                                            %[[VAL_0:.*]]: tensor<1x512x10x16xf32>,
+// CHECK-SAME:                                                            %[[VAL_1:.*]]: tensor<512x256x6x6xf32>) -> tensor<1x256x20x32xf32> {
+// CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<[1, 256, 20, 32]> : tensor<4xi64>
+// CHECK:           %[[VAL_3:.*]] = onnx.Constant dense<[1, 256, 10, 1, 32]> : tensor<5xi64>
+// CHECK:           %[[VAL_4:.*]] = onnx.Constant dense<[1, 256, 10, 16, 1]> : tensor<5xi64>
+// CHECK:           %[[VAL_5:.*]] = onnx.Constant dense<7> : tensor<2xi64>
+// CHECK:           %[[VAL_6:.*]] = onnx.Constant dense<1> : tensor<2xi64>
+// CHECK:           %[[VAL_7:.*]] = onnx.Constant dense<[6, 7]> : tensor<2xi64>
+// CHECK:           %[[VAL_8:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+// CHECK:           %[[VAL_9:.*]] = onnx.Constant dense<[7, 6]> : tensor<2xi64>
+// CHECK:           %[[VAL_10:.*]] = onnx.Constant dense<[1, 0]> : tensor<2xi64>
+// CHECK:           %[[VAL_11:.*]] = onnx.Constant dense<6> : tensor<2xi64>
+// CHECK:           %[[VAL_12:.*]] = onnx.Constant dense<0> : tensor<2xi64>
+// CHECK:           %[[VAL_13:.*]] = onnx.Constant dense<2> : tensor<2xi64>
+// CHECK:           %[[VAL_14:.*]] = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+// CHECK:           %[[VAL_15:.*]] = onnx.Constant dense<6> : tensor<6xi64>
+// CHECK:           %[[VAL_16:.*]] = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+// CHECK:           %[[VAL_17:.*]] = "onnx.Transpose"(%[[VAL_1]]) {perm = [2, 3, 0, 1]} : (tensor<512x256x6x6xf32>) -> tensor<6x6x512x256xf32>
+// CHECK:           %[[VAL_18:.*]] = "onnx.ReverseSequence"(%[[VAL_17]], %[[VAL_15]]) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<6x6x512x256xf32>, tensor<6xi64>) -> tensor<6x6x512x256xf32>
+// CHECK:           %[[VAL_19:.*]] = "onnx.ReverseSequence"(%[[VAL_18]], %[[VAL_15]]) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<6x6x512x256xf32>, tensor<6xi64>) -> tensor<6x6x512x256xf32>
+// CHECK:           %[[VAL_20:.*]] = "onnx.Transpose"(%[[VAL_19]]) {perm = [2, 3, 0, 1]} : (tensor<6x6x512x256xf32>) -> tensor<512x256x6x6xf32>
+// CHECK:           %[[VAL_21:.*]] = "onnx.Transpose"(%[[VAL_20]]) {perm = [1, 0, 2, 3]} : (tensor<512x256x6x6xf32>) -> tensor<256x512x6x6xf32>
+// CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_21]], %[[VAL_12]], %[[VAL_11]], %[[VAL_14]], %[[VAL_13]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
+// CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_21]], %[[VAL_10]], %[[VAL_9]], %[[VAL_14]], %[[VAL_13]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
+// CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_21]], %[[VAL_8]], %[[VAL_7]], %[[VAL_14]], %[[VAL_13]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Slice"(%[[VAL_21]], %[[VAL_6]], %[[VAL_5]], %[[VAL_14]], %[[VAL_13]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_16]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
 // CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_26]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
 // CHECK:           %[[VAL_31:.*]] = "onnx.Reshape"(%[[VAL_27]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
 // CHECK:           %[[VAL_32:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_4]]) {allowzero = 0 : si64} : (tensor<1x256x10x16xf32>, tensor<5xi64>) -> tensor<1x256x10x16x1xf32>
@@ -96,7 +148,7 @@ func.func @test_convtrans_1phase_pads_1100(%arg0: tensor<1x1x12x44xf32>, %arg1: 
 // CHECK:         }
 }
 
-  // -----
+// -----
 
 func.func @test_convtrans_1phase_pads_1000(%arg0: tensor<1x1x12x44xf32>, %arg1: tensor<1x1x4x16xf32>) -> tensor<1x1x14x59xf32> {    
   %0 = "onnx.Constant" () { value= dense<0.02> : tensor<1xf32>} : ()-> tensor<1xf32>
@@ -165,7 +217,7 @@ func.func @test_convtrans_1phase_pads_0000(%arg0: tensor<1x1x27x110xf32>, %arg1:
 // CHECK:         }
 }
 
-  // -----
+// -----
 
 func.func @test_convtrans_9phase(%arg0: tensor<1x1x18x74xf32>, %arg1: tensor<1x1x3x3xf32>) -> tensor<1x1x54x222xf32> {    
   %0 = "onnx.Constant" () { value= dense<0.02> : tensor<1xf32>} : ()-> tensor<1xf32>
@@ -242,7 +294,7 @@ func.func @test_convtrans_9phase(%arg0: tensor<1x1x18x74xf32>, %arg1: tensor<1x1
 // CHECK:           onnx.Return %[[VAL_65]] : tensor<1x1x54x222xf32>
 // CHECK:         }
 }
-  
+
 // -----
 
 func.func @test_convtrans_4phase_pads_0011(%arg0: tensor<1x128x10x16xf32>, %arg1: tensor<128x32x3x3xf32>) -> tensor<1x32x20x32xf32> {    
