@@ -46,6 +46,7 @@ bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool enableConvTranposeDecomposeToPhasedConv;          // common for both
+bool enableQuarkQuantizerLegalization;                 // common for both
 bool disableMemRefPrefetch;                            // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -272,6 +273,12 @@ static llvm::cl::opt<bool, true> enableConvTranposeDecomposeTo4ConvOptionOpt(
                    "phased Conv."),
     llvm::cl::location(enableConvTranposeDecomposeToPhasedConv),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableQuarkQuantizerLegalizationOptionOpt(
+    "enable-quark-quantizer-legalization",
+    llvm::cl::desc("Enable legalization of ONNX models quantized by quark."),
+    llvm::cl::location(enableQuarkQuantizerLegalization), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(

@@ -82,6 +82,8 @@ void ONNXOpTransformPass::runOnOperation() {
   do {
     OpPassManager dynamicPM("builtin.module");
     dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createDecomposeONNXToONNXPass());
     if (enableRecomposeOptPass)
       dynamicPM.addNestedPass<func::FuncOp>(
