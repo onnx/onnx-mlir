@@ -1625,7 +1625,7 @@ public:
         //	llvm::dbgs() << "i:" << i << "\n";
         //	llvm::dbgs() << "concatOperands[i] " << concatOperands[i] <<
         //"\n"; 	llvm::dbgs() << "aAttr:" << aAttr << "\n";
-        //llvm::dbgs() << "bAttr:" << bAttr << "\n";
+        // llvm::dbgs() << "bAttr:" << bAttr << "\n";
         if (!aAttr)
           return failure();
         if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(aAttr)) {
