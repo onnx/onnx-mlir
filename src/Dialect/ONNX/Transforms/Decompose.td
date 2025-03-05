@@ -531,8 +531,8 @@ def reverseWeightConvTranspose: NativeCodeCall<
 def getFinalOutputFromFourConvOutput: NativeCodeCall<
   "onnx_mlir::getFinalOutputFromFourConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0,$1,$2,$3)">;
 
-def computeConvTranspose: NativeCodeCall<
-  "onnx_mlir::computeConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $1, $2, $3, $4, $5, $6, $7, $8)">;
+def decomposeIntoPhasedConvs: NativeCodeCall<
+  "onnx_mlir::decomposeIntoPhasedConvs($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $0,$1, $2, $3, $4, $5, $6, $7, $8)">;
 
 def ph1WeightForConv: NativeCodeCall<
   "onnx_mlir::ph1WeightTensor($_builder, $_loc, $0)">;
@@ -583,7 +583,7 @@ def ConvTransposeOpAsConv2dPattern1: Pattern<
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (computeConvTranspose:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides)
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides)
    ],
    [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
    (addBenefit 0)
