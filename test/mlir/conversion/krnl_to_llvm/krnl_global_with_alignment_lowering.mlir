@@ -11,7 +11,7 @@ func.func @test_krnl_global_constant_alignment() -> memref<3xf32> {
 // CHECK-LABEL:   llvm.func @test_krnl_global_constant_alignment() -> !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface} {
 // CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr to !llvm.ptr
-// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           [[VAR_3_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_2_]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:       [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_3_]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:       [[VAR_5_:%.+]] = llvm.mlir.constant(0 : index) : i64
@@ -37,7 +37,7 @@ func.func @test_krnl_global_constant_no_alignment() -> memref<2xi64> {
 // CHECK-LABEL:   llvm.func @test_krnl_global_constant_no_alignment() -> !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface} {
 // CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr to !llvm.ptr
-// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           [[VAR_3_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_2_]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:       [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_3_]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:       [[VAR_5_:%.+]] = llvm.mlir.constant(0 : index) : i64

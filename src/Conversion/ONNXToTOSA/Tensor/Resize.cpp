@@ -14,6 +14,7 @@
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 
+#include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
@@ -30,7 +31,7 @@ struct ScaleHelper {
   ScaleHelper(
       int64_t numerator, int64_t denominator, int64_t offset, int64_t border)
       : numerator(numerator), denominator(denominator), offset(offset),
-        border(border){};
+        border(border) {};
   int64_t numerator, denominator, offset, border;
 };
 
@@ -295,12 +296,14 @@ public:
     Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     // Create resizeOp
-    auto scale = rewriter.getDenseI64ArrayAttr({yDimension.numerator,
-        yDimension.denominator, xDimension.numerator, xDimension.denominator});
-    auto offset =
-        rewriter.getDenseI64ArrayAttr({yDimension.offset, xDimension.offset});
-    auto border =
-        rewriter.getDenseI64ArrayAttr({yDimension.border, xDimension.border});
+    Value scale = mlir::tosa::getTosaConstShape(rewriter, loc,
+        {yDimension.numerator, yDimension.denominator, xDimension.numerator,
+            xDimension.denominator});
+    Value offset = mlir::tosa::getTosaConstShape(
+        rewriter, loc, {yDimension.offset, xDimension.offset});
+    Value border = mlir::tosa::getTosaConstShape(
+        rewriter, loc, {yDimension.border, xDimension.border});
+
     auto resizeModeAttr = rewriter.getStringAttr(resizeMode);
     Type newOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
