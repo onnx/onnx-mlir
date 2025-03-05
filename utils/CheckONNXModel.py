@@ -208,7 +208,7 @@ if not os.environ.get("ONNX_MLIR_HOME", None):
     )
 
 
-# log to stderr so that stdout can be used for check results
+# Log to stderr so that stdout can be used for check results.
 def get_logger():
     logging.basicConfig(
         stream=sys.stderr,
@@ -240,7 +240,7 @@ def execute_commands(cmds, cwd=None, tmout=None):
     try:
         stdout, stderr = out.communicate(timeout=tmout)
     except subprocess.TimeoutExpired:
-        # Kill the child process and finish communication
+        # Kill the child process and finish communication.
         out.kill()
         stdout, stderr = out.communicate()
         return (
@@ -272,14 +272,12 @@ def main():
     test_dir = "check-ref"
     if args.save_ref:
         test_dir = args.save_ref
-    # Reference command
 
+    # Reference command.
     ref_cmd = [cmd]
-    # Compile options for reference
+    # Compile options for reference.
     ref_cmd += ["--compile-args=" + args.ref_compile_args]
-    # Where to save the reference
-    ref_cmd += ["--save-ref=" + test_dir]
-    # Possible input info
+    # Where to load the ref.
     if args.load_ref:
         ref_cmd += ["--load-ref=" + args.load_ref]
     elif args.inputs_from_arrays:
@@ -288,8 +286,11 @@ def main():
         ref_cmd += ["--load-ref-from-numpy=" + args.load_ref_from_numpy]
     elif args.shape_info:
         ref_cmd += ["--shape-info=" + args.shape_info]
+    # Where to save the reference so as to reuse them for the test command.
+    ref_cmd += ["--save-ref=" + test_dir]
+    # Seeds.
     ref_cmd += ["--seed=" + args.seed]
-    # Handle lb/ub
+    # Handle lb/ub.
     if args.lower_bound:
         ref_cmd += ["--lower-bound=" + args.lower_bound]
     if args.upper_bound:
@@ -297,18 +298,18 @@ def main():
     # Model name.
     ref_cmd += [model_str]
 
-    # Test command
+    # Test command.
     test_cmd = [cmd]
-    # Compile options for test
+    # Compile options for test.
     if args.additional_test_compile_args:
         compile_args = args.ref_compile_args + " " + args.additional_test_compile_args
     else:
         compile_args = args.test_compile_args
     test_cmd = [cmd]
     test_cmd += ["--compile-args=" + compile_args]
-    # Where to load the ref from
+    # Where to load the ref from.
     test_cmd += ["--load-ref=" + test_dir]
-    # How to verify
+    # How to verify.
     test_cmd += ["--verify=ref"]
     test_cmd += ["--verify-every-value"]
     if args.atol:
@@ -318,7 +319,7 @@ def main():
     # Model name.
     test_cmd += [model_str]
 
-    # Execute ref
+    # Execute ref.
     print()
     if args.skip_ref:
         if not os.path.exists(test_dir):
