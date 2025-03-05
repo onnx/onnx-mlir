@@ -116,6 +116,33 @@ test_group.add_argument(
     " See bin/onnx-mlir --help.",
 )
 
+data_group = parser.add_mutually_exclusive_group()
+data_group.add_argument(
+    "--load-ref",
+    metavar="PATH",
+    type=str,
+    help="Path to a folder containing reference inputs and outputs stored in protobuf."
+    " If --verify=ref, inputs and outputs are reference data for verification.",
+)
+data_group.add_argument(
+    "--inputs-from-arrays", help="List of numpy arrays used as inputs for inference."
+)
+data_group.add_argument(
+    "--load-ref-from-numpy",
+    metavar="PATH",
+    type=str,
+    help="Path to a python script that defines variables inputs and outputs that are"
+    " a list of numpy arrays. "
+    " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]."
+    " Variable outputs can be omitted if --verify is not used.",
+)
+data_group.add_argument(
+    "--shape-info",
+    type=str,
+    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
+    "Used to generate random inputs for the model if --load-ref is not set.",
+)
+
 parser.add_argument(
     "-s",
     "--save-ref",
@@ -123,12 +150,7 @@ parser.add_argument(
     type=str,
     help="Path to a folder to save the inputs and outputs" " in protobuf.",
 )
-parser.add_argument(
-    "--shape-info",
-    type=str,
-    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-    "Used to generate random inputs for the model if --load-ref is not set.",
-)
+
 parser.add_argument(
     "--skip-ref",
     action="store_true",
@@ -257,8 +279,14 @@ def main():
     ref_cmd += ["--compile-args=" + args.ref_compile_args]
     # Where to save the reference
     ref_cmd += ["--save-ref=" + test_dir]
-    # Possible shape info
-    if args.shape_info:
+    # Possible input info
+    if args.load_ref:
+        ref_cmd += ["--load-ref=" + args.load_ref]
+    elif args.inputs_from_arrays:
+        ref_cmd += ["--inputs-from-arrays=" + args.inputs_from_arrays]
+    elif args.load_ref_from_numpy:
+        ref_cmd += ["--load-ref-from-numpy=" + args.load_ref_from_numpy]
+    elif args.shape_info:
         ref_cmd += ["--shape-info=" + args.shape_info]
     ref_cmd += ["--seed=" + args.seed]
     # Handle lb/ub
