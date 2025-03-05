@@ -685,18 +685,18 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   if (!areSpatialDimsStatic)
     return false;
   auto getVectorFromArrayAttr =
-      [](ArrayAttr arrayAttr) -> SmallVector<int64_t, 4> {
+      [](ArrayAttr arrayAttr) -> SmallVector<int64_t> {
     assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
            "Attribute must be integer");
     int nElements = arrayAttr.getValue().size();
-    SmallVector<int64_t, 4> elements(nElements, 0);
+    SmallVector<int64_t> elements(nElements, 0);
     for (int i = 0; i < nElements; ++i) {
       elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
     }
     return elements;
   };
-  // kernel shape is required for decomposition, Do not support the case where
-  // kernel shape can be inferred. Do not support the case where pad values are
+  // kernel shape is required for decomposition, Not supporting the case where
+  // kernel shape can be inferred. Not supporting the case where pad values are
   // to be inferred automatically from outputShape.
   if (!kernelShapeAttr || outputShapeAttr) {
     return false;
@@ -704,26 +704,18 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
 
   auto kernelShape = getVectorFromArrayAttr(kernelShapeAttr);
   auto padsShape = (padsShapeAttr) ? getVectorFromArrayAttr(padsShapeAttr)
-                                   : SmallVector<int64_t, 4>({0, 0, 0, 0});
+                                   : SmallVector<int64_t>({0, 0, 0, 0});
   auto stridesShape = (stridesShapeAttr)
                           ? getVectorFromArrayAttr(stridesShapeAttr)
-                          : SmallVector<int64_t, 4>({1, 1});
-  ONNXConvTransposeOpShapeHelper convTransposeShapeHelper(
-      op.getOperation(), {});
-  convTransposeShapeHelper.computeShapeAndAssertOnFailure();
+                          : SmallVector<int64_t>({1, 1});
 
-  int outputRank = convTransposeShapeHelper.getOutputDims().size();
-  SmallVector<int64_t, 4> outputShape;
-  for (int i = 0; i < outputRank; ++i) {
-    int64_t d = convTransposeShapeHelper.getOutputDims()[i].isLiteral()
-                    ? convTransposeShapeHelper.getOutputDims()[i].getLiteral()
-                    : ShapedType::kDynamic;
-    outputShape.emplace_back(d);
-  }
-  assert(stridesShape.size() == 2);
-  if (stridesShape[0] != stridesShape[1])
-    return false;
-  if (stridesShape[0] > 3)
+  RankedTensorType outputType =
+      mlir::cast<RankedTensorType>(convTransposeResult.getType());
+  auto outputShape = outputType.getShape();
+  // Checking to ensure only convtranspose with 2D spatial dims are supported.
+  if ((outputShape.size() != 4) || (stridesShape.size() != 2) ||
+      (padsShape.size() != 4) || (stridesShape[0] != stridesShape[1]) ||
+      (stridesShape[0] > 3))
     return false;
   bool hDivisisbleByStride =
       (outputShape[outputShape.size() - 2] % stridesShape[0] == 0);
@@ -732,7 +724,7 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   if (!hDivisisbleByStride || !wDivisisbleByStride) {
     return false;
   }
-  auto isSymmetric = [](SmallVector<int64_t, 4> elements) -> bool {
+  auto isSymmetric = [](SmallVector<int64_t> elements) -> bool {
     return std::all_of(elements.begin(), elements.end(),
         [&elements](int64_t i) { return (i == elements[0]); });
   };
@@ -776,11 +768,11 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   assert(weightsType.hasRank() && "Weight tensor must have rank.");
   Type elementType = getElementType(op.getType());
   auto getVectorFromArrayAttr =
-      [](ArrayAttr arrayAttr) -> SmallVector<int64_t, 4> {
+      [](ArrayAttr arrayAttr) -> SmallVector<int64_t> {
     assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
            "Attribute must be integer");
     int nElements = arrayAttr.getValue().size();
-    SmallVector<int64_t, 4> elements(nElements, 0);
+    SmallVector<int64_t> elements(nElements, 0);
     for (int i = 0; i < nElements; ++i) {
       elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
     }
@@ -788,15 +780,15 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   };
   auto kernelShape = getVectorFromArrayAttr(kernel_shape);
   auto padsShape = (pads) ? getVectorFromArrayAttr(pads)
-                          : SmallVector<int64_t, 4>({0, 0, 0, 0});
+                          : SmallVector<int64_t>({0, 0, 0, 0});
   auto stridesShape = (strides) ? getVectorFromArrayAttr(strides)
-                                : SmallVector<int64_t, 4>({1, 1});
+                                : SmallVector<int64_t>({1, 1});
   ONNXConvTransposeOpShapeHelper convTransposeShapeHelper(
       op.getOperation(), {});
   convTransposeShapeHelper.computeShapeAndAssertOnFailure();
 
   int inputRank = convTransposeShapeHelper.getOutputDims().size();
-  SmallVector<int64_t, 4> convTransposeOutputShape;
+  SmallVector<int64_t> convTransposeOutputShape;
   for (int i = 0; i < inputRank; ++i) {
     int64_t d = convTransposeShapeHelper.getOutputDims()[i].isLiteral()
                     ? convTransposeShapeHelper.getOutputDims()[i].getLiteral()
@@ -805,7 +797,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   }
   int numPhases = stridesShape[0] * stridesShape[1];
   if (numPhases == 1) {
-    SmallVector<int64_t, 4> convPadsShape;
+    SmallVector<int64_t> convPadsShape;
     convPadsShape.push_back(kernelShape[0] - 1 - padsShape[0]);
     convPadsShape.push_back(kernelShape[1] - 1 - padsShape[1]);
     convPadsShape.push_back(kernelShape[0] - 1 - padsShape[2]);
@@ -817,12 +809,10 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
         convPadsArrayAttr, strides);
   }
 
-  MLIRContext *context = rewriter.getContext();
-  auto int64Type = mlir::IntegerType::get(context, 64);
-
+  auto int64Type = rewriter.getIntegerType(64);
   auto getONNXConstOpFromVector =
-      [&](SmallVector<int64_t, 4> values) -> ONNXConstantOp {
-    SmallVector<mlir::Attribute, 4> elements;
+      [&](SmallVector<int64_t> values) -> ONNXConstantOp {
+    SmallVector<mlir::Attribute> elements;
     for (auto val : values) {
       elements.push_back(mlir::IntegerAttr::get(int64Type, val));
     }
@@ -835,7 +825,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   // 4x4
   bool shouldPadWeights = (kernelShape[0] == 3 && stridesShape[0] == 2);
   if (shouldPadWeights) {
-    SmallVector<int64_t, 4> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
+    SmallVector<int64_t> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
     assert(padsShape[0] == padsShape[1]);
     assert(padsShape[2] == padsShape[3]);
     // Supports [0,0,1,1] , [1,1,0,0] padding only.
@@ -849,10 +839,9 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
       weightsPadValue[7] = 1;
     }
     auto onnxPadsValueConstant = getONNXConstOpFromVector(weightsPadValue);
-    RankedTensorType scalarTy =
-        RankedTensorType::get({}, rewriter.getF32Type());
+    RankedTensorType scalarTy = RankedTensorType::get({}, elementType);
     Value onnxPaddingConstantZero = create.onnx.constant(
-        DenseElementsAttr::get(scalarTy, static_cast<float>(0)));
+        DenseElementsAttr::get(scalarTy, rewriter.getZeroAttr(elementType)));
 
     auto onnxAxisValueConstantNone = create.onnx.none();
     auto wts_shape = weightsType.getShape();
@@ -883,8 +872,8 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
     for (int row = 0; row < maxIndex; row++) {
       int rowEnd = (convKernelSize * step) + row;
       int columnEnd = (convKernelSize * step) + column;
-      llvm::SmallVector<int64_t, 4> startVector({row, column});
-      llvm::SmallVector<int64_t, 4> endVector({rowEnd, columnEnd});
+      llvm::SmallVector<int64_t> startVector({row, column});
+      llvm::SmallVector<int64_t> endVector({rowEnd, columnEnd});
       auto startOnnxConstant = getONNXConstOpFromVector(startVector);
       auto endOnnxConstant = getONNXConstOpFromVector(endVector);
       weightSlices.push_back(
@@ -896,7 +885,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
       rewriter.getI64ArrayAttr({convKernelSize, convKernelSize});
   // This is the shape of the output from each conv, which contributes to the
   // final ofm.
-  SmallVector<int64_t, 4> convOutputShape(convTransposeOutputShape);
+  SmallVector<int64_t> convOutputShape(convTransposeOutputShape);
   convOutputShape[convOutputShape.size() - 1] =
       convOutputShape[convOutputShape.size() - 1] / stridesShape[0];
   convOutputShape[convOutputShape.size() - 2] =
@@ -907,7 +896,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
   // conv.
   auto convOutputType = RankedTensorType::get(
       (shouldPadWeights)
-          ? llvm::ArrayRef({convOutputShape[0], convOutputShape[1],
+          ? SmallVector<int64_t>({convOutputShape[0], convOutputShape[1],
                 convOutputShape[2] + 1, convOutputShape[3] + 1})
           : convOutputShape,
       convTransposeOutputType.getElementType());
@@ -971,7 +960,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
 
     // The four convOutputs are adjusted to add an extra dimension at the
     // innermost level.
-    SmallVector<int64_t, 4> outputShapePlusOneDim(convOutputShape);
+    SmallVector<int64_t> outputShapePlusOneDim(convOutputShape);
     outputShapePlusOneDim.push_back(1);
     auto onnxConstForReshapeAddOneDim =
         getONNXConstOpFromVector(outputShapePlusOneDim);
@@ -988,7 +977,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
     auto reshapeOutputAddOneDimConv4 = rewriter.create<ONNXReshapeOp>(
         loc, reshapeOutputType, conv4, onnxConstForReshapeAddOneDim);
 
-    SmallVector<int64_t, 4> outputShapeLevel1Concat(outputShapePlusOneDim);
+    SmallVector<int64_t> outputShapeLevel1Concat(outputShapePlusOneDim);
     outputShapeLevel1Concat[outputShapeLevel1Concat.size() - 1] = 2;
     auto level1ConcatOutputType =
         RankedTensorType::get(outputShapeLevel1Concat, elementType);
@@ -1017,7 +1006,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
 
     // Reshaping to modify the two innermost levels,ensuring the second
     // innermost level is set to 1
-    SmallVector<int64_t, 4> outputShapeForDimAdjust(convOutputShape);
+    SmallVector<int64_t> outputShapeForDimAdjust(convOutputShape);
     auto dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
     outputShapeForDimAdjust[outputShapeForDimAdjust.size() - 1] = 1;
     outputShapeForDimAdjust.push_back(dimValueAtLastIndex);
@@ -1034,7 +1023,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
         rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
             secondConcat, onnxConstForReshapeDimAdjust);
 
-    SmallVector<int64_t, 4> outputShapeForFinalConcat(outputShapeForDimAdjust);
+    SmallVector<int64_t> outputShapeForFinalConcat(outputShapeForDimAdjust);
     outputShapeForFinalConcat[outputShapeForFinalConcat.size() - 2] = 2;
 
     auto finalConcatOutputType =
@@ -1053,7 +1042,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
                       reshapeOutputDimAdjustOfSecondConcat},
                   -2);
 
-    SmallVector<int64_t, 4> outputShapeForResult(convOutputShape);
+    SmallVector<int64_t> outputShapeForResult(convOutputShape);
     dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 2;
     auto dimValueAtSecondLastIndex =
         convOutputShape[convOutputShape.size() - 2] * 2;
@@ -1106,7 +1095,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
 
     // The nine convOutputs are adjusted to add an extra dimension at the
     // innermost level.
-    SmallVector<int64_t, 4> outputShapePlusOneDim(convOutputShape);
+    SmallVector<int64_t> outputShapePlusOneDim(convOutputShape);
     outputShapePlusOneDim.push_back(1);
     auto onnxConstForReshapeAddOneDim =
         getONNXConstOpFromVector(outputShapePlusOneDim);
@@ -1133,7 +1122,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
     auto reshapeOutputAddOneDimConv9 = rewriter.create<ONNXReshapeOp>(
         loc, reshapeOutputType, conv9, onnxConstForReshapeAddOneDim);
 
-    SmallVector<int64_t, 4> outputShapeForLevel1Concat(outputShapePlusOneDim);
+    SmallVector<int64_t> outputShapeForLevel1Concat(outputShapePlusOneDim);
     outputShapeForLevel1Concat[outputShapeForLevel1Concat.size() - 1] = 3;
     auto level1ConcatOutputType =
         RankedTensorType::get(outputShapeForLevel1Concat, elementType);
@@ -1157,7 +1146,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
 
     // Reshaping to modify the two innermost levels,ensuring the second
     // innermost level is set to 1
-    SmallVector<int64_t, 4> outputShapeForDimAdjust(convOutputShape);
+    SmallVector<int64_t> outputShapeForDimAdjust(convOutputShape);
     auto dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 3;
     outputShapeForDimAdjust[outputShapeForDimAdjust.size() - 1] = 1;
     outputShapeForDimAdjust.push_back(dimValueAtLastIndex);
@@ -1177,7 +1166,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
         rewriter.create<ONNXReshapeOp>(loc, reshapeOutputForDimAdjustType,
             thirdRowConcat, onnxConstForReshapeDimAdjust);
 
-    SmallVector<int64_t, 4> outputShapeForFinalConcat(outputShapeForDimAdjust);
+    SmallVector<int64_t> outputShapeForFinalConcat(outputShapeForDimAdjust);
     outputShapeForFinalConcat[outputShapeForFinalConcat.size() - 2] = 3;
 
     auto finalConcatOutputType =
@@ -1190,7 +1179,7 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
             reshapeOutputDimAdjustOfSecondConcat,
             reshapeOutputDimAdjustOfThirdConcat},
         -2);
-    SmallVector<int64_t, 4> outputShapeForResult(convOutputShape);
+    SmallVector<int64_t> outputShapeForResult(convOutputShape);
     dimValueAtLastIndex = convOutputShape[convOutputShape.size() - 1] * 3;
     auto dimValueAtSecondLastIndex =
         convOutputShape[convOutputShape.size() - 2] * 3;
