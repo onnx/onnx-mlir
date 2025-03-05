@@ -1826,3 +1826,54 @@ func.func @test_where_with_always_false_3(%arg0: tensor<?x?xi64>) -> tensor<2xi6
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_where_with_always_false_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<2> : tensor<2xi64>
+    %1 = onnx.Constant dense<1> : tensor<2xi64>
+    %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%2, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [-1, ?]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1> // [0, 0]
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [-1, ?]
+    onnx.Return %6 : tensor<2xi64>
+}
+
+// -----
+
+func.func @test_where_with_always_false_5(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+    %1 = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+    %2 = onnx.Constant dense<1> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%2, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [1, ?]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1> // [1, 0]
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [2, ?]
+    onnx.Return %6 : tensor<2xi64>
+}
+
+// -----
+
+func.func @test_where_with_always_false_6(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<[-1, -2]> : tensor<2xi64>
+    %1 = onnx.Constant dense<[-2, -3]> : tensor<2xi64>
+    %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [?, -1]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1> // [0, 0]
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [?, -1]
+    onnx.Return %6 : tensor<2xi64>
+}
+
+// -----
+
+func.func @test_where_with_always_false_7(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<[-1, -2]> : tensor<2xi64>
+    %1 = onnx.Constant dense<[-2, -3]> : tensor<2xi64>
+    %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [?, -1]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1> // [0, 0]
+    %6 = "onnx.Where"(%5, %1, %0) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [-1, -2]
+    onnx.Return %6 : tensor<2xi64>
+}
