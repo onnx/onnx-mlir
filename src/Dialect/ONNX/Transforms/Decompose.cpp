@@ -669,6 +669,16 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 }
+SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
+  assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
+         "Attribute must be integer");
+  int nElements = arrayAttr.getValue().size();
+  SmallVector<int64_t> elements(nElements, 0);
+  for (int i = 0; i < nElements; ++i) {
+    elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
+  }
+  return elements;
+}
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
     ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
@@ -684,17 +694,6 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
                               hasStaticSpatialDims(op.getW());
   if (!areSpatialDimsStatic)
     return false;
-  auto getVectorFromArrayAttr =
-      [](ArrayAttr arrayAttr) -> SmallVector<int64_t> {
-    assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
-           "Attribute must be integer");
-    int nElements = arrayAttr.getValue().size();
-    SmallVector<int64_t> elements(nElements, 0);
-    for (int i = 0; i < nElements; ++i) {
-      elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
-    }
-    return elements;
-  };
   // kernel shape is required for decomposition, Not supporting the case where
   // kernel shape can be inferred. Not supporting the case where pad values are
   // to be inferred automatically from outputShape.
@@ -702,11 +701,11 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     return false;
   }
 
-  auto kernelShape = getVectorFromArrayAttr(kernelShapeAttr);
-  auto padsShape = (padsShapeAttr) ? getVectorFromArrayAttr(padsShapeAttr)
+  auto kernelShape = getIntVectorFromArrayAttr(kernelShapeAttr);
+  auto padsShape = (padsShapeAttr) ? getIntVectorFromArrayAttr(padsShapeAttr)
                                    : SmallVector<int64_t>({0, 0, 0, 0});
   auto stridesShape = (stridesShapeAttr)
-                          ? getVectorFromArrayAttr(stridesShapeAttr)
+                          ? getIntVectorFromArrayAttr(stridesShapeAttr)
                           : SmallVector<int64_t>({1, 1});
 
   RankedTensorType outputType =
@@ -724,10 +723,7 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   if (!hDivisisbleByStride || !wDivisisbleByStride) {
     return false;
   }
-  auto isSymmetric = [](SmallVector<int64_t> elements) -> bool {
-    return std::all_of(elements.begin(), elements.end(),
-        [&elements](int64_t i) { return (i == elements[0]); });
-  };
+
   // one Phase Decomposition
   if (stridesShape[0] == 1) {
     return true;
@@ -736,7 +732,8 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   bool fourPhaseDecomposition = (stridesShape[0] == 2);
   bool ninePhaseDecomposition = (stridesShape[0] == 3);
   if (fourPhaseDecomposition) {
-    if (kernelShape[0] == 6 && padsShape[0] == 2 && isSymmetric(padsShape)) {
+    if (kernelShape[0] == 6 && padsShape[0] == 2 &&
+        llvm::all_equal(padsShape)) {
       // Currently support only with pads [2, 2, 2, 2]
       return true;
     }
@@ -752,7 +749,8 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   }
   if (ninePhaseDecomposition) {
     // Supports only with padding [0, 0, 0, 0]
-    if (kernelShape[0] == 3 && isSymmetric(padsShape) && padsShape[0] == 0) {
+    if (kernelShape[0] == 3 && llvm::all_equal(padsShape) &&
+        padsShape[0] == 0) {
       return true;
     }
   }
@@ -767,21 +765,10 @@ Value computeConvTranspose(PatternRewriter &rewriter, Location loc,
       mlir::cast<RankedTensorType>(weights.getType());
   assert(weightsType.hasRank() && "Weight tensor must have rank.");
   Type elementType = getElementType(op.getType());
-  auto getVectorFromArrayAttr =
-      [](ArrayAttr arrayAttr) -> SmallVector<int64_t> {
-    assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
-           "Attribute must be integer");
-    int nElements = arrayAttr.getValue().size();
-    SmallVector<int64_t> elements(nElements, 0);
-    for (int i = 0; i < nElements; ++i) {
-      elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
-    }
-    return elements;
-  };
-  auto kernelShape = getVectorFromArrayAttr(kernel_shape);
-  auto padsShape = (pads) ? getVectorFromArrayAttr(pads)
+  auto kernelShape = getIntVectorFromArrayAttr(kernel_shape);
+  auto padsShape = (pads) ? getIntVectorFromArrayAttr(pads)
                           : SmallVector<int64_t>({0, 0, 0, 0});
-  auto stridesShape = (strides) ? getVectorFromArrayAttr(strides)
+  auto stridesShape = (strides) ? getIntVectorFromArrayAttr(strides)
                                 : SmallVector<int64_t>({1, 1});
   ONNXConvTransposeOpShapeHelper convTransposeShapeHelper(
       op.getOperation(), {});
