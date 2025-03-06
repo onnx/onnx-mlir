@@ -658,6 +658,7 @@ Value replaceSequenceAt(
   return create.squeeze(
       sequenceAtResult.getType(), rawResult, create.constantInt64(axisInt));
 }
+
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   if (!onnx_mlir::enableConvTransposeDecomposeOption) {
     // Disable the ONNXConvTransposeOp decomposition patterns.
@@ -668,6 +669,7 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   return hasShapeAndRank(convTransposeResult) &&
          hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 }
+
 SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
   assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
          "Attribute must be integer");
@@ -678,12 +680,14 @@ SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
   }
   return elements;
 }
+
 bool HasDefaultDilation(ArrayAttr dilation) {
   if (dilation == nullptr)
     return true;
   SmallVector<int64_t, 3> vDilation = getIntVectorFromArrayAttr(dilation);
   return llvm::all_of(vDilation, [](int64_t d) { return d == 1; });
 }
+
 // This decomposition currently do not support all possible convtranspose
 // operations. Below are the supported usecases.
 // 1. stride[1,1] where convtranspose will decompose to one conv operation.
@@ -1203,6 +1207,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   }
   llvm_unreachable("Unsupported convtranspose decomposition");
 }
+
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
     PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {
