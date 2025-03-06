@@ -658,7 +658,6 @@ Value replaceSequenceAt(
   return create.squeeze(
       sequenceAtResult.getType(), rawResult, create.constantInt64(axisInt));
 }
-
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
   if (!onnx_mlir::enableConvTransposeDecomposeOption) {
     // Disable the ONNXConvTransposeOp decomposition patterns.
@@ -679,6 +678,12 @@ SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
   }
   return elements;
 }
+bool HasDefaultDilation(ArrayAttr dilation) {
+  if (dilation == nullptr)
+    return true;
+  SmallVector<int64_t, 3> vDilation = getIntVectorFromArrayAttr(dilation);
+  return llvm::all_of(vDilation, [](int64_t d) { return d == 1; });
+}
 // This decomposition currently do not support all possible convtranspose
 // operations. Below are the supported usecases.
 // 1. stride[1,1] where convtranspose will decompose to one conv operation.
@@ -692,8 +697,7 @@ SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
 // 9 conv operations each phased conv will use [1,1] kernel
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
-    ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr,
-    ArrayAttr dilationAttr) {
+    ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
   if (!onnx_mlir::enableConvTranposeDecomposeToPhasedConv) {
     // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
     return false;
@@ -711,13 +715,6 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   // to be inferred automatically from outputShape.
   if (!kernelShapeAttr || outputShapeAttr) {
     return false;
-  }
-  // Supports only dilation of 1 for all dimensions.
-  if (dilationAttr) {
-    auto dilation = getIntVectorFromArrayAttr(dilationAttr);
-    if (!llvm::all_equal(dilation) || dilation[0] != 1) {
-      return false;
-    }
   }
 
   auto kernelShape = getIntVectorFromArrayAttr(kernelShapeAttr);

@@ -563,8 +563,13 @@ def ShouldDecomposeConvTransposeOp: Constraint<
 >;
 
 def ShouldDecomposeConvTransposeOpToPhasedConvs: Constraint<
-  CPred<"onnx_mlir::ShouldDecomposeConvTransposeOpToPhasedConvs($_self, $0, $1, $2, $3, $4)">,
+  CPred<"onnx_mlir::ShouldDecomposeConvTransposeOpToPhasedConvs($_self, $0, $1, $2, $3)">,
   "X and W have static spatial dims, under few more conditions listed in the code and ConvTransposeOp phased conv decomposition is enabled"
+>;
+
+def HasDefaultDilation: Constraint<
+  CPred<"onnx_mlir::HasDefaultDilation($0)">,
+  "Check if the dilation given is default"
 >;
 
 def HasStaticSpatialDims: Constraint<
@@ -585,7 +590,7 @@ def ConvTransposeOpAsConv2dPattern1: Pattern<
     (reverseWeightConvTranspose:$reversed_w $w),
     (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides)
    ],
-   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape,$dilation)], [],
+   [(HasRankAndShape:$res), (HasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
    (addBenefit 0)
 >;
 
