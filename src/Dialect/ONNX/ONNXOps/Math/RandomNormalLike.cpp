@@ -38,18 +38,34 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 
   auto elementTypeIDDType = operandAdaptor.getDtype();
   if (elementTypeIDDType) {
-    int64_t elementTypeID = elementTypeIDDType.value();
-    if (elementTypeID < 0 || elementTypeID > 2) {
-      return emitOpError("dtype not 0, 1 or 2.");
+    const auto elementTypeID =
+        static_cast<onnx::TensorProto_DataType>(*elementTypeIDDType);
+    if (elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16 &&
+        elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_FLOAT &&
+        elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE &&
+        elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16) {
+      return emitOpError("dtype not float16, float, double or bfloat16");
     }
-    if (elementTypeID == 0 && outputType != FloatType::getF16(getContext()))
-      return emitOpError("output tensor does match 0 dtype.");
-    else if (elementTypeID == 1 &&
+    if (elementTypeID ==
+            onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16 &&
+        outputType != FloatType::getF16(getContext()))
+      return emitOpError("output tensor does not match float16 dtype.");
+    else if (elementTypeID ==
+                 onnx::TensorProto_DataType::TensorProto_DataType_FLOAT &&
              outputType != FloatType::getF32(getContext()))
-      return emitOpError("output tensor does match 1 dtype.");
-    else if (elementTypeID == 2 &&
+      return emitOpError("output tensor does not match float dtype.");
+    else if (elementTypeID ==
+                 onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE &&
              outputType != FloatType::getF64(getContext()))
-      return emitOpError("output tensor does match 2 dtype.");
+      return emitOpError("output tensor does not match double dtype.");
+    else if (elementTypeID ==
+                 onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16 &&
+             outputType != FloatType::getBF16(getContext()))
+      return emitOpError("output tensor does not match bfloat16 dtype.");
   } else if (inputType != outputType) {
     return emitOpError("output and input element types do not match.");
   }
