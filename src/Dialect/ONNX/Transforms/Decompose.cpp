@@ -688,11 +688,12 @@ SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
 // decompose into 4 conv operations. In this case, the original weights are
 // padded at bottom right, to make it as [4,4] kernel and the four phased-conv
 // operations will use [2,2] kernel.
-// 4. stride [3,3], and kernel [3,3] where it will decompose into 9 conv
-// operations each phased conv will use [1,1] kernel
+// 4. stride [3,3], and kernel [3,3] pads [0,0,0,0] where it will decompose into
+// 9 conv operations each phased conv will use [1,1] kernel
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
-    ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
+    ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr,
+    ArrayAttr dilationAttr) {
   if (!onnx_mlir::enableConvTranposeDecomposeToPhasedConv) {
     // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
     return false;
@@ -710,6 +711,13 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   // to be inferred automatically from outputShape.
   if (!kernelShapeAttr || outputShapeAttr) {
     return false;
+  }
+  // Supports only dilation of 1 for all dimensions.
+  if (dilationAttr) {
+    auto dilation = getIntVectorFromArrayAttr(dilationAttr);
+    if (!llvm::all_equal(dilation) || dilation[0] != 1) {
+      return false;
+    }
   }
 
   auto kernelShape = getIntVectorFromArrayAttr(kernelShapeAttr);
@@ -799,8 +807,6 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   int numPhases = stridesShape[0] * stridesShape[1];
   if (numPhases == 1) {
     SmallVector<int64_t> convPadsShape;
-    // The relation between pads for conv and convtranspose is described
-    // in https://arxiv.org/pdf/1603.07285 section 4.4
     convPadsShape.push_back(kernelShape[0] - 1 - padsShape[0]);
     convPadsShape.push_back(kernelShape[1] - 1 - padsShape[1]);
     convPadsShape.push_back(kernelShape[0] - 1 - padsShape[2]);
@@ -828,10 +834,10 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   bool shouldPadWeights = (kernelShape[0] == 3 && stridesShape[0] == 2);
   if (shouldPadWeights) {
     SmallVector<int64_t> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
-    assert(padsShape[0] == padsShape[1]);
-    assert(padsShape[2] == padsShape[3]);
+
+    assert((padsShape == SmallVector<int64_t>{0, 0, 1, 1}) ||
+           (padsShape == SmallVector<int64_t>{1, 1, 0, 0}));
     // Supports [0,0,1,1] , [1,1,0,0] padding only.
-    assert(padsShape[0] == 1 || padsShape[2] == 1);
     if (padsShape[0] == 1) {
       weightsPadValue[2] = 1;
       weightsPadValue[3] = 1;
@@ -1197,9 +1203,8 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto finalOutput = rewriter.create<ONNXReshapeOp>(
         loc, finalOutputType, finalConcat, onnxConstForLastReshape);
     return finalOutput;
-  } else {
-    llvm_unreachable("Unsupported convtranspose decomposition");
   }
+  llvm_unreachable("Unsupported convtranspose decomposition");
 }
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
