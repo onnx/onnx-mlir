@@ -833,7 +833,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   // 4x4
   bool shouldPadWeights = (kernelShape[0] == 3 && stridesShape[0] == 2);
   if (shouldPadWeights) {
-    SmallVector<int64_t> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
+    std::array<int64_t, 8> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
 
     assert((padsShape == SmallVector<int64_t>{0, 0, 1, 1}) ||
            (padsShape == SmallVector<int64_t>{1, 1, 0, 0}));
