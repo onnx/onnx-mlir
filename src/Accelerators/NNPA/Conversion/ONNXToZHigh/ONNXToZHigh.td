@@ -695,6 +695,43 @@ def replaceONNXMatMulAddPatternBcast1B : Pat<
 >;
 
 //===----------------------------------------------------------------------===//
+// Replace onnx.add and onnx.matmul with bcast23 tensors with ZHighMatMul
+//===----------------------------------------------------------------------===//
+
+def replaceONNXMatMulAddPatternBcast23A : Pat<
+  // From Add $b, (MatMul $x, $y)
+  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
+  // To ZHighMatMulOp
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+        (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
+                                                         (GetRank $y)), (GetDefaultSaturation)),
+        (GetZeroI64Attr), (GetZeroI64Attr))),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
+   (HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b)], [],
+  (addBenefit 0)
+>;
+
+def replaceONNXMatMulAddPatternBcast23B : Pat<
+  // From Add (MatMul $x, $y), $b
+  (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
+  // To ZHighMatMulOp
+  (ZHighUnstickOp
+     (ZHighMatMulOp
+        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
+        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
+        (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
+                                                         (GetRank $y)), (GetDefaultSaturation)),
+        (GetZeroI64Attr), (GetZeroI64Attr))),
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
+   (HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b)], [],
+  (addBenefit 0)
+>;
+
+
+//===----------------------------------------------------------------------===//
 // Replace onnx.matmul when following onnx.transpose
 //    with ZHighMatMul with either A or B transposed
 //===----------------------------------------------------------------------===//
