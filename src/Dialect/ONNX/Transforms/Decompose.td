@@ -564,8 +564,7 @@ def ShouldDecomposeConvTransposeOp: Constraint<
 
 def ShouldDecomposeConvTransposeOpToPhasedConvs: Constraint<
   CPred<"onnx_mlir::ShouldDecomposeConvTransposeOpToPhasedConvs($_self, $0, $1, $2, $3)">,
-  "X and W have static spatial dims, few more specific conditions and ConvTransposeOp phased conv decomposition is enabled"
-  "X and W have static spatial dims, few more specific conditions and ConvTransposeOp phased conv decomposition is enabled"
+  "X and W have static spatial dims, few more specific conditions and ConvTransposeOp phased conv decomposition is enabled"  
 >;
 
 def hasDefaultDilation: Constraint<
