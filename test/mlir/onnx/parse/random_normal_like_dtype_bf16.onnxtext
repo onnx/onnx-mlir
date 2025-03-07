@@ -1,0 +1,19 @@
+// RUN: onnx-mlir --EmitONNXBasic --useOnnxModelTypes=false --printIR %s | FileCheck %s
+
+// Test output type inference of RandomNormalLike ignoring the types from the model using --useOnnxModelTypes=false
+// Output type should be bf16 as dtype = 16 eventhough the output type specified in model is float32
+
+<
+   ir_version: 4,
+   opset_import: ["" : 22]
+>
+test_random_normal_like_dtype (float[unk__a,unk__b] RandomNormalLike_in) => (float[] RandomNormalLike_out) 
+{
+   RandomNormalLike_out = RandomNormalLike<dtype: int = 16, mean: float = 0.0, scale: float = 1.0, seed: float = 2.0> (RandomNormalLike_in)
+}
+
+// CHECK-LABEL:   func.func @main_graph(
+// CHECK-SAME:    %[[VAL_0:.*]]: tensor<?x?xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "RandomNormalLike_in"}) -> (tensor<?x?xbf16> {onnx.name = "RandomNormalLike_out"}) {
+// CHECK:           %[[VAL_1:.*]] = "onnx.RandomNormalLike"(%[[VAL_0]]) {dtype = 16 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<?x?xf32>) -> tensor<?x?xbf16>
+// CHECK:           onnx.Return %[[VAL_1]] : tensor<?x?xbf16>
+// CHECK:         }
