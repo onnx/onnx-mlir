@@ -673,15 +673,13 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
 SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
   assert(mlir::dyn_cast<IntegerAttr>(arrayAttr.getValue()[0]) &&
          "Attribute must be integer");
-  int nElements = arrayAttr.getValue().size();
-  SmallVector<int64_t> elements(nElements, 0);
-  for (int i = 0; i < nElements; ++i) {
-    elements[i] = mlir::cast<IntegerAttr>(arrayAttr.getValue()[i]).getInt();
-  }
+  SmallVector<int64_t> elements;
+  llvm::transform(arrayAttr.getValue().vec(), std::back_inserter(elements),
+      [](auto attr) { return cast<IntegerAttr>(attr).getInt(); });
   return elements;
 }
 
-bool HasDefaultDilation(ArrayAttr dilation) {
+bool hasDefaultDilation(ArrayAttr dilation) {
   if (dilation == nullptr)
     return true;
   SmallVector<int64_t, 3> vDilation = getIntVectorFromArrayAttr(dilation);
