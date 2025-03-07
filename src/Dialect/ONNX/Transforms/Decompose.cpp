@@ -387,6 +387,18 @@ bool canSequenceAtBeReplaced(Value sequenceAtResult) {
   return true;
 }
 
+Attribute upgradeGridSampleV16Mode(PatternRewriter &rewriter, Attribute mode) {
+  const auto stringMode = mlir::cast<StringAttr>(mode);
+  if (stringMode.strref() == "bilinear") {
+    return rewriter.getStringAttr("linear");
+  }
+  if (stringMode.strref() == "bicubic") {
+    return rewriter.getStringAttr("cubic");
+  }
+  assert(stringMode.strref() == "nearest");
+  return mode;
+}
+
 Value replaceSequenceAt(
     PatternRewriter &rewriter, Location loc, Value sequenceAtResult) {
   ONNXSequenceAtOp op = sequenceAtResult.getDefiningOp<ONNXSequenceAtOp>();
@@ -1318,6 +1330,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
   target.addIllegalOp<ONNXDFTV17Op>();
+  target.addIllegalOp<ONNXGridSampleV16Op>();
   target.addIllegalOp<ONNXGroupNormalizationOp>();
   target.addIllegalOp<ONNXGroupNormalizationV18Op>();
   target.addIllegalOp<ONNXInstanceNormalizationOp>();

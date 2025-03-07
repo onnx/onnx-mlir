@@ -770,7 +770,6 @@ Traits: `MemRefsNormalizable`
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>op_type</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 </table>
 
 #### Operands:
@@ -795,7 +794,6 @@ Traits: `MemRefsNormalizable`
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>op_type</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 </table>
 
 #### Operands:
@@ -830,6 +828,28 @@ Interfaces: `MemoryEffectOpInterface`
 | :-----: | ----------- |
 | `X` | memref of dlfloat16 type values
 | `shape` | memref of 64-bit signless integer values
+| `Out` | memref of dlfloat16 type values
+
+### `zlow.reshape` (::onnx_mlir::zlow::ZLowReshapeOp)
+
+_ZLow Reshape operation_
+
+ZLow operation to perform a reshape (no data movement).
+
+Traits: `MemRefsNormalizable`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | memref of dlfloat16 type values
 | `Out` | memref of dlfloat16 type values
 
 ### `zlow.sigmoid` (::onnx_mlir::zlow::ZLowSigmoidOp)

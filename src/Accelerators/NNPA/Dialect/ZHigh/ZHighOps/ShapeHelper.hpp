@@ -56,6 +56,7 @@ DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickifiedConstantOfShapeOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighQuantizedStickOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighUnstickOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighReshapeOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER_ZHIGH
 
 //===----------------------------------------------------------------------===//

@@ -26,6 +26,7 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/QuantizedMatMul/QuantizedMatMul.cpp
   ZHighOps/QuantizedStick/QuantizedStick.cpp
   ZHighOps/Reduction/Reduction.cpp
+  ZHighOps/Reshape/Reshape.cpp
   ZHighOps/Softmax/Softmax.cpp
   ZHighOps/Stick/Stick.cpp
   ZHighOps/StickForGRU/StickForGRU.cpp

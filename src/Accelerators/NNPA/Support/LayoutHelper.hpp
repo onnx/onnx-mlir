@@ -47,6 +47,7 @@ zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
 bool is2DLayout(mlir::StringAttr layout);
 bool is3DSLayout(mlir::StringAttr layout);
 bool is4DLayout(mlir::StringAttr layout);
+bool is4DSLayout(mlir::StringAttr layout);
 bool isNHWCLayout(mlir::StringAttr layout);
 
 mlir::StringAttr getNCHWLayoutAttr(mlir::PatternRewriter &rewriter);
