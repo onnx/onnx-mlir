@@ -90,6 +90,7 @@ extern std::string opsForCall;                                // common for both
 extern bool disableKrnlOpFusion;                              // common for both
 extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
+extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern bool enableConvTranposeDecomposeToPhasedConv;          // common for both
 extern bool enableQuarkQuantizerLegalization;                 // common for both
