@@ -20,7 +20,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstdint>
 #include <numeric>
 
 #include "mlir/IR/Attributes.h"
