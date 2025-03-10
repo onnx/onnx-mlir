@@ -688,15 +688,20 @@ bool hasDefaultDilation(ArrayAttr dilation) {
 
 // This decomposition currently do not support all possible convtranspose
 // operations. Below are the supported usecases.
-// 1. stride[1,1] where convtranspose will decompose to one conv operation.
-// 2. stride [2,2], kernel [6,6], pads [2,2,2,2] where it will decompose into 4
+// 1) stride[1,1] where convtranspose will decompose to one conv operation.
+// 2) stride [2,2], kernel [6,6], pads [2,2,2,2] where it will decompose into 4
 // conv operations each conv with [3,3] phase kernel.
-// 3. stride [2,2], kernel [3,3], pads [0,0,1,1] OR [1,1,0,0] where it will
+// 3) stride [2,2], kernel [4,4], pads [1,1,1,1] where it will decompose into 4
+// conv operations each conv with [2,2] phase kernel.
+// 4) stride [2,2], kernel [3,3], pads [0,0,1,1] OR [1,1,0,0] where it will
 // decompose into 4 conv operations. In this case, the original weights are
 // padded at bottom right, to make it as [4,4] kernel and the four phased-conv
 // operations will use [2,2] kernel.
-// 4. stride [3,3], and kernel [3,3] pads [0,0,0,0] where it will decompose into
+// 5) stride [3,3], and kernel [3,3] pads [0,0,0,0] where it will decompose into
 // 9 conv operations each phased conv will use [1,1] kernel
+// 6) stride [2,2] and kernel [2,2] pads [0,0,0,0] where it will decompose into
+// 4 conv operations each phased conv will use [1,1] kernel
+
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
     ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
@@ -762,6 +767,16 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
       if (padsShape == SmallVector<int64_t>{0, 0, 1, 1} ||
           padsShape == SmallVector<int64_t>{1, 1, 0, 0})
         return true;
+    }
+    // Supports only with padding [0, 0, 0, 0]
+    if (kernelShape[0] == 2 && llvm::all_equal(padsShape) &&
+        padsShape[0] == 0) {
+      return true;
+    }
+    // Supports only with padding [1,1,1,1]
+    if (kernelShape[0] == 4 && llvm::all_equal(padsShape) &&
+        padsShape[0] == 1) {
+      return true;
     }
   }
   if (ninePhaseDecomposition) {
@@ -908,7 +923,9 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
           : convOutputShape,
       convTransposeOutputType.getElementType());
   if (numPhases == 4) {
-    auto padsArrayAttr = rewriter.getI64ArrayAttr({1, 1, 1, 1});
+    auto padsArrayAttr = (kernelShape == SmallVector<int64_t>{2, 2})
+                             ? rewriter.getI64ArrayAttr({0, 0, 0, 0})
+                             : rewriter.getI64ArrayAttr({1, 1, 1, 1});
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
 
     Value conv1 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,

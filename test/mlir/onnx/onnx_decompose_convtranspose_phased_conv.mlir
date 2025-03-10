@@ -461,3 +461,11 @@ func.func @test_convtrans_1phase_pads_0000_nodilation(%arg0: tensor<1x1x27x110xf
 // CHECK:           onnx.Return %[[VAL_10]] : tensor<1x1x28x117xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_convtrans_4phase_kernel_shape_22(%arg0: tensor<1x288x8x96xf32>, %arg1: tensor<288x240x2x2xf32>) -> tensor<1x240x16x192xf32> {    
+  %0 = "onnx.Constant" () { value= dense<0.02> : tensor<240xf32>} : ()-> tensor<240xf32>
+  %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2,2], onnx_node_name = "share_proto/decoder_deconv_os16_deconv/BiasAdd", pads = [0,0,0,0], strides = [2, 2]} : (tensor<1x288x8x96xf32>, tensor<288x240x2x2xf32>, tensor<240xf32>) -> tensor<1x240x16x192xf32>
+  onnx.Return %1 : tensor<1x240x16x192xf32>
+}
