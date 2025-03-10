@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.hpp -------------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -93,6 +93,7 @@ extern bool enableKrnlBufferReuse;                            // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern bool enableConvTranposeDecomposeToPhasedConv;          // common for both
 extern bool enableQuarkQuantizerLegalization;                 // common for both
+extern uint64_t compilationNumThreads;                        // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
