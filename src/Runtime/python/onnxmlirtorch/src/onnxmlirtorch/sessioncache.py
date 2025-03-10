@@ -32,14 +32,13 @@ class SessionCache:
             return len(self.cache)
 
     def remove(self, key):
-      if key in self.cache:
-        del self.cache[key]
-        self.access_order.remove(key)
-    
+        if key in self.cache:
+            del self.cache[key]
+            self.access_order.remove(key)
+
     def clear(self):
         self.cache = {}
         self.access_order = []
 
     def __len__(self):
         return len(self.cache)
-
