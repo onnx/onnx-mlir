@@ -846,8 +846,8 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   // If the convTranspose kernel is 3x3, then the weights needs to be padded to
   // 4x4
-  bool shouldPadWeights = (kernelShape[0] == 3 && stridesShape[0] == 2);
-  if (shouldPadWeights) {
+  bool needWeightsPadding = (kernelShape[0] == 3 && stridesShape[0] == 2);
+  if (needWeightsPadding) {
     std::array<int64_t, 8> weightsPadValue = {0, 0, 0, 0, 0, 0, 0, 0};
 
     assert((padsShape == SmallVector<int64_t>{0, 0, 1, 1}) ||
@@ -918,20 +918,24 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   // In the case where weights are padded, we will get the extra output from
   // conv.
   auto convOutputType = RankedTensorType::get(
-      (shouldPadWeights)
+      (needWeightsPadding)
           ? SmallVector<int64_t>({convOutputShape[0], convOutputShape[1],
                 convOutputShape[2] + 1, convOutputShape[3] + 1})
           : convOutputShape,
       convTransposeOutputType.getElementType());
   if (numPhases == 4) {
-
-    auto getPadsArrayAttr = [&](int64_t kernelSize, int64_t convSequence) {
-      if (shouldPadWeights) {
+    auto getPadsArrayAttr = [&](int64_t kernelSize, int64_t convSequence,
+                                bool weightsPadded) {
+      // weights are padded for case, kernel[3,3], stride[2,2] and pads either
+      // [0,0,1,1] or [1,1,0,0]
+      if (weightsPadded) {
         return rewriter.getI64ArrayAttr({1, 1, 1, 1});
       }
+      // for kernel [2,2], stride [2,2] and pads [0,0,0,0]
       if (kernelSize == 2)
         return rewriter.getI64ArrayAttr({0, 0, 0, 0});
       if (kernelSize == 4) {
+        // for kernel [4,4], stride [2,2] and pads [1,1,1,1]
         switch (convSequence) {
         case 1:
           return rewriter.getI64ArrayAttr({0, 0, 1, 1});
@@ -945,6 +949,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
           llvm_unreachable("Invalid conv sequence.");
         }
       } else {
+        // for kernel [6,6], stride [2,2] and pads [2,2,2,2]
         return rewriter.getI64ArrayAttr({1, 1, 1, 1});
       }
     };
@@ -952,23 +957,27 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
 
     Value conv1 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
         weightSlices[3], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, getPadsArrayAttr(kernelShape[0], 1),
+        convKernelShapeArrayAttr,
+        getPadsArrayAttr(kernelShape[0], 1, needWeightsPadding),
         stridesArrayAttr);
     Value conv2 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
         weightSlices[0], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, getPadsArrayAttr(kernelShape[0], 2),
+        convKernelShapeArrayAttr,
+        getPadsArrayAttr(kernelShape[0], 2, needWeightsPadding),
         stridesArrayAttr);
     Value conv3 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
         weightSlices[1], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, getPadsArrayAttr(kernelShape[0], 3),
+        convKernelShapeArrayAttr,
+        getPadsArrayAttr(kernelShape[0], 3, needWeightsPadding),
         stridesArrayAttr);
     Value conv4 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
         weightSlices[2], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, getPadsArrayAttr(kernelShape[0], 4),
+        convKernelShapeArrayAttr,
+        getPadsArrayAttr(kernelShape[0], 4, needWeightsPadding),
         stridesArrayAttr);
 
     // Need to remove excess the ofm  when weights are padded.
-    if (shouldPadWeights) {
+    if (needWeightsPadding) {
       auto startOnnxConstant = getONNXConstOpFromVector({1, 1});
       auto endOnnxConstant = getONNXConstOpFromVector(
           {convOutputShape[convOutputShape.size() - 2] + 2,
@@ -1029,7 +1038,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     outputShapeLevel1Concat[outputShapeLevel1Concat.size() - 1] = 2;
     auto level1ConcatOutputType =
         RankedTensorType::get(outputShapeLevel1Concat, elementType);
-    bool reverseConcatOrder = (shouldPadWeights || (kernelShape[0] == 4));
+    bool reverseConcatOrder = (needWeightsPadding || (kernelShape[0] == 4));
     // Below concats result will have the innermost dim as 2.
     auto firstConcat =
         (reverseConcatOrder)
