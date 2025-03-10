@@ -701,7 +701,33 @@ bool hasDefaultDilation(ArrayAttr dilation) {
 // 9 conv operations each phased conv will use [1,1] kernel
 // 6) stride [2,2] and kernel [2,2] pads [0,0,0,0] where it will decompose into
 // 4 conv operations each phased conv will use [1,1] kernel
-
+// clang-format off
+/*
+ * +---------------+
+ * |               |            +---------+
+ * |               |            |         |
+ * |  Convtranspose+----------->| conv2d  |
+ * |               |            |         |
+ * |  stride[1,1]  |            |         |
+ * +---------------+            +---------+
+ *
+ *  +-----------------+        +--------------+
+ *  |                 |        |              |         +---------------+
+ *  |convtranspose    |        |              |         |               |
+ *  |                 +------->| 9 conv2ds    +-------->|               |
+ *  | stride[3,3]     |        |              |         |stitch all ofms|
+ *  |                 |        |              |         |               |
+ *  +-----------------+        +--------------+         +---------------+
+ *
+ *  +------------------+
+ *  |                  |       +---------------+        +---------------+
+ *  |  convtranspose   |       |               |        |               |
+ *  |                  +------>|4 conv2ds      +------->|               |
+ *  | stride[2,2]      |       |               |        |stitch all ofms|
+ *  |                  |       |               |        |               |
+ *  +------------------+       +---------------+        +---------------+
+ */
+// clang-format on
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
     ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
