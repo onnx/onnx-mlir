@@ -264,7 +264,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -1145,7 +1145,7 @@ The rules then become:
 | [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
 | else | RNE | RNE | RNE | RNE |
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -1267,13 +1267,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values
+| `X` | tensor of 32-bit float values or tensor of bfloat16 type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values
+| `Y` | tensor of 32-bit float values or tensor of bfloat16 type values
 
 ### `onnx.CenterCropPad` (ONNXCenterCropPadOp)
 
@@ -2205,9 +2205,9 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 | `x_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
-| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
+| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
 
 #### Results:
 
@@ -2371,7 +2371,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -2600,7 +2600,7 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`, `SameOperandsElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -3529,7 +3529,7 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`, `SameOperandsElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -3557,7 +3557,7 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<16>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<16>`, `SameOperandsElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -4529,7 +4529,7 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`, `SameOperandsElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -4557,7 +4557,7 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<16>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<16>`, `SameOperandsElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -5025,7 +5025,7 @@ Element-wise max of each of the input tensors (with Numpy-style broadcasting sup
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -5347,7 +5347,7 @@ Element-wise min of each of the input tensors (with Numpy-style broadcasting sup
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -5377,7 +5377,7 @@ Perform the linear unit element-wise on the input tensor X using formula:
 mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + e^{x}))
 ```
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<22>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<22>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -5413,7 +5413,7 @@ Performs element-wise binary modulus (with Numpy-style broadcasting support).
 
   This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -5544,7 +5544,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -6833,13 +6833,13 @@ Effects: `MemoryEffects::Effect{}`
 | :-----: | ----------- |
 | `x` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values
 | `y_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values
-| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
+| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.RMSLayerNormalization` (ONNXRMSLayerNormalizationOp)
 
@@ -10281,7 +10281,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<14>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -10308,7 +10308,7 @@ Element-wise sum of each of the input tensors (with Numpy-style broadcasting sup
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`, `SameOperandsAndResultElementType`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
