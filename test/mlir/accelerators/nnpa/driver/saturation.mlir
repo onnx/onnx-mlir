@@ -4,8 +4,8 @@
 // RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --nnpa-saturation=true --printIR %s | FileCheck --check-prefix=ZLOW_ON %s
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --nnpa-saturation=false --shape-inference --convert-onnx-to-zhigh --zhigh-decompose-stick-unstick %s | FileCheck --check-prefix=DECOMPOSE_OFF %s
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --nnpa-saturation=true --shape-inference --convert-onnx-to-zhigh --zhigh-decompose-stick-unstick %s | FileCheck --check-prefix=DECOMPOSE_ON %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-saturation=false --enable-compiler-stick-unstick --printIR %s | FileCheck --check-prefix=COMPILER_STICK_OFF %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-saturation=true --enable-compiler-stick-unstick --printIR %s | FileCheck --check-prefix=COMPILER_STICK_ON %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-saturation=false --printIR %s | FileCheck --check-prefix=COMPILER_STICK_OFF %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-saturation=true --printIR %s | FileCheck --check-prefix=COMPILER_STICK_ON %s
 
 // COM: for each case, check saturation ON and OFF.
 
