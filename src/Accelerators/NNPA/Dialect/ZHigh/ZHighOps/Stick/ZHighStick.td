@@ -183,10 +183,11 @@ def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
       $shape2, $_),
     $layout3DS, $saturation),
     // Output: initial X value unchanged, but transformed with the new compatible shape.
-    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+    (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
-     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+     // Static shapes only.
      (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
      (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
      (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
@@ -222,10 +223,11 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
       $shape2, $_),
     $layout3DS, $saturation),
     // Output: initial X value unchanged, but transformed with the compatible shape.
-    (ZHighReshapeOp $X, (CreateShapeOp (GetShapeTypeOf $stick), $stick), (GetLayout $stick)),
+    (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
     [(TensorHas3DSLayout $X), (Is3DSLayout $layout3DS), // Input/output are 3DS.
-     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick), // Static shapes only.
+     (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+     // Static shapes only.
      (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
      (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
      (IsShapeDimMultipleOf32<1> $X), // Second dim of input is a multiple of 32.
@@ -314,6 +316,26 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
    (IsLeftmostTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
    (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+  ]
+>;
+
+
+// Pattern in the CCFD model.
+// 4DS and 3DS have exactly same data values when the second dim of 4DS is 1.
+// (The second dim of 4DS indicates unidirectional or bidirectional LSTM/GRU/RNN,
+// in which: 1 means unidirectional, 2 means bidirectional)
+// This rewriting is true no matter dims (except the 2nd dim) are dynamic or static.
+def Stick3DSSqueezeUnstick4DSPattern: Pat<
+  // Input: X -> unstick (4DS) -> Squeeze (axis=1) -> stick (3DS).
+  (ZHighStickOp:$stick
+    (ONNXSqueezeOp (ZHighUnstickOp:$unstick $X), $axes),
+    $_, $_),
+  // Output: initial X value unchanged, but transformed with the new layout.
+  (ZHighReshapeOp $X, (Create3DSShapeFrom4DS $X), (GetLayout $stick)),
+  // Conditions.
+  [(TensorHas4DSLayout $X),     // Input is 4DS.
+   (TensorHas3DSLayout $stick), // Output is 3DS.
+   (IsConstOf<1> $axes),        // squeeze at axis 1.
   ]
 >;
 

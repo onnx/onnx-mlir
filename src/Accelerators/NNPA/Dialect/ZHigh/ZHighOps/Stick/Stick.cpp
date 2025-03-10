@@ -12,7 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -138,6 +141,7 @@ void ZHighStickOp::getCanonicalizationPatterns(
   results.insert<NoneTypeStickRemovalPattern>(context);
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
+  results.insert<Stick3DSSqueezeUnstick4DSPattern>(context);
   results.insert<ReplaceONNXLeakyReluPattern>(context);
   results.insert<ReplaceONNXSoftplusPattern>(context);
   results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
