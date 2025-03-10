@@ -224,6 +224,25 @@ bool isNegativeSplatConstant(Value val) {
   return false;
 }
 
+/// Test if the input is a constant with all negative value or not.
+bool isAllNegativeIntegerConstant(Value val) {
+  ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
+  if (!valAttr)
+    return false;
+
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr))
+    valAttr = disposable.toDenseElementsAttr();
+
+  Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
+  if (mlir::isa<IntegerType>(elemTy)) {
+    for (auto v : valAttr.getValues<APInt>()) {
+      if (v.getSExtValue() > 0)
+        return false;
+    }
+  }
+  return true;
+}
+
 /// Test if all values in the input ValueRange are dimension sizes.
 bool areAllDimSizes(ValueRange vals) {
   return llvm::all_of(vals, [](Value val) {
@@ -1540,8 +1559,7 @@ private:
 // Rewrite pattern for Where
 // =============================================================================
 
-class RemoveEqualWhereWithDynDimDimPattern
-    : public OpRewritePattern<ONNXWhereOp> {
+class RemoveWhereEqualPattern : public OpRewritePattern<ONNXWhereOp> {
 public:
   using OpRewritePattern<ONNXWhereOp>::OpRewritePattern;
 
@@ -1553,6 +1571,7 @@ public:
     //     (ONNXEqualOp (ONNXConcatOp), (ONNXConstantOp)),
     //      (ONNXConstantOp),
     //      (ONNXConcatOp))
+    // - The second input of EqualOp need to be splat val with negative value.
     // - The output need to be integer type.
     // - Has shape and rank.
     // - DefiningOp of operands of ONNXConcatOp need to be DimOp or ConstantOp
@@ -1560,103 +1579,111 @@ public:
     Value cond = onnxWhereOp.getCondition();
     Value X = onnxWhereOp.getX();
     Value Y = onnxWhereOp.getY();
-    ONNXEqualOp whereCondEqualOp = dyn_cast<ONNXEqualOp>(cond.getDefiningOp());
-    if (!whereCondEqualOp)
+    ONNXEqualOp equalOpCond = dyn_cast<ONNXEqualOp>(cond.getDefiningOp());
+    if (!equalOpCond)
       return failure();
-    ONNXConstantOp whereXconstOp = dyn_cast<ONNXConstantOp>(X.getDefiningOp());
-    if (!whereXconstOp)
+    ONNXConstantOp constOpX = dyn_cast<ONNXConstantOp>(X.getDefiningOp());
+    if (!constOpX)
       return failure();
-    ONNXConcatOp whereYConcatOp = dyn_cast<ONNXConcatOp>(Y.getDefiningOp());
-    if (!whereYConcatOp)
+    ONNXConcatOp concatOpY = dyn_cast<ONNXConcatOp>(Y.getDefiningOp());
+    if (!concatOpY)
       return failure();
-    Value whereCondEqualOpA = whereCondEqualOp.getA();
-    Value whereCondEqualOpB = whereCondEqualOp.getB();
+    Value equalOpCondA = equalOpCond.getA();
     ONNXConcatOp equalAConcatOp =
-        dyn_cast<ONNXConcatOp>(whereCondEqualOpA.getDefiningOp());
+        dyn_cast<ONNXConcatOp>(equalOpCondA.getDefiningOp());
     if (!equalAConcatOp)
       return failure();
+    Value equalOpCondB = equalOpCond.getB();
     ONNXConstantOp equalBConstantOp =
-        dyn_cast<ONNXConstantOp>(whereCondEqualOpB.getDefiningOp());
+        dyn_cast<ONNXConstantOp>(equalOpCondB.getDefiningOp());
     if (!equalBConstantOp)
       return failure();
-    if (!hasShapeAndRank(whereCondEqualOpA) ||
-        !hasShapeAndRank(whereCondEqualOpB) ||
-        !hasShapeAndRank(whereYConcatOp.getResult())) {
+    if (!hasShapeAndRank(equalOpCondA) || !hasShapeAndRank(equalOpCondB) ||
+        !hasShapeAndRank(concatOpY.getResult())) {
       return failure(); // Cannot apply pattern until ranks are known.
     }
+    if (!isAllNegativeIntegerConstant(equalOpCondB))
+      return failure();
 
     // Calculate constant values for the result of the euqalOp
     onnx_mlir::OnnxBuilder create(rewriter, loc);
     llvm::SmallVector<bool, 1> equalOpResults;
-    // 1. Get attribute of B in equal op
-    Type bElemTy =
-        mlir::cast<ShapedType>(equalBConstantOp.getResult().getType())
-            .getElementType();
-    if (!mlir::isa<IntegerType>(bElemTy))
+    // 1. Get attribute of B in equal op (Negative values)
+    SmallVector<int64_t> bAttrValues;
+    if (!getI64ValuesFromONNXConstantOp(equalOpCondB, bAttrValues))
       return failure();
-    ElementsAttr bAttr =
-        getElementAttributeFromONNXValue(equalBConstantOp.getResult());
-    if (!bAttr)
-      return failure();
-    if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(bAttr))
-      bAttr = disposable.toDenseElementsAttr();
+
+    // Type bElemTy =
+    //    mlir::cast<ShapedType>(equalOpCondB.getType()).getElementType();
+    // if (!mlir::isa<IntegerType>(bElemTy))
+    //  return failure();
+    //    ElementsAttr bAttr = getElementAttributeFromONNXValue(equalOpCondB);
+    //    if (!bAttr)
+    //      return failure();
+    //    if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(bAttr))
+    //      bAttr = disposable.toDenseElementsAttr();
     // 2. Get attriubte of A in equal op
-    ValueRange concatOperands = equalAConcatOp.getOperands();
-    if (llvm::any_of(
-            concatOperands, [](Value v) { return !hasShapeAndRank(v); }))
-      return failure();
-    // 3. Compare A and B
+    ValueRange concatOperands = concatOpY.getOperands();
+    // 3. Compare A with B to create results of the EqualOp.
     for (uint64_t i = 0; i < concatOperands.size(); ++i) {
       // Block arguments.
       if (mlir::isa<BlockArgument>(concatOperands[i]))
         return failure();
       if (concatOperands[i].getDefiningOp<ONNXDimOp>()) {
-        // Defined by DimOp.
+        // The value defined by DimOp is not negative value. So, results is
+        // always false.
         equalOpResults.emplace_back(false);
       } else if (isDenseONNXConstant(concatOperands[i]) &&
                  isScalarTensor(concatOperands[i])) {
-        // Defined by ConstantOp.
-        Type elemTy = mlir::cast<ShapedType>(concatOperands[i].getType())
-                          .getElementType();
-        if (!mlir::isa<IntegerType>(elemTy))
+        // The value defined by ConstantOp is compared with value B.
+        SmallVector<int64_t> aAttrValues;
+        if (!getI64ValuesFromONNXConstantOp(concatOperands[i], aAttrValues))
           return failure();
-        ElementsAttr aAttr =
-            getElementAttributeFromONNXValue(concatOperands[i]);
-        //	llvm::dbgs() << "i:" << i << "\n";
-        //	llvm::dbgs() << "concatOperands[i] " << concatOperands[i] <<
-        //"\n"; 	llvm::dbgs() << "aAttr:" << aAttr << "\n";
-        // llvm::dbgs() << "bAttr:" << bAttr << "\n";
-        if (!aAttr)
-          return failure();
-        if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(aAttr)) {
-          aAttr = disposable.toDenseElementsAttr();
-        }
-        int64_t a = aAttr.getValues<APInt>()[i].getSExtValue();
-        int64_t b = bAttr.getValues<APInt>()[i].getSExtValue();
-        //	llvm::dbgs() << "a:" << a << "\n";
-        //	llvm::dbgs() << "b:" << b << "\n";
-        if (a == b) {
+        //        Type elemTy =
+        //        mlir::cast<ShapedType>(concatOperands[i].getType())
+        //                          .getElementType();
+        //        if (!mlir::isa<IntegerType>(elemTy))
+        //          return failure();
+        //        ElementsAttr aAttr =
+        //            getElementAttributeFromONNXValue(concatOperands[i]);
+        //        if (!aAttr)
+        //          return failure();
+        //        if (auto disposable =
+        //        mlir::dyn_cast<DisposableElementsAttr>(aAttr)) {
+        //          aAttr = disposable.toDenseElementsAttr();
+        //        }
+        int64_t a = aAttrValues.front();
+        int64_t b = bAttrValues[i];
+        // int64_t a = aAttr.getValues<APInt>()[i].getSExtValue();
+        // int64_t b = bAttr.getValues<APInt>()[i].getSExtValue();
+        if (a == b)
           equalOpResults.emplace_back(true);
-        } else {
+        else
           equalOpResults.emplace_back(false);
-        }
       } else {
         return failure();
       }
     }
+
+    SmallVector<int64_t> valueX, valueY;
+    if (!getI64ValuesFromONNXConstantOp(constOpX, valueX))
+      return failure();
+
     SmallVector<Value, 4> resVals;
     for (uint64_t i = 0; i < equalOpResults.size(); ++i) {
       // llvm::dbgs() << equalOpResults[i] << "\n";
       if (equalOpResults[i]) {
         // ConstOp in X of WhereOp
-        ElementsAttr valAttr = getElementAttributeFromONNXValue(whereXconstOp);
-        if (!valAttr)
-          return failure();
-        if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr)) {
-          valAttr = disposable.toDenseElementsAttr();
-        }
-        int64_t v = (valAttr.getValues<APInt>()[i]).getSExtValue();
-        resVals.emplace_back(create.constantInt64({v}));
+        //        ElementsAttr valAttr =
+        //        getElementAttributeFromONNXValue(constOpX); if (!valAttr)
+        //          return failure();
+        //        if (auto disposable =
+        //        mlir::dyn_cast<DisposableElementsAttr>(valAttr)) {
+        //          valAttr = disposable.toDenseElementsAttr();
+        //        }
+        //        int64_t v = (valAttr.getValues<APInt>()[i]).getSExtValue();
+        //        resVals.emplace_back(create.constantInt64({v}));
+        resVals.emplace_back(create.constantInt64({valueX[i]}));
       } else {
         // ConcatOp in Y of WhereOp
         resVals.emplace_back(concatOperands[i]);
@@ -2000,7 +2027,7 @@ void ONNXXorOp::getCanonicalizationPatterns(
 void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
-  result.insert<RemoveEqualWhereWithDynDimDimPattern>(context);
+  result.insert<RemoveWhereEqualPattern>(context);
 }
 
 // on the ONNXDequantizeLinearOp.
