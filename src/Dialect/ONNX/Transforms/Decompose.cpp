@@ -822,7 +822,7 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
  *                         |       |       |       |       |                 |
  *                         +-------+-------+-------+-------+                 |
  * convT weights sliced    |conv4  |conv2  |conv4  |conv2  |                 |
- * to get 4 conv wegiths   |       |       |       |       |                 |
+ * to get 4 conv weights   |       |       |       |       |                 |
  *                         +-------+-------+-------+-------+                 |
  *                         |               |                                 |
  *                         |                                                 |
