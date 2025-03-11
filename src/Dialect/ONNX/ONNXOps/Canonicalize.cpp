@@ -1571,11 +1571,12 @@ public:
     //     (ONNXEqualOp (ONNXConcatOp), (ONNXConstantOp)),
     //      (ONNXConstantOp),
     //      (ONNXConcatOp))
-    // - The second input of EqualOp need to be splat val with negative value.
+    // - The second input of EqualOp need to be all negative values.
     // - The output need to be integer type.
     // - Has shape and rank.
     // - DefiningOp of operands of ONNXConcatOp need to be DimOp or ConstantOp
     // with scalar tensor
+    // - Operands in ONNXConcatOp need to be DimOp or ConstantOp
     Value cond = onnxWhereOp.getCondition();
     Value X = onnxWhereOp.getX();
     Value Y = onnxWhereOp.getY();
@@ -1608,23 +1609,13 @@ public:
     // Calculate constant values for the result of the euqalOp
     onnx_mlir::OnnxBuilder create(rewriter, loc);
     llvm::SmallVector<bool, 1> equalOpResults;
-    // 1. Get attribute of B in equal op (Negative values)
+    // Get attribute of B in equal op (Negative values)
     SmallVector<int64_t> bAttrValues;
     if (!getI64ValuesFromONNXConstantOp(equalOpCondB, bAttrValues))
       return failure();
-
-    // Type bElemTy =
-    //    mlir::cast<ShapedType>(equalOpCondB.getType()).getElementType();
-    // if (!mlir::isa<IntegerType>(bElemTy))
-    //  return failure();
-    //    ElementsAttr bAttr = getElementAttributeFromONNXValue(equalOpCondB);
-    //    if (!bAttr)
-    //      return failure();
-    //    if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(bAttr))
-    //      bAttr = disposable.toDenseElementsAttr();
-    // 2. Get attriubte of A in equal op
+    // Get attriubte of A in equal op
     ValueRange concatOperands = concatOpY.getOperands();
-    // 3. Compare A with B to create results of the EqualOp.
+    // Compare A with B to create results of the EqualOp.
     for (uint64_t i = 0; i < concatOperands.size(); ++i) {
       // Block arguments.
       if (mlir::isa<BlockArgument>(concatOperands[i]))
@@ -1639,23 +1630,8 @@ public:
         SmallVector<int64_t> aAttrValues;
         if (!getI64ValuesFromONNXConstantOp(concatOperands[i], aAttrValues))
           return failure();
-        //        Type elemTy =
-        //        mlir::cast<ShapedType>(concatOperands[i].getType())
-        //                          .getElementType();
-        //        if (!mlir::isa<IntegerType>(elemTy))
-        //          return failure();
-        //        ElementsAttr aAttr =
-        //            getElementAttributeFromONNXValue(concatOperands[i]);
-        //        if (!aAttr)
-        //          return failure();
-        //        if (auto disposable =
-        //        mlir::dyn_cast<DisposableElementsAttr>(aAttr)) {
-        //          aAttr = disposable.toDenseElementsAttr();
-        //        }
         int64_t a = aAttrValues.front();
         int64_t b = bAttrValues[i];
-        // int64_t a = aAttr.getValues<APInt>()[i].getSExtValue();
-        // int64_t b = bAttr.getValues<APInt>()[i].getSExtValue();
         if (a == b)
           equalOpResults.emplace_back(true);
         else
@@ -1671,18 +1647,8 @@ public:
 
     SmallVector<Value, 4> resVals;
     for (uint64_t i = 0; i < equalOpResults.size(); ++i) {
-      // llvm::dbgs() << equalOpResults[i] << "\n";
       if (equalOpResults[i]) {
         // ConstOp in X of WhereOp
-        //        ElementsAttr valAttr =
-        //        getElementAttributeFromONNXValue(constOpX); if (!valAttr)
-        //          return failure();
-        //        if (auto disposable =
-        //        mlir::dyn_cast<DisposableElementsAttr>(valAttr)) {
-        //          valAttr = disposable.toDenseElementsAttr();
-        //        }
-        //        int64_t v = (valAttr.getValues<APInt>()[i]).getSExtValue();
-        //        resVals.emplace_back(create.constantInt64({v}));
         resVals.emplace_back(create.constantInt64({valueX[i]}));
       } else {
         // ConcatOp in Y of WhereOp
@@ -1693,22 +1659,9 @@ public:
     Value replacingValue = onnxWhereOp.getResult();
     ShapedType replacingType = mlir::cast<ShapedType>(replacingValue.getType());
     Value res = create.concat(replacingType, ValueRange(resVals), /*axis*/ 0);
-    llvm::dbgs() << "WhereOp " << onnxWhereOp << "\n";
-    llvm::dbgs() << "res " << res << "\n";
     rewriter.replaceOp(onnxWhereOp, res);
     return success();
   }
-
-private:
-  //  bool isEmptyTensor(Value input) const {
-  //    if (ShapedType shapedType = mlir::dyn_cast<ShapedType>(input.getType()))
-  //    {
-  //      return shapedType.hasStaticShape() && shapedType.getNumElements() ==
-  //      0;
-  //    } else {
-  //      return false;
-  //    }
-  //  }
 };
 
 // =============================================================================
