@@ -206,16 +206,12 @@ bool isNegativeSplatConstant(Value val) {
   if (!valAttr)
     return false;
 
-  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr))
-    valAttr = disposable.toDenseElementsAttr();
-
   if (!valAttr.isSplat())
     return false;
 
   Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
   if (mlir::isa<FloatType>(elemTy)) {
-    //    double v = valAttr.getSplatValue<double>();
-    double v = valAttr.getSplatValue<float>();
+    double v = valAttr.getSplatValue<double>();
     return (v < 0.0);
   } else if (mlir::isa<IntegerType>(elemTy)) {
     int64_t v = valAttr.getSplatValue<int64_t>();
@@ -230,8 +226,8 @@ bool isAllNegativeIntegerConstant(Value val) {
   if (!valAttr)
     return false;
 
-  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr))
-    valAttr = disposable.toDenseElementsAttr();
+  //  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr))
+  //    valAttr = disposable.toDenseElementsAttr();
 
   Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
   if (mlir::isa<IntegerType>(elemTy)) {
@@ -1580,25 +1576,28 @@ public:
     Value cond = onnxWhereOp.getCondition();
     Value X = onnxWhereOp.getX();
     Value Y = onnxWhereOp.getY();
+    if (mlir::isa<BlockArgument>(cond) || mlir::isa<BlockArgument>(X) ||
+        mlir::isa<BlockArgument>(Y))
+      return failure();
+
     ONNXEqualOp equalOpCond = dyn_cast<ONNXEqualOp>(cond.getDefiningOp());
-    if (!equalOpCond)
-      return failure();
     ONNXConstantOp constOpX = dyn_cast<ONNXConstantOp>(X.getDefiningOp());
-    if (!constOpX)
-      return failure();
     ONNXConcatOp concatOpY = dyn_cast<ONNXConcatOp>(Y.getDefiningOp());
-    if (!concatOpY)
+    if (!equalOpCond || !constOpX || !concatOpY)
       return failure();
+
     Value equalOpCondA = equalOpCond.getA();
+    Value equalOpCondB = equalOpCond.getB();
+    if (mlir::isa<BlockArgument>(equalOpCondA) ||
+        mlir::isa<BlockArgument>(equalOpCondB))
+      return failure();
     ONNXConcatOp equalAConcatOp =
         dyn_cast<ONNXConcatOp>(equalOpCondA.getDefiningOp());
-    if (!equalAConcatOp)
-      return failure();
-    Value equalOpCondB = equalOpCond.getB();
     ONNXConstantOp equalBConstantOp =
         dyn_cast<ONNXConstantOp>(equalOpCondB.getDefiningOp());
-    if (!equalBConstantOp)
+    if (!equalAConcatOp || !equalBConstantOp)
       return failure();
+
     if (!hasShapeAndRank(equalOpCondA) || !hasShapeAndRank(equalOpCondB) ||
         !hasShapeAndRank(concatOpY.getResult())) {
       return failure(); // Cannot apply pattern until ranks are known.
