@@ -7,8 +7,10 @@ import torch
 import onnxmlir
 from .sessioncache import SessionCache
 
+
 def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
+
 
 class config:
     cache_size = 3

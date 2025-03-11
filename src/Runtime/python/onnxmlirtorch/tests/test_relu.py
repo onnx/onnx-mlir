@@ -3,6 +3,8 @@ import torch
 
 const_N = 10
 const_M = 10
+
+
 class MyModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -10,6 +12,7 @@ class MyModule(torch.nn.Module):
 
     def forward(self, x):
         return torch.nn.functional.relu(self.lin(x))
+
 
 mod = MyModule()
 
@@ -28,10 +31,10 @@ print(opt_mod(input))
 
 
 import onnxmlirtorch
-#opt_mod = onnxmlirtorch.compile(mod, compiler_path="/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir", compiler_image_name=None)
+
+# opt_mod = onnxmlirtorch.compile(mod, compiler_path="/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir", compiler_image_name=None)
 
 opt_mod = onnxmlirtorch.compile(mod)
-input=torch.randn(const_N, const_M)
+input = torch.randn(const_N, const_M)
 output = opt_mod(input)
 print(output)
-
