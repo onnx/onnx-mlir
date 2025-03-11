@@ -41,7 +41,7 @@ class InferenceSession:
         self.session = None
         self.handleParameters(model_path, **kwargs)
         if self.session is not None:
-            return self.session
+            return
         self.checkCompiler()
         self.Compile()
         self.session = self.getSession()
@@ -55,7 +55,7 @@ class InferenceSession:
         elif model_path.endswith(".onnx"):
             self.model_suffix = ".onnx"
         elif model_path.endswith(".so"):
-            self.compiled_lib = os.path.abspath(model_path)
+            self.compiled_model = os.path.abspath(model_path)
             self.session = self.getSession()
             return
         else:
@@ -71,6 +71,13 @@ class InferenceSession:
         else:
             self.compile_options = ""
 
+        # Temporary directory for compilation
+        if "temp_dir" in kwargs.keys():
+            self.output_tempdir = kwargs["temp_dir"]
+        else:
+            self.output_tempdir = tempfile.TemporaryDirectory()
+        self.output_dirname = self.output_tempdir.name
+
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]
             self.compiler_path = find_compiler_path(self.compiler_image_name)
@@ -81,8 +88,11 @@ class InferenceSession:
                 exit(1)
         else:
             # Default image
+            print("using default compiler")
             self.compiler_image_name = config.default_compiler_image_name
             self.compiler_path = find_compiler_path(self.compiler_image_name)
+            self.compiler_image_name = None
+            self.compiler_path = "/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir"
 
         if "container_engine" in kwargs.keys():
             self.container_tool = kwargs["container_engine"]
@@ -129,9 +139,6 @@ class InferenceSession:
                 exit(-1)
 
     def Compile(self):
-        # Temporary directory for compilation
-        self.output_tempdir = tempfile.TemporaryDirectory()
-        self.output_dirname = self.output_tempdir.name
 
         if self.compiler_image_name is None:
             # Use the uniform variable for local compiler and docker image
@@ -162,6 +169,7 @@ class InferenceSession:
             self.container_output_dirname,
             self.model_basename.removesuffix(self.model_suffix),
         )
+        print(command_str)
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
