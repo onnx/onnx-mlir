@@ -27,7 +27,8 @@ print(opt_mod(input1, input2))
 import onnxmlirtorch
 
 # Example of using default compiler image
-opt_mod = onnxmlirtorch.compile(mod)
+opt_mod = onnxmlirtorch.compile(mod, compiler_image_name="ghcr.io/onnxmlir/onnx-mlir")
+#opt_mod = onnxmlirtorch.ONNXMLIRTorch.compile(mod, compiler_image_name="ghcr.io/onnxmlir/onnx-mlir")
 
 # Example of using local compiler
 #opt_mod = onnxmlirtorch.compile(mod, compiler_image_name=None, compiler_path="/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir")

@@ -7,10 +7,8 @@ import torch
 import onnxmlir
 from .sessioncache import SessionCache
 
-
 def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
-
 
 class config:
     cache_size = 3
@@ -24,6 +22,10 @@ class ONNXMLIRTorch:
         self.workdir = tempfile.TemporaryDirectory()
         self.default_model_name = "model"
         self.sessionCache = SessionCache(config.cache_size)
+
+    @staticmethod
+    def compile(torch_model, **kwargs):
+        return ONNXMLIRTorch(torch_model, **kwargs)
 
     def __call__(self, *args):
 
