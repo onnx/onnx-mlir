@@ -239,7 +239,7 @@ def LogSoftmaxPattern
 def UpsamplePattern : Pat<
   (ONNXUpsampleOp $x, $scales, $mode),
   (ONNXResizeOp $x, (CreateNoneValue), $scales, (CreateNoneValue),
-     (GetNullIntegerAttr), (GetNullArrayAttr), (GetNullStringAttr),
+     (GetNullIntegerAttr), (GetNullArrayAttr), (NativeCodeCall<"$_builder.getStringAttr(\"asymmetric\")">),
      (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr),
      $mode, (GetNullFloatAttr))
 >;
@@ -248,7 +248,7 @@ def UpsampleV7Pattern : Pat<
   (ONNXUpsampleV7Op $x, $mode, $scales),
   (ONNXResizeOp $x, (CreateNoneValue),
      (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scales)),
-     (CreateNoneValue), (GetNullIntegerAttr), (GetNullArrayAttr), (GetNullStringAttr),
+     (CreateNoneValue), (GetNullIntegerAttr), (GetNullArrayAttr), (NativeCodeCall<"$_builder.getStringAttr(\"asymmetric\")">),
      (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr),
      $mode, (GetNullFloatAttr))
 >;
