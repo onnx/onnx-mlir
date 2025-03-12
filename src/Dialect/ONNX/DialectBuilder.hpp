@@ -184,6 +184,7 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXShapeOp (start is inclusive, default 0; end is exclusive, default
   // nullptr means all)
+  mlir::Value shape(mlir::Value input) const;
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
   mlir::Value shape(
       mlir::Type outputType, mlir::Value input, int64_t start) const;
