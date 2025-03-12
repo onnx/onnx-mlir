@@ -2205,9 +2205,9 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 | `x_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
-| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
+| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
 
 #### Results:
 
@@ -6833,13 +6833,13 @@ Effects: `MemoryEffects::Effect{}`
 | :-----: | ----------- |
 | `x` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values
 | `y_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values
-| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
+| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.RMSLayerNormalization` (ONNXRMSLayerNormalizationOp)
 
@@ -7009,7 +7009,7 @@ TensorProto message, and be valid as an output type.
 
 Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<22>`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
