@@ -220,6 +220,25 @@ bool isNegativeSplatConstant(Value val) {
   return false;
 }
 
+/// Test if the input is a constant with all negative value or not.
+bool isAllNegativeIntegerConstant(Value val) {
+  ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
+  if (!valAttr)
+    return false;
+
+  //  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr))
+  //    valAttr = disposable.toDenseElementsAttr();
+
+  Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
+  if (mlir::isa<IntegerType>(elemTy)) {
+    for (auto v : valAttr.getValues<APInt>()) {
+      if (v.getSExtValue() > 0)
+        return false;
+    }
+  }
+  return true;
+}
+
 /// Test if all values in the input ValueRange are dimension sizes.
 bool areAllDimSizes(ValueRange vals) {
   return llvm::all_of(vals, [](Value val) {
@@ -1533,6 +1552,118 @@ private:
 };
 
 // =============================================================================
+// Rewrite pattern for Where
+// =============================================================================
+
+class RemoveWhereEqualPattern : public OpRewritePattern<ONNXWhereOp> {
+public:
+  using OpRewritePattern<ONNXWhereOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXWhereOp onnxWhereOp, PatternRewriter &rewriter) const override {
+    Location loc = onnxWhereOp.getLoc();
+    // Check operation pattern:
+    // (ONNXWhereOp
+    //     (ONNXEqualOp (ONNXConcatOp), (ONNXConstantOp)),
+    //      (ONNXConstantOp),
+    //      (ONNXConcatOp))
+    // - The second input of EqualOp need to be all negative values.
+    // - The output need to be integer type.
+    // - Has shape and rank.
+    // - DefiningOp of operands of ONNXConcatOp need to be DimOp or ConstantOp
+    // with scalar tensor
+    // - Operands in ONNXConcatOp need to be DimOp or ConstantOp
+    Value cond = onnxWhereOp.getCondition();
+    Value X = onnxWhereOp.getX();
+    Value Y = onnxWhereOp.getY();
+    if (mlir::isa<BlockArgument>(cond) || mlir::isa<BlockArgument>(X) ||
+        mlir::isa<BlockArgument>(Y))
+      return failure();
+
+    ONNXEqualOp equalOpCond = dyn_cast<ONNXEqualOp>(cond.getDefiningOp());
+    ONNXConstantOp constOpX = dyn_cast<ONNXConstantOp>(X.getDefiningOp());
+    ONNXConcatOp concatOpY = dyn_cast<ONNXConcatOp>(Y.getDefiningOp());
+    if (!equalOpCond || !constOpX || !concatOpY)
+      return failure();
+
+    Value equalOpCondA = equalOpCond.getA();
+    Value equalOpCondB = equalOpCond.getB();
+    if (mlir::isa<BlockArgument>(equalOpCondA) ||
+        mlir::isa<BlockArgument>(equalOpCondB))
+      return failure();
+    ONNXConcatOp equalAConcatOp =
+        dyn_cast<ONNXConcatOp>(equalOpCondA.getDefiningOp());
+    ONNXConstantOp equalBConstantOp =
+        dyn_cast<ONNXConstantOp>(equalOpCondB.getDefiningOp());
+    if (!equalAConcatOp || !equalBConstantOp)
+      return failure();
+
+    if (!hasShapeAndRank(equalOpCondA) || !hasShapeAndRank(equalOpCondB) ||
+        !hasShapeAndRank(concatOpY.getResult())) {
+      return failure(); // Cannot apply pattern until ranks are known.
+    }
+    if (!isAllNegativeIntegerConstant(equalOpCondB))
+      return failure();
+
+    // Calculate constant values for the result of the euqalOp
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+    llvm::SmallVector<bool, 1> equalOpResults;
+    // Get attribute of B in equal op (Negative values)
+    SmallVector<int64_t> bAttrValues;
+    if (!getI64ValuesFromONNXConstantOp(equalOpCondB, bAttrValues))
+      return failure();
+    // Get attriubte of A in equal op
+    ValueRange concatOperands = concatOpY.getOperands();
+    // Compare A with B to create results of the EqualOp.
+    for (uint64_t i = 0; i < concatOperands.size(); ++i) {
+      // Block arguments.
+      if (mlir::isa<BlockArgument>(concatOperands[i]))
+        return failure();
+      if (concatOperands[i].getDefiningOp<ONNXDimOp>()) {
+        // The value defined by DimOp is not negative value. So, results is
+        // always false.
+        equalOpResults.emplace_back(false);
+      } else if (isDenseONNXConstant(concatOperands[i]) &&
+                 isScalarTensor(concatOperands[i])) {
+        // The value defined by ConstantOp is compared with value B.
+        SmallVector<int64_t> aAttrValues;
+        if (!getI64ValuesFromONNXConstantOp(concatOperands[i], aAttrValues))
+          return failure();
+        int64_t a = aAttrValues.front();
+        int64_t b = bAttrValues[i];
+        if (a == b)
+          equalOpResults.emplace_back(true);
+        else
+          equalOpResults.emplace_back(false);
+      } else {
+        return failure();
+      }
+    }
+
+    SmallVector<int64_t> valueX, valueY;
+    if (!getI64ValuesFromONNXConstantOp(constOpX, valueX))
+      return failure();
+
+    SmallVector<Value, 4> resVals;
+    for (uint64_t i = 0; i < equalOpResults.size(); ++i) {
+      if (equalOpResults[i]) {
+        // ConstOp in X of WhereOp
+        resVals.emplace_back(create.constantInt64({valueX[i]}));
+      } else {
+        // ConcatOp in Y of WhereOp
+        resVals.emplace_back(concatOperands[i]);
+      }
+    }
+
+    Value replacingValue = onnxWhereOp.getResult();
+    ShapedType replacingType = mlir::cast<ShapedType>(replacingValue.getType());
+    Value res = create.concat(replacingType, ValueRange(resVals), /*axis*/ 0);
+    rewriter.replaceOp(onnxWhereOp, res);
+    return success();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -1848,6 +1979,7 @@ void ONNXXorOp::getCanonicalizationPatterns(
 void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
+  result.insert<RemoveWhereEqualPattern>(context);
 }
 
 // on the ONNXDequantizeLinearOp.
