@@ -33,7 +33,7 @@
 #define OM_INSTRUMENT_HELPER_H 1
 
 // Set to 1 to disable all timing regardless of other flags.
-#define OM_DRIVER_TIMING_DISABLE_ALL 0
+#define OM_DRIVER_TIMING_DISABLE_ALL 1
 
 //===----------------------------------------------------------------------===//
 // Timing support for MVS
