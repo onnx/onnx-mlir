@@ -1009,7 +1009,11 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
         }
       } else {
         // for kernel [6,6], stride [2,2] and pads [2,2,2,2]
-        return rewriter.getI64ArrayAttr({1, 1, 1, 1});
+        if (kernelSize == 6) {
+          return rewriter.getI64ArrayAttr({1, 1, 1, 1});
+        } else {
+          llvm_unreachable("Invalid conv sequence.");
+        }
       }
     };
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
@@ -1097,6 +1101,10 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     outputShapeLevel1Concat[outputShapeLevel1Concat.size() - 1] = 2;
     auto level1ConcatOutputType =
         RankedTensorType::get(outputShapeLevel1Concat, elementType);
+    // for the case where convtranspose kernel is [4, 4] and with pads [1, 1, 1,
+    // 1] The phased convs output are to be concatenated in the reverse order.
+    // This is observed by looking at the phased conv outputs with respect to
+    // convtranspose output.
     bool reverseConcatOrder = (needWeightsPadding || (kernelShape[0] == 4));
     // Below concats result will have the innermost dim as 2.
     auto firstConcat =
