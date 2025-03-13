@@ -391,7 +391,7 @@ Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
     // Static, no need to create dims. Gather shapes into a constant array.
     llvm::SmallVector<int64_t, 4> permutedShapes;
     for (int64_t p = 0; p < permRank; ++p) {
-      int64_t d = perm[p];
+      int64_t d = perm[p] < 0 ? perm[p] + inputRank : perm[p];
       assert(d >= 0 && d < inputRank &&
              "perm values expected in [0..rank(input))");
       permutedShapes.emplace_back(inputShape[d]);
@@ -401,7 +401,7 @@ Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
   // Dynamic shape: create the dims as needed and gather values in a concat.
   llvm::SmallVector<Value, 4> permutedDims;
   for (int64_t p = 0; p < permRank; ++p) {
-    int64_t d = perm[p];
+    int64_t d = perm[p] < 0 ? perm[p] + inputRank : perm[p];
     assert(
         d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
     permutedDims.emplace_back(dim(input, d));

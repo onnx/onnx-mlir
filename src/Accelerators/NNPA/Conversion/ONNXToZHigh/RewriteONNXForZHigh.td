@@ -105,19 +105,22 @@ def IsUniBroadcastingFromFirstToSecond: Constraint<
 // For ONNXAddOp
 //===----------------------------------------------------------------------===//
 
+// Normalize "const + x to "x + const".
 def expandConstantOperandForAddOp1: Pat<
-  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp:$a (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXAddOp $x, $c),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
 
-def expandConstantOperandForAddOp2: Pat<
-  (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
-  (ONNXAddOp $x, (ONNXExpandOp $c,
-                               (CreateShapeOp $x),
-                               (returnType $x))),
-  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
->;
+// In "x + const", expand the const have the right shape for NNPA processing.
+// hi alex, remove
+// def expandConstantOperandForAddOp2: Pat<
+//   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+//   (ONNXAddOp $x, (ONNXExpandOp $c,
+//                                (CreateShapeOp $x),
+//                                (returnType $x))),
+//   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+// >;
 
 //===----------------------------------------------------------------------===//
 // For ONNXDivOp

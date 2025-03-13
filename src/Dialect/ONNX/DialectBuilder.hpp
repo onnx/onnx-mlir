@@ -35,11 +35,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
 
   // ONNXAbsOp
   mlir::Value abs(mlir::Value input) const;
@@ -195,6 +195,7 @@ struct OnnxBuilder : DialectBuilder {
   // d1, d2, d3). Call to "Shape(input, {0, 1, 3, 2})" will produce a tensor
   // with "[d0, d1, d3, d2]" values. Or call to "Shape(input, {0, 2, 3})" will
   // produce a shape of reduced dimensions (4D->3D) with dims "[d0, d2, d3]".
+  // Negative values are indices counting from the end of the shape.
   mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm) const;
 
   // ONNXSliceOp

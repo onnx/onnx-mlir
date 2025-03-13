@@ -1629,6 +1629,7 @@ void getONNXToZHighOneOpDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXQLinearMatMulOp>(target, dimAnalysis);
 }
 
+// hi alex: if add matmul pattern here, should be good.
 void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<replaceONNXMatMulAddPattern1>(context);
