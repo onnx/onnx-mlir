@@ -32,6 +32,9 @@
 #ifndef OM_INSTRUMENT_HELPER_H
 #define OM_INSTRUMENT_HELPER_H 1
 
+// Set to 1 to disable all timing regardless of other flags.
+#define OM_DRIVER_TIMING_DISABLE_ALL 0
+
 //===----------------------------------------------------------------------===//
 // Timing support for MVS
 
@@ -49,9 +52,8 @@
 
 //===----------------------------------------------------------------------===//
 // Timing functions
-#define OM_DRIVER_TIMING_DISABLE_ALL 0
 
-#if OM_DRIVER_TIMING && ! OM_DRIVER_TIMING_DISABLE_ALL
+#if OM_DRIVER_TIMING && !OM_DRIVER_TIMING_DISABLE_ALL
 #include <stdio.h>
 #include <sys/time.h>
 
@@ -84,9 +86,9 @@ extern char timing_nest_strings[6][20];
   }
 
 #define TIMING_PRINT(_var_name)                                                \
-  if (_var_name##_nest_level >= 0) { /* was started at least once */            \
+  if (_var_name##_nest_level >= 0) { /* was started at least once */           \
     int l = _var_name##_nest_level <= 5 ? _var_name##_nest_level : 5;          \
-    fprintf(stderr, "@OM_DRIVER, %s%s, %ld.%06ld\n", timing_nest_strings[l], \
+    fprintf(stderr, "@OM_DRIVER, %s%s, %ld.%06ld\n", timing_nest_strings[l],   \
         #_var_name, (long int)_var_name.tv_sec, (long int)_var_name.tv_usec);  \
   }
 
