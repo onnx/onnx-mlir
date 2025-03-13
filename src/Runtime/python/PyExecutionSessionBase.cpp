@@ -28,7 +28,7 @@ SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSessionBase.hpp"
 
-#define OM_DRIVER_TIMING 1
+#define OM_DRIVER_TIMING 1 /* 1 for timing, 0 for no timing/overheads */
 #include "src/Runtime/OMInstrumentHelper.h"
 
 namespace pybind11 {
@@ -321,6 +321,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   TIMING_INIT_START(delete_out_lists);
   omTensorListDestroy(wrappedOutput);
   TIMING_STOP_PRINT(delete_out_lists);
+
   TIMING_INIT_START(delete_in_lists);
   omTensorListDestroy(wrappedInput);
   TIMING_STOP_PRINT(delete_in_lists);
