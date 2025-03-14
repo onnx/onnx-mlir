@@ -167,6 +167,16 @@ OM_EXTERNAL_VISIBILITY void omTensorDestroy(OMTensor *tensor);
  */
 OM_EXTERNAL_VISIBILITY void *omTensorGetDataPtr(const OMTensor *tensor);
 
+// hi alex
+/**
+ * \brief OMTensor allocated data pointer getter.
+ *
+ * @param tensor pointer to the OMTensor
+ * @return pointer to the numerical data buffer of the OMTensor,
+ *         NULL if the numerical data buffer is not set.
+ */
+OM_EXTERNAL_VISIBILITY void *omTensorGetAllocatedPtr(const OMTensor *tensor);
+
 /**
  * \brief OMTensor data shape getter.
  *

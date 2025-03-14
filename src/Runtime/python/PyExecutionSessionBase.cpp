@@ -312,7 +312,37 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     TIMING_STOP_PRINT(process_output_types);
 
     TIMING_INIT_START(process_output_pyarray);
+#if 1
+    // Set owning to false as we migrate the ownership to python
+    omTensorSetOwning(omt, false);
+    void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
+    void *omtDataPtr = omTensorGetDataPtr(omt);
+#if 1
+    fprintf(stderr,
+        "hi alex, preparing free for omTensor with ptr value 0x%llx and data "
+        "ptr 0x%llx\n",
+        (long long)omtAllocPtr, (long long)omtDataPtr);
+
+    py::capsule free_data_with_alloc_offset(omtAllocPtr, [](void *ptr) {
+      fprintf(stderr, "hi alex, freeing omTensor with ptr value 0x%llx\n",
+          (long long)ptr);
+      free(ptr);
+    });
+    ;
+#else
+    void *omtDataPtr = omTensorGetDataPtr(omt);
+    size_t byteDiff = ((char *)omtDataPtr) - ((char *)omtAllocPtr);
+    assert(byteDiff >= 0 && "expected alloc <= data in OMTensor");
+    py::capsule free_data_with_alloc_offset(void *dataPtr, [](void *ptr) {
+      char *origAllocPtr = ((char *)ptr) - byteDiff;
+      free(origAllocPtr);
+    });
+#endif
+    py::array outputPyArray =
+        py::array(dtype, shape, omtDataPtr, free_data_with_alloc_offset);
+#else
     py::array outputPyArray = py::array(dtype, shape, omTensorGetDataPtr(omt));
+#endif
     TIMING_STOP_PRINT(process_output_pyarray);
     outputPyArrays.emplace_back(outputPyArray);
   }
