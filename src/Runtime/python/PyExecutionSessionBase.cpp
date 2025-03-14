@@ -312,8 +312,6 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     TIMING_STOP_PRINT(process_output_types);
 
     TIMING_INIT_START(process_output_pyarray);
-    // Set owning to false as we migrate the ownership to python
-    omTensorSetOwning(omt, false);
     // Use data pointer to indicate to the numpy array where the data is, and
     // use allocated pointer for the custom deallocator. These two pointers may
     // be different when trying to allocate data that must be at specific
@@ -332,9 +330,15 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
           (long long)ptr);
       free(ptr);
     });
+#if 1
+    // Set owning to false as we migrate the ownership to python
+    omTensorSetOwning(omt, false);
     // Pass the py::capsule to the numpy array for proper bookkeeping.
     py::array outputPyArray =
         py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr);
+#else
+    py::array outputPyArray = py::array(dtype, shape, omtDataPtr);
+#endif
     TIMING_STOP_PRINT(process_output_pyarray);
 
     outputPyArrays.emplace_back(outputPyArray);
