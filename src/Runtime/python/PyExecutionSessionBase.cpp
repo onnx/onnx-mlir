@@ -319,18 +319,26 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // be whatever the malloc returned.
     void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
     void *omtDataPtr = omTensorGetDataPtr(omt);
-    // Create the capsule that points to the data to be freed (allocated
-    // pointer).
-    py::capsule free_data_with_allocate_ptr(
-        omtAllocPtr, [](void *ptr) { free(ptr); });
-    // Set owning to false as we migrate the ownership to python
-    omTensorSetOwning(omt, false);
-    // Pass the py::capsule to the numpy array for proper bookkeeping.
-    py::array outputPyArray =
-        py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr);
+    // Check if the return value is a static constant, which cannot be freed and
+    // thus would have been created with the "owning" flag being false.
+    if (omTensorGetOwning(omt)) {
+      // CWe have a regular tensor which we will need to free at the right time.
+      // Create the capsule that points to the data to be freed (allocated
+      // pointer).
+      py::capsule free_data_with_allocate_ptr(
+          omtAllocPtr, [](void *ptr) { free(ptr); });
+      // Set owning to false as we migrate the ownership to python
+      omTensorSetOwning(omt, false);
+      // Pass the py::capsule to the numpy array for proper bookkeeping.
+      outputPyArrays.emplace_back(
+          py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr));
+    } else {
+      // We have a constant, free is a noop.
+      py::capsule free_noop(omtAllocPtr, [](void *ptr) {});
+      outputPyArrays.emplace_back(
+          py::array(dtype, shape, omtDataPtr, free_noop));
+    }
     TIMING_STOP_PRINT(process_output_pyarray);
-
-    outputPyArrays.emplace_back(outputPyArray);
   }
   TIMING_STOP_PRINT(process_output);
 
