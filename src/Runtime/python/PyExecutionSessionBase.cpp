@@ -324,7 +324,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         "ptr 0x%llx\n",
         (long long)omtAllocPtr, (long long)omtDataPtr);
 
-#if 0
+#if 1
         // Create the capsule that points to the data to be freed (allocated
     // pointer).
     py::capsule free_data_with_allocate_ptr(omtAllocPtr, [](void *ptr) {
