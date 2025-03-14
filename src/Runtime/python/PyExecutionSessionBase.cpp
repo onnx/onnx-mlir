@@ -312,9 +312,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     TIMING_STOP_PRINT(process_output_types);
 
     TIMING_INIT_START(process_output_pyarray);
-    outputPyArrays.emplace_back(
-        py::array(dtype, shape, omTensorGetDataPtr(omt)));
+    py::array outputPyArray = py::array(dtype, shape, omTensorGetDataPtr(omt));
     TIMING_STOP_PRINT(process_output_pyarray);
+    outputPyArrays.emplace_back(outputPyArray);
   }
   TIMING_STOP_PRINT(process_output);
 
