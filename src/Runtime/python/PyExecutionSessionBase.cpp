@@ -319,27 +319,15 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // be whatever the malloc returned.
     void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
     void *omtDataPtr = omTensorGetDataPtr(omt);
-    fprintf(stderr,
-        "hi alex, preparing free for omTensor with ptr value 0x%llx and data "
-        "ptr 0x%llx\n",
-        (long long)omtAllocPtr, (long long)omtDataPtr);
-
-#if 1
-        // Create the capsule that points to the data to be freed (allocated
+    // Create the capsule that points to the data to be freed (allocated
     // pointer).
-    py::capsule free_data_with_allocate_ptr(omtAllocPtr, [](void *ptr) {
-      fprintf(stderr, "hi alex, freeing omTensor with ptr value 0x%llx\n",
-          (long long)ptr);
-      free(ptr);
-    });
+    py::capsule free_data_with_allocate_ptr(
+        omtAllocPtr, [](void *ptr) { free(ptr); });
     // Set owning to false as we migrate the ownership to python
     omTensorSetOwning(omt, false);
     // Pass the py::capsule to the numpy array for proper bookkeeping.
     py::array outputPyArray =
         py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr);
-#else
-    py::array outputPyArray = py::array(dtype, shape, omtDataPtr);
-#endif
     TIMING_STOP_PRINT(process_output_pyarray);
 
     outputPyArrays.emplace_back(outputPyArray);
