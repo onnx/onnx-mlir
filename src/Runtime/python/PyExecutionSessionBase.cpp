@@ -312,38 +312,31 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     TIMING_STOP_PRINT(process_output_types);
 
     TIMING_INIT_START(process_output_pyarray);
-#if 1
     // Set owning to false as we migrate the ownership to python
     omTensorSetOwning(omt, false);
+    // Use data pointer to indicate to the numpy array where the data is, and
+    // use allocated pointer for the custom deallocator. These two pointers may
+    // be different when trying to allocate data that must be at specific
+    // boundaries. Data pointer will be at the custom boundary, but alloc will
+    // be whatever the malloc returned.
     void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
     void *omtDataPtr = omTensorGetDataPtr(omt);
-#if 1
     fprintf(stderr,
         "hi alex, preparing free for omTensor with ptr value 0x%llx and data "
         "ptr 0x%llx\n",
         (long long)omtAllocPtr, (long long)omtDataPtr);
-
-    py::capsule free_data_with_alloc_offset(omtAllocPtr, [](void *ptr) {
+    // Create the capsule that points to the data to be freed (allocated
+    // pointer).
+    py::capsule free_data_with_allocate_ptr(omtAllocPtr, [](void *ptr) {
       fprintf(stderr, "hi alex, freeing omTensor with ptr value 0x%llx\n",
           (long long)ptr);
       free(ptr);
     });
-    ;
-#else
-    void *omtDataPtr = omTensorGetDataPtr(omt);
-    size_t byteDiff = ((char *)omtDataPtr) - ((char *)omtAllocPtr);
-    assert(byteDiff >= 0 && "expected alloc <= data in OMTensor");
-    py::capsule free_data_with_alloc_offset(void *dataPtr, [](void *ptr) {
-      char *origAllocPtr = ((char *)ptr) - byteDiff;
-      free(origAllocPtr);
-    });
-#endif
+    // Pass the py::capsule to the numpy array for proper bookkeeping.
     py::array outputPyArray =
-        py::array(dtype, shape, omtDataPtr, free_data_with_alloc_offset);
-#else
-    py::array outputPyArray = py::array(dtype, shape, omTensorGetDataPtr(omt));
-#endif
+        py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr);
     TIMING_STOP_PRINT(process_output_pyarray);
+
     outputPyArrays.emplace_back(outputPyArray);
   }
   TIMING_STOP_PRINT(process_output);
