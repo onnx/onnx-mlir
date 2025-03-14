@@ -323,14 +323,15 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         "hi alex, preparing free for omTensor with ptr value 0x%llx and data "
         "ptr 0x%llx\n",
         (long long)omtAllocPtr, (long long)omtDataPtr);
-    // Create the capsule that points to the data to be freed (allocated
+
+#if 0
+        // Create the capsule that points to the data to be freed (allocated
     // pointer).
     py::capsule free_data_with_allocate_ptr(omtAllocPtr, [](void *ptr) {
       fprintf(stderr, "hi alex, freeing omTensor with ptr value 0x%llx\n",
           (long long)ptr);
       free(ptr);
     });
-#if 0
     // Set owning to false as we migrate the ownership to python
     omTensorSetOwning(omt, false);
     // Pass the py::capsule to the numpy array for proper bookkeeping.
