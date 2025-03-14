@@ -330,7 +330,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
           (long long)ptr);
       free(ptr);
     });
-#if 1
+#if 0
     // Set owning to false as we migrate the ownership to python
     omTensorSetOwning(omt, false);
     // Pass the py::capsule to the numpy array for proper bookkeeping.
