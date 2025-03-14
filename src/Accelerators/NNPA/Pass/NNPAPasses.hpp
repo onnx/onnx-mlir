@@ -55,9 +55,6 @@ std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 std::unique_ptr<mlir::Pass> createZHighScrubDisposablePass(
     bool closeAfter = true);
 
-/// Pass for clipping values to dlfloat before stickification at ZHighIR.
-std::unique_ptr<mlir::Pass> createZHighClipToDLFloatPass();
-
 /// Pass for decomposing stick/unstick at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighDecomposeStickUnstickPass();
 

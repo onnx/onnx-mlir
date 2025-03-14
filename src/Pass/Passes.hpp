@@ -112,6 +112,7 @@ std::unique_ptr<mlir::Pass> createLegalizeQuarkQuantizedOpsPass();
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
+std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass(bool parallelEnabled);
 
 /// Pass for lowering Seq in Krnl dialect.
 std::unique_ptr<mlir::Pass> createConvertSeqToMemrefPass();

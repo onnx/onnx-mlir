@@ -47,6 +47,7 @@ bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool enableConvTranposeDecomposeToPhasedConv;          // common for both
 bool enableQuarkQuantizerLegalization;                 // common for both
+bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
 uint64_t compilationNumThreads;                        // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
@@ -248,6 +249,16 @@ static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(
                    "(default=false).\n"
                    "Set to 'true' if you want to enable buffer reuse."),
     llvm::cl::location(enableKrnlBufferReuse), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableSafeCodeGenOpt("enable-safe-code-gen",
+    llvm::cl::desc("enable extra runtime check to be created in code gen. "
+                   "Such check will have cost at runtime, and is not needed if"
+                   "the model and the data are correct."
+                   "Failure of check will trigger assertion error."
+                   "(default=false).\n"
+                   "Set to 'true' if you want to enable the check."),
+    llvm::cl::location(enableSafeCodeGen), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(

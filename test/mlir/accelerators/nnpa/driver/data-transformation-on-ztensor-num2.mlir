@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --enable-compiler-stick-unstick=false --EmitMLIR --printIR -tag="test" %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --EmitMLIR --printIR -tag="test" %s | FileCheck %s
 
 // -----
 

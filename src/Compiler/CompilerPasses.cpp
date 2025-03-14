@@ -218,7 +218,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::krnl::createConvertKrnlToAffinePass());
+      onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
 }
 
 void addKrnlToLLVMPasses(
