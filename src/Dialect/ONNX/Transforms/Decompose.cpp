@@ -34,7 +34,6 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -50,6 +49,10 @@
 
 using namespace mlir;
 
+namespace {
+  thread_local bool localEnableConvTransposeDecompose = false;
+  thread_local bool localEnableConvTranposeDecomposeToPhasedConv = false;
+}
 namespace onnx_mlir {
 
 // Create an DenseElementsAttr of ArrayAttr.
@@ -660,7 +663,7 @@ Value replaceSequenceAt(
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
-  if (!onnx_mlir::enableConvTransposeDecomposeOption) {
+  if (!localEnableConvTransposeDecompose) {
     // Disable the ONNXConvTransposeOp decomposition patterns.
     return false;
   }
@@ -704,7 +707,7 @@ bool hasDefaultDilation(ArrayAttr dilation) {
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
     ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
-  if (!onnx_mlir::enableConvTranposeDecomposeToPhasedConv) {
+  if (!localEnableConvTranposeDecomposeToPhasedConv) {
     // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
     return false;
   }
@@ -2687,11 +2690,22 @@ struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
-  DecomposeONNXToONNXPass(const std::string &target) { this->target = target; }
+  DecomposeONNXToONNXPass(const std::string &target,
+      bool enableConvTransposeDecompose = false,
+      bool enableConvTranposeDecomposeToPhasedConv = false) {
+    this->target = target;
+    this->enableConvTransposeDecompose = enableConvTransposeDecompose;
+    this->enableConvTranposeDecomposeToPhasedConv =
+        enableConvTranposeDecomposeToPhasedConv;
+  }
+
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target.getValue();
+    this->enableConvTransposeDecompose = pass.enableConvTransposeDecompose.getValue();
+    this->enableConvTranposeDecomposeToPhasedConv =
+        pass.enableConvTranposeDecomposeToPhasedConv.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -2703,6 +2717,17 @@ struct DecomposeONNXToONNXPass
 
   Option<std::string> target{*this, "target",
       llvm::cl::desc("Target Dialect to decompose into"), ::llvm::cl::init("")};
+
+  Option<bool> enableConvTransposeDecompose{*this,
+      "enableConvTransposeDecompose",
+      llvm::cl::desc("Enable decomposition of ConvTranspose"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableConvTranposeDecomposeToPhasedConv{*this,
+      "enableConvTranposeDecomposeToPhasedConv",
+      llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator to 4 "
+                     "phased Conv"),
+      ::llvm::cl::init(false)};
 
   void runOnOperation() final;
 
@@ -2723,7 +2748,16 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+  // Set thread locals to affect native functions called by .td patterns.
+  localEnableConvTransposeDecompose = enableConvTransposeDecompose;
+  localEnableConvTranposeDecomposeToPhasedConv = enableConvTranposeDecomposeToPhasedConv;
+
+  auto status = applyPatternsAndFoldGreedily(function, std::move(patterns));
+
+  localEnableConvTransposeDecompose = false;
+  localEnableConvTranposeDecomposeToPhasedConv = false;
+
+  if (failed(status))
     signalPassFailure();
 }
 
@@ -2758,6 +2792,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
  * Create a DecomposeONNX pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
-    const std::string &target) {
+    const std::string &target, bool enableConvTransposeDecompose,
+    bool enableConvTranposeDecomposeToPhasedConv) {
   return std::make_unique<DecomposeONNXToONNXPass>(target);
 }
