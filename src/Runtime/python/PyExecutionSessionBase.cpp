@@ -333,10 +333,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       outputPyArrays.emplace_back(
           py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr));
     } else {
-      // We have a constant, free is a noop.
-      py::capsule free_noop(omtAllocPtr, [](void *ptr) {});
-      outputPyArrays.emplace_back(
-          py::array(dtype, shape, omtDataPtr, free_noop));
+      // We have a constant, its a very rare case, just do like in the past:
+      // copy.
+      outputPyArrays.emplace_back(py::array(dtype, shape, omtDataPtr));
     }
     TIMING_STOP_PRINT(process_output_pyarray);
   }
