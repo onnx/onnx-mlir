@@ -875,8 +875,8 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
  */
 // clang-format on
 // If no activation op ( lrelu or relu) found in the matching, the alpha value
-// will be passed with null, if relu is found 0 is passed, if lrelu is found
-// the alpha value is passed top this method.
+// will be passed as the null, if relu is found 0 is passed, if lrelu is found
+// the alpha value is passed to this method.
 Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     ONNXConvTransposeOp op, Value convTransposeResult, Value input,
     Value weights, Value bias, ArrayAttr dilations, IntegerAttr group,
