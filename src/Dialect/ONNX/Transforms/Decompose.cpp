@@ -685,13 +685,11 @@ bool hasDefaultDilation(ArrayAttr dilation) {
   return llvm::all_of(vDilation, [](int64_t d) { return d == 1; });
 }
 
-// Check if the result of ConvTranspose is used by any activation function
-// such as Relu or LeakyRelu.
+// Check if the result of ConvTranspose is not single use, OR if single use
+// not used by leakyRelu Or Relu.
 bool hasNoActivationConsumer(Value convTransposeResult) {
   auto result = convTransposeResult.getDefiningOp<ONNXConvTransposeOp>().getY();
   if (result.hasOneUse()) {
-    // If the result of ConvTranspose is used by only one user, check if it is
-    // an Relu or LeakyRelu function.
     Operation *user = *(result.getUsers().begin());
     return !mlir::isa<ONNXReluOp, ONNXLeakyReluOp>(user);
   }
