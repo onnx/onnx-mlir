@@ -60,7 +60,6 @@
 // Global variable to help OMInstrumentHelper.h to keep track of nesting level
 // of timing operations.
 extern int timing_nest_level;
-extern char timing_nest_strings[6][20];
 
 #define TIMING_INIT(_var_name)                                                 \
   /* Define variable in current scope. */                                      \
@@ -87,9 +86,9 @@ extern char timing_nest_strings[6][20];
 
 #define TIMING_PRINT(_var_name)                                                \
   if (_var_name##_nest_level >= 0) { /* was started at least once */           \
-    int l = _var_name##_nest_level <= 5 ? _var_name##_nest_level : 5;          \
-    fprintf(stderr, "@OM_DRIVER, %s%s, %ld.%06ld\n", timing_nest_strings[l],   \
-        #_var_name, (long int)_var_name.tv_sec, (long int)_var_name.tv_usec);  \
+    int l = _var_name##_nest_level;                                            \
+    fprintf(stderr, "@OM_DRIVER, %*s%s, %ld.%06ld\n", l, " ", #_var_name,      \
+        (long int)_var_name.tv_sec, (long int)_var_name.tv_usec);              \
   }
 
 #else

@@ -69,8 +69,6 @@ static FILE *fout = 0;
 // Global variable to help OMInstrumentHelper.h to keep track of nesting level
 // of timing operations.
 int timing_nest_level = 0;
-char timing_nest_strings[6][20] = {
-    "", "  ", "    ", "      ", "        ", "          "};
 
 #ifdef __MVS__
 #define timersub(a, b, result)                                                 \
