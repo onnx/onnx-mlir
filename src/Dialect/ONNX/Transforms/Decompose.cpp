@@ -686,6 +686,10 @@ bool hasDefaultDilation(ArrayAttr dilation) {
   SmallVector<int64_t, 3> vDilation = getIntVectorFromArrayAttr(dilation);
   return llvm::all_of(vDilation, [](int64_t d) { return d == 1; });
 }
+/*
+ * Check if the result of ConvTranspose is used by any activation function
+ * such as Relu or LeakyRelu.
+ */
 bool hasNoActivationConsumer(Value convTransposeResult) {
   auto result = convTransposeResult.getDefiningOp<ONNXConvTransposeOp>().getY();
   if (result.hasOneUse()) {
@@ -870,6 +874,9 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
  *                               9 conv ofms are merged                             
  */
 // clang-format on
+// If no activation op ( lrelu or relu) found in the matching, the alpha value
+// will be passed with null, if relu is found 0 is passed, if lrelu is found
+// the alpha value is passed top this method.
 Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     ONNXConvTransposeOp op, Value convTransposeResult, Value input,
     Value weights, Value bias, ArrayAttr dilations, IntegerAttr group,
@@ -891,19 +898,15 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
 
   int numPhases = stridesShape[0] * stridesShape[1];
   auto getActivationAppliedToConv = [&](Value conv, Type convOutputType) {
-    if (alpha) {
-      if (alpha.getValueAsDouble() == 0) {
-        Value reluActivated =
-            rewriter.create<ONNXReluOp>(loc, convOutputType, conv);
-        return reluActivated;
-      } else {
+    if (!alpha)
+      return conv;
 
-        Value leakyReluActivated =
-            rewriter.create<ONNXLeakyReluOp>(loc, convOutputType, conv);
-        return leakyReluActivated;
-      }
-    }
-    return conv;
+    return (alpha.getValueAsDouble() == 0)
+               ? rewriter.create<ONNXReluOp>(loc, convOutputType, conv)
+                     .getResult()
+               : rewriter
+                     .create<ONNXLeakyReluOp>(loc, convOutputType, conv, alpha)
+                     .getResult();
   };
   if (numPhases == 1) {
     const std::array<int64_t, 4> convPadsShape = {
