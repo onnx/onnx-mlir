@@ -624,8 +624,8 @@ def ConvTransposeOpAsConv2dPattern1: Pattern<
     (reverseWeightConvTranspose:$reversed_w $w),
     (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides,  (GetNullFloatAttr))
    ],
-   [(hasNoActivationConsumer:$res),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape),(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation)], [],
-   (addBenefit 0)
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(hasNoActivationConsumer:$res),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 1)
 >;
 
 def ConvTransposeOpPattern1: Pattern<
@@ -640,7 +640,7 @@ def ConvTransposeOpPattern1: Pattern<
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
    [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
-   (addBenefit 0)
+   (addBenefit 1)
 >;
 
 def ConvTransposeOpPattern2: Pattern<

@@ -900,7 +900,6 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   auto getActivationAppliedToConv = [&](Value conv, Type convOutputType) {
     if (!alpha)
       return conv;
-
     return (alpha.getValueAsDouble() == 0)
                ? rewriter.create<ONNXReluOp>(loc, convOutputType, conv)
                      .getResult()
