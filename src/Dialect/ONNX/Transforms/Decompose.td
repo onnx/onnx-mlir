@@ -51,6 +51,9 @@ def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 def GetNullFloatAttr : NativeCodeCall<"FloatAttr()">;
 
+def GetZeroFloatAttr :
+	NativeCodeCall<"$_builder.getFloatAttr($_builder.getF32Type(), 0)">;
+
 def GetNullIntegerAttr : NativeCodeCall<"IntegerAttr()">;
 
 def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
@@ -532,7 +535,7 @@ def getFinalOutputFromFourConvOutput: NativeCodeCall<
   "onnx_mlir::getFinalOutputFromFourConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0,$1,$2,$3)">;
 
 def decomposeIntoPhasedConvs: NativeCodeCall<
-  "onnx_mlir::decomposeIntoPhasedConvs($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $0,$1, $2, $3, $4, $5, $6, $7, $8)">;
+  "onnx_mlir::decomposeIntoPhasedConvs($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $0,$1, $2, $3, $4, $5, $6, $7, $8, $9)">;
 
 def ph1WeightForConv: NativeCodeCall<
   "onnx_mlir::ph1WeightTensor($_builder, $_loc, $0)">;
@@ -562,6 +565,11 @@ def ShouldDecomposeConvTransposeOp: Constraint<
   "X and W have static spatial dims and ConvTransposeOp decomposition is enabled"
 >;
 
+def hasNoActivationConsumer: Constraint<
+  CPred<"onnx_mlir::hasNoActivationConsumer($_self)">,
+  "Op has no activation consumer"
+>;
+
 def ShouldDecomposeConvTransposeOpToPhasedConvs: Constraint<
   CPred<"onnx_mlir::ShouldDecomposeConvTransposeOpToPhasedConvs($_self, $0, $1, $2, $3)">,
   "X and W have static spatial dims, few more specific conditions and ConvTransposeOp phased conv decomposition is enabled"  
@@ -582,15 +590,41 @@ def insertPadsConvTransposeInput: NativeCodeCall<
 
 def insertAdditionalPadsConvTranspose: NativeCodeCall<
   "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1.getDefiningOp<ONNXConvTransposeOp>())">;
+
+
+def ConvTransposeOpAsConv2dWithLReluPattern1: Pattern<
+   (ONNXLeakyReluOp (ONNXConvTransposeOp:$res $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides), $alpha),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha)
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 2)
+>;
+
+def ConvTransposeOpAsConv2dWithReluPattern1: Pattern<
+   (ONNXReluOp (ONNXConvTransposeOp:$res $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides)),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, (GetZeroFloatAttr))
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 2)
+>;
+
 def ConvTransposeOpAsConv2dPattern1: Pattern<
    (ONNXConvTransposeOp:$res $x, $w, $b,
       $auto_pad, $dilation, $group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides)
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides,  (GetNullFloatAttr))
    ],
-   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   [(hasNoActivationConsumer:$res),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape),(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation)], [],
    (addBenefit 0)
 >;
 
@@ -606,7 +640,7 @@ def ConvTransposeOpPattern1: Pattern<
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
    [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
-   (addBenefit 1)
+   (addBenefit 0)
 >;
 
 def ConvTransposeOpPattern2: Pattern<
