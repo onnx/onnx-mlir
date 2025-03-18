@@ -684,10 +684,9 @@ bool hasDefaultDilation(ArrayAttr dilation) {
   SmallVector<int64_t, 3> vDilation = getIntVectorFromArrayAttr(dilation);
   return llvm::all_of(vDilation, [](int64_t d) { return d == 1; });
 }
-/*
- * Check if the result of ConvTranspose is used by any activation function
- * such as Relu or LeakyRelu.
- */
+
+// Check if the result of ConvTranspose is used by any activation function
+// such as Relu or LeakyRelu.
 bool hasNoActivationConsumer(Value convTransposeResult) {
   auto result = convTransposeResult.getDefiningOp<ONNXConvTransposeOp>().getY();
   if (result.hasOneUse()) {
