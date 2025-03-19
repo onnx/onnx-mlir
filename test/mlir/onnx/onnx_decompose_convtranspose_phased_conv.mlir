@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --enable-convtranspose-decompose-phased-conv %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx=enable-convtranspose-phased %s -split-input-file | FileCheck %s
 
 func.func @test_convtrans_4phase_kernel_shape_66(%arg0: tensor<1x512x10x16xf32>, %arg1: tensor<512x256x6x6xf32>) -> tensor<1x256x20x32xf32> {    
   %0 = "onnx.Constant" () { value= dense<0.02> : tensor<256xf32>} : ()-> tensor<256xf32>

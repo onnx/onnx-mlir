@@ -50,9 +50,9 @@
 using namespace mlir;
 
 namespace {
-  thread_local bool localEnableConvTransposeDecompose = false;
-  thread_local bool localEnableConvTranposeDecomposeToPhasedConv = false;
-}
+thread_local bool localEnableConvTransposeDecompose = false;
+thread_local bool localEnableConvTranposeDecomposeToPhasedConv = false;
+} // namespace
 namespace onnx_mlir {
 
 // Create an DenseElementsAttr of ArrayAttr.
@@ -2703,7 +2703,8 @@ struct DecomposeONNXToONNXPass
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target.getValue();
-    this->enableConvTransposeDecompose = pass.enableConvTransposeDecompose.getValue();
+    this->enableConvTransposeDecompose =
+        pass.enableConvTransposeDecompose.getValue();
     this->enableConvTranposeDecomposeToPhasedConv =
         pass.enableConvTranposeDecomposeToPhasedConv.getValue();
   }
@@ -2718,13 +2719,12 @@ struct DecomposeONNXToONNXPass
   Option<std::string> target{*this, "target",
       llvm::cl::desc("Target Dialect to decompose into"), ::llvm::cl::init("")};
 
-  Option<bool> enableConvTransposeDecompose{*this,
-      "enableConvTransposeDecompose",
+  Option<bool> enableConvTransposeDecompose{*this, "enable-convtranspose",
       llvm::cl::desc("Enable decomposition of ConvTranspose"),
       ::llvm::cl::init(false)};
 
   Option<bool> enableConvTranposeDecomposeToPhasedConv{*this,
-      "enableConvTranposeDecomposeToPhasedConv",
+      "enable-convtranspose-phased",
       llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator to 4 "
                      "phased Conv"),
       ::llvm::cl::init(false)};
@@ -2750,7 +2750,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   // Set thread locals to affect native functions called by .td patterns.
   localEnableConvTransposeDecompose = enableConvTransposeDecompose;
-  localEnableConvTranposeDecomposeToPhasedConv = enableConvTranposeDecomposeToPhasedConv;
+  localEnableConvTranposeDecomposeToPhasedConv =
+      enableConvTranposeDecomposeToPhasedConv;
 
   auto status = applyPatternsAndFoldGreedily(function, std::move(patterns));
 

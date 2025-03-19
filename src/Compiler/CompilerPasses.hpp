@@ -14,8 +14,8 @@
 
 #ifndef ONNX_MLIR_COMPILER_PASSES_H
 #define ONNX_MLIR_COMPILER_PASSES_H
-#include "mlir/Pass/PassManager.h"
 #include "mlir/IR/OwningOpRef.h"
+#include "mlir/Pass/PassManager.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 namespace mlir {
 class ModuleOp;
@@ -26,14 +26,13 @@ namespace onnx_mlir {
 void configurePasses();
 
 struct OnnxToMlirOptions {
-    bool enableQuarkQuantizedLegalization = false;
-    bool enableConvTransposeDecompose = false;
-    bool enableConvTranposeDecomposeToPhasedConv = false;
+  bool enableQuarkQuantizedLegalization = false;
+  bool enableConvTransposeDecompose = false;
+  bool enableConvTranposeDecomposeToPhasedConv = false;
 };
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
-    bool donotScrubDisposableElementsAttr = false,
-    OnnxToMlirOptions opts = {});
+    bool donotScrubDisposableElementsAttr = false, OnnxToMlirOptions opts = {});
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     std::string instrumentSignatureString, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
