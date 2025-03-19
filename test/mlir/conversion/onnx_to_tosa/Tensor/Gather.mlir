@@ -143,8 +143,21 @@ func.func @test_gather_like_slice(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
 
 // -----
 
-func.func @test_gather_like_slice_non_zero(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+func.func @test_gather_like_slice_positive_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
   %indices = onnx.Constant dense<2> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK:         %[[VAL_1:.*]] = tosa.slice %[[ARG]] {size = array<i64: 1, 3>, start = array<i64: 2, 0>} : (tensor<3x3xf32>) -> tensor<1x3xf32>
+// CHECK:         %[[VAL_2:.*]] = tosa.reshape %[[VAL_1]] {{.*}} -> tensor<3xf32>
+// CHECK:         return %[[VAL_2]]
+}
+
+// -----
+
+func.func @test_gather_like_slice_negative_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<-1> : tensor<i64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
   "func.return"(%0) : (tensor<3xf32>) -> ()
 // CHECK-LABEL:   test_gather_like_slice
