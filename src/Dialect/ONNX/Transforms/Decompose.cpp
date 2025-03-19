@@ -2846,5 +2846,6 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
 std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
     bool enableConvTranposeDecomposeToPhasedConv) {
-  return std::make_unique<DecomposeONNXToONNXPass>(target);
+  return std::make_unique<DecomposeONNXToONNXPass>(target,
+      enableConvTransposeDecompose, enableConvTranposeDecomposeToPhasedConv);
 }
