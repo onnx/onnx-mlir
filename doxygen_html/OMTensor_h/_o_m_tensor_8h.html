@@ -110,6 +110,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a3c5336cf53aa0799d51f10fdcdeffb67" id="r_a3c5336cf53aa0799d51f10fdcdeffb67"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a3c5336cf53aa0799d51f10fdcdeffb67">omTensorGetDataPtr</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:a3c5336cf53aa0799d51f10fdcdeffb67"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data pointer getter.  <br /></td></tr>
 <tr class="separator:a3c5336cf53aa0799d51f10fdcdeffb67"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ec70587213b4fa5096681c92d34b932" id="r_a7ec70587213b4fa5096681c92d34b932"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a7ec70587213b4fa5096681c92d34b932">omTensorGetAllocatedPtr</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:a7ec70587213b4fa5096681c92d34b932"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor allocated data pointer getter.  <br /></td></tr>
+<tr class="separator:a7ec70587213b4fa5096681c92d34b932"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acd4a24993980060b9d71ce45e13d1344" id="r_acd4a24993980060b9d71ce45e13d1344"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY const int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#acd4a24993980060b9d71ce45e13d1344">omTensorGetShape</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:acd4a24993980060b9d71ce45e13d1344"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data shape getter.  <br /></td></tr>
 <tr class="separator:acd4a24993980060b9d71ce45e13d1344"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -350,6 +353,33 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="a7ec70587213b4fa5096681c92d34b932" name="a7ec70587213b4fa5096681c92d34b932"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7ec70587213b4fa5096681c92d34b932">&#9670;&#160;</a></span>omTensorGetAllocatedPtr()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void * omTensorGetAllocatedPtr </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
+          <td class="paramname"><em>tensor</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>OMTensor allocated data pointer getter. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">tensor</td><td>pointer to the OMTensor </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>pointer to the allocated memory buffer of the OMTensor, This should only be used when needing to create cross-language operation to free OMTensor buffers allocated by the model and freed in a different language environment. NULL if the numerical data buffer is not set. Note that depending on alignment constraints, the allocated and the data pointers are not necessarily identical. Use data pointer to read/write values, and allocated pointer to free the memory. </dd></dl>
 
 </div>
 </div>
