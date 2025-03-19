@@ -220,14 +220,16 @@ bool isNegativeSplatConstant(Value val) {
   return false;
 }
 
-/// Test if the input is a constant with all negative value or not.
-bool isAllNegativeIntegerConstant(Value val) {
+/// Test if the input is a constant with all negative small value or not.
+// This function assumes input constant value(`val`) is dimension size. So, set
+// 10 as the size of small constnt value.
+bool isAllNegativeSmallIntegerConstant(Value val) {
   ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
   if (!valAttr)
     return false;
 
-  //  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(valAttr))
-  //    valAttr = disposable.toDenseElementsAttr();
+  if (valAttr.size() > 10)
+    return false;
 
   Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
   if (mlir::isa<IntegerType>(elemTy)) {
@@ -235,6 +237,8 @@ bool isAllNegativeIntegerConstant(Value val) {
       if (v.getSExtValue() > 0)
         return false;
     }
+  } else {
+    return false;
   }
   return true;
 }
@@ -1602,7 +1606,7 @@ public:
         !hasShapeAndRank(concatOpY.getResult())) {
       return failure(); // Cannot apply pattern until ranks are known.
     }
-    if (!isAllNegativeIntegerConstant(equalOpCondB))
+    if (!isAllNegativeSmallIntegerConstant(equalOpCondB))
       return failure();
 
     // Calculate constant values for the result of the euqalOp
