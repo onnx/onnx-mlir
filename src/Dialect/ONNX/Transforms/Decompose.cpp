@@ -25,7 +25,6 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
 #include "mlir/IR/Value.h"
@@ -689,6 +688,17 @@ bool hasDefaultDilation(ArrayAttr dilation) {
   return llvm::all_of(vDilation, [](int64_t d) { return d == 1; });
 }
 
+// Check if the result of ConvTranspose is not single use, OR if single use
+// not used by leakyRelu Or Relu.
+bool hasNoActivationConsumer(Value convTransposeResult) {
+  auto result = convTransposeResult.getDefiningOp<ONNXConvTransposeOp>().getY();
+  if (result.hasOneUse()) {
+    Operation *user = *(result.getUsers().begin());
+    return !mlir::isa<ONNXReluOp, ONNXLeakyReluOp>(user);
+  }
+  return true;
+}
+
 // This decomposition currently do not support all possible convtranspose
 // operations. Below are the supported usecases.
 // 1) stride[1,1] where convtranspose will decompose to one conv operation.
@@ -862,10 +872,14 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
  *                               9 conv ofms are merged                             
  */
 // clang-format on
+// If no activation op ( lrelu or relu) found in the matching, the alpha value
+// will be passed as the null, if relu is found 0 is passed, if lrelu is found
+// the alpha value is passed to this method.
 Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     ONNXConvTransposeOp op, Value convTransposeResult, Value input,
     Value weights, Value bias, ArrayAttr dilations, IntegerAttr group,
-    ArrayAttr kernel_shape, ArrayAttr pads, ArrayAttr strides) {
+    ArrayAttr kernel_shape, ArrayAttr pads, ArrayAttr strides,
+    FloatAttr alpha) {
 
   RankedTensorType weightsType =
       mlir::cast<RankedTensorType>(weights.getType());
@@ -881,6 +895,16 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
                                 : SmallVector<int64_t>({1, 1});
 
   int numPhases = stridesShape[0] * stridesShape[1];
+  auto getActivationAppliedToConv = [&](Value conv, Type convOutputType) {
+    if (!alpha)
+      return conv;
+    return (alpha.getValueAsDouble() == 0)
+               ? rewriter.create<ONNXReluOp>(loc, convOutputType, conv)
+                     .getResult()
+               : rewriter
+                     .create<ONNXLeakyReluOp>(loc, convOutputType, conv, alpha)
+                     .getResult();
+  };
   if (numPhases == 1) {
     const std::array<int64_t, 4> convPadsShape = {
         (kernelShape[0] - 1 - padsShape[0]),
@@ -890,9 +914,11 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
 
     auto convPadsArrayAttr = rewriter.getI64ArrayAttr(convPadsShape);
 
-    return rewriter.create<ONNXConvOp>(loc, op.getY().getType(), input, weights,
-        bias, mlir::StringAttr(), dilations, group, kernel_shape,
-        convPadsArrayAttr, strides);
+    return getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, op.getY().getType(), input, weights,
+            bias, mlir::StringAttr(), dilations, group, kernel_shape,
+            convPadsArrayAttr, strides),
+        op.getY().getType());
   }
 
   auto int64Type = rewriter.getIntegerType(64);
@@ -1021,27 +1047,34 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     };
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
 
-    Value conv1 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[3], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr,
-        getPadsArrayAttr(kernelShape[0], 1, needWeightsPadding),
-        stridesArrayAttr);
-    Value conv2 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[0], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr,
-        getPadsArrayAttr(kernelShape[0], 2, needWeightsPadding),
-        stridesArrayAttr);
-    Value conv3 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[1], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr,
-        getPadsArrayAttr(kernelShape[0], 3, needWeightsPadding),
-        stridesArrayAttr);
-    Value conv4 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[2], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr,
-        getPadsArrayAttr(kernelShape[0], 4, needWeightsPadding),
-        stridesArrayAttr);
-
+    Value conv1 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[3],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr,
+            getPadsArrayAttr(kernelShape[0], 1, needWeightsPadding),
+            stridesArrayAttr),
+        convOutputType);
+    Value conv2 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[0],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr,
+            getPadsArrayAttr(kernelShape[0], 2, needWeightsPadding),
+            stridesArrayAttr),
+        convOutputType);
+    Value conv3 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[1],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr,
+            getPadsArrayAttr(kernelShape[0], 3, needWeightsPadding),
+            stridesArrayAttr),
+        convOutputType);
+    Value conv4 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[2],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr,
+            getPadsArrayAttr(kernelShape[0], 4, needWeightsPadding),
+            stridesArrayAttr),
+        convOutputType);
     // Need to remove excess the ofm  when weights are padded.
     if (needWeightsPadding) {
       auto startOnnxConstant = getONNXConstOpFromVector({1, 1});
@@ -1192,33 +1225,51 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto padsArrayAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
 
-    auto conv1 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[8], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv2 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[5], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv3 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[6], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv4 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[7], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv5 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[4], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv6 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[1], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv7 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[2], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv8 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[3], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
-    auto conv9 = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        weightSlices[0], bias, mlir::StringAttr(), dilations, group,
-        convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr);
+    auto conv1 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[8],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv2 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[5],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv3 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[6],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv4 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[7],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv5 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[4],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv6 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[1],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv7 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[2],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv8 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[3],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
+    auto conv9 = getActivationAppliedToConv(
+        rewriter.create<ONNXConvOp>(loc, convOutputType, input, weightSlices[0],
+            bias, mlir::StringAttr(), dilations, group,
+            convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr),
+        convOutputType);
 
     // The nine convOutputs are adjusted to add an extra dimension at the
     // innermost level.
