@@ -46,6 +46,9 @@ class InferenceSession:
         self.Compile()
         self.session = self.getSession()
 
+    def __del__(self):
+        del self.session
+
     def handleParameters(self, model_path, **kwargs):
         if "debug" in kwargs.keys():
             self.debug = kwargs["debug"]
@@ -88,11 +91,8 @@ class InferenceSession:
                 exit(1)
         else:
             # Default image
-            print("using default compiler")
             self.compiler_image_name = config.default_compiler_image_name
             self.compiler_path = find_compiler_path(self.compiler_image_name)
-            self.compiler_image_name = None
-            self.compiler_path = "/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir"
 
         if "container_engine" in kwargs.keys():
             self.container_tool = kwargs["container_engine"]
@@ -104,6 +104,11 @@ class InferenceSession:
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
+
+        if "compile_tag" in kwargs.keys():
+            self.compile_tag = kwargs["compile_tag"]
+        else:
+            self.compile_tag = "NONE"
 
     def checkCompiler(self):
         if self.compiler_image_name == None:
@@ -139,7 +144,6 @@ class InferenceSession:
                 exit(-1)
 
     def Compile(self):
-
         if self.compiler_image_name is None:
             # Use the uniform variable for local compiler and docker image
             self.container_model_dirname = self.model_dirname
@@ -155,12 +159,13 @@ class InferenceSession:
         # Compiled library
         if self.compile_options != "":
             command_str += " " + self.compile_options
+
+        command_str += " --tag="+self.compile_tag
+
         command_str += " " + os.path.join(
             self.container_model_dirname, self.model_basename
         )
 
-        # ToFix: should use temporary directory for compilation, and
-        # use "-o" to put the compiled library in the temporary directory.
         self.compiled_model = os.path.join(
             self.output_dirname,
             self.model_basename.removesuffix(self.model_suffix) + ".so",
@@ -225,7 +230,7 @@ class InferenceSession:
                     "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
                 )
 
-        return OMExecutionSession(self.compiled_model, "NONE")
+        return OMExecutionSession(self.compiled_model, self.compile_tag)
 
     def run(self, outputname, input_feed, **kwargs):
         inputs = []
@@ -252,3 +257,4 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
+

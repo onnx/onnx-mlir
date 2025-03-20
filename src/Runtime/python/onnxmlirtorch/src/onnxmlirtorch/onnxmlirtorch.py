@@ -7,10 +7,68 @@ import torch
 import onnxmlir
 from .sessioncache import SessionCache
 
+"""
+This file provides the utility to run inference of a torch model with onnx-mlir
+compiler. There are two ways:
 
+1. Add a wrapper to a torch model so that the onnx export, compile with 
+onnx-mlir and run will happen automatically at inference of the model
+
+Example code:
+ 
+ # Assuem torch_model is the a torch model
+ model = ONNXLIRTorch(torch_model)
+ results = torch_model(inputs) 
+
+If user perfer the torch.compile stype, the code could be:
+ opt_model = onnxmlirtorch.compile(torch_model)
+ results = opt_model(inputs)
+
+2. Provide a customized backend, onnxmlir_backend, to torch.compile()
+Example code:
+ # Assuem torch_model is the a torch model
+ opt_model = torch.compile(torch_model, backend=onnxmlirtorch.onnxmlir_backend)
+ results = opt_model(inputs)
+ 
+
+Code structure:
+Most of the functionality is implmented in class ONNXMLIRTorch. When an 
+inference is called, the forward() function will export to the torch model
+with the provided inputs to an onnx modeli (.onnx), compile the onnx model into
+a library (.so), and run inference with the generated library. 
+The ONNXMLIRTorch class also cache the existing session to reduce redundant
+operation for possible reuse.
+Components used by ONNXMLIRTorch:
+ -- onnxmlirdocker: basic functionality of compile and run 
+ -- SessionCache: cache for inteference session histroy
+
+Current implementation checks the history of inference with only the shape of
+the inputs, not the model itself. When torch.compile is used, the model from
+different inference  may become difference due to the optimization based on
+the inputs. Different ONNXMLIRTorch object will be created for each inference,
+and there is no reuse with cache among them.
+"""
+
+# Alternative interface to minic the usage of torch.compile
 def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
 
+# Backend function for torch.compile for onnx-mlir
+def onnxmlir_backend(torch_model, *args, **kwargs):
+    # Options provided at torch.compile will determine how the torch model
+    # is exported, compiled and run.
+    # The args and kwargs are inputs provided at inference, namely call to 
+    # forward()
+    compile_options = kwargs.get('options')
+
+    def onnxmlir_forward(*args, **kwargs):
+        if compile_options is not None:
+            onnxmlirtorchObject = ONNXMLIRTorch(torch_model, **compile_options)
+        else:
+            onnxmlirtorchObject = ONNXMLIRTorch(torch_model)
+        return onnxmlirtorchObject(*args, **kwargs)
+
+    return onnxmlir_forward
 
 class config:
     cache_size = 3
@@ -24,18 +82,16 @@ class ONNXMLIRTorch:
         self.workdir = tempfile.TemporaryDirectory()
         self.default_model_name = "model"
         self.sessionCache = SessionCache(config.cache_size)
+        self.tag = 0
 
-    @staticmethod
-    def compile(torch_model, **kwargs):
-        return ONNXMLIRTorch(torch_model, **kwargs)
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
-    def __call__(self, *args):
-
+    def forward(self, *args, **kwargs):
         # Convert the torch tensor to numpy tensor if needed
         np_args = [arg.numpy() for arg in args]
-
         # Get the shape of the input and convert it to string to be used as key
-        input_shapes = str([arg.shape for arg in np_args])
+        input_shapes = str([arg.shape for arg in args])
 
         # Check whether there is any cached compiled model
         cached_session = self.sessionCache.get(input_shapes)
@@ -45,27 +101,39 @@ class ONNXMLIRTorch:
             # to an onnx model and compile it to a .so file.
             # Since the session is connected to a .so file, we have to make
             # sure that .so file exists with cached session.
+            # The .onnx and .so files as name with the tag, which continuous
+            # increase
             # In the meantime, we want keep a limited number of temporary files
             # for .onnx and .so file.
-            # The solution is to name these file with suffix in [0, cache size)
-            # The index for key in the dictionary may change. An extra index
-            # value is store with session as the value in the cache.
+            # The solution is to store the tuple of (tag, session) in the cache
+            # When a cache entry becomes victim(), the corresponding files are
+            # removed
 
-            cache_index = self.sessionCache.victim()
-            model_name = self.default_model_name + str(cache_index) + ".onnx"
+            file_index = self.sessionCache.victim()
+            # Remove the
+            old_onnx_file = os.path.join(self.workdir.name, self.default_model_name + str(file_index) + ".onnx")
+            if os.path.exists(old_onnx_file):
+                os.remove(old_onnx_file)
+            old_so_file = os.path.join(self.workdir.name, self.default_model_name + str(file_index) + ".so")
+            if os.path.exists(old_so_file):
+                os.remove(old_so_file)
+
+            self.tag += 1
+            model_name = self.default_model_name + str(self.tag) + ".onnx"
             self.onnx_model = os.path.join(self.workdir.name, model_name)
             torch.onnx.export(self.torch_model, args, self.onnx_model)
 
             # Compile onnx model and hook with pyruntime
-            self.sess = onnxmlir.InferenceSession(
-                self.onnx_model, temp_dir=self.workdir, **self.kwargs
+            sess = onnxmlir.InferenceSession(
+                self.onnx_model, temp_dir=self.workdir, compile_tag=str(self.tag), **self.kwargs
             )
             # Replace the victim cache entry
-            self.sessionCache.put(input_shapes, (cache_index, self.sess))
+            self.sessionCache.put(input_shapes, (self.tag, sess))
         else:
             # Use the InferenceSession
-            _, self.sess = cached_session
+            _, sess = cached_session
 
         # Run the inference
-        outputs = self.sess.run(None, np_args)
+        outputs = sess.run(None, np_args)
         return [torch.from_numpy(output) for output in outputs]
+
