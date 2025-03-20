@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --enable-convtranspose-decompose %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx=enable-convtranspose %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --shape-inference --decompose-onnx %s -split-input-file | FileCheck %s --check-prefix=DISABLED
 
 // -----

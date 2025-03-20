@@ -67,8 +67,7 @@ void configurePasses() {
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
-    bool donotScrubDisposableElementsAttr,
-    bool enableQuarkQuantizedLegalization) {
+    bool donotScrubDisposableElementsAttr, OnnxToMlirOptions opts) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -85,12 +84,14 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass(
+      /*target=*/"", opts.enableConvTransposeDecompose,
+      opts.enableConvTranposeDecomposeToPhasedConv));
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !disableRecomposeOption, enableQuarkQuantizedLegalization));
+        !disableRecomposeOption, opts.enableQuarkQuantizedLegalization));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
@@ -130,13 +131,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
-      enableQuarkQuantizedLegalization));
+      opts.enableQuarkQuantizedLegalization));
 
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !disableRecomposeOption, enableQuarkQuantizedLegalization));
+        !disableRecomposeOption, opts.enableQuarkQuantizedLegalization));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
@@ -335,10 +336,15 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   // NOTE: FlexML sets the targetCPU flag to false, as we do not want to run
   //       the CPU specific transformations.
-  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR) {
+    OnnxToMlirOptions opts;
+    opts.enableQuarkQuantizedLegalization = enableQuarkQuantizedLegalization;
+    opts.enableConvTransposeDecompose = enableConvTransposeDecomposeOption;
+    opts.enableConvTranposeDecomposeToPhasedConv =
+        enableConvTranposeDecomposeToPhasedConv;
     addONNXToMLIRPasses(pm, /*target CPU*/ false,
-        /*donotScrubDisposableElementsAttr=*/false,
-        /*enableQuarkQuantizedLegalization=*/enableQuarkQuantizedLegalization);
+        /*donotScrubDisposableElementsAttr=*/false, opts);
+  }
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
