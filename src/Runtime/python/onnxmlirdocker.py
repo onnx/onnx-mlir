@@ -160,7 +160,7 @@ class InferenceSession:
         if self.compile_options != "":
             command_str += " " + self.compile_options
 
-        command_str += " --tag="+self.compile_tag
+        command_str += " --tag=" + self.compile_tag
 
         command_str += " " + os.path.join(
             self.container_model_dirname, self.model_basename
@@ -257,4 +257,3 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
-

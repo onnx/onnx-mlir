@@ -30,15 +30,15 @@ print(opt_mod(input1, input2))
 
 import onnxmlirtorch
 
+# This option is just an example on my x86 machine
+# --verifyInputTensors is for debug purpose
 my_option = {
     "compiler_image_name": None,
     "compile_options": "--verifyInputTensors",
     "compiler_path": "/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir",
 }
 
-# opt_mod = onnxmlirtorch.compile(mod, compiler_image_name=None, compiler_path="/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir", compile_options="--verifyInputTensors")
-
-opt_mod = onnxmlirtorch.compile(mod, **my_option)
+opt_mod = torch.compile(mod, backend=onnxmlirtorch.onnxmlir_backend, options=my_option)
 
 # First inference
 input = torch.randn(2)
@@ -52,23 +52,6 @@ input2 = torch.randn(3)
 output1 = opt_mod(input1, input2)
 print("output: ", output1)
 
-input7 = torch.randn(4)
-output = opt_mod(input7, input7)
-print(output)
-
 input3 = torch.randn(2)
 output2 = opt_mod(input3, input3)
 print("output: ", output2)
-
-input4 = torch.randn(5)
-input44 = torch.randn(5)
-output = opt_mod(input4, input4)
-print(output)
-
-input5 = torch.randn(3)
-output = opt_mod(input5, input5)
-print(output)
-
-input6 = torch.randn(2)
-output = opt_mod(input6, input6)
-print(output)

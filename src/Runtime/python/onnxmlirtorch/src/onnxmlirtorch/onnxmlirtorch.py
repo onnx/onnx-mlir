@@ -49,17 +49,19 @@ the inputs. Different ONNXMLIRTorch object will be created for each inference,
 and there is no reuse with cache among them.
 """
 
+
 # Alternative interface to minic the usage of torch.compile
 def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
+
 
 # Backend function for torch.compile for onnx-mlir
 def onnxmlir_backend(torch_model, *args, **kwargs):
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
-    # The args and kwargs are inputs provided at inference, namely call to 
+    # The args and kwargs are inputs provided at inference, namely call to
     # forward()
-    compile_options = kwargs.get('options')
+    compile_options = kwargs.get("options")
 
     def onnxmlir_forward(*args, **kwargs):
         if compile_options is not None:
@@ -69,6 +71,7 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
         return onnxmlirtorchObject(*args, **kwargs)
 
     return onnxmlir_forward
+
 
 class config:
     cache_size = 3
@@ -111,10 +114,14 @@ class ONNXMLIRTorch:
 
             file_index = self.sessionCache.victim()
             # Remove the
-            old_onnx_file = os.path.join(self.workdir.name, self.default_model_name + str(file_index) + ".onnx")
+            old_onnx_file = os.path.join(
+                self.workdir.name, self.default_model_name + str(file_index) + ".onnx"
+            )
             if os.path.exists(old_onnx_file):
                 os.remove(old_onnx_file)
-            old_so_file = os.path.join(self.workdir.name, self.default_model_name + str(file_index) + ".so")
+            old_so_file = os.path.join(
+                self.workdir.name, self.default_model_name + str(file_index) + ".so"
+            )
             if os.path.exists(old_so_file):
                 os.remove(old_so_file)
 
@@ -125,7 +132,10 @@ class ONNXMLIRTorch:
 
             # Compile onnx model and hook with pyruntime
             sess = onnxmlir.InferenceSession(
-                self.onnx_model, temp_dir=self.workdir, compile_tag=str(self.tag), **self.kwargs
+                self.onnx_model,
+                temp_dir=self.workdir,
+                compile_tag=str(self.tag),
+                **self.kwargs
             )
             # Replace the victim cache entry
             self.sessionCache.put(input_shapes, (self.tag, sess))
@@ -136,4 +146,3 @@ class ONNXMLIRTorch:
         # Run the inference
         outputs = sess.run(None, np_args)
         return [torch.from_numpy(output) for output in outputs]
-
