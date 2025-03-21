@@ -45,7 +45,7 @@ std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
-bool enableConvTransposeDecomposeToPhasedConv;          // common for both
+bool enableConvTransposeDecomposeToPhasedConv;         // common for both
 bool enableQuarkQuantizerLegalization;                 // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both

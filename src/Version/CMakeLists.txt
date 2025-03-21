@@ -18,11 +18,15 @@ if (LLVM_APPEND_VC_REV)
   set(llvm_source_dir ${LLVM_BUILD_MAIN_SRC_DIR})
 endif()
 
+set(ONNX_MLIR_FORCE_VC_REVISION
+  "" CACHE STRING "Force custom VC revision for ONNX-MLIR")
+
 list(APPEND vcs_generate_commands
-  COMMAND ${CMAKE_COMMAND} [[-DNAMES="LLVM\;ONNX_MLIR"]]
+  COMMAND ${CMAKE_COMMAND} [[-DNAMES="ONNX_MLIR"]]
                            "-DLLVM_SOURCE_DIR=${llvm_source_dir}"
                            "-DONNX_MLIR_SOURCE_DIR=${onnx_mlir_source_dir}"
                            "-DHEADER_FILE=${version_inc}.tmp"
+                           "-DLLVM_FORCE_VC_REVISION=${ONNX_MLIR_FORCE_VC_REVISION}"
                            -P "${generate_vcs_version_script}"
   )
 
@@ -68,6 +72,10 @@ add_onnx_mlir_library(OMVersion
 
 # Obtain the commit hash of a specific repo. You must specify the path and the variable name.
 function(get_short_hash path out_var)
+  if(ONNX_MLIR_FORCE_VC_REVISION)
+    set(${out_var} ${ONNX_MLIR_FORCE_VC_REVISION} PARENT_SCOPE)
+    return()
+  endif()
   if(NOT EXISTS "${path}")
     return()
   endif()
@@ -76,15 +84,13 @@ function(get_short_hash path out_var)
     execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
       WORKING_DIRECTORY ${path}
       RESULT_VARIABLE SHORT_HASH_RESULT
-      OUTPUT_VARIABLE SHORT_HASH_OUTPUT
+      OUTPUT_VARIABLE out_var
       ERROR_QUIET
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-    file(WRITE "${ONNX_MLIR_BIN_ROOT}/SHORT_HASH_FILE" ${SHORT_HASH_OUTPUT})
   endif()
 endfunction()
 
 get_short_hash("${ONNX_MLIR_SRC_ROOT}" ONNX_MLIR_SHA)
-file(READ "${ONNX_MLIR_BIN_ROOT}/SHORT_HASH_FILE" ONNX_MLIR_SHA)
 list(APPEND DEFINITIONS "ONNX_MLIR_SHA=\"${ONNX_MLIR_SHA}\"")
 
 file(READ "${ONNX_MLIR_SRC_ROOT}/VERSION_NUMBER" ONNX_MLIR_VERSION)
