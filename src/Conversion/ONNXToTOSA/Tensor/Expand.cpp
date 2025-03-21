@@ -21,11 +21,11 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include <mlir/Dialect/Tosa/IR/TosaOps.h>
+#include <mlir/Dialect/Tosa/Utils/ConversionUtils.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/Transforms/DialectConversion.h>
-#include <mlir/Dialect/Tosa/Utils/ConversionUtils.h>
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/Casting.h>
