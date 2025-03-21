@@ -1026,7 +1026,7 @@ If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
 
 Optional `saturation` indicates whether the CPU tensor is saturated before stickification
 or not. If it is saturated, the dlfloat16 range would be used.
-Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
+Saturation off if `saturation == 0`. Otherwise, it is on.
 
 Traits: `AlwaysSpeculatableImplTrait`
 

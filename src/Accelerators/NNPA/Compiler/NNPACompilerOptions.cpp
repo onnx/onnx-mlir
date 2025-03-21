@@ -92,9 +92,8 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
             "Much/Significantly FasterOps with stick/unstick cost.")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
-    llvm::cl::desc("Enable saturating f32 values before stickify them."
-                   "This option turns off disable-compiler-stick-unstick."
+llvm::cl::opt<bool> nnpaDisableSaturation("nnpa-disable-saturation",
+    llvm::cl::desc("Disable saturating f32 values before stickify them."
                    "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 

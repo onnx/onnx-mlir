@@ -629,11 +629,10 @@ bool hasNNPAUse(Value v) {
 
 /// Get default saturation setting.
 IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
-  Type si64Ty = rewriter.getIntegerType(64, true);
-  if (nnpaEnableSaturation)
-    return rewriter.getIntegerAttr(si64Ty, -1);
-  else
+  if (nnpaDisableSaturation)
     return IntegerAttr();
+  Type si64Ty = rewriter.getIntegerType(64, true);
+  return rewriter.getIntegerAttr(si64Ty, -1);
 }
 
 } // namespace zhigh
