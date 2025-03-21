@@ -32,8 +32,7 @@ jobs:
         # A full build seems to take ~ 250 MB. Leave a bit more room
         # so we don't run out of cache space in the future.
         max-size: 400M
-        key: sccache-intree
-        variant: sccache
+        key: ccache-intree
         create-symlink: true
 
     - name: install dependencies
@@ -64,8 +63,8 @@ jobs:
           -DLLVM_USE_LINKER=lld \
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
-          -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
         cmake --build build --target onnx-mlir
 
