@@ -154,7 +154,7 @@ ExecutionSession::~ExecutionSession() {
   if (_sharedLibraryHandle.isValid())
     llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
 #else
-  if (!_sharedLibraryHandle)
+  if (_sharedLibraryHandle)
     dlclose(_sharedLibraryHandle);
 #endif
 }
