@@ -39,7 +39,7 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     const std::string &target = "", bool enableConvTransposeDecompose = false,
-    bool enableConvTranposeDecomposeToPhasedConv = false);
+    bool enableConvTransposeDecomposeToPhasedConv = false);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
@@ -76,7 +76,9 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization = false);
+    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization = false,
+    bool enableConvTransposeDecompose = false,
+    bool enableConvTransposeDecomposeToPhasedConv = false);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
