@@ -48,9 +48,9 @@
 #include "src/Support/SmallFPConversion.h"
 #endif
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__MVS__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
-// generated llvm IR, but it somehow doesn't come out of the box on MacOS.
+// generated llvm IR, but it somehow doesn't come out of the box on MacOS or MVS.
 int *__attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
 
