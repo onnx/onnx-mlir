@@ -1566,6 +1566,7 @@ public:
   LogicalResult matchAndRewrite(
       ONNXWhereOp onnxWhereOp, PatternRewriter &rewriter) const override {
     Location loc = onnxWhereOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
     // Check operation pattern:
     // (ONNXWhereOp
     //     (ONNXEqualOp (ONNXConcatOp), (ONNXConstantOp)),
@@ -1577,48 +1578,43 @@ public:
     // - DefiningOp of operands of ONNXConcatOp need to be DimOp or ConstantOp
     // with scalar tensor
     // - Operands in ONNXConcatOp need to be DimOp or ConstantOp
-    Value cond = onnxWhereOp.getCondition();
-    Value X = onnxWhereOp.getX();
-    Value Y = onnxWhereOp.getY();
-    if (mlir::isa<BlockArgument>(cond) || mlir::isa<BlockArgument>(X) ||
-        mlir::isa<BlockArgument>(Y))
+
+    // Check if the condition of WhereOp matches EqualOp, the X of it matches
+    // ConstantOp, and the Y of it matches ConcatOp.
+    Operation *equalOp, *constantOp, *concatOp;
+    Value equalOpResVal, constantOpResVal, concatOpResVal;
+    bool isEqualOp = operandOfOpDefinedBy<ONNXEqualOp>(
+        equalOp, onnxWhereOp.getOperation(), equalOpResVal, 0);
+    bool isConstantOp = operandOfOpDefinedBy<ONNXConstantOp>(
+        constantOp, onnxWhereOp.getOperation(), constantOpResVal, 1);
+    bool isConcatOp = operandOfOpDefinedBy<ONNXConcatOp>(
+        concatOp, onnxWhereOp.getOperation(), concatOpResVal, 2);
+    if (!isEqualOp || !isConstantOp || !isConcatOp)
+      return failure();
+    // Check if operands of the EqualOp are ConcatOp and ConstantOp.
+    Value equalOpConstVal, equalOpConcatVal;
+    bool isConcatAndConstOp =
+        areDefinedBy<ONNXConcatOp, ONNXConstantOp>(equalOp->getOperand(0),
+            equalOp->getOperand(1), equalOpConcatVal, equalOpConstVal);
+    if (!isConcatAndConstOp)
       return failure();
 
-    ONNXEqualOp equalOpCond = dyn_cast<ONNXEqualOp>(cond.getDefiningOp());
-    ONNXConstantOp constOpX = dyn_cast<ONNXConstantOp>(X.getDefiningOp());
-    ONNXConcatOp concatOpY = dyn_cast<ONNXConcatOp>(Y.getDefiningOp());
-    if (!equalOpCond || !constOpX || !concatOpY)
-      return failure();
-
-    Value equalOpCondA = equalOpCond.getA();
-    Value equalOpCondB = equalOpCond.getB();
-    if (mlir::isa<BlockArgument>(equalOpCondA) ||
-        mlir::isa<BlockArgument>(equalOpCondB))
-      return failure();
-    ONNXConcatOp equalAConcatOp =
-        dyn_cast<ONNXConcatOp>(equalOpCondA.getDefiningOp());
-    ONNXConstantOp equalBConstantOp =
-        dyn_cast<ONNXConstantOp>(equalOpCondB.getDefiningOp());
-    if (!equalAConcatOp || !equalBConstantOp)
-      return failure();
-
-    if (!hasShapeAndRank(equalOpCondA) || !hasShapeAndRank(equalOpCondB) ||
-        !hasShapeAndRank(concatOpY.getResult())) {
+    if (!hasShapeAndRank(equalOpConcatVal) ||
+        !hasShapeAndRank(equalOpConstVal) || !hasShapeAndRank(concatOpResVal)) {
       return failure(); // Cannot apply pattern until ranks are known.
     }
-    if (!isAllNegativeSmallIntegerConstant(equalOpCondB))
+
+    if (!isAllNegativeSmallIntegerConstant(equalOpConstVal))
       return failure();
 
-    // Calculate constant values for the result of the euqalOp
-    onnx_mlir::OnnxBuilder create(rewriter, loc);
-    llvm::SmallVector<bool, 1> equalOpResults;
-    // Get attribute of B in equal op (Negative values)
-    SmallVector<int64_t> bAttrValues;
-    if (!getI64ValuesFromONNXConstantOp(equalOpCondB, bAttrValues))
+    // Get attribute of constantOp, an operand of equal op (Negative values)
+    SmallVector<int64_t> constAttrValues;
+    if (!getI64ValuesFromONNXConstantOp(equalOpConstVal, constAttrValues))
       return failure();
-    // Get attriubte of A in equal op
-    ValueRange concatOperands = concatOpY.getOperands();
-    // Compare A with B to create results of the EqualOp.
+    // Get attriubte of concatOp, an operand of equal op, and calculate the
+    // result of the equalOp
+    ValueRange concatOperands = concatOp->getOperands();
+    llvm::SmallVector<bool, 1> equalOpResults;
     for (uint64_t i = 0; i < concatOperands.size(); ++i) {
       // Block arguments.
       if (mlir::isa<BlockArgument>(concatOperands[i]))
@@ -1629,25 +1625,23 @@ public:
         equalOpResults.emplace_back(false);
       } else if (isDenseONNXConstant(concatOperands[i]) &&
                  isScalarTensor(concatOperands[i])) {
-        // The value defined by ConstantOp is compared with value B.
-        SmallVector<int64_t> aAttrValues;
-        if (!getI64ValuesFromONNXConstantOp(concatOperands[i], aAttrValues))
+        // Compare the attributes to create results of the EqualOp.
+        SmallVector<int64_t> concatAttrValues;
+        if (!getI64ValuesFromONNXConstantOp(
+                concatOperands[i], concatAttrValues))
           return failure();
-        int64_t a = aAttrValues.front();
-        int64_t b = bAttrValues[i];
-        if (a == b)
-          equalOpResults.emplace_back(true);
-        else
-          equalOpResults.emplace_back(false);
+        int64_t a = concatAttrValues.front();
+        int64_t b = constAttrValues[i];
+        equalOpResults.emplace_back(a == b);
       } else {
         return failure();
       }
     }
-
-    SmallVector<int64_t> valueX, valueY;
-    if (!getI64ValuesFromONNXConstantOp(constOpX, valueX))
+    // Create new concatOp by selecting X or Y of whereOp depending on the
+    // result of equalOp.
+    SmallVector<int64_t> valueX;
+    if (!getI64ValuesFromONNXConstantOp(constantOpResVal, valueX))
       return failure();
-
     SmallVector<Value, 4> resVals;
     for (uint64_t i = 0; i < equalOpResults.size(); ++i) {
       if (equalOpResults[i]) {
@@ -1658,7 +1652,6 @@ public:
         resVals.emplace_back(concatOperands[i]);
       }
     }
-
     Value replacingValue = onnxWhereOp.getResult();
     ShapedType replacingType = mlir::cast<ShapedType>(replacingValue.getType());
     Value res = create.concat(replacingType, ValueRange(resVals), /*axis*/ 0);
