@@ -426,10 +426,12 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
                        OptionalAttr<SI64Attr>:$saturation);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      build($_builder, $_state, X, Out, StringAttr(), IntegerAttr());
+      Type si64Ty = $_builder.getIntegerType(64, true);
+      build($_builder, $_state, X, Out, StringAttr(), $_builder.getIntegerAttr(si64Ty, -1));
     }]>,
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out, "::mlir::StringAttr":$layout), [{
-      build($_builder, $_state, X, Out, layout, IntegerAttr());
+      Type si64Ty = $_builder.getIntegerType(64, true);
+      build($_builder, $_state, X, Out, layout, $_builder.getIntegerAttr(si64Ty, -1));
     }]>
   ];
 }

@@ -189,7 +189,7 @@ def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
 
     Optional `saturation` indicates whether the CPU tensor is saturated before stickification
     or not. If it is saturated, the dlfloat16 range would be used.
-    Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
+    Saturation off if `saturation == 0`. Otherwise, it is on.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$In,
                        OptionalAttr<StrAttr>:$layout,
@@ -200,7 +200,8 @@ def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
                                  NoneType]>:$Out);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout), [{
-      build($_builder, $_state, In, layout, IntegerAttr());
+      Type si64Ty = $_builder.getIntegerType(64, true);
+      build($_builder, $_state, In, layout, $_builder.getIntegerAttr(si64Ty, -1));
     }]>,
     OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout,
                "::mlir::IntegerAttr":$saturation)>

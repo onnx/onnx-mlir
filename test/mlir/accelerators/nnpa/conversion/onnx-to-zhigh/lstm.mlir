@@ -17,7 +17,7 @@ func.func @test_onnx_to_zhigh_ccfd0(%X: tensor<7x2000x204xf32>, %W: tensor<1x800
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -51,7 +51,7 @@ func.func @test_onnx_to_zhigh_ccfd0_reverse(%X: tensor<7x2000x204xf32>, %W: tens
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -87,7 +87,7 @@ func.func @test_onnx_to_zhigh_ccfd0_bidir(%X: tensor<7x2000x204xf32>, %W: tensor
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<2x800x204xf32>) -> tensor<2x204x800xf32>
 // CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<2x204x800xf32>) -> (tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>) -> tensor<*xf16>
@@ -124,9 +124,9 @@ func.func @test_lstm_in_ccfd1(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf
 // CHECK:           [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<1x1600xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_7_:%.+]]:4 = "onnx.SplitV11"([[VAR_6_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_8_:%.+]] = "zhigh.StickForLSTM"([[VAR_7_]]#2, [[VAR_7_]]#0, [[VAR_7_]]#3, [[VAR_7_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -159,9 +159,9 @@ func.func @test_lstm_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf
 // CHECK:           [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<1x1600xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_7_:%.+]]:4 = "onnx.SplitV11"([[VAR_6_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_8_:%.+]] = "zhigh.StickForLSTM"([[VAR_7_]]#2, [[VAR_7_]]#0, [[VAR_7_]]#3, [[VAR_7_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -188,9 +188,9 @@ func.func @test_lstm_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf32>,
 // CHECK:           [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<1x1600xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_7_:%.+]]:4 = "onnx.SplitV11"([[VAR_6_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_8_:%.+]] = "zhigh.StickForLSTM"([[VAR_7_]]#2, [[VAR_7_]]#0, [[VAR_7_]]#3, [[VAR_7_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -219,9 +219,9 @@ func.func @test_lstm_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x2
 // CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-DAG:       [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_4_:%.+]]:4 = "onnx.SplitV11"([[VAR_3_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.StickForLSTM"([[VAR_4_]]#2, [[VAR_4_]]#0, [[VAR_4_]]#3, [[VAR_4_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -246,9 +246,9 @@ func.func @test_lstm_noB_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf
 // CHECK-LABEL:  func @test_lstm_noB_noYh
 // CHECK-SAME:   ([[X_:%.+]]: tensor<7x2000x204xf32>, [[W_:%.+]]: tensor<1x800x204xf32>, [[R_:%.+]]: tensor<1x800x200xf32>, [[PARAM_0_:%.+]]: tensor<1x2000x200xf32>, [[PARAM_1_:%.+]]: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) {
 // CHECK-DAG:       [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
 // CHECK:           [[VAR_4_:%.+]]:4 = "onnx.SplitV11"([[VAR_3_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.StickForLSTM"([[VAR_4_]]#2, [[VAR_4_]]#0, [[VAR_4_]]#3, [[VAR_4_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -282,7 +282,7 @@ func.func @test_onnx_to_zhigh_ccfd0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x800x
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x?xf32>) -> tensor<1x?x800xf32>
 // CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<1x?x800xf32>) -> (tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>) -> tensor<*xf16>
@@ -316,9 +316,9 @@ func.func @test_onnx_to_zhigh_ccfd1_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x800x
 // CHECK:           [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<1x1600xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x?x200xf32>) -> tensor<1x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<1x?x200xf32>) -> tensor<1x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x?x200xf32>) -> tensor<1x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x?x200xf32>) -> tensor<1x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x?xf32>) -> tensor<1x?x800xf32>
 // CHECK:           [[VAR_7_:%.+]]:4 = "onnx.SplitV11"([[VAR_6_]]) {axis = 2 : si64} : (tensor<1x?x800xf32>) -> (tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>)
 // CHECK-DAG:       [[VAR_8_:%.+]] = "zhigh.StickForLSTM"([[VAR_7_]]#2, [[VAR_7_]]#0, [[VAR_7_]]#3, [[VAR_7_]]#1) : (tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>) -> tensor<*xf16>
@@ -353,7 +353,7 @@ func.func @test_onnx_to_zhigh_ccfd0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<2x800x?xf32>) -> tensor<2x?x800xf32>
 // CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<2x?x800xf32>) -> (tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> tensor<*xf16>
@@ -390,9 +390,9 @@ func.func @test_onnx_to_zhigh_ccfd1_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<
 // CHECK:           [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<2x1600xf32>) -> (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<2x?x200xf32>) -> tensor<2x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<2x?x200xf32>) -> tensor<2x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<2x?x200xf32>) -> tensor<2x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<2x?x200xf32>) -> tensor<2x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<2x800x?xf32>) -> tensor<2x?x800xf32>
 // CHECK:           [[VAR_7_:%.+]]:4 = "onnx.SplitV11"([[VAR_6_]]) {axis = 2 : si64} : (tensor<2x?x800xf32>) -> (tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>)
 // CHECK-DAG:       [[VAR_8_:%.+]] = "zhigh.StickForLSTM"([[VAR_7_]]#2, [[VAR_7_]]#0, [[VAR_7_]]#3, [[VAR_7_]]#1) : (tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> tensor<*xf16>

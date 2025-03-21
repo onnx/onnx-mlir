@@ -492,9 +492,6 @@ add_custom_target(check-onnx-backend-nnpa
   COMMAND
     TEST_INSTRUCTION_CHECK=true
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-nnpa
-    # Needed for convolution models to avoid NaN outputs.
-    # Remove this if saturation is enabled by default.
-    TEST_COMPILE_ARGS="--nnpa-saturation=true"
     ${NNPA_TESTS_ENVS_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -506,9 +503,6 @@ add_custom_target(check-onnx-backend-arch15-nnpa
   COMMAND
     TEST_INSTRUCTION_CHECK=true
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-arch15-nnpa
-    # Needed for convolution models to avoid NaN outputs.
-    # Remove this if saturation is enabled by default.
-    TEST_COMPILE_ARGS="--nnpa-saturation=true"
     ${NNPA_TESTS_ENVS_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     && ${NNPA_TESTS_ENVS_ARCH_15} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
@@ -521,9 +515,6 @@ add_custom_target(check-onnx-backend-dynamic-nnpa
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-nnpa
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
-    # Needed for convolution models to avoid NaN outputs.
-    # Remove this if saturation is enabled by default.
-    TEST_COMPILE_ARGS="--nnpa-saturation=true"
     ${NNPA_TESTS_ENVS_DYNAMIC_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -536,9 +527,6 @@ add_custom_target(check-onnx-backend-dynamic-arch15-nnpa
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-arch15-nnpa
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
-    # Needed for convolution models to avoid NaN outputs.
-    # Remove this if saturation is enabled by default.
-    TEST_COMPILE_ARGS="--nnpa-saturation=true"
     ${NNPA_TESTS_ENVS_DYNAMIC_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     && ${NNPA_TESTS_ENVS_DYNAMIC_ARCH_15} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
@@ -553,9 +541,6 @@ add_custom_target(check-onnx-backend-constant-nnpa
     # TEST_INSTRUCTION_CHECK=true
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant-nnpa
     TEST_CONSTANT=true
-    # Needed for convolution models to avoid NaN outputs.
-    # Remove this if saturation is enabled by default.
-    TEST_COMPILE_ARGS="--nnpa-saturation=true" 
     ${NNPA_TESTS_ENVS_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -565,9 +550,6 @@ add_custom_target(check-onnx-backend-constant-nnpa
 add_custom_target(check-onnx-backend-compilerlib-nnpa
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
-    # Needed for convolution models to avoid NaN outputs.
-    # Remove this if saturation is enabled by default.
-    TEST_COMPILE_ARGS="--nnpa-saturation=true" 
     ${NNPA_TESTS_ENVS_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -609,9 +591,6 @@ if (ONNX_MLIR_ENABLE_JNI)
     COMMAND
       ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-jni-nnpa
       TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      # Needed for convolution models to avoid NaN outputs.
-      # Remove this if saturation is enabled by default.
-      TEST_COMPILE_ARGS="--nnpa-saturation=true"
       ${NNPA_TESTS_ENVS_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
       ${FILE_GENERATE_DIR}/test.py
@@ -622,9 +601,6 @@ if (ONNX_MLIR_ENABLE_JNI)
     COMMAND
       ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-jni-nnpa
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      # Needed for convolution models to avoid NaN outputs.
-      # Remove this if saturation is enabled by default.
-      TEST_COMPILE_ARGS="--nnpa-saturation=true"
       ${NNPA_TESTS_ENVS_DYNAMIC_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
       ${FILE_GENERATE_DIR}/test.py
@@ -635,9 +611,6 @@ if (ONNX_MLIR_ENABLE_JNI)
     COMMAND
       ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant-jni-nnpa
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      # Needed for convolution models to avoid NaN outputs.
-      # Remove this if saturation is enabled by default.
-      TEST_COMPILE_ARGS="--nnpa-saturation=true"
       ${NNPA_TESTS_ENVS_z16} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
       ${FILE_GENERATE_DIR}/test.py
