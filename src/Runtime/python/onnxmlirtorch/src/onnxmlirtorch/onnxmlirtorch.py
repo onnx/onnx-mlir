@@ -55,7 +55,24 @@ def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
 
 
+def print_parameters(*args, **kwargs):
+    print(
+        f"number of input parameters of forward call: args {len(args)}, kwargs {len(kwargs)}"
+    )
+    # Print out each parameter.
+    # ToFix: save them into file
+    print("args")
+    for arg in args:
+        print(arg)
+    print("kwargs")
+    for key, value in kwargs.items():
+        print(f"{key} : {value}")
+
+
 # Backend function for torch.compile for onnx-mlir
+onnxmlir_counter = 1
+
+
 def onnxmlir_backend(torch_model, *args, **kwargs):
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
@@ -63,14 +80,43 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
     # forward()
     compile_options = kwargs.get("options")
 
-    def onnxmlir_forward(*args, **kwargs):
+    def onnxmlir_forward_fn(*args, **kwargs):
+        global onnxmlir_counter
+        # print("entering onnxmlir_forword", onnxmlir_counter)
+        onnxmlir_counter += 1
         if compile_options is not None:
-            onnxmlirtorchObject = ONNXMLIRTorch(torch_model, **compile_options)
+            onnxmlirtorchObject = ONNXMLIRTorch(
+                torch_model, compile_tag=onnxmlir_counter, **compile_options
+            )
         else:
-            onnxmlirtorchObject = ONNXMLIRTorch(torch_model)
+            onnxmlirtorchObject = ONNXMLIRTorch(
+                torch_model, compile_tag=onnxmlir_counter
+            )
         return onnxmlirtorchObject(*args, **kwargs)
 
-    return onnxmlir_forward
+    def onnxmlir_intercept_fn(*args, **kwargs):
+        print_parameters(*args, **kwargs)
+        return torch_model.forward(*args, **kwargs)
+
+    onnxmlir_intercept_option = False
+    if "onnxmlir-intercept" in compile_options.keys():
+        onnxmlir_intercept_option = compile_options["onnxmlir-intercept"]
+    if onnxmlir_intercept_option:
+        return onnxmlir_intercept_fn
+    else:
+        return onnxmlir_forward_fn
+
+
+# Intercept the forward call to get the parameters
+def myforward(self, *args, **kwargs):
+    print_parameters(*args, **kwargs)
+    return self.saved_forward(*args, **kwargs)
+
+
+def interceptForward(model):
+    model.saved_forward = model.forward
+    model.forward = myforward.__get__(model, torch.nn.Module)
+    return model
 
 
 class config:
@@ -80,12 +126,17 @@ class config:
 class ONNXMLIRTorch:
     def __init__(self, torch_model, **kwargs):
         self.torch_model = torch_model
-        self.kwargs = kwargs
         # Temporary directory
         self.workdir = tempfile.TemporaryDirectory()
         self.default_model_name = "model"
         self.sessionCache = SessionCache(config.cache_size)
-        self.tag = 0
+        if "compile_tag" in kwargs.keys():
+            self.tag = kwargs["compile_tag"]
+        else:
+            self.tag = 0
+        keys_to_remove = ["compile_tag"]
+        new_kwargs = {k: v for k, v in kwargs.items() if k not in keys_to_remove}
+        self.kwargs = new_kwargs
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
@@ -135,7 +186,7 @@ class ONNXMLIRTorch:
                 self.onnx_model,
                 temp_dir=self.workdir,
                 compile_tag=str(self.tag),
-                **self.kwargs
+                **self.kwargs,
             )
             # Replace the victim cache entry
             self.sessionCache.put(input_shapes, (self.tag, sess))

@@ -144,14 +144,13 @@ class InferenceSession:
                 exit(-1)
 
     def Compile(self):
-        if self.compiler_image_name is None:
-            # Use the uniform variable for local compiler and docker image
-            self.container_model_dirname = self.model_dirname
-            self.container_output_dirname = self.output_dirname
-        else:
-            # Path to mount the model and output in container
-            self.container_model_dirname = "/myinput"
-            self.container_output_dirname = "/myoutput"
+        # Logically use different variable for path in current env and
+        # container env. They could be different.
+        # However, if the caller is already in a container, the path
+        # on the host has to be used. Therefore, it is easier to always use
+        # the same path to mount on container.
+        self.container_model_dirname = self.model_dirname
+        self.container_output_dirname = self.output_dirname
 
         # Construct compilation command
         command_str = self.compiler_path
@@ -174,7 +173,7 @@ class InferenceSession:
             self.container_output_dirname,
             self.model_basename.removesuffix(self.model_suffix),
         )
-        print(command_str)
+        # print(command_str)
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
