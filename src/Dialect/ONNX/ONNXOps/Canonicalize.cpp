@@ -220,6 +220,29 @@ bool isNegativeSplatConstant(Value val) {
   return false;
 }
 
+/// Test if the input is a constant with all negative small value or not.
+// This function assumes input constant value(`val`) is dimension size. So, set
+// 10 as the size of small constnt value.
+bool isAllNegativeSmallIntegerConstant(Value val) {
+  ElementsAttr valAttr = getElementAttributeFromONNXValue(val);
+  if (!valAttr)
+    return false;
+
+  if (valAttr.size() > 10)
+    return false;
+
+  Type elemTy = mlir::cast<ShapedType>(val.getType()).getElementType();
+  if (mlir::isa<IntegerType>(elemTy)) {
+    for (auto v : valAttr.getValues<APInt>()) {
+      if (v.getSExtValue() > 0)
+        return false;
+    }
+  } else {
+    return false;
+  }
+  return true;
+}
+
 /// Test if all values in the input ValueRange are dimension sizes.
 bool areAllDimSizes(ValueRange vals) {
   return llvm::all_of(vals, [](Value val) {
@@ -1533,6 +1556,111 @@ private:
 };
 
 // =============================================================================
+// Rewrite pattern for Where
+// =============================================================================
+
+class RemoveWhereEqualPattern : public OpRewritePattern<ONNXWhereOp> {
+public:
+  using OpRewritePattern<ONNXWhereOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXWhereOp onnxWhereOp, PatternRewriter &rewriter) const override {
+    Location loc = onnxWhereOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+    // Check operation pattern:
+    // (ONNXWhereOp
+    //     (ONNXEqualOp (ONNXConcatOp), (ONNXConstantOp)),
+    //      (ONNXConstantOp),
+    //      (ONNXConcatOp))
+    // - The second input of EqualOp need to be all negative values.
+    // - The output need to be integer type.
+    // - Has shape and rank.
+    // - DefiningOp of operands of ONNXConcatOp need to be DimOp or ConstantOp
+    // with scalar tensor
+    // - Operands in ONNXConcatOp need to be DimOp or ConstantOp
+
+    // Check if the condition of WhereOp matches EqualOp, the X of it matches
+    // ConstantOp, and the Y of it matches ConcatOp.
+    Operation *equalOp, *constantOp, *concatOp;
+    Value equalOpResVal, constantOpResVal, concatOpResVal;
+    bool isEqualOp = operandOfOpDefinedBy<ONNXEqualOp>(
+        equalOp, onnxWhereOp.getOperation(), equalOpResVal, 0);
+    bool isConstantOp = operandOfOpDefinedBy<ONNXConstantOp>(
+        constantOp, onnxWhereOp.getOperation(), constantOpResVal, 1);
+    bool isConcatOp = operandOfOpDefinedBy<ONNXConcatOp>(
+        concatOp, onnxWhereOp.getOperation(), concatOpResVal, 2);
+    if (!isEqualOp || !isConstantOp || !isConcatOp)
+      return failure();
+    // Check if operands of the EqualOp are ConcatOp and ConstantOp.
+    Value equalOpConstVal, equalOpConcatVal;
+    bool isConcatAndConstOp =
+        areDefinedBy<ONNXConcatOp, ONNXConstantOp>(equalOp->getOperand(0),
+            equalOp->getOperand(1), equalOpConcatVal, equalOpConstVal);
+    if (!isConcatAndConstOp)
+      return failure();
+
+    if (!hasShapeAndRank(equalOpConcatVal) ||
+        !hasShapeAndRank(equalOpConstVal) || !hasShapeAndRank(concatOpResVal)) {
+      return failure(); // Cannot apply pattern until ranks are known.
+    }
+
+    if (!isAllNegativeSmallIntegerConstant(equalOpConstVal))
+      return failure();
+
+    // Get attribute of constantOp, an operand of equal op (Negative values)
+    SmallVector<int64_t> constAttrValues;
+    if (!getI64ValuesFromONNXConstantOp(equalOpConstVal, constAttrValues))
+      return failure();
+    // Get attriubte of concatOp, an operand of equal op, and calculate the
+    // result of the equalOp
+    ValueRange concatOperands = concatOp->getOperands();
+    llvm::SmallVector<bool, 1> equalOpResults;
+    for (uint64_t i = 0; i < concatOperands.size(); ++i) {
+      // Block arguments.
+      if (mlir::isa<BlockArgument>(concatOperands[i]))
+        return failure();
+      if (concatOperands[i].getDefiningOp<ONNXDimOp>()) {
+        // The value defined by DimOp is not negative value. So, results is
+        // always false.
+        equalOpResults.emplace_back(false);
+      } else if (isDenseONNXConstant(concatOperands[i]) &&
+                 isScalarTensor(concatOperands[i])) {
+        // Compare the attributes to create results of the EqualOp.
+        SmallVector<int64_t> concatAttrValues;
+        if (!getI64ValuesFromONNXConstantOp(
+                concatOperands[i], concatAttrValues))
+          return failure();
+        int64_t a = concatAttrValues.front();
+        int64_t b = constAttrValues[i];
+        equalOpResults.emplace_back(a == b);
+      } else {
+        return failure();
+      }
+    }
+    // Create new concatOp by selecting X or Y of whereOp depending on the
+    // result of equalOp.
+    SmallVector<int64_t> valueX;
+    if (!getI64ValuesFromONNXConstantOp(constantOpResVal, valueX))
+      return failure();
+    SmallVector<Value, 4> resVals;
+    for (uint64_t i = 0; i < equalOpResults.size(); ++i) {
+      if (equalOpResults[i]) {
+        // ConstOp in X of WhereOp
+        resVals.emplace_back(create.constantInt64({valueX[i]}));
+      } else {
+        // ConcatOp in Y of WhereOp
+        resVals.emplace_back(concatOperands[i]);
+      }
+    }
+    Value replacingValue = onnxWhereOp.getResult();
+    ShapedType replacingType = mlir::cast<ShapedType>(replacingValue.getType());
+    Value res = create.concat(replacingType, ValueRange(resVals), /*axis*/ 0);
+    rewriter.replaceOp(onnxWhereOp, res);
+    return success();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -1848,6 +1976,7 @@ void ONNXXorOp::getCanonicalizationPatterns(
 void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
+  result.insert<RemoveWhereEqualPattern>(context);
 }
 
 // on the ONNXDequantizeLinearOp.
