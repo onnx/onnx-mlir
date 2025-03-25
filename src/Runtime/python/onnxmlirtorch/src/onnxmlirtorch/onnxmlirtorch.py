@@ -17,17 +17,27 @@ onnx-mlir and run will happen automatically at inference of the model
 Example code:
  
  # Assuem torch_model is the a torch model
- model = ONNXLIRTorch(torch_model)
+ torch_model = ONNXLIRTorch(torch_model)
  results = torch_model(inputs) 
 
-If user perfer the torch.compile stype, the code could be:
+If user prefers the torch.compile style, the code could be:
  opt_model = onnxmlirtorch.compile(torch_model)
  results = opt_model(inputs)
+
+The two format are identical in functionality.
 
 2. Provide a customized backend, onnxmlir_backend, to torch.compile()
 Example code:
  # Assuem torch_model is the a torch model
  opt_model = torch.compile(torch_model, backend=onnxmlirtorch.onnxmlir_backend)
+ results = opt_model(inputs)
+
+ You can provide options on how to compile the model to torch.compile.
+Example code:
+ myoptions={'compile_options' : '-O3',}
+ opt_model = torch.compile(torch_model,
+   backend = onnxmlirtorch.onnxmlir_backend,
+   options = myoptions)
  results = opt_model(inputs)
  
 
@@ -80,9 +90,9 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
     # forward()
     compile_options = kwargs.get("options")
 
+    # Backend to export, compile and run inference of model with onnxmlir.
     def onnxmlir_forward_fn(*args, **kwargs):
         global onnxmlir_counter
-        # print("entering onnxmlir_forword", onnxmlir_counter)
         onnxmlir_counter += 1
         if compile_options is not None:
             onnxmlirtorchObject = ONNXMLIRTorch(
@@ -94,6 +104,8 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
             )
         return onnxmlirtorchObject(*args, **kwargs)
 
+    # Backend to print parameters and use the original forward function.
+    # Debugging and investigation code can be added here.
     def onnxmlir_intercept_fn(*args, **kwargs):
         print_parameters(*args, **kwargs)
         return torch_model.forward(*args, **kwargs)
@@ -160,8 +172,8 @@ class ONNXMLIRTorch:
             # In the meantime, we want keep a limited number of temporary files
             # for .onnx and .so file.
             # The solution is to store the tuple of (tag, session) in the cache
-            # When a cache entry becomes victim(), the corresponding files are
-            # removed
+            # When a cache entry becomes a victim, the corresponding files, 
+            # such as onnx model and .so are removed.
 
             file_index = self.sessionCache.victim()
             # Remove the
