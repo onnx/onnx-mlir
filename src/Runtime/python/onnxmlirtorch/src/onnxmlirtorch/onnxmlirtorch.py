@@ -172,7 +172,7 @@ class ONNXMLIRTorch:
             # In the meantime, we want keep a limited number of temporary files
             # for .onnx and .so file.
             # The solution is to store the tuple of (tag, session) in the cache
-            # When a cache entry becomes a victim, the corresponding files, 
+            # When a cache entry becomes a victim, the corresponding files,
             # such as onnx model and .so are removed.
 
             file_index = self.sessionCache.victim()
