@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+
 class AddModel(nn.Module):
     def __init__(self):
         super(AddModel, self).__init__()
