@@ -8,7 +8,7 @@ func.func @test_reduce_min_axes_defined_noop_0(%arg0 : tensor<3x2x2xf32>) -> ten
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_reduce_min_axes_defined_noop_0
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x2x2xf32>) -> tensor<3x2x1xf32> {
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<3x2x2xf32>) -> tensor<3x2x2xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<3x2x2xf32>) -> tensor<3x2x2xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.ReduceMin"([[VAR_1_]]) : (tensor<3x2x2xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<*xf16>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf16>) -> tensor<3x2x1xf32>
 // CHECK:           return [[VAR_3_]] : tensor<3x2x1xf32>
@@ -24,7 +24,7 @@ func.func @test_reduce_min_axes_minus_one(%arg0 : tensor<3x2x2xf32>) -> tensor<*
 
 // CHECK-LABEL:  func.func @test_reduce_min_axes_minus_one
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x2x2xf32>) -> tensor<3x2x1xf32> {
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<3x2x2xf32>) -> tensor<3x2x2xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<3x2x2xf32>) -> tensor<3x2x2xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.ReduceMin"([[VAR_1_]]) : (tensor<3x2x2xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<*xf16>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf16>) -> tensor<3x2x1xf32>
 // CHECK:           return [[VAR_3_]] : tensor<3x2x1xf32>

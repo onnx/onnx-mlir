@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @should_lower_to_zlow_1d(%arg0: tensor<7xf32>) -> tensor<*xf16> {
   %0 = "zhigh.Stick"(%arg0) {layout = "1D"} : (tensor<7xf32>) -> tensor<*xf16>
@@ -94,12 +94,19 @@ func.func @should_lower_to_zlow_nhwc(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf16
   %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<1x3x5x7xf32>) -> tensor<*xf16>
   return %0 : tensor<*xf16>
 
-// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
-// CHECK-LABEL:  func @should_lower_to_zlow_nhwc
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x3x5x7xf32>) -> memref<1x5x7x3xf16, [[MAP_0_]]> {
-// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x5x7x3xf16, [[MAP_0_]]>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "NCHW"} : (memref<1x3x5x7xf32>, memref<1x5x7x3xf16, [[MAP_0_]]>) -> ()
-// CHECK:           return [[RES_]] : memref<1x5x7x3xf16, [[MAP_0_]]>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-LABEL:  func.func @should_lower_to_zlow_nhwc
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x3x5x7xf32>) -> memref<1x5x7x3xf16, #map> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x5x7x3xf16, #map>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x5x7x3xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 7){
+// CHECK:             [[VAR_1_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<1x3x5x7xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2, [[VAR_1_]]#3, [[VAR_1_]]#1] : memref<1x5x7x3xf32>
+// CHECK:           }
+// CHECK:           "zlow.stick"([[RES_1_]], [[RES_]]) {layout = "NHWC"} : (memref<1x5x7x3xf32>, memref<1x5x7x3xf16, #map>) -> ()
+// CHECK:           return [[RES_]] : memref<1x5x7x3xf16, #map>
 // CHECK:         }
 }
 

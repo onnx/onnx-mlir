@@ -418,20 +418,23 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow stick operation";
   let description = [{
-  "ZLow operation to perform a stick."
+    ZLow operation to perform a stick.
+
+    Optional `no_saturation` indicates whether the CPU tensor is saturated before stickification
+    or not. If it is saturated, the dlfloat16 range would be used.
+    Saturation on if `no_saturation == 0`. Otherwise, it is off.
+    If `no_saturation` attribute is absent, default value is 0 (saturation on).
   }];
   let arguments = (ins MemRefOf<[F16, F32]>:$X,
                        ZMemRef:$Out,
                        OptionalAttr<StrAttr>:$layout,
-                       OptionalAttr<SI64Attr>:$saturation);
+                       OptionalAttr<SI64Attr>:$no_saturation);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      Type si64Ty = $_builder.getIntegerType(64, true);
-      build($_builder, $_state, X, Out, StringAttr(), $_builder.getIntegerAttr(si64Ty, -1));
+      build($_builder, $_state, X, Out, StringAttr(), IntegerAttr());
     }]>,
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out, "::mlir::StringAttr":$layout), [{
-      Type si64Ty = $_builder.getIntegerType(64, true);
-      build($_builder, $_state, X, Out, layout, $_builder.getIntegerAttr(si64Ty, -1));
+      build($_builder, $_state, X, Out, layout, IntegerAttr());
     }]>
   ];
 }

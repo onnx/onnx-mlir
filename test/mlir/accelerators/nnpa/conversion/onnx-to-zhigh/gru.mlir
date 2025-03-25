@@ -17,7 +17,7 @@ func.func @test_onnx_to_zhigh_gru0(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#3, [[VAR_0_]]#4, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x204xf32>) -> tensor<1x204x600xf32>
 // CHECK:           [[VAR_5_:%.+]]:3 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<1x204x600xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForGRU"([[VAR_5_]]#0, [[VAR_5_]]#1, [[VAR_5_]]#2) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -48,8 +48,8 @@ func.func @test_gru1(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: 
 // CHECK:           [[VAR_0_:%.+]]:6 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200]} : (tensor<1x1200xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#3, [[VAR_0_]]#4, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x204xf32>) -> tensor<1x204x600xf32>
 // CHECK:           [[VAR_6_:%.+]]:3 = "onnx.SplitV11"([[VAR_5_]]) {axis = 2 : si64} : (tensor<1x204x600xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_7_:%.+]] = "zhigh.StickForGRU"([[VAR_6_]]#0, [[VAR_6_]]#1, [[VAR_6_]]#2) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -80,8 +80,8 @@ func.func @test_gru_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf3
 // CHECK:           [[VAR_0_:%.+]]:6 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200]} : (tensor<1x1200xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#3, [[VAR_0_]]#4, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x204xf32>) -> tensor<1x204x600xf32>
 // CHECK:           [[VAR_6_:%.+]]:3 = "onnx.SplitV11"([[VAR_5_]]) {axis = 2 : si64} : (tensor<1x204x600xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_7_:%.+]] = "zhigh.StickForGRU"([[VAR_6_]]#0, [[VAR_6_]]#1, [[VAR_6_]]#2) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -108,8 +108,8 @@ func.func @test_gru_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, 
 // CHECK:           [[VAR_0_:%.+]]:6 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200]} : (tensor<1x1200xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#3, [[VAR_0_]]#4, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x204xf32>) -> tensor<1x204x600xf32>
 // CHECK:           [[VAR_6_:%.+]]:3 = "onnx.SplitV11"([[VAR_5_]]) {axis = 2 : si64} : (tensor<1x204x600xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_7_:%.+]] = "zhigh.StickForGRU"([[VAR_6_]]#0, [[VAR_6_]]#1, [[VAR_6_]]#2) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -136,8 +136,8 @@ func.func @test_gru_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x20
 // CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-DAG:       [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x204xf32>) -> tensor<1x204x600xf32>
 // CHECK:           [[VAR_3_:%.+]]:3 = "onnx.SplitV11"([[VAR_2_]]) {axis = 2 : si64} : (tensor<1x204x600xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.StickForGRU"([[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -162,8 +162,8 @@ func.func @test_gru_noB_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf3
 // CHECK-LABEL:  func @test_gru_noB_noYh
 // CHECK-SAME:   ([[X_:%.+]]: tensor<7x2000x204xf32>, [[W_:%.+]]: tensor<1x600x204xf32>, [[R_:%.+]]: tensor<1x600x200xf32>, [[PARAM_0_:%.+]]: tensor<1x2000x200xf32>, [[PARAM_1_:%.+]]: tensor<1x2000x200xf32>) -> tensor<7x1x2000x200xf32> {
 // CHECK-DAG:       [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<1x2000x200xf32>) -> tensor<1x2000x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x204xf32>) -> tensor<1x204x600xf32>
 // CHECK:           [[VAR_3_:%.+]]:3 = "onnx.SplitV11"([[VAR_2_]]) {axis = 2 : si64} : (tensor<1x204x600xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.StickForGRU"([[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf16>
@@ -194,7 +194,7 @@ func.func @test_onnx_to_zhigh_gru0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x600x?
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#3, [[VAR_0_]]#4, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x600x?xf32>) -> tensor<1x?x600xf32>
 // CHECK:           [[VAR_5_:%.+]]:3 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<1x?x600xf32>) -> (tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForGRU"([[VAR_5_]]#0, [[VAR_5_]]#1, [[VAR_5_]]#2) : (tensor<1x?x200xf32>, tensor<1x?x200xf32>, tensor<1x?x200xf32>) -> tensor<*xf16>
@@ -227,7 +227,7 @@ func.func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForGRU"([[VAR_0_]]#3, [[VAR_0_]]#4, [[VAR_0_]]#5) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<2x600x?xf32>) -> tensor<2x?x600xf32>
 // CHECK:           [[VAR_5_:%.+]]:3 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<2x?x600xf32>) -> (tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>)
 // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForGRU"([[VAR_5_]]#0, [[VAR_5_]]#1, [[VAR_5_]]#2) : (tensor<2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> tensor<*xf16>
@@ -258,7 +258,7 @@ func.func @gru_with_len(%arg0: tensor<2x2x1xf32>, %arg1: tensor<1x3x1xf32>, %arg
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x2x1xf32>, [[PARAM_1_:%.+]]: tensor<1x3x1xf32>, [[PARAM_2_:%.+]]: tensor<1x3x1xf32>) -> (tensor<2x1x2x1xf32>, tensor<1x2x1xf32>) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, 1]> : tensor<2xi32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS", saturation = -1 : si64} : (tensor<2x2x1xf32>) -> tensor<2x2x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<2x2x1xf32>) -> tensor<2x2x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [0, 2, 1]} : (tensor<1x3x1xf32>) -> tensor<1x1x3xf32>
 // CHECK:           [[VAR_4_:%.+]]:3 = "onnx.SplitV11"([[VAR_3_]]) {axis = 2 : si64} : (tensor<1x1x3xf32>) -> (tensor<1x1x1xf32>, tensor<1x1x1xf32>, tensor<1x1x1xf32>)
 // CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.StickForGRU"([[VAR_4_]]#0, [[VAR_4_]]#1, [[VAR_4_]]#2) : (tensor<1x1x1xf32>, tensor<1x1x1xf32>, tensor<1x1x1xf32>) -> tensor<*xf16>
