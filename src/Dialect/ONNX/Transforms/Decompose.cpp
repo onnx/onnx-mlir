@@ -48,10 +48,6 @@
 
 using namespace mlir;
 
-namespace {
-thread_local bool localEnableConvTransposeDecompose = false;
-thread_local bool localEnableConvTranposeDecomposeToPhasedConv = false;
-} // namespace
 namespace onnx_mlir {
 
 // Create an DenseElementsAttr of ArrayAttr.
@@ -662,10 +658,6 @@ Value replaceSequenceAt(
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
-  if (!localEnableConvTransposeDecompose) {
-    // Disable the ONNXConvTransposeOp decomposition patterns.
-    return false;
-  }
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasShapeAndRank(convTransposeResult) &&
@@ -717,10 +709,6 @@ bool hasNoActivationConsumer(Value convTransposeResult) {
 bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
     ArrayAttr kernelShapeAttr, ArrayAttr padsShapeAttr,
     ArrayAttr stridesShapeAttr, ArrayAttr outputShapeAttr) {
-  if (!localEnableConvTranposeDecomposeToPhasedConv) {
-    // Disable the ONNXConvTransposeOp to Conv decomposition patterns.
-    return false;
-  }
 
   ONNXConvTransposeOp op =
       mlir::cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
@@ -1524,6 +1512,12 @@ Value normalizeConstantOp(
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/Transforms/ONNXDecompose.inc"
+namespace convtranspose {
+#include "src/Dialect/ONNX/Transforms/ONNXDecomposeConvTranspose.inc"
+}
+namespace convtranspose_phased {
+#include "src/Dialect/ONNX/Transforms/ONNXDecomposeConvTransposePhased.inc"
+}
 
 RankedTensorType createReducedType(
     Type outputType, int64_t axisValue, bool keepDims) {
@@ -2743,11 +2737,11 @@ struct DecomposeONNXToONNXPass
 
   DecomposeONNXToONNXPass(const std::string &target,
       bool enableConvTransposeDecompose = false,
-      bool enableConvTranposeDecomposeToPhasedConv = false) {
+      bool enableConvTransposeDecomposeToPhasedConv = false) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
-    this->enableConvTranposeDecomposeToPhasedConv =
-        enableConvTranposeDecomposeToPhasedConv;
+    this->enableConvTransposeDecomposeToPhasedConv =
+        enableConvTransposeDecomposeToPhasedConv;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -2756,8 +2750,8 @@ struct DecomposeONNXToONNXPass
     this->target = pass.target.getValue();
     this->enableConvTransposeDecompose =
         pass.enableConvTransposeDecompose.getValue();
-    this->enableConvTranposeDecomposeToPhasedConv =
-        pass.enableConvTranposeDecomposeToPhasedConv.getValue();
+    this->enableConvTransposeDecomposeToPhasedConv =
+        pass.enableConvTransposeDecomposeToPhasedConv.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -2774,7 +2768,7 @@ struct DecomposeONNXToONNXPass
       llvm::cl::desc("Enable decomposition of ConvTranspose"),
       ::llvm::cl::init(false)};
 
-  Option<bool> enableConvTranposeDecomposeToPhasedConv{*this,
+  Option<bool> enableConvTransposeDecomposeToPhasedConv{*this,
       "enable-convtranspose-phased",
       llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator to 4 "
                      "phased Conv"),
@@ -2790,7 +2784,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
   RewritePatternSet patterns(context);
-  onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
+  onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
+      enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -2799,26 +2794,21 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  // Set thread locals to affect native functions called by .td patterns.
-  localEnableConvTransposeDecompose = enableConvTransposeDecompose;
-  localEnableConvTranposeDecomposeToPhasedConv =
-      enableConvTranposeDecomposeToPhasedConv;
-
-  auto status = applyPatternsAndFoldGreedily(function, std::move(patterns));
-
-  localEnableConvTransposeDecompose = false;
-  localEnableConvTranposeDecomposeToPhasedConv = false;
-
-  if (failed(status))
+  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
 } // namespace
 
 void onnx_mlir::getDecomposeONNXToONNXPatterns(
-    mlir::RewritePatternSet &patterns) {
+    mlir::RewritePatternSet &patterns, bool enableConvTransposeDecompose,
+    bool enableConvTransposeDecomposeToPhasedConv) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
+  if (enableConvTransposeDecompose)
+    convtranspose::populateWithGenerated(patterns);
+  if (enableConvTransposeDecomposeToPhasedConv)
+    convtranspose_phased::populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   patterns.insert<ConcatFusePattern>(context);
   patterns.insert<DecomposeHardSwishPattern>(context);
@@ -2845,7 +2835,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
-    bool enableConvTranposeDecomposeToPhasedConv) {
+    bool enableConvTransposeDecomposeToPhasedConv) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
-      enableConvTransposeDecompose, enableConvTranposeDecomposeToPhasedConv);
+      enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv);
 }

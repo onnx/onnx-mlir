@@ -94,12 +94,27 @@ struct ONNXHybridTransformPass
   Option<float> maxNumRewritesMultiplier{*this, "max-num-rewrites-multiplier",
       llvm::cl::desc("Rewrites limit factor"), llvm::cl::init(0.2)};
 
+  Option<bool> enableConvTransposeDecompose{*this, "enable-convtranspose",
+      llvm::cl::desc("Enable decomposition of ConvTranspose"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableConvTransposeDecomposeToPhasedConv{*this,
+      "enable-convtranspose-phased",
+      llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator to 4 "
+                     "phased Conv"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
-  ONNXHybridTransformPass(
-      bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization) {
+  ONNXHybridTransformPass(bool enableRecomposition,
+      bool enableQuarkQuantizedOpsLegalization,
+      bool enableConvTransposeDecompose,
+      bool enableConvTransposeDecomposeToPhasedConv) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
+    this->enableConvTransposeDecompose = enableConvTransposeDecompose;
+    this->enableConvTransposeDecomposeToPhasedConv =
+        enableConvTransposeDecomposeToPhasedConv;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -139,7 +154,9 @@ struct ONNXHybridTransformPass
     }
 
     if (decomposition) {
-      getDecomposeONNXToONNXPatterns(cumulativePatterns);
+      getDecomposeONNXToONNXPatterns(cumulativePatterns,
+          enableConvTransposeDecompose,
+          enableConvTransposeDecomposeToPhasedConv);
     }
 
     if (recomposition) {
@@ -179,7 +196,10 @@ struct ONNXHybridTransformPass
 } // namespace
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
-    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization) {
-  return std::make_unique<ONNXHybridTransformPass>(
-      enableRecomposition, enableQuarkQuantizedOpsLegalization);
+    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization,
+    bool enableConvTransposeDecompose,
+    bool enableConvTransposeDecomposeToPhasedConv) {
+  return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
+      enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
+      enableConvTransposeDecomposeToPhasedConv);
 }

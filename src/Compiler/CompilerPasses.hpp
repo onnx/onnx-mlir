@@ -28,7 +28,7 @@ void configurePasses();
 struct OnnxToMlirOptions {
   bool enableQuarkQuantizedLegalization = false;
   bool enableConvTransposeDecompose = false;
-  bool enableConvTranposeDecomposeToPhasedConv = false;
+  bool enableConvTransposeDecomposeToPhasedConv = false;
 };
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
