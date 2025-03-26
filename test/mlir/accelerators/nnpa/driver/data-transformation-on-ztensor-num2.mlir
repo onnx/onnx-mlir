@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --EmitMLIR --printIR -tag="test" %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR -tag="test" %s | FileCheck %s
 
 // -----
 
@@ -26,7 +26,7 @@ func.func @transpose_on_ztensor_unknown_dims(%arg0: tensor<?x?xf32>) -> tensor<?
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_0_]], [[VAR_1_]]) {{.*}}: memref<1x?x1x?x32x64xf16>
 // CHECK:           [[VAR_cast_:%.+]] = memref.cast [[RES_]] : memref<1x?x1x?x32x64xf16> to memref<1x?x1x?x?x?xf16>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[VAR_cast_]]) {layout = "2D"} : (memref<?x?xf32>, memref<1x?x1x?x?x?xf16>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[VAR_cast_]]) {layout = "2D", no_saturation = -1 : si64} : (memref<?x?xf32>, memref<1x?x1x?x?x?xf16>) -> ()
 // CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_0_]]{{.}}
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK:           [[RES_1_:%.+]] = memref.alloc([[VAR_2_]], [[VAR_3_]]) {{.*}}: memref<1x?x1x?x32x64xf16>

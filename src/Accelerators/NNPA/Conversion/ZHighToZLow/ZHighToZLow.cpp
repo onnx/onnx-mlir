@@ -546,7 +546,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     ZHighStickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.getIn();
     StringAttr layout = stickOp.getLayoutAttr();
-    IntegerAttr saturation = stickOp.getSaturationAttr();
+    IntegerAttr noSaturation = stickOp.getNoSaturationAttr();
 
     MultiDialectBuilder<OnnxBuilder, IndexExprBuilderForKrnl> create(
         rewriter, loc);
@@ -573,7 +573,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     }
 
     // Else, emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, input, alloc, layout, saturation);
+    rewriter.create<ZLowStickOp>(loc, input, alloc, layout, noSaturation);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -694,9 +694,6 @@ struct ZHighToZLowQuantizedStickOpLowering : public ConversionPattern {
     MemRefType scalarF32MemRefTy = MemRefType::get({}, f32Ty);
     MemRefType scalarI8MemRefTy = MemRefType::get({}, i8Ty);
 
-    // Attributes.
-    IntegerAttr trueAttr = rewriter.getIntegerAttr(si64Ty, -1);
-
     // Compute rec_scale and offset.
     Value recScale = nullptr;
     Value offset = nullptr;
@@ -769,7 +766,7 @@ struct ZHighToZLowQuantizedStickOpLowering : public ConversionPattern {
     if (quantizedType.getValue().equals_insensitive(QTYPE_DLFLOAT16)) {
       // Use normal stickification for dlfloat16 type so that we can flexibly
       // switch between compiler-generated and zdnn stick.
-      create.zlow.stick(X, alloc, layout, trueAttr);
+      create.zlow.stick(X, alloc, layout, IntegerAttr());
     } else {
       create.zlow.quantizedStick(
           X, memrefRecScale, memrefOffset, alloc, layout, quantizedType);
