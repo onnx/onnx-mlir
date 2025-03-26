@@ -49,7 +49,7 @@ struct ZLowBuilder : public DialectBuilder {
   virtual ~ZLowBuilder() {}
 
   void stick(mlir::Value x, mlir::Value out, mlir::StringAttr layout,
-      mlir::IntegerAttr saturation) const;
+      mlir::IntegerAttr noSaturation) const;
 
   void quantizedStick(mlir::Value x, mlir::Value xRecScale, mlir::Value xOffset,
       mlir::Value out, mlir::StringAttr layout, mlir::StringAttr qType) const;
