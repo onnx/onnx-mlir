@@ -27,8 +27,8 @@ namespace onnx_mlir {
 // =============================================================================
 
 void ZLowBuilder::stick(
-    Value x, Value out, StringAttr layout, IntegerAttr saturation) const {
-  b().create<zlow::ZLowStickOp>(loc(), x, out, layout, saturation);
+    Value x, Value out, StringAttr layout, IntegerAttr noSaturation) const {
+  b().create<zlow::ZLowStickOp>(loc(), x, out, layout, noSaturation);
 }
 
 void ZLowBuilder::quantizedStick(Value x, Value recScale, Value offset,
