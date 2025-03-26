@@ -6,7 +6,7 @@ func.func @test_lower_both_zlow_and_krnl() -> () {
   %0 = memref.alloc() : memref<10x10xf32>
   %1 = memref.alloc() : memref<1x1x32x64xf16>
   %2 = "krnl.global"() {name = "constant_0", shape = [1, 2], value = dense<[[0., 1.0]]> : tensor<1x2xf32>} : () -> memref<1x2xf32>
-  "zlow.stick"(%0, %1) : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
+  "zlow.stick"(%0, %1) {no_saturation = -1 : si64} : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
   return
 
   // CHECK-DAG: llvm.mlir.global internal constant @{{.*}}(dense<{{\[}}[0.000000e+00, 1.000000e+00]{{\]}}> : tensor<1x2xf32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<1 x array<2 x f32>>
@@ -18,7 +18,7 @@ func.func @test_lower_both_zlow_and_krnl() -> () {
 func.func @test_stick() -> () {
   %0 = memref.alloc() : memref<10x10xf32>
   %1 = memref.alloc() : memref<1x1x32x64xf16>
-  "zlow.stick"(%0, %1) : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
+  "zlow.stick"(%0, %1) {no_saturation = -1 : si64} : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
   return
 
   // CHECK-LABEL: test_stick

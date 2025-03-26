@@ -114,8 +114,9 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     ZLowStickOp stickOp = mlir::cast<ZLowStickOp>(op);
-    std::optional<int64_t> saturationOpt = stickOp.getSaturation();
-    bool saturation = saturationOpt.has_value() && saturationOpt.value() != 0;
+    std::optional<int64_t> noSaturationOpt = stickOp.getNoSaturation();
+    bool saturation =
+        (!noSaturationOpt.has_value()) || (noSaturationOpt.value() == 0);
 
     ZLowStickOpAdaptor operandAdaptor(operands);
     // Do not get element type from adaptor since the type can be opaque.
