@@ -4,7 +4,7 @@ import sys
 import tempfile
 import torch
 
-import onnxmlir
+from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache
 
 """
@@ -194,7 +194,7 @@ class ONNXMLIRTorch:
             torch.onnx.export(self.torch_model, args, self.onnx_model)
 
             # Compile onnx model and hook with pyruntime
-            sess = onnxmlir.InferenceSession(
+            sess = InferenceSession(
                 self.onnx_model,
                 temp_dir=self.workdir,
                 compile_tag=str(self.tag),
