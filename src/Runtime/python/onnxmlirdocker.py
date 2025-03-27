@@ -41,10 +41,13 @@ class InferenceSession:
         self.session = None
         self.handleParameters(model_path, **kwargs)
         if self.session is not None:
-            return self.session
+            return
         self.checkCompiler()
         self.Compile()
         self.session = self.getSession()
+
+    def __del__(self):
+        del self.session
 
     def handleParameters(self, model_path, **kwargs):
         if "debug" in kwargs.keys():
@@ -55,7 +58,7 @@ class InferenceSession:
         elif model_path.endswith(".onnx"):
             self.model_suffix = ".onnx"
         elif model_path.endswith(".so"):
-            self.compiled_lib = os.path.abspath(model_path)
+            self.compiled_model = os.path.abspath(model_path)
             self.session = self.getSession()
             return
         else:
@@ -70,6 +73,13 @@ class InferenceSession:
             self.compile_options = kwargs["compile_options"]
         else:
             self.compile_options = ""
+
+        # Temporary directory for compilation
+        if "temp_dir" in kwargs.keys():
+            self.output_tempdir = kwargs["temp_dir"]
+        else:
+            self.output_tempdir = tempfile.TemporaryDirectory()
+        self.output_dirname = self.output_tempdir.name
 
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]
@@ -94,6 +104,11 @@ class InferenceSession:
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
+
+        if "compile_tag" in kwargs.keys():
+            self.compile_tag = kwargs["compile_tag"]
+        else:
+            self.compile_tag = "NONE"
 
     def checkCompiler(self):
         if self.compiler_image_name == None:
@@ -129,18 +144,13 @@ class InferenceSession:
                 exit(-1)
 
     def Compile(self):
-        # Temporary directory for compilation
-        self.output_tempdir = tempfile.TemporaryDirectory()
-        self.output_dirname = self.output_tempdir.name
-
-        if self.compiler_image_name is None:
-            # Use the uniform variable for local compiler and docker image
-            self.container_model_dirname = self.model_dirname
-            self.container_output_dirname = self.output_dirname
-        else:
-            # Path to mount the model and output in container
-            self.container_model_dirname = "/myinput"
-            self.container_output_dirname = "/myoutput"
+        # Logically use different variable for path in current env and
+        # container env. They could be different.
+        # However, if the caller is already in a container, the path
+        # on the host has to be used. Therefore, it is easier to always use
+        # the same path to mount on container.
+        self.container_model_dirname = self.model_dirname
+        self.container_output_dirname = self.output_dirname
 
         # Construct compilation command
         command_str = self.compiler_path
@@ -148,12 +158,13 @@ class InferenceSession:
         # Compiled library
         if self.compile_options != "":
             command_str += " " + self.compile_options
+
+        command_str += " --tag=" + self.compile_tag
+
         command_str += " " + os.path.join(
             self.container_model_dirname, self.model_basename
         )
 
-        # ToFix: should use temporary directory for compilation, and
-        # use "-o" to put the compiled library in the temporary directory.
         self.compiled_model = os.path.join(
             self.output_dirname,
             self.model_basename.removesuffix(self.model_suffix) + ".so",
@@ -162,6 +173,7 @@ class InferenceSession:
             self.container_output_dirname,
             self.model_basename.removesuffix(self.model_suffix),
         )
+        # print(command_str)
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
@@ -217,7 +229,7 @@ class InferenceSession:
                     "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
                 )
 
-        return OMExecutionSession(self.compiled_model, "NONE")
+        return OMExecutionSession(self.compiled_model, self.compile_tag)
 
     def run(self, outputname, input_feed, **kwargs):
         inputs = []
