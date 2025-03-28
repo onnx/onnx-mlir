@@ -3,8 +3,8 @@
 // Semi hand-written model.
 // When converted to onnxtext, onnx-mlir didn't like the result.
 
-// CHECK: [[DQ:%.+]] = "onnx.Custom"(%arg0) {domain_name = "com.microsoft", function_name = "Gelu", onnx_node_name = "myGelu", output_element_type = bf16, shape_infer_pattern = "MDBroadcast"} : (tensor<1x64x112x112xbf16>) -> tensor<1x64x112x112xbf16>
-// CHECK: return [[DQ]]
+// CHECK: [[VAR_0_:%.+]] = "onnx.Gelu"({{.*}}) {approximate = "none", onnx_node_name = "myGelu"} : (tensor<1x64x112x112xbf16>) -> tensor<1x64x112x112xbf16>
+// CHECK: return [[VAR_0_]] : tensor<1x64x112x112xbf16>
 {
   "irVersion": "8",
   "producerName": "pytorch",

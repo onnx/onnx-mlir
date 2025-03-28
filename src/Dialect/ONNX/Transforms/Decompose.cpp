@@ -2270,6 +2270,56 @@ namespace {
 } // namespace
 
 template <typename OpToCreate>
+struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
+  CustomOpMicrosoftToOnnxOp(MLIRContext *context,
+      std::string operationNameToRewrite, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXCustomOp>(context, benefit),
+        operationNameToRewrite(std::move(operationNameToRewrite)) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
+      return failure();
+    }
+    if (failed(shouldBeRewritten(customOp))) {
+      return failure();
+    }
+
+    const SmallVector<NamedAttribute> filteredAttrs(
+        llvm::make_filter_range(customOp->getAttrs(), [](NamedAttribute attr) {
+          return attr.getName() != "domain_name" &&
+                 attr.getName() != "function_name" &&
+                 attr.getName() != "output_element_type" &&
+                 attr.getName() != "shape_infer_pattern" &&
+                 attr.getName() != "inputs_for_infer";
+        }));
+
+    auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
+        customOp->getResultTypes(), customOp.getOperands(), filteredAttrs);
+
+    onnx_mlir::IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
+    bool isNewOpValid;
+    if (auto info = newOp->getName().getRegisteredInfo()) {
+      isNewOpValid = succeeded(info->verifyInvariants(newOp));
+    } else {
+      isNewOpValid = succeeded(mlir::verify(newOp));
+    }
+    if (!isNewOpValid) {
+      rewriter.eraseOp(newOp);
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+    rewriter.replaceOp(customOp, newOp);
+    return success();
+  }
+
+  virtual LogicalResult shouldBeRewritten(ONNXCustomOp /*customOp*/) const {
+    return success();
+  }
+
+  std::string operationNameToRewrite;
+};
+
+template <typename OpToCreate>
 struct CustomOpMicrosoftQDquantizeLinear {
   LogicalResult matchAndRewriteImpl(ONNXCustomOp customOp,
       PatternRewriter &rewriter, StringRef expectedName) const {
@@ -2817,6 +2867,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<CustomOpFuseMatMulPattern>(context);
   patterns.insert<CustomOpMicrosoftQuantizeLinear>(context);
   patterns.insert<CustomOpMicrosoftDequantizeLinear>(context);
+  patterns.insert<CustomOpMicrosoftToOnnxOp<ONNXGeluOp>>(context, "Gelu");
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern1>(context);
   patterns.insert<GroupNormIntoLayerNormPattern2>(context);
