@@ -50,9 +50,6 @@ input2 = torch.randn(3)
 output1 = opt_mod(input1, input2)
 print("output: ", output1)
 
-# ToFix: the following test ran successfully when local compiler is used,
-# but failed when container compiler is used.
-exit(0)
 input3 = torch.randn(2)
 output2 = opt_mod(input3, input3)
 print("output: ", output2)
