@@ -2270,7 +2270,7 @@ namespace {
 } // namespace
 
 template <typename OpToCreate>
-struct CustomOpMicrosoftQDuantizeLinear {
+struct CustomOpMicrosoftQDquantizeLinear {
   LogicalResult matchAndRewriteImpl(ONNXCustomOp customOp,
       PatternRewriter &rewriter, StringRef expectedName) const {
     using namespace onnx_mlir;
@@ -2311,7 +2311,7 @@ struct CustomOpMicrosoftQDuantizeLinear {
 
 struct CustomOpMicrosoftQuantizeLinear
     : public OpRewritePattern<ONNXCustomOp>,
-      public CustomOpMicrosoftQDuantizeLinear<ONNXQuantizeLinearOp> {
+      public CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp> {
   using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -2321,7 +2321,7 @@ struct CustomOpMicrosoftQuantizeLinear
 
 struct CustomOpMicrosoftDequantizeLinear
     : public OpRewritePattern<ONNXCustomOp>,
-      CustomOpMicrosoftQDuantizeLinear<ONNXDequantizeLinearOp> {
+      CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp> {
   using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
