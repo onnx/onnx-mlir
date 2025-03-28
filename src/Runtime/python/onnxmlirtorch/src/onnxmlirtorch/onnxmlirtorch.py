@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import torch
+import inspect
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache
@@ -65,7 +66,12 @@ def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
 
 
-def print_parameters(*args, **kwargs):
+def print_parameters(fn, *args, **kwargs):
+    print("------------ Begin ---------")
+    if fn is not None:
+        signature = inspect.signature(fn)
+        for param_name, param in signature.parameters.items():
+            print(f"Parameter name: {param_name}")
     print(
         f"number of input parameters of forward call: args {len(args)}, kwargs {len(kwargs)}"
     )
@@ -77,6 +83,7 @@ def print_parameters(*args, **kwargs):
     print("kwargs")
     for key, value in kwargs.items():
         print(f"{key} : {value}")
+    print("------------ End ---------\n")
 
 
 # Backend function for torch.compile for onnx-mlir
@@ -107,7 +114,7 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
     # Backend to print parameters and use the original forward function.
     # Debugging and investigation code can be added here.
     def onnxmlir_intercept_fn(*args, **kwargs):
-        print_parameters(*args, **kwargs)
+        print_parameters(torch_model.forward, *args, **kwargs)
         return torch_model.forward(*args, **kwargs)
 
     onnxmlir_intercept_option = False
@@ -121,7 +128,7 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
 
 # Intercept the forward call to get the parameters
 def myforward(self, *args, **kwargs):
-    print_parameters(*args, **kwargs)
+    print_parameters(self.saved_forward, *args, **kwargs)
     return self.saved_forward(*args, **kwargs)
 
 
