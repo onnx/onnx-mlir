@@ -2281,7 +2281,7 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
     if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
       return failure();
     }
-    if (failed(shouldBeRewritten(customOp))) {
+    if (failed(shouldBeRewritten(customOp, rewriter))) {
       return failure();
     }
 
@@ -2312,7 +2312,8 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
     return success();
   }
 
-  virtual LogicalResult shouldBeRewritten(ONNXCustomOp /*customOp*/) const {
+  virtual LogicalResult shouldBeRewritten(
+      ONNXCustomOp /*customOp*/, PatternRewriter & /*rewriter*/) const {
     return success();
   }
 
@@ -2320,13 +2321,14 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
 };
 
 template <typename OpToCreate>
-struct CustomOpMicrosoftQDquantizeLinear {
-  LogicalResult matchAndRewriteImpl(ONNXCustomOp customOp,
-      PatternRewriter &rewriter, StringRef expectedName) const {
-    using namespace onnx_mlir;
+struct CustomOpMicrosoftQDquantizeLinear
+    : CustomOpMicrosoftToOnnxOp<OpToCreate> {
+  using CustomOpMicrosoftToOnnxOp<OpToCreate>::CustomOpMicrosoftToOnnxOp;
 
-    if (!isCustomMicrosoftOp(customOp, expectedName))
-      return failure();
+  LogicalResult shouldBeRewritten(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const override {
+    using namespace onnx_mlir;
+    // Check if the input is a quantized type.
     if (customOp->getNumOperands() != 3) {
       return failure();
     }
@@ -2337,45 +2339,9 @@ struct CustomOpMicrosoftQDquantizeLinear {
       return rewriter.notifyMatchFailure(
           customOp, "Only supports per-tensor quantization for now");
     }
-    // Axis is ignored if scale and zeroPoint are scalars
-
-    auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
-        customOp.getResult(0).getType(), customOp->getOperand(0), scale,
-        zeroPoint);
-
-    IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
-    bool isNewOpValid;
-    if (auto info = newOp->getName().getRegisteredInfo()) {
-      isNewOpValid = succeeded(info->verifyInvariants(newOp));
-    } else {
-      isNewOpValid = succeeded(mlir::verify(newOp));
-    }
-    if (!isNewOpValid) {
-      rewriter.eraseOp(newOp);
-      return rewriter.notifyMatchFailure(customOp, "Failed verification");
-    }
-    rewriter.replaceOp(customOp, newOp);
+    // Axis is ignored if scale and zeroPoint are scalars, so we do not need to
+    // handle/check it
     return success();
-  }
-};
-
-struct CustomOpMicrosoftQuantizeLinear
-    : public OpRewritePattern<ONNXCustomOp>,
-      public CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp> {
-  using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(
-      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    return matchAndRewriteImpl(customOp, rewriter, "QuantizeLinear");
-  }
-};
-
-struct CustomOpMicrosoftDequantizeLinear
-    : public OpRewritePattern<ONNXCustomOp>,
-      CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp> {
-  using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(
-      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    return matchAndRewriteImpl(customOp, rewriter, "DequantizeLinear");
   }
 };
 
@@ -2865,8 +2831,10 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
-  patterns.insert<CustomOpMicrosoftQuantizeLinear>(context);
-  patterns.insert<CustomOpMicrosoftDequantizeLinear>(context);
+  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
+      context, "QuantizeLinear");
+  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
+      context, "DequantizeLinear");
   patterns.insert<CustomOpMicrosoftToOnnxOp<ONNXGeluOp>>(context, "Gelu");
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern1>(context);
