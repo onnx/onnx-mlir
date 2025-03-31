@@ -2270,30 +2270,34 @@ namespace {
 } // namespace
 
 template <typename OpToCreate>
-struct CustomOpMicrosoftQDuantizeLinear {
-  LogicalResult matchAndRewriteImpl(ONNXCustomOp customOp,
-      PatternRewriter &rewriter, StringRef expectedName) const {
-    using namespace onnx_mlir;
+struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
+  CustomOpMicrosoftToOnnxOp(MLIRContext *context,
+      std::string operationNameToRewrite, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXCustomOp>(context, benefit),
+        operationNameToRewrite(std::move(operationNameToRewrite)) {}
 
-    if (!isCustomMicrosoftOp(customOp, expectedName))
+  LogicalResult matchAndRewrite(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
       return failure();
-    if (customOp->getNumOperands() != 3) {
+    }
+    if (failed(shouldBeRewritten(customOp, rewriter))) {
       return failure();
     }
 
-    const auto scale = customOp->getOperand(1);
-    const auto zeroPoint = customOp->getOperand(2);
-    if (!isScalarTensor(scale) || !isScalarTensor(zeroPoint)) {
-      return rewriter.notifyMatchFailure(
-          customOp, "Only supports per-tensor quantization for now");
-    }
-    // Axis is ignored if scale and zeroPoint are scalars
+    const SmallVector<NamedAttribute> filteredAttrs(
+        llvm::make_filter_range(customOp->getAttrs(), [](NamedAttribute attr) {
+          return attr.getName() != "domain_name" &&
+                 attr.getName() != "function_name" &&
+                 attr.getName() != "output_element_type" &&
+                 attr.getName() != "shape_infer_pattern" &&
+                 attr.getName() != "inputs_for_infer";
+        }));
 
     auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
-        customOp.getResult(0).getType(), customOp->getOperand(0), scale,
-        zeroPoint);
+        customOp->getResultTypes(), customOp.getOperands(), filteredAttrs);
 
-    IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
+    onnx_mlir::IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
     bool isNewOpValid;
     if (auto info = newOp->getName().getRegisteredInfo()) {
       isNewOpValid = succeeded(info->verifyInvariants(newOp));
@@ -2307,25 +2311,37 @@ struct CustomOpMicrosoftQDuantizeLinear {
     rewriter.replaceOp(customOp, newOp);
     return success();
   }
-};
 
-struct CustomOpMicrosoftQuantizeLinear
-    : public OpRewritePattern<ONNXCustomOp>,
-      public CustomOpMicrosoftQDuantizeLinear<ONNXQuantizeLinearOp> {
-  using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(
-      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    return matchAndRewriteImpl(customOp, rewriter, "QuantizeLinear");
+  virtual LogicalResult shouldBeRewritten(
+      ONNXCustomOp /*customOp*/, PatternRewriter & /*rewriter*/) const {
+    return success();
   }
+
+  std::string operationNameToRewrite;
 };
 
-struct CustomOpMicrosoftDequantizeLinear
-    : public OpRewritePattern<ONNXCustomOp>,
-      CustomOpMicrosoftQDuantizeLinear<ONNXDequantizeLinearOp> {
-  using OpRewritePattern<ONNXCustomOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(
-      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    return matchAndRewriteImpl(customOp, rewriter, "DequantizeLinear");
+template <typename OpToCreate>
+struct CustomOpMicrosoftQDquantizeLinear
+    : CustomOpMicrosoftToOnnxOp<OpToCreate> {
+  using CustomOpMicrosoftToOnnxOp<OpToCreate>::CustomOpMicrosoftToOnnxOp;
+
+  LogicalResult shouldBeRewritten(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const override {
+    using namespace onnx_mlir;
+    // Check if the input is a quantized type.
+    if (customOp->getNumOperands() != 3) {
+      return failure();
+    }
+
+    const auto scale = customOp->getOperand(1);
+    const auto zeroPoint = customOp->getOperand(2);
+    if (!isScalarTensor(scale) || !isScalarTensor(zeroPoint)) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Only supports per-tensor quantization for now");
+    }
+    // Axis is ignored if scale and zeroPoint are scalars, so we do not need to
+    // handle/check it
+    return success();
   }
 };
 
@@ -2815,8 +2831,11 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
-  patterns.insert<CustomOpMicrosoftQuantizeLinear>(context);
-  patterns.insert<CustomOpMicrosoftDequantizeLinear>(context);
+  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
+      context, "QuantizeLinear");
+  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
+      context, "DequantizeLinear");
+  patterns.insert<CustomOpMicrosoftToOnnxOp<ONNXGeluOp>>(context, "Gelu");
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern1>(context);
   patterns.insert<GroupNormIntoLayerNormPattern2>(context);
