@@ -1288,6 +1288,70 @@ public:
   }
 };
 
+
+// =============================================================================
+// Decompose Hardswish to simpler ONNX ops
+// =============================================================================
+// DecomposeHardSwishPattern replaces ONNXHardSwishOp with its equivalent
+// mathematical decomposition using basic ONNX operations:
+//
+//    HardSwish(x) = x * max(0, min(1, (x / 6) + 0.5))
+//
+// This pass:
+//  - Multiplies input by `1/6`
+//  - Adds `0.5` to the scaled input
+//  - Clamps the result between `0` and `1` using Min and Max ops
+//  - Multiplies the clamped value with the original input
+
+// Create constant tensor function
+Value createConstantTensor(PatternRewriter &rewriter, Location loc, Type elementType, float value) {
+    auto tensorType = RankedTensorType::get({}, elementType); // Rank-0 tensor
+    auto attr = DenseElementsAttr::get(tensorType, value);
+    return rewriter.create<ONNXConstantOp>(loc, tensorType, Attribute(), attr, FloatAttr(),
+                        ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+}
+
+struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
+  using OpRewritePattern<ONNXHardSwishOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(ONNXHardSwishOp hardswishOp, PatternRewriter &rewriter) const final {
+
+    // Get location and element type
+    Location loc = hardswishOp.getLoc();
+    Type elementType = mlir::cast<ShapedType>(hardswishOp.getOperand().getType()).getElementType();
+
+
+    // Create rank-0 tensor constants
+    Value alphaConst = createConstantTensor(rewriter, loc, elementType, 1.0f / 6.0f);
+    Value betaConst  = createConstantTensor(rewriter, loc, elementType, 0.5f);
+    Value minConst   = createConstantTensor(rewriter, loc, elementType, 1.0f);
+    Value maxConst  = createConstantTensor(rewriter, loc, elementType, 0.0f);
+
+
+    // Multiply input by alpha
+    auto scaledInput = rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
+                                                  hardswishOp.getOperand(), alphaConst);
+
+    // Add beta to (input * alpha)
+    auto shiftedInput = rewriter.create<ONNXAddOp>(loc, scaledInput.getType(),
+                                                    scaledInput, betaConst);
+
+    // Compute min(1.0, shiftedInput)
+    auto minOp = rewriter.create<ONNXMinOp>(loc, shiftedInput.getType(),
+                                              ValueRange({shiftedInput, minConst}));
+
+    // Compute max(0, min(1, shiftedInput))
+    auto maxOp = rewriter.create<ONNXMaxOp>(loc, minOp.getType(), ValueRange({minOp, maxConst}));
+
+    // Compute final HardSwish: input * max(0, min(1, add(mul(x, alpha), beta)))
+    auto hardswishResult = rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
+                                                      hardswishOp.getOperand(), maxOp);
+
+    // Replace the original HardSwishOp with the new computation
+    rewriter.replaceOp(hardswishOp, hardswishResult.getResult());
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -1363,6 +1427,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXUnsqueezeV11Op>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
+  target.addIllegalOp<ONNXHardSwishOp>();
 
   target.addDynamicallyLegalOp<ONNXEinsumOp>([](ONNXEinsumOp op) {
     return !onnx_mlir::DecomposeEinsumPattern::isDecomposable(op);
@@ -1438,6 +1503,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<GroupNormIntoLayerNormPattern2>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+  patterns.insert<DecomposeHardSwishPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }
