@@ -1,3 +1,4 @@
+//// RUN: onnx-mlir-opt --decompose-onnx %s -split-input-file | FileCheck %s
 func.func @test_hardswish(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
   %0 = "onnx.HardSwish"(%arg0) {onnx_node_name = "/hardswish/HardSwish"} :
        (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
