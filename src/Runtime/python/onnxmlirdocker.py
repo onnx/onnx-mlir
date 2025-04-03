@@ -205,7 +205,7 @@ class InferenceSession:
         # When the script is used in package onnxmlir, the files to be imported
         # are within the package. Path in the pakcage should be used.
         # Otherwise, env variable ONNX_MLIR_HOME is used to for import path
-        if __package__ == "onnxmlir":
+        if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
             try:
                 from .PyRuntime import OMExecutionSession
             except ImportError:
