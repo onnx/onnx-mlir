@@ -74,22 +74,12 @@ The cache is implemented with sessioncache.py. LRU replacement policy is used. T
 The current implementation is not using any dynamic dimension in model exporting.
 
 # Used for debugging <a name="debug"></a>
-This is a side product of this package. Other than replacing the forward() function with the compiled model from onnx-mlir compile, onnxmlirtorch also allows the user to just the original forward() function with some extra prints of the input parameters, as well as any extra code that user wants to add. I found this functionality is used to figure out the inputs in complicated env, such as hugging face intransformer. 
-## With torch.compile()
-When the option `onnxmlir-intercept=True` is given as an option in torch.compiler(), the backend will use the original forward() function with the input parameters printed. You can add you code in function onnxmlir\_intercept\_fn().
-Example:
-```
-myoption={"onnxmlir-intercept": True,}
-opt_model = torch.compile(model, options=myoption)
-```
-
-## Hijack forward() function directly
-Since torch.compile has issue with generate() function of transformer, we may want to hijack the forward() function directly.
+This is a side product of this package. A function to print the inputs is provided and hooked with torch.nn.modules.module.register_module_forward_hook.
 Example:
 ```
 onnxmlirtorch.interceptForward(model)
 ```
-Again the input parameters will be printed out and the original forward will be called. You may add your code ini function myforward() in onnxmlirtorch.py
+Again the input parameters will be printed out after the forward() function is called. You may add your code in function print_parameter() in onnxmlirtorch.py
 
 # Use compiler container inside another container <a name="containers"></a>
 You may run your torch env with a container. When you want to use onnx-mlir to compile the model, you need run the compiler container inside your torch container. The way to do this is to mount your directories correctly.

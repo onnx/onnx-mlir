@@ -66,8 +66,9 @@ def compile(torch_model, **kwargs):
     return ONNXMLIRTorch(torch_model, **kwargs)
 
 
-def print_parameters(fn, *args, **kwargs):
+def print_parameters(model, args, kwargs, outputs):
     print("------------ Begin ---------")
+    fn = model.forward
     if fn is not None:
         signature = inspect.signature(fn)
         for param_name, param in signature.parameters.items():
@@ -111,32 +112,10 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
             )
         return onnxmlirtorchObject(*args, **kwargs)
 
-    # Backend to print parameters and use the original forward function.
-    # Debugging and investigation code can be added here.
-    def onnxmlir_intercept_fn(*args, **kwargs):
-        print_parameters(torch_model.forward, *args, **kwargs)
-        return torch_model.forward(*args, **kwargs)
-
-    onnxmlir_intercept_option = False
-    if "onnxmlir-intercept" in compile_options.keys():
-        onnxmlir_intercept_option = compile_options["onnxmlir-intercept"]
-    if onnxmlir_intercept_option:
-        return onnxmlir_intercept_fn
-    else:
-        return onnxmlir_forward_fn
-
-
-# Intercept the forward call to get the parameters
-def myforward(self, *args, **kwargs):
-    print_parameters(self.saved_forward, *args, **kwargs)
-    return self.saved_forward(*args, **kwargs)
-
+    return onnxmlir_intercept_fn
 
 def interceptForward(model):
-    model.saved_forward = model.forward
-    model.forward = myforward.__get__(model, torch.nn.Module)
-    return model
-
+    model.register_forward_hook(print_parameters, with_kwargs=True)
 
 class config:
     cache_size = 3
