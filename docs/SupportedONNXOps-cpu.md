@@ -92,7 +92,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **HammingWindow** |none | | | |
 | **HannWindow** |none | | | |
 | **HardSigmoid** |6 - * | | |
-| **HardSwish** |14 - * | | |Decomposed into simpler ops|
+| **HardSwish** |14 - * | | ||
 | **Hardmax** |6 - * | | |
 | **Identity** |16 - * |Sequence identity not supported. Does not support int4 and uint4. | |
 | **If** |16 - * |Sequence and Optional outputs are not supported. Does not support int4 and uint4. | |
