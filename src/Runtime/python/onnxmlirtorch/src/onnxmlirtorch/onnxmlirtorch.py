@@ -112,10 +112,12 @@ def onnxmlir_backend(torch_model, *args, **kwargs):
             )
         return onnxmlirtorchObject(*args, **kwargs)
 
-    return onnxmlir_intercept_fn
+    return onnxmlir_forward_fn
+
 
 def interceptForward(model):
     model.register_forward_hook(print_parameters, with_kwargs=True)
+
 
 class config:
     cache_size = 3
