@@ -1250,7 +1250,8 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
 };
 
 /// reorder relu-> maxpool to maxpool->relu
-struct ReorderReLUToMaxPoolPattern : public OpRewritePattern<ONNXMaxPoolSingleOutOp> {
+struct ReorderReLUToMaxPoolPattern
+    : public OpRewritePattern<ONNXMaxPoolSingleOutOp> {
   using OpRewritePattern<ONNXMaxPoolSingleOutOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
@@ -1267,24 +1268,23 @@ struct ReorderReLUToMaxPoolPattern : public OpRewritePattern<ONNXMaxPoolSingleOu
     auto reluOp = dyn_cast<ONNXReluOp>(inputOp);
 
     // Create a new MaxPool operation using ReLU's output shape
-    Value newMaxPool = rewriter.create<ONNXMaxPoolSingleOutOp>(
-      maxPoolOp.getLoc(), 
-      maxPoolOp.getResult().getType(),   // MaxPool gets ReLU's output shape
-      reluOp.getX(),                  // Original ReLU's input becomes MaxPool's input
-      maxPoolOp.getAutoPadAttr(),     // Auto pad
-      maxPoolOp.getCeilModeAttr(),    // Ceil mode
-      maxPoolOp.getDilationsAttr(),   // Dilations
-      maxPoolOp.getKernelShapeAttr(), // Kernel shape
-      maxPoolOp.getPadsAttr(),        // Pads
-      maxPoolOp.getStorageOrderAttr(),// Storage order
-      maxPoolOp.getStridesAttr()      // Strides
+    Value newMaxPool = 
+        rewriter.create<ONNXMaxPoolSingleOutOp>(maxPoolOp.getLoc(), 
+        maxPoolOp.getResult().getType(), // MaxPool gets ReLU's output shape
+        reluOp.getX(), // Original ReLU's input becomes MaxPool's input
+        maxPoolOp.getAutoPadAttr(),      // Auto pad
+        maxPoolOp.getCeilModeAttr(),     // Ceil mode
+        maxPoolOp.getDilationsAttr(),    // Dilations
+        maxPoolOp.getKernelShapeAttr(),  // Kernel shape
+        maxPoolOp.getPadsAttr(),         // Pads
+        maxPoolOp.getStorageOrderAttr(), // Storage order
+        maxPoolOp.getStridesAttr()       // Strides
     );
 
     // Create a new ReLU operation using MaxPool's output shape
-    Value newRelu = rewriter.create<ONNXReluOp>(
-      reluOp.getLoc(), 
+    Value newRelu = rewriter.create<ONNXReluOp>(reluOp.getLoc(), 
       maxPoolOp.getResult().getType(), // ReLU gets MaxPool's output shape
-      newMaxPool                       // New MaxPool output becomes ReLU's input
+      newMaxPool // New MaxPool output becomes ReLU's input
     );
     // Replace all uses of the old MaxPool output with the new ReLU output
     maxPoolOp.getResult().replaceAllUsesWith(newRelu);
