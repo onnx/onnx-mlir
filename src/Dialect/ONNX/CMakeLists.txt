@@ -42,6 +42,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/ML/OneHotEncoder.cpp
   ONNXOps/Math/Bernoulli.cpp
   ONNXOps/Math/DFT.cpp
+  ONNXOps/Math/STFT.cpp
   ONNXOps/Math/Einsum.cpp
   ONNXOps/Math/EinsumHelper.cpp
   ONNXOps/Math/ElementwiseBroadcast.cpp

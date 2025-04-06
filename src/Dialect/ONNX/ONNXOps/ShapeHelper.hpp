@@ -745,6 +745,23 @@ struct ONNXGenericDFTOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXDFTOpShapeHelper = ONNXGenericDFTOpShapeHelper<mlir::ONNXDFTOp>;
 
 //===----------------------------------------------------------------------===//
+// STFT Ops
+//===----------------------------------------------------------------------===//
+
+// Generic STFT shape helper.
+template <typename OP_TYPE>
+struct ONNXGenericSTFTOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXGenericSTFTOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXGenericSTFTOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+// clang-format off
+using ONNXSTFTOpShapeHelper = ONNXGenericSTFTOpShapeHelper<mlir::ONNXSTFTOp>;
+
+//===----------------------------------------------------------------------===//
 // Reduction Ops
 //===----------------------------------------------------------------------===//
 
