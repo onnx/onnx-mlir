@@ -602,6 +602,57 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
   }
 };
 
+/// Merges nested ONNXConcatOps
+struct RecomposeConcatPattern
+    : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  // Helper function to check if an input is a mergeable Concat.
+  static bool isMergeableConcat(Value input, int64_t axis) {
+    auto innerConcat = input.getDefiningOp<ONNXConcatOp>();
+    if (!innerConcat)
+      return false;
+    return (innerConcat.getAxis() == axis) && (innerConcat.getResult().hasOneUse());
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    Location loc = concatOp.getLoc();
+    auto inputs = concatOp.getOperands();
+    SmallVector<Value, 16> newInputs;
+    bool merged = false;
+        
+    // Flatten nested concat nodes.
+    for (auto input : inputs) {
+      newInputs.push_back(input);
+      if (isMergeableConcat(input, concatOp.getAxis())) {
+        merged = true;
+        // Remove the nested concat and append its inputs.
+        newInputs.pop_back();
+        auto innerConcat = cast<ONNXConcatOp>(input.getDefiningOp());
+        newInputs.append(innerConcat.getOperands().begin(),
+        innerConcat.getOperands().end());
+      }
+    }
+    
+    if (merged) {
+      // Create a new ONNXConcat op with the flattened inputs.
+      auto newConcat = rewriter.create<ONNXConcatOp>(loc,
+         concatOp.getResult().getType(), newInputs, concatOp.getAxis());
+      rewriter.replaceOp(concatOp, newConcat.getResult());
+      return success();
+    }
+
+    // If there is only a single input, replace the concat with that input.
+    if (concatOp.getOperands().size() == 1) {
+      rewriter.replaceOp(concatOp, concatOp.getOperands()[0]);
+      return success();
+    }
+
+    return failure();
+  }
+};
+
 struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
@@ -656,6 +707,15 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     return true;
   });
 
+  target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
+    for (Value input : op.getOperands()) {
+      if (!RecomposeConcatPattern::isMergeableConcat(input, op.getAxis())) {
+        return true; // Op is legal if any input isn't a mergeable Concat.
+      }
+    }
+    return false; // Op is illegal (needs rewriting) if all inputs are mergeable.
+  });  
+
   // Recompose QLinearMatMul, starting from QuantizeLinear.
   // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
   target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
@@ -682,6 +742,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
+  patterns.insert<RecomposeConcatPattern>(context);
 }
 
 /*!
