@@ -95,6 +95,7 @@ OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
+std::vector<std::string> decomposeOpsInONNX;           // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -710,6 +711,16 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
         "Set to 'true' if you want to enable the check."),
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::list<std::string, std::vector<std::string>>
+    decomposeOpsInONNXOpt("decompose-op-in-onnx",
+        llvm::cl::desc("Specify ONNX operations to decompose.\n"
+                       "Supported Ops - HardSwish"),
+        llvm::cl::value_desc("ONNX operation to decompose"),
+        llvm::cl::location(decomposeOpsInONNX), 
+        llvm::cl::cat(OnnxMlirOptions),
+        llvm::cl::CommaSeparated, 
+        llvm::cl::ZeroOrMore);     
 
 #if defined(_DEBUG)
 // Option only available in debug mode: set using command options.
