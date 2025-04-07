@@ -1310,7 +1310,6 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
     
     // Get location and element type
     Location loc = hardswishOp.getLoc();
-    Type elementType = mlir::cast<ShapedType>(hardswishOp.getOperand().getType()).getElementType();
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
 
     Value alphaConst = create.onnx.constantFloat32(1.0f / 6.0f);
