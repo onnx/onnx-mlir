@@ -1247,6 +1247,39 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func private @test_hardswish(%arg0: tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.HardSwish"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+  // mlir2FileCheck.py
+  // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+  // CHECK-LABEL:  func.func private @test_hardswish
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
+  // CHECK-DAG:       [[CST_HALF_:%.+]] = arith.constant 5.000000e-01 : f32
+  // CHECK-DAG:       [[CST_ONE_SIXTH_:%.+]] = arith.constant 0.166666672 : f32
+  // CHECK-DAG:       [[CST_ONE_:%.+]] = arith.constant 1.000000e+00 : f32
+  // CHECK-DAG:       [[CST_ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
+  // CHECK-DAG:       [[CST_IDX0_:%.+]] = arith.constant 0 : index
+  // CHECK:           [[VAR_DIM_:%.+]] = memref.dim [[PARAM_0_]], [[CST_IDX0_]] : memref<?x10xf32>
+  // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_DIM_]]) {{.*}}: memref<?x10xf32>
+  // CHECK-DAG:       [[LOOPS_:%.+]]:2 = krnl.define_loops 2
+  // CHECK-DAG:       [[DIM_:%.+]] = memref.dim [[PARAM_0_]], [[CST_IDX0_]] : memref<?x10xf32>
+  // CHECK:           krnl.iterate([[LOOPS_]]#0, [[LOOPS_]]#1) with ([[LOOPS_]]#0 -> [[I0_:%.+]] = 0 to [[MAP_0_]]([[DIM_]]), [[LOOPS_]]#1 -> [[I1_:%.+]] = 0 to 10){
+  // CHECK:             [[IVS_:%.+]]:2 = krnl.get_induction_var_value([[LOOPS_]]#0, [[LOOPS_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK:             [[LOAD_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[IVS_]]#0, [[IVS_]]#1] : memref<?x10xf32>
+  // CHECK:             [[SCALE_:%.+]] = arith.mulf [[LOAD_]], [[CST_ONE_SIXTH_]] : f32
+  // CHECK:             [[SHIFTED_:%.+]] = arith.addf [[SCALE_]], [[CST_HALF_]] : f32
+  // CHECK:             [[CLAMPED1_:%.+]] = arith.minnumf [[SHIFTED_]], [[CST_ONE_]] : f32
+  // CHECK:             [[CLAMPED2_:%.+]] = arith.maxnumf [[CLAMPED1_]], [[CST_ZERO_]] : f32
+  // CHECK:             [[MUL_FINAL_:%.+]] = arith.mulf [[LOAD_]], [[CLAMPED2_]] : f32
+  // CHECK:             krnl.store [[MUL_FINAL_]], [[RES_]]{{.}}[[IVS_]]#0, [[IVS_]]#1] : memref<?x10xf32>
+  // CHECK:           }
+  // CHECK:           return [[RES_]] : memref<?x10xf32>
+  // CHECK:         }
+
+}
+
+// -----
+
 func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Reciprocal"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

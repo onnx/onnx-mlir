@@ -265,6 +265,15 @@ static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
     llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::list<std::string, std::vector<std::string>>
+    decomposeOpsInONNXOpt("decompose-op-in-onnx",
+        llvm::cl::desc("Specify ONNX operations to decompose.\n"
+                       "Supported Ops - HardSwish"),
+        llvm::cl::value_desc("ONNX operation to decompose"),
+        llvm::cl::location(decomposeOpsInONNX),
+        llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::CommaSeparated,
+        llvm::cl::ZeroOrMore);
+
 static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
     llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
@@ -711,16 +720,6 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
         "Set to 'true' if you want to enable the check."),
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
-
-static llvm::cl::list<std::string, std::vector<std::string>>
-    decomposeOpsInONNXOpt("decompose-op-in-onnx",
-        llvm::cl::desc("Specify ONNX operations to decompose.\n"
-                       "Supported Ops - HardSwish"),
-        llvm::cl::value_desc("ONNX operation to decompose"),
-        llvm::cl::location(decomposeOpsInONNX), 
-        llvm::cl::cat(OnnxMlirOptions),
-        llvm::cl::CommaSeparated, 
-        llvm::cl::ZeroOrMore);     
 
 #if defined(_DEBUG)
 // Option only available in debug mode: set using command options.

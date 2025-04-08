@@ -117,7 +117,8 @@ Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
 }
 
 Value OnnxBuilder::constantFloat32(const ArrayRef<float> floatVals) const {
-  auto shape = RankedTensorType::get({(int64_t)floatVals.size()}, b().getF32Type());
+  auto shape = RankedTensorType::get(
+      {static_cast<int64_t>(floatVals.size())}, b().getF32Type());
   DenseElementsAttr denseAttr = DenseElementsAttr::get(shape, floatVals);
   return constant(denseAttr);
 }

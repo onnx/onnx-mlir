@@ -26,8 +26,8 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "llvm/Support/Debug.h"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -1305,36 +1305,40 @@ public:
 
 struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
   using OpRewritePattern<ONNXHardSwishOp>::OpRewritePattern;
-  
-  LogicalResult matchAndRewrite(ONNXHardSwishOp hardswishOp, PatternRewriter &rewriter) const final {
-    
+
+  LogicalResult matchAndRewrite(
+      ONNXHardSwishOp hardswishOp, PatternRewriter &rewriter) const final {
+
     // Get location and element type
     Location loc = hardswishOp.getLoc();
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
 
     Value alphaConst = create.onnx.constantFloat32(1.0f / 6.0f);
-    Value betaConst  = create.onnx.constantFloat32(0.5f);
-    Value minConst   = create.onnx.constantFloat32(1.0f);
-    Value maxConst   = create.onnx.constantFloat32(0.0f);
+    Value betaConst = create.onnx.constantFloat32(0.5f);
+    Value minConst = create.onnx.constantFloat32(1.0f);
+    Value maxConst = create.onnx.constantFloat32(0.0f);
 
     // Multiply input by alpha
-    auto scaledInput = rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
-                                                  hardswishOp.getOperand(), alphaConst);
+    auto scaledInput =
+        rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
+            hardswishOp.getOperand(), alphaConst);
 
     // Add beta to (input * alpha)
-    auto shiftedInput = rewriter.create<ONNXAddOp>(loc, scaledInput.getType(),
-                                                    scaledInput, betaConst);
-    
+    auto shiftedInput = rewriter.create<ONNXAddOp>(
+        loc, scaledInput.getType(), scaledInput, betaConst);
+
     // Compute min(1.0, shiftedInput)
-    auto minOp = rewriter.create<ONNXMinOp>(loc, shiftedInput.getType(),
-                                              ValueRange({shiftedInput, minConst}));
+    auto minOp = rewriter.create<ONNXMinOp>(
+        loc, shiftedInput.getType(), ValueRange({shiftedInput, minConst}));
 
     // Compute max(0, min(1, shiftedInput))
-    auto maxOp = rewriter.create<ONNXMaxOp>(loc, minOp.getType(), ValueRange({minOp, maxConst}));
+    auto maxOp = rewriter.create<ONNXMaxOp>(
+        loc, minOp.getType(), ValueRange({minOp, maxConst}));
 
     // Compute final HardSwish: input * max(0, min(1, add(mul(x, alpha), beta)))
-    auto hardswishResult = rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
-                                                      hardswishOp.getOperand(), maxOp);
+    auto hardswishResult = rewriter.create<ONNXMulOp>(loc,
+        hardswishOp.getOperand().getType(), hardswishOp.getOperand(), maxOp);
 
     // Replace the original HardSwishOp with the new computation
     rewriter.replaceOp(hardswishOp, hardswishResult.getResult());
@@ -1420,9 +1424,9 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   if (!onnx_mlir::decomposeOpsInONNX.empty()) {
     for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
-        if (op == "HardSwish") {
-            target.addIllegalOp<ONNXHardSwishOp>();
-        }
+      if (op == "HardSwish") {
+        target.addIllegalOp<ONNXHardSwishOp>();
+      }
     }
   }
   target.addDynamicallyLegalOp<ONNXEinsumOp>([](ONNXEinsumOp op) {
@@ -1502,10 +1506,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
 
   if (!onnx_mlir::decomposeOpsInONNX.empty()) {
     for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
-        llvm::outs() << "Decomposing ONNX operation: " << op << "\n";
-        if (op == "HardSwish") {
-            patterns.insert<DecomposeHardSwishPattern>(context);
-        }
+      if (op == "HardSwish") {
+        patterns.insert<DecomposeHardSwishPattern>(context);
+      }
     }
   }
 
