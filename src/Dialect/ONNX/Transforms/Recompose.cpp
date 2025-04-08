@@ -603,8 +603,7 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
 };
 
 /// Merges nested ONNXConcatOps
-struct RecomposeConcatPattern
-    : public OpRewritePattern<ONNXConcatOp> {
+struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
   // Helper function to check if an input is a mergeable Concat.
@@ -612,7 +611,8 @@ struct RecomposeConcatPattern
     auto innerConcat = input.getDefiningOp<ONNXConcatOp>();
     if (!innerConcat)
       return false;
-    return (innerConcat.getAxis() == axis) && (innerConcat.getResult().hasOneUse());
+    return (innerConcat.getAxis() == axis) &&
+           (innerConcat.getResult().hasOneUse());
   }
 
   LogicalResult matchAndRewrite(
@@ -621,7 +621,7 @@ struct RecomposeConcatPattern
     auto inputs = concatOp.getOperands();
     SmallVector<Value, 16> newInputs;
     bool merged = false;
-        
+
     // Flatten nested concat nodes.
     for (auto input : inputs) {
       newInputs.push_back(input);
@@ -630,15 +630,15 @@ struct RecomposeConcatPattern
         // Remove the nested concat and append its inputs.
         newInputs.pop_back();
         auto innerConcat = cast<ONNXConcatOp>(input.getDefiningOp());
-        newInputs.append(innerConcat.getOperands().begin(),
-        innerConcat.getOperands().end());
+        newInputs.append(
+            innerConcat.getOperands().begin(), innerConcat.getOperands().end());
       }
     }
-    
+
     if (merged) {
       // Create a new ONNXConcat op with the flattened inputs.
-      auto newConcat = rewriter.create<ONNXConcatOp>(loc,
-         concatOp.getResult().getType(), newInputs, concatOp.getAxis());
+      auto newConcat = rewriter.create<ONNXConcatOp>(
+          loc, concatOp.getResult().getType(), newInputs, concatOp.getAxis());
       rewriter.replaceOp(concatOp, newConcat.getResult());
       return success();
     }
@@ -713,7 +713,8 @@ void RecomposeONNXToONNXPass::runOnOperation() {
         return true; // Op is legal if any input isn't a mergeable Concat.
       }
     }
-    return false; // Op is illegal (needs rewriting) if all inputs are mergeable.
+    return false; // Op is illegal (needs rewriting) if all inputs are 
+                  // mergeable.
   });  
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
