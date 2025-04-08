@@ -879,7 +879,7 @@ static int64_t decodeZArchNum(std::string str) {
     return 13;
   if (str == "arch14" || str == "z16") // Z16 and equivalents.
     return 14;
-  if (str == "arch15")
+  if (str == "arch15" || str == "z17") // Z17 and equivalents.
     return 15;
   return -1;
 }
