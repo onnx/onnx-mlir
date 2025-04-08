@@ -1249,55 +1249,6 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
   }
 };
 
-/// reorder relu-> maxpool to maxpool->relu
-struct ReorderReLUToMaxPoolPattern
-    : public OpRewritePattern<ONNXMaxPoolSingleOutOp> {
-  using OpRewritePattern<ONNXMaxPoolSingleOutOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXMaxPoolSingleOutOp maxPoolOp, PatternRewriter &rewriter) const final {
-
-    // Get the input to MaxPool
-    Value maxPoolInput = maxPoolOp.getX();
-    Operation *inputOp = maxPoolInput.getDefiningOp();
-
-    // Check if the input to MaxPool is a ReLU layer
-    if (!inputOp || !isa<ONNXReluOp>(inputOp))
-      return failure(); // Only process if MaxPool follows a ReLU layer
-
-    auto reluOp = dyn_cast<ONNXReluOp>(inputOp);
-
-    // Create a new MaxPool operation using ReLU's output shape
-    Value newMaxPool = 
-        rewriter.create<ONNXMaxPoolSingleOutOp>(maxPoolOp.getLoc(), 
-            maxPoolOp.getResult().getType(), // MaxPool gets ReLU's output shape
-            reluOp.getX(), // Original ReLU's input becomes MaxPool's input
-            maxPoolOp.getAutoPadAttr(),      // Auto pad
-            maxPoolOp.getCeilModeAttr(),     // Ceil mode
-            maxPoolOp.getDilationsAttr(),    // Dilations
-            maxPoolOp.getKernelShapeAttr(),  // Kernel shape
-            maxPoolOp.getPadsAttr(),         // Pads
-            maxPoolOp.getStorageOrderAttr(), // Storage order
-            maxPoolOp.getStridesAttr()       // Strides
-    );
-
-    // Create a new ReLU operation using MaxPool's output shape
-    Value newRelu = rewriter.create<ONNXReluOp>(reluOp.getLoc(), 
-        maxPoolOp.getResult().getType(), // ReLU gets MaxPool's output shape
-        newMaxPool // New MaxPool output becomes ReLU's input
-    );
-    // Replace all uses of the old MaxPool output with the new ReLU output
-    maxPoolOp.getResult().replaceAllUsesWith(newRelu);
-
-    // Safely erase the old MaxPool (now unused)
-    rewriter.eraseOp(maxPoolOp);
-
-    // Replace the original ReLU output with the new ReLU output
-    rewriter.replaceOp(reluOp, newRelu);
-    return success();
-  }
-};
-
 // =============================================================================
 // Pattern for replacing CastLikeOp by CastOp.
 // =============================================================================
@@ -1434,16 +1385,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
              op.getValueStringAttr() || op.getValueStringsAttr());
   });
 
-  target.addDynamicallyLegalOp<ONNXReluOp, ONNXMaxPoolOp>([](Operation *op) {
-    if (auto reluOp = dyn_cast<ONNXReluOp>(op)) {
-      for (auto user : reluOp.getResult().getUsers()) {
-        if (auto poolOp = dyn_cast<ONNXMaxPoolOp>(user)) {
-          return false; // Reorder ReLU to MaxPool condition met
-        }
-      }
-    }
-    return true;
-  });
 
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
@@ -1500,7 +1441,6 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<SumToAddPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
-  patterns.insert<ReorderReLUToMaxPoolPattern>(context);
 }
 
 /*!
