@@ -1269,7 +1269,7 @@ struct ReorderReLUToMaxPoolPattern
 
     // Create a new MaxPool operation using ReLU's output shape
     Value newMaxPool = 
-        rewriter.create<ONNXMaxPoolSingleOutOp>(maxPoolOp.getLoc(), 
+        rewriter.create<ONNXMaxPoolSingleOutOp>(maxPoolOp.getLoc(),
             maxPoolOp.getResult().getType(), // MaxPool gets ReLU's output shape
             reluOp.getX(), // Original ReLU's input becomes MaxPool's input
             maxPoolOp.getAutoPadAttr(),      // Auto pad
@@ -1279,10 +1279,10 @@ struct ReorderReLUToMaxPoolPattern
             maxPoolOp.getPadsAttr(),         // Pads
             maxPoolOp.getStorageOrderAttr(), // Storage order
             maxPoolOp.getStridesAttr()       // Strides
-    );
+        );
 
     // Create a new ReLU operation using MaxPool's output shape
-    Value newRelu = rewriter.create<ONNXReluOp>(reluOp.getLoc(), 
+    Value newRelu = rewriter.create<ONNXReluOp>(reluOp.getLoc(),
         maxPoolOp.getResult().getType(), // ReLU gets MaxPool's output shape
         newMaxPool // New MaxPool output becomes ReLU's input
     );
