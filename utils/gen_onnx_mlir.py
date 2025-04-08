@@ -344,7 +344,6 @@ OpsWithCanonicalizer = [
     "Less",
     "Loop",
     "LSTM",
-    "MaxPool",
     "Mul",
     "Or",
     "Pow",

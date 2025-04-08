@@ -4387,7 +4387,6 @@ def ONNXMaxOp:ONNX_Op<"Max",
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX MaxPool operation";
   let description = [{
   MaxPool consumes an input tensor X and applies max pooling across

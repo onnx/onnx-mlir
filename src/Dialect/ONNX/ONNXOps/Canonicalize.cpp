@@ -77,6 +77,22 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, mlir::cast<ShapedType>(A.getType()).getElementType());
 }
 
+// Get return type for a MaxPoolOp assuming input is 4D NCHW.
+Type getReturnTypeForMaxPool2D(Value input) {
+  RankedTensorType inputType = mlir::cast<RankedTensorType>(input.getType());
+  ArrayRef<int64_t> shape = inputType.getShape();
+  int64_t kernelH = 2, kernelW = 2;
+  int64_t strideH = 2, strideW = 2;
+  int64_t N = shape[0];
+  int64_t C = shape[1];
+  int64_t H = shape[2];
+  int64_t W = shape[3];
+  int64_t outH = (H - kernelH) / strideH + 1;
+  int64_t outW = (W - kernelW) / strideW + 1;
+  SmallVector<int64_t, 4> resultShape = {N, C, outH, outW};
+  return RankedTensorType::get(resultShape, inputType.getElementType());
+}
+
 // Get the index of the axis value in the given permutation array.
 IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
@@ -1803,6 +1819,12 @@ void ONNXLSTMOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
   results.insert<RNNOpRewriteSeqLenPattern<ONNXLSTMOp>>(context);
+}
+
+/// on the ONNXMaxPoolSingleOutOp.
+void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
+  RewritePatternSet &results, MLIRContext *context) {
+results.insert<ReorderReluMaxPoolPattern>(context);
 }
 
 /// on the ONNXMulOp.
