@@ -686,6 +686,7 @@ def GetReturnTypeForMaxPool2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMaxPool2D($0)"
 >;
 
+/// reorder relu-> maxpool to maxpool->relu
 def ReorderReluMaxPoolPattern : Pattern<
   // Match: maxpool(relu(x)) → relu(maxpool(x))
   (ONNXMaxPoolSingleOutOp:$maxpool
