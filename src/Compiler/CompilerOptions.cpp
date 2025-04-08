@@ -1386,6 +1386,9 @@ void initCompilerConfig() {
     // Fast math option is enabled (in general)
     setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
+
+  if (march == "z17")
+    march = "arch15";
 }
 
 } // namespace onnx_mlir
