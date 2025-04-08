@@ -1823,8 +1823,8 @@ void ONNXLSTMOp::getCanonicalizationPatterns(
 
 /// on the ONNXMaxPoolSingleOutOp.
 void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
-  RewritePatternSet &results, MLIRContext *context) {
-results.insert<ReorderReluMaxPoolPattern>(context);
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ReorderReluMaxPoolPattern>(context);
 }
 
 /// on the ONNXMulOp.
