@@ -30,7 +30,7 @@ static NNPALevel getNNPAFromTargetFlag(std::string str) {
       if (str[1] == '1') {
         if (str[2] == '6')
           return NNPALevel::M14;
-	if (str[2] == '7')
+        if (str[2] == '7')
           return NNPALevel::M15;
       }
     }
