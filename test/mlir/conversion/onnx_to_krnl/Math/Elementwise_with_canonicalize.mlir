@@ -1250,6 +1250,7 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 func.func private @test_hardswish(%arg0: tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.HardSwish"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
+  
   // mlir2FileCheck.py
   // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
   // CHECK-LABEL:  func.func private @test_hardswish
