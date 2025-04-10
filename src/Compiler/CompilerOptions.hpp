@@ -94,6 +94,7 @@ extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern uint64_t compilationNumThreads;                        // common for both
+extern std::vector<std::string> decomposeOpsInONNX;           // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
@@ -142,7 +143,6 @@ extern bool useOldBufferization;                              // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
-extern std::vector<std::string> decomposeOpsInONNX;           // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only

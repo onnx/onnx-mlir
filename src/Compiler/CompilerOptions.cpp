@@ -48,6 +48,7 @@ bool enableKrnlBufferReuse;                            // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
 uint64_t compilationNumThreads;                        // common for both
+std::vector<std::string> decomposeOpsInONNX;           // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -95,7 +96,6 @@ OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
-std::vector<std::string> decomposeOpsInONNX;           // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
