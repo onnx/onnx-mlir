@@ -891,4 +891,26 @@ bool isElementAttrUninitializedDenseResource(ElementsAttr elementsAttr) {
          !denseResourceElementsAttr.getRawHandle().getBlob();
 }
 
+//===----------------------------------------------------------------------===//
+// Helper for quantization
+//===----------------------------------------------------------------------===//
+Value getOrCastToI8(
+    OpBuilder &builder, Location loc, Value val, bool simpleCast) {
+  if (!getElementType(val.getType()).isUnsignedInteger())
+    return val;
+
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  Type i8Ty = builder.getI8Type();
+  if (simpleCast)
+    return create.onnx.cast(val, i8Ty);
+
+  // Use int16 to avoid integer overflow.
+  Type i16Ty = create.getBuilder().getI16Type();
+  auto cst128Attr = DenseElementsAttr::get(
+      RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
+  Value valI16 = create.onnx.cast(val, i16Ty);
+  valI16 = create.onnx.sub(valI16, create.onnx.constant(cst128Attr));
+  Value valI8 = create.onnx.cast(valI16, i8Ty);
+  return valI8;
+}
 } // namespace onnx_mlir
