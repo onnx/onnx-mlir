@@ -869,7 +869,7 @@ static int64_t decodeZArchNum(std::string str) {
     return 13;
   if (str == "arch14" || str == "z16") // Z16 and equivalents.
     return 14;
-  if (str == "arch15")
+  if (str == "arch15" || str == "z17") // Z17 and equivalents.
     return 15;
   return -1;
 }
@@ -1376,6 +1376,9 @@ void initCompilerConfig() {
     // Fast math option is enabled (in general)
     setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
+
+  if (march == "z17")
+    march = "arch15";
 }
 
 } // namespace onnx_mlir
