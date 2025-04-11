@@ -304,8 +304,8 @@ zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
 }
 
 // -----------------------------------------------------------------------------
-// Extension Functions for arch15
-// arch15 specific zdnn functions but with the `_ext` postfix.
+// Extension Functions for arch15/z17
+// arch15/z17 specific zdnn functions but with the `_ext` postfix.
 // Retrieve the zdnn status message
 // -----------------------------------------------------------------------------
 
