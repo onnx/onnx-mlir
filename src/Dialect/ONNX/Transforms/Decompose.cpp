@@ -1385,6 +1385,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
              op.getValueStringAttr() || op.getValueStringsAttr());
   });
 
+
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
