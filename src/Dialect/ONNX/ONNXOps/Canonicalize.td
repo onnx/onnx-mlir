@@ -679,31 +679,6 @@ def SwapReshapeMatMulPattern: Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXMaxPoolSingleOutOp
-//===----------------------------------------------------------------------===//
-
-def GetReturnTypeForMaxPool2D: NativeCodeCall<
-  "onnx_mlir::getReturnTypeForMaxPool2D($0)"
->;
-
-/// reorder relu-> maxpool to maxpool->relu
-def ReorderReluMaxPoolPattern : Pattern<
-  // Match: maxpool(relu(x)) → relu(maxpool(x))
-  (ONNXMaxPoolSingleOutOp:$maxpool
-    (ONNXReluOp:$relu $X),
-    $auto_pad, $ceil_mode, $dilations, $kernel_shape,
-    $pads, $storage_order, $strides),
-  // Replace with: relu(maxpool(x))
-  [(ONNXReluOp 
-    (ONNXMaxPoolSingleOutOp 
-      $X,
-      $auto_pad, $ceil_mode, $dilations, $kernel_shape,
-      $pads, $storage_order, $strides,
-      (returnType (GetReturnTypeForMaxPool2D $X))))],
-  [(HasRankOf<4> $X), (IsStaticShapeTensor:$maxpool)]
->;
-
-//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXSqueezeOp
 //===----------------------------------------------------------------------===//
 

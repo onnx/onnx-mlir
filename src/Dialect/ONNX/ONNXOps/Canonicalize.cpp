@@ -77,12 +77,6 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, mlir::cast<ShapedType>(A.getType()).getElementType());
 }
 
-// Get return type for a MaxPoolOp assuming input is 4D NCHW.
-Type getReturnTypeForMaxPool2D(Value input) {
-  auto inputType = mlir::cast<RankedTensorType>(input.getType());
-  return UnrankedTensorType::get(inputType.getElementType());
-}
-
 // Get the index of the axis value in the given permutation array.
 IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
@@ -1809,12 +1803,6 @@ void ONNXLSTMOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
   results.insert<RNNOpRewriteSeqLenPattern<ONNXLSTMOp>>(context);
-}
-
-/// on the ONNXMaxPoolSingleOutOp.
-void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ReorderReluMaxPoolPattern>(context);
 }
 
 /// on the ONNXMulOp.
