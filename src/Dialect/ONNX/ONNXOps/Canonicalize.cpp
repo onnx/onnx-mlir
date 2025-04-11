@@ -83,6 +83,13 @@ Type getReturnTypeForMaxPool2D(Value input) {
   return UnrankedTensorType::get(inputType.getElementType());
 }
 
+bool isNotConvProducer(mlir::Value val) {
+  if (auto defOp = val.getDefiningOp()) {
+    return !llvm::isa<mlir::ONNXConvOp>(defOp);
+  }
+  return true; // If no defining op, assume it's safe
+}
+
 // Get the index of the axis value in the given permutation array.
 IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {

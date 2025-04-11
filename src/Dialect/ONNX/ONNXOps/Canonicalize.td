@@ -686,6 +686,10 @@ def GetReturnTypeForMaxPool2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMaxPool2D($0)"
 >;
 
+def IsNotConvProducer : Constraint<CPred<
+"onnx_mlir::isNotConvProducer($0)">, "input is not produced by Conv"
+>;
+
 /// reorder relu-> maxpool to maxpool->relu
 def ReorderReluMaxPoolPattern : Pattern<
   // Match: maxpool(relu(x)) → relu(maxpool(x))
@@ -700,7 +704,12 @@ def ReorderReluMaxPoolPattern : Pattern<
       $auto_pad, $ceil_mode, $dilations, $kernel_shape,
       $pads, $storage_order, $strides,
       (returnType (GetReturnTypeForMaxPool2D $X))))],
-  [(HasRankOf<4> $X), (IsStaticShapeTensor:$maxpool)]
+  [
+    (HasRankOf<4> $X),
+    (IsStaticShapeTensor:$maxpool),
+    // DO NOT reorder if input to ReLU is a Conv
+    (IsNotConvProducer $X)
+  ]
 >;
 
 //===----------------------------------------------------------------------===//
