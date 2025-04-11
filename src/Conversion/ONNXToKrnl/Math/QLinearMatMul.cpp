@@ -78,6 +78,13 @@ public:
     ONNXQLinearMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    Value cst128;
+    if (resElementType.isUnsignedInteger(8)) {
+      auto cst128Attr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(128));
+      cst128 = create.onnx.constant(cst128Attr);
+    }
+
     // Prepare input A.
     Value AI8 = getOrCastToI8(rewriter, loc, A);
     Value AI32 = create.onnx.cast(AI8, i32Ty);
@@ -124,9 +131,6 @@ public:
     resI32 = create.onnx.cast(roundToEven, i32Ty);
     resI32 = create.onnx.add(resI32, yZeroPointI32);
     if (resElementType.isUnsignedInteger(8)) {
-      auto cst128Attr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(128));
-      Value cst128 = create.onnx.constant(cst128Attr);
       resI32 = create.onnx.add(resI32, cst128);
       resI32 = create.onnx.cast(resI32, i8Ty);
     }
