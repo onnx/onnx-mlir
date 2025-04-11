@@ -29,12 +29,12 @@ public:
   ONNXQLinearMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(ONNXQLinearMatMulOp mmiOp,
+  LogicalResult matchAndRewrite(ONNXQLinearMatMulOp qlmmOp,
       ONNXQLinearMatMulOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     using LocalDialectBuilder =
         MultiDialectBuilder<IndexExprBuilderForKrnl, OnnxBuilder>;
-    Operation *op = mmiOp.getOperation();
+    Operation *op = qlmmOp.getOperation();
     Location loc = ONNXLoc<ONNXQLinearMatMulOp>(op);
     LocalDialectBuilder create(rewriter, loc);
 
@@ -48,7 +48,6 @@ public:
     Value yScale = adaptor.getYScale();
     Value yZeroPoint = adaptor.getYZeroPoint();
 
-    llvm::outs() << "A: " << A << "\n";
     // Only support integer8 and float32 now.
     if (!getElementType(A.getType()).isInteger(8))
       return failure();
@@ -67,12 +66,12 @@ public:
     if (!getElementType(yZeroPoint.getType()).isInteger(8))
       return failure();
 
-    llvm::outs() << "tung here\n ";
     // Common types.
+    Type i8Ty = rewriter.getI8Type();
     Type i32Ty = rewriter.getI32Type();
     Type f32Ty = rewriter.getF32Type();
     auto resMemRefType = dyn_cast<MemRefType>(
-        typeConverter->convertType(mmiOp.getResult().getType()));
+        typeConverter->convertType(qlmmOp.getResult().getType()));
     Type resElementType = resMemRefType.getElementType();
 
     // Get shape.
@@ -84,7 +83,8 @@ public:
     Value AI32 = create.onnx.cast(AI8, i32Ty);
     auto aZeroPointType = mlir::cast<ShapedType>(aZeroPoint.getType());
     int64_t aZeroPointRank = aZeroPointType.getRank();
-    Value aZeroPointI32 = create.onnx.cast(aZeroPoint, i32Ty);
+    Value aZeroPointI8 = getOrCastToI8(rewriter, loc, aZeroPoint);
+    Value aZeroPointI32 = create.onnx.cast(aZeroPointI8, i32Ty);
     // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.
     // Unsqueeze zeroPoint to [Mx1] to make shapes compatible.
     // There is no need to handle scalar zeroPoint (e.g. tensor<dtype> or
@@ -99,14 +99,16 @@ public:
     AI32 = create.onnx.sub(AI32, aZeroPointI32);
 
     // Prepare input B.
-    Value BI8 = getOrCastToI8(rewriter, loc, A);
+    Value BI8 = getOrCastToI8(rewriter, loc, B);
     Value BI32 = create.onnx.cast(BI8, i32Ty);
     // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
-    Value bZeroPointI32 = create.onnx.cast(bZeroPoint, i32Ty);
+    Value bZeroPointI8 = getOrCastToI8(rewriter, loc, bZeroPoint);
+    Value bZeroPointI32 = create.onnx.cast(bZeroPointI8, i32Ty);
     BI32 = create.onnx.sub(BI32, bZeroPointI32);
 
     // Prepare output Y
-    Value yZeroPointI32 = create.onnx.cast(yZeroPoint, i32Ty);
+    Value yZeroPointI8 = getOrCastToI8(rewriter, loc, yZeroPoint);
+    Value yZeroPointI32 = create.onnx.cast(yZeroPointI8, i32Ty);
 
     // Emit MatMul.
     Value resI32 = create.onnx.matmul(
@@ -119,8 +121,15 @@ public:
 
     // Saturate and add zero point.
     Value roundToEven = create.onnx.round(resF32);
-    resI32 = create.onnx.cast(resF32, i32Ty);
+    resI32 = create.onnx.cast(roundToEven, i32Ty);
     resI32 = create.onnx.add(resI32, yZeroPointI32);
+    if (resElementType.isUnsignedInteger(8)) {
+      auto cst128Attr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(128));
+      Value cst128 = create.onnx.constant(cst128Attr);
+      resI32 = create.onnx.add(resI32, cst128);
+      resI32 = create.onnx.cast(resI32, i8Ty);
+    }
     Value res = create.onnx.cast(resI32, resElementType);
 
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});

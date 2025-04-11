@@ -908,8 +908,9 @@ Value getOrCastToI8(
   Type i16Ty = create.getBuilder().getI16Type();
   auto cst128Attr = DenseElementsAttr::get(
       RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
+  Value cst128 = create.onnx.constant(cst128Attr);
   Value valI16 = create.onnx.cast(val, i16Ty);
-  valI16 = create.onnx.sub(valI16, create.onnx.constant(cst128Attr));
+  valI16 = create.onnx.sub(valI16, cst128);
   Value valI8 = create.onnx.cast(valI16, i8Ty);
   return valI8;
 }
