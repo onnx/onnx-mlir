@@ -2328,6 +2328,29 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== QLinearMatMul
+        # ==MIN== 10
+        # ==LIM== Only support i8, ui8 and f32.
+        "test_qlinearmatmul_2D_int8_float32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_qlinearmatmul_2D_uint8_float32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_qlinearmatmul_3D_int8_float32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_qlinearmatmul_3D_uint8_float32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Range
         # ==MIN== 11
         "test_range_float_type_positive_delta_cpu": {
