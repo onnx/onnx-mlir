@@ -1670,6 +1670,18 @@ func.func @test_unsqueeze() -> tensor<*xf32> {
 
 // -----
 
+// CHECK-LABEL: @test_unsqueeze_zero_dim() -> tensor<2x1x1x0xf32>
+func.func @test_unsqueeze_zero_dim() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<> : tensor<2x0xf32>
+  %1 = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  %2 = "onnx.Unsqueeze"(%0, %1) : (tensor<2x0xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<> : tensor<2x1x1x0xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+}
+
+// -----
+
 // CHECK-LABEL: @test_unsqueezev11() -> tensor<2x1x1xf32>
 func.func @test_unsqueezev11() -> tensor<*xf32> {
   %0 = onnx.Constant dense<[4.0, 16.0]> : tensor<2xf32>
