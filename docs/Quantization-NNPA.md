@@ -14,7 +14,7 @@ In both approaches, the following constraints are applied:
 - Only per-tensor quantization is supported, meaning `scale` and `zero_point` are computed per-tensor and are scalar values.
 - Target quantization data type is 8-bit signed-integer.
  
-Quantization requires NNPA in IBM Telum II, meaning that the following compile flags must be specified to enable quantization: `-maccel=NNPA -march=arch15`.
+Quantization requires NNPA in IBM Telum II, meaning that the following compile flags must be specified to enable quantization: `-maccel=NNPA -march=z17`.
 
 # Dynamic quantization by the compiler
 
