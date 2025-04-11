@@ -27,6 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   ONNXReshapeOpAdaptor operandAdaptor(operands);
+  const bool allowZero = cast<ONNXReshapeOp>(op).getAllowzero();
   DimsExpr outputDims;
 
   // Get info about input data operand.
@@ -52,8 +53,14 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // dataRank will be 0 if Data is unranked tensor.
   // The number of element will not be computed
   IndexExpr numOfElements = LitIE(1);
-  for (unsigned i = 0; i < dataRank; ++i)
+  bool inputHasZeroDim = false;
+  for (unsigned i = 0; i < dataRank; ++i) {
+    IndexExpr dimShape = createIE->getShapeAsDim(data, i);
+    if (dimShape.isLiteralAndIdenticalTo(0)) {
+      inputHasZeroDim = true;
+    }
     numOfElements = numOfElements * createIE->getShapeAsDim(data, i);
+  }
 
   // Compute the total number of elements from the shape values.
   IndexExpr numOfElementsFromShape = LitIE(1);
@@ -62,7 +69,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     if (dimShape.isUndefined())
       return op->emitError("shape input parameter could not be processed");
     IndexExpr dim;
-    if (i < dataRank)
+    if (i < dataRank && !allowZero)
       // dimShape == 0: use dim from the input.
       dim = dimShape.selectOrSelf(
           dimShape == 0, createIE->getShapeAsDim(data, i));
@@ -86,14 +93,18 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     if (hasShapeAndRank(data)) {
       IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
       if (dimShape.isLiteralAndIdenticalTo(-1)) {
-        outputDims[i] = numOfElements.floorDiv(numOfElementsFromShape);
+        outputDims[i] =
+            inputHasZeroDim
+                ? LitIE(0)
+                : (numOfElementsFromShape.isLiteralAndIdenticalTo(0)
+                          ? QuestionmarkIndexExpr(false)
+                          : numOfElements.floorDiv(numOfElementsFromShape));
       }
     } else {
-      // ToFix: can not check getAllowzero because the operandAdaptor is
-      // constructed without attributes
-      // Anyway the question mark is a conservative but correct result.
-      outputDims[i] = outputDims[i].selectOrSelf(
-          outputDims[i] == 0, QuestionmarkIndexExpr(false));
+      if (!allowZero) {
+        outputDims[i] = outputDims[i].selectOrSelf(
+            outputDims[i] == 0, QuestionmarkIndexExpr(false));
+      }
       outputDims[i] = outputDims[i].selectOrSelf(
           outputDims[i] == -1, QuestionmarkIndexExpr(false));
     }

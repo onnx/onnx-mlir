@@ -2255,6 +2255,53 @@ func.func @test_reshape() -> tensor<*xf32> {
 // CHECK:         }
 }
 
+
+// -----
+
+func.func @test_reshape_zero_dim() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<> : tensor<1x12x0x1xf32>
+  %1 = onnx.Constant dense<[12, 1, -1]> : tensor<3xi64>
+  %2 = "onnx.Reshape"(%0, %1) : (tensor<1x12x0x1xf32>, tensor<3xi64>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_zero_dim
+// CHECK-SAME:   () -> tensor<12x1x0xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<> : tensor<12x1x0xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<12x1x0xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_reshape_zero_dim_and_shape() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<> : tensor<1x12x0x1xf32>
+  %1 = onnx.Constant dense<[0, 12, -1]> : tensor<3xi64>
+  %2 = "onnx.Reshape"(%0, %1) {allowzero = 0 : si64} : (tensor<1x12x0x1xf32>, tensor<3xi64>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_zero_dim_and_shape
+// CHECK-SAME:   () -> tensor<1x12x0xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<> : tensor<1x12x0xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x12x0xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_reshape_zero_dim_and_shape_allow_zero() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<> : tensor<1x12x0x1xf32>
+  %1 = onnx.Constant dense<[0, 12, 1]> : tensor<3xi64>
+  %2 = "onnx.Reshape"(%0, %1) {allowzero = 1 : si64} : (tensor<1x12x0x1xf32>, tensor<3xi64>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_zero_dim_and_shape_allow_zero
+// CHECK-SAME:   () -> tensor<0x12x1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<> : tensor<0x12x1xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<0x12x1xf32>
+// CHECK:         }
+}
+
+
 // -----
 
 func.func @test_constant_of_shape() -> tensor<3xi64> {
