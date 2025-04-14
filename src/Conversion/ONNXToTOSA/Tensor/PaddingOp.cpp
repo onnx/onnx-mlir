@@ -21,6 +21,7 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 
@@ -119,8 +120,9 @@ public:
       auto constType = RankedTensorType::get({}, elementDtype);
 
       DenseElementsAttr constAttr;
-      if (isa<FloatType>(elementDtype)) {
-        constAttr = DenseElementsAttr::get(constType, 0.0F);
+      if (auto floatType = dyn_cast<FloatType>(elementDtype)) {
+        constAttr = DenseElementsAttr::get(
+            constType, APFloat::getZero(floatType.getFloatSemantics()));
       } else {
         assert(isTOSAInt(elementDtype) && "Already validated");
         auto tyAsInt = cast<IntegerType>(elementDtype);
