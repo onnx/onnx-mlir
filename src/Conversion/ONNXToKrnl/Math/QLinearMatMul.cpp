@@ -48,7 +48,8 @@ public:
     Value yScale = adaptor.getYScale();
     Value yZeroPoint = adaptor.getYZeroPoint();
 
-    // Only support integer8 and float32 now.
+    // Now only support integer8 for inputs and zeropoints, and support float32
+    // for scale.
     if (!getElementType(A.getType()).isInteger(8))
       return failure();
     if (!getElementType(B.getType()).isInteger(8))
