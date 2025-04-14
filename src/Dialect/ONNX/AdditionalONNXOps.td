@@ -447,6 +447,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
                        OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 
+  let hasCanonicalizer = 1;
   let hasVerifier = 1;
 
   let extraClassDeclaration = [{
