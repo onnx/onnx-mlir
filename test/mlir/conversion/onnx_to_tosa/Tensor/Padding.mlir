@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa --cse %s -split-input-file | FileCheck %s
 
 func.func @test_pad_f32(%arg0: tensor<20x16x44x32xf32>) ->  tensor<24x22x52x42xf32>     {
     %noval = "onnx.NoValue"() {value} : () -> none
@@ -127,7 +127,6 @@ func.func @test_pad_ui32(%arg0: tensor<20x16x44x32xui32>) ->  tensor<24x22x52x42
     return %2 :   tensor<24x22x52x42xui32> 
 // CHECK-LABEL:  func.func @test_pad_ui32
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xui32>) -> tensor<24x22x52x42xui32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
 // CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<4> : tensor<ui32>}> : () -> tensor<ui32>
 // CHECK:           [[VAR_6_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_3_]], [[VAR_5_]] : (tensor<20x16x44x32xui32>, tensor<8xi64>, tensor<ui32>) -> tensor<24x22x52x42xui32>
@@ -156,8 +155,8 @@ func.func @test_pad_f16_constant_none(%arg0: tensor<256x1x1x5x1xf16>) -> tensor<
     %1 = "onnx.Pad"(%arg0, %0, %noval, %noval) {mode = "constant"} : (tensor<256x1x1x5x1xf16>, tensor<10xi64>, none, none) -> tensor<256x1x1x5x2xf16>
     return %1 :   tensor<256x1x1x5x2xf16>
 // CHECK-LABEL: test_pad_f16_constant_none
-// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 0], [0, 0], [0, 0], [0, 0], [0, 1]]> : tensor<5x2xi64>}> : () -> tensor<5x2xi64>
+// CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[0, 0, 0, 0, 0, 0, 0, 0, 0, 1]> : tensor<10xi64>}> : () -> tensor<10xi64>
 // CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f16>}> : () -> tensor<f16>
-// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]] : (tensor<256x1x1x5x1xf16>, tensor<5x2xi64>, tensor<f16>) -> tensor<256x1x1x5x2xf16>
+// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]] : (tensor<256x1x1x5x1xf16>, tensor<10xi64>, tensor<f16>) -> tensor<256x1x1x5x2xf16>
 // CHECK: return %[[VAR2]] : tensor<256x1x1x5x2xf16>
 }
