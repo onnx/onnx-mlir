@@ -1895,9 +1895,15 @@ Value OpFusionHelper::emitFuseOps(
     // getRemappedValue is needed for load op.
     SmallVector<Value, 4> useOperands;
     for (auto oper : useOp->getOperands()) {
-      if (oper.getDefiningOp() != defOp)
+      if (oper.getDefiningOp() != defOp) {
         useOperands.emplace_back(rewriter.getRemappedValue(oper));
-      else
+        Operation *constOp = oper.getDefiningOp<ONNXConstantOp>();
+        if (constOp && defOp->isBeforeInBlock(constOp)) {
+          // Move the constant op to be before the root op so that the IR is
+          // valid.
+          constOp->moveBefore(defOp);
+        }
+      } else {
         // Due to the op fusion, we will not generate a tensor for the current
         // oper, but only the scalar result from defOp.
         // This scalar value cannot be used to initialize ShapeHelper.
@@ -1916,6 +1922,7 @@ Value OpFusionHelper::emitFuseOps(
         // dynamic dim to be fused in the previous implementation. Therefore,
         // alloc is used for all the fused op.
         useOperands.emplace_back(alloc);
+      }
     }
     // Use shape helper to generate load index
     ONNXBroadcastOpShapeHelper shapeHelper(
