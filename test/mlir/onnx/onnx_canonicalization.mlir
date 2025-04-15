@@ -1922,3 +1922,19 @@ func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<2xi64>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf32> ) -> tensor<1x12x4xf32> {
+%0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_0"} : (tensor<1x3x4xf32>, tensor<1x3x4xf32>) -> tensor<1x6x4xf32>
+%1 = "onnx.Concat"(%0, %arg0) {axis = 1 : si64, onnx_node_name = "onnx.Concat_1"} : (tensor<1x6x4xf32>, tensor<1x3x4xf32>) -> tensor<1x9x4xf32>
+%2 = "onnx.Concat"(%1, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_2"} : (tensor<1x9x4xf32>, tensor<1x3x4xf32>) -> tensor<1x12x4xf32>
+return %2 : tensor<1x12x4xf32>
+
+  // CHECK-LABEL: func @test_recompose_concat
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x4xf32>, [[PARAM_1_:%.+]]: tensor<1x3x4xf32>) -> tensor<1x12x4xf32> {
+  // CHECK: [[FINAL_OUT:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_0_]], [[PARAM_1_]]) 
+  // CHECK-SAME: {axis = 1 : si64} 
+  // CHECK-NEXT: return [[FINAL_OUT]] : tensor<1x12x4xf32>
+
+}
