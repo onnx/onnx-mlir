@@ -87,11 +87,11 @@ public:
     }
 
     // Prepare input A.
-    Value AI8 = getOrCastToI8(rewriter, loc, A);
+    Value AI8 = create.onnx.getOrCastToI8(A);
     Value AI32 = create.onnx.cast(AI8, i32Ty);
     auto aZeroPointType = mlir::cast<ShapedType>(aZeroPoint.getType());
     int64_t aZeroPointRank = aZeroPointType.getRank();
-    Value aZeroPointI8 = getOrCastToI8(rewriter, loc, aZeroPoint);
+    Value aZeroPointI8 = create.onnx.getOrCastToI8(aZeroPoint);
     Value aZeroPointI32 = create.onnx.cast(aZeroPointI8, i32Ty);
     // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.
     // Unsqueeze zeroPoint to [Mx1] to make shapes compatible.
@@ -107,15 +107,15 @@ public:
     AI32 = create.onnx.sub(AI32, aZeroPointI32);
 
     // Prepare input B.
-    Value BI8 = getOrCastToI8(rewriter, loc, B);
+    Value BI8 = create.onnx.getOrCastToI8(B);
     Value BI32 = create.onnx.cast(BI8, i32Ty);
     // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
-    Value bZeroPointI8 = getOrCastToI8(rewriter, loc, bZeroPoint);
+    Value bZeroPointI8 = create.onnx.getOrCastToI8(bZeroPoint);
     Value bZeroPointI32 = create.onnx.cast(bZeroPointI8, i32Ty);
     BI32 = create.onnx.sub(BI32, bZeroPointI32);
 
     // Prepare output Y
-    Value yZeroPointI8 = getOrCastToI8(rewriter, loc, yZeroPoint);
+    Value yZeroPointI8 = create.onnx.getOrCastToI8(yZeroPoint);
     Value yZeroPointI32 = create.onnx.cast(yZeroPointI8, i32Ty);
 
     // Emit MatMul.

@@ -779,8 +779,8 @@ public:
     // Prepare inputs for zhigh QuantizedMatMul.
 
     // I8 tensors
-    Value AI8 = getOrCastToI8(rewriter, loc, mmiOp.getA(), true);
-    Value BI8 = getOrCastToI8(rewriter, loc, mmiOp.getB(), true);
+    Value AI8 = create.onnx.getOrCastToI8(mmiOp.getA(), true);
+    Value BI8 = create.onnx.getOrCastToI8(mmiOp.getB(), true);
 
     // Zero points in f32.
     Value AZeroPointI8 = mmiOp.getAZeroPoint();
@@ -790,7 +790,7 @@ public:
           RankedTensorType::get({}, getElementType(AZeroPointI8.getType())),
           AZeroPointI8, {zeroI64});
     }
-    AZeroPointI8 = getOrCastToI8(rewriter, loc, AZeroPointI8, true);
+    AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPointI8, true);
     Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
     // TESTING: minus zeropoint in advance to cancel out the software part of
     // zdnn quantized matmul.
@@ -803,7 +803,7 @@ public:
           RankedTensorType::get({}, getElementType(BZeroPointI8.getType())),
           BZeroPointI8, {zeroI64});
     }
-    BZeroPointI8 = getOrCastToI8(rewriter, loc, BZeroPointI8, true);
+    BZeroPointI8 = create.onnx.getOrCastToI8(BZeroPointI8, true);
     Value BZeroPointF32 = create.onnx.cast(BZeroPointI8, f32Ty);
     // TESTING: minus zeropoint in advance to cancel out the software part of
     // zdnn quantized matmul.
@@ -945,10 +945,10 @@ public:
             RankedTensorType::get({}, getElementType(AZeroPointI8.getType())),
             AZeroPointI8, {zeroI64});
       }
-      AZeroPointI8 = getOrCastToI8(rewriter, loc, AZeroPointI8, true);
+      AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPointI8, true);
       Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
       Value ARecScale = create.onnx.reciprocal(AScale);
-      AI8 = getOrCastToI8(rewriter, loc, AI8, true);
+      AI8 = create.onnx.getOrCastToI8(AI8, true);
       // Stickify the quantized input A to ztensor format.
       qAOp = rewriter.create<ZHighQuantizedStickOp>(loc, AI8, ARecScale,
           AZeroPointF32, aLayoutAttr, rewriter.getStringAttr(QTYPE_INT8));
@@ -1399,19 +1399,19 @@ public:
     }
 
     // zdnn supports signed int8, convert unsigned int8 inputs to signed int8.
-    Value AI8 = getOrCastToI8(rewriter, loc, A);
-    Value BI8 = getOrCastToI8(rewriter, loc, B);
+    Value AI8 = create.onnx.getOrCastToI8(A);
+    Value BI8 = create.onnx.getOrCastToI8(B);
 
     Value ARecScale = create.onnx.reciprocal(AScale);
-    Value AZeroPointI8 = getOrCastToI8(rewriter, loc, AZeroPoint);
+    Value AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPoint);
     Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
 
     Value BRecScale = create.onnx.reciprocal(BScale);
-    Value BZeroPointI8 = getOrCastToI8(rewriter, loc, BZeroPoint);
+    Value BZeroPointI8 = create.onnx.getOrCastToI8(BZeroPoint);
     Value BZeroPointF32 = create.onnx.cast(BZeroPointI8, f32Ty);
 
     Value YRecScale = create.onnx.reciprocal(YScale);
-    Value YZeroPointI8 = getOrCastToI8(rewriter, loc, YZeroPoint);
+    Value YZeroPointI8 = create.onnx.getOrCastToI8(YZeroPoint);
     Value YZeroPointF32 = create.onnx.cast(YZeroPointI8, f32Ty);
 
     // Stickify AI8, Transform AI8 into zTensor format.

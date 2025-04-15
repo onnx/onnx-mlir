@@ -388,12 +388,6 @@ std::string getNodeNameInPresenceOfOpt(
 /// be received
 bool isElementAttrUninitializedDenseResource(mlir::ElementsAttr elementsAttr);
 
-//===----------------------------------------------------------------------===//
-// Helper for quantization
-//===----------------------------------------------------------------------===//
-mlir::Value getOrCastToI8(mlir::OpBuilder &builder, mlir::Location loc,
-    mlir::Value val, bool simpleCast = false);
-
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp.inc"
 
 } // namespace onnx_mlir
