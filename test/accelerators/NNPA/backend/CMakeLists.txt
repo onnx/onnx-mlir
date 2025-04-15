@@ -443,13 +443,13 @@ set(NNPA_TEST_LIST_ARCH_15
     # ==OP== ReduceMax
     # ==LEVEL== z17
     # ==MIN== 1
-    # ==LIM== - `keepdims` must be 1. - `noop_with_empty_axes` must be 0. - Does not support reduction over multiple axes. - We do not support `do_not_keepdims` backend tests. - Only support reduction over the innermost dimension.
+    # ==LIM== - `keepdims` must be 1.<br>- `noop_with_empty_axes` must be 0.<br>- Does not support reduction over multiple axes.<br>- We do not support `do_not_keepdims` backend tests.<br>- Only support reduction over the innermost dimension.
     # Currrently, there is no backend test in ONNX that does reduction on the innermost dimension.
 
     # ==OP== ReduceMin
     # ==LEVEL== z17 
     # ==MIN== 1
-    # ==LIM== - `keepdims` must be 1. - `noop_with_empty_axes` must be 0. - Does not support reduction over multiple axes. - We do not support `do_not_keepdims` backend tests. - Only support reduction over the innermost dimension.
+    # ==LIM== - `keepdims` must be 1.<br>- `noop_with_empty_axes` must be 0.<br>- Does not support reduction over multiple axes.<br>- We do not support `do_not_keepdims` backend tests.<br>- Only support reduction over the innermost dimension.
     # Currrently, there is no backend test in ONNX that does reduction on the innermost dimension.
 
     # ==OP== Sqrt
