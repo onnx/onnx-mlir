@@ -1505,8 +1505,8 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
            (innerConcat.getResult().hasOneUse());
   }
 
-  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
-                                PatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
     Location loc = concatOp.getLoc();
     auto inputs = concatOp.getOperands();
 
@@ -1524,8 +1524,8 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
       if (isMergeableConcat(input, concatOp.getAxis())) {
         // Remove the nested concat and append its inputs.
         ONNXConcatOp innerConcat = cast<ONNXConcatOp>(input.getDefiningOp());
-        newInputs.append(innerConcat.getOperands().begin(),
-                         innerConcat.getOperands().end());
+        newInputs.append(
+            innerConcat.getOperands().begin(), innerConcat.getOperands().end());
         merged = true;
       } else {
         // Push non-mergeable input.
@@ -1544,7 +1544,6 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     return failure();
   }
 };
-
 
 // =============================================================================
 // Rewrite pattern LayerNormalization
