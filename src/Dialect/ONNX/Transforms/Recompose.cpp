@@ -654,7 +654,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
       return false;
 
     return true;
-  }); 
+  });
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
   // Pattern: DequanizeLinear + MatMul + QuantizeLinear.

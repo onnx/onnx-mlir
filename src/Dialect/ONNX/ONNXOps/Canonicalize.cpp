@@ -1505,8 +1505,8 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
            (innerConcat.getResult().hasOneUse());
   }
 
-  LogicalResult matchAndRewrite(
-      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
+                                PatternRewriter &rewriter) const final {
     Location loc = concatOp.getLoc();
     auto inputs = concatOp.getOperands();
 
@@ -1544,6 +1544,7 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     return failure();
   }
 };
+
 
 // =============================================================================
 // Rewrite pattern LayerNormalization
