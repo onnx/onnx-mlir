@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --EmitMLIR --printIR -tag="test" %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR -tag="test" %s | FileCheck %s
 
 // -----
 
@@ -16,7 +16,7 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
 // CHECK-LABEL:  func.func @transpose_on_ztensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5xf32>) -> memref<5x3xf32> attributes {llvm.emit_c_interface} {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "2D"} : (memref<3x5xf32>, memref<1x1x1x1x32x64xf16>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "2D", no_saturation = -1 : si64} : (memref<3x5xf32>, memref<1x1x1x1x32x64xf16>) -> ()
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_fold_std_alloc_3", shape = [2], value = dense<[3, 5]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK:           "zlow.relu"([[RES_]], [[VAR_0_]], [[RES_]]_0) {layout = "2D"} : (memref<1x1x1x1x32x64xf16>, memref<2xi64>, memref<1x1x1x1x32x64xf16>) -> ()

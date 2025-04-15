@@ -208,9 +208,10 @@ _ZHigh F32ToDLF16 operation_
 
 ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
 
-Optional `saturation` indicates whether the CPU tensor is saturated before stickification
+Optional `no_saturation` indicates whether the CPU tensor is saturated before stickification
 or not. If it is saturated, the dlfloat16 range would be used.
-Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
+Saturation on if `no_saturation == 0`. Otherwise, it is off.
+If `no_saturation` attribute is absent, default value is 0 (saturation on).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -222,7 +223,7 @@ Effects: `MemoryEffects::Effect{}`
 
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>no_saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
 
 #### Operands:
@@ -1020,13 +1021,14 @@ Effects: `MemoryEffects::Effect{}`
 
 _ZHigh Stick operation_
 
-ZHigh operation to perform a Stick."
+ZHigh operation to perform a Stick.
 
 If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
 
-Optional `saturation` indicates whether the CPU tensor is saturated before stickification
+Optional `no_saturation` indicates whether the CPU tensor is saturated before stickification
 or not. If it is saturated, the dlfloat16 range would be used.
-Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
+Saturation on if `no_saturation == 0`. Otherwise, it is off.
+If `no_saturation` attribute is absent, default value is 0 (saturation on).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -1039,7 +1041,7 @@ Effects: `MemoryEffects::Effect{}`
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>no_saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
 
 #### Operands:

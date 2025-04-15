@@ -5,7 +5,7 @@
 There are three ways to use ONNX-MLIR with Docker.
 1. [Using a prebuild image](#prebuilt-containers), recommended for using ONNX-MLIR but not developing it.
 2. [Using a script](#easy-script-to-compile-a-model), recommended for testing our infrastructure quickly without explicitly installing a Docker image.
-3. [Using a custom build image](#building-and-developping-onnx-mlir-using-docker), recommended for developing ONNX-MLIR.
+3. [Using a custom build image](#building-ONNX-MLIR-in-a-docker-environment), recommended for developing ONNX-MLIR.
 
 ## Prebuilt Images
 

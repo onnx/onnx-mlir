@@ -1801,9 +1801,9 @@ func.func @test_where_with_always_false_2(%arg0: tensor<?x?xi64>) -> tensor<2xi6
 
 // -----
 
-// Mix of DimOp and ConstantOp but the constant is negative, so cannot guarantee the false condition in WhereOp.
-// No rewrite happened.
-func.func @test_where_with_always_false_3(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+// Rewriting to remove whereOp and EqualOp
+// This pattern was found in a model, ibm-granite/granite-3.0-2b-instruct
+func.func @test_remove_where_equal_1(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
     %0 = onnx.Constant dense<-1> : tensor<2xi64>
     %1 = onnx.Constant dense<1> : tensor<2xi64>
     %2 = onnx.Constant dense<-2> : tensor<1xi64>
@@ -1813,11 +1813,108 @@ func.func @test_where_with_always_false_3(%arg0: tensor<?x?xi64>) -> tensor<2xi6
     %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64>
     onnx.Return %6 : tensor<2xi64>
 
-// CHECK-LABEL:  func.func @test_where_with_always_false_3
+// CHECK-LABEL:  func.func @test_remove_where_equal_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<2xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<-2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<2xi64>
+// CHECK:         }
+}
+
+// -----
+
+// Rewriting since the constant value in EqualOp is all negative value.
+func.func @test_remove_where_equal_2(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<[-2, -1]> : tensor<2xi64>
+    %1 = onnx.Constant dense<[-2, -3]> : tensor<2xi64>
+    %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [?, -1]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1> // [0, 1]
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [?, -3]
+    onnx.Return %6 : tensor<2xi64>
+
+// CHECK-LABEL:  func.func @test_remove_where_equal_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<2xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<-3> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<2xi64>
+// CHECK:         }
+}
+
+// -----
+
+// Not rewriting since the constant in second operand of EqualOp is not negative value.
+// In this case, since the second dim of %arg0 (%3) might be 1 at runtime,
+// it is not possible to calculate the results of EqualOp at compilation time.
+func.func @test_remove_where_equal_3(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<1> : tensor<2xi64>
+    %1 = onnx.Constant dense<1> : tensor<2xi64>
+    %2 = onnx.Constant dense<-2> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%2, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [-2, ?]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1>  // [0, 0]
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [-2, ?]]
+    onnx.Return %6 : tensor<2xi64>
+
+// CHECK-LABEL:  func.func @test_remove_where_equal_3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<2xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Equal"([[VAR_3_]], [[VAR_0_]]) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Where"([[VAR_4_]], [[VAR_0_]], [[VAR_3_]]) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<2xi64>
+// CHECK:         }
+}
+
+// -----
+
+// Not rewriting since the constant in second operand of EqualOp is not negative value.
+func.func @test_remove_where_equal_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<[2, -1]> : tensor<2xi64>
+    %1 = onnx.Constant dense<[-2, -3]> : tensor<2xi64>
+    %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64> // [?, -1]
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1> // [0, 1]
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64> // [?, -3]
+    onnx.Return %6 : tensor<2xi64>
+
+// CHECK-LABEL:  func.func @test_remove_where_equal_4
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<2xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, -1]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[-2, -3]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Equal"([[VAR_4_]], [[VAR_0_]]) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Where"([[VAR_5_]], [[VAR_1_]], [[VAR_4_]]) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<2xi64>
+// CHECK:         }
+}
+
+// -----
+
+// Not rewriting since the operand in ConcatOp is neither DimOp nor ConstantOp.
+func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>) -> tensor<2xi64> {
+    %0 = onnx.Constant dense<-1> : tensor<2xi64>
+    %1 = onnx.Constant dense<1> : tensor<2xi64>
+    %2 = "onnx.Add"(%arg1, %arg2) : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+    %3 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    %4 = "onnx.Concat"(%2, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+    %5 = "onnx.Equal"(%4, %0) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1>
+    %6 = "onnx.Where"(%5, %1, %4) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64>
+    onnx.Return %6 : tensor<2xi64>
+
+// CHECK-LABEL:  func.func @test_remove_where_equal_5
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>, [[PARAM_1_:%.+]]: tensor<1xi64>, [[PARAM_2_:%.+]]: tensor<1xi64>) -> tensor<2xi64> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<-1> : tensor<2xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<-2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Add"([[PARAM_1_]], [[PARAM_2_]]) : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // CHECK:           [[VAR_5_:%.+]] = "onnx.Equal"([[VAR_4_]], [[VAR_0_]]) : (tensor<2xi64>, tensor<2xi64>) -> tensor<2xi1>
@@ -1826,3 +1923,17 @@ func.func @test_where_with_always_false_3(%arg0: tensor<?x?xi64>) -> tensor<2xi6
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  %0 = "onnx.Relu"(%arg0) {onnx_node_name = "onnx.Relu_0"} : (tensor<1x64x32x32xf32>) -> tensor<1x64x32x32xf32>
+  %1 = "onnx.MaxPoolSingleOut"(%0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], onnx_node_name = "onnx.MaxPoolSingleOut_1", storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
+  return %1 : tensor<1x64x16x16xf32>
+
+  // CHECK-LABEL: func @test_reorder_relu_maxpool
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  // CHECK:      [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<*xf32>
+  // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<*xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK-NEXT:     return [[VAR_1_]] : tensor<1x64x16x16xf32>
+  // CHECK:         }
+}
