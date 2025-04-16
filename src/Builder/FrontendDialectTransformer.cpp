@@ -228,9 +228,11 @@ private:
     if (node.has_name()) {
       // Use the the node name as Location.
       return NameLoc::get(builder_.getStringAttr(node.name()));
-    } else {
-      return UnknownLoc();
+    } else if (node.output_size() > 0 && !node.output(0).empty()) {
+      // Use the name of the first output as Location if it exists.
+      return NameLoc::get(builder_.getStringAttr(node.output(0)));
     }
+    return UnknownLoc();
   }
 
   Value createNoneValue() {
