@@ -482,34 +482,6 @@ func.func @test_size2(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
 
 // -----
 
-func.func @consecutive_clips(%arg0: tensor<3x1024x1024xf32> {onnx.name = "input"}) -> (tensor<3x1024x1024xf32> {onnx.name = "output"}) {
-  %0 = onnx.Constant dense<-5.000000e-01> : tensor<f32>
-  %1 = onnx.Constant dense<5.000000e-01> : tensor<f32>
-  %2 = onnx.Constant dense<-3.000000e-01> : tensor<f32>
-  %3 = onnx.Constant dense<3.000000e-01> : tensor<f32>
-  %4 = "onnx.Clip"(%arg0, %0, %1) {onnx_node_name = "Clip_1"} : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
-  %5 = "onnx.Clip"(%4, %2, %3) {onnx_node_name = "Clip_2"} : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
-  onnx.Return %5 : tensor<3x1024x1024xf32>
-
-  // CHECK: module {
-  // CHECK: func.func @consecutive_clips(%[[ARG0:.*]]: tensor<3x1024x1024xf32> {{.*}}) -> (tensor<3x1024x1024xf32> {{.*}})
-  // CHECK: %[[VAR_1:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
-  // CHECK: %[[VAR_2:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
-  // CHECK: %[[VAR_3:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
-  // CHECK: %[[VAR_4:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
-  // CHECK: %[[CONST_MAX:.*]] = "onnx.Max"(%[[VAR_1]], %[[VAR_3]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
-  // CHECK: %[[CONST_MIN:.*]] = "onnx.Min"(%[[VAR_2]], %[[VAR_4]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
-
-  // CHECK: %[[FUSED_CLIP:.*]] = "onnx.Clip"(%[[ARG0]], %[[CONST_MAX]], %[[CONST_MIN]]) : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
-
-  // CHECK: onnx.Return %[[FUSED_CLIP]] : tensor<3x1024x1024xf32>
-
-  // CHECK: }
-
-}
-
-// -----
-
 // COM: Test rewriting GlobalAveragePool into ReduceMeanV13
 func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>

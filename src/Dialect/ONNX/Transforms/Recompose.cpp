@@ -689,7 +689,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
         rewriter, loc);
 
     // Identify axis dynamically based on Gemm shape consistency
-    ShapedType firstWeightType =
+    auto firstWeightType =
         mlir::cast<ShapedType>(parallelGemms[0].getB().getType());
     int64_t concatAxis =
         gemmOp1.getTransB() ? 0 : firstWeightType.getRank() - 1;
@@ -730,7 +730,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     Value newBias = create.onnx.concat(newBiasType, biasValues, 0);
 
     // Create combined Gemm operation
-    ShapedType outputShape =
+    auto outputShape =
         mlir::cast<ShapedType>(gemmOp1.getResult().getType()).getShape().vec();
     outputShape[Axis] = totalOutputFeatures;
     auto newOutputType = RankedTensorType::get(outputShape, elementType);
