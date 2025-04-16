@@ -1498,17 +1498,18 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
   // Helper function to check if an input is a mergeable Concat.
   static bool isMergeableConcat(Value input, int64_t axis) {
-    ONNXConcatOp innerConcat = input.getDefiningOp<ONNXConcatOp>();
-    if (!innerConcat)
+    ONNXConcatOp concatOp = input.getDefiningOp<ONNXConcatOp>();
+    if (!concatOp)
       return false;
-    return (innerConcat.getAxis() == axis) &&
-           (innerConcat.getResult().hasOneUse());
+    return (concatOp.getAxis() == axis) &&
+           (concatOp.getResult().hasOneUse());
   }
 
   LogicalResult matchAndRewrite(
       ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
     Location loc = concatOp.getLoc();
-    auto inputs = concatOp.getOperands();
+    ValueRange inputs = concatOp.getOperands();
+    int64_t axis = concatOp.getAxis();
 
     // If there is only a single input, replace the concat with that input.
     if (inputs.size() == 1) {
@@ -1521,7 +1522,7 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
     // Flatten nested concat nodes.
     for (Value input : inputs) {
-      if (isMergeableConcat(input, concatOp.getAxis())) {
+      if (isMergeableConcat(input, axis)) {
         // Remove the nested concat and append its inputs.
         ONNXConcatOp innerConcat = cast<ONNXConcatOp>(input.getDefiningOp());
         newInputs.append(
@@ -1536,7 +1537,7 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     if (merged) {
       // Create a new ONNXConcat op with the flattened inputs.
       auto newConcat = rewriter.create<ONNXConcatOp>(
-          loc, concatOp.getResult().getType(), newInputs, concatOp.getAxis());
+          loc, concatOp.getResult().getType(), newInputs, axis);
       rewriter.replaceOp(concatOp, newConcat.getResult());
       return success();
     }
