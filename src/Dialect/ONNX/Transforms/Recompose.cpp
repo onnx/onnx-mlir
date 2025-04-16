@@ -443,7 +443,7 @@ struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
           RankedTensorType::get({total_C_out}, weightType.getElementType());
       axis0 = IntegerAttr::get(si64Type, 0);
 
-      concatenatedBias = 
+      concatenatedBias =
           rewriter.create<ONNXConcatOp>(biasLoc, newBiasType, biasTensors,
               axis0); // Bias should be concatenated along axis=0
     }
