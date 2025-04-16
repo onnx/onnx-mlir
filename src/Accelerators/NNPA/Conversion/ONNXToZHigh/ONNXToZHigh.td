@@ -698,6 +698,7 @@ def replaceONNXMatMulAddPatternBcast1B : Pat<
 // Replace onnx.add and onnx.matmul with bcast23 tensors with ZHighMatMul
 //===----------------------------------------------------------------------===//
 
+// hi alex, changes here
 def replaceONNXMatMulAddPatternBcast23A : Pat<
   // From Add $b, (MatMul $x, $y)
   (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
