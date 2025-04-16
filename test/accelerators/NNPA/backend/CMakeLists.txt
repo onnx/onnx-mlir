@@ -106,8 +106,6 @@ set(NNPA_TEST_LIST_z16
     # To rebuild after changes: make onnx_mlir_supported_ops
     # ==ARCH== NNPA
     # ==ADDITIONAL_TOP_PARAGRAPH== NNPA for z16 and z17 have hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.hpp](../src/Accelerators/NNPA/Support/NNPALimit.hpp). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA. NNPA currently only support DLFLOAT16 as its data type. Common data formats like FP32, FP16, BFLOAT need to undergo data conversions to the NNPA internal format DLFLOAT16. Hence ONNX ops which updated their tensors to BFLOAT16 will not be natively supported on NNPA.  Onnx-mlir with NNPA utilizes hardware when possible. To accomplish this, the compiler converts ONNX ops to [ZHigh](Dialects/zhigh.md) ops, [ZLow](Dialects/zlow.md) ops, and are processed by the [IBM Z Deep Neural Network Library (zDNN)](https://github.com/IBM/zDNN).
-    # ==ADDITIONAL_TOP_PARAGRAPH== z17 NNPA hardware allows for a maximum dimension index size (MDIS): /*e1*/ 2097152, /*e2*/ 1048576, /*e3*/ 32768, /*e4*/ 32768 and perfroms data conversions to DLFLOAT16 on the NNPA.
-    # ==ADDITIONAL_TOP_PARAGRAPH== The following are pattern recognition optimizations performed by the z17's NNPA not supported by ONNX: invsqrt and transposed matmul.
 
     # ==OP== Add
     # ==LEVEL== z16,z17

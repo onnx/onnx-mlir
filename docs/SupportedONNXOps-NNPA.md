@@ -14,12 +14,6 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 NNPA for z16 and z17 have hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.hpp](../src/Accelerators/NNPA/Support/NNPALimit.hpp). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA. NNPA currently only support DLFLOAT16 as its data type. Common data formats like FP32, FP16, BFLOAT need to undergo data conversions to the NNPA internal format DLFLOAT16. Hence ONNX ops which updated their tensors to BFLOAT16 will not be natively supported on NNPA.  Onnx-mlir with NNPA utilizes hardware when possible. To accomplish this, the compiler converts ONNX ops to [ZHigh](Dialects/zhigh.md) ops, [ZLow](Dialects/zlow.md) ops, and are processed by the [IBM Z Deep Neural Network Library (zDNN)](https://github.com/IBM/zDNN).
 
 
-z17 NNPA hardware allows for a maximum dimension index size (MDIS): /*e1*/ 2097152, /*e2*/ 1048576, /*e3*/ 32768, /*e4*/ 32768 and perfroms data conversions to DLFLOAT16 on the NNPA.
-
-
-The following are pattern recognition optimizations performed by the z17's NNPA not supported by ONNX: invsqrt and transposed matmul.
-
-
 
 
 | Op |Supported Opsets (inclusive) |Minimum NNPA Level(Inclusive) |Limitations |Notes |
@@ -47,9 +41,9 @@ The following are pattern recognition optimizations performed by the z17's NNPA 
 | **Mul** |6 - * |z16 - ^ |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Pow** |7 - * |z16 - ^ |- Exponent should be a scalar integer and less or equal to 64. | |
 | **QLinearMatMul** |10 - * |z17 - ^ |Only support i8 and ui8 for zeropoint, and f32 for scale. | |
-| **ReduceMax** |6 - * |z17 - ^ |- `keepdims` must be 1. - `noop_with_empty_axes` must be 0. - Does not support reduction over multiple axes. - We do not support `do_not_keepdims` backend tests. - Only support reduction over the innermost dimension. | |
+| **ReduceMax** |6 - * |z17 - ^ |- `keepdims` must be 1.<br>- `noop_with_empty_axes` must be 0.<br>- Does not support reduction over multiple axes.<br>- We do not support `do_not_keepdims` backend tests.<br>- Only support reduction over the innermost dimension. | |
 | **ReduceMean** |6 - * |z16 - ^ |- `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3]. | |
-| **ReduceMin** |6 - * |z17 - ^ |- `keepdims` must be 1. - `noop_with_empty_axes` must be 0. - Does not support reduction over multiple axes. - We do not support `do_not_keepdims` backend tests. - Only support reduction over the innermost dimension. | |
+| **ReduceMin** |6 - * |z17 - ^ |- `keepdims` must be 1.<br>- `noop_with_empty_axes` must be 0.<br>- Does not support reduction over multiple axes.<br>- We do not support `do_not_keepdims` backend tests.<br>- Only support reduction over the innermost dimension. | |
 | **Relu** |6 - * |z16 - ^ |Input tensor must be less than or equal to 4 dimensions. | |
 | **Sigmoid** |6 - * |z16 - ^ |Input tensor must be less than or equal to 4 dimensions. | |
 | **Softmax** |6 - * |z16 - ^ |- `axis` must be the last dimension, i.e. `rank - 1` or -1. | |
