@@ -1501,8 +1501,7 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     ONNXConcatOp concatOp = input.getDefiningOp<ONNXConcatOp>();
     if (!concatOp)
       return false;
-    return (concatOp.getAxis() == axis) &&
-           (concatOp.getResult().hasOneUse());
+    return (concatOp.getAxis() == axis) && (concatOp.getResult().hasOneUse());
   }
 
   LogicalResult matchAndRewrite(
