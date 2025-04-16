@@ -343,8 +343,8 @@ private:
 /// **Pattern to Fuse `Split → Conv → Concat` into a single Grouped Conv**
 struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
   using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(ONNXSplitOp splitOp,
-                                PatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
 
     llvm::SmallVector<ONNXConvOp, 2> convOps;
     ONNXConcatOp concatOp;
@@ -414,7 +414,7 @@ struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
     // Compute correct concatenated shape
     Type newWeightType = RankedTensorType::get(
         {total_C_out, weightType.getDimSize(1), weightType.getDimSize(2),
-         weightType.getDimSize(3)},
+            weightType.getDimSize(3)},
         weightType.getElementType());
 
     // Create new concatenated weight tensor (concatenating along axis=0)
@@ -443,16 +443,15 @@ struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
           RankedTensorType::get({total_C_out}, weightType.getElementType());
       axis0 = IntegerAttr::get(si64Type, 0);
 
-      concatenatedBias = rewriter.create<ONNXConcatOp>(
-          biasLoc, newBiasType, biasTensors,
-          axis0); // Bias should be concatenated along axis=0
+      concatenatedBias = 
+          rewriter.create<ONNXConcatOp>(biasLoc, newBiasType, biasTensors,
+              axis0); // Bias should be concatenated along axis=0
     }
 
     // **Create new Grouped ConvOp**
-    auto newConv = rewriter.create<ONNXConvOp>(
-        loc, resultType, input, concatenatedWeight,
-        hasBias ? concatenatedBias : Value(), autoPadAttr, dilationsAttr,
-        groupAttrVal, kernelShapeAttr, padsAttr, stridesAttr);
+    auto newConv = rewriter.create<ONNXConvOp>(loc, resultType, input,
+        concatenatedWeight, hasBias ? concatenatedBias : Value(), autoPadAttr,
+        dilationsAttr, groupAttrVal, kernelShapeAttr, padsAttr, stridesAttr);
 
     // Replace ConcatOp with new ConvOp result
     rewriter.replaceOp(concatOp, newConv.getResult());
@@ -462,10 +461,8 @@ struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
     rewriter.eraseOp(splitOp);
     return success();
   }
-  static bool
-  isSplitConvConcatPattern(ONNXSplitOp splitOp,
-                           llvm::SmallVector<ONNXConvOp, 2> &convOps,
-                           ONNXConcatOp &concatOp) {
+  static bool isSplitConvConcatPattern(ONNXSplitOp splitOp,
+      llvm::SmallVector<ONNXConvOp, 2> &convOps, ONNXConcatOp &concatOp) {
     // Step 1: Ensure all outputs of Split go into ConvOps
     int64_t expectedChannelSize = -1; // To store the expected channel size
     for (Value output : splitOp.getResults()) {
@@ -510,9 +507,8 @@ struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
 
     // Step 3: Ensure all Convs feed into the same ConcatOp
     for (auto conv : convOps) {
-      bool validUser =
-          llvm::any_of(conv.getResult().getUsers(),
-                       [&](Operation *user) { return user == concatOp; });
+      bool validUser = llvm::any_of(conv.getResult().getUsers(),
+          [&](Operation *user) { return user == concatOp; });
       if (!validUser)
         return false;
     }
@@ -843,7 +839,8 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   target.addDynamicallyLegalOp<ONNXSplitOp>([](ONNXSplitOp op) {
     llvm::SmallVector<ONNXConvOp, 2> convOps;
     ONNXConcatOp concatOp;
-    return !SplitConvConcatFusionPattern::isSplitConvConcatPattern(op, convOps, concatOp);
+    return !SplitConvConcatFusionPattern::isSplitConvConcatPattern(
+        op, convOps, concatOp);
   });
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
