@@ -11,7 +11,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
    * A ^ indicates onnx-mlir is compatible with the latest level of the NNPA Architecture which is z17.
 
 
-NNPA for z16 and z17 have hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.hpp](../src/Accelerators/NNPA/Support/NNPALimit.hpp). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA. NNPA currently only support DLFLOAT16 as its data type. Common data formats like FP32, FP16, BFLOAT need to undergo data conversions to the NNPA internal format DLFLOAT16. Hence ONNX ops which updated their tensors to BFLOAT16 will not be natively supported on NNPA.  Onnx-mlir with NNPA utilizes hardware when possible. To accomplish this, the compiler converts ONNX ops to [ZHigh](Dialects/zhigh.md) ops, [ZLow](Dialects/zlow.md) ops, and are processed by the [IBM Z Deep Neural Network Library (zDNN)](https://github.com/IBM/zDNN).
+NNPA for z16 and z17 have hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.cpp](../src/Accelerators/NNPA/Support/NNPALimit.cpp). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA. NNPA currently only support DLFLOAT16 as its data type. Common data formats like FP32, FP16, BFLOAT need to undergo data conversions to the NNPA internal format DLFLOAT16. Hence ONNX ops which updated their tensors to BFLOAT16 will not be natively supported on NNPA.  Onnx-mlir with NNPA utilizes hardware when possible. To accomplish this, the compiler converts ONNX ops to [ZHigh](Dialects/zhigh.md) ops, [ZLow](Dialects/zlow.md) ops, and are processed by the [IBM Z Deep Neural Network Library (zDNN)](https://github.com/IBM/zDNN).
+
+
+Refer to the (Qunatization-NNPA.md)[https://github.com/onnx/onnx-mlir/blob/main/docs/Quantization-NNPA.md#limiations] page for limitations pertaining to quantization support on z17.
 
 
 
