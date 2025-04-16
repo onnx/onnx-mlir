@@ -787,7 +787,6 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
 
     return success();
   }
-
 };
 
 struct RecomposeONNXToONNXPass
