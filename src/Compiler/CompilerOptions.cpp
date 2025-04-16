@@ -364,10 +364,10 @@ static llvm::cl::opt<bool, true> useOnnxModelTypesOpt("useOnnxModelTypes",
     llvm::cl::location(useOnnxModelTypes), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> useOutputNameAsNodeNameOpt("useOutputNameAsNodeName",
-  llvm::cl::desc("Use output name as node name."),
-  llvm::cl::location(useOutputNameAsNodeName), llvm::cl::init(false),
-  llvm::cl::cat(OnnxMlirOptions));
+static llvm::cl::opt<bool, true> useOutputNameAsNodeNameOpt(
+    "useOutputNameAsNodeName", llvm::cl::desc("Use output name as node name."),
+    llvm::cl::location(useOutputNameAsNodeName), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<int, true> repeatOnnxTransformOpt("repeatOnnxTransform",
     llvm::cl::desc("Invoke extra onnx transform pass(shape inference, constant "
