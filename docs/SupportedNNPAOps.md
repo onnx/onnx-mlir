@@ -5,7 +5,7 @@
 
 This document highlights operations that are performed on NNPA hardware that are not explicilty supported by ONNX. 
 
-* **Supported Opsets** indicates the lowest and highest NNPA level a model may have for onnx-mlir to support compiling a model with the operator.
+* **Minimum NNPA Level(Inclusive)** indicates the lowest and highest NNPA level a model may have for onnx-mlir to support compiling a model with the operator.
     * A ^ indicates onnx-mlir is compatible with the latest level of the NNPA Architecture which is z17.
     * Refer to [SupportedONNXOps-NNPA.md](https://github.com/onnx/onnx-mlir/blob/main/docs/SupportedONNXOps-NNPA.md) for ONNX supported operations.
 
