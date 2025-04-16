@@ -9,7 +9,7 @@ This document highlights operations that are performed on NNPA hardware that are
     * A ^ indicates onnx-mlir is compatible with the latest level of the NNPA Architecture which is z17.
     * Refer to [SupportedONNXOps-NNPA.md](https://github.com/onnx/onnx-mlir/blob/main/docs/SupportedONNXOps-NNPA.md) for ONNX supported operations.
 
-* **Improvements** 
+* **Improvements**
     * Transposed MatMul - Optimization of the pattern MatMul followed by transponse consolidated and executed on NNPA.
     * Maximum Dimension Index Size (MDIS) - /*e1*/ 2097152, /*e2*/ 1048576, /*e3*/ 32768, /*e4*/ 32768.
     * Stickification - Perfroms data conversions to NNPAs internal format, DLFLOAT16, on the NNPA.
