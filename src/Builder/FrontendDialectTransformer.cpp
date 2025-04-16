@@ -225,12 +225,11 @@ private:
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Location ImportLoc(const onnx::NodeProto &node) {
-    if (node.has_name()) {
-      // Use the the node name as Location.
-      return NameLoc::get(builder_.getStringAttr(node.name()));
-    } else if (node.output_size() > 0 && !node.output(0).empty()) {
-      // Use the name of the first output as Location if it exists.
+    if (options_.useOutputNameAsNodeName && node.output_size() > 0) {
       return NameLoc::get(builder_.getStringAttr(node.output(0)));
+    }
+    if (!options_.useOutputNameAsNodeName && node.has_name()) {
+      return NameLoc::get(builder_.getStringAttr(node.name()));
     }
     return UnknownLoc();
   }

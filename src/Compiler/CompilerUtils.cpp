@@ -721,6 +721,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     ImportOptions options;
     options.verboseOutput = VerboseOutput;
     options.useOnnxModelTypes = useOnnxModelTypes;
+    options.useOutputNameAsNodeName = useOutputNameAsNodeName;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
     options.dimParams = dimParams;
@@ -742,6 +743,7 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
     std::string *errorMessage) {
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
+  options.useOutputNameAsNodeName = useOutputNameAsNodeName;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.allowSorting = allowSorting;
   options.shapeInformation = shapeInformation;

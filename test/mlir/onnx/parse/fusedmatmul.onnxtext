@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --useOnnxModelTypes=false --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --useOnnxModelTypes=false --useOutputNameAsNodeName=true --EmitONNXIR --printIR %s | FileCheck %s
 
 // fusedmatmul.onnxtext is an onnx model with a single FusedMatMul node.
 //
