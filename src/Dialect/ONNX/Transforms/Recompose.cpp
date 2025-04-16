@@ -340,6 +340,189 @@ private:
   }
 };
 
+/// **Pattern to Fuse `Split → Conv → Concat` into a single Grouped Conv**
+struct SplitConvConcatFusionPattern : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(ONNXSplitOp splitOp,
+                                PatternRewriter &rewriter) const final {
+
+    llvm::SmallVector<ONNXConvOp, 2> convOps;
+    ONNXConcatOp concatOp;
+
+    // Ensure the pattern exists: Split → Conv → Concat
+    if (!isSplitConvConcatPattern(splitOp, convOps, concatOp))
+      return failure();
+
+    // Extract attributes from the first Conv layer
+    ONNXConvOp firstConv = convOps[0];
+    Value input = splitOp.getInput();
+    Location loc = splitOp.getLoc();
+    Type resultType = concatOp.getResult().getType();
+
+    // Extract Conv attributes
+    auto autoPadAttr = firstConv.getAutoPadAttr();
+    auto kernelShapeAttr = firstConv.getKernelShape().value_or(nullptr);
+    auto padsAttr = firstConv.getPads().value_or(nullptr);
+    auto stridesAttr = firstConv.getStrides().value_or(nullptr);
+    auto dilationsAttr = firstConv.getDilations().value_or(nullptr);
+
+    // Extract and validate weight tensor rank
+    auto weightType =
+        mlir::dyn_cast<RankedTensorType>(firstConv.getW().getType());
+    if (!weightType)
+      return failure();
+    int64_t rank = weightType.getRank();
+    if (1 >= rank)
+      return failure(); // Ensure axis is within valid range
+
+    // Ensure valid axis selection
+    int64_t concatAxis = 1; // Typically channel dimension
+    if (concatAxis >= rank)
+      return failure(); // Prevent out-of-range errors
+
+    // Get the number of split outputs
+    int64_t numSplits = splitOp.getNumResults();
+    if (numSplits != static_cast<int64_t>(convOps.size())) {
+      return failure();
+    }
+
+    // Ensure all ConvOps have the same kernel, stride, dilation, and padding
+    for (size_t i = 1; i < convOps.size(); ++i) {
+      if (convOps[i].getKernelShape() != firstConv.getKernelShape() ||
+          convOps[i].getStrides() != firstConv.getStrides() ||
+          convOps[i].getDilations() != firstConv.getDilations() ||
+          convOps[i].getPads() != firstConv.getPads()) {
+        return failure();
+      }
+    }
+
+    // Create correct IntegerAttrs
+    IntegerAttr axis0 = rewriter.getI64IntegerAttr(0);
+    IntegerType si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+    IntegerAttr groupAttrVal =
+        IntegerAttr::get(si64Type, static_cast<int64_t>(numSplits));
+
+    // **Concatenating Conv Weights Correctly**
+    SmallVector<Value, 2> weightTensors;
+    int64_t total_C_out = 0;
+    for (auto conv : convOps) {
+      weightTensors.push_back(conv.getW());
+      auto wType = mlir::dyn_cast<RankedTensorType>(conv.getW().getType());
+      total_C_out += wType.getDimSize(0); // Summing output channels
+    }
+
+    // Compute correct concatenated shape
+    Type newWeightType = RankedTensorType::get(
+        {total_C_out, weightType.getDimSize(1), weightType.getDimSize(2),
+         weightType.getDimSize(3)},
+        weightType.getElementType());
+
+    // Create new concatenated weight tensor (concatenating along axis=0)
+    Location weightLoc =
+        firstConv.getW().getLoc(); // Get location from the first Conv weight
+    axis0 = IntegerAttr::get(si64Type, 0);
+
+    Value concatenatedWeight = rewriter.create<ONNXConcatOp>(
+        weightLoc, newWeightType, weightTensors, axis0);
+
+    // **Concatenating Bias Correctly**
+    SmallVector<Value, 2> biasTensors;
+    bool hasBias = llvm::all_of(convOps, [](ONNXConvOp conv) {
+      return conv.getB() && !mlir::isa<NoneType>(conv.getB().getType());
+    });
+
+    Value concatenatedBias = Value(); // Default empty Value
+    Location biasLoc =
+        hasBias ? firstConv.getB().getLoc()
+                : loc; // Get location from the first Conv bias if available
+    if (hasBias) {
+      for (auto conv : convOps)
+        biasTensors.push_back(conv.getB());
+
+      Type newBiasType =
+          RankedTensorType::get({total_C_out}, weightType.getElementType());
+      axis0 = IntegerAttr::get(si64Type, 0);
+
+      concatenatedBias = rewriter.create<ONNXConcatOp>(
+          biasLoc, newBiasType, biasTensors,
+          axis0); // Bias should be concatenated along axis=0
+    }
+
+    // **Create new Grouped ConvOp**
+    auto newConv = rewriter.create<ONNXConvOp>(
+        loc, resultType, input, concatenatedWeight,
+        hasBias ? concatenatedBias : Value(), autoPadAttr, dilationsAttr,
+        groupAttrVal, kernelShapeAttr, padsAttr, stridesAttr);
+
+    // Replace ConcatOp with new ConvOp result
+    rewriter.replaceOp(concatOp, newConv.getResult());
+    for (auto conv : convOps) {
+      rewriter.eraseOp(conv);
+    }
+    rewriter.eraseOp(splitOp);
+    return success();
+  }
+  static bool
+  isSplitConvConcatPattern(ONNXSplitOp splitOp,
+                           llvm::SmallVector<ONNXConvOp, 2> &convOps,
+                           ONNXConcatOp &concatOp) {
+    // Step 1: Ensure all outputs of Split go into ConvOps
+    int64_t expectedChannelSize = -1; // To store the expected channel size
+    for (Value output : splitOp.getResults()) {
+      if (!output.hasOneUse())
+        return false; // Must only go to a single Conv
+
+      auto conv = dyn_cast<ONNXConvOp>(*output.getUsers().begin());
+      if (!conv)
+        return false; // Output must go to Conv
+      convOps.push_back(conv);
+
+      // Default to 1 if the tensor is unranked
+      int64_t currChannelSize = 1;
+
+      // Check if output type is ranked
+      if (mlir::isa<RankedTensorType>(output.getType())) {
+        auto rankedType = mlir::dyn_cast<RankedTensorType>(output.getType());
+        if (rankedType.getRank() > 1) { // Ensure it has at least 2 dimensions
+          currChannelSize = rankedType.getShape()[1]; // Extract channel size
+        }
+      } else {
+        // split ops shape is unranked because of shape inference failing
+        return false;
+      }
+
+      // Ensure all splits have the same channel size
+      if (expectedChannelSize < 0) {           // More readable check
+        expectedChannelSize = currChannelSize; // Set from first split output
+      } else if (currChannelSize != expectedChannelSize) {
+        return false; // Uneven split, not valid
+      }
+    }
+
+    // Step 2: Ensure all Conv outputs go into the same ConcatOp
+    Value firstConvOutput = convOps[0].getResult();
+    if (!firstConvOutput.hasOneUse())
+      return false; // Must only go to Concat
+
+    concatOp = dyn_cast<ONNXConcatOp>(*firstConvOutput.getUsers().begin());
+    if (!concatOp)
+      return false; // Must go to Concat
+
+    // Step 3: Ensure all Convs feed into the same ConcatOp
+    for (auto conv : convOps) {
+      bool validUser =
+          llvm::any_of(conv.getResult().getUsers(),
+                       [&](Operation *user) { return user == concatOp; });
+      if (!validUser)
+        return false;
+    }
+
+    // Ensure splitting is along the channel dimension (required for Grouped
+    // Conv)
+    return (splitOp.getAxis() == 1);
+  }
+};
+
 struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -656,6 +839,13 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     return true;
   });
 
+  // Define dynamic legality for ONNXSplitOp
+  target.addDynamicallyLegalOp<ONNXSplitOp>([](ONNXSplitOp op) {
+    llvm::SmallVector<ONNXConvOp, 2> convOps;
+    ONNXConcatOp concatOp;
+    return !SplitConvConcatFusionPattern::isSplitConvConcatPattern(op, convOps, concatOp);
+  });
+
   // Recompose QLinearMatMul, starting from QuantizeLinear.
   // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
   target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
@@ -682,6 +872,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
+  patterns.insert<SplitConvConcatFusionPattern>(context);
 }
 
 /*!
