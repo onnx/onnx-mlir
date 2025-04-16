@@ -44,8 +44,7 @@ namespace onnx_mlir {
 // splits a tensor along a static axis into multiple outputs based on specified
 // channel sizes using the ONNX Split operation
 ValueRange emitSplitByChannels(PatternRewriter &rewriter, Location loc,
-                               Value input, ArrayRef<int64_t> splitSizes,
-                               int64_t axis) {
+    Value input, ArrayRef<int64_t> splitSizes, int64_t axis) {
 
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = mlir::cast<ShapedType>(input.getType());
@@ -654,8 +653,18 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
 struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
   using OpRewritePattern<ONNXGemmOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXGemmOp gemmOp1,
-                                PatternRewriter &rewriter) const final {
+  // Helper function to check if an gemm is mergeable
+  static bool areCompatible(ONNXGemmOp a, ONNXGemmOp b) {
+    return a.getAlpha() == b.getAlpha() && a.getBeta() == b.getBeta() &&
+           a.getTransA() == b.getTransA() && a.getTransB() == b.getTransB() &&
+           mlir::cast<ShapedType>(a.getB().getType())
+                   .getShape()[a.getTransB() ? 1 : 0] ==
+               mlir::cast<ShapedType>(b.getB().getType())
+                   .getShape()[b.getTransB() ? 1 : 0];
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXGemmOp gemmOp1, PatternRewriter &rewriter) const final {
     Value input = gemmOp1.getA();
     if (!onnx_mlir::isRankedShapedType(input.getType()) ||
         mlir::cast<ShapedType>(input.getType()).hasStaticShape() == false)
@@ -676,8 +685,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     Location loc = gemmOp1.getLoc();
     ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     Type elementType = inputType.getElementType();
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter,
-                                                                  loc);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
 
     // Identify axis dynamically based on Gemm shape consistency
     ShapedType firstWeightType =
@@ -726,10 +735,9 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     outputShape[Axis] = totalOutputFeatures;
     auto newOutputType = RankedTensorType::get(outputShape, elementType);
 
-    auto newGemm = rewriter.create<ONNXGemmOp>(
-        loc, newOutputType, input, newWeight, newBias, gemmOp1.getAlphaAttr(),
-        gemmOp1.getBetaAttr(), gemmOp1.getTransAAttr(),
-        gemmOp1.getTransBAttr());
+    auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
+        newWeight, newBias, gemmOp1.getAlphaAttr(), gemmOp1.getBetaAttr(),
+        gemmOp1.getTransAAttr(), gemmOp1.getTransBAttr());
 
     // Check for common ConcatOp
     ONNXConcatOp commonConcatOp = nullptr;
@@ -780,14 +788,6 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     return success();
   }
 
-  static bool areCompatible(ONNXGemmOp a, ONNXGemmOp b) {
-    return a.getAlpha() == b.getAlpha() && a.getBeta() == b.getBeta() &&
-           a.getTransA() == b.getTransA() && a.getTransB() == b.getTransB() &&
-           mlir::cast<ShapedType>(a.getB().getType())
-                   .getShape()[a.getTransB() ? 1 : 0] ==
-               mlir::cast<ShapedType>(b.getB().getType())
-                   .getShape()[b.getTransB() ? 1 : 0];
-  }
 };
 
 struct RecomposeONNXToONNXPass
