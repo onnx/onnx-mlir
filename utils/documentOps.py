@@ -351,7 +351,7 @@ def print_md():
 
 
 def main(argv):
-    global debug, target_arch, emit_notes, emit_unsupported, input_command, additional_top_paragraph
+    global debug, target_arch, emit_notes, emit_unsupported, input_command, additional_top_paragraphs
     global list_op_version, hightest_opset
     debug = 0
     target_arch = "cpu"
