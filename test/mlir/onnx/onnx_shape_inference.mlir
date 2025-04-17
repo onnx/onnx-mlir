@@ -925,6 +925,29 @@ func.func @test_reshape_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32>
 
 // -----
 
+func.func @test_reshape_dim_bijective_at_last_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x64x?xf32> {
+  %1 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %5 = "onnx.Concat"(%4, %2, %1, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %6 = "onnx.Reshape"(%arg0, %5) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x64x?xf32>
+  return %6 : tensor<?x?x64x?xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_dim_bijective_at_last_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x2048xf32>) -> tensor<?x32x64x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_4_]]) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x32x64x?xf32>
+// CHECK:           return [[VAR_5_]] : tensor<?x32x64x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: This pattern is found in the IBM granite-3.1-2b-instruct model.
 func.func @test_reshape_matmul_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
   %0 = onnx.Constant dense<1.000000e+00> : tensor<2048x2048xf32>
