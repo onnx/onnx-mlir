@@ -99,7 +99,7 @@ OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
-bool useOutputNameAsNodeName;                          // onnx-mlir only
+bool useOutputNameAsLocation;                          // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -364,9 +364,9 @@ static llvm::cl::opt<bool, true> useOnnxModelTypesOpt("useOnnxModelTypes",
     llvm::cl::location(useOnnxModelTypes), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> useOutputNameAsNodeNameOpt(
-    "useOutputNameAsNodeName", llvm::cl::desc("Use output name as location."),
-    llvm::cl::location(useOutputNameAsNodeName), llvm::cl::init(false),
+static llvm::cl::opt<bool, true> useOutputNameAsLocationOpt(
+    "useOutputNameAsLocation", llvm::cl::desc("Use output name as location."),
+    llvm::cl::location(useOutputNameAsLocation), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<int, true> repeatOnnxTransformOpt("repeatOnnxTransform",

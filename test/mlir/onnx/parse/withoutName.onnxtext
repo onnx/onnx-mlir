@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitONNXBasic --useOutputNameAsNodeName=true --printIR --mlir-print-debuginfo %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXBasic --useOutputNameAsLocation=true --printIR --mlir-print-debuginfo %s | FileCheck %s
 <
    ir_version: 4,
    opset_import: ["" : 9]
