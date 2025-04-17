@@ -21,12 +21,12 @@ Refer to the [Qunatization-NNPA.md](https://github.com/onnx/onnx-mlir/blob/main/
 
 | Op |Supported Opsets (inclusive) |Minimum NNPA Level(Inclusive) |Limitations |Notes |
 | --- |--- |--- |--- |--- |
-| **Add** |6 - * |z16 - ^ |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Add** |6 - * |z16 - ^ |Shape of input tensors must be the same since broadcasting is not supported. | |
 | **AveragePool** |6 - * |z16 - ^ |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0). | |
 | **BatchNormalization** |6 - * |z16 - ^ |Input and output tensor must be 4D(N x C x H x W). | |
 | **Conv** |6 - * |z16 - ^ |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(1).<br>- `dilations` must be default value(1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static. | |
 | **ConvTranspose** |6 - * |z16 - ^ |- 1D and 3D not supported because Conv1D and Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN. | |
-| **Div** |6 - * |z16 - ^ |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Div** |6 - * |z16 - ^ |Shape of input tensors must be the same since broadcasting is not supported. | |
 | **Exp** |6 - * |z16 - ^ |Input tensor must have 4 dimensions. | |
 | **GRU** |7 - * |z16 - ^ |- `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- If `B` and `initial_h` are given, they must have static dimensions.<br>- `sequence_lens` is not supported for bidirectional GRU.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1.<br>- `layout` is not supported. | |
 | **Gelu** |20 - * |z17 - ^ |Input tensor must be less than or equal to 4 dimensions. | |
@@ -38,10 +38,10 @@ Refer to the [Qunatization-NNPA.md](https://github.com/onnx/onnx-mlir/blob/main/
 | **LogSoftmax** |6 - * |z16 - ^ | | |
 | **MatMul** |6 - * |z16 - ^ |Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2. | |
 | **MatMulInteger** |10 - * |z17 - ^ | | |
-| **Max** |6 - * |z16 - ^ |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Max** |6 - * |z16 - ^ |Shape of input tensors must be the same since broadcasting is not supported. | |
 | **MaxPool** |6 - * |z16 - ^ |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1). | |
-| **Min** |6 - * |z16 - ^ |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
-| **Mul** |6 - * |z16 - ^ |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Min** |6 - * |z16 - ^ |Shape of input tensors must be the same since broadcasting is not supported. | |
+| **Mul** |6 - * |z16 - ^ |Shape of input tensors should be the same since broadcasting is not supported. | |
 | **Pow** |7 - * |z16 - ^ |- Exponent should be a scalar integer and less or equal to 64. | |
 | **QLinearMatMul** |10 - * |z17 - ^ |Only support i8 and ui8 for zeropoint, and f32 for scale. | |
 | **ReduceMax** |6 - * |z17 - ^ |- `keepdims` must be 1.<br>- `noop_with_empty_axes` must be 0.<br>- Does not support reduction over multiple axes.<br>- We do not support `do_not_keepdims` backend tests.<br>- Only support reduction over the innermost dimension. | |
@@ -52,6 +52,6 @@ Refer to the [Qunatization-NNPA.md](https://github.com/onnx/onnx-mlir/blob/main/
 | **Softmax** |6 - * |z16 - ^ |- `axis` must be the last dimension, i.e. `rank - 1` or -1. | |
 | **Softplus** |6 - * |z16 - ^ |The operations immediately before and after the Softplus operation must be executed on the NNPA. Otherwise, Softplus is executed on the CPU. This limitation is set to avoid performance degradation. | |
 | **Sqrt** |6 - * |z17 - ^ |Input tensor must be less than or equal to 4 dimensions. | |
-| **Sub** |6 - * |z16 - ^ |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
-| **Sum** |6 - * |z16 - ^ |- All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported. | |
+| **Sub** |6 - * |z16 - ^ |Shape of input tensors should be the same since broadcasting is not supported. | |
+| **Sum** |6 - * |z16 - ^ |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Single input not supported. | |
 | **Tanh** |6 - * |z16 - ^ |Input tensor must be less than or equal to 4 dimensions. | |

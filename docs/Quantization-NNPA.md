@@ -59,10 +59,10 @@ Users may want to experiment with different quantization schemes to find the bes
 
 # Limitations
 
-- Only per-tensor quantization is supported, meaning scale and zero_point are computed per-tensor and are scalar values.per- channel quantization is not supported yet.
+- Only per-tensor quantization is supported, meaning scale and zero_point are computed per-tensor and are scalar values. Per-channel quantization is not supported yet.
 - Target quantization data type is 8-bit signed-integer.
 - Asymmetric quantization for weights is not yet supported.
-- Blocked quantization  is not supported.
+- Blocked quantization is not supported.
 
 # Resources
 - [A visual guide to quantization](https://www.maartengrootendorst.com/blog/quantization/)

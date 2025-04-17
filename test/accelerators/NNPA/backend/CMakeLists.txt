@@ -111,7 +111,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Add
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     # Scalar tensor not supported.
     test_add_cpu,zdnn_add_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_add_bcast_cpu # bcast not supported
@@ -170,7 +170,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Div
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     test_div_cpu,zdnn_div_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_div_bcast_cpu
     test_div_example_cpu,zdnn_div_ext,"0:0=a|1:0=a"
@@ -257,7 +257,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Max
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     # test_max_example_cpu
     #test_max_one_input_cpu
     test_max_two_inputs_cpu,zdnn_max_ext,"0:0=a|1:0=a"
@@ -293,7 +293,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Min
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     # test_min_example_cpu
     # test_min_one_input_cpu
     test_min_two_inputs_cpu,zdnn_min_ext,"0:0=a|1:0=a"
@@ -312,7 +312,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Mul
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported.
     test_mul_cpu,zdnn_mul_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_mul_bcast_cpu
     test_mul_example_cpu,zdnn_mul_ext,"0:0=a|1:0=a"
@@ -364,7 +364,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Sub
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported.
     test_sub_cpu,zdnn_sub_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_sub_bcast_cpu
     test_sub_example_cpu,zdnn_sub_ext,"0:0=a|1:0=a"
@@ -372,7 +372,7 @@ set(NNPA_TEST_LIST_z16
     # ==OP== Sum
     # ==LEVEL== z16,z17
     # ==MIN== 6
-    # ==LIM== - All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported.
+    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Single input not supported.
     test_sum_example_cpu,zdnn_add,"0:0=a|1:0=a|2:0=a"
     # test_sum_one_input_cpu
     test_sum_two_inputs_cpu,zdnn_add,"0:0=a|1:0=a"
