@@ -365,7 +365,7 @@ static llvm::cl::opt<bool, true> useOnnxModelTypesOpt("useOnnxModelTypes",
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> useOutputNameAsNodeNameOpt(
-    "useOutputNameAsNodeName", llvm::cl::desc("Use output name as node name."),
+    "useOutputNameAsNodeName", llvm::cl::desc("Use output name as location."),
     llvm::cl::location(useOutputNameAsNodeName), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 

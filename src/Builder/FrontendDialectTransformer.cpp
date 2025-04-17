@@ -231,8 +231,7 @@ private:
           return NameLoc::get(builder_.getStringAttr(node.output(i)));
         }
       }
-    }
-    if (!options_.useOutputNameAsNodeName && node.has_name()) {
+    } else if (node.has_name()) {
       return NameLoc::get(builder_.getStringAttr(node.name()));
     }
     return UnknownLoc();

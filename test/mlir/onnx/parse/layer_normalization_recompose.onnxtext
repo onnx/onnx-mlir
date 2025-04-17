@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --useOutputNameAsNodeName=false --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXIR --printIR %s | FileCheck %s
 
 <
    ir_version: 8,
