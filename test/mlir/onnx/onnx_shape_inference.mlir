@@ -952,6 +952,29 @@ func.func @test_reshape_matmul_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_reshape_dim_not_bijection(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
+  %1 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%3, %3, %2, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %5 = "onnx.Reshape"(%arg0, %4) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+  return %5 : tensor<?x?x?x64xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_dim_not_bijection
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x?x?x64xf32>
+// CHECK:         }
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
 //===----------------------------------------------------------------------===//

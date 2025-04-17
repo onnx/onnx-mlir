@@ -91,13 +91,11 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
       fromMatMul = true;
     }
 
+    // Find the bijective mapping.
+    // We do not compute the actual mapping, just storing the source and target
+    // sets is enough if the map exists.
     bool isBijective = true;
     for (int64_t i = 0; i < outputRank; ++i) {
-      if (!isBijective) {
-        outputIgnoredDims.clear();
-        dataIgnoredDims.clear();
-        break;
-      }
       Value dim = shapeDimVals[i];
       if (auto dimOp = dim.getDefiningOp<ONNXDimOp>()) {
         if (dimOp.getData() != refData)
@@ -111,6 +109,10 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
         outputIgnoredDims.insert(i);
         dataIgnoredDims.insert(axis);
       }
+    }
+    if (!isBijective) {
+      outputIgnoredDims.clear();
+      dataIgnoredDims.clear();
     }
   }
 
