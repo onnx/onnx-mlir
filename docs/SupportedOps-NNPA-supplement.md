@@ -13,6 +13,7 @@ This document highlights operations that are performed on NNPA hardware that are
     * Transposed MatMul - Optimization of the pattern MatMul followed by transpose consolidated and executed on NNPA.
     * Maximum Dimension Index Size (MDIS) - /*e1*/ 2097152, /*e2*/ 1048576, /*e3*/ 32768, /*e4*/ 32768.
     * Stickification - Perfroms data conversions to NNPAs internal format, DLFLOAT16, on the NNPA.
+    * MatMul Broadcast - Adds Bcast1 support to the MatMul operation.
 
 | Op |Minimum NNPA Level(Inclusive) |Limitations |Notes |
 | --- |--- |--- |--- | 
