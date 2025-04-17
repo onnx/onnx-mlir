@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitONNXIR --enable-quark-quantizer-legalization=true --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXIR --enable-quark-quantizer-legalization=true  --printIR %s | FileCheck %s
 
 // Here producer_name isn't 'quark.onnx'
 

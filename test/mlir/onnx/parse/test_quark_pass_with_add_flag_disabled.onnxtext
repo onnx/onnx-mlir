@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXIR  --printIR %s | FileCheck %s
 <
    ir_version: 9,
    opset_import: ["" : 19],
