@@ -33,7 +33,7 @@ else()
 endif()
 
 include(zdnn.cmake)
-setup_zdnn(v1.1.1)
+setup_zdnn(v1.1.2)
 
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
