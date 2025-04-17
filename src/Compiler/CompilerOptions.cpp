@@ -48,6 +48,7 @@ bool enableKrnlBufferReuse;                            // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
 uint64_t compilationNumThreads;                        // common for both
+std::vector<std::string> decomposeOpsInONNX;           // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -263,6 +264,15 @@ static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
                    "Set to 'true' if you want to disable prefetch."),
     llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::list<std::string, std::vector<std::string>>
+    decomposeOpsInONNXOpt("decompose-op-in-onnx",
+        llvm::cl::desc("Specify ONNX operations to decompose.\n"
+                       "Supported Ops - HardSwish"),
+        llvm::cl::value_desc("ONNX operation to decompose"),
+        llvm::cl::location(decomposeOpsInONNX),
+        llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::CommaSeparated,
+        llvm::cl::ZeroOrMore);
 
 static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
@@ -879,7 +889,7 @@ static int64_t decodeZArchNum(std::string str) {
     return 13;
   if (str == "arch14" || str == "z16") // Z16 and equivalents.
     return 14;
-  if (str == "arch15")
+  if (str == "arch15" || str == "z17") // Z17 and equivalents.
     return 15;
   return -1;
 }
@@ -1386,6 +1396,9 @@ void initCompilerConfig() {
     // Fast math option is enabled (in general)
     setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
+
+  if (march == "z17")
+    march = "arch15";
 }
 
 } // namespace onnx_mlir

@@ -1899,6 +1899,22 @@ func.func @test_remove_where_equal_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
 
 // -----
 
+func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf32> ) -> tensor<1x12x4xf32> {
+%0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_0"} : (tensor<1x3x4xf32>, tensor<1x3x4xf32>) -> tensor<1x6x4xf32>
+%1 = "onnx.Concat"(%0, %arg0) {axis = 1 : si64, onnx_node_name = "onnx.Concat_1"} : (tensor<1x6x4xf32>, tensor<1x3x4xf32>) -> tensor<1x9x4xf32>
+%2 = "onnx.Concat"(%1, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_2"} : (tensor<1x9x4xf32>, tensor<1x3x4xf32>) -> tensor<1x12x4xf32>
+return %2 : tensor<1x12x4xf32>
+
+  // CHECK-LABEL: func @test_recompose_concat
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x4xf32>, [[PARAM_1_:%.+]]: tensor<1x3x4xf32>) -> tensor<1x12x4xf32> {
+  // CHECK: [[FINAL_OUT:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_0_]], [[PARAM_1_]]) 
+  // CHECK-SAME: {axis = 1 : si64} 
+  // CHECK-NEXT: return [[FINAL_OUT]] : tensor<1x12x4xf32>
+
+}
+
+// -----
+
 // Not rewriting since the operand in ConcatOp is neither DimOp nor ConstantOp.
 func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>) -> tensor<2xi64> {
     %0 = onnx.Constant dense<-1> : tensor<2xi64>
@@ -1921,4 +1937,19 @@ func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Where"([[VAR_5_]], [[VAR_1_]], [[VAR_4_]]) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64>
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<2xi64>
 // CHECK:         }
+}
+
+// -----
+
+func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  %0 = "onnx.Relu"(%arg0) {onnx_node_name = "onnx.Relu_0"} : (tensor<1x64x32x32xf32>) -> tensor<1x64x32x32xf32>
+  %1 = "onnx.MaxPoolSingleOut"(%0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], onnx_node_name = "onnx.MaxPoolSingleOut_1", storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
+  return %1 : tensor<1x64x16x16xf32>
+
+  // CHECK-LABEL: func @test_reorder_relu_maxpool
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  // CHECK:      [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<*xf32>
+  // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<*xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK-NEXT:     return [[VAR_1_]] : tensor<1x64x16x16xf32>
+  // CHECK:         }
 }

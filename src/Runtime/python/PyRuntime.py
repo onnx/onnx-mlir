@@ -9,7 +9,7 @@
 ################################################################################
 import numpy as np
 
-if __package__ == "onnxmlir":
+if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
     try:
         from .PyRuntimeC import OMExecutionSession as OMExecutionSession_
     except ImportError:
