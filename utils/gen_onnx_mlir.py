@@ -331,6 +331,7 @@ OpsWithCanonicalizer = [
     "And",
     "Cast",
     "Clip",
+    "Concat",
     "Constant",
     "DepthToSpace",
     "DequantizeLinear",
