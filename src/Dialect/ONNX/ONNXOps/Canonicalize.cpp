@@ -92,8 +92,9 @@ bool isNotConvProducer(mlir::Value val) {
 
 bool isTransBFalse(mlir::Attribute attr) {
   if (auto intAttr = attr.dyn_cast<mlir::IntegerAttr>()) {
-    int64_t val = intAttr.getValue().getSExtValue(); // safe for signless integers
-    return val == 0; // return true if transB is false (0)
+    int64_t val =
+        intAttr.getValue().getSExtValue(); // safe for signless integers
+    return val == 0;                       // return true if transB is false (0)
   }
   return false; // default fallback
 }
