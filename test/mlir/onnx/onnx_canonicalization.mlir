@@ -406,8 +406,8 @@ func.func @test_reshape_fusion3(%arg0: tensor<?x4x2x2xf32>) -> tensor<?x2x?xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x4x2x2xf32>) -> tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<3xi64>) -> tensor<?x2x?xf32>
-// CHECK:           onnx.Return [[VAR_4_]] : tensor<?x2x?xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<3xi64>) -> tensor<?x2x8xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<?x2x8xf32>
 // CHECK:         }
 }
 
