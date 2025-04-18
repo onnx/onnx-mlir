@@ -1034,6 +1034,7 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
 
 def ONNXClipOp:ONNX_Op<"Clip",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is

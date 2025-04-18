@@ -129,6 +129,28 @@ bool areProducedByTransposeOp(ValueRange values) {
   });
 }
 
+Value maxOrDefault(PatternRewriter &rewriter, Location loc, Value A, Value B) {
+  // If A or B is NoneType, return the other value
+  if (mlir::isa<NoneType>(A.getType()))
+    return B;
+  if (mlir::isa<NoneType>(B.getType()))
+    return A;
+  
+  // Otherwise, return the max of A and B
+  return rewriter.create<ONNXMaxOp>(loc, A.getType(), ValueRange{A, B});
+}
+
+Value minOrDefault(PatternRewriter &rewriter, Location loc, Value A, Value B) {
+  // If A or B is NoneType, return the other value
+  if (mlir::isa<NoneType>(A.getType()))
+    return B;
+  if (mlir::isa<NoneType>(B.getType()))
+    return A;
+  
+  // Otherwise, return the min of A and B
+  return rewriter.create<ONNXMinOp>(loc, A.getType(), ValueRange{A, B});
+}
+
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
     Value value, int64_t start = 0, std::optional<int64_t> end = std::nullopt) {
@@ -1707,6 +1729,12 @@ void ONNXCastOp::getCanonicalizationPatterns(
   result.insert<SwapCastSlicePattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
+}
+
+/// on the ONNXClipOp.
+void ONNXClipOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<FuseConsecutiveClipsPattern>(context);
 }
 
 /// on the ONNXConstantOp.
