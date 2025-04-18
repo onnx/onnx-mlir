@@ -90,6 +90,14 @@ bool isNotConvProducer(mlir::Value val) {
   return true; // If no defining op, assume it's safe
 }
 
+bool isTransBFalse(mlir::Attribute attr) {
+  if (auto intAttr = attr.dyn_cast<mlir::IntegerAttr>()) {
+    int64_t val = intAttr.getValue().getSExtValue(); // safe for signless integers
+    return val == 0; // return true if transB is false (0)
+  }
+  return false; // default fallback
+}
+
 // Get the index of the axis value in the given permutation array.
 IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
@@ -1685,6 +1693,7 @@ void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
   results.insert<FuseBatchNormInferenceModeConvPattern>(context);
   results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
   results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
+  results.insert<BackwardFoldScaleAxisToGemmPattern>(context);
 }
 
 /// on the ONNXAddOp.
