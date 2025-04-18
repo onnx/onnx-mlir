@@ -48,12 +48,83 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   //   - -1: the output dim is calculated from the other output dims. No more
   //   than one dim in the output has value -1.
 
+  // Shape inference can be simplified if there is a bijection between a set of
+  // unknown dimensions in data and unknown dimensions in shape. In such a case,
+  // there is no need to include these unknown dimensions in computing the
+  // dimension at position of -1, which increases the chance that the dim value
+  // at position of -1 can be a static value.
+  //
+  // For example,
+  //  - data is tensor<1x?x2048xf32>,
+  //  - shape is tensor<4xi64> of [1, dim_1_of_data, -1, 64]
+  // In this case, the 2nd dimension of data is unknown but it is similar to the
+  // 2nd value in shape. So to compute the output dim at position of -1, we just
+  // do 2048/64, that is 32. Without this simplification, the output dim at
+  // position of -1 would be unknown at compile time.
+  std::set<int64_t> dataIgnoredDims, outputIgnoredDims;
+  SmallVector<Value> shapeDimVals;
+  if (areDimsFromConcat(shape)) {
+    getDims(shape, shapeDimVals);
+    Value refData = data;
+
+    // Get the input A of MatMul that is the producer of "data" if applicable.
+    // Special case to handle a pattern in the IBM granite-3.1-2b-instruct
+    // model. This pattern is found in the IBM granite-3.1-2b-instruct model.
+    // clang-format off
+    // %0 = onnx.Constant dense<1.000000e+00> : tensor<2048x2048xf32>
+    // %1 = onnx.Constant dense<64> : tensor<1xi64>
+    // %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    // %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+    // %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+    // %5 = "onnx.MatMul"(%arg0, %0) : (tensor<?x?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x?x2048xf32>
+    // %6 = "onnx.Concat"(%3, %4, %2, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+    // %7 = "onnx.Reshape"(%5, %6) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+    // clang-format on
+    // This is a special handling which is not encouraged to be used widely.
+    // Since there is no good mechanism to handle this situation in a systematic
+    // way (e.g. using dynamic dimension analysis), so we handle it here.
+    ONNXMatMulOp mmOp = data.getDefiningOp<ONNXMatMulOp>();
+    bool fromMatMul = false;
+    if (mmOp && isRankedShapedType(mmOp.getB().getType()) &&
+        getRank(mmOp.getB().getType()) == 2) {
+      refData = mmOp.getA();
+      fromMatMul = true;
+    }
+
+    // Find the bijective mapping.
+    // We do not compute the actual mapping, just storing the source and target
+    // sets is enough if the map exists.
+    bool isBijective = true;
+    for (int64_t i = 0; i < outputRank; ++i) {
+      Value dim = shapeDimVals[i];
+      if (auto dimOp = dim.getDefiningOp<ONNXDimOp>()) {
+        if (dimOp.getData() != refData)
+          continue;
+        int64_t axis = dimOp.getAxis();
+        if (auto search = dataIgnoredDims.find(axis);
+            search != dataIgnoredDims.end())
+          isBijective = false;
+        if (fromMatMul && axis == getRank(refData.getType()) - 1)
+          isBijective = false;
+        outputIgnoredDims.insert(i);
+        dataIgnoredDims.insert(axis);
+      }
+    }
+    if (!isBijective) {
+      outputIgnoredDims.clear();
+      dataIgnoredDims.clear();
+    }
+  }
+
   // Compute the total number of elements using the input data operand.
   // dataRank will be 0 if Data is unranked tensor.
   // The number of element will not be computed
   IndexExpr numOfElements = LitIE(1);
-  for (unsigned i = 0; i < dataRank; ++i)
+  for (unsigned i = 0; i < dataRank; ++i) {
+    if (auto search = dataIgnoredDims.find(i); search != dataIgnoredDims.end())
+      continue;
     numOfElements = numOfElements * createIE->getShapeAsDim(data, i);
+  }
 
   // Compute the total number of elements from the shape values.
   IndexExpr numOfElementsFromShape = LitIE(1);
@@ -74,6 +145,9 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
     // dimShape == -1: use 1 to compute the number of elements to avoid
     // negative value.
+    if (auto search = outputIgnoredDims.find(i);
+        search != outputIgnoredDims.end())
+      continue;
     dim = dim.selectOrSelf(dim == -1, LitIE(1));
     numOfElementsFromShape = numOfElementsFromShape * dim;
   }
