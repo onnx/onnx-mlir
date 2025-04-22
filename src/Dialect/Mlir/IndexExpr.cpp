@@ -942,6 +942,7 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
 // Int operator
 IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
+    assert(bb.getLiteral() != 0 && "division by zero in IndexExpr::floorDiv");
     int64_t rval =
         std::floor((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
     return LitIE(rval);
@@ -949,6 +950,7 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
+    assert(bval != 0 && "division by zero in IndexExpr::floorDiv");
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -970,12 +972,14 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
 // Int operator
 IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
+    assert(bb.getLiteral() != 0 && "division by zero in IndexExpr::ceilDiv");
     int64_t rval = std::ceil((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
     return LitIE(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
+    assert(bval != 0 && "division by zero in IndexExpr::ceilDiv");
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().ceilDiv(bval));
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
@@ -1020,6 +1024,8 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
 // Float operator
 IndexExpr IndexExpr::operator/(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
+    assert(bb.getFloatLiteral() != 0.0 &&
+           "division by zero in IndexExpr::operator/");
     double rval = aa.getFloatLiteral() / bb.getFloatLiteral();
     return LitIE(rval);
   };
