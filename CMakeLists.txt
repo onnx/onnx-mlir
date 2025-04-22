@@ -33,6 +33,14 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)" FORCE)
 endif()
 
+# NOTE: The compiler flag /Ob1 will disable COMDAT (Common Data) functionality and will cause
+#       duplicate symbols errors.
+if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  if (MSVC)
+      string(REGEX REPLACE "/Ob1" "/Ob2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+  endif()
+endif()
+
 # CMP0116: Ninja generators transform `DEPFILE`s from `add_custom_command()`
 # New in CMake 3.20. https://cmake.org/cmake/help/latest/policy/CMP0116.html
 # Use the same setting as llvm-project
