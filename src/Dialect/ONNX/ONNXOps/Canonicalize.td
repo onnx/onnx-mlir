@@ -1009,6 +1009,27 @@ def LessOpSameCastPattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
+// Canonicalization for ONNXClipOp
+//===----------------------------------------------------------------------===//
+
+def maxOrDefault: NativeCodeCall<
+  "onnx_mlir::maxOrDefault($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
+
+def minOrDefault: NativeCodeCall<
+  "onnx_mlir::minOrDefault($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
+
+// Fuse two consecutive ONNXClipOps into one.
+def FuseConsecutiveClipsPattern : Pat<
+  // Match a Clip operation followed by another Clip operation.
+  (ONNXClipOp:$res (ONNXClipOp $input, $min1, $max1), $min2, $max2),
+  // This pattern will be handled by the rewrite rule (in C++).
+  (ONNXClipOp $input, 
+   // Call maxOrDefault and minOrDefault in the rewrite
+   (maxOrDefault $res, $min1, $min2), 
+   (minOrDefault $res, $max1, $max2))
+>;
+
+//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXDimOp
 //===----------------------------------------------------------------------===//
 
