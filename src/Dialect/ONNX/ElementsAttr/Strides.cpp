@@ -64,7 +64,9 @@ std::optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
   assert(ShapedType::getNumElements(shape) ==
          ShapedType::getNumElements(reshapedShape));
 
-  if (areStridesContiguous(shape, strides))
+  const bool containsZeroDim =
+      llvm::any_of(reshapedShape, [](int64_t val) { return val == 0; });
+  if (areStridesContiguous(shape, strides) || containsZeroDim)
     return getDefaultStrides(reshapedShape);
 
   assert(ShapedType::getNumElements(shape) > 1 &&

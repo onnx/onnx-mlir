@@ -981,6 +981,20 @@ onnx.Return %0 : tensor<*xf16>
 
 // -----
 
+func.func @test_reshape_unrank_allow_zero(%arg0 : tensor<*xf16>) -> tensor<*xf16> {
+%cst = onnx.Constant dense<[0, 2, 3]> : tensor<3xi64>
+%0 = "onnx.Reshape"(%arg0, %cst) {allowzero = 1 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<*xf16>
+onnx.Return %0 : tensor<*xf16>
+}
+// CHECK-LABEL:  func.func @test_reshape_unrank_allow_zero
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>) -> tensor<0x2x3xf16> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[0, 2, 3]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 1 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<0x2x3xf16>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<0x2x3xf16>
+// CHECK:         }
+
+// -----
+
 func.func @test_reshape_unrank_3(%arg0 : tensor<*xf16>) -> tensor<*xf16> {
 %cst = onnx.Constant dense<[4, -1, 3]> : tensor<3xi64>
 %0 = "onnx.Reshape"(%arg0, %cst) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<*xf16>
