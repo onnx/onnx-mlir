@@ -8,12 +8,14 @@ func.func @test_resize_pytorch_half_pixel_linear(%arg0: tensor<1x1x2x4xf32>) -> 
 // CHECK-LABEL:  func.func @test_resize_pytorch_half_pixel_linear
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x4xf32>) -> tensor<1x1x4x8xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:       [[SCALE:%.+]] = tosa.const_shape <{value = dense<[ 4, 2, 4, 2]> : tensor<4xindex>}> : () -> !tosa.shape<4>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: 1, 1>, mode = "BILINEAR", offset = array<i64: -1, -1>, scale = array<i64: 4, 2, 4, 2>} : (tensor<1x2x4x1xf32>) -> tensor<1x4x8x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x4x8x1xf32>, tensor<4xi32>) -> tensor<1x1x4x8xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x4x8xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[4, 2, 4, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<-1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "BILINEAR"} : (tensor<1x2x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x4x8x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x4x8x1xf32>, tensor<4xi32>) -> tensor<1x1x4x8xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x4x8xf32>
 }
 
 // -----
@@ -25,12 +27,15 @@ func.func @test_resize_half_pixel_nearest_floor(%arg0: tensor<1x1x1x4xf32>) -> t
     return %2 : tensor<1x1x1x12xf32>
 // CHECK-LABEL:  func.func @test_resize_half_pixel_nearest_floor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x1x4xf32>) -> tensor<1x1x1x12xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x4xf32>, tensor<4xi32>) -> tensor<1x1x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, -1>, mode = "NEAREST_NEIGHBOR", offset = array<i64: -1, -5>, scale = array<i64: 2, 2, 6, 2>} : (tensor<1x1x4x1xf32>) -> tensor<1x1x12x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x1x12x1xf32>, tensor<4xi32>) -> tensor<1x1x1x12xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x1x12xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x4xf32>, tensor<4xi32>) -> tensor<1x1x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 6, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<[-1, -5]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<-1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x1x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x1x12x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x1x12x1xf32>, tensor<4xi32>) -> tensor<1x1x1x12xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x1x12xf32>
 }
 
 // -----
@@ -42,12 +47,15 @@ func.func @test_resize_half_pixel_nearest_round_prefer_ceil(%arg0: tensor<1x1x3x
     return %2 : tensor<1x1x3x12xf32>
 // CHECK-LABEL:  func.func @test_resize_half_pixel_nearest_round_prefer_ceil
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x4xf32>) -> tensor<1x1x3x12xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x3x4xf32>, tensor<4xi32>) -> tensor<1x3x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: 0, 2>, mode = "NEAREST_NEIGHBOR", offset = array<i64: 0, -2>, scale = array<i64: 2, 2, 6, 2>} : (tensor<1x3x4x1xf32>) -> tensor<1x3x12x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x3x12x1xf32>, tensor<4xi32>) -> tensor<1x1x3x12xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x3x12xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x3x4xf32>, tensor<4xi32>) -> tensor<1x3x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 6, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<[0, -2]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[0, 2]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x3x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x3x12x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x3x12x1xf32>, tensor<4xi32>) -> tensor<1x1x3x12xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x3x12xf32>
 }
 
 // -----
@@ -59,12 +67,14 @@ func.func @test_resize_align_corners(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x3
     return %2 : tensor<1x1x3x12xf32>
 // CHECK-LABEL:  func.func @test_resize_align_corners
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x4xf32>) -> tensor<1x1x3x12xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x3x4xf32>, tensor<4xi32>) -> tensor<1x3x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: 0, 0>, mode = "NEAREST_NEIGHBOR", offset = array<i64: 0, 0>, scale = array<i64: 2, 2, 22, 6>} : (tensor<1x3x4x1xf32>) -> tensor<1x3x12x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x3x12x1xf32>, tensor<4xi32>) -> tensor<1x1x3x12xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x3x12xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x3x4xf32>, tensor<4xi32>) -> tensor<1x3x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 22, 6]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<0> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_3_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x3x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x3x12x1xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_6_:%.+]] = tosa.transpose [[VAR_4_]], [[VAR_5_]] : (tensor<1x3x12x1xf32>, tensor<4xi32>) -> tensor<1x1x3x12xf32>
+// CHECK:           return [[VAR_6_]] : tensor<1x1x3x12xf32>
 }
 
 // -----
@@ -76,12 +86,14 @@ func.func @test_resize_asymmetric(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x3x12
     return %2 : tensor<1x1x3x12xf32>
 // CHECK-LABEL:  func.func @test_resize_asymmetric
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x4xf32>) -> tensor<1x1x3x12xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x3x4xf32>, tensor<4xi32>) -> tensor<1x3x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: 0, 4>, mode = "NEAREST_NEIGHBOR", offset = array<i64: 0, 0>, scale = array<i64: 2, 2, 6, 2>} : (tensor<1x3x4x1xf32>) -> tensor<1x3x12x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x3x12x1xf32>, tensor<4xi32>) -> tensor<1x1x3x12xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x3x12xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x3x4xf32>, tensor<4xi32>) -> tensor<1x3x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 6, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<0> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[0, 4]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x3x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x3x12x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x3x12x1xf32>, tensor<4xi32>) -> tensor<1x1x3x12xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x3x12xf32>
 }
 
 // -----
@@ -93,12 +105,15 @@ func.func @test_resize_half_pixel_nearest_floor_downsample(%arg0: tensor<1x1x1x1
     return %2 : tensor<1x1x1x4xf32>
 // CHECK-LABEL:  func.func @test_resize_half_pixel_nearest_floor_downsample
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x1x12xf32>) -> tensor<1x1x1x4xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x12xf32>, tensor<4xi32>) -> tensor<1x1x12x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, -3>, mode = "NEAREST_NEIGHBOR", offset = array<i64: -1, 1>, scale = array<i64: 2, 2, 2, 6>} : (tensor<1x1x12x1xf32>) -> tensor<1x1x4x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x1x4x1xf32>, tensor<4xi32>) -> tensor<1x1x1x4xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x1x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x12xf32>, tensor<4xi32>) -> tensor<1x1x12x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 2, 6]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<[-1, 1]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[-1, -3]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x1x12x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x1x4x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x1x4x1xf32>, tensor<4xi32>) -> tensor<1x1x1x4xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x1x4xf32>
 }
 
 // -----
@@ -110,12 +125,15 @@ func.func @test_resize_input_one(%arg0: tensor<1x1x1x1xf32>) -> tensor<1x1x4x4xf
     return %2 : tensor<1x1x4x4xf32>
 // CHECK-LABEL:  func.func @test_resize_input_one
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x1x1xf32>) -> tensor<1x1x4x4xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x1xf32>, tensor<4xi32>) -> tensor<1x1x1x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: 3, 3>, mode = "BILINEAR", offset = array<i64: -3, -3>, scale = array<i64: 8, 2, 8, 2>} : (tensor<1x1x1x1xf32>) -> tensor<1x4x4x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x4x4x1xf32>, tensor<4xi32>) -> tensor<1x1x4x4xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x4x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x1xf32>, tensor<4xi32>) -> tensor<1x1x1x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[8, 2, 8, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<-3> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<3> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "BILINEAR"} : (tensor<1x1x1x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x4x4x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x4x4x1xf32>, tensor<4xi32>) -> tensor<1x1x4x4xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x4x4xf32>
 }
 
 // -----
@@ -127,14 +145,15 @@ func.func @test_resize_pytorch_half_pixel_linear_float_scale_upsample(%arg0: ten
     return %2 : tensor<1x1x4x8xf32>
 // CHECK-LABEL:  func.func @test_resize_pytorch_half_pixel_linear_float_scale_upsample
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x4xf32>) -> tensor<1x1x4x8xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
-// CHECK-DAG:       [[SCALE:%.+]] = tosa.const_shape <{value = dense<[500249982, 250124991, 4, 2]> : tensor<4xindex>}> : () -> !tosa.shape<4>
-// CHECK-DAG:       [[OFFSET:%.+]] = tosa.const_shape <{value = dense<[-125124991, -1]> : tensor<2xindex>}> : () -> !tosa.shape<2>
-// CHECK-DAG:       [[BORDER:%.+]] = tosa.const_shape <{value = dense<[125124991, 1]> : tensor<2xindex>}> : () -> !tosa.shape<2>
-// CHECK:           [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]], [[SCALE]], [[OFFSET]], [[BORDER]] {mode = "BILINEAR"} : (tensor<1x2x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x4x8x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x4x8x1xf32>, tensor<4xi32>) -> tensor<1x1x4x8xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x4x8xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[4, 2, 4, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<-1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "BILINEAR"} : (tensor<1x2x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x4x8x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x4x8x1xf32>, tensor<4xi32>) -> tensor<1x1x4x8xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x4x8xf32>
 }
 
 // -----
@@ -163,12 +182,15 @@ func.func @test_resize_half_pixel_nearest_floor_downsample_axis_both(%arg0: tens
     return %2 : tensor<1x1x1x6xf32>
 // CHECK-LABEL:  func.func @test_resize_half_pixel_nearest_floor_downsample_axis_both
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x1x12xf32>) -> tensor<1x1x1x6xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x12xf32>, tensor<4xi32>) -> tensor<1x1x12x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, -2>, mode = "NEAREST_NEIGHBOR", offset = array<i64: -1, 0>, scale = array<i64: 2, 2, 2, 4>} : (tensor<1x1x12x1xf32>) -> tensor<1x1x6x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x1x6x1xf32>, tensor<4xi32>) -> tensor<1x1x1x6xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x1x6xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x12xf32>, tensor<4xi32>) -> tensor<1x1x12x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 2, 4]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<[-1, 0]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[-1, -2]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x1x12x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x1x6x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x1x6x1xf32>, tensor<4xi32>) -> tensor<1x1x1x6xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x1x6xf32>
 }
 
 // -----
@@ -180,12 +202,15 @@ func.func @test_resize_half_pixel_nearest_floor_downsample_axis_one(%arg0: tenso
     return %2 : tensor<1x1x1x6xf32>
 // CHECK-LABEL:  func.func @test_resize_half_pixel_nearest_floor_downsample_axis_one
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x1x12xf32>) -> tensor<1x1x1x6xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x12xf32>, tensor<4xi32>) -> tensor<1x1x12x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, -2>, mode = "NEAREST_NEIGHBOR", offset = array<i64: -1, 0>, scale = array<i64: 2, 2, 2, 4>} : (tensor<1x1x12x1xf32>) -> tensor<1x1x6x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x1x6x1xf32>, tensor<4xi32>) -> tensor<1x1x1x6xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x1x6xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x1x12xf32>, tensor<4xi32>) -> tensor<1x1x12x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[2, 2, 2, 4]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<[-1, 0]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[-1, -2]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "NEAREST_NEIGHBOR"} : (tensor<1x1x12x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x1x6x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x1x6x1xf32>, tensor<4xi32>) -> tensor<1x1x1x6xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x1x6xf32>
 }
 
 // -----
@@ -197,12 +222,15 @@ func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed(%arg0: tenso
     return %2 : tensor<1x1x2x8xf32>
 // CHECK-LABEL:  func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x4xf32>) -> tensor<1x1x2x8xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, 1>, mode = "BILINEAR", offset = array<i64: -1, -1>, scale = array<i64: 1, 1, 4, 2>} : (tensor<1x2x4x1xf32>) -> tensor<1x2x8x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x2x8x1xf32>, tensor<4xi32>) -> tensor<1x1x2x8xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x2x8xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[1, 1, 4, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<-1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[-1, 1]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "BILINEAR"} : (tensor<1x2x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x2x8x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x2x8x1xf32>, tensor<4xi32>) -> tensor<1x1x2x8xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x2x8xf32>
 }
 
 // -----
@@ -214,12 +242,15 @@ func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed_negative_axi
     return %2 : tensor<1x1x2x8xf32>
 // CHECK-LABEL:  func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed_negative_axis
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x4xf32>) -> tensor<1x1x2x8xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, 1>, mode = "BILINEAR", offset = array<i64: -1, -1>, scale = array<i64: 1, 1, 4, 2>} : (tensor<1x2x4x1xf32>) -> tensor<1x2x8x1xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x2x8x1xf32>, tensor<4xi32>) -> tensor<1x1x2x8xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x2x8xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[1, 1, 4, 2]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<-1> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.const_shape  {value = dense<[-1, 1]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.resize [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] {mode = "BILINEAR"} : (tensor<1x2x4x1xf32>, !tosa.shape<4>, !tosa.shape<2>, !tosa.shape<2>) -> tensor<1x2x8x1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<1x2x8x1xf32>, tensor<4xi32>) -> tensor<1x1x2x8xf32>
+// CHECK:           return [[VAR_7_]] : tensor<1x1x2x8xf32>
 }
 
 // -----
