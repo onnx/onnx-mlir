@@ -31,7 +31,7 @@ struct ScaleHelper {
   ScaleHelper(
       int64_t numerator, int64_t denominator, int64_t offset, int64_t border)
       : numerator(numerator), denominator(denominator), offset(offset),
-        border(border) {};
+        border(border){};
   int64_t numerator, denominator, offset, border;
 };
 
