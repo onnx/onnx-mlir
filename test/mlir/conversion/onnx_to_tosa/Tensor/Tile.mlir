@@ -4,8 +4,11 @@ func.func @test_tile(%arg0 : tensor<5x5x1x32xf32>) -> tensor<5x10x30x32xf32> {
   %const = onnx.Constant dense<[1, 2, 30, 1]> : tensor<4xi64>
   %tile = "onnx.Tile"(%arg0, %const) : (tensor<5x5x1x32xf32>, tensor<4xi64>) -> tensor<5x10x30x32xf32>
   "func.return"(%tile) : (tensor<5x10x30x32xf32>) -> ()
-// CHECK-LABEL: test_tile
-// CHECK: tosa.tile{{.*}} {multiples = array<i64: 1, 2, 30, 1>} : (tensor<5x5x1x32xf32>) -> tensor<5x10x30x32xf32>
+// CHECK-LABEL:  func.func @test_tile
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<5x10x30x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape  {value = dense<[1, 2, 30, 1]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK:           [[VAR_1_:%.+]] = tosa.tile [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, !tosa.shape<4>) -> tensor<5x10x30x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x10x30x32xf32>
 }
 
 // -----
@@ -14,8 +17,11 @@ func.func @test_tile_dynamic_shape(%arg0 : tensor<5x5x?x32xf32>) -> tensor<5x10x
   %const = onnx.Constant dense<[1, 2, 30, 1]> : tensor<4xi64>
   %tile = "onnx.Tile"(%arg0, %const) : (tensor<5x5x?x32xf32>, tensor<4xi64>) -> tensor<5x10x?x32xf32>
   "func.return"(%tile) : (tensor<5x10x?x32xf32>) -> ()
-// CHECK-LABEL: test_tile_dynamic_shape
-// CHECK: tosa.tile{{.*}} {multiples = array<i64: 1, 2, 30, 1>} : (tensor<5x5x?x32xf32>) -> tensor<5x10x?x32xf32>
+// CHECK-LABEL:  func.func @test_tile_dynamic_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x?x32xf32>) -> tensor<5x10x?x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape  {value = dense<[1, 2, 30, 1]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK:           [[VAR_1_:%.+]] = tosa.tile [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x?x32xf32>, !tosa.shape<4>) -> tensor<5x10x?x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x10x?x32xf32>
 }
 
 // -----

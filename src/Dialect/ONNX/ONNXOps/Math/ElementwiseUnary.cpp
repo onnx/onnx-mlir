@@ -461,7 +461,7 @@ LogicalResult ONNXScalerOp::inferShapes(
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
   RankedTensorType xType = mlir::dyn_cast<RankedTensorType>(getX().getType());
   return shapeHelper.computeShapeAndUpdateType(
-      FloatType::getF32(getContext()), xType.getEncoding());
+      Float32Type::get(getContext()), xType.getEncoding());
 }
 
 //===----------------------------------------------------------------------===//

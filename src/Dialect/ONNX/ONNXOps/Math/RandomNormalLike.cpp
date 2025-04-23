@@ -52,19 +52,19 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
     }
     if (elementTypeID ==
             onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16 &&
-        outputType != FloatType::getF16(getContext()))
+        outputType != Float16Type::get(getContext()))
       return emitOpError("output tensor does not match float16 dtype.");
     else if (elementTypeID ==
                  onnx::TensorProto_DataType::TensorProto_DataType_FLOAT &&
-             outputType != FloatType::getF32(getContext()))
+             outputType != Float32Type::get(getContext()))
       return emitOpError("output tensor does not match float dtype.");
     else if (elementTypeID ==
                  onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE &&
-             outputType != FloatType::getF64(getContext()))
+             outputType != Float64Type::get(getContext()))
       return emitOpError("output tensor does not match double dtype.");
     else if (elementTypeID ==
                  onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16 &&
-             outputType != FloatType::getBF16(getContext()))
+             outputType != BFloat16Type::get(getContext()))
       return emitOpError("output tensor does not match bfloat16 dtype.");
   } else if (inputType != outputType) {
     return emitOpError("output and input element types do not match.");
