@@ -369,6 +369,7 @@ bool isSuitableForZDNN<ONNXAddOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
+  // Rule below is true for adds that are not fused into matmul.
   if (!dimAnalysis->sameShape(op.getA(), op.getB()))
     return onnxToZHighUnsupportedReport(op.getOperation(),
         "The dynamic dimension analysis couldn't identify "
@@ -643,6 +644,7 @@ bool isSuitableForZDNN<ONNXExpOp>(
 }
 
 /// Check legality for ONNXMatMul.
+// hi alex, check this one.
 template <>
 bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
@@ -704,7 +706,10 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     }
     return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
-    // stacked w/ bcast23 case
+    // bcast23 case
+    if (!isCompatibleWithNNPALevel(NNPALevel::M15))
+      return onnxToZHighInCompatibilityReport(
+          op.getOperation(), NNPALevel::M15);
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       if (shapeA[2] != shapeB[0]) {
         std::string message = "Stacked w/ bcast23 case: the 3rd dim of A (" +
@@ -716,7 +721,7 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     }
     return true;
   } else if ((shapeA.size() == 2) && (shapeB.size() == 3)) {
-    // stacked w/ bcast1 case
+    // bcast1 case
     if (!isCompatibleWithNNPALevel(NNPALevel::M15))
       return onnxToZHighInCompatibilityReport(
           op.getOperation(), NNPALevel::M15);

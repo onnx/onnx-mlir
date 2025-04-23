@@ -55,6 +55,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // X :: NxM
       xI = 1;
     if (yRank == 2) {
+      // Case: unstacked.
       // Y :: NxP
       int64_t yI = 1;
       if (transposeB)
@@ -64,6 +65,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       outputDims.emplace_back(XDims[xI]);
       outputDims.emplace_back(YDims[yI]);
     } else if (yRank == 3) {
+      // Case: bcast1.
       // Y :: SxNxP
       int64_t yI1 = 0;
       int64_t yI2 = 2;
@@ -86,6 +88,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // X :: SxNxM
       xI2 = 2;
     if (yRank == 2) {
+      // Case: bcast23.
       // Y :: NxP
       int64_t yI = 1;
       if (transposeB)
@@ -98,6 +101,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       outputDims.emplace_back(YDims[yI]);
       isBroadcasted23 = true;
     } else if (yRank == 3) {
+      // Case: stacked.
       // Y :: SxNxP
       int64_t yI = 2;
       if (transposeB)
@@ -219,33 +223,45 @@ LogicalResult ZHighMatMulOp::verify() {
 
   // X must be 2D or 3DS.
   if (!((xLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
-          (xLayout == ZTensorEncodingAttr::DataLayout::_3DS)))
+          (xLayout == ZTensorEncodingAttr::DataLayout::_3DS))) {
+    fprintf(stderr, "hi alex from verify failure 1\n");
     return failure();
+  }
 
   // If X is 2D, Y must be 2D or 3DS.
   // If X is 2D and Y is 2D, B must be 1D.
   // If X is 2D and Y is 3DS, B must be 2DS.
   if (xLayout == ZTensorEncodingAttr::DataLayout::_2D) {
     if (!((yLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
-            (yLayout == ZTensorEncodingAttr::DataLayout::_3DS)))
+            (yLayout == ZTensorEncodingAttr::DataLayout::_3DS))) {
+      fprintf(stderr, "hi alex from verify failure 2\n");
       return failure();
+    }
     if (yLayout == ZTensorEncodingAttr::DataLayout::_2D) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D))
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D)) {
+        fprintf(stderr, "hi alex from verify failure 3\n");
         return failure();
+      }
     } else if (yLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS))
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS)) {
+        fprintf(stderr, "hi alex from verify failure 4\n");
         return failure();
+      }
     }
   }
 
   // X is 3DS, valid types for (X, Y, B) are (3DS, 3DS, 2DS) or (3DS, 2D, 1D)
   if (xLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
     if (yLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS))
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS)) {
+        fprintf(stderr, "hi alex from verify failure 5\n");
         return failure();
+      }
     } else if (yLayout == ZTensorEncodingAttr::DataLayout::_2D) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D))
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D)) {
+        fprintf(stderr, "hi alex from verify failure 6\n");
         return failure();
+      }
     }
   }
 

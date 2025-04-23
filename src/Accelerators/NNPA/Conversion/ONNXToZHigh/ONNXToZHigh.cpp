@@ -28,6 +28,9 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 
+// hi alex
+#include "src/Compiler/CompilerOptions.hpp"
+
 #define DEBUG_TYPE "onnx-to-zhigh"
 
 using namespace mlir;
@@ -1613,8 +1616,15 @@ void getONNXToZHighOneOpDynamicallyLegal(
 // hi alex: if add matmul pattern here, should be good.
 void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  patterns.insert<replaceONNXMatMulAddPattern1>(context);
-  patterns.insert<replaceONNXMatMulAddPattern2>(context);
+  patterns.insert<replaceONNXMatMulAddUnstackedPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddUnstackedPattern2>(context);
+
+  if (debugTestCompilerOpt) {
+    fprintf(stderr, "hi alex, use new mult add stacked pattern");
+    patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
+    patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
+  }
+
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
   patterns.insert<replaceONNXTransAMatMulPattern>(context);

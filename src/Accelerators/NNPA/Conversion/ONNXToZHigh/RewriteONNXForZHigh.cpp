@@ -434,11 +434,19 @@ public:
     Arch 14
     type: input_a	input_b	input_c -> result
     unstacked: ZDNN_2D(m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_2D(m,p)
-    stacked: ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(s,p) -> ZDNN_3DS(s,m,p)
+    stacked: ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(p) -> ZDNN_3DS(s,m,p)
+      => ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(s, 1, p) -> ZDNN_3DS(s,m,p)
 
     Arch 15: Arch 14 plus patterns below,
-    bcast1: ZDNN_2D(m,n) ZDNN_3DS(s,n,p)	ZDNN_2DS(s,p) -> ZDNN_3DS(s,m,p)
+    bcast1: ZDNN_2D(m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(p) -> ZDNN_3DS(s,m,p)
+      => ZDNN_2D(m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(s,1,p) -> ZDNN_3DS(s,m,p)
+
     bcast23: ZDNN_3DS(s,m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_3DS(s,m,p)
+
+    staked and bcast1: Hardware need 2DS(s, p). To make broadcast legal, have to
+    add a "1" in between the s and the p. If we have only a (p), it works too
+    when we expand the added constant to s replicas of (p) to become (s, 1 p).
+    Hardware op will eventually get (s, p).
   */
   LogicalResult matchAndRewrite(
       ONNXAddOp addOp, PatternRewriter &rewriter) const override {
@@ -471,28 +479,68 @@ public:
     int64_t m1Rank = m1Type.getRank();
     int64_t m2Rank = m2Type.getRank();
     int64_t cRank = cType.getRank();
+    ArrayRef<int64_t> cShape = cType.getShape();
 
-    int64_t cDesiredRank = 100000; // Signal undefined.
+    int64_t cDesiredRank = -1; // Signal undefined.
     bool includeArch15 = isCompatibleWithNNPALevel(NNPALevel::M15);
-    if (m1Rank == 2 && m2Rank == 2)
-      cDesiredRank = 1;
-    else if (m1Rank == 3 && m2Rank == 3)
-      cDesiredRank = 2;
-    else if (includeArch15 && m1Rank == 2 && m2Rank == 3)
-      cDesiredRank = 2;
-    else if (includeArch15 && m1Rank == 3 && m2Rank == 2)
-      cDesiredRank = 1;
-    if (cRank == cDesiredRank)
-      return true; // Constant has already the right rank, all good.
-    if (cRank > cDesiredRank)
-      // Constant has more ranks than desired, nothing to do.
+    if (m1Rank == 2 && m2Rank == 2) {
+      // Unstacked.
+      if (cRank == 1) {
+        fprintf(stderr, "hi alex, Unstacked has the right c rank, success\n");
+        return true; // Constant has already the right rank, all good.
+      }
+      fprintf(stderr, "hi alex, Unstacked has too big a c rank, failure\n");
       return false;
+    } else if (m1Rank == 3 && m2Rank == 3) {
+      // Stacked.
+      if (cRank == 3 && cShape[1] == 1) {
+        // Constant has already the right (expanded) crank, all good.
+        fprintf(stderr,
+            "hi alex, Stacked has the right expanded c rank, success\n");
+        return true;
+      }
+      if (cRank == 2 || cRank > 3) {
+        // cRank is not an expanded 2D rank, or too big: not the right pattern.
+        fprintf(stderr, "hi alex, Stacked has not the right c rank, failure\n");
+        return false;
+      }
+      // cRank is 1, needs to grow to 3.
+      cDesiredRank = 3;
+    } else if (includeArch15 && m1Rank == 2 && m2Rank == 3) {
+      // Bcast1.
+      if (cRank == 3 && cShape[1] == 1) {
+        // Constant has already the right (expanded) crank, all good.
+        fprintf(
+            stderr, "hi alex, bcast1 has the right expanded c rank, success\n");
+        return true;
+      }
+      if (cRank == 2 || cRank > 3) {
+        // cRank is not an expanded 2D rank, or too big: not the right pattern.
+        fprintf(stderr, "hi alex, Bcast1 has not the right c rank, failure\n");
+        return false;
+      }
+      // cRank is 1, needs to grow to 3.
+      cDesiredRank = 3;
+    } else if (includeArch15 && m1Rank == 3 && m2Rank == 2) {
+      // Bcast23.
+      if (cRank == 1) {
+        fprintf(stderr, "hi alex, Bcast23 has the right c rank, success\n");
+        return true; // Constant has already the right rank, all good.
+      }
+      fprintf(stderr, "hi alex, Bcast23 has too big a c rank, failure\n");
+      return false;
+    } else {
+      // Not one of the 4 acceptable pattern for fused multiply add
+      fprintf(stderr,
+          "hi alex, pattern not supported for fused multiply add: failure\n");
+      return false; // Constant has already the right rank, all good.
+    }
     // Check assumptions.
-    assert(cRank == 1 && cDesiredRank == 2 &&
+    assert(cRank == 1 && cDesiredRank == 3 &&
            "only rank combination that should reach here");
     // The output of the matMul and add operations have the same shape here
-    // (since const rank < matmul rank). We avoid taking shape from the original
-    // add op as that op will be replaced.
+    // (since const rank < matmul rank). We avoid taking shape from the
+    // original add op as that op will be replaced.
     auto outputType = mlir::cast<RankedTensorType>(matMulVal.getType());
     int64_t outputRank = outputType.getRank();
     ArrayRef<int64_t> resDims = getShape(outputType);
