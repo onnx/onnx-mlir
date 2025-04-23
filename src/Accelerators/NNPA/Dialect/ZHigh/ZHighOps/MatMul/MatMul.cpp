@@ -218,8 +218,16 @@ LogicalResult ZHighMatMulOp::verify() {
   // Bias can be None.
   ZTensorEncodingAttr::DataLayout bLayout;
   bool hasBias = !mlir::isa<NoneType>(B.getType());
-  if (hasBias)
+  if (hasBias) {
     bLayout = getZTensorLayout(B.getType());
+    fprintf(stderr, "hi alex, has bias == %d, with bLayout %d\n", (int)hasBias,
+        (int)bLayout);
+    if (bLayout == ZTensorEncodingAttr::DataLayout::UNDEFINED) {
+      fprintf(stderr, "hi alex, skip bias testing as for some reason layout is "
+                      "initially not correctly seen\n");
+      hasBias = false;
+    }
+  }
 
   // X must be 2D or 3DS.
   if (!((xLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
@@ -254,7 +262,8 @@ LogicalResult ZHighMatMulOp::verify() {
   if (xLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
     if (yLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
       if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS)) {
-        fprintf(stderr, "hi alex from verify failure 5\n");
+        fprintf(
+            stderr, "hi alex from verify failure 5, got %d\n", (int)bLayout);
         return failure();
       }
     } else if (yLayout == ZTensorEncodingAttr::DataLayout::_2D) {
