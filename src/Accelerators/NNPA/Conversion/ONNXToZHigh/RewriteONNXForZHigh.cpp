@@ -40,6 +40,9 @@
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+// hi alex
+#include "src/Compiler/CompilerOptions.hpp"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -493,6 +496,10 @@ public:
       return false;
     } else if (m1Rank == 3 && m2Rank == 3) {
       // Stacked.
+      if (!debugTestCompilerOpt) {
+        fprintf(stderr, "hi alex, Stacked not enabled\n");
+        return false;
+      }
       if (cRank == 3 && cShape[1] == 1) {
         // Constant has already the right (expanded) crank, all good.
         fprintf(stderr,
@@ -508,6 +515,10 @@ public:
       cDesiredRank = 3;
     } else if (includeArch15 && m1Rank == 2 && m2Rank == 3) {
       // Bcast1.
+      if (!debugTestCompilerOpt) {
+        fprintf(stderr, "hi alex, Bcast1 not enabled\n");
+        return false;
+      }
       if (cRank == 3 && cShape[1] == 1) {
         // Constant has already the right (expanded) crank, all good.
         fprintf(
@@ -523,6 +534,10 @@ public:
       cDesiredRank = 3;
     } else if (includeArch15 && m1Rank == 3 && m2Rank == 2) {
       // Bcast23.
+      if (!debugTestCompilerOpt) {
+        fprintf(stderr, "hi alex, Bcast23 not enabled\n");
+        return false;
+      }
       if (cRank == 1) {
         fprintf(stderr, "hi alex, Bcast23 has the right c rank, success\n");
         return true; // Constant has already the right rank, all good.
