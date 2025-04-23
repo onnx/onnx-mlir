@@ -1674,7 +1674,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
 
   // It's ok to fail.
-  (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
+  (void)applyPatternsGreedily(module, std::move(combinedPatterns));
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.

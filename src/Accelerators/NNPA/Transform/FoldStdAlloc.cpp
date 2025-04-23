@@ -211,8 +211,7 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<FoldStdAlloc>(&getContext());
 
-    static_cast<void>(
-        applyPatternsAndFoldGreedily(function, std::move(patterns)));
+    static_cast<void>(applyPatternsGreedily(function, std::move(patterns)));
   }
 };
 
