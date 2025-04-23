@@ -1624,6 +1624,9 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
     patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
     patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
 
+    patterns.insert<replaceONNXMatMulAddBCast1Pattern1>(context);
+    patterns.insert<replaceONNXMatMulAddBCast1Pattern2>(context);
+
     patterns.insert<replaceONNXMatMulAddBCast23Pattern1>(context);
     patterns.insert<replaceONNXMatMulAddBCast23Pattern2>(context);
   }
