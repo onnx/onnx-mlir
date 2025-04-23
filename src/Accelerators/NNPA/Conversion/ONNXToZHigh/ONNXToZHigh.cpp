@@ -1623,6 +1623,9 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
     fprintf(stderr, "hi alex, use new mult add stacked pattern");
     patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
     patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
+
+    patterns.insert<replaceONNXMatMulAddBCast23Pattern1>(context);
+    patterns.insert<replaceONNXMatMulAddBCast23Pattern2>(context);
   }
 
   patterns.insert<replaceONNXReluConvPattern>(context);

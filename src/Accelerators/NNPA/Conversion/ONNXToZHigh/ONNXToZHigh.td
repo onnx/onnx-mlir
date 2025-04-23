@@ -718,44 +718,14 @@ def replaceONNXMatMulAddStackedPattern2 : Pat<
 // Replace onnx.add and onnx.matmul with bcast1 tensors with ZHighMatMul
 //===----------------------------------------------------------------------===//
 
-def replaceONNXMatMulAddPatternBcast1A : Pat<
-  // From Add $b, (MatMul $x, $y)
-  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
-  // To ZHighMatMulOp
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
-        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (GetDefaultSaturation)),
-        (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
-   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<2> $b)], [],
-  (addBenefit 0)
->;
-
-def replaceONNXMatMulAddPatternBcast1B : Pat<
-  // From Add (MatMul $x, $y), $b
-  (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
-  // To ZHighMatMulOp
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-	(ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
-        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-	(ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-							 (GetRank $y)), (GetDefaultSaturation)),
-	(GetZeroI64Attr), (GetZeroI64Attr))),
-  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
-   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<2> $b)], [],
-  (addBenefit 0)
->;
 
 //===----------------------------------------------------------------------===//
 // Replace onnx.add and onnx.matmul with bcast23 tensors with ZHighMatMul
 //===----------------------------------------------------------------------===//
 
-// hi alex, changes here
-def replaceONNXMatMulAddPatternBcast23A : Pat<
+// Could reuse unstacked
+
+def replaceONNXMatMulAddBCast23Pattern1 : Pat<
   // From Add $b, (MatMul $x, $y)
   (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
   // To ZHighMatMulOp
@@ -771,7 +741,7 @@ def replaceONNXMatMulAddPatternBcast23A : Pat<
   (addBenefit 0)
 >;
 
-def replaceONNXMatMulAddPatternBcast23B : Pat<
+def replaceONNXMatMulAddBCast23Pattern2 : Pat<
   // From Add (MatMul $x, $y), $b
   (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
   // To ZHighMatMulOp
