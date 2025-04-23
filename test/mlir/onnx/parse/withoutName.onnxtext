@@ -1,0 +1,23 @@
+// RUN: onnx-mlir --EmitONNXBasic --useOutputNameAsLocation=true --printIR --mlir-print-debuginfo %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 9]
+>
+test_import_loc_without_name (float[1,1,6,2048] input) => (float[1,1,6,2048] output) {
+   // Node without a name but with a non-empty output
+   Add_output_0 = Add (input, input)
+   output = Identity (Add_output_0)
+}
+
+// mlir2FileCheck.py
+// CHECK: #loc = loc(unknown)
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   (%arg0: tensor<1x1x6x2048xf32> {onnx.name = "input"} loc(unknown)) -> (tensor<1x1x6x2048xf32> {onnx.name = "output"}) {
+// CHECK-DAG:       %0 = "onnx.Add"(%arg0, %arg0) : (tensor<1x1x6x2048xf32>, tensor<1x1x6x2048xf32>) -> tensor<1x1x6x2048xf32> loc(#loc1)
+// CHECK-DAG:       %1 = "onnx.Identity"(%0) : (tensor<1x1x6x2048xf32>) -> tensor<1x1x6x2048xf32> loc(#loc2)
+// CHECK:           onnx.Return %1 : tensor<1x1x6x2048xf32> loc(#loc)
+// CHECK:         } loc(#loc)
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> () loc(#loc)
+// CHECK:       } loc(#loc)
+// CHECK: #loc1 = loc("Add_output_0")
+// CHECK: #loc2 = loc("output")
