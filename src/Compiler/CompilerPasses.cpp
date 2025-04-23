@@ -254,7 +254,7 @@ void addKrnlToLLVMPasses(
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
   mlir::bufferization::buildBufferDeallocationPipeline(
       pm, bufferDeallocOptions);
-  pm.addPass(bufferization::createOwnershipBasedBufferDeallocationPass());
+  pm.addPass(mlir::createConvertBufferizationToMemRefPass());
 
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
