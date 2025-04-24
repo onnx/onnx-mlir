@@ -721,7 +721,6 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-#if defined(_DEBUG)
 /*
   How to use the optional optimization for testing.
 
@@ -735,8 +734,9 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
   And to invoke on the command option (Debug mode only).
 
   onnx-mlir -test-compiler-opt
-
 */
+#if defined(_DEBUG)
+
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "

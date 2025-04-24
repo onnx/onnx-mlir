@@ -592,13 +592,20 @@ def GetMatMulBiasLayoutStringAttr : NativeCodeCall<
 //                              CreateNoneValue)
 //===----------------------------------------------------------------------===//
 
+def IsMatMulLegalForZDNN: Constraint<
+  CPred<"isSuitableForZDNN<ONNXMatMulOp>(" #
+             "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp()))">,
+  "MatMul is legal for zDNN"
+>;
+
 def replaceONNXMatMulPattern : Pat<
   (ONNXMatMulOp:$res $x, $y),
   (ZHighUnstickOp
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (CreateNoneValue), (GetZeroI64Attr), (GetZeroI64Attr)))
+        (CreateNoneValue), (GetZeroI64Attr), (GetZeroI64Attr))),
+  [(IsMatMulLegalForZDNN $res)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -609,12 +616,6 @@ def replaceONNXMatMulPattern : Pat<
 //           (ZHighStickOp %Y),
 //           (ZHighStickOp %B))
 //===----------------------------------------------------------------------===//
-
-def IsMatMulLegalForZDNN: Constraint<
-  CPred<"isSuitableForZDNN<ONNXMatMulOp>(" #
-             "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp()))">,
-  "MatMul is legal for zDNN"
->;
 
 // Be careful, this check is very specific to '$0' of rank 2 and '$1' of rank 1.
 // Limitation: only when dims are static. Should we include dim analysis?
@@ -693,7 +694,7 @@ def replaceONNXMatMulAddStackedPattern1 : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp 
+        (ZHighStickOp
           (ONNXSqueezeV11Op $b, (GetI64ArrayAttr<1>)),
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
@@ -711,7 +712,7 @@ def replaceONNXMatMulAddStackedPattern2 : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp 
+        (ZHighStickOp
           (ONNXSqueezeV11Op $b, (GetI64ArrayAttr<1>)),
           //$b,
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
@@ -734,7 +735,7 @@ def replaceONNXMatMulAddBCast1Pattern1 : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp 
+        (ZHighStickOp
           (ONNXSqueezeV11Op $b, (GetI64ArrayAttr<1>)),
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
@@ -753,12 +754,12 @@ def replaceONNXMatMulAddBCast1Pattern2 : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp 
+        (ZHighStickOp
           (ONNXSqueezeV11Op $b, (GetI64ArrayAttr<1>)),
           //$b,
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(IsCompatibleWithNNPALevelArch15), 
+  [(IsCompatibleWithNNPALevelArch15),
    (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<3> $b), (HaveSameLastDimR1AndR3 $y, $b),
    (BiasWith1InR2 $b), (IsMatMulLegalForZDNN $m)],
   [],
