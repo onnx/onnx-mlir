@@ -1,6 +1,8 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx  --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
 
+// -----
+
 func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
   return %0 : tensor<2x3x4x5xf32>
@@ -502,6 +504,8 @@ func.func @test_matmul_splitting_A(%arg0: tensor<?x50257x768xf32>, %arg1: tensor
 // CHECK:         }
 }
 
+// -----
+
 // Split MatMul because a dimension exceeds NNPAGetMaxForDim = 32768.
 func.func @test_matmul_splitting_B(%arg0: tensor<?x?x768xf32>, %arg1: tensor<768x50257xf32>) -> (tensor<?x?x50257xf32>) {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x768xf32>, tensor<768x50257xf32>) -> tensor<?x?x50257xf32>
@@ -542,6 +546,25 @@ func.func @test_matmul_splitting_A_B(%arg0: tensor<?x50257x768xf32>, %arg1: tens
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Concat"([[VAR_7_]], [[VAR_8_]]) {axis = 2 : si64} : (tensor<?x17489x32768xf32>, tensor<?x17489x17490xf32>) -> tensor<?x17489x50258xf32>
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Concat"([[VAR_6_]], [[VAR_9_]]) {axis = 1 : si64} : (tensor<?x32768x50258xf32>, tensor<?x17489x50258xf32>) -> tensor<?x50257x50258xf32>
 // CHECK:           return [[VAR_10_]] : tensor<?x50257x50258xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_matmul_add_stacked_format_const_to_3D(%arg0: tensor<4x128x256xf32>, %arg1: tensor<4x256x512xf32>) -> tensor<4x128x512xf32> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<512xf32>
+  %1 = "onnx.MatMul"(%arg0, %arg1) {device = "nnpa"} : (tensor<4x128x256xf32>, tensor<4x256x512xf32>) -> tensor<4x128x512xf32>
+  %2 = "onnx.Add"(%1, %0) {device = "nnpa"} : (tensor<4x128x512xf32>, tensor<512xf32>) -> tensor<4x128x512xf32>
+  return %2 : tensor<4x128x512xf32>
+// mlir2FileCheck.py -a '["A","B"]'
+// CHECK-LABEL:  func.func @test_matmul_add_stacked_format_const_to_3D
+// CHECK-SAME:   ([[A_:%.+]]: tensor<4x128x256xf32>, [[B_:%.+]]: tensor<4x256x512xf32>) -> tensor<4x128x512xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<512xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.MatMul"([[A_]], [[B_]]) {device = "nnpa"} : (tensor<4x128x256xf32>, tensor<4x256x512xf32>) -> tensor<4x128x512xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[4, 1, 512]> : tensor<3xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Expand"([[VAR_0_]], [[VAR_2_]]) : (tensor<512xf32>, tensor<3xi64>) -> tensor<4x1x512xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Add"([[VAR_1_]], [[VAR_3_]]) : (tensor<4x128x512xf32>, tensor<4x1x512xf32>) -> tensor<4x128x512xf32>
+// CHECK:           return [[VAR_4_]] : tensor<4x128x512xf32>
 // CHECK:         }
 }
 
