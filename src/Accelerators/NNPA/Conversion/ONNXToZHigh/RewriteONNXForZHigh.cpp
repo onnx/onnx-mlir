@@ -471,7 +471,7 @@ public:
     if (!mayFuseMatMulAdd)
       return false;
     if (!debugTestCompilerOpt) {
-      fprintf(stderr, "hi alex: disable fusion");
+      fprintf(stderr, "hi alex: disable fusion\n");
       return false;
     }
 
