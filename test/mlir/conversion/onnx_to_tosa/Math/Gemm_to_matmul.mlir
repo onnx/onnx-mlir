@@ -198,3 +198,72 @@ func.func @test_mixed(%arg0: tensor<11x5xf32>, %arg1: tensor<3x11xf32>, %arg2: t
 // CHECK:           return [[VAR_13_]] : tensor<5x3xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @gemm(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>, %arg2: tensor<4xf32>) -> tensor<1x4xf32> {
+  %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+  return %0 : tensor<1x4xf32>
+// CHECK-LABEL:  func.func @gemm
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5xf32>, [[PARAM_1_:%.+]]: tensor<4x5xf32>, [[PARAM_2_:%.+]]: tensor<4xf32>) -> tensor<1x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.const_shape  {value = dense<[1, 1, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<1x5xf32>, !tosa.shape<3>) -> tensor<1x1x5xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[1, 4, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.reshape [[PARAM_1_]], [[VAR_2_]] : (tensor<4x5xf32>, !tosa.shape<3>) -> tensor<1x4x5xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 1]> : tensor<3xi32>}> : () -> tensor<3xi32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.transpose [[VAR_3_]], [[VAR_4_]] : (tensor<1x4x5xf32>, tensor<3xi32>) -> tensor<1x5x4xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = tosa.matmul [[VAR_1_]], [[VAR_5_]] : (tensor<1x1x5xf32>, tensor<1x5x4xf32>) -> tensor<1x1x4xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = tosa.const_shape  {value = dense<[1, 1, 4]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_8_:%.+]] = tosa.reshape [[PARAM_2_]], [[VAR_7_]] : (tensor<4xf32>, !tosa.shape<3>) -> tensor<1x1x4xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = tosa.add [[VAR_6_]], [[VAR_8_]] : (tensor<1x1x4xf32>, tensor<1x1x4xf32>) -> tensor<1x1x4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = tosa.const_shape  {value = dense<[1, 4]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK:           [[VAR_11_:%.+]] = tosa.reshape [[VAR_9_]], [[VAR_10_]] : (tensor<1x1x4xf32>, !tosa.shape<2>) -> tensor<1x4xf32>
+// CHECK:           return [[VAR_11_]] : tensor<1x4xf32>
+// CHECK:         }
+}
+  
+// -----
+  
+func.func @gemm_broadcast(%arg0: tensor<2x5xf32>, %arg1: tensor<4x5xf32>, %arg2: tensor<1xf32>) -> tensor<2x4xf32> {
+  %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transB = 1 : si64} : (tensor<2x5xf32>, tensor<4x5xf32>, tensor<1xf32>) -> tensor<2x4xf32>
+  return %0 : tensor<2x4xf32>
+// CHECK-LABEL:  func.func @gemm_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x5xf32>, [[PARAM_1_:%.+]]: tensor<4x5xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>) -> tensor<2x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.const_shape  {value = dense<[1, 2, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<2x5xf32>, !tosa.shape<3>) -> tensor<1x2x5xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.const_shape  {value = dense<[1, 4, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.reshape [[PARAM_1_]], [[VAR_2_]] : (tensor<4x5xf32>, !tosa.shape<3>) -> tensor<1x4x5xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 1]> : tensor<3xi32>}> : () -> tensor<3xi32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.transpose [[VAR_3_]], [[VAR_4_]] : (tensor<1x4x5xf32>, tensor<3xi32>) -> tensor<1x5x4xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = tosa.matmul [[VAR_1_]], [[VAR_5_]] : (tensor<1x2x5xf32>, tensor<1x5x4xf32>) -> tensor<1x2x4xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = tosa.const_shape  {value = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_8_:%.+]] = tosa.reshape [[PARAM_2_]], [[VAR_7_]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = tosa.add [[VAR_6_]], [[VAR_8_]] : (tensor<1x2x4xf32>, tensor<1x1x1xf32>) -> tensor<1x2x4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = tosa.const_shape  {value = dense<[2, 4]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK:           [[VAR_11_:%.+]] = tosa.reshape [[VAR_9_]], [[VAR_10_]] : (tensor<1x2x4xf32>, !tosa.shape<2>) -> tensor<2x4xf32>
+// CHECK:           return [[VAR_11_]] : tensor<2x4xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @gemm_no_bias(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>) -> tensor<1x4xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, none) -> tensor<1x4xf32>
+  return %0 : tensor<1x4xf32>
+// CHECK-LABEL:  func.func @gemm_no_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5xf32>, [[PARAM_1_:%.+]]: tensor<4x5xf32>) -> tensor<1x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.const_shape  {value = dense<[1, 1, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.reshape [[PARAM_0_]], [[VAR_1_]] : (tensor<1x5xf32>, !tosa.shape<3>) -> tensor<1x1x5xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.const_shape  {value = dense<[1, 4, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]], [[VAR_3_]] : (tensor<4x5xf32>, !tosa.shape<3>) -> tensor<1x4x5xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 1]> : tensor<3xi32>}> : () -> tensor<3xi32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = tosa.transpose [[VAR_4_]], [[VAR_5_]] : (tensor<1x4x5xf32>, tensor<3xi32>) -> tensor<1x5x4xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = tosa.matmul [[VAR_2_]], [[VAR_6_]] : (tensor<1x1x5xf32>, tensor<1x5x4xf32>) -> tensor<1x1x4xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = tosa.const_shape  {value = dense<[1, 4]> : tensor<2xindex>} : () -> !tosa.shape<2>
+// CHECK:           [[VAR_9_:%.+]] = tosa.reshape [[VAR_7_]], [[VAR_8_]] : (tensor<1x1x4xf32>, !tosa.shape<2>) -> tensor<1x4xf32>
+// CHECK:           return [[VAR_9_]] : tensor<1x4xf32>
+// CHECK:         }
+
+}
