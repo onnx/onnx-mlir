@@ -92,7 +92,9 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 // 2. `ONNXAddOp %X, %constant` will be replaced by
 //       `ONNXAddOp %X, (ONNXExpandOp %constant, (ONNXShapeOp %X))`
 //
-//
+// Case 2 is now performed explicitly in class ExpandAddConstantPattern and
+// function processAddOnlyCase which is only called when processMatMulAddCase
+// fails. It is thus removed from the td rules below.
 //===----------------------------------------------------------------------===//
 
 // Check unidirectional broadcasting from the first to second tensor.
@@ -111,16 +113,6 @@ def expandConstantOperandForAddOp1: Pat<
   (ONNXAddOp $x, $c),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
-
-// In "x + const", expand the const have the right shape for NNPA processing.
-// hi alex, remove
-// def expandConstantOperandForAddOp2: Pat<
-//   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
-//   (ONNXAddOp $x, (ONNXExpandOp $c,
-//                                (CreateShapeOp $x),
-//                                (returnType $x))),
-//   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
-// >;
 
 //===----------------------------------------------------------------------===//
 // For ONNXDivOp

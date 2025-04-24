@@ -644,7 +644,6 @@ bool isSuitableForZDNN<ONNXExpOp>(
 }
 
 /// Check legality for ONNXMatMul.
-// hi alex, check this one.
 template <>
 bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {

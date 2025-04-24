@@ -220,57 +220,46 @@ LogicalResult ZHighMatMulOp::verify() {
   bool hasBias = !mlir::isa<NoneType>(B.getType());
   if (hasBias) {
     bLayout = getZTensorLayout(B.getType());
-    fprintf(stderr, "hi alex, has bias == %d, with bLayout %d\n", (int)hasBias,
-        (int)bLayout);
     if (bLayout == ZTensorEncodingAttr::DataLayout::UNDEFINED) {
-      fprintf(stderr, "hi alex, skip bias testing as for some reason layout is "
-                      "initially not correctly seen\n");
+      // I have seen cases where the B type layout is not yet defined; however,
+      // some propagation then occurs and the layout gets the desired value. In
+      // order to not create spurious failures, disable the bias shape tests
+      // until the layout is well defined. I don't have a good explanation of
+      // why that is actually happening. Testing shows that eventually the
+      // layout is well defined and the test will then be fuly operational.
       hasBias = false;
     }
   }
 
   // X must be 2D or 3DS.
   if (!((xLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
-          (xLayout == ZTensorEncodingAttr::DataLayout::_3DS))) {
-    fprintf(stderr, "hi alex from verify failure 1\n");
+          (xLayout == ZTensorEncodingAttr::DataLayout::_3DS)))
     return failure();
-  }
 
   // If X is 2D, Y must be 2D or 3DS.
   // If X is 2D and Y is 2D, B must be 1D.
   // If X is 2D and Y is 3DS, B must be 2DS.
   if (xLayout == ZTensorEncodingAttr::DataLayout::_2D) {
     if (!((yLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
-            (yLayout == ZTensorEncodingAttr::DataLayout::_3DS))) {
-      fprintf(stderr, "hi alex from verify failure 2\n");
+            (yLayout == ZTensorEncodingAttr::DataLayout::_3DS)))
       return failure();
-    }
     if (yLayout == ZTensorEncodingAttr::DataLayout::_2D) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D)) {
-        fprintf(stderr, "hi alex from verify failure 3\n");
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D))
         return failure();
-      }
     } else if (yLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS)) {
-        fprintf(stderr, "hi alex from verify failure 4\n");
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS))
         return failure();
-      }
     }
   }
 
   // X is 3DS, valid types for (X, Y, B) are (3DS, 3DS, 2DS) or (3DS, 2D, 1D)
   if (xLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
     if (yLayout == ZTensorEncodingAttr::DataLayout::_3DS) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS)) {
-        fprintf(
-            stderr, "hi alex from verify failure 5, got %d\n", (int)bLayout);
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_2DS))
         return failure();
-      }
     } else if (yLayout == ZTensorEncodingAttr::DataLayout::_2D) {
-      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D)) {
-        fprintf(stderr, "hi alex from verify failure 6\n");
+      if (hasBias && !(bLayout == ZTensorEncodingAttr::DataLayout::_1D))
         return failure();
-      }
     }
   }
 

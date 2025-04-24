@@ -728,7 +728,7 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
   #include "src/Compiler/CompilerOptions.hpp"
 
   if (debugTestCompilerOpt) {
-    fprintf(stderr, "hi alex, use new optimization");
+    fprintf(stderr, "use new optimization");
     // invoke optimization.
   }
 

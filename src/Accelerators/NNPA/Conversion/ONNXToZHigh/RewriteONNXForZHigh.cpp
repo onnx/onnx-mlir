@@ -423,7 +423,6 @@ public:
   }
 };
 
-// hi alex, changes here
 class ExpandAddConstantPattern : public OpRewritePattern<ONNXAddOp> {
 public:
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
@@ -471,6 +470,10 @@ public:
         addOp.getA(), addOp.getB(), matMulVal, constVal);
     if (!mayFuseMatMulAdd)
       return false;
+    if (!debugTestCompilerOpt) {
+      fprintf(stderr, "hi alex: disable fusion");
+      return false;
+    }
 
     ONNXConstantOp constOp = constVal.getDefiningOp<ONNXConstantOp>();
     ONNXMatMulOp matMulOp = matMulVal.getDefiningOp<ONNXMatMulOp>();
@@ -488,69 +491,42 @@ public:
     bool includeArch15 = isCompatibleWithNNPALevel(NNPALevel::M15);
     if (m1Rank == 2 && m2Rank == 2) {
       // Unstacked.
-      if (cRank == 1) {
-        fprintf(stderr, "hi alex, Unstacked has the right c rank, success\n");
+      if (cRank == 1)
         return true; // Constant has already the right rank, all good.
-      }
-      fprintf(stderr, "hi alex, Unstacked has too big a c rank, failure\n");
+      // Otherwise, failure for unstack.
       return false;
     } else if (m1Rank == 3 && m2Rank == 3) {
       // Stacked.
-      if (!debugTestCompilerOpt) {
-        fprintf(stderr, "hi alex, Stacked not enabled\n");
-        return false;
-      }
-      if (cRank == 3 && cShape[1] == 1) {
-        // Constant has already the right (expanded) crank, all good.
-        fprintf(stderr,
-            "hi alex, Stacked has the right expanded c rank, success\n");
+      if (cRank == 3 && cShape[1] == 1)
+        // Constant has already the right (expanded) c rank, all good.
         return true;
-      }
-      if (cRank == 2 || cRank > 3) {
+      if (cRank == 2 || cRank > 3)
         // cRank is not an expanded 2D rank, or too big: not the right pattern.
-        fprintf(stderr, "hi alex, Stacked has not the right c rank, failure\n");
         return false;
-      }
       // cRank is 1, needs to grow to 3.
       cDesiredRank = 3;
     } else if (includeArch15 && m1Rank == 2 && m2Rank == 3) {
       // Bcast1.
-      if (!debugTestCompilerOpt) {
-        fprintf(stderr, "hi alex, Bcast1 not enabled\n");
-        return false;
-      }
-      if (cRank == 3 && cShape[1] == 1) {
-        // Constant has already the right (expanded) crank, all good.
-        fprintf(
-            stderr, "hi alex, bcast1 has the right expanded c rank, success\n");
+      if (cRank == 3 && cShape[1] == 1)
+        // Constant has already the right (expanded) c rank, all good.
         return true;
-      }
-      if (cRank == 2 || cRank > 3) {
+      if (cRank == 2 || cRank > 3)
         // cRank is not an expanded 2D rank, or too big: not the right pattern.
-        fprintf(stderr, "hi alex, Bcast1 has not the right c rank, failure\n");
         return false;
-      }
       // cRank is 1, needs to grow to 3.
       cDesiredRank = 3;
     } else if (includeArch15 && m1Rank == 3 && m2Rank == 2) {
       // Bcast23.
-      if (!debugTestCompilerOpt) {
-        fprintf(stderr, "hi alex, Bcast23 not enabled\n");
-        return false;
-      }
-      if (cRank == 1) {
-        fprintf(stderr, "hi alex, Bcast23 has the right c rank, success\n");
+      if (cRank == 1)
         return true; // Constant has already the right rank, all good.
-      }
-      fprintf(stderr, "hi alex, Bcast23 has too big a c rank, failure\n");
+      // Otherwise bcast23 failure.
       return false;
     } else {
       // Not one of the 4 acceptable pattern for fused multiply add
-      fprintf(stderr,
-          "hi alex, pattern not supported for fused multiply add: failure\n");
-      return false; // Constant has already the right rank, all good.
+      return false;
     }
-    // Check assumptions.
+    // Check assumption: should come here only if c rank is 1 to be expanded
+    // to 3.
     assert(cRank == 1 && cDesiredRank == 3 &&
            "only rank combination that should reach here");
     // The output of the matMul and add operations have the same shape here
@@ -564,19 +540,11 @@ public:
     MultiDialectBuilder<OnnxBuilder> create(rewriter, addOp.getLoc());
     Value shape = create.onnx.constantInt64({resDims[0], 1, resDims[2]});
     // Value shape = create.onnx.shape(matMulVal, {0, 2});
-    fprintf(stderr, "hi alex, matmul\n");
-    matMulVal.dump();
-    fprintf(stderr, "hi alex, shape\n");
-    shape.dump();
     Type elementType = outputType.getElementType();
     Type constType =
         RankedTensorType::get({resDims[0], 1, resDims[2]}, elementType);
     Value expandedConst = create.onnx.expand(constType, constVal, shape);
-    fprintf(stderr, "hi alex, expanded const\n");
-    expandedConst.dump();
     Value newAdd = create.onnx.add(matMulVal, expandedConst);
-    fprintf(stderr, "hi alex, new add\n");
-    newAdd.dump();
     rewriter.replaceOp(addOp.getOperation(), newAdd);
     return true;
   }
