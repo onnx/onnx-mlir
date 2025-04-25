@@ -44,8 +44,7 @@ namespace onnx_mlir {
 // splits a tensor along a static axis into multiple outputs based on specified
 // channel sizes using the ONNX Split operation
 ValueRange emitSplitByChannels(PatternRewriter &rewriter, Location loc,
-                               Value input, ArrayRef<int64_t> splitSizes,
-                               int64_t axis) {
+    Value input, ArrayRef<int64_t> splitSizes, int64_t axis) {
 
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = mlir::cast<ShapedType>(input.getType());
@@ -654,8 +653,8 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
 struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp1,
-                                PatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp1, PatternRewriter &rewriter) const final {
     Value input = convOp1.getX();
     if (!onnx_mlir::isRankedShapedType(input.getType()) ||
         mlir::cast<ShapedType>(input.getType()).hasStaticShape() == false)
@@ -682,15 +681,15 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
         std::distance(input.getUsers().begin(), input.getUsers().end()));
     if (candidateConvs.size() != totalUses)
       return failure();
-    
+
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
 
     bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
     Location loc = convOp1.getLoc();
     auto inputType = mlir::cast<ShapedType>(input.getType());
     Type elementType = inputType.getElementType();
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter,
-                                                                  loc);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
 
     int64_t concatAxis = 1;
 
@@ -704,8 +703,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     auto firstWeightType =
         mlir::cast<ShapedType>(parallelConvs[0].getW().getType());
-    SmallVector<int64_t> newWeightShape(firstWeightType.getShape().begin(),
-                                        firstWeightType.getShape().end());
+    SmallVector<int64_t> newWeightShape(
+        firstWeightType.getShape().begin(), firstWeightType.getShape().end());
     newWeightShape[0] = totalOutputChannels;
     Type newWeightType =
         RankedTensorType::get(newWeightShape, firstWeightType.getElementType());
@@ -734,11 +733,11 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     newOutputShape[concatAxis] = totalOutputChannels;
     auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
-    auto newConv = rewriter.create<ONNXConvOp>(
-        loc, newOutputType, input, newWeight, newBias, convOp1.getAutoPadAttr(),
-        convOp1.getDilationsAttr(), convOp1.getGroupAttr(),
-        convOp1.getKernelShapeAttr(), convOp1.getPadsAttr(),
-        convOp1.getStridesAttr());
+    auto newConv = 
+        rewriter.create<ONNXConvOp>(loc, newOutputType, input, newWeight,
+            newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
+            convOp1.getGroupAttr(), convOp1.getKernelShapeAttr(),
+            convOp1.getPadsAttr(), convOp1.getStridesAttr());
 
     ONNXConcatOp commonConcatOp = nullptr;
     bool allOutputsUsedInCommonConcat = true;
