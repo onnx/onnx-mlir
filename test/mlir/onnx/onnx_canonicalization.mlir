@@ -1919,8 +1919,8 @@ func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x
 
   // CHECK-LABEL: func @test_reorder_relu_maxpool
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
-  // CHECK:      [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<*xf32>
-  // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<*xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK:      [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<1x64x16x16xf32>) -> tensor<1x64x16x16xf32>
   // CHECK-NEXT:     return [[VAR_1_]] : tensor<1x64x16x16xf32>
   // CHECK:         }
 }
