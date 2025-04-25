@@ -733,7 +733,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     newOutputShape[concatAxis] = totalOutputChannels;
     auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
-    auto newConv = 
+    auto newConv =
         rewriter.create<ONNXConvOp>(loc, newOutputType, input, newWeight,
             newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
             convOp1.getGroupAttr(), convOp1.getKernelShapeAttr(),
