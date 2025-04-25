@@ -17,45 +17,70 @@
 // Common function for lowering reduce operations to TOSA ops.
 // Modified from TensorFlow
 template <typename T>
-mlir::Value convertReduceOpCommon(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::RankedTensorType outputType,
-    mlir::Value inputValue, mlir::RankedTensorType inputType,
-    mlir::ElementsAttr axesElems, bool keepDims) {
-  TosaBuilder tosaBuilder(rewriter, op->getLoc());
+std::optional<mlir::Value> convertReduceOpCommon(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::RankedTensorType outputType, mlir::Value inputValue,
+    mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType,
+    bool isQuantized = false, double inputScale = 1.0, int64_t inputZp = 0,
+    double outputScale = 1.0, int64_t outputZp = 0) {
+  auto inputType =
+      mlir::dyn_cast<mlir::RankedTensorType>(inputValue.getType());
+  if (!inputType)
+    return std::nullopt;
+
+  if (!axesElems)
+    return std::nullopt;
+
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
   llvm::ArrayRef<int64_t> outputShape = outputType.getShape();
   auto inputRank = inputShape.size();
+  mlir::Value val = inputValue;
 
   if (axesElems.getNumElements() == 0) {
     // No axes means return the original tensor.
-    auto identityOp = onnx_mlir::tosa::CreateOpAndInfer<mlir::tosa::IdentityOp>(
-        rewriter, op->getLoc(), outputType, inputValue);
-    return identityOp.getResult();
+    auto identityOp = CreateOpAndInfer<mlir::tosa::IdentityOp>(
+        rewriter, op->getLoc(), outputType, val);
+    val = identityOp.getResult();
+  } else {
+    // Reduce along each axis
+    llvm::SmallVector<int64_t> shapeVec(inputShape.begin(), inputShape.end());
+
+    if (isQuantized) {
+      val = buildRescaleToInt32(rewriter, op, val, inputScale, inputZp);
+    }
+
+    for (int i = 0; i < axesElems.getNumElements(); i++) {
+      int64_t axis_val = axesElems.getValues<mlir::IntegerAttr>()[i].getInt();
+      if (axis_val < 0)
+        axis_val += inputRank;
+      auto axis_attr = rewriter.getI32IntegerAttr(axis_val);
+
+      shapeVec[axis_val] = 1;
+      mlir::RankedTensorType reduceType =
+          mlir::RankedTensorType::get(shapeVec, reduceElementType);
+
+      auto reduceOp = CreateOpAndInfer<T>(
+          rewriter, op->getLoc(), reduceType, val, axis_attr);
+
+      val = reduceOp.getResult();
+    }
+
+    if (isQuantized) {
+      mlir::RankedTensorType outputRescaleType =
+          mlir::RankedTensorType::get(shapeVec, outputType.getElementType());
+      val = buildRescale(rewriter, op, outputRescaleType, val, outputScale,
+          0, outputZp, false, true);
+    }
+
+    // Optionally squeeze out the reduced axes.
+    if (!keepDims) {
+      auto reshapeOp =
+          CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
+              outputType, val, rewriter.getDenseI64ArrayAttr(outputShape));
+      val = reshapeOp.getResult();
+    }
   }
-  // Reduce along each axis
-  llvm::SmallVector<int64_t> shapeVec(inputShape.begin(), inputShape.end());
-  mlir::Value newValue = inputValue;
-  for (int i = 0; i < axesElems.getNumElements(); i++) {
-    int64_t axisVal = axesElems.getValues<mlir::IntegerAttr>()[i].getInt();
-    if (axisVal < 0)
-      axisVal += inputRank;
-    auto axisAttr = rewriter.getI32IntegerAttr(axisVal);
 
-    shapeVec[axisVal] = 1;
-    mlir::RankedTensorType reduceType =
-        mlir::RankedTensorType::get(shapeVec, inputType.getElementType());
-
-    auto reduceOp = CreateOpAndInfer<T>(
-        rewriter, op->getLoc(), reduceType, newValue, axisAttr);
-
-    newValue = reduceOp.getResult();
-  }
-
-  // Optionally squeeze out the reduced axes.
-  if (!keepDims) {
-    newValue = tosaBuilder.reshape(newValue, outputShape);
-  }
-  return newValue;
+  return val;
 }
 
 // This calculates the values that need to be added to the padding in order to
