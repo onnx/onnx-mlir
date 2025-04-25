@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
+//===--- OMInstrument.inc - C/C++ Neutral Instrumentation Implementation---===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains implementations of OMTensor data structures
-// and helper functions.
+// This file contains implementations of the OMInstrument calls.
 //
 //===----------------------------------------------------------------------===//
 
@@ -66,6 +65,10 @@ static int psErrorCount = 0;
 static char instrumentReportOpName[INSTRUMENT_OP_NAME_MASK + 1];
 static char instrumentReportNodeName[INSTRUMENT_NODE_NAME_MASK + 1];
 static FILE *fout = 0;
+
+// Global variable to help OMInstrumentHelper.h to keep track of nesting level
+// of timing operations.
+int timing_nest_level = 0;
 
 #ifdef __MVS__
 #define timersub(a, b, result)                                                 \
@@ -146,7 +149,8 @@ static void ReportMemory() {
   char memOutput[200];
   FILE *memPipe;
   mypid = getpid();
-  int num_chars_written = snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
+  int num_chars_written =
+      snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
   assert(num_chars_written >= 0 && "snprintf write error to memCommand");
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
