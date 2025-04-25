@@ -934,7 +934,7 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 //   (BatchNorm)      Y = scale * (Z - mean) / sqrt(var + eps) + bias
 //
 // This transformation corresponds to a recomposition:
-//   Y = A * (scale * B) + (scale * bias + C)
+//   Y = A * (scale * B) + (scale * C + bias)
 //
 // Therefore, we rewrite:
 //   onnx.BatchNormalizationInferenceMode(
@@ -966,8 +966,8 @@ def BackwardFoldScaleAxisToGemmPattern : Pat<
     $A,
     (ONNXMulOp $B, $scale),
     (ONNXAddOp
-      (ONNXMulOp $bias, $scale),
-      $C),
+      (ONNXMulOp $C, $scale),
+      $bias),
     (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
   [(isTransBFalse $transB)],
   [], (addBenefit 1)
