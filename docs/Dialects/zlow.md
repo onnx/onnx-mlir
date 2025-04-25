@@ -850,7 +850,6 @@ Traits: `MemRefsNormalizable`
 | Operand | Description |
 | :-----: | ----------- |
 | `X` | memref of dlfloat16 type values
-| `shape` | memref of 64-bit signless integer values
 | `Out` | memref of dlfloat16 type values
 
 ### `zlow.sigmoid` (::onnx_mlir::zlow::ZLowSigmoidOp)

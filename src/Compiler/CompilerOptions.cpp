@@ -76,6 +76,7 @@ std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
 std::string instrumentSignatures;                      // onnx-mlir only
+std::string instrumentOnnxNode;                        // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
@@ -559,15 +560,42 @@ static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
 
 static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
     "instrument-signature",
-    llvm::cl::desc("Specify which high-level operations should print their"
-                   " input type(s) and shape(s)\n"
-                   "\"ALL\" or \"\" for all available operations.\n"
-                   "\"NONE\" for no instrument (default).\n"
-                   "\"ops1,ops2, ...\" for the multiple ops.\n"
-                   "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
-                   "Asterisk is also available.\n"
-                   "e.g. \"onnx.*\" for all onnx operations.\n"),
+    llvm::cl::desc(
+        "Specify which high-level operations should be selected for printing\n"
+        "the type and shape of their input/output tensors.\n"
+        "The ops are selected by their op name.\n"
+        "The instrument-signature defines the pattern to select the ops.\n"
+        "\"NONE\" for no instrument (default).\n"
+        "\"ALL\" or \"\" for all available operations.\n"
+        "Except for the special values, the regexp is used for matching.\n"
+        "\"ops1,ops2, ...\" for the multiple ops.\n"
+        "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add op in onnx dialect.\n"
+        "Asterisk is also available.\n"
+        "e.g. \"onnx.*\" for all onnx operations.\n"),
     llvm::cl::location(instrumentSignatures), llvm::cl::init("NONE"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
+    "instrument-onnx-node",
+    llvm::cl::desc(
+        "Specify which onnx operation node will be selected for \n"
+        "inserting a runtime call after the node to print the data of\n"
+        "their input/output tensors.\n"
+        "The ops are selected by their onnx node name, which is a string\n"
+        "attribute unique to each onnx node (most of time).\n"
+        "You can find them in the output of --EmitONNXIR\n"
+        "Other instrumentation in onnx-mlir is specified by op->getName(),\n"
+        "namely, the type of onnx operation, such Add, Matmul, and etc.\n"
+        "This option is able to pinpoint to a particular node.\n"
+        "The instrument-onnx-node defines the pattern to select.\n"
+        "\"NONE\" for no instrument (default).\n"
+        "Except for the special values, the regexp is used for matching.\n"
+        "\"/layer1/MatMul, onnx.Add_0, ...\" for the multiple nodes.\n"
+        "Asterisk is also available. For example:\n"
+        "\"onnx.Add_*\" for all AddOp. This feature allows you to specify\n"
+        "part of the target of onnx_node_name, as long as it is long enough\n"
+        "to be unique.\n"),
+    llvm::cl::location(instrumentOnnxNode), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
