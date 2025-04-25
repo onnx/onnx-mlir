@@ -128,12 +128,16 @@ LogicalResult reduceLatestVersionLowering(ONNXOp_t op,
     ConversionPatternRewriter &rewriter) {
   typename ONNXOp_t::Adaptor adaptor(op);
 
-  Value val = onnx_mlir::tosa::convertReduceOpCommon<TosaOp_t>(rewriter, op,
-      outputType, adaptor.getData(), inputType, getAxesLatestsVersionAttr(op),
-      adaptor.getKeepdims());
+  auto val = onnx_mlir::tosa::convertReduceOpCommon<TosaOp_t>(rewriter, op,
+      outputType, adaptor.getData(), getAxesLatestsVersionAttr(op),
+      adaptor.getKeepdims(), inputType.getElementType());
+
+  if (!val) {
+    return failure();
+  }
 
   // Shape inference is handled by the helper functions
-  rewriter.replaceOp(op, {val});
+  rewriter.replaceOp(op, {*val});
   return success();
 }
 
@@ -142,12 +146,15 @@ LogicalResult reduceLegacyVersionsLowering(ONNXOp_t op,
     RankedTensorType inputType, RankedTensorType outputType,
     ConversionPatternRewriter &rewriter) {
   typename ONNXOp_t::Adaptor adaptor(op);
-  Value val = onnx_mlir::tosa::convertReduceOpCommon<TosaOp_t>(rewriter, op,
-      outputType, adaptor.getData(), inputType, getAxesLegacyVersionAttr(op),
-      adaptor.getKeepdims());
+  auto val = onnx_mlir::tosa::convertReduceOpCommon<TosaOp_t>(rewriter, op,
+      outputType, adaptor.getData(), getAxesLegacyVersionAttr(op),
+      adaptor.getKeepdims(), inputType.getElementType());
+  if (!val) {
+    return failure();
+  }
 
   // Shape inference is handled by the helper functions
-  rewriter.replaceOp(op, {val});
+  rewriter.replaceOp(op, {*val});
   return success();
 }
 
@@ -173,14 +180,16 @@ LogicalResult reduceMeanLowering(ONNXReduceMeanOp op,
   }
   double divScale = 1.0 / static_cast<double>(numElemsOnReducedAxis);
 
-  Value val =
-      onnx_mlir::tosa::convertReduceOpCommon<mlir::tosa::ReduceSumOp>(rewriter,
-          op, outputType, adaptor.getData(), inputType, newAxesAttr, keepDims);
-
+  auto val = onnx_mlir::tosa::convertReduceOpCommon<mlir::tosa::ReduceSumOp>(
+      rewriter, op, outputType, adaptor.getData(), newAxesAttr, keepDims,
+      inputType.getElementType());
+  if (!val) {
+    return failure();
+  }
   TosaBuilder tosaBuilder(rewriter, op->getLoc());
   Value divConst = tosaBuilder.getSplattedConst(
       divScale, outputType.getElementType(), outputType.getRank());
-  auto output = tosaBuilder.mul(val, divConst);
+  auto output = tosaBuilder.mul(*val, divConst);
 
   if (!output) {
     return rewriter.notifyMatchFailure(op, "could not be converted");
