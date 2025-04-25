@@ -15,6 +15,7 @@
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: krnl.global
@@ -28,6 +29,8 @@
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
+// CHECK-DAG: krnl.global
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: krnl.global
@@ -39,19 +42,10 @@
 // CHECK-NOT: zlow.unstick
 // 
 // CHECK-DAG: krnl.global
-// CHECK-DAG: memref.alloc
 // CHECK-DAG: krnl.global
+// CHECK-DAG: memref.alloc
 // CHECK-DAG: krnl.global
 // CHECK-NEXT: zlow.matmul
-// 
-// No stick and unstick in between.
-// CHECK-NOT: zlow.stick
-// CHECK-NOT: zlow.unstick
-// 
-// CHECK-DAG: krnl.global
-// CHECK-DAG: memref.alloc
-// CHECK-DAG: krnl.global
-// CHECK-NEXT: zlow.add
 // 
 // No stick and unstick in between.
 // CHECK-NOT: zlow.stick
