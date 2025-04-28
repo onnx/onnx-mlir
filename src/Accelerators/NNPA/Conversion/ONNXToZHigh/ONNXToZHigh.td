@@ -783,8 +783,8 @@ def replaceONNXMatMulAddBCast23Pattern1 : Pat<
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
                                                          (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(IsCompatibleWithNNPALevelArch15), (IsMatMulLegalForZDNN $m),
-   (HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b)], [],
+  [(HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b),
+   (IsMatMulLegalForZDNN $m)], [],
   (addBenefit 0)
 >;
 
@@ -799,8 +799,8 @@ def replaceONNXMatMulAddBCast23Pattern2 : Pat<
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
                                                          (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(IsCompatibleWithNNPALevelArch15), (IsMatMulLegalForZDNN $m),
-   (HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b)], [],
+  [(HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b),
+   (IsMatMulLegalForZDNN $m)], [],
   (addBenefit 0)
 >;
 

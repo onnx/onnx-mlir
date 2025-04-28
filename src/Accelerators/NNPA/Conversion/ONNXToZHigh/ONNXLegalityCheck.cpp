@@ -706,9 +706,6 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
     // Bcast23 case.
-    if (!isCompatibleWithNNPALevel(NNPALevel::M15))
-      return onnxToZHighInCompatibilityReport(
-          op.getOperation(), NNPALevel::M15);
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       if (shapeA[2] != shapeB[0]) {
         std::string message = "Stacked w/ bcast23 case: the 3rd dim of A (" +

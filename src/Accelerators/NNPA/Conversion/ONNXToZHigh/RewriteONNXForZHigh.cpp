@@ -185,10 +185,12 @@ bool isUniBroadcatableFirstToSecond(Value A, Value B) {
   });
 }
 
+/* hi alex
 bool addNotPartOfMergeableMatMulOnNNPA(Value addValue, Value matmulValue) {
   // Mergeable only if targeting
   return true;
 }
+*/
 
 /// Check a value is defined by ONNXConstantOp or not.
 bool isDefinedByONNXConstantOp(Value v) {
@@ -435,12 +437,12 @@ public:
     unstacked: ZDNN_2D(m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_2D(m,p)
     stacked: ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(p) -> ZDNN_3DS(s,m,p)
       => ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(s, 1, p) -> ZDNN_3DS(s,m,p)
+    bcast23: ZDNN_3DS(s,m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_3DS(s,m,p)
+
 
     Arch 15: Arch 14 plus patterns below,
     bcast1: ZDNN_2D(m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(p) -> ZDNN_3DS(s,m,p)
       => ZDNN_2D(m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(s,1,p) -> ZDNN_3DS(s,m,p)
-
-    bcast23: ZDNN_3DS(s,m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_3DS(s,m,p)
 
     staked and bcast1: Hardware need 2DS(s, p). To make broadcast legal, have to
     add a "1" in between the s and the p. If we have only a (p), it works too
@@ -451,6 +453,7 @@ public:
       ONNXAddOp addOp, PatternRewriter &rewriter) const override {
     // For the moment, only handle constant shapes.
     // TODO: add support for dynamic shapes that do not impact the constants.
+    // hi alex: address this.
     if (!hasStaticShape(addOp.getA().getType()) ||
         !hasStaticShape(addOp.getB().getType()))
       return failure();
@@ -508,7 +511,7 @@ public:
         return false;
       // cRank is 1, needs to grow to 3.
       cDesiredRank = 3;
-    } else if (includeArch15 && m1Rank == 3 && m2Rank == 2) {
+    } else if (m1Rank == 3 && m2Rank == 2) {
       // Bcast23.
       if (cRank == 1)
         return true; // Constant has already the right rank, all good.
