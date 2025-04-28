@@ -434,10 +434,10 @@ public:
 
     Arch 14
     type: input_a	input_b	input_c -> result
-    unstacked: ZDNN_2D(m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_2D(m,p)
+    unstacked: ZDNN_2D(m,n)  ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_2D(m,p)
+    bcast23: ZDNN_3DS(s,m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_3DS(s,m,p)
     stacked: ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(p) -> ZDNN_3DS(s,m,p)
       => ZDNN_3DS(s,m,n) ZDNN_3DS(s,n,p) ZDNN_2DS(s, 1, p) -> ZDNN_3DS(s,m,p)
-    bcast23: ZDNN_3DS(s,m,n) ZDNN_2D(n,p) ZDNN_1D(p) -> ZDNN_3DS(s,m,p)
 
 
     Arch 15: Arch 14 plus patterns below,

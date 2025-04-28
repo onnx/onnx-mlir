@@ -618,7 +618,8 @@ def replaceONNXMatMulPattern : Pat<
 //===----------------------------------------------------------------------===//
 
 // Be careful, this check is very specific to '$0' of rank 2 and '$1' of rank 1.
-// Limitation: only when dims are static. Should we include dim analysis?
+// Limitation: only when dims are static. Think its fine to limit to static, 
+// as it would not be legal code if these 2 values where not identical.
 def HaveSameLastDimR2R1: Constraint<
   CPred<"(!mlir::cast<ShapedType>($0.getType()).isDynamicDim(1))" #
         " && (!mlir::cast<ShapedType>($1.getType()).isDynamicDim(0))" #
@@ -627,9 +628,8 @@ def HaveSameLastDimR2R1: Constraint<
   "Have the same last dimension"
 >;
 
-// Unstacked: only 1D bias is suitable for this transformation since only then
-// the semantics of bias addition is the same for both ONNX and zDNN.
-def replaceONNXMatMulAddUnstackedPattern1 : Pat<
+// Unstacked or BCast23: only 1D bias is suitable for this transformation.
+def replaceONNXMatMulAddUnstackedOrBCast23Pattern1 : Pat<
   // From Add $b, (MatMul $x, $y)
   (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
   // To ZHighMatMulOp
@@ -640,13 +640,13 @@ def replaceONNXMatMulAddUnstackedPattern1 : Pat<
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
                                                          (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(HasRankOf<2> $x), (HasRankOf<2> $y), (HasRankOf<1> $b), (HaveSameLastDimR2R1 $y, $b),
+  [(HasRankOf<2> $y), (HasRankOf<1> $b), (HaveSameLastDimR2R1 $y, $b),
    (IsMatMulLegalForZDNN $m)], [],
   (addBenefit 0)
 >;
 
 // Same as above, multiplication in first slot of add.
-def replaceONNXMatMulAddUnstackedPattern2 : Pat<
+def replaceONNXMatMulAddUnstackedOrBCast23Pattern2 : Pat<
   // From Add (MatMul $x, $y), $b
   (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
   // To ZHighMatMulOp
@@ -657,7 +657,7 @@ def replaceONNXMatMulAddUnstackedPattern2 : Pat<
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
                                                          (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(HasRankOf<2> $x), (HasRankOf<2> $y), (HasRankOf<1> $b), (HaveSameLastDimR2R1 $y, $b), 
+  [(HasRankOf<2> $y), (HasRankOf<1> $b), (HaveSameLastDimR2R1 $y, $b), 
    (IsMatMulLegalForZDNN $m)], [],
   (addBenefit 0)
 >;
@@ -666,11 +666,13 @@ def replaceONNXMatMulAddUnstackedPattern2 : Pat<
 // Replace onnx.add and onnx.matmul with stacked tensors with ZHighMatMul
 //===----------------------------------------------------------------------===//
 
-// Be careful, this check is R1 are the same and R3 are the same. Must have
-// rank of 3. Should we include dim analysis?
-def HaveSameLastDimR1AndR3: Constraint<
-  CPred<"(!mlir::cast<ShapedType>($0.getType()).isDynamicDim(1))" #
+// Be careful, this check if the first and the last dim (of ranked 3 vectors) 
+// are the same: testing s & p in (s,n,p) with (s, 1, p)
+def HaveSameFirstAndLastDimR3: Constraint<
+  CPred<"(!mlir::cast<ShapedType>($0.getType()).isDynamicDim(0))" #
+        " && (!mlir::cast<ShapedType>($0.getType()).isDynamicDim(2))" #
         " && (!mlir::cast<ShapedType>($1.getType()).isDynamicDim(0))" #
+        " && (!mlir::cast<ShapedType>($1.getType()).isDynamicDim(2))" #
         " && (mlir::cast<ShapedType>($0.getType()).getShape()[0]" #
               " == mlir::cast<ShapedType>($1.getType()).getShape()[0])" #
         " && (mlir::cast<ShapedType>($0.getType()).getShape()[2]" #
@@ -680,7 +682,7 @@ def HaveSameLastDimR1AndR3: Constraint<
 
 // For bias with 3dims, need to ensure that the 2nd dim is 1 as was augmented
 // just to please shape analysis: want [s, p] but had to use [s, 1, p]
-def BiasWith1InR2: Constraint<
+def Has1InMiddleR3: Constraint<
   CPred<"(!mlir::cast<ShapedType>($0.getType()).isDynamicDim(1))" #
         " && (mlir::cast<ShapedType>($0.getType()).getShape()[1]==1)">,
   "Has shape(1) == 1"
@@ -698,8 +700,8 @@ def replaceONNXMatMulAddStackedPattern1 : Pat<
           (ONNXSqueezeV11Op $b, (GetI64ArrayAttr<1>)),
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(HasRankOf<3> $x), (HasRankOf<3> $y), (HasRankOf<3> $b), (HaveSameLastDimR1AndR3 $y, $b),
-   (BiasWith1InR2 $b), (IsMatMulLegalForZDNN $m)],
+  [(HasRankOf<3> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
   [],
   (addBenefit 0)
 >;
@@ -717,8 +719,8 @@ def replaceONNXMatMulAddStackedPattern2 : Pat<
           //$b,
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(HasRankOf<3> $x), (HasRankOf<3> $y), (HasRankOf<3> $b), (HaveSameLastDimR1AndR3 $y, $b),
-   (BiasWith1InR2 $b), (IsMatMulLegalForZDNN $m)],
+  [(HasRankOf<3> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
   [],
   (addBenefit 0)
 >;
@@ -740,8 +742,8 @@ def replaceONNXMatMulAddBCast1Pattern1 : Pat<
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(IsCompatibleWithNNPALevelArch15),
-   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<3> $b), (HaveSameLastDimR1AndR3 $y, $b),
-   (BiasWith1InR2 $b), (IsMatMulLegalForZDNN $m)],
+   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
   [],
   (addBenefit 0)
 >;
@@ -760,50 +762,11 @@ def replaceONNXMatMulAddBCast1Pattern2 : Pat<
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(IsCompatibleWithNNPALevelArch15),
-   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<3> $b), (HaveSameLastDimR1AndR3 $y, $b),
-   (BiasWith1InR2 $b), (IsMatMulLegalForZDNN $m)],
+   (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
   [],
   (addBenefit 0)
 >;
-
-//===----------------------------------------------------------------------===//
-// Replace onnx.add and onnx.matmul with bcast23 tensors with ZHighMatMul
-//===----------------------------------------------------------------------===//
-
-// Could reuse unstacked
-
-def replaceONNXMatMulAddBCast23Pattern1 : Pat<
-  // From Add $b, (MatMul $x, $y)
-  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
-  // To ZHighMatMulOp
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
-        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (GetDefaultSaturation)),
-        (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b),
-   (IsMatMulLegalForZDNN $m)], [],
-  (addBenefit 0)
->;
-
-def replaceONNXMatMulAddBCast23Pattern2 : Pat<
-  // From Add (MatMul $x, $y), $b
-  (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
-  // To ZHighMatMulOp
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-        (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (GetDefaultSaturation)),
-        (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (GetDefaultSaturation)),
-        (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (GetDefaultSaturation)),
-        (GetZeroI64Attr), (GetZeroI64Attr))),
-  [(HasRankOf<3> $x), (HasRankOf<2> $y), (HasRankOf<1> $b),
-   (IsMatMulLegalForZDNN $m)], [],
-  (addBenefit 0)
->;
-
 
 //===----------------------------------------------------------------------===//
 // Replace onnx.matmul when following onnx.transpose
