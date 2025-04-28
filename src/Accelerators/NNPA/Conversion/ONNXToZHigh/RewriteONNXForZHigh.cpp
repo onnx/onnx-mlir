@@ -185,13 +185,6 @@ bool isUniBroadcatableFirstToSecond(Value A, Value B) {
   });
 }
 
-/* hi alex
-bool addNotPartOfMergeableMatMulOnNNPA(Value addValue, Value matmulValue) {
-  // Mergeable only if targeting
-  return true;
-}
-*/
-
 /// Check a value is defined by ONNXConstantOp or not.
 bool isDefinedByONNXConstantOp(Value v) {
   return isa_and_present<ONNXConstantOp>(v.getDefiningOp());
@@ -451,12 +444,11 @@ public:
   */
   LogicalResult matchAndRewrite(
       ONNXAddOp addOp, PatternRewriter &rewriter) const override {
-    // For the moment, only handle constant shapes.
-    // TODO: add support for dynamic shapes that do not impact the constants.
-    // hi alex: address this.
-    if (!hasStaticShape(addOp.getA().getType()) ||
-        !hasStaticShape(addOp.getB().getType()))
+    // For the moment, requires constant shapes for B.
+    if (!hasStaticShape(addOp.getB().getType())) {
       return failure();
+    }
+
     // Try first matmul case, then add only.
     if (processMatMulAddCase(addOp, rewriter) ||
         processAddOnlyCase(addOp, rewriter))
@@ -481,7 +473,8 @@ public:
     int64_t m1Rank = m1Type.getRank();
     int64_t m2Rank = m2Type.getRank();
     int64_t cRank = cType.getRank();
-    ArrayRef<int64_t> cShape = cType.getShape();
+    ArrayRef<int64_t> cShape =
+        cType.getShape(); // Used to check 1 in [s, 1, p].
 
     int64_t cDesiredRank = -1; // Signal undefined.
     bool includeArch15 = isCompatibleWithNNPALevel(NNPALevel::M15);
@@ -502,7 +495,7 @@ public:
       // cRank is 1, needs to grow to 3.
       cDesiredRank = 3;
     } else if (includeArch15 && m1Rank == 2 && m2Rank == 3) {
-      // Bcast1.
+      // Bcast1, arch 15 only.
       if (cRank == 3 && cShape[1] == 1)
         // Constant has already the right (expanded) c rank, all good.
         return true;
@@ -522,23 +515,20 @@ public:
       return false;
     }
     // Check assumption: should come here only if c rank is 1 to be expanded
-    // to 3.
+    // to 3, from Stacked or BCast1.
     assert(cRank == 1 && cDesiredRank == 3 &&
            "only rank combination that should reach here");
     // The output of the matMul and add operations have the same shape here
     // (since const rank < matmul rank). We avoid taking shape from the
     // original add op as that op will be replaced.
-    auto outputType = mlir::cast<RankedTensorType>(matMulVal.getType());
-    int64_t outputRank = outputType.getRank();
-    ArrayRef<int64_t> resDims = getShape(outputType);
-    assert(outputRank == 3 && "expected 3D matmul output");
+    assert(m2Rank == 3 && "only from stacked or BCast1");
+    ArrayRef<int64_t> m2Dims = getShape(m2Type);
     // Generate computations with resized constants.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, addOp.getLoc());
-    Value shape = create.onnx.constantInt64({resDims[0], 1, resDims[2]});
-    // Value shape = create.onnx.shape(matMulVal, {0, 2});
-    Type elementType = outputType.getElementType();
+    Value shape = create.onnx.shape(matMulOp.getB(), {0, 2}, {1});
+    Type elementType = m2Type.getElementType();
     Type constType =
-        RankedTensorType::get({resDims[0], 1, resDims[2]}, elementType);
+        RankedTensorType::get({m2Dims[0], 1, m2Dims[2]}, elementType);
     Value expandedConst = create.onnx.expand(constType, constVal, shape);
     Value newAdd = create.onnx.add(matMulVal, expandedConst);
     rewriter.replaceOp(addOp.getOperation(), newAdd);

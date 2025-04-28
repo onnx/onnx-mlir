@@ -618,8 +618,7 @@ def replaceONNXMatMulPattern : Pat<
 //===----------------------------------------------------------------------===//
 
 // Be careful, this check is very specific to '$0' of rank 2 and '$1' of rank 1.
-// Limitation: only when dims are static. Think its fine to limit to static, 
-// as it would not be legal code if these 2 values where not identical.
+// Limitation: requires dim to be static. 
 def HaveSameLastDimR2R1: Constraint<
   CPred<"(!mlir::cast<ShapedType>($0.getType()).isDynamicDim(1))" #
         " && (!mlir::cast<ShapedType>($1.getType()).isDynamicDim(0))" #

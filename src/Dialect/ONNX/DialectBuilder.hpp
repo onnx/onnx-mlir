@@ -35,11 +35,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
 
   // ONNXAbsOp
   mlir::Value abs(mlir::Value input) const;
@@ -198,6 +198,9 @@ struct OnnxBuilder : DialectBuilder {
   // produce a shape of reduced dimensions (4D->3D) with dims "[d0, d2, d3]".
   // Negative values are indices counting from the end of the shape.
   mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm) const;
+  // Same as above, but output after permute is further unsqueezed.
+  mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm,
+      mlir::ArrayRef<int64_t> unsqueeze) const;
 
   // ONNXSliceOp
   mlir::Value slice(mlir::Type outputType, mlir::Value input,
