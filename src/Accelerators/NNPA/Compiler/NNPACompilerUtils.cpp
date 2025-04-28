@@ -260,8 +260,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
       // Lower ONNX to Krnl, ZHigh to ZLow.
-      addONNXToKrnlPasses(
-          pm, optLevel, /*enableCSE*/ true, instrumentSignatures, ONNXOpStats);
+      addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
