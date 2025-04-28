@@ -753,7 +753,7 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXCeLUVOp
+// Scalar unary ops for lowering ONNXCeLUOp
 //===----------------------------------------------------------------------===//
 
 template <>
@@ -766,8 +766,8 @@ template <>
 GenOpMix getGenOpMix<ONNXCeluOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
-
-template <>
+MinMaxAcrossGop ExpGop MulGop DivGop template <>
+// celu(x) = max(0, x) + min(0, alpha * (exp(x/alpha) - 1))
 Value emitScalarOpFor<ONNXCeluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
@@ -811,7 +811,8 @@ struct ScalarOp<ONNXLeakyReluOp> {
 template <>
 GenOpMix getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
   return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-      {GenericOps::MulGop, 1}};
+      {GenericOps::MulGop, 1}, {GenericOps::MinMaxAcrossGop, 1},
+      {GenericOps::ExpGop, 1}, {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -2756,6 +2757,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
@@ -2792,7 +2794,6 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
