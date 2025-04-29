@@ -221,11 +221,12 @@ def AreTheSameAxesArrayAttr: Constraint<
           "$1, $2)">,
     "Two axis arrays are the same">;
 
-class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
-    CPred<"llvm::all_of("
+class ScalarOrAllDimsFromAxisToEndAre<int axis, int val>: Constraint<
+    CPred<"(mlir::cast<ShapedType>($_self.getType()).getRank() <= 1) || "
+          "(llvm::all_of("
             "ArrayRef<int64_t>(mlir::cast<ShapedType>($_self.getType()).getShape().begin() + " # axis # ","
             "                  mlir::cast<ShapedType>($_self.getType()).getShape().end()),"
-            "[](int64_t val) { return (val == " # val # ");})">,
+            "[](int64_t val) { return (val == " # val # ");}))">,
     "All dimensions from axis to the end are val">;
 
 def DimAtIndexIsConstant: Constraint<
@@ -334,7 +335,7 @@ def FuseAddConvNullBiasPattern: Pat<
   [(HasShapeAndRank:$res),
    (HasNoneType $b),
    (AttributeIsNotNull:$denseAttr),
-   (AllDimsFromAxisToEndAre<1, 1>:$y),
+   (ScalarOrAllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
 >;
 
@@ -356,7 +357,7 @@ def FuseAddConvPattern: Pat<
   [(HasShapeAndRank:$res),
    (NotNoneType $b),
    (AttributeIsNotNull:$denseAttr),
-   (AllDimsFromAxisToEndAre<1, 1>:$y),
+   (ScalarOrAllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
 >;
 
@@ -403,7 +404,7 @@ def FuseMulConvNullBiasPattern: Pat<
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.
    (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
    (HaveSameDim<0> $w, $y),            // the first dimension of $w and $y must be equal.
-   (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
+   (ScalarOrAllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
 >;
 
 // TODO add pattern for non-null bias with contraints:
