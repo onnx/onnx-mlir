@@ -167,8 +167,9 @@ public:
     // Compute output dims and rank.
     Value input = stickOp.getX();
     Value alloc = stickOp.getOut();
-    std::optional<int64_t> saturationOpt = stickOp.getSaturation();
-    bool saturation = saturationOpt.has_value() && saturationOpt.value() != 0;
+    std::optional<int64_t> noSaturationOpt = stickOp.getNoSaturation();
+    bool saturation =
+        (!noSaturationOpt.has_value()) || (noSaturationOpt.value() == 0);
 
     DimsExpr outputDims;
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);

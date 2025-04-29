@@ -28,6 +28,8 @@
 #include "onnx-mlir/Runtime/OMTensorList.h"
 #include <string.h>
 
+#define OM_DRIVER_TIMING 1
+#include "src/Runtime/OMInstrumentHelper.h"
 
 struct OMTensorList {
 #ifdef __cplusplus
@@ -74,6 +76,7 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   if (!list)
     return NULL;
 
+  TIMING_INIT_START(tensor_list_create)
   size_t omts_bytes = sizeof(OMTensor *) * n;
   list->_size = n;
   list->_omts = (OMTensor **)malloc(omts_bytes);
@@ -84,7 +87,7 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   }
   // Copy the given OMTensors pointers to an array owned by OMTensorList
   memcpy(list->_omts, tensors, omts_bytes);
-
+  TIMING_STOP_PRINT(tensor_list_create);
   return list;
 }
 
@@ -92,10 +95,12 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
 void omTensorListDestroy(OMTensorList *list) {
   if (!list)
     return;
+  TIMING_INIT_START(tensor_list_destroy)
   for (int64_t i = 0; i < list->_size; i++)
     omTensorDestroy(list->_omts[i]);
   // Free the list as well as the pointers to the OMTensor array
   omTensorListDestroyShallow(list);
+  TIMING_STOP_PRINT(tensor_list_destroy)
 }
 
 /* OMTensorList destroyer which does not destroy the tensors.
