@@ -40,6 +40,9 @@
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+// hi alex
+#include "src/Compiler/CompilerOptions.hpp"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -415,6 +418,7 @@ public:
   }
 };
 
+
 class ExpandAddConstantPattern : public OpRewritePattern<ONNXAddOp> {
 public:
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
@@ -461,6 +465,9 @@ public:
     bool mayFuseMatMulAdd = areDefinedBy<ONNXMatMulOp, ONNXConstantOp>(
         addOp.getA(), addOp.getB(), matMulVal, constVal);
     if (!mayFuseMatMulAdd)
+      return false;
+
+    if (debugTestCompilerOpt)
       return false;
 
     ONNXConstantOp constOp = constVal.getDefiningOp<ONNXConstantOp>();
