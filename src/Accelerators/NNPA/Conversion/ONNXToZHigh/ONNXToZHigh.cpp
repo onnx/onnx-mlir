@@ -28,9 +28,6 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 
-// hi alex
-#include "src/Compiler/CompilerOptions.hpp"
-
 #define DEBUG_TYPE "onnx-to-zhigh"
 
 using namespace mlir;
@@ -1613,18 +1610,15 @@ void getONNXToZHighOneOpDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXQLinearMatMulOp>(target, dimAnalysis);
 }
 
-
 void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   // Matmul add patterns.
-  if (!debugTestCompilerOpt) {
-    patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern1>(context);
-    patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern2>(context);
-    patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
-    patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
-    patterns.insert<replaceONNXMatMulAddBCast1Pattern1>(context);
-    patterns.insert<replaceONNXMatMulAddBCast1Pattern2>(context);
-  }
+  patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern1>(context);
+  patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern2>(context);
+  patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
+  patterns.insert<replaceONNXMatMulAddBCast1Pattern1>(context);
+  patterns.insert<replaceONNXMatMulAddBCast1Pattern2>(context);
   // Other patterns.
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
