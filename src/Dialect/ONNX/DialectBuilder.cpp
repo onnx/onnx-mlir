@@ -808,6 +808,28 @@ Value OnnxBuilder::foldOrEmitONNXTransposeOp(
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Helper for quantization
+//===----------------------------------------------------------------------===//
+Value OnnxBuilder::getOrCastToI8(Value val, bool simpleCast) {
+  if (!getElementType(val.getType()).isUnsignedInteger())
+    return val;
+
+  Type i8Ty = b().getI8Type();
+  if (simpleCast)
+    return cast(val, i8Ty);
+
+  // Use int16 to avoid integer overflow.
+  Type i16Ty = b().getI16Type();
+  auto cst128Attr = DenseElementsAttr::get(
+      RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
+  Value cst128 = constant(cst128Attr);
+  Value valI16 = cast(val, i16Ty);
+  valI16 = sub(valI16, cst128);
+  Value valI8 = cast(valI16, i8Ty);
+  return valI8;
+}
+
 // =============================================================================
 // IndexExpr Builder for Analysis
 // =============================================================================
