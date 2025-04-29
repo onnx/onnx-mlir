@@ -4,7 +4,7 @@
 
 ##################### documentOps.py ########################################
 #
-# Copyright 2022, 2024 The IBM Research Authors.
+# Copyright 2022, 2025 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -24,7 +24,7 @@
 min_opset_default = 6
 max_opset_default = "*"
 # NNPA supported. Ordered list, with oldest first and most recent last.
-nnpa_supported_list = ["z16"]
+nnpa_supported_list = ["z16", "z17"]
 
 # Derived variables (do not update).
 nnpa_level_default = nnpa_supported_list[-1]  # Most recent arch (last).
@@ -101,7 +101,7 @@ max_dict = {}  # <op> -> <num> in "==MAX== <num>".
 todo_dict = {}  # <op> -> <text> in "==TODO== <text>".
 list_op_version = {}  # List of operation versions from gen_onnx_mlir;
 # <op> -> [supported versions]
-additional_top_paragraph = ""  # <text> in "==ADDITIONAL_TOP_PARAGRAPH <text>"
+additional_top_paragraphs = []  # <text> in "==ADDITIONAL_TOP_PARAGRAPH <text>"
 
 ################################################################################
 # Parse input file. Add only info if it is the proper target arch. Other entries
@@ -116,7 +116,7 @@ def dotted_sentence(str):
 
 
 def parse_file(file_name):
-    global additional_top_paragraph
+    global additional_top_paragraphs
     try:
         file = open(file_name, "r")
     except OSError:
@@ -135,11 +135,11 @@ def parse_file(file_name):
         if arch != target_arch:
             continue
         # Additional top paragraph
-        p = re.search(r"==ADDITIONAL_PARAGRAPH==\s+(.*)\s*$", l)
+        p = re.search(r"==ADDITIONAL_TOP_PARAGRAPH==\s+(.*)\s*$", l)
         if p is not None:
-            additional_top_paragraph = dotted_sentence(p[1])
+            additional_top_paragraphs.append(dotted_sentence(p[1]))
             if debug:
-                print("process paragraph", additional_top_paragraph)
+                print("process paragraph", additional_top_paragraphs)
             continue
         # Scan op.
         p = re.search(r"==OP==\s+(\w+)", l)
@@ -300,8 +300,10 @@ def print_md():
 
     print("\n")
     # Additional top paragraph.
-    if additional_top_paragraph:
-        print(additional_top_paragraph)
+    if additional_top_paragraphs:
+        for paragraph in additional_top_paragraphs:
+            print(paragraph)
+            print("\n")
         print("\n")
     # Table.
     if "NNPA" in target_arch:
@@ -349,7 +351,7 @@ def print_md():
 
 
 def main(argv):
-    global debug, target_arch, emit_notes, emit_unsupported, input_command, additional_top_paragraph
+    global debug, target_arch, emit_notes, emit_unsupported, input_command, additional_top_paragraphs
     global list_op_version, hightest_opset
     debug = 0
     target_arch = "cpu"

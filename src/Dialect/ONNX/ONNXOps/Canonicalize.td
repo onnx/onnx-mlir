@@ -679,6 +679,40 @@ def SwapReshapeMatMulPattern: Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
+// Canonicalization for ONNXMaxPoolSingleOutOp
+//===----------------------------------------------------------------------===//
+
+def GetReturnTypeForMaxPool2D: NativeCodeCall<
+  "onnx_mlir::getReturnTypeForMaxPool2D($0)"
+>;
+
+def IsNotConvProducer : Constraint<CPred<
+"onnx_mlir::isNotConvProducer($0)">, "input is not produced by Conv"
+>;
+
+/// reorder relu-> maxpool to maxpool->relu
+def ReorderReluMaxPoolPattern : Pattern<
+  // Match: maxpool(relu(x)) → relu(maxpool(x))
+  (ONNXMaxPoolSingleOutOp:$maxpool
+    (ONNXReluOp:$relu $X),
+    $auto_pad, $ceil_mode, $dilations, $kernel_shape,
+    $pads, $storage_order, $strides),
+  // Replace with: relu(maxpool(x))
+  [(ONNXReluOp 
+    (ONNXMaxPoolSingleOutOp 
+      $X,
+      $auto_pad, $ceil_mode, $dilations, $kernel_shape,
+      $pads, $storage_order, $strides,
+      (returnType (GetReturnTypeForMaxPool2D $X))))],
+  [
+    (HasRankOf<4> $X),
+    (IsStaticShapeTensor:$maxpool),
+    // DO NOT reorder if input to ReLU is a Conv
+    (IsNotConvProducer $X)
+  ]
+>;
+
+//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXSqueezeOp
 //===----------------------------------------------------------------------===//
 
@@ -972,6 +1006,27 @@ def LessOpSameCastPattern: Pat<
    [(HaveSameElementType $a, $b), (Equal $saturate1, $saturate2), (Equal $to1, $to2),
     (HaveSameElementTypeBitWidth $a, $cast_a),
     (ElementTypeIsNotUnsigned:$cast_a)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXClipOp
+//===----------------------------------------------------------------------===//
+
+def maxOrDefault: NativeCodeCall<
+  "onnx_mlir::maxOrDefault($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
+
+def minOrDefault: NativeCodeCall<
+  "onnx_mlir::minOrDefault($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
+
+// Fuse two consecutive ONNXClipOps into one.
+def FuseConsecutiveClipsPattern : Pat<
+  // Match a Clip operation followed by another Clip operation.
+  (ONNXClipOp:$res (ONNXClipOp $input, $min1, $max1), $min2, $max2),
+  // This pattern will be handled by the rewrite rule (in C++).
+  (ONNXClipOp $input, 
+   // Call maxOrDefault and minOrDefault in the rewrite
+   (maxOrDefault $res, $min1, $min2), 
+   (minOrDefault $res, $max1, $max2))
 >;
 
 //===----------------------------------------------------------------------===//

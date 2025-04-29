@@ -406,8 +406,8 @@ func.func @test_reshape_fusion3(%arg0: tensor<?x4x2x2xf32>) -> tensor<?x2x?xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x4x2x2xf32>) -> tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<3xi64>) -> tensor<?x2x?xf32>
-// CHECK:           onnx.Return [[VAR_4_]] : tensor<?x2x?xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<3xi64>) -> tensor<?x2x8xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<?x2x8xf32>
 // CHECK:         }
 }
 
@@ -478,6 +478,34 @@ func.func @test_size2(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
   // CHECK-LABEL: @test_size2
   // CHECK-NEXT: %0 = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<*xi64>
   // CHECK-NEXT: onnx.Return %0 : tensor<*xi64>
+}
+
+// -----
+
+func.func @consecutive_clips(%arg0: tensor<3x1024x1024xf32> {onnx.name = "input"}) -> (tensor<3x1024x1024xf32> {onnx.name = "output"}) {
+  %0 = onnx.Constant dense<-5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %2 = onnx.Constant dense<-3.000000e-01> : tensor<f32>
+  %3 = onnx.Constant dense<3.000000e-01> : tensor<f32>
+  %4 = "onnx.Clip"(%arg0, %0, %1) {onnx_node_name = "Clip_1"} : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
+  %5 = "onnx.Clip"(%4, %2, %3) {onnx_node_name = "Clip_2"} : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
+  onnx.Return %5 : tensor<3x1024x1024xf32>
+
+  // CHECK: module {
+  // CHECK: func.func @consecutive_clips(%[[ARG0:.*]]: tensor<3x1024x1024xf32> {{.*}}) -> (tensor<3x1024x1024xf32> {{.*}})
+  // CHECK: %[[VAR_1:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[VAR_2:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[VAR_3:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[VAR_4:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[CONST_MAX:.*]] = "onnx.Max"(%[[VAR_1]], %[[VAR_3]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  // CHECK: %[[CONST_MIN:.*]] = "onnx.Min"(%[[VAR_2]], %[[VAR_4]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+
+  // CHECK: %[[FUSED_CLIP:.*]] = "onnx.Clip"(%[[ARG0]], %[[CONST_MAX]], %[[CONST_MIN]]) : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
+
+  // CHECK: onnx.Return %[[FUSED_CLIP]] : tensor<3x1024x1024xf32>
+
+  // CHECK: }
+
 }
 
 // -----
@@ -1899,6 +1927,22 @@ func.func @test_remove_where_equal_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
 
 // -----
 
+func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf32> ) -> tensor<1x12x4xf32> {
+%0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_0"} : (tensor<1x3x4xf32>, tensor<1x3x4xf32>) -> tensor<1x6x4xf32>
+%1 = "onnx.Concat"(%0, %arg0) {axis = 1 : si64, onnx_node_name = "onnx.Concat_1"} : (tensor<1x6x4xf32>, tensor<1x3x4xf32>) -> tensor<1x9x4xf32>
+%2 = "onnx.Concat"(%1, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_2"} : (tensor<1x9x4xf32>, tensor<1x3x4xf32>) -> tensor<1x12x4xf32>
+return %2 : tensor<1x12x4xf32>
+
+  // CHECK-LABEL: func @test_recompose_concat
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x4xf32>, [[PARAM_1_:%.+]]: tensor<1x3x4xf32>) -> tensor<1x12x4xf32> {
+  // CHECK: [[FINAL_OUT:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_0_]], [[PARAM_1_]]) 
+  // CHECK-SAME: {axis = 1 : si64} 
+  // CHECK-NEXT: return [[FINAL_OUT]] : tensor<1x12x4xf32>
+
+}
+
+// -----
+
 // Not rewriting since the operand in ConcatOp is neither DimOp nor ConstantOp.
 func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>) -> tensor<2xi64> {
     %0 = onnx.Constant dense<-1> : tensor<2xi64>
@@ -1921,4 +1965,19 @@ func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Where"([[VAR_5_]], [[VAR_1_]], [[VAR_4_]]) : (tensor<2xi1>, tensor<2xi64>, tensor<2xi64>) -> tensor<2xi64>
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<2xi64>
 // CHECK:         }
+}
+
+// -----
+
+func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  %0 = "onnx.Relu"(%arg0) {onnx_node_name = "onnx.Relu_0"} : (tensor<1x64x32x32xf32>) -> tensor<1x64x32x32xf32>
+  %1 = "onnx.MaxPoolSingleOut"(%0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], onnx_node_name = "onnx.MaxPoolSingleOut_1", storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
+  return %1 : tensor<1x64x16x16xf32>
+
+  // CHECK-LABEL: func @test_reorder_relu_maxpool
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  // CHECK:      [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<*xf32>
+  // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<*xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK-NEXT:     return [[VAR_1_]] : tensor<1x64x16x16xf32>
+  // CHECK:         }
 }
