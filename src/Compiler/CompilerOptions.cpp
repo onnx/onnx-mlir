@@ -50,61 +50,63 @@ bool enableQuarkQuantizerLegalization;                 // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
 uint64_t compilationNumThreads;                        // common for both
-EmissionTargetType emissionTarget;                     // onnx-mlir only
-bool invokeOnnxVersionConverter;                       // onnx-mlir only
-bool preserveLocations;                                // onnx-mlir only
-bool printIR;                                          // onnx-mlir only
-bool printBytecode;                                    // onnx-mlir only
-bool doNotEmitFullMLIRCode;                            // onnx-mlir only
-bool preserveBitcode;                                  // onnx-mlir only
-bool preserveLLVMIR;                                   // onnx-mlir only
-bool preserveMLIR;                                     // onnx-mlir only
-bool useOnnxModelTypes;                                // onnx-mlir only
-int repeatOnnxTransform;                               // onnx-mlir only
-std::string shapeInformation;                          // onnx-mlir only
-std::string dimParams;                                 // onnx-mlir only
-ModelSize modelSize;                                   // onnx-mlir only
-std::string externalDataDir;                           // onnx-mlir only
-bool storeConstantsToFile;                             // onnx-mlir only
-float constantsToFileTotalThreshold;                   // onnx-mlir only
-float constantsToFileSingleThreshold;                  // onnx-mlir only
-bool VerboseOutput;                                    // onnx-mlir only
-std::vector<std::string> Xopt;                         // onnx-mlir only
-std::vector<std::string> Xllc;                         // onnx-mlir only
-std::string mllvm;                                     // onnx-mlir only
-std::string instrumentOps;                             // onnx-mlir only
-unsigned instrumentControlBits;                        // onnx-mlir only
-std::string parallelizeOps;                            // onnx-mlir only
-std::string instrumentSignatures;                      // onnx-mlir only
-std::string instrumentOnnxNode;                        // onnx-mlir only
-std::string ONNXOpStats;                               // onnx-mlir only
-int onnxOpTransformThreshold;                          // onnx-mlir only
-bool onnxOpTransformReport;                            // onnx-mlir only
-bool enableParallel;                                   // onnx-mlir only
-bool disableSimdOption;                                // onnx-mlir only
-bool enableFastMathOption;                             // onnx-mlir only
-bool disableRecomposeOption;                           // onnx-mlir only
-bool enableConvTransposeDecomposeOption;               // onnx-mlir only
-bool enableSimdDataLayout;                             // onnx-mlir only
-bool verifyInputTensors;                               // onnx-mlir only
-bool allowSorting;                                     // onnx-mlir only
-std::vector<std::string> reportHeapBefore;             // onnx-mlir only
-std::vector<std::string> reportHeapAfter;              // onnx-mlir only
-std::string modelTag;                                  // onnx-mlir only
-bool enableConvOptPass;                                // onnx-mlir only
-bool disableConstantProp;                              // onnx-mlir only
-std::vector<std::string> extraLibPaths;                // onnx-mlir only
-std::vector<std::string> extraLibs;                    // onnx-mlir only
-ProfileIRs profileIR;                                  // onnx-mlir only
-OptReport optReport;                                   // onnx-mlir only
-bool useOldBufferization;                              // onnx-mlir only
-bool enableTiming;                                     // onnx-mlir only
-bool enableBoundCheck;                                 // onnx-mlir only
-bool useOutputNameAsLocation;                          // onnx-mlir only
-bool split_input_file;                                 // onnx-mlir-opt only
-bool verify_diagnostics;                               // onnx-mlir-opt only
-bool verify_passes;                                    // onnx-mlir-opt only
-bool allowUnregisteredDialects;                        // onnx-mlir-opt only
+// AMD: Decompose unconditionally
+// std::vector<std::string> decomposeOpsInONNX;           // common for both
+EmissionTargetType emissionTarget;         // onnx-mlir only
+bool invokeOnnxVersionConverter;           // onnx-mlir only
+bool preserveLocations;                    // onnx-mlir only
+bool printIR;                              // onnx-mlir only
+bool printBytecode;                        // onnx-mlir only
+bool doNotEmitFullMLIRCode;                // onnx-mlir only
+bool preserveBitcode;                      // onnx-mlir only
+bool preserveLLVMIR;                       // onnx-mlir only
+bool preserveMLIR;                         // onnx-mlir only
+bool useOnnxModelTypes;                    // onnx-mlir only
+int repeatOnnxTransform;                   // onnx-mlir only
+std::string shapeInformation;              // onnx-mlir only
+std::string dimParams;                     // onnx-mlir only
+ModelSize modelSize;                       // onnx-mlir only
+std::string externalDataDir;               // onnx-mlir only
+bool storeConstantsToFile;                 // onnx-mlir only
+float constantsToFileTotalThreshold;       // onnx-mlir only
+float constantsToFileSingleThreshold;      // onnx-mlir only
+bool VerboseOutput;                        // onnx-mlir only
+std::vector<std::string> Xopt;             // onnx-mlir only
+std::vector<std::string> Xllc;             // onnx-mlir only
+std::string mllvm;                         // onnx-mlir only
+std::string instrumentOps;                 // onnx-mlir only
+unsigned instrumentControlBits;            // onnx-mlir only
+std::string parallelizeOps;                // onnx-mlir only
+std::string instrumentSignatures;          // onnx-mlir only
+std::string instrumentOnnxNode;            // onnx-mlir only
+std::string ONNXOpStats;                   // onnx-mlir only
+int onnxOpTransformThreshold;              // onnx-mlir only
+bool onnxOpTransformReport;                // onnx-mlir only
+bool enableParallel;                       // onnx-mlir only
+bool disableSimdOption;                    // onnx-mlir only
+bool enableFastMathOption;                 // onnx-mlir only
+bool disableRecomposeOption;               // onnx-mlir only
+bool enableConvTransposeDecomposeOption;   // onnx-mlir only
+bool enableSimdDataLayout;                 // onnx-mlir only
+bool verifyInputTensors;                   // onnx-mlir only
+bool allowSorting;                         // onnx-mlir only
+std::vector<std::string> reportHeapBefore; // onnx-mlir only
+std::vector<std::string> reportHeapAfter;  // onnx-mlir only
+std::string modelTag;                      // onnx-mlir only
+bool enableConvOptPass;                    // onnx-mlir only
+bool disableConstantProp;                  // onnx-mlir only
+std::vector<std::string> extraLibPaths;    // onnx-mlir only
+std::vector<std::string> extraLibs;        // onnx-mlir only
+ProfileIRs profileIR;                      // onnx-mlir only
+OptReport optReport;                       // onnx-mlir only
+bool useOldBufferization;                  // onnx-mlir only
+bool enableTiming;                         // onnx-mlir only
+bool enableBoundCheck;                     // onnx-mlir only
+bool useOutputNameAsLocation;              // onnx-mlir only
+bool split_input_file;                     // onnx-mlir-opt only
+bool verify_diagnostics;                   // onnx-mlir-opt only
+bool verify_passes;                        // onnx-mlir-opt only
+bool allowUnregisteredDialects;            // onnx-mlir-opt only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -269,6 +271,15 @@ static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
                    "Set to 'true' if you want to disable prefetch."),
     llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
+// AMD: Decompose unconditionally
+// static llvm::cl::list<std::string, std::vector<std::string>>
+//     decomposeOpsInONNXOpt("decompose-op-in-onnx",
+//         llvm::cl::desc("Specify ONNX operations to decompose.\n"
+//                        "Supported Ops - HardSwish"),
+//         llvm::cl::value_desc("ONNX operation to decompose"),
+//         llvm::cl::location(decomposeOpsInONNX),
+//         llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::CommaSeparated,
+//         llvm::cl::ZeroOrMore);
 
 static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
