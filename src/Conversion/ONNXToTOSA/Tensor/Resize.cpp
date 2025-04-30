@@ -198,7 +198,8 @@ public:
 
     // With only static dimensions, scales and sizes as inputs are not relevant
     // anymore.
-    if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3)) {
+    if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3) ||
+        resultType.isDynamicDim(2) || resultType.isDynamicDim(3)) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Only static sized tensors are supported.");
     }
