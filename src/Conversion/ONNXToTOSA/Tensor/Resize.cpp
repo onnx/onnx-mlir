@@ -223,6 +223,11 @@ public:
           "TOSA does not support ceil and round_prefer_floor as nearestMode.");
     }
 
+    if (mode == "linear" && isa<IntegerType>(elementType)) {
+      return rewriter.notifyMatchFailure(resizeOp,
+          "linear interpolation for integer types is not implemented");
+    }
+
     // This also makes roi as an input irrelevant.
     if (coordinateTransformationMode == "tf_crop_and_resize") {
       return rewriter.notifyMatchFailure(
