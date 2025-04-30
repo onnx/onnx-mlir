@@ -6,7 +6,7 @@
 func.func @test_stick_with_saturation() -> () {
   %0 = memref.alloc() : memref<10x10xf32>
   %1 = memref.alloc() : memref<1x1x32x64xf16>
-  "zlow.stick"(%0, %1) {saturation = -1 : si64} : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
+  "zlow.stick"(%0, %1) {no_saturation = 0 : si64} : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
   return
 
   // CHECK-LABEL: test_stick_with_saturation
@@ -19,7 +19,7 @@ func.func @test_stick_with_saturation() -> () {
 func.func @test_stick_without_saturation() -> () {
   %0 = memref.alloc() : memref<10x10xf32>
   %1 = memref.alloc() : memref<1x1x32x64xf16>
-  "zlow.stick"(%0, %1) {saturation = 0 : si64} : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
+  "zlow.stick"(%0, %1) {no_saturation = -1 : si64} : (memref<10x10xf32>, memref<1x1x32x64xf16>) -> ()
   return
 
   // CHECK-LABEL: test_stick_without_saturation

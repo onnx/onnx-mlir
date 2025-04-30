@@ -70,6 +70,7 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
+  mlir::Value constantFloat32(const mlir::ArrayRef<float> floatVals) const;
 
   // ONNXConvOp
   mlir::Value conv(mlir::Type Y, mlir::Value X, mlir::Value W, mlir::Value B,
