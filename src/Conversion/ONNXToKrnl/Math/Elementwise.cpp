@@ -764,9 +764,12 @@ struct ScalarOp<ONNXCeluOp> {
 
 template <>
 GenOpMix getGenOpMix<ONNXCeluOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1}};
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 1},
+      {GenericOps::MinMaxGop, 2}, {GenericOps::ExpGop, 1},
+      {GenericOps::DivGop, 1}};
 }
-MinMaxAcrossGop ExpGop MulGop DivGop template <>
+
+template <>
 // celu(x) = max(0, x) + min(0, alpha * (exp(x/alpha) - 1))
 Value emitScalarOpFor<ONNXCeluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -811,8 +814,7 @@ struct ScalarOp<ONNXLeakyReluOp> {
 template <>
 GenOpMix getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
   return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-      {GenericOps::MulGop, 1}, {GenericOps::MinMaxAcrossGop, 1},
-      {GenericOps::ExpGop, 1}, {GenericOps::DivGop, 1}};
+      {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -833,7 +835,6 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
   return create.math.select(
       lessThanZero, create.math.mul(alpha, operand), operand);
 }
-
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXPReluOp
 //===----------------------------------------------------------------------===//
