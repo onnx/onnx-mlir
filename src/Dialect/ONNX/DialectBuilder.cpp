@@ -116,6 +116,13 @@ Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
   return constant(denseAttr);
 }
 
+Value OnnxBuilder::constantFloat32(const ArrayRef<float> floatVals) const {
+  auto shape = RankedTensorType::get(
+      {static_cast<int64_t>(floatVals.size())}, b().getF32Type());
+  DenseElementsAttr denseAttr = DenseElementsAttr::get(shape, floatVals);
+  return constant(denseAttr);
+}
+
 Value OnnxBuilder::conv(Type Y, Value X, Value W, Value B, StringRef autoPad,
     ArrayRef<int64_t> dilations, int64_t group, ArrayRef<int64_t> kernelShape,
     ArrayRef<int64_t> pads, ArrayRef<int64_t> strides) const {
@@ -799,6 +806,28 @@ Value OnnxBuilder::foldOrEmitONNXTransposeOp(
             create.onnx.toTensor(input), permAttr)
         .getResult();
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Helper for quantization
+//===----------------------------------------------------------------------===//
+Value OnnxBuilder::getOrCastToI8(Value val, bool simpleCast) {
+  if (!getElementType(val.getType()).isUnsignedInteger())
+    return val;
+
+  Type i8Ty = b().getI8Type();
+  if (simpleCast)
+    return cast(val, i8Ty);
+
+  // Use int16 to avoid integer overflow.
+  Type i16Ty = b().getI16Type();
+  auto cst128Attr = DenseElementsAttr::get(
+      RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
+  Value cst128 = constant(cst128Attr);
+  Value valI16 = cast(val, i16Ty);
+  valI16 = sub(valI16, cst128);
+  Value valI8 = cast(valI16, i8Ty);
+  return valI8;
 }
 
 // =============================================================================

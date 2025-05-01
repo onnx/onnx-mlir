@@ -647,6 +647,51 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXHardSwishOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXHardSwishOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXHardSwishOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 3}, {GenericOps::MulGop, 2}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXHardSwishOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // HardSwish(x) = x * max(0, min(1, (x / 6) + 0.5))
+  CheckIfCustomScalarOpIsSupported<ONNXHardSwishOp>(elementType);
+  Value operand = scalarOperands[0];
+
+  // Define constants: alpha = 1/6, beta = 0.5
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value one = create.math.constant(elementType, 1);
+  Value alpha = create.math.constant(elementType, 1.0 / 6.0);
+  Value beta = create.math.constant(elementType, 0.5);
+
+  // Compute (x / 6) + 0.5
+  Value scaledX = create.math.mul(operand, alpha);
+  Value shiftedX = create.math.add(scaledX, beta);
+
+  // Apply min(1, shiftedX)
+  Value minOp = create.math.min(shiftedX, one);
+
+  // Apply max(0, minOp)
+  Value maxOp = create.math.max(minOp, zero);
+
+  // Compute final HardSwish: x * max(0, min(1, (x / 6) + 0.5))
+  Value result = create.math.mul(operand, maxOp);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXEluOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -708,6 +753,56 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXCeLUOp
+//===----------------------------------------------------------------------===//
+
+template <>
+struct ScalarOp<ONNXCeluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXCeluOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 1},
+      {GenericOps::MinMaxGop, 2}, {GenericOps::ExpGop, 1},
+      {GenericOps::DivGop, 1}};
+}
+
+template <>
+// celu(x) = max(0, x) + min(0, alpha * (exp(x/alpha) - 1))
+Value emitScalarOpFor<ONNXCeluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXCeluOp>(elementType);
+  Value operand = scalarOperands[0];
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+
+  // Get the 'alpha' attribute from the Celu operation.
+  auto celuOp = cast<ONNXCeluOp>(op);
+
+  double alphaValue = celuOp.getAlpha().convertToDouble();
+
+  // Create constants for 0, 1, and alpha.
+  Value zero = create.math.constant(elementType, 0.0);
+  Value one = create.math.constant(elementType, 1.0);
+  Value alpha = create.math.constant(elementType, alphaValue);
+
+  // Compute positive part: max(0, x)
+  Value positivePart = create.math.max(zero, operand);
+
+  // Compute negative part: alpha * (exp(x / alpha) - 1)
+  Value xOverAlpha = create.math.div(operand, alpha);
+  Value expVal = create.math.exp(xOverAlpha);
+  Value expMinusOne = create.math.sub(expVal, one);
+  Value scaled = create.math.mul(alpha, expMinusOne);
+
+  // Combine parts: positivePart + min(0, scaled)
+  Value negativePart = create.math.min(zero, scaled);
+  return create.math.add(positivePart, negativePart);
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXLeakyReluOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -740,7 +835,6 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
   return create.math.select(
       lessThanZero, create.math.mul(alpha, operand), operand);
 }
-
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXPReluOp
 //===----------------------------------------------------------------------===//
@@ -1711,11 +1805,12 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       // Unary Op
       mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp, mlir::ONNXCeilOp,
       mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
-      mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
-      mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
-      mlir::ONNXFloorOp, mlir::ONNXGeluOp, mlir::ONNXHardSigmoidOp,
-      mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp,
-      mlir::ONNXLogOp, mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
+      mlir::ONNXCeluOp, mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp,
+      mlir::ONNXAcoshOp, mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp,
+      mlir::ONNXExpOp, mlir::ONNXFloorOp, mlir::ONNXGeluOp,
+      mlir::ONNXHardSigmoidOp, mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp,
+      mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
+      mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
       mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
@@ -1895,9 +1990,15 @@ Value OpFusionHelper::emitFuseOps(
     // getRemappedValue is needed for load op.
     SmallVector<Value, 4> useOperands;
     for (auto oper : useOp->getOperands()) {
-      if (oper.getDefiningOp() != defOp)
+      if (oper.getDefiningOp() != defOp) {
         useOperands.emplace_back(rewriter.getRemappedValue(oper));
-      else
+        Operation *constOp = oper.getDefiningOp<ONNXConstantOp>();
+        if (constOp && defOp->isBeforeInBlock(constOp)) {
+          // Move the constant op to be before the root op so that the IR is
+          // valid.
+          constOp->moveBefore(defOp);
+        }
+      } else {
         // Due to the op fusion, we will not generate a tensor for the current
         // oper, but only the scalar result from defOp.
         // This scalar value cannot be used to initialize ShapeHelper.
@@ -1916,6 +2017,7 @@ Value OpFusionHelper::emitFuseOps(
         // dynamic dim to be fused in the previous implementation. Therefore,
         // alloc is used for all the fused op.
         useOperands.emplace_back(alloc);
+      }
     }
     // Use shape helper to generate load index
     ONNXBroadcastOpShapeHelper shapeHelper(
@@ -2656,6 +2758,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
@@ -2674,6 +2777,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSwishOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXIsInfOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXIsNaNOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,

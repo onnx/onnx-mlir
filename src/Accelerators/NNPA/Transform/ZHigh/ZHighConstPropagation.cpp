@@ -357,6 +357,8 @@ static void replaceOpAndGC(
     // v is consumed by only the current stick op.
     if (!v.hasOneUse())
       continue;
+    if (llvm::any_of(newValues, [&v](Value nv) { return nv == v; }))
+      continue;
     if (auto cop = v.getDefiningOp<ONNXConstantOp>()) {
       if (auto disposableAttr =
               mlir::dyn_cast<DisposableElementsAttr>(cop.getValueAttr())) {
@@ -463,8 +465,8 @@ struct ConstantQuantizedStickPattern
   LogicalResult matchAndRewrite(
       ZHighQuantizedStickOp stickOp, PatternRewriter &rewriter) const override {
     Value input = stickOp.getIn();
-    Value recscale = stickOp.getRecScale();
-    Value offset = stickOp.getOffset();
+    Value recscale = stickOp.getInRecScale();
+    Value offset = stickOp.getInOffset();
     Value output = stickOp.getOut();
     StringAttr layout = stickOp.getLayoutAttr();
     StringAttr quantizedType = stickOp.getQuantizedTypeAttr();
