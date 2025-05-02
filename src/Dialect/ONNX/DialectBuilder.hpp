@@ -100,8 +100,8 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXGemmOp
   mlir::Value gemm(mlir::Type Y, mlir::Value A, mlir::Value B, mlir::Value C,
-      mlir::FloatAttr alpha, mlir::FloatAttr beta,
-      mlir::IntegerAttr transA, mlir::IntegerAttr transB) const;
+      mlir::FloatAttr alpha, mlir::FloatAttr beta, mlir::IntegerAttr transA,
+      mlir::IntegerAttr transB) const;
 
   // ONNXLayerNormalizationOp, version with one output only (Y).
   mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
