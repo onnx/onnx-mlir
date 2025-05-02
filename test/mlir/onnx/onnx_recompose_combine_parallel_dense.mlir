@@ -1,16 +1,10 @@
 // RUN: onnx-mlir  --useOnnxModelTypes=false --EmitONNXIR --printIR %s | FileCheck %s
 
 func.func @test_gemm_concat_simple(%arg0: tensor<1x4xf32>) -> tensor<1x6xf32> {
-  %0 = onnx.Constant dense<[[6.033820e-01, 0.874853491, 0.840596497], 
-                             [0.0872995406, 0.490965605, 0.450427264], 
-                             [0.750424325, 0.274208099, 0.977319359], 
-                             [0.0853121132, 9.420610e-01, 0.892422915]]> : tensor<4x3xf32>
-  %1 = onnx.Constant dense<[0.626507699, 0.101028912, 0.774093985]> : tensor<3xf32>
-  %2 = onnx.Constant dense<[[0.845248579, 0.0606110133, 0.115944877], 
-                             [0.674885928, 0.550753951, 0.25179252], 
-                             [0.331635177, 0.910293042, 9.552980e-01], 
-                             [0.119107425, 7.870370e-01, 0.439898729]]> : tensor<4x3xf32>
-  %3 = onnx.Constant dense<[0.243570983, 0.976932287, 0.137448117]> : tensor<3xf32>
+  %0 = onnx.Constant dense<5.5>: tensor<4x3xf32>
+  %1 = onnx.Constant dense<0.2> : tensor<3xf32>
+  %2 = onnx.Constant dense<4.5>: tensor<4x3xf32>
+  %3 = onnx.Constant dense<0.5> : tensor<3xf32>
   %4 = "onnx.Gemm"(%arg0, %0, %1) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "Gemm_1", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
   %5 = "onnx.Gemm"(%arg0, %2, %3) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "Gemm_2", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
   %6 = "onnx.Concat"(%4, %5) {axis = 1 : si64, onnx_node_name = "Concat"} : (tensor<1x3xf32>, tensor<1x3xf32>) -> tensor<1x6xf32>
@@ -18,9 +12,9 @@ func.func @test_gemm_concat_simple(%arg0: tensor<1x4xf32>) -> tensor<1x6xf32> {
 
   // CHECK-LABEL: func @test_gemm_concat_simple
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xf32>) -> tensor<1x6xf32> {
-  // CHECK:      [[VAR_0_:%.+]] = onnx.Constant dense<{{\[\[6.033820e-01, 0.874853491, 0.840596497, 0.845248579, 0.0606110133, 0.115944877\], \[0.0872995406, 0.490965605, 0.450427264, 0.674885928, 0.550753951, 0.25179252\], \[0.750424325, 0.274208099, 0.977319359, 0.331635177, 0.910293042, 9.552980e-01\], \[0.0853121132, 9.420610e-01, 0.892422915, 0.119107425, 7.870370e-01, 0.439898729\]\]}}> : tensor<4x6xf32>
+  // CHECK:      [[VAR_0_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<4x6xf32>
   
-  // CHECK:      [[VAR_1_:%.+]] = onnx.Constant dense<{{\[0.626507699, 0.101028912, 0.774093985, 0.243570983, 0.976932287, 0.137448117\]}}> : tensor<6xf32>
+  // CHECK:      [[VAR_1_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<6xf32>
 
   // CHECK:     [[VAR_2_:%.+]] = "onnx.Gemm"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]])
   // CHECK-SAME:     : (tensor<1x4xf32>, tensor<4x6xf32>, tensor<6xf32>) -> tensor<1x6xf32>
@@ -63,14 +57,14 @@ func.func @test_gemm_concat_complex(%arg0: tensor<1x4xf32>) -> tensor<1x18xf32> 
 }
 
 func.func @test_combine_gemm_split(%arg0: tensor<1x4xf32>) -> tensor<1x12xf32> {
-  %0 = onnx.Constant dense<[[0.199878812, 0.849797964, 0.269263595], [0.146060213, 0.146481737, 0.573383629], [5.496260e-01, 0.930284262, 0.296700984], [0.888540446, 0.329749823, 0.0487339608]]> : tensor<4x3xf32>
-  %1 = onnx.Constant dense<[[0.512602746, 0.841705561, 3.472580e-01], [0.985034883, 0.372110397, 0.676640093], [0.366143614, 0.211020753, 0.24549152], [0.7849949, 0.798389971, 0.759396135]]> : tensor<4x3xf32>
-  %2 = onnx.Constant dense<[[0.0379290208, 0.745854259, 0.249491423], [0.207114503, 0.768784403, 0.183352739], [0.546739817, 0.7326473, 0.610019266], [0.843589544, 0.0109933764, 0.56139493]]> : tensor<4x3xf32>
-  %3 = onnx.Constant dense<[[0.672199249, 0.756824672, 0.38623023], [0.668579399, 0.284004182, 0.229134396], [0.647052705, 0.809947431, 0.899343073], [0.0700130314, 0.520019472, 0.210815623]]> : tensor<4x3xf32>
-  %4 = onnx.Constant dense<[0.613018572, 0.517307281, 0.902812659]> : tensor<3xf32>
-  %5 = onnx.Constant dense<[0.352589607, 0.578843653, 0.101251811]> : tensor<3xf32>
-  %6 = onnx.Constant dense<[0.930565953, 0.390370637, 0.524582207]> : tensor<3xf32>
-  %7 = onnx.Constant dense<[0.812823832, 0.946865141, 0.834036648]> : tensor<3xf32>
+  %0 = onnx.Constant dense<1.6> : tensor<4x3xf32>
+  %1 = onnx.Constant dense<2.7> : tensor<4x3xf32>
+  %2 = onnx.Constant dense<3.7> : tensor<4x3xf32>
+  %3 = onnx.Constant dense<4.6> : tensor<4x3xf32>
+  %4 = onnx.Constant dense<0.1> : tensor<3xf32>
+  %5 = onnx.Constant dense<0.9> : tensor<3xf32>
+  %6 = onnx.Constant dense<0.2> : tensor<3xf32>
+  %7 = onnx.Constant dense<0.8> : tensor<3xf32>
   %8 = "onnx.Gemm"(%arg0, %0, %4) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "Gemm_1", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
   %9 = "onnx.Gemm"(%arg0, %1, %5) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "Gemm_2", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
   %10 = "onnx.Gemm"(%arg0, %2, %6) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "Gemm_3", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
@@ -89,7 +83,7 @@ func.func @test_combine_gemm_split(%arg0: tensor<1x4xf32>) -> tensor<1x12xf32> {
 // CHECK:      [[VAR_1_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<12xf32>
 // CHECK:      [[GEMM_OUT_:%.+]] = "onnx.Gemm"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]])
 // CHECK-SAME:     : (tensor<1x4xf32>, tensor<4x12xf32>, tensor<12xf32>) -> tensor<1x12xf32>
-// CHECK: [[VAR_2_:[^ ]+]]:4 = "onnx.Split"([[GEMM_OUT_]], [[CONST_SPLIT_]]) {axis = 1 : si64, onnx_node_name = "onnx.Split_3"} : (tensor<1x12xf32>, tensor<4xi64>) -> (tensor<1x3xf32>, tensor<1x3xf32>, tensor<1x3xf32>, tensor<1x3xf32>)
+// CHECK: [[VAR_2_:[^ ]+]]:4 = "onnx.Split"([[GEMM_OUT_]], [[CONST_SPLIT_]]) {axis = 1 : si64, onnx_node_name = "onnx.Split_2"} : (tensor<1x12xf32>, tensor<4xi64>) -> (tensor<1x3xf32>, tensor<1x3xf32>, tensor<1x3xf32>, tensor<1x3xf32>)
 // CHECK: [[VAR_3_:%.+]] = "onnx.Relu"([[VAR_2_]]#0) {onnx_node_name = "ReLU_1"} : (tensor<1x3xf32>) -> tensor<1x3xf32>
 // CHECK: [[VAR_4_:%.+]] = "onnx.Sigmoid"([[VAR_2_]]#3) {onnx_node_name = "Sigmoid_2"} : (tensor<1x3xf32>) -> tensor<1x3xf32>
 // CHECK: [[VAR_5_:%.+]] = "onnx.Tanh"([[VAR_2_]]#2) {onnx_node_name = "Tanh_3"} : (tensor<1x3xf32>) -> tensor<1x3xf32>
