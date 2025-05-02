@@ -1612,8 +1612,14 @@ void getONNXToZHighOneOpDynamicallyLegal(
 
 void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  patterns.insert<replaceONNXMatMulAddPattern1>(context);
-  patterns.insert<replaceONNXMatMulAddPattern2>(context);
+  // Matmul add patterns.
+  patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern1>(context);
+  patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern2>(context);
+  patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
+  patterns.insert<replaceONNXMatMulAddBCast1Pattern1>(context);
+  patterns.insert<replaceONNXMatMulAddBCast1Pattern2>(context);
+  // Other patterns.
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
   patterns.insert<replaceONNXTransAMatMulPattern>(context);
