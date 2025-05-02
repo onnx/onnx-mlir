@@ -1,4 +1,4 @@
-// RUN: onnx-mlir  --useOnnxModelTypes=false --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir  --useOnnxModelTypes=false --fuse-parallel-onnx-gemm --EmitONNXIR --printIR %s | FileCheck %s
 
 func.func @test_gemm_concat_simple(%arg0: tensor<1x4xf32>) -> tensor<1x6xf32> {
   %0 = onnx.Constant dense<5.5>: tensor<4x3xf32>
