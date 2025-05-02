@@ -722,7 +722,8 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> fuse_parallel_onnx_gemm("fuse-parallel-onnx-gemm",
+static llvm::cl::opt<bool, true> fuse_parallel_onnx_gemm(
+    "fuse-parallel-onnx-gemm",
     llvm::cl::desc("Enable Combine parallel dense layers (default=false)."),
     llvm::cl::location(
         fuseParallelOnnxGemm), // Link directly to the existing variable

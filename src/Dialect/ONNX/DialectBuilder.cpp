@@ -176,7 +176,7 @@ Value OnnxBuilder::gelu(Value input, StringAttr approximateAttr) const {
 }
 
 Value OnnxBuilder::gemm(Type Y, Value A, Value B, Value C, FloatAttr alpha,
-  FloatAttr beta, IntegerAttr transA, IntegerAttr transB) const {
+    FloatAttr beta, IntegerAttr transA, IntegerAttr transB) const {
 
   return createOpAndInferShapes<ONNXGemmOp>(
       toTensor(Y), A, B, C, alpha, beta, transA, transB);
