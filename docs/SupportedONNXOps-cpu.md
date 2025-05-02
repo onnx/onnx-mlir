@@ -41,7 +41,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **CastMap** |none | | | |
 | **CategoryMapper** |none | | | |
 | **Ceil** |6 - * | | |
-| **Celu** |none | | | |
+| **Celu** |12 - * | | | |
 | **CenterCropPad** |none | | | |
 | **Clip** |6 - * |No support for short integers. | |
 | **Col2Im** |none | | | |
