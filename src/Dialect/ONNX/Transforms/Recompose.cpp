@@ -28,6 +28,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -723,7 +724,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     SmallVector<Value> biasValues;
     for (auto gemm : parallelGemms) {
       if (!onnx_mlir::isNoneValue(gemm.getC())) {
-        biasValues.push_back(bias);
+        biasValues.push_back(gemm.getC());
       } else {
         auto biasShape =
             mlir::cast<ShapedType>(gemm.getResult().getType()).getShape();
@@ -748,8 +749,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
           mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[Axis];
       totalOutputChannels += outCh;
     }
-    outputShape[Axis] = totalOutputFeatures;
-    auto newOutputType = RankedTensorType::get(outputShape, elementType);
+    newOutputShape[Axis] = totalOutputChannels;
+    auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
     auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
         newWeight, newBias, gemmOp1.getAlphaAttr(), gemmOp1.getBetaAttr(),
