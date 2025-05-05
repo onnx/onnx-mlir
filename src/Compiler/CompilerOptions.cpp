@@ -729,8 +729,22 @@ static llvm::cl::opt<bool, true> fuse_parallel_onnx_gemm(
         fuseParallelOnnxGemm), // Link directly to the existing variable
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+/*
+  How to use the optional optimization for testing.
+
+  #include "src/Compiler/CompilerOptions.hpp"
+
+  if (debugTestCompilerOpt) {
+    fprintf(stderr, "use new optimization");
+    // invoke optimization.
+  }
+
+  And to invoke on the command option (Debug mode only).
+
+  onnx-mlir -test-compiler-opt
+*/
 #if defined(_DEBUG)
-// Option only available in debug mode: set using command options.
+
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "
