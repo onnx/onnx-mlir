@@ -277,3 +277,13 @@ func.func @test_resize_cubic_disallowed(%arg0: tensor<1x1x2x4xf32>) -> tensor<1x
 // CHECK-LABEL:  func.func @test_resize_cubic_disallowed
 // CHECK-LABEL:  onnx.Resize
 }
+
+// -----
+func.func @test_resize_linear_int_disallowed(%arg0: tensor<1x1x2x4xi32>) -> tensor<1x1x4x8xi32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
+    %2 = "onnx.Resize"(%arg0, %0, %1, %0) {coordinate_transformation_mode = "pytorch_half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<1x1x2x4xi32>, none, tensor<4xf32>, none) -> tensor<1x1x4x8xi32>
+    return %2 : tensor<1x1x4x8xi32>
+// CHECK-LABEL:  func.func @test_resize_linear_int_disallowed
+// CHECK:        onnx.Resize
+}
