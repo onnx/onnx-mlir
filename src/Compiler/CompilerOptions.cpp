@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
+#include "llvm/TargetParser/Host.h"
 
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
@@ -173,7 +174,8 @@ static llvm::cl::opt<float, true> nnpaEpsilonOpt("nnpa-epsilon",
     llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::init(1e-5));
 
 static llvm::cl::opt<std::string, true> marchOpt("march",
-    llvm::cl::desc("Target architecture to generate code for."),
+    llvm::cl::desc("Target architecture to generate code for.\n"
+                   "--march=native will use the host's archituecture"),
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::location(march), llvm::cl::cat(OnnxMlirCommonOptions),
     llvm::cl::ValueRequired);
@@ -1404,6 +1406,9 @@ void initCompilerConfig() {
 
   if (march == "z17")
     march = "arch15";
+
+  if (march == "native")
+    march = std::string(llvm::sys::getHostCPUName());
 }
 
 } // namespace onnx_mlir
