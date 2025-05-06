@@ -290,7 +290,7 @@ public:
     SmallVector<Operation *> createdOpsTrackerForFailedVerifier;
     auto removeTrackedOps = [&]() {
       llvm::for_each(createdOpsTrackerForFailedVerifier,
-          [&](auto *createdOp) { createdOp->erase(); });
+          [&](auto *createdOp) { rewriter.eraseOp(createdOp); });
     };
 
     // Operands of this new op can be: NoValue's, constants, the operand of an
@@ -405,7 +405,7 @@ public:
       // Make sure to erase any additional op that was created so that the
       // rewriter doesn't trigger any changes by this pass.
       removeTrackedOps();
-      newOp->erase();
+      rewriter.eraseOp(newOp);
 
       return rewriter.notifyMatchFailure(
           castOp->getLoc(), "cannot create operation with this type");
