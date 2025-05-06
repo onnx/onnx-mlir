@@ -753,6 +753,56 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXCeLUOp
+//===----------------------------------------------------------------------===//
+
+template <>
+struct ScalarOp<ONNXCeluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXCeluOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 1},
+      {GenericOps::MinMaxGop, 2}, {GenericOps::ExpGop, 1},
+      {GenericOps::DivGop, 1}};
+}
+
+template <>
+// celu(x) = max(0, x) + min(0, alpha * (exp(x/alpha) - 1))
+Value emitScalarOpFor<ONNXCeluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXCeluOp>(elementType);
+  Value operand = scalarOperands[0];
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+
+  // Get the 'alpha' attribute from the Celu operation.
+  auto celuOp = cast<ONNXCeluOp>(op);
+
+  double alphaValue = celuOp.getAlpha().convertToDouble();
+
+  // Create constants for 0, 1, and alpha.
+  Value zero = create.math.constant(elementType, 0.0);
+  Value one = create.math.constant(elementType, 1.0);
+  Value alpha = create.math.constant(elementType, alphaValue);
+
+  // Compute positive part: max(0, x)
+  Value positivePart = create.math.max(zero, operand);
+
+  // Compute negative part: alpha * (exp(x / alpha) - 1)
+  Value xOverAlpha = create.math.div(operand, alpha);
+  Value expVal = create.math.exp(xOverAlpha);
+  Value expMinusOne = create.math.sub(expVal, one);
+  Value scaled = create.math.mul(alpha, expMinusOne);
+
+  // Combine parts: positivePart + min(0, scaled)
+  Value negativePart = create.math.min(zero, scaled);
+  return create.math.add(positivePart, negativePart);
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXLeakyReluOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -785,7 +835,6 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
   return create.math.select(
       lessThanZero, create.math.mul(alpha, operand), operand);
 }
-
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXPReluOp
 //===----------------------------------------------------------------------===//
@@ -1756,15 +1805,16 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       // Unary Op
       mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp, mlir::ONNXCeilOp,
       mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
-      mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
-      mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
-      mlir::ONNXFloorOp, mlir::ONNXGeluOp, mlir::ONNXHardSigmoidOp,
-      mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp,
-      mlir::ONNXLeakyReluOp, mlir::ONNXLogOp, mlir::ONNXNegOp, mlir::ONNXNotOp,
-      mlir::ONNXReciprocalOp, mlir::ONNXReluOp, mlir::ONNXRoundOp,
-      mlir::ONNXSeluOp, mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp,
-      mlir::ONNXSinhOp, mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp,
-      mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp,
+      mlir::ONNXCeluOp, mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp,
+      mlir::ONNXAcoshOp, mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp,
+      mlir::ONNXExpOp, mlir::ONNXFloorOp, mlir::ONNXGeluOp,
+      mlir::ONNXHardSigmoidOp, mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp,
+      mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
+      mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
+      mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
+      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
+      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp,
       // Binary Op
       mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
       mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
@@ -2708,6 +2758,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
