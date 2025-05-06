@@ -850,7 +850,6 @@ Traits: `MemRefsNormalizable`
 | Operand | Description |
 | :-----: | ----------- |
 | `X` | memref of dlfloat16 type values
-| `shape` | memref of 64-bit signless integer values
 | `Out` | memref of dlfloat16 type values
 
 ### `zlow.sigmoid` (::onnx_mlir::zlow::ZLowSigmoidOp)
@@ -990,7 +989,12 @@ Interfaces: `MemoryEffectOpInterface`
 
 _ZLow stick operation_
 
-"ZLow operation to perform a stick."
+ZLow operation to perform a stick.
+
+Optional `no_saturation` indicates whether the CPU tensor is saturated before stickification
+or not. If it is saturated, the dlfloat16 range would be used.
+Saturation on if `no_saturation == 0`. Otherwise, it is off.
+If `no_saturation` attribute is absent, default value is 0 (saturation on).
 
 Traits: `MemRefsNormalizable`
 
@@ -1001,7 +1005,7 @@ Interfaces: `MemoryEffectOpInterface`
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>no_saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
 
 #### Operands:

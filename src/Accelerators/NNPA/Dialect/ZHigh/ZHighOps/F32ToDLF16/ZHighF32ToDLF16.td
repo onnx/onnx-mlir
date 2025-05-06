@@ -36,7 +36,7 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 // zhigh.F32ToDLF16 (zhigh.DLF16ToF32(%X)) = %X
 def ConversionRemovalPattern : Pat<
-  (ZHighF32ToDLF16Op (ZHighDLF16ToF32Op $arg), $saturation),
+  (ZHighF32ToDLF16Op (ZHighDLF16ToF32Op $arg), $_),
   (replaceWithValue $arg)
 >;
 

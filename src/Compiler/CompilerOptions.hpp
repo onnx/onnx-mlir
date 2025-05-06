@@ -95,57 +95,60 @@ extern bool disableMemRefPrefetch;                            // common for both
 extern bool enableConvTransposeDecomposeToPhasedConv;         // common for both
 extern bool enableQuarkQuantizerLegalization;                 // common for both
 extern uint64_t compilationNumThreads;                        // common for both
-extern EmissionTargetType emissionTarget;                     // onnx-mlir only
-extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
-extern bool preserveLocations;                                // onnx-mlir only
-extern bool printIR;                                          // onnx-mlir only
-extern bool printBytecode;                                    // onnx-mlir only
-extern bool preserveBitcode;                                  // onnx-mlir only
-extern bool preserveLLVMIR;                                   // onnx-mlir only
-extern bool preserveMLIR;                                     // onnx-mlir only
-extern bool doNotEmitFullMLIRCode;                            // onnx-mlir only
-extern bool useOnnxModelTypes;                                // onnx-mlir only
-extern int repeatOnnxTransform;                               // onnx-mlir only
-extern std::string shapeInformation;                          // onnx-mlir only
-extern std::string dimParams;                                 // onnx-mlir only
-extern ModelSize modelSize;                                   // onnx-mlir only
-extern std::string externalDataDir;                           // onnx-mlir only
-extern bool storeConstantsToFile;                             // onnx-mlir only
-extern float constantsToFileTotalThreshold;                   // onnx-mlir only
-extern float constantsToFileSingleThreshold;                  // onnx-mlir only
-extern bool VerboseOutput;                                    // onnx-mlir only
-extern std::vector<std::string> Xopt;                         // onnx-mlir only
-extern std::vector<std::string> Xllc;                         // onnx-mlir only
-extern std::string mllvm;                                     // onnx-mlir only
-extern std::string instrumentOps;                             // onnx-mlir only
-extern unsigned instrumentControlBits;                        // onnx-mlir only
-extern std::string parallelizeOps;                            // onnx-mlir only
-extern std::string instrumentSignatures;                      // onnx-mlir only
-extern std::string ONNXOpStats;                               // onnx-mlir only
-extern int onnxOpTransformThreshold;                          // onnx-mlir only
-extern bool onnxOpTransformReport;                            // onnx-mlir only
-extern bool enableParallel;                                   // onnx-mlir only
-extern bool disableSimdOption;                                // onnx-mlir only
-extern bool enableFastMathOption;                             // onnx-mlir only
-extern bool disableRecomposeOption;                           // onnx-mlir only
-extern bool enableConvTransposeDecomposeOption;               // onnx-mlir only
-extern bool enableSimdDataLayout;                             // onnx-mlir only
-extern bool verifyInputTensors;                               // onnx-mlir only
-extern bool allowSorting;                                     // onnx-mlir only
-extern std::vector<std::string> reportHeapBefore;             // onnx-mlir only
-extern std::vector<std::string> reportHeapAfter;              // onnx-mlir only
-extern std::string modelTag;                                  // onnx-mlir only
-extern bool enableConvOptPass;                                // onnx-mlir only
-extern bool disableConstantProp;                              // onnx-mlir only
-extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
-extern std::vector<std::string> extraLibs;                    // onnx-mlir only
-extern ProfileIRs profileIR;                                  // onnx-mlir only
-extern OptReport optReport;                                   // onnx-mlir only
-extern bool useOldBufferization;                              // onnx-mlir only
-extern bool enableTiming;                                     // onnx-mlir only
-extern bool enableBoundCheck;                                 // onnx-mlir only
-extern bool debugTestCompilerOpt;                             // onnx-mlir only
-extern bool useOutputNameAsLocation;                          // onnx-mlir only
+// AMD: Decompose unconditionally
+// extern std::vector<std::string> decomposeOpsInONNX; // common for both
+extern EmissionTargetType emissionTarget;         // onnx-mlir only
+extern bool invokeOnnxVersionConverter;           // onnx-mlir only
+extern bool preserveLocations;                    // onnx-mlir only
+extern bool printIR;                              // onnx-mlir only
+extern bool printBytecode;                        // onnx-mlir only
+extern bool preserveBitcode;                      // onnx-mlir only
+extern bool preserveLLVMIR;                       // onnx-mlir only
+extern bool preserveMLIR;                         // onnx-mlir only
+extern bool doNotEmitFullMLIRCode;                // onnx-mlir only
+extern bool useOnnxModelTypes;                    // onnx-mlir only
+extern int repeatOnnxTransform;                   // onnx-mlir only
+extern std::string shapeInformation;              // onnx-mlir only
+extern std::string dimParams;                     // onnx-mlir only
+extern ModelSize modelSize;                       // onnx-mlir only
+extern std::string externalDataDir;               // onnx-mlir only
+extern bool storeConstantsToFile;                 // onnx-mlir only
+extern float constantsToFileTotalThreshold;       // onnx-mlir only
+extern float constantsToFileSingleThreshold;      // onnx-mlir only
+extern bool VerboseOutput;                        // onnx-mlir only
+extern std::vector<std::string> Xopt;             // onnx-mlir only
+extern std::vector<std::string> Xllc;             // onnx-mlir only
+extern std::string mllvm;                         // onnx-mlir only
+extern std::string instrumentOps;                 // onnx-mlir only
+extern unsigned instrumentControlBits;            // onnx-mlir only
+extern std::string parallelizeOps;                // onnx-mlir only
+extern std::string instrumentSignatures;          // onnx-mlir only
+extern std::string instrumentOnnxNode;            // onnx-mlir only
+extern std::string ONNXOpStats;                   // onnx-mlir only
+extern int onnxOpTransformThreshold;              // onnx-mlir only
+extern bool onnxOpTransformReport;                // onnx-mlir only
+extern bool enableParallel;                       // onnx-mlir only
+extern bool disableSimdOption;                    // onnx-mlir only
+extern bool enableFastMathOption;                 // onnx-mlir only
+extern bool disableRecomposeOption;               // onnx-mlir only
+extern bool enableConvTransposeDecomposeOption;   // onnx-mlir only
+extern bool enableSimdDataLayout;                 // onnx-mlir only
+extern bool verifyInputTensors;                   // onnx-mlir only
+extern bool allowSorting;                         // onnx-mlir only
+extern std::vector<std::string> reportHeapBefore; // onnx-mlir only
+extern std::vector<std::string> reportHeapAfter;  // onnx-mlir only
+extern std::string modelTag;                      // onnx-mlir only
+extern bool enableConvOptPass;                    // onnx-mlir only
+extern bool disableConstantProp;                  // onnx-mlir only
+extern std::vector<std::string> extraLibPaths;    // onnx-mlir only
+extern std::vector<std::string> extraLibs;        // onnx-mlir only
+extern ProfileIRs profileIR;                      // onnx-mlir only
+extern OptReport optReport;                       // onnx-mlir only
+extern bool useOldBufferization;                  // onnx-mlir only
+extern bool enableTiming;                         // onnx-mlir only
+extern bool enableBoundCheck;                     // onnx-mlir only
+extern bool debugTestCompilerOpt;                 // onnx-mlir only
+extern bool useOutputNameAsLocation;              // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
@@ -178,7 +181,7 @@ inline int64_t decodeZArchNum(std::string str) {
     return 13;
   if (str == "arch14" || str == "z16") // Z16 and equivalents.
     return 14;
-  if (str == "arch15")
+  if (str == "arch15" || str == "z17") // Z17 and equivalents.
     return 15;
   return -1;
 }
