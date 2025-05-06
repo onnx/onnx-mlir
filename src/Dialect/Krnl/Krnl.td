@@ -567,7 +567,7 @@ def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
   }];
 }
 
-def KrnlRoundEvenOp : Op<Krnl_Dialect, "round_even"> {
+def KrnlRoundEvenOp : Op<Krnl_Dialect, "round_even", [Pure]> {
   let summary = "Krnl round to nearest even operation";
   let description = [{
     Krnl round to nearest even operation.  Accept scalar or vector float values.
@@ -578,7 +578,7 @@ def KrnlRoundEvenOp : Op<Krnl_Dialect, "round_even"> {
   let results = (outs FloatLike:$out);
 }
 
-def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
+def KrnlErfOp : Op<Krnl_Dialect, "erf", [Pure]> {
   let summary = "Krnl erf scalar operation";
   let description = [{
     Krnl erf scalar operation.
@@ -588,7 +588,7 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlIsInfOp : Op<Krnl_Dialect, "isinf"> {
+def KrnlIsInfOp : Op<Krnl_Dialect, "isinf", [Pure]> {
   let summary = "Krnl isinf scalar operation";
   let description = [{
     Krnl isinf scalar operation.
@@ -598,7 +598,7 @@ def KrnlIsInfOp : Op<Krnl_Dialect, "isinf"> {
   let results = (outs I1:$out);
 }
 
-def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan"> {
+def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan", [Pure]> {
   let summary = "Krnl isnan scalar operation";
   let description = [{
     Krnl isnan scalar operation.
@@ -608,7 +608,7 @@ def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan"> {
   let results = (outs I1:$out);
 }
 
-def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
+def KrnlAcosOp : Op<Krnl_Dialect, "acos", [Pure]> {
   let summary = "Krnl acos scalar operation";
   let description = [{
     Krnl acos scalar operation.
@@ -618,7 +618,7 @@ def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
+def KrnlAcoshOp : Op<Krnl_Dialect, "acosh", [Pure]> {
   let summary = "Krnl acosh scalar operation";
   let description = [{
     Krnl acosh scalar operation.
@@ -628,7 +628,7 @@ def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
+def KrnlAsinOp : Op<Krnl_Dialect, "asin", [Pure]> {
   let summary = "Krnl asin scalar operation";
   let description = [{
     Krnl asin scalar operation.
@@ -638,7 +638,7 @@ def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
+def KrnlAsinhOp : Op<Krnl_Dialect, "asinh", [Pure]> {
   let summary = "Krnl asinh scalar operation";
   let description = [{
     Krnl asinh scalar operation.
@@ -648,7 +648,7 @@ def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
+def KrnlAtanOp : Op<Krnl_Dialect, "atan", [Pure]> {
   let summary = "Krnl atan scalar operation";
   let description = [{
     Krnl atan scalar operation.
@@ -658,7 +658,7 @@ def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
+def KrnlAtanhOp : Op<Krnl_Dialect, "atanh", [Pure]> {
   let summary = "Krnl atanh scalar operation";
   let description = [{
     Krnl atanh scalar operation.
@@ -668,7 +668,7 @@ def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
   let results = (outs AnyFloat:$out);
 }
 
-def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
+def KrnlTanOp : Op<Krnl_Dialect, "tan", [Pure]> {
   let summary = "Krnl tan scalar operation";
   let description = [{
     Krnl tan scalar operation.
