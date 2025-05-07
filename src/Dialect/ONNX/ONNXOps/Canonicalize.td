@@ -930,6 +930,54 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
+// This is to fold the composition: 'BatchNormalization o Gemm' into 'Gemm'
+// by deriving new 'B' and 'C' for 'Gemm' operation after fusing scale and bias.
+//
+// Given:
+//   (Gemm)           Z = A * B + C
+//   (BatchNorm)      Y = scale * (Z - mean) / sqrt(var + eps) + bias
+//
+// This transformation corresponds to a recomposition:
+//   Y = A * (scale * B) + (scale * C + bias)
+//
+// Therefore, we rewrite:
+//   onnx.BatchNormalizationInferenceMode(
+//       onnx.Gemm(A, B, C, alpha, beta, transA, transB),
+//       scale, bias, mean, var
+//   ) {epsilon = ..., momentum = ...}
+//
+// as:
+//   onnx.Gemm(
+//       A,
+//       onnx.Mul(B, scale),
+//       onnx.Add(onnx.Mul(bias, scale), C),
+//       alpha, beta, transA, transB)
+//
+// This transformation is only valid when transB = 0
+// to maintain the correct computation shape alignment.
+//
+//===----------------------------------------------------------------------===//
+
+def isTransBFalse : Constraint<CPred<
+"onnx_mlir::isTransBFalse($0)">, "TransB is 1 not 0"
+>;
+
+def BackwardFoldScaleAxisToGemmPattern : Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
+    (ONNXGemmOp $A, $B, $C, $alpha, $beta, $transA, $transB),
+    $scale, $bias, $_mean, $_var, $_epsilon, $_momentum),
+  (ONNXGemmOp
+    $A,
+    (ONNXMulOp $B, $scale),
+    (ONNXAddOp
+      (ONNXMulOp $C, $scale),
+      $bias),
+    (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
+  [(isTransBFalse $transB)],
+  [], (addBenefit 1)
+>;
+
+//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXShapeOp
 //===----------------------------------------------------------------------===//
 
