@@ -672,7 +672,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     if (!onnx_mlir::isNoneValue(aC) && !onnx_mlir::isNoneValue(bC)) {
       auto aCShape = mlir::cast<ShapedType>(aC.getType()).getShape();
       auto bCShape = mlir::cast<ShapedType>(bC.getType()).getShape();
-      if (aCShape.size() != 1 || bCShape.size() != 1)
+      if (aCShape.size() != 1 || bCShape.size() != 1 || aCShape[0] != bCShape[0])
         return false;
     }
     return true;
@@ -703,9 +703,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, loc);
 
-    // Identify axis dynamically based on Gemm shape consistency
-    auto firstWeightType =
-        mlir::cast<ShapedType>(parallelGemms[0].getB().getType());
+    // Identify axis based on Gemm shape
     int64_t concatWeightAxis = gemmOp1.getTransB() ? 0 : 1;
     int64_t splitAxis = 1;
 
@@ -737,8 +735,19 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     Type newBiasType = unrankedTensorType;
     Value newBias = create.onnx.concat(newBiasType, biasValues, 0);
 
-    auto newOutputType = unrankedTensorType;
+        // Create combined Gemm operation
+    SmallVector<int64_t, 2> newOutputShape(
+        mlir::cast<ShapedType>(parallelGemms[0].getResult().getType())
+            .getShape());
 
+    // Sum output channels from parallel gemms
+    int64_t totalOutputChannels = 0;
+    for (auto gemm : parallelGemms) {
+      int64_t outCh =
+          mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[splitAxis];
+      totalOutputChannels += outCh;
+    }
+    newOutputShape[splitAxis] = totalOutputChannels;
     auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
         newWeight, newBias, gemmOp1.getAlphaAttr(), gemmOp1.getBetaAttr(),
         gemmOp1.getTransAAttr(), gemmOp1.getTransBAttr());
@@ -750,8 +759,10 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
         if (auto concatOp = dyn_cast<ONNXConcatOp>(user)) {
           if (!commonConcatOp) {
             commonConcatOp = concatOp;
+            if (concatOp.getAxis() != splitAxis)
+              return failure();
           }
-          if (concatOp != commonConcatOp) {
+          if (concatOp != commonConcatOp || concatOp.getAxis() != splitAxis) {
             commonConcatOp = nullptr;
             break;
           }
@@ -765,9 +776,11 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
       }
     }
 
-    if (commonConcatOp && commonConcatOp.getAxis() == splitAxis) {
+    if (commonConcatOp) {
+      if(commonConcatOp.getAxis() == splitAxis) {
       commonConcatOp.getResult().replaceAllUsesWith(newGemm.getResult());
       rewriter.eraseOp(commonConcatOp);
+      }
     } else {
       SmallVector<int64_t, 4> splitSizesVec;
       for (auto gemm : parallelGemms) {
