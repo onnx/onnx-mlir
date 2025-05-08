@@ -672,7 +672,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     if (!onnx_mlir::isNoneValue(aC) && !onnx_mlir::isNoneValue(bC)) {
       auto aCShape = mlir::cast<ShapedType>(aC.getType()).getShape();
       auto bCShape = mlir::cast<ShapedType>(bC.getType()).getShape();
-      if (aCShape.size() != 1 || bCShape.size() != 1 || aCShape[0] != bCShape[0])
+      if (aCShape.size() != 1 || bCShape.size() != 1 ||
+          aCShape[0] != bCShape[0])
         return false;
     }
     return true;
@@ -735,7 +736,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     Type newBiasType = unrankedTensorType;
     Value newBias = create.onnx.concat(newBiasType, biasValues, 0);
 
-        // Create combined Gemm operation
+    // Create combined Gemm operation
     SmallVector<int64_t, 2> newOutputShape(
         mlir::cast<ShapedType>(parallelGemms[0].getResult().getType())
             .getShape());
@@ -743,8 +744,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     // Sum output channels from parallel gemms
     int64_t totalOutputChannels = 0;
     for (auto gemm : parallelGemms) {
-      int64_t outCh =
-          mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[splitAxis];
+      int64_t outCh = mlir::cast<ShapedType>(gemm.getResult().getType())
+                          .getShape()[splitAxis];
       totalOutputChannels += outCh;
     }
     newOutputShape[splitAxis] = totalOutputChannels;
@@ -777,9 +778,9 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     }
 
     if (commonConcatOp) {
-      if(commonConcatOp.getAxis() == splitAxis) {
-      commonConcatOp.getResult().replaceAllUsesWith(newGemm.getResult());
-      rewriter.eraseOp(commonConcatOp);
+      if (commonConcatOp.getAxis() == splitAxis) {
+        commonConcatOp.getResult().replaceAllUsesWith(newGemm.getResult());
+        rewriter.eraseOp(commonConcatOp);
       }
     } else {
       SmallVector<int64_t, 4> splitSizesVec;
