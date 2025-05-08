@@ -737,20 +737,7 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     Type newBiasType = unrankedTensorType;
     Value newBias = create.onnx.concat(newBiasType, biasValues, 0);
 
-    // Create combined Gemm operation
-    SmallVector<int64_t, 2> newOutputShape(
-        mlir::cast<ShapedType>(parallelGemms[0].getResult().getType())
-            .getShape());
-
-    // Sum output channels from parallel gemms
-    int64_t totalOutputChannels = 0;
-    for (auto gemm : parallelGemms) {
-      int64_t outCh = mlir::cast<ShapedType>(gemm.getResult().getType())
-                          .getShape()[splitAxis];
-      totalOutputChannels += outCh;
-    }
-    newOutputShape[splitAxis] = totalOutputChannels;
-    auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
+    auto newOutputType = unrankedTensorType;
 
     auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
         newWeight, newBias, gemmOp1.getAlphaAttr(), gemmOp1.getBetaAttr(),
