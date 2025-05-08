@@ -123,7 +123,7 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value scale, mlir::Value bias, int64_t axis,
       mlir::FloatAttr epsilon) const;
 
-  // ONNXMatMulOp
+  // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
 

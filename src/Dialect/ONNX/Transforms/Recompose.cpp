@@ -706,8 +706,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     // Identify axis dynamically based on Gemm shape consistency
     auto firstWeightType =
         mlir::cast<ShapedType>(parallelGemms[0].getB().getType());
-    int64_t concatAxis = gemmOp1.getTransB() ? 0 : 1;
-    int64_t Axis = 1;
+    int64_t concatWeightAxis = gemmOp1.getTransB() ? 0 : 1;
+    int64_t splitAxis = 1;
 
     // Concatenate weights
     SmallVector<Value> weightValues;
@@ -715,10 +715,10 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     for (auto gemm : parallelGemms) {
       weightValues.push_back(gemm.getB());
     }
-
-    Type newWeightType = mlir::UnrankedTensorType::get(elementType);
+    Type unrankedTensorType = mlir::UnrankedTensorType::get(elementType);
+    Type newWeightType = unrankedTensorType;
     Value newWeight =
-        create.onnx.concat(newWeightType, weightValues, concatAxis);
+        create.onnx.concat(newWeightType, weightValues, concatWeightAxis);
 
     // Concatenate biases (create zero constants for missing biases)
     SmallVector<Value> biasValues;
@@ -726,15 +726,15 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
       if (!onnx_mlir::isNoneValue(gemm.getC())) {
         biasValues.push_back(gemm.getC());
       } else {
-        auto biasShape =
+        auto gemmShape =
             mlir::cast<ShapedType>(gemm.getResult().getType()).getShape();
         Value zeroBias = create.onnx.constant(DenseElementsAttr::get(
-            RankedTensorType::get({biasShape[Axis]}, elementType), 0.0));
+            RankedTensorType::get({gemmShape[splitAxis]}, elementType), 0.0));
         biasValues.push_back(zeroBias);
       }
     }
 
-    Type newBiasType = mlir::UnrankedTensorType::get(elementType);
+    Type newBiasType = unrankedTensorType;
     Value newBias = create.onnx.concat(newBiasType, biasValues, 0);
 
     // Create combined Gemm operation
@@ -746,10 +746,10 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     int64_t totalOutputChannels = 0;
     for (auto gemm : parallelGemms) {
       int64_t outCh =
-          mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[Axis];
+          mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[splitAxis];
       totalOutputChannels += outCh;
     }
-    newOutputShape[Axis] = totalOutputChannels;
+    newOutputShape[splitAxis] = totalOutputChannels;
     auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
     auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
@@ -778,20 +778,20 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
       }
     }
 
-    if (commonConcatOp) {
+    if (commonConcatOp && commonConcatOp.getAxis() == splitAxis) {
       commonConcatOp.getResult().replaceAllUsesWith(newGemm.getResult());
       rewriter.eraseOp(commonConcatOp);
     } else {
       SmallVector<int64_t, 4> splitSizesVec;
       for (auto gemm : parallelGemms) {
         int64_t outputChannels =
-            mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[Axis];
+            mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[splitAxis];
         splitSizesVec.push_back(outputChannels);
       }
 
       ArrayRef<int64_t> splitSizes(splitSizesVec);
       ValueRange splitResults = onnx_mlir::emitSplitByChannels(
-          rewriter, loc, newGemm.getResult(), splitSizes, Axis);
+          rewriter, loc, newGemm.getResult(), splitSizes, splitAxis);
 
       for (size_t i = 0; i < parallelGemms.size(); ++i) {
         parallelGemms[i].replaceAllUsesWith(splitResults[i]);

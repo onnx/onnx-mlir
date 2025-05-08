@@ -59,3 +59,20 @@ func.func @test_combine_gemm_split(%arg0: tensor<1x4xf32>) -> tensor<1x12xf32> {
 
 
 }
+
+func.func @test_combine_gemm_dynamic(%arg0: tensor<1x4xf32> {onnx.name = "A"}, %arg1: tensor<4x?xf32> {onnx.name = "B1"}, %arg2: tensor<4x?xf32> {onnx.name = "B2"}, %arg3: tensor<4x?xf32> {onnx.name = "B3"}, %arg4: tensor<?xf32> {onnx.name = "C1"}, %arg5: tensor<?xf32> {onnx.name = "C2"}, %arg6: tensor<?xf32> {onnx.name = "C3"}) -> tensor<1x?xf32> {
+  %0 = "onnx.Gemm"(%arg0, %arg1, %arg4) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "onnx.Gemm_0", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x?xf32>, tensor<?xf32>) -> tensor<1x?xf32>
+  %1 = "onnx.Gemm"(%arg0, %arg2, %arg5) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "onnx.Gemm_1", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x?xf32>, tensor<?xf32>) -> tensor<1x?xf32>
+  %2 = "onnx.Gemm"(%arg0, %arg3, %arg6) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "onnx.Gemm_2", transA = 0 : si64, transB = 0 : si64} : (tensor<1x4xf32>, tensor<4x?xf32>, tensor<?xf32>) -> tensor<1x?xf32>
+  %3 = "onnx.Concat"(%0, %1, %2) {axis = 1 : si64, onnx_node_name = "onnx.Concat_3"} : (tensor<1x?xf32>, tensor<1x?xf32>, tensor<1x?xf32>) -> tensor<1x?xf32>
+  return %3 : tensor<1x?xf32>
+
+// CHECK-LABEL: func @test_combine_gemm_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xf32> {onnx.name = "A"}, [[PARAM_1_:%.+]]: tensor<4x?xf32> {onnx.name = "B1"}, [[PARAM_2_:%.+]]: tensor<4x?xf32> {onnx.name = "B2"}, [[PARAM_3_:%.+]]: tensor<4x?xf32> {onnx.name = "B3"}, [[PARAM_4_:%.+]]: tensor<?xf32> {onnx.name = "C1"}, [[PARAM_5_:%.+]]: tensor<?xf32> {onnx.name = "C2"}, [[PARAM_6_:%.+]]: tensor<?xf32> {onnx.name = "C3"}) -> tensor<1x?xf32> {
+// CHECK:      [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_1_]], [[PARAM_3_]], [[PARAM_2_]]) {axis = 1 : si64, onnx_node_name = "onnx.Concat_3"} : (tensor<4x?xf32>, tensor<4x?xf32>, tensor<4x?xf32>) -> tensor<4x?xf32>
+// CHECK:      [[VAR_1_:%.+]] = "onnx.Concat"([[PARAM_4_]], [[PARAM_6_]], [[PARAM_5_]]) {axis = 0 : si64, onnx_node_name = "onnx.Concat_4"} : (tensor<?xf32>, tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+// CHECK:      [[GEMM_OUT_:%.+]] = "onnx.Gemm"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]])
+// CHECK-SAME:     : (tensor<1x4xf32>, tensor<4x?xf32>, tensor<?xf32>) -> tensor<1x?xf32>
+// CHECK: return [[GEMM_OUT_]] : tensor<1x?xf32>
+
+}
