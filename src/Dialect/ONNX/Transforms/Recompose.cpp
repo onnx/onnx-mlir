@@ -745,8 +745,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     // Sum output channels from parallel gemms
     int64_t totalOutputChannels = 0;
     for (auto gemm : parallelGemms) {
-      int64_t outCh =
-          mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[splitAxis];
+      int64_t outCh = mlir::cast<ShapedType>(gemm.getResult().getType())
+                          .getShape()[splitAxis];
       totalOutputChannels += outCh;
     }
     newOutputShape[splitAxis] = totalOutputChannels;
@@ -785,7 +785,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
       SmallVector<int64_t, 4> splitSizesVec;
       for (auto gemm : parallelGemms) {
         int64_t outputChannels =
-            mlir::cast<ShapedType>(gemm.getResult().getType()).getShape()[splitAxis];
+            mlir::cast<ShapedType>(gemm.getResult().getType())
+                .getShape()[splitAxis];
         splitSizesVec.push_back(outputChannels);
       }
 
