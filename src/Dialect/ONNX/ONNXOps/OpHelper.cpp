@@ -924,5 +924,4 @@ bool isElementAttrUninitializedDenseResource(ElementsAttr elementsAttr) {
   return denseResourceElementsAttr &&
          !denseResourceElementsAttr.getRawHandle().getBlob();
 }
-
 } // namespace onnx_mlir

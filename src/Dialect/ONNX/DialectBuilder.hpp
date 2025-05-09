@@ -308,6 +308,13 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr,
       DenseElementsAttrGetter getDenseElementAttrFromConstValue);
 
+  // ===========================================================================
+  // Quantization support.
+  // ===========================================================================
+
+  /// Get or cast a value to i8 tensor.
+  mlir::Value getOrCastToI8(mlir::Value val, bool simpleCast = false);
+
 private:
   mlir::IntegerAttr getSignedInt64Attr(int64_t n) const;
 };
