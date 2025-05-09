@@ -749,6 +749,8 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
       totalOutputChannels += outCh;
     }
     newOutputShape[splitAxis] = totalOutputChannels;
+    auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
+
     auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
         newWeight, newBias, gemmOp1.getAlphaAttr(), gemmOp1.getBetaAttr(),
         gemmOp1.getTransAAttr(), gemmOp1.getTransBAttr());
