@@ -38,21 +38,67 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 
   auto elementTypeIDDType = operandAdaptor.getDtype();
   if (elementTypeIDDType) {
-    int64_t elementTypeID = elementTypeIDDType.value();
-    if (elementTypeID < 0 || elementTypeID > 2) {
-      return emitOpError("dtype not 0, 1 or 2.");
+    const auto elementTypeID =
+        static_cast<onnx::TensorProto_DataType>(*elementTypeIDDType);
+    if (elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16 &&
+        elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_FLOAT &&
+        elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE &&
+        elementTypeID !=
+            onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16) {
+      return emitOpError("dtype not float16, float, double or bfloat16");
     }
-    if (elementTypeID == 0 && outputType != Float16Type::get(getContext()))
-      return emitOpError("output tensor does match 0 dtype.");
-    else if (elementTypeID == 1 && outputType != Float32Type::get(getContext()))
-      return emitOpError("output tensor does match 1 dtype.");
-    else if (elementTypeID == 2 && outputType != Float64Type::get(getContext()))
-      return emitOpError("output tensor does match 2 dtype.");
+    if (elementTypeID ==
+            onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16 &&
+        outputType != Float16Type::get(getContext()))
+      return emitOpError("output tensor does not match float16 dtype.");
+    else if (elementTypeID ==
+                 onnx::TensorProto_DataType::TensorProto_DataType_FLOAT &&
+             outputType != Float32Type::get(getContext()))
+      return emitOpError("output tensor does not match float dtype.");
+    else if (elementTypeID ==
+                 onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE &&
+             outputType != Float64Type::get(getContext()))
+      return emitOpError("output tensor does not match double dtype.");
+    else if (elementTypeID ==
+                 onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16 &&
+             outputType != BFloat16Type::get(getContext()))
+      return emitOpError("output tensor does not match bfloat16 dtype.");
   } else if (inputType != outputType) {
     return emitOpError("output and input element types do not match.");
   }
 
   return success();
+}
+
+static Type getRandomNormalLikeOutputElementType(ONNXRandomNormalLikeOp op) {
+  auto inputType = mlir::cast<TensorType>(op.getInput().getType());
+  Type elementType = inputType.getElementType();
+  if (op.getDtypeAttr()) {
+    auto builder = OpBuilder(op.getContext());
+    elementType = convertONNXTypeToMLIRType(
+        builder, static_cast<onnx::TensorProto_DataType>(
+                     op.getDtypeAttr().getValue().getSExtValue()));
+  }
+  return elementType;
+}
+
+//===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXRandomNormalLikeOp::resultTypeInference() {
+  Type elementType = getRandomNormalLikeOutputElementType(*this);
+  std::vector<Type> resultTypes;
+  if (auto rankedInputType =
+          mlir::dyn_cast<RankedTensorType>(getInput().getType())) {
+    resultTypes.push_back(rankedInputType.clone(elementType));
+  } else {
+    resultTypes.push_back(UnrankedTensorType::get(elementType));
+  }
+  return resultTypes;
 }
 
 //===----------------------------------------------------------------------===//
@@ -63,24 +109,6 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))
     return success();
-  auto inputType = mlir::cast<RankedTensorType>(getInput().getType());
-  auto elementTypeIDDType = getDtype();
-
-  // Default output tensor type in all cases is the input tensor type.
-  Type elementType;
-  if (!elementTypeIDDType) {
-    elementType = inputType.getElementType();
-  } else {
-    int64_t elementTypeID = elementTypeIDDType.value();
-    if (elementTypeID == 0)
-      elementType = Float16Type::get(getContext());
-    else if (elementTypeID == 1)
-      elementType = Float32Type::get(getContext());
-    else if (elementTypeID == 2)
-      elementType = Float64Type::get(getContext());
-    else
-      return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
-  }
-
+  Type elementType = getRandomNormalLikeOutputElementType(*this);
   return inferShapeForUnaryOps(getOperation(), elementType);
 }

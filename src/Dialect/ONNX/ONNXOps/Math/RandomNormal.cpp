@@ -43,22 +43,33 @@ LogicalResult ONNXRandomNormalOpShapeHelper::computeShape() {
 // Type Inference
 //===----------------------------------------------------------------------===//
 
-std::vector<Type> ONNXRandomNormalOp::resultTypeInference() {
-  Type elementType;
-  if (auto attr = getDtypeAttr()) {
-    if (getDtype() == 0) {
-      elementType = Float16Type::get(getContext());
-    } else if (getDtype() == 1) {
-      elementType = Float32Type::get(getContext());
-    } else if (getDtype() == 2) {
-      elementType = Float64Type::get(getContext());
+namespace {
+Type getRandomNormalElementType(ONNXRandomNormalOp op) {
+  if (op.getDtypeAttr()) {
+    const auto elementTypeID =
+        static_cast<onnx::TensorProto_DataType>(op.getDtype());
+    if (elementTypeID ==
+        onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16) {
+      return Float16Type::get(op.getContext());
+    } else if (elementTypeID ==
+               onnx::TensorProto_DataType::TensorProto_DataType_FLOAT) {
+      return Float32Type::get(op.getContext());
+    } else if (elementTypeID ==
+               onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE) {
+      return Float64Type::get(op.getContext());
+    } else if (elementTypeID ==
+               onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16) {
+      return BFloat16Type::get(op.getContext());
     } else {
       llvm_unreachable("dtype not supported for RandomNormal");
     }
-  } else {
-    elementType = Float32Type::get(getContext());
   }
-  return {UnrankedTensorType::get(elementType)};
+  return Float32Type::get(op.getContext());
+}
+} // namespace
+
+std::vector<Type> ONNXRandomNormalOp::resultTypeInference() {
+  return {UnrankedTensorType::get(getRandomNormalElementType(*this))};
 }
 
 //===----------------------------------------------------------------------===//
@@ -67,15 +78,9 @@ std::vector<Type> ONNXRandomNormalOp::resultTypeInference() {
 
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto elementTypeID = getDtype();
-  Type elementType = Float32Type::get(getContext());
-  if (elementTypeID == 0)
-    elementType = Float16Type::get(getContext());
-  else if (elementTypeID == 2)
-    elementType = Float64Type::get(getContext());
-
   ONNXRandomNormalOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
+  return shapeHelper.computeShapeAndUpdateType(
+      getRandomNormalElementType(*this));
 }
 
 //===----------------------------------------------------------------------===//
