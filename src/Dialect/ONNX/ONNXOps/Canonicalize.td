@@ -739,7 +739,7 @@ def ReorderReluMaxPoolPattern : Pattern<
       $X,
       $auto_pad, $ceil_mode, $dilations, $kernel_shape,
       $pads, $storage_order, $strides,
-      (returnType (GetReturnTypeForMaxPool2D $X))))],
+      (returnType (GetReturnTypeForMaxPool2D $X)), (location $maxpool)), (location $relu))],
   [
     (HasRankOf<4> $X),
     (IsStaticShapeTensor:$maxpool),
