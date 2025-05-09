@@ -1417,11 +1417,6 @@ void initCompilerConfig() {
     setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
 
-#if 0
-  if (march == "z17")
-    march = "arch15";
-#endif
-
   if (march == "native") {
     march = std::string(llvm::sys::getHostCPUName());
     if (VerboseOutput)
