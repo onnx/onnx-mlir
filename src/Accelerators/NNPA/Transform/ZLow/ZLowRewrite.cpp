@@ -696,7 +696,7 @@ public:
     patterns.insert<UnstickLoadStoreStickRemovalPattern>(
         &getContext(), removableStickOps);
 
-    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+    if (failed(applyPatternsGreedily(function, std::move(patterns))))
       return signalPassFailure();
 
     // Remove ZLowStickOp that were marked "removable".
