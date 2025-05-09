@@ -257,11 +257,12 @@ static llvm::cl::opt<bool, true> enableSafeCodeGenOpt("enable-safe-code-gen",
     llvm::cl::location(enableSafeCodeGen), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+// TODO(alexe) re-enable prefetch.
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
     "disable-memref-prefetch",
     llvm::cl::desc("Disable generation of memref.prefetch (default=false).\n"
                    "Set to 'true' if you want to disable prefetch."),
-    llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(false),
+    llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>>
