@@ -3165,6 +3165,23 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== ThresholdedRelu
+        # ==MIN== 22
+        "test_thresholdedrelu_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_thresholdedrelu_default_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_thresholdedrelu_example_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Tile
         # ==MIN== 6
         "test_tile_cpu": {
