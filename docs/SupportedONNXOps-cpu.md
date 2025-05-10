@@ -209,7 +209,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Tan** |7 - * | | |
 | **Tanh** |6 - * | | |
 | **TfIdfVectorizer** |none | | | |
-| **ThresholdedRelu** |none | | | |
+| **ThresholdedRelu** |10 - * | | | |
 | **Tile** |6 - * | | |
 | **TopK** |10 - * |`K`, the number of top elements to retrieve, must have static shape. | |
 | **Transpose** |6 - * |Does not support int4 and uint4. | |
