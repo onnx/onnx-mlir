@@ -1673,6 +1673,50 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func private @test_celu(%arg0 : tensor<?x3x224x224xf32>) -> tensor<?x3x224x224xf32> {
+  %0 = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<?x3x224x224xf32>) -> tensor<?x3x224x224xf32>
+  func.return %0 : tensor<?x3x224x224xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 150528)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0, s1, s2] -> (s2)>
+// CHECK-LABEL: func.func private @test_celu
+// CHECK-SAME:  ([[PARAM_0_:%.+]]: memref<?x3x224x224xf32>) -> memref<?x3x224x224xf32> {
+// CHECK-DAG:     [[VAR_cst_:%.+]] = arith.constant dense<1.000000e+00> : vector<32xf32>
+// CHECK-DAG:     [[VAR_cst_0_:%.+]] = arith.constant dense<0.000000e+00> : vector<32xf32>
+// CHECK-DAG:     [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:         [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x3x224x224xf32>
+
+// CHECK:         [[RES_ALLOC_:%.+]] = memref.alloc([[VAR_dim_]]) {alignment = 16 : i64} : memref<?x3x224x224xf32>
+// CHECK-DAG:     [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x3x224x224xf32>
+// CHECK-DAG:     [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_1_]]
+// CHECK-DAG:     [[RESHAPE_ALLOC_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+// CHECK:         affine.store [[VAR_0_]], [[RESHAPE_ALLOC_]][0] : memref<1xindex>
+// CHECK-DAG:     [[VAR_RESHAPE_:%.+]] = memref.reshape [[PARAM_0_]]([[RESHAPE_ALLOC_]]) : (memref<?x3x224x224xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:     [[VAR_1_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]
+// CHECK-DAG:     [[RESHAPE_ALLOC_2_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+// CHECK:         affine.store [[VAR_1_]], [[RESHAPE_ALLOC_2_]][0] : memref<1xindex>
+// CHECK:         [[VAR_RESHAPE_4_:%.+]] = memref.reshape [[RES_ALLOC_]]([[RESHAPE_ALLOC_2_]]) : (memref<?x3x224x224xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK:         krnl.iterate() with (){
+// CHECK:           [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE_0_:%.+]], [[BLOCK_IN_0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:         krnl.iterate(%loop_block) with (%2 -> %arg1 = 0 to #map1()[%dim_1, %dim, %1]){
+// CHECK:           [[IV_0_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE_0_]]) : (!krnl.loop) -> index
+// CHECK:           [[VLOAD_:%.+]] = vector.load [[VAR_RESHAPE_:%.+]]{{\[}}[[IV_0_]]] : memref<?xf32>, vector<32xf32>
+// CHECK:           [[VMAX_:%.+]] = arith.maxnumf [[VLOAD_]], [[VAR_cst_0_]] : vector<32xf32>
+// CHECK:           [[VEXP_:%.+]] = math.exp [[VLOAD_]] : vector<32xf32>
+// CHECK:           [[VSUB_:%.+]] = arith.subf [[VEXP_]], [[VAR_cst_]] : vector<32xf32>
+// CHECK:           [[VMIN_:%.+]] = arith.minnumf [[VSUB_]], [[VAR_cst_0_]] : vector<32xf32>
+// CHECK:           [[VADD_:%.+]] = arith.addf [[VMAX_]], [[VMIN_]] : vector<32xf32>
+// CHECK:           vector.store [[VADD_]], [[VAR_RESHAPE_4_:%.+]]{{\[}}[[IV_0_]]] : memref<?xf32>, vector<32xf32>
+// CHECK:       }
+// CHECK:     }
+// CHECK:     return [[RES_ALLOC_]] : memref<?x3x224x224xf32>
+
+}
+
+
+
+// -----
 
 func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Elu"(%arg0) {alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>

@@ -1184,6 +1184,41 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func private @test_celu(%arg0 : tensor<?x3x224x224xf32>) -> tensor<?x3x224x224xf32> {
+  %0 = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<?x3x224x224xf32>) -> tensor<?x3x224x224xf32>
+  func.return %0 : tensor<?x3x224x224xf32>
+
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-LABEL:   func.func private @test_celu
+// CHECK-SAME:    ([[PARAM_0_:%.+]]: memref<?x3x224x224xf32>) -> memref<?x3x224x224xf32> {
+// CHECK-DAG:        [[CST_1_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:        [[CST_0_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:        [[CST_IDX_0_:%.+]] = arith.constant 0 : index
+// CHECK:            [[DIM_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_IDX_0_]] : memref<?x3x224x224xf32>
+// CHECK-DAG:        [[ALLOC_:%.+]] = memref.alloc([[DIM_0_]]) {{.*}}: memref<?x3x224x224xf32>
+// CHECK-DAG:        [[LOOPS_:%.+]]:4 = krnl.define_loops 4
+// CHECK-DAG:        [[VAR_DIM_:%.+]] = memref.dim [[PARAM_0_]], [[CST_IDX_0_]] : memref<?x3x224x224xf32>
+// CHECK:            krnl.iterate([[LOOPS_]]#0, [[LOOPS_]]#1, [[LOOPS_]]#2, [[LOOPS_]]#3) with (
+// CHECK-SAME:         [[LOOPS_]]#0 -> [[I0_:%.+]] = 0 to [[MAP_0_]]([[VAR_DIM_]]),
+// CHECK-SAME:         [[LOOPS_]]#1 -> [[I1_:%.+]] = 0 to 3,
+// CHECK-SAME:         [[LOOPS_]]#2 -> [[I2_:%.+]] = 0 to 224,
+// CHECK-SAME:         [[LOOPS_]]#3 -> [[I3_:%.+]] = 0 to 224){
+// CHECK:              [[IVS_:%.+]]:4 = krnl.get_induction_var_value([[LOOPS_]]#0, [[LOOPS_]]#1, [[LOOPS_]]#2, [[LOOPS_]]#3)
+// CHECK:              [[LOAD_:%.+]] = krnl.load [[PARAM_0_]]{{.*}}[[IVS_]]#0, [[IVS_]]#1, [[IVS_]]#2, [[IVS_]]#3] : memref<?x3x224x224xf32>
+// CHECK:              [[MAX_:%.+]] = arith.maxnumf [[LOAD_]], [[CST_0_]] : f32
+// CHECK:              [[EXP_:%.+]] = math.exp [[LOAD_]] : f32
+// CHECK:              [[SUB_:%.+]] = arith.subf [[EXP_]], [[CST_1_]] : f32
+// CHECK:              [[MIN_:%.+]] = arith.minnumf [[SUB_]], [[CST_0_]] : f32
+// CHECK:              [[SUM_:%.+]] = arith.addf [[MAX_]], [[MIN_]] : f32
+// CHECK:              krnl.store [[SUM_]], [[ALLOC_]]{{.*}}[[IVS_]]#0, [[IVS_]]#1, [[IVS_]]#2, [[IVS_]]#3] : memref<?x3x224x224xf32>
+// CHECK:            }
+// CHECK:            return [[ALLOC_]] : memref<?x3x224x224xf32>
+// CHECK:          }
+}
+
+// -----
+
 func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Selu"(%arg0) {alpha=1.0:f32, gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
