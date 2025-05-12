@@ -142,6 +142,28 @@ bool areProducedByTransposeOp(ValueRange values) {
   });
 }
 
+Value maxOrDefault(PatternRewriter &rewriter, Location loc, Value a, Value b) {
+  // If A or B is NoneType, return the other value
+  if (mlir::isa<NoneType>(a.getType()))
+    return b;
+  if (mlir::isa<NoneType>(b.getType()))
+    return a;
+
+  // Otherwise, return the max of A and B
+  return rewriter.create<ONNXMaxOp>(loc, a.getType(), ValueRange{a, b});
+}
+
+Value minOrDefault(PatternRewriter &rewriter, Location loc, Value a, Value b) {
+  // If A or B is NoneType, return the other value
+  if (mlir::isa<NoneType>(a.getType()))
+    return b;
+  if (mlir::isa<NoneType>(b.getType()))
+    return a;
+
+  // Otherwise, return the min of A and B
+  return rewriter.create<ONNXMinOp>(loc, a.getType(), ValueRange{a, b});
+}
+
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
     Value value, int64_t start = 0, std::optional<int64_t> end = std::nullopt) {
@@ -1829,6 +1851,12 @@ void ONNXCastOp::getCanonicalizationPatterns(
 void ONNXConcatOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RecomposeConcatPattern>(context);
+}
+
+/// on the ONNXClipOp.
+void ONNXClipOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<FuseConsecutiveClipsPattern>(context);
 }
 
 /// on the ONNXConstantOp.
