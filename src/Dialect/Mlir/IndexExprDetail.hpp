@@ -69,6 +69,7 @@ public:
   bool isInCurrentScope() const;
   bool hasAffineExpr() const;
   bool hasValue() const;
+  bool hasDimParam() const;
 
   // Getters.
   IndexExprScope &getScope() const;
@@ -83,6 +84,7 @@ public:
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands);
   mlir::Value getValue();
+  std::string getDimParam();
 
   // Setters.
   void setLiteral(int64_t val);
@@ -122,6 +124,7 @@ private:
   mlir::AffineExpr affineExpr;
   // Value expression, may be defined whenever the IndexExpr is defined.
   mlir::Value value;
+  std::string dimParam;
 };
 
 } // namespace onnx_mlir

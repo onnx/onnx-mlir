@@ -41,7 +41,7 @@ namespace onnx_mlir {
 IndexExprImpl::IndexExprImpl()
     : defined(false), literal(false), isFloat(false),
       kind(IndexExprKind::NonAffine), intLit(0), affineExpr(nullptr),
-      value(nullptr) {
+      value(nullptr), dimParam("") {
   // Set scope from thread private global.
   scope = IndexExprScope::getCurrentScopePtr();
   assert(scope && "expected IndexExpr Scope to be defined");
@@ -66,6 +66,51 @@ void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {
       IndexExprKind::Questionmark, val, AffineExpr(nullptr), Value(nullptr));
 }
 
+std::string getDimParamFromString(std::string dimParams, int64_t index) {
+    std::stringstream shapeInfoString(dimParams);
+    std::string dimString;
+    while (std::getline(shapeInfoString, dimString, ',')) {
+      size_t pos = dimString.find(':');
+      std::string inputString = dimString.substr(0, pos);
+      std::string paramString = dimString.substr(pos + 1);
+
+      int64_t inputID = std::stoi(inputString);
+      if (inputID == index) {
+        return(paramString);
+      }
+    }
+    return std::string("");
+}
+
+std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
+  if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) { 
+    int64_t argIndex = blockArg.getArgNumber();
+    Block *block = blockArg.getOwner();
+    Operation *op = block->getParentOp();
+    if (llvm::isa<func::FuncOp>(op)) {
+      func::FuncOp funcOp = llvm::cast<func::FuncOp>(op);
+      //ArrayAttr dimAttr = funcOp.getArgAttrsAttr();
+      DictionaryAttr dictAttr = mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
+      if (dictAttr && dictAttr.contains("onnx.dim_params")) {
+        StringAttr dimParamAttr = mlir::cast<StringAttr>(dictAttr.getNamed("onnx.dim_params").value().getValue());
+        return getDimParamFromString(std::string(dimParamAttr.getValue().str()), index);
+      }
+      return std::string("");
+    } else {
+      // ToFix, Loop, If and etc.
+      return std::string("");
+    }
+  } else {
+    Operation *op = tensorOrMemref.getDefiningOp();
+    if (!op) {
+      return std::string("");
+    } else {
+      // Get the info from attribute "onnx.dim_param"
+      return std::string("");
+    }
+  }
+}
+
 // Used for runtime dims; integer by default.
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
@@ -78,6 +123,12 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   init(/*isDefined*/ true, /*literal*/ false,
       /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
       questionValue, AffineExpr(nullptr), Value(nullptr));
+
+  // Get the dimSymbol from the onnx.dim_params
+  // This symbol acts similar to questionValue, but predefined from onnx model
+  std::string dimSymbol = getDimParamUtil(tensorOrMemref, index);
+  if (dimSymbol != "")
+    dimParam = dimSymbol;
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
@@ -329,6 +380,11 @@ bool IndexExprImpl::hasValue() const {
   return value != nullptr;
 }
 
+bool IndexExprImpl::hasDimParam() const {
+  assert(isDefined());
+  return dimParam != "";
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExprExpr getters.
 //===----------------------------------------------------------------------===//
@@ -506,6 +562,11 @@ Value IndexExprImpl::getValue() {
     llvm_unreachable("bad path");
   }
   return value;
+}
+
+std::string IndexExprImpl::getDimParam() {
+  // Should it be only for QuestionMark?
+  return dimParam;
 }
 
 //===----------------------------------------------------------------------===//
