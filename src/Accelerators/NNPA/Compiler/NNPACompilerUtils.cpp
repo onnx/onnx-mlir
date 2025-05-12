@@ -51,7 +51,7 @@ namespace onnx_mlir {
 void configurePassesNNPA() {
   // z16 does not support for hardware saturation.
   // So, force its usage to compiler generated sticks.
-  if (nnpaEnableSaturation && isLessEqualNNPALevel(NNPALevel::M14))
+  if (!nnpaDisableSaturation && isLessEqualNNPALevel(NNPALevel::M14))
     nnpaDisableCompilerStickUnstick = false;
 
   // Configure ONNXToZHighLoweringPass.
@@ -260,8 +260,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
       // Lower ONNX to Krnl, ZHigh to ZLow.
-      addONNXToKrnlPasses(
-          pm, optLevel, /*enableCSE*/ true, instrumentSignatures, ONNXOpStats);
+      addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;

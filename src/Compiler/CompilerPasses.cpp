@@ -181,10 +181,16 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+  // Print Signatures of each op at runtime if enabled. Should not run
+  // signature and instrument passes at the same time as time may include printf
+  // overheads.
+  if (instrumentSignatures != "NONE" || instrumentOnnxNode != "NONE")
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
+        instrumentSignatures, instrumentOnnxNode));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    std::string instrumentSignatureString, std::string ONNXOpsStatFormat) {
+    std::string ONNXOpsStatFormat) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -208,12 +214,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
 
-  // Print Signatures of each op at runtime if enabled. Should not run
-  // signature and instrument passes at the same time as time may include printf
-  // overheads.
-  if (instrumentSignatureString != "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
-        instrumentSignatureString));
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
       /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
@@ -355,8 +355,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
-          instrumentSignatures, ONNXOpStats);
+      addONNXToKrnlPasses(
+          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

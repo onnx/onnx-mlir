@@ -13,6 +13,10 @@ if (NOT ${ONNX_MLIR_TEST_OPTLEVEL} IN_LIST OPTLEVELS)
 endif()
 message(STATUS "Tests optimization level : ${ONNX_MLIR_TEST_OPTLEVEL}")
 
+if (NOT ONNX_MLIR_BUILD_TESTS)
+  set(EXCLUDE_FROM_ALL ON)
+endif()
+
 # Create one target for all the backend and numerical tests that we
 # want to run in parallel. The reason we have to do this follows.
 #

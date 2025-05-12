@@ -31,8 +31,10 @@
 #include "mlir/IR/Verifier.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -43,6 +45,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "decompose"
 
@@ -2747,6 +2750,64 @@ public:
   }
 };
 
+// =============================================================================
+// Decompose Hardswish to simpler ONNX ops
+// =============================================================================
+// DecomposeHardSwishPattern replaces ONNXHardSwishOp with its equivalent
+// mathematical decomposition using basic ONNX operations:
+//
+//    HardSwish(x) = x * max(0, min(1, (x / 6) + 0.5))
+//
+// This pass:
+//  - Multiplies input by `1/6`
+//  - Adds `0.5` to the scaled input
+//  - Clamps the result between `0` and `1` using Min and Max ops
+//  - Multiplies the clamped value with the original input
+
+// AMD: Disabled, instead decompose to input * ONNXHardSigmoid
+// struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
+//   using OpRewritePattern<ONNXHardSwishOp>::OpRewritePattern;
+
+//   LogicalResult matchAndRewrite(
+//       ONNXHardSwishOp hardswishOp, PatternRewriter &rewriter) const final {
+
+//     // Get location and element type
+//     Location loc = hardswishOp.getLoc();
+//     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+//         rewriter, loc);
+
+//     Value alphaConst = create.onnx.constantFloat32(1.0f / 6.0f);
+//     Value betaConst = create.onnx.constantFloat32(0.5f);
+//     Value minConst = create.onnx.constantFloat32(1.0f);
+//     Value maxConst = create.onnx.constantFloat32(0.0f);
+
+//     // Multiply input by alpha
+//     auto scaledInput =
+//         rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
+//             hardswishOp.getOperand(), alphaConst);
+
+//     // Add beta to (input * alpha)
+//     auto shiftedInput = rewriter.create<ONNXAddOp>(
+//         loc, scaledInput.getType(), scaledInput, betaConst);
+
+//     // Compute min(1.0, shiftedInput)
+//     auto minOp = rewriter.create<ONNXMinOp>(
+//         loc, shiftedInput.getType(), ValueRange({shiftedInput, minConst}));
+
+//     // Compute max(0, min(1, shiftedInput))
+//     auto maxOp = rewriter.create<ONNXMaxOp>(
+//         loc, minOp.getType(), ValueRange({minOp, maxConst}));
+
+//     // Compute final HardSwish: input * max(0, min(1, add(mul(x, alpha),
+//     beta))) auto hardswishResult = rewriter.create<ONNXMulOp>(loc,
+//         hardswishOp.getOperand().getType(), hardswishOp.getOperand(), maxOp);
+
+//     // Replace the original HardSwishOp with the new computation
+//     rewriter.replaceOp(hardswishOp, hardswishResult.getResult());
+//     return success();
+//   }
+// };
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -2845,6 +2906,15 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+
+  // AMD: Decompose unconditionally
+  // if (!onnx_mlir::decomposeOpsInONNX.empty()) {
+  //   for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
+  //     if (op == "HardSwish") {
+  //       patterns.insert<DecomposeHardSwishPattern>(context);
+  //     }
+  //   }
+  // }
 
   // TODO: consider whether to include SoftmaxPattern here
 }

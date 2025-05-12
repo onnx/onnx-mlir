@@ -70,6 +70,7 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
+  mlir::Value constantFloat32(const mlir::ArrayRef<float> floatVals) const;
 
   // ONNXConvOp
   mlir::Value conv(mlir::Type Y, mlir::Value X, mlir::Value W, mlir::Value B,
@@ -306,6 +307,13 @@ struct OnnxBuilder : DialectBuilder {
       mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
       mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr,
       DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  // ===========================================================================
+  // Quantization support.
+  // ===========================================================================
+
+  /// Get or cast a value to i8 tensor.
+  mlir::Value getOrCastToI8(mlir::Value val, bool simpleCast = false);
 
 private:
   mlir::IntegerAttr getSignedInt64Attr(int64_t n) const;

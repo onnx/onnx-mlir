@@ -386,25 +386,6 @@ static void preComputeBias(MultiDialectBuilder<OnnxBuilder> &create, Value RSa,
   Zqctilde = qcOp.getResult(2);
 }
 
-static Value getOrCastToI8(Value val, MultiDialectBuilder<OnnxBuilder> &create,
-    bool simpleCast = false) {
-  if (!getElementType(val.getType()).isUnsignedInteger())
-    return val;
-
-  Type i8Ty = create.getBuilder().getI8Type();
-  if (simpleCast)
-    return create.onnx.cast(val, i8Ty);
-
-  // Use int16 to avoid integer overflow.
-  Type i16Ty = create.getBuilder().getI16Type();
-  auto cst128Attr = DenseElementsAttr::get(
-      RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
-  Value valI16 = create.onnx.cast(val, i16Ty);
-  valI16 = create.onnx.sub(valI16, create.onnx.constant(cst128Attr));
-  Value valI8 = create.onnx.cast(valI16, i8Ty);
-  return valI8;
-}
-
 // Dynamic quantization helper to match and rewrite values A, B, C of A*B+C.
 class DynQuantI8PatternHelper {
 public:
@@ -798,8 +779,8 @@ public:
     // Prepare inputs for zhigh QuantizedMatMul.
 
     // I8 tensors
-    Value AI8 = getOrCastToI8(mmiOp.getA(), create, true);
-    Value BI8 = getOrCastToI8(mmiOp.getB(), create, true);
+    Value AI8 = create.onnx.getOrCastToI8(mmiOp.getA(), true);
+    Value BI8 = create.onnx.getOrCastToI8(mmiOp.getB(), true);
 
     // Zero points in f32.
     Value AZeroPointI8 = mmiOp.getAZeroPoint();
@@ -809,7 +790,7 @@ public:
           RankedTensorType::get({}, getElementType(AZeroPointI8.getType())),
           AZeroPointI8, {zeroI64});
     }
-    AZeroPointI8 = getOrCastToI8(AZeroPointI8, create, true);
+    AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPointI8, true);
     Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
     // TESTING: minus zeropoint in advance to cancel out the software part of
     // zdnn quantized matmul.
@@ -822,7 +803,7 @@ public:
           RankedTensorType::get({}, getElementType(BZeroPointI8.getType())),
           BZeroPointI8, {zeroI64});
     }
-    BZeroPointI8 = getOrCastToI8(BZeroPointI8, create, true);
+    BZeroPointI8 = create.onnx.getOrCastToI8(BZeroPointI8, true);
     Value BZeroPointF32 = create.onnx.cast(BZeroPointI8, f32Ty);
     // TESTING: minus zeropoint in advance to cancel out the software part of
     // zdnn quantized matmul.
@@ -964,10 +945,10 @@ public:
             RankedTensorType::get({}, getElementType(AZeroPointI8.getType())),
             AZeroPointI8, {zeroI64});
       }
-      AZeroPointI8 = getOrCastToI8(AZeroPointI8, create, true);
+      AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPointI8, true);
       Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
       Value ARecScale = create.onnx.reciprocal(AScale);
-      AI8 = getOrCastToI8(AI8, create, true);
+      AI8 = create.onnx.getOrCastToI8(AI8, true);
       // Stickify the quantized input A to ztensor format.
       qAOp = rewriter.create<ZHighQuantizedStickOp>(loc, AI8, ARecScale,
           AZeroPointF32, aLayoutAttr, rewriter.getStringAttr(QTYPE_INT8));
@@ -1418,19 +1399,19 @@ public:
     }
 
     // zdnn supports signed int8, convert unsigned int8 inputs to signed int8.
-    Value AI8 = getOrCastToI8(A, create);
-    Value BI8 = getOrCastToI8(B, create);
+    Value AI8 = create.onnx.getOrCastToI8(A);
+    Value BI8 = create.onnx.getOrCastToI8(B);
 
     Value ARecScale = create.onnx.reciprocal(AScale);
-    Value AZeroPointI8 = getOrCastToI8(AZeroPoint, create);
+    Value AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPoint);
     Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
 
     Value BRecScale = create.onnx.reciprocal(BScale);
-    Value BZeroPointI8 = getOrCastToI8(BZeroPoint, create);
+    Value BZeroPointI8 = create.onnx.getOrCastToI8(BZeroPoint);
     Value BZeroPointF32 = create.onnx.cast(BZeroPointI8, f32Ty);
 
     Value YRecScale = create.onnx.reciprocal(YScale);
-    Value YZeroPointI8 = getOrCastToI8(YZeroPoint, create);
+    Value YZeroPointI8 = create.onnx.getOrCastToI8(YZeroPoint);
     Value YZeroPointF32 = create.onnx.cast(YZeroPointI8, f32Ty);
 
     // Stickify AI8, Transform AI8 into zTensor format.
