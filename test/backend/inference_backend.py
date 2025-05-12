@@ -394,6 +394,18 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== BitwiseNot
+        # ==MIN== 18
+        "test_bitwise_not_i32_2d_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_bitwise_not_i16_3d_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Cast
         # ==MIN== 6
         # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4.
