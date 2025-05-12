@@ -1909,3 +1909,18 @@ func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<2xi64>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  %0 = "onnx.Relu"(%arg0) {onnx_node_name = "onnx.Relu_0"} : (tensor<1x64x32x32xf32>) -> tensor<1x64x32x32xf32>
+  %1 = "onnx.MaxPoolSingleOut"(%0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], onnx_node_name = "onnx.MaxPoolSingleOut_1", storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
+  return %1 : tensor<1x64x16x16xf32>
+
+  // CHECK-LABEL: func @test_reorder_relu_maxpool
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  // CHECK:      [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<1x64x16x16xf32>) -> tensor<1x64x16x16xf32>
+  // CHECK-NEXT:     return [[VAR_1_]] : tensor<1x64x16x16xf32>
+  // CHECK:         }
+}
