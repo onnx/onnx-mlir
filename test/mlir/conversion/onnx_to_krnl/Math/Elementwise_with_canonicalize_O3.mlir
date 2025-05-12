@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --march=z16 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --march=z16 --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 // use --mtriple=s390x-ibm-loz --march=z16 to enable SIMD as we now need a machine
 // can also use --march=x86-64 instead.
@@ -1739,14 +1739,12 @@ func.func private @test_bitwise_not(%arg0 : tensor<2x3xi32>) -> tensor<*xi32> {
 // CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 6){
 // CHECK:               [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<6xi32>, vector<8xi32>
-// CHECK:               [[VAR_3_:%.+]] = arith.muli [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_]] : vector<8xi32>
-// CHECK:               [[VAR_4_:%.+]] = arith.subi [[LOAD_VAR_reshape_MEM_]], [[VAR_3_]] : vector<8xi32>
-// CHECK:               vector.store [[VAR_4_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<6xi32>, vector<8xi32>
+// CHECK:               [[VAR_3_:%.+]] = arith.xori [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_]] : vector<8xi32>
+// CHECK:               vector.store [[VAR_3_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<6xi32>, vector<8xi32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<2x3xi32>
 // CHECK:         }
-  
 }
 
 // -----

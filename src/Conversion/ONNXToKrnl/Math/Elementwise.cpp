@@ -797,7 +797,6 @@ Value emitScalarOpFor<ONNXCeluOp>(ConversionPatternRewriter &rewriter,
   Value expMinusOne = create.math.sub(expVal, one);
   Value scaled = create.math.mul(alpha, expMinusOne);
 
-
   // Combine parts: positivePart + min(0, scaled)
   Value negativePart = create.math.min(zero, scaled);
   return create.math.add(positivePart, negativePart);
@@ -814,12 +813,6 @@ struct ScalarOp<ONNXBitwiseNotOp> {
 };
 
 template <>
-GenOpMix getGenOpMix<ONNXBitwiseNotOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1},
-      {GenericOps::MulGop, 1}};
-}
-
-template <>
 Value emitScalarOpFor<ONNXBitwiseNotOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
@@ -827,9 +820,9 @@ Value emitScalarOpFor<ONNXBitwiseNotOp>(ConversionPatternRewriter &rewriter,
   CheckIfCustomScalarOpIsSupported<ONNXBitwiseNotOp>(elementType);
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  Value ones = create.math.constant(elementType, -1);
-  auto alpha = create.math.mul(ones, operand);
-  return create.math.sub(operand,alpha);
+  // NOT(x) = XOR(x,-1)
+  Value one = create.math.constant(elementType,-1);
+  return create.math.xori(operand, one);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1837,10 +1830,10 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
       mlir::ONNXCeluOp, mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp,
       mlir::ONNXAcoshOp, mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp,
-      mlir::ONNXExpOp, mlir::ONNXFloorOp, mlir::ONNXGeluOp,mlir::ONNXBitwiseNotOp,
-      mlir::ONNXHardSigmoidOp, mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp,
-      mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
-      mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
+      mlir::ONNXExpOp, mlir::ONNXFloorOp, mlir::ONNXGeluOp,
+      mlir::ONNXBitwiseNotOp, mlir::ONNXHardSigmoidOp, mlir::ONNXHardSwishOp,
+      mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp,
+      mlir::ONNXLogOp, mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
       mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
