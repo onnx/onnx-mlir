@@ -821,7 +821,7 @@ Value emitScalarOpFor<ONNXBitwiseNotOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   // NOT(x) = XOR(x,-1)
-  Value one = create.math.constant(elementType,-1);
+  Value one = create.math.constant(elementType, -1);
   return create.math.xori(operand, one);
 }
 
