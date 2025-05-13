@@ -396,12 +396,7 @@ def get_test_models():
         },
         # ==OP== BitwiseNot
         # ==MIN== 18
-        "test_bitwise_not_i32_2d_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
-        "test_bitwise_not_i16_3d_cpu": {
+        "test_bitwise_not_2d_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
