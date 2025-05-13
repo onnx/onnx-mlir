@@ -149,7 +149,7 @@ bool IndexExprScope::isCurrentScope() const {
 
 bool IndexExprScope::isEnclosingScope() const {
   for (IndexExprScope *s = getCurrentScopePtr()->parentScope; s;
-       s = s->parentScope) {
+      s = s->parentScope) {
     if (s == this)
       return true;
   }
@@ -237,7 +237,7 @@ bool IndexExpr::hasAffineExpr() const { return getObj().hasAffineExpr(); }
 
 bool IndexExpr::hasValue() const { return getObj().hasValue(); }
 
-bool IndexExpr::hasDimParam() const {return getObj().hasDimParam();}
+bool IndexExpr::hasDimParam() const { return getObj().hasDimParam(); }
 
 //===----------------------------------------------------------------------===//
 // IndexExpr list queries.

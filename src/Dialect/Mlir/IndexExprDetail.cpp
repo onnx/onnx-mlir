@@ -67,33 +67,36 @@ void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {
 }
 
 std::string getDimParamFromString(std::string dimParams, int64_t index) {
-    std::stringstream shapeInfoString(dimParams);
-    std::string dimString;
-    while (std::getline(shapeInfoString, dimString, ',')) {
-      size_t pos = dimString.find(':');
-      std::string inputString = dimString.substr(0, pos);
-      std::string paramString = dimString.substr(pos + 1);
+  std::stringstream shapeInfoString(dimParams);
+  std::string dimString;
+  while (std::getline(shapeInfoString, dimString, ',')) {
+    size_t pos = dimString.find(':');
+    std::string inputString = dimString.substr(0, pos);
+    std::string paramString = dimString.substr(pos + 1);
 
-      int64_t inputID = std::stoi(inputString);
-      if (inputID == index) {
-        return(paramString);
-      }
+    int64_t inputID = std::stoi(inputString);
+    if (inputID == index) {
+      return (paramString);
     }
-    return std::string("");
+  }
+  return std::string("");
 }
 
 std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
-  if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) { 
+  if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) {
     int64_t argIndex = blockArg.getArgNumber();
     Block *block = blockArg.getOwner();
     Operation *op = block->getParentOp();
     if (op && llvm::isa<func::FuncOp>(op)) {
       func::FuncOp funcOp = llvm::cast<func::FuncOp>(op);
-      //ArrayAttr dimAttr = funcOp.getArgAttrsAttr();
-      DictionaryAttr dictAttr = mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
+      // ArrayAttr dimAttr = funcOp.getArgAttrsAttr();
+      DictionaryAttr dictAttr =
+          mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
       if (dictAttr && dictAttr.contains("onnx.dim_params")) {
-        StringAttr dimParamAttr = mlir::cast<StringAttr>(dictAttr.getNamed("onnx.dim_params").value().getValue());
-        return getDimParamFromString(std::string(dimParamAttr.getValue().str()), index);
+        StringAttr dimParamAttr = mlir::cast<StringAttr>(
+            dictAttr.getNamed("onnx.dim_params").value().getValue());
+        return getDimParamFromString(
+            std::string(dimParamAttr.getValue().str()), index);
       }
       return std::string("");
     } else {
@@ -108,10 +111,13 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
       // Get the info from attribute "onnx.dim_param"
       auto opResult = llvm::cast<OpResult>(tensorOrMemref);
       unsigned resultIndex = opResult.getResultNumber();
-      Attribute dimParamAttr = op->getAttr("onnx.dim_params_"+std::to_string(resultIndex));
+      Attribute dimParamAttr =
+          op->getAttr("onnx.dim_params_" + std::to_string(resultIndex));
       if (!dimParamAttr)
         return std::string("");
-      return getDimParamFromString(std::string(llvm::cast<StringAttr>(dimParamAttr).getValue().str()), index);
+      return getDimParamFromString(
+          std::string(llvm::cast<StringAttr>(dimParamAttr).getValue().str()),
+          index);
     }
   }
 }

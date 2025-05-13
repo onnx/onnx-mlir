@@ -67,7 +67,8 @@ int64_t getAxisInRange(int64_t axis, Value val, bool includeRank) {
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-static void refineDimParams(Operation *op, DimsExpr &inferredDims, Value output) {
+static void refineDimParams(
+    Operation *op, DimsExpr &inferredDims, Value output) {
   // Get the index of output
   if (!llvm::isa<OpResult>(output)) {
     // output is a block parameter. It could be Func, Loop, If and etc.
@@ -80,19 +81,21 @@ static void refineDimParams(Operation *op, DimsExpr &inferredDims, Value output)
   std::string dimParamsStr("");
   bool isFirst = true;
   for (unsigned i = 0; i < inferredDims.size(); ++i) {
-    if (inferredDims[i].isQuestionmark() && inferredDims[i].hasDimParam()){
+    if (inferredDims[i].isQuestionmark() && inferredDims[i].hasDimParam()) {
       if (isFirst) {
         isFirst = false;
       } else {
         dimParamsStr.append(",");
       }
-      dimParamsStr = dimParamsStr + std::to_string(i) + ":" + inferredDims[i].getDimParam();
+      dimParamsStr = dimParamsStr + std::to_string(i) + ":" +
+                     inferredDims[i].getDimParam();
     }
   }
   if (dimParamsStr == "")
     return;
   StringAttr dimParamsAttr = StringAttr::get(op->getContext(), dimParamsStr);
-  op->setAttr("onnx.dim_params_"+std::to_string(resultIndex), StringAttr(dimParamsAttr));
+  op->setAttr("onnx.dim_params_" + std::to_string(resultIndex),
+      StringAttr(dimParamsAttr));
 }
 
 /// Refine `inferredDims` using the output's shape if possible. For example,
@@ -406,7 +409,8 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         continue;
       }
       // Case: QuestionMark - QuestionMark
-      if (currentDimExpr.hasDimParam() && nextDimExpr.hasDimParam() && currentDimExpr.getDimParam() == nextDimExpr.getDimParam()) {
+      if (currentDimExpr.hasDimParam() && nextDimExpr.hasDimParam() &&
+          currentDimExpr.getDimParam() == nextDimExpr.getDimParam()) {
         // Same symbolic dim
         continue;
       }
@@ -626,7 +630,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                                 << " & " << d << "; abort\n");
         return collapsedInnermostLoops > 0;
       } // End for all non-scalars,
-    }   // End testing non-scalar compatibility.
+    } // End testing non-scalar compatibility.
 
     // 4) Since we have at least one non-scalar
     //   4.1) all the scalar inputs are now marked as having a broadcast.
