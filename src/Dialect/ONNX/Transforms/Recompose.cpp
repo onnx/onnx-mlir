@@ -680,8 +680,10 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
         return false;
       // check output channels match
       if (aCShape[0] == 1 && bCShape[0] == 1) {
-        auto aOutputShape = mlir::cast<ShapedType>(a.getResult().getType()).getShape();
-        auto bOutputShape = mlir::cast<ShapedType>(b.getResult().getType()).getShape();
+        auto aOutputShape =
+            mlir::cast<ShapedType>(a.getResult().getType()).getShape();
+        auto bOutputShape =
+            mlir::cast<ShapedType>(b.getResult().getType()).getShape();
         // Output channels is the last dim
         if (aOutputShape.back() != bOutputShape.back())
           return false;
