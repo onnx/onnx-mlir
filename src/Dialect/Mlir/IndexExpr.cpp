@@ -149,7 +149,7 @@ bool IndexExprScope::isCurrentScope() const {
 
 bool IndexExprScope::isEnclosingScope() const {
   for (IndexExprScope *s = getCurrentScopePtr()->parentScope; s;
-      s = s->parentScope) {
+       s = s->parentScope) {
     if (s == this)
       return true;
   }
