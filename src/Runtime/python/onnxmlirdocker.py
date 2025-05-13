@@ -225,8 +225,8 @@ class InferenceSession:
                 from PyRuntime import OMExecutionSession
             except ImportError:
                 raise ImportError(
-                    "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
-                    "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
+                    "Looks like you did not build the PyRuntimeC target, build it by running `make PyRuntimeC`."
+                    "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to `build/Debug` by default"
                 )
 
         return OMExecutionSession(self.compiled_model, self.compile_tag)
