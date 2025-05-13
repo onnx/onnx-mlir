@@ -670,10 +670,24 @@ struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
     Value aC = a.getC();
     Value bC = b.getC();
     if (!onnx_mlir::isNoneValue(aC) && !onnx_mlir::isNoneValue(bC)) {
-      auto aCShape = mlir::cast<ShapedType>(aC.getType()).getShape();
-      auto bCShape = mlir::cast<ShapedType>(bC.getType()).getShape();
-      if (aCShape.size() != 1 || bCShape.size() != 1 ||
-          aCShape[0] != bCShape[0])
+      auto aCType = mlir::cast<ShapedType>(aC.getType());
+      auto bCType = mlir::cast<ShapedType>(bC.getType());
+      auto aCShape = aCType.getShape();
+      auto bCShape = bCType.getShape();
+      if (aCShape.size() != 1 || bCShape.size() != 1)
+        return false;
+      if (aCType.isDynamicDim(0) || bCType.isDynamicDim(0))
+        return false;
+      // check output channels match
+      if (aCShape[0] == 1 && bCShape[0] == 1) {
+        auto aOutputShape = mlir::cast<ShapedType>(a.getResult().getType()).getShape();
+        auto bOutputShape = mlir::cast<ShapedType>(b.getResult().getType()).getShape();
+        // Output channels is the last dim
+        if (aOutputShape.back() != bOutputShape.back())
+          return false;
+      }
+      // Otherwise, shapes must be equal
+      else if (aCShape[0] != bCShape[0])
         return false;
     }
     return true;
