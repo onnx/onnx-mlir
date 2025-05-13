@@ -3953,6 +3953,8 @@ func.func @test_grid_sample_same_dims(%arg0: tensor<1x3x1152x1344xf32>, %arg1: t
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<1x6x6x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -3964,6 +3966,8 @@ func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<
 // CHECK:           return [[GRID]] : tensor<1x1x6x6xf32>
 // CHECK:         }
 }
+
+// -----
 
 func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x2x4x4x4x4xf32>, tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32>
@@ -3977,6 +3981,8 @@ func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x2xf32>) -> tensor<*xf32>
 // mlir2FileCheck.py
@@ -3987,6 +3993,8 @@ func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<
 // CHECK:         }
   return %0 : tensor<*xf32>
 }
+
+// -----
 
 func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<*xf32>
@@ -3999,6 +4007,8 @@ func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
   return %0 : tensor<*xf32>
 }
 
+// -----
+
 func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x10x20x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x10x20x2xf32>) -> tensor<*xf32>
 // mlir2FileCheck.py
@@ -4008,4 +4018,18 @@ func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
 // CHECK:           return [[GRID]] : tensor<?x?x10x20xf32>
 // CHECK:         }
   return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @dim_params_1(%arg0: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}, %arg1: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}) -> (tensor<?x10xf32> {onnx.name = "sum"}) {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+  %1 = "onnx.Add"(%0, %arg0) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+  onnx.Return %1 : tensor<?x10xf32>
+// CHECK-LABEL:  func.func @dim_params_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}, [[PARAM_1_:%.+]]: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}) -> (tensor<?x10xf32> {onnx.name = "sum"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) {onnx.dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x10xf32>
+// CHECK:         }
 }

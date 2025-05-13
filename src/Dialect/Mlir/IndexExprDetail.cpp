@@ -87,7 +87,7 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
     int64_t argIndex = blockArg.getArgNumber();
     Block *block = blockArg.getOwner();
     Operation *op = block->getParentOp();
-    if (llvm::isa<func::FuncOp>(op)) {
+    if (op && llvm::isa<func::FuncOp>(op)) {
       func::FuncOp funcOp = llvm::cast<func::FuncOp>(op);
       //ArrayAttr dimAttr = funcOp.getArgAttrsAttr();
       DictionaryAttr dictAttr = mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
@@ -106,7 +106,12 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
       return std::string("");
     } else {
       // Get the info from attribute "onnx.dim_param"
-      return std::string("");
+      auto opResult = llvm::cast<OpResult>(tensorOrMemref);
+      unsigned resultIndex = opResult.getResultNumber();
+      Attribute dimParamAttr = op->getAttr("onnx.dim_params_"+std::to_string(resultIndex));
+      if (!dimParamAttr)
+        return std::string("");
+      return getDimParamFromString(std::string(llvm::cast<StringAttr>(dimParamAttr).getValue().str()), index);
     }
   }
 }
