@@ -212,7 +212,7 @@ public:
     patterns.insert<FoldStdAlloc>(&getContext());
 
     static_cast<void>(
-        applyPatternsAndFoldGreedily(function, std::move(patterns)));
+        applyPatternsGreedily(function, std::move(patterns)));
   }
 };
 
