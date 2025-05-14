@@ -813,6 +813,11 @@ struct ScalarOp<ONNXBitwiseNotOp> {
 };
 
 template <>
+GenOpMix getGenOpMix<ONNXBitwiseNotOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
 Value emitScalarOpFor<ONNXBitwiseNotOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {

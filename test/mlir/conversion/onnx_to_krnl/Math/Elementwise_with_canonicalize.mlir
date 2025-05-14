@@ -1183,21 +1183,21 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-func.func private @test_bitwise_not(%arg0 : tensor<2x3xi32>) -> tensor<*xi32> {
-  %0 = "onnx.BitwiseNot"(%arg0) : (tensor<2x3xi32>) -> tensor<*xi32>
+func.func private @test_bitwise_not(%arg0 : tensor<128x512xi32>) -> tensor<*xi32> {
+  %0 = "onnx.BitwiseNot"(%arg0) : (tensor<128x512xi32>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 // CHECK-LABEL:  func.func private @test_bitwise_not
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x3xi32>) -> memref<2x3xi32> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128x512xi32>) -> memref<128x512xi32> {
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : i32
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3xi32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128x512xi32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 128, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 512){
 // CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x3xi32>
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<128x512xi32>
 // CHECK:             [[VAR_3_:%.+]] = arith.xori [[LOAD_PARAM_0_MEM_]], [[CST_minus_1_]] : i32
-// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x3xi32>
+// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<128x512xi32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<2x3xi32>
+// CHECK:           return [[RES_]] : memref<128x512xi32>
 // CHECK:         }
 }
 // -----
