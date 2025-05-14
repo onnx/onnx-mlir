@@ -917,6 +917,10 @@ std::string getTargetArchOption(bool forLLVMToolchain) {
     int64_t zArchNum = getZArchNum(march, mcpu);
     if (zArchNum != -1)
       return "--march=systemz";
+    // On mac, llc --version seem to want aarch64 or arm64.
+    if (march == "apple-m1" || march == "apple-m2" || march == "apple-m3" ||
+        march == "apple-m4")
+      return "--march=arm64";
   }
   return (march != "") ? "--march=" + march : "";
 }
@@ -1404,11 +1408,11 @@ void initCompilerConfig() {
     setLLVMOption(getLLVMOption() + " --enable-unsafe-fp-math");
   }
 
-  if (march == "z17")
-    march = "arch15";
-
-  if (march == "native")
+  if (march == "native") {
     march = std::string(llvm::sys::getHostCPUName());
+    if (VerboseOutput)
+      llvm::outs() << "Native machine set as \"" << march << "\"\n";
+  }
 }
 
 } // namespace onnx_mlir
