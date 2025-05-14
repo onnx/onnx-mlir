@@ -32,7 +32,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Binarizer** |none | | | |
 | **BitShift** |none | | | |
 | **BitwiseAnd** |18 - * | | |
-| **BitwiseNot** |18 - * | Does not support uint16 and uint8 | | 
+| **BitwiseNot** |18 - * | Only supports signed integers | | 
 | **BitwiseOr** |18 - * | | |
 | **BitwiseXor** |18 - * | | |
 | **BlackmanWindow** |none | | | |
