@@ -770,6 +770,11 @@ bool isMatMulIntegerRhsZero(Value matrixValue, Value zeroPointValue) {
       matrixValue, zeroPointValue, reshapeMatMulIntegerRhsZero);
 }
 
+bool canOpLikelyBeFusedWithBias(Value opValue) {
+  return llvm::isa_and_nonnull<ONNXConvOp, ONNXMatMulOp, ONNXGemmOp>(
+      opValue.getDefiningOp());
+}
+
 ElementsAttr getMatMulIntegerMatrixElements(
     ElementsAttrBuilder &elementsBuilder, Value matrixValue,
     Value zeroPointValue,

@@ -109,6 +109,10 @@ def IsMatMulIntegerRhsZero: Constraint<
     CPred<"isMatMulIntegerRhsZero($0, $1)">,
     "MatMulInteger rhs matrix is zero for given zero point">;
 
+def OpIsUnlikelyToBeFusedWithBias: Constraint<
+  CPred<"!canOpLikelyBeFusedWithBias($_self)">,
+  "Operation can unlikely be fused with the following bias">;
+
 def SatisfiesExpansionBound: Constraint<
   CPred<"satisfiesExpansionBound($_self)">>;
 
@@ -348,7 +352,7 @@ def AddConstAssociative2 : NamedPat<"AddConstAssociative2",
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
+  [(IsNotAConstant:$x), (OpIsUnlikelyToBeFusedWithBias:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
    (IsNotScalar:$x), (IsNotScalar:$c)]>;
 
 // Do not apply this when both y and c are scalar since it is cheap to do.
@@ -361,7 +365,7 @@ def AddConstAssociative3 : NamedPat<"AddConstAssociative3",
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs),
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (OpIsUnlikelyToBeFusedWithBias:$y), (HasOneUse:$rhs),
    (IsNotScalar:$y), (IsNotScalar:$c)]>;
 
 def AddConstAssociative4 : NamedPat<"AddConstAssociative4",
