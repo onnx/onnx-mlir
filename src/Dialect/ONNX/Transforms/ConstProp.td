@@ -113,6 +113,10 @@ def OpIsUnlikelyToBeFusedWithBias: Constraint<
   CPred<"!canOpLikelyBeFusedWithBias($_self)">,
   "Operation can unlikely be fused with the following bias">;
 
+def OpIsLikelyToBeFusedWithBias: Constraint<
+  CPred<"canOpLikelyBeFusedWithBias($_self)">,
+  "Operation can likely be fused with the following bias">;
+
 def SatisfiesExpansionBound: Constraint<
   CPred<"satisfiesExpansionBound($_self)">>;
 
@@ -368,8 +372,8 @@ def AddConstAssociative3 : NamedPat<"AddConstAssociative3",
   [(IsNotAConstant:$x), (IsNotAConstant:$y), (OpIsUnlikelyToBeFusedWithBias:$y), (HasOneUse:$rhs),
    (IsNotScalar:$y), (IsNotScalar:$c)]>;
 
-def AddConstAssociative4 : NamedPat<"AddConstAssociative4",
-  // From add(add(x, c1), add(y, c2)).
+def AddConstAssociative4NoFuse : NamedPat<"AddConstAssociative4NoFuse",
+  // From add(add(x, c1), add(y, c2)), if both x and y are not likely to be fused with bias
   (ONNXAddOp
     (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
     (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
@@ -377,7 +381,37 @@ def AddConstAssociative4 : NamedPat<"AddConstAssociative4",
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     (ONNXAddOp $c1, $c2)),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), 
+   (OpIsUnlikelyToBeFusedWithBias:$x), (OpIsUnlikelyToBeFusedWithBias:$y),
+   (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
+
+def AddConstAssociative4LhsFuse : NamedPat<"AddConstAssociativeLhsFuse",
+  // From add(add(x, c1), add(y, c2)), if x is likely to be fused with bias
+  (ONNXAddOp
+    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+  // To add(add(x, c1+c2), y).
+  (ONNXAddOp
+    (ONNXAddOp $x, (ONNXAddOp $c1, $c2)),
+     $y
+    ),
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), 
+   (OpIsLikelyToBeFusedWithBias:$x),
+   (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
+
+def AddConstAssociative4RhsFuse : NamedPat<"AddConstAssociativeRhsFuse",
+  // From add(add(x, c1), add(y, c2)), if y is likely to be fused with bias and x is not
+  (ONNXAddOp
+    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+  // To add(x, add(y, c1+c2)).
+  (ONNXAddOp
+    $x,
+    (ONNXAddOp $y, (ONNXAddOp $c1, $c2))
+    ),
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), 
+   (OpIsUnlikelyToBeFusedWithBias:$x), (OpIsLikelyToBeFusedWithBias:$y),
+   (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
 // Constant Propagation for Add
 def AddConstProp : NamedPat<"AddConstProp",
