@@ -926,15 +926,21 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// This is to fold the composition: 'BatchNormalization o Gemm' into 'Gemm'
-// by deriving new 'B' and 'C' for 'Gemm' operation after fusing scale and bias.
+// This optimization folds the composition: 'BatchNormalization o Gemm' into 'Gemm'
+// by recomputing new 'B' and 'C' parameters for the Gemm operation by fusing
+// the BatchNormalization's scale and bias directly into them.
 //
 // Given:
 //   (Gemm)           Z = A * B + C
-//   (BatchNorm)      Y = scale * (Z - mean) / sqrt(var + eps) + bias
+//   (BatchNormalization in inference mode)
+//                     Y = scale * (Z - mean) / sqrt(var + epsilon) + bias
 //
-// This transformation corresponds to a recomposition:
-//   Y = A * (scale * B) + (scale * C + bias)
+// In inference mode, when mean=0, var=1, and epsilon=0, the BatchNormalization
+// simplifies to:
+//                     Y = scale * Z + bias
+//
+// This allows us to recompute:
+//                     Y = A * (scale * B) + (scale * C + bias)
 //
 // Therefore, we rewrite:
 //   onnx.BatchNormalizationInferenceMode(
@@ -946,16 +952,31 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 //   onnx.Gemm(
 //       A,
 //       onnx.Mul(B, scale),
-//       onnx.Add(onnx.Mul(bias, scale), C),
+//       onnx.Add(onnx.Mul(C, scale), bias),
 //       alpha, beta, transA, transB)
 //
-// This transformation is only valid when transB = 0
-// to maintain the correct computation shape alignment.
+// This transformation is only valid when:
+//   - transB = 0   (to maintain correct shape alignment)
+//   - mean is 0
+//   - var is 1
+//   - epsilon is 0
 //
 //===----------------------------------------------------------------------===//
 
 def isTransBFalse : Constraint<CPred<
 "onnx_mlir::isTransBFalse($0)">, "TransB is 1 not 0"
+>;
+
+def meanIsZero : Constraint<
+  CPred<"onnx_mlir::isZeroTensorOrSplat($0)">, "mean must be 0"
+>;
+
+def varIsOne : Constraint<
+  CPred<"onnx_mlir::isOneTensorOrSplat($0)">, "var must be 1"
+>;
+
+def epsIsZero : Constraint<
+  CPred<"onnx_mlir::isZeroAttrOrZeroTensor($0)">, "epsilon must be 0"
 >;
 
 def BackwardFoldScaleAxisToGemmPattern : Pat<
@@ -969,7 +990,12 @@ def BackwardFoldScaleAxisToGemmPattern : Pat<
       (ONNXMulOp $C, $scale),
       $bias),
     (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
-  [(isTransBFalse $transB)],
+  [
+    (isTransBFalse $transB),
+    (meanIsZero $_mean),
+    (varIsOne $_var),
+    (epsIsZero $_epsilon)
+    ],
   [], (addBenefit 1)
 >;
 

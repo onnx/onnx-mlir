@@ -99,6 +99,36 @@ bool isTransBFalse(mlir::Attribute attr) {
   return false; // default fallback
 }
 
+bool isZeroTensorOrSplat(Value val) {
+  if (auto constOp = val.getDefiningOp<ONNXConstantOp>()) {
+    auto attrOpt = constOp.getValue();
+    if (attrOpt.has_value()) {
+      if (auto dense = mlir::dyn_cast<DenseElementsAttr>(*attrOpt))
+        return dense.isSplat() && dense.getSplatValue<APFloat>().isZero();
+    }
+  }
+  return false;
+}
+
+bool isOneTensorOrSplat(Value val) {
+  if (auto constOp = val.getDefiningOp<ONNXConstantOp>()) {
+    auto attrOpt = constOp.getValue();
+    if (attrOpt.has_value()) {
+      if (auto dense = mlir::dyn_cast<DenseElementsAttr>(*attrOpt)) {
+        if (dense.isSplat())
+          return dense.getSplatValue<APFloat>().convertToDouble() == 1.0;
+      }
+    }
+  }
+  return false;
+}
+
+bool isZeroAttrOrZeroTensor(Attribute attr) {
+  if (auto floatAttr = mlir::dyn_cast<FloatAttr>(attr))
+    return floatAttr.getValue().isZero();
+  return false;
+}
+
 // Get the index of the axis value in the given permutation array.
 IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {

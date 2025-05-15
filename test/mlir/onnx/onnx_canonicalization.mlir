@@ -817,10 +817,10 @@ func.func @test_backward_fold_scale_axis(%arg0: tensor<1x256xf32>) -> tensor<1x1
   %1 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
   %2 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
   %3 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
-  %4 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
-  %5 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
+  %4 = onnx.Constant dense<0.0> : tensor<128xf32>
+  %5 = onnx.Constant dense<1.0> : tensor<128xf32>
   %6 = "onnx.Gemm"(%arg0, %0, %1) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "onnx.Gemm_0", transA = 0 : si64, transB = 0 : si64} : (tensor<1x256xf32>, tensor<256x128xf32>, tensor<128xf32>) -> tensor<1x128xf32>
-  %7 = "onnx.BatchNormalizationInferenceMode"(%6, %2, %3, %4, %5) {epsilon = 9.99999974E-6 : f32, momentum = 0.899999976 : f32, onnx_node_name = "onnx.BatchNormalizationInferenceMode_1"} : (tensor<1x128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>) -> tensor<1x128xf32>
+  %7 = "onnx.BatchNormalizationInferenceMode"(%6, %2, %3, %4, %5) {epsilon = 0.0 : f32, momentum = 0.899999976 : f32, onnx_node_name = "onnx.BatchNormalizationInferenceMode_1"} : (tensor<1x128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>) -> tensor<1x128xf32>
   %8 = "onnx.Relu"(%7) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x128xf32>) -> tensor<1x128xf32>
   return %8 : tensor<1x128xf32>
   // CHECK-LABEL: func @test_backward_fold_scale_axis
