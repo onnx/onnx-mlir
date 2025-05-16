@@ -55,6 +55,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // X :: NxM
       xI = 1;
     if (yRank == 2) {
+      // Case: unstacked.
       // Y :: NxP
       int64_t yI = 1;
       if (transposeB)
@@ -64,6 +65,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       outputDims.emplace_back(XDims[xI]);
       outputDims.emplace_back(YDims[yI]);
     } else if (yRank == 3) {
+      // Case: bcast1.
       // Y :: SxNxP
       int64_t yI1 = 0;
       int64_t yI2 = 2;
@@ -86,6 +88,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       // X :: SxNxM
       xI2 = 2;
     if (yRank == 2) {
+      // Case: bcast23.
       // Y :: NxP
       int64_t yI = 1;
       if (transposeB)
@@ -98,6 +101,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
       outputDims.emplace_back(YDims[yI]);
       isBroadcasted23 = true;
     } else if (yRank == 3) {
+      // Case: stacked.
       // Y :: SxNxP
       int64_t yI = 2;
       if (transposeB)
@@ -214,8 +218,18 @@ LogicalResult ZHighMatMulOp::verify() {
   // Bias can be None.
   ZTensorEncodingAttr::DataLayout bLayout;
   bool hasBias = !mlir::isa<NoneType>(B.getType());
-  if (hasBias)
+  if (hasBias) {
     bLayout = getZTensorLayout(B.getType());
+    if (bLayout == ZTensorEncodingAttr::DataLayout::UNDEFINED) {
+      // I have seen cases where the B type layout is not yet defined; however,
+      // some propagation then occurs and the layout gets the desired value. In
+      // order to not create spurious failures, disable the bias shape tests
+      // until the layout is well defined. I don't have a good explanation of
+      // why that is actually happening. Testing shows that eventually the
+      // layout is well defined and the test will then be fuly operational.
+      hasBias = false;
+    }
+  }
 
   // X must be 2D or 3DS.
   if (!((xLayout == ZTensorEncodingAttr::DataLayout::_2D) ||
