@@ -1713,8 +1713,36 @@ func.func private @test_celu(%arg0 : tensor<?x3x224x224xf32>) -> tensor<?x3x224x
 // CHECK:     return [[RES_ALLOC_]] : memref<?x3x224x224xf32>
 
 }
+// -----
 
-
+func.func private @test_bitwise_not(%arg0 : tensor<128x512xi32>) -> tensor<*xi32> {
+  %0 = "onnx.BitwiseNot"(%arg0) : (tensor<128x512xi32>) -> tensor<*xi32>
+  "func.return"(%0) : (tensor<*xi32>) -> ()
+  
+// CHECK-LABEL:  func.func private @test_bitwise_not
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128x512xi32>) -> memref<128x512xi32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<-1> : vector<32xi32>
+// CHECK-DAG:       [[CST_65536_:%.+]] = arith.constant 65536 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128x512xi32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_65536_]], [[RES_1_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<128x512xi32>, memref<1xindex>) -> memref<65536xi32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_65536_]], [[RES_2_]][0] : memref<1xindex>
+// CHECK:           [[VAR_reshape_2_:%.+]] = memref.reshape [[RES_]]([[RES_]]_1) : (memref<128x512xi32>, memref<1xindex>) -> memref<65536xi32>
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:             [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 65536){
+// CHECK:               [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<65536xi32>, vector<32xi32>
+// CHECK:               [[VAR_3_:%.+]] = arith.xori [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_]] : vector<32xi32>
+// CHECK:               vector.store [[VAR_3_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<65536xi32>, vector<32xi32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<128x512xi32>
+// CHECK:         }
+}
 
 // -----
 
