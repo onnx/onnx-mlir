@@ -503,7 +503,7 @@ struct ZHighConstPropagationPass
     patterns.insert<ConstantStickPattern>(patterns.getContext());
     patterns.insert<ConstantStickForGRUPattern>(patterns.getContext());
     patterns.insert<ConstantStickForLSTMPattern>(patterns.getContext());
-    (void)applyPatternsAndFoldGreedily(moduleOp, std::move(patterns));
+    (void)applyPatternsGreedily(moduleOp, std::move(patterns));
   }
 };
 } // anonymous namespace

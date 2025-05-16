@@ -688,7 +688,6 @@ struct ZHighToZLowQuantizedStickOpLowering : public ConversionPattern {
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
-    Type si64Ty = rewriter.getIntegerType(64, true);
     Type i8Ty = rewriter.getIntegerType(8);
     Type f32Ty = rewriter.getF32Type();
     MemRefType scalarF32MemRefTy = MemRefType::get({}, f32Ty);

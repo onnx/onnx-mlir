@@ -35,7 +35,7 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto int16Ty = IntegerType::get(context, 16);
   auto int32Ty = IntegerType::get(context, 32);
   auto int64Ty = IntegerType::get(context, 64);
-  auto float32Ty = FloatType::getF32(context);
+  auto float32Ty = Float32Type::get(context);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
@@ -570,7 +570,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   Type llvmI64Ty = IntegerType::get(context, 64);
   Type llvmI1Ty = IntegerType::get(context, 1);
   Type llvmI8Ty = IntegerType::get(context, 8);
-  Type llvmF32Ty = FloatType::getF32(context);
+  Type llvmF32Ty = Float32Type::get(context);
   Type llvmArray3I8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 3);
   Type llvmArray20I8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 20);
   Type llvmI8PtrTy = krnl::getPointerType(context, llvmI8Ty);
@@ -662,7 +662,7 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
         scaleTy.isF32() && "Wrong type for zTensor's rec_scale. Must be float");
     create.llvm.store(recScale, recScalePtr);
   } else {
-    Value zero = create.llvm.constant(FloatType::getF32(context), (double)0.);
+    Value zero = create.llvm.constant(Float32Type::get(context), (double)0.);
     create.llvm.store(zero, recScalePtr);
   }
 
@@ -675,7 +675,7 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
         offsetTy.isF32() && "Wrong type for zTensor's offset. Must be float");
     create.llvm.store(offset, offsetPtr);
   } else {
-    Value zero = create.llvm.constant(FloatType::getF32(context), (double)0.);
+    Value zero = create.llvm.constant(Float32Type::get(context), (double)0.);
     create.llvm.store(zero, offsetPtr);
   }
 

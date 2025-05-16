@@ -173,7 +173,11 @@ else()
   add_subdirectory(third_party/rapidcheck)
 
   if (ONNX_MLIR_ENABLE_STABLEHLO)
+    # Workaround for stablehlo failing to link libStablehloOptimizationPasses.so if built with shared libs
+    set(ONNX_MLIR_BUILD_SHARED_LIBS_STORE ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS OFF)
     add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
+    set(BUILD_SHARED_LIBS ${ONNX_MLIR_BUILD_SHARED_LIBS_STORE})
   endif()
 
   if (NOT TARGET benchmark)

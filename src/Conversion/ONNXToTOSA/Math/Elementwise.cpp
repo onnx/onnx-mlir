@@ -121,11 +121,21 @@ public:
     // Quantized types are not supported right now (in type conversion).
     // Once they are, the input should be rescaled for quantized types. (TBD)
     // Maps to `tosa.clamp` which has both int and fp limits.
-    rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(op, op.getType(), input,
-        rewriter.getI64IntegerAttr(0),
-        rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
-        rewriter.getF32FloatAttr(0.0f),
-        rewriter.getF32FloatAttr(std::numeric_limits<float>::max()));
+    auto inputElementType =
+        llvm::cast<TensorType>(op.getType()).getElementType();
+    if (llvm::isa<IntegerType>(inputElementType)) {
+      auto minClamp = rewriter.getI64IntegerAttr(0);
+      auto maxClamp =
+          rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max());
+      rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(
+          op, op.getType(), input, minClamp, maxClamp);
+    } else {
+      auto minClamp = rewriter.getF32FloatAttr(0.0f);
+      auto maxClamp =
+          rewriter.getF32FloatAttr(std::numeric_limits<float>::max());
+      rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(
+          op, op.getType(), input, minClamp, maxClamp);
+    }
     return success();
   }
 };

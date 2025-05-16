@@ -355,7 +355,7 @@ public:
     patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallel);
     // patterns.insert<UnstickExpansionPattern>(&getContext());
 
-    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+    if (failed(applyPatternsGreedily(function, std::move(patterns))))
       return signalPassFailure();
   }
 };
