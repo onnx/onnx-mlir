@@ -1195,7 +1195,7 @@ private:
     if (isDefaultDomain(node.domain()) &&
         newestValidOpsetVersion < supported_opset_list.back() &&
         newestValidOpsetVersion < MINIMUM_SUPPORTED_OPSET)
-      llvm::outs() << "\nWarning: ONNX " << node.op_type()
+      llvm::errs() << "\nWarning: ONNX " << node.op_type()
                    << " in your model is using Opset "
                    << newestValidOpsetVersion
                    << ", which is quite old. Please consider regenerating your "
