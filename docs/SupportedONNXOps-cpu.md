@@ -187,7 +187,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **SequenceLength** |none | | | |
 | **SequenceMap** |none | | | |
 | **Shape** |15 - * |Does not support start and end attributes. Does not support int4 and uint4. | |
-| **Shrink** |none | | | |
+| **Shrink** |9 - * | | | |
 | **Sigmoid** |6 - * | | |
 | **Sign** |9 - * | | |
 | **Sin** |7 - * | | |
