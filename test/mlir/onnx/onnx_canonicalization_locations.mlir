@@ -13,3 +13,20 @@ func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x
   // CHECK-DAG:       [[LOC_RELU:#.+]] = loc("Relu")
 }
 
+// -----
+
+func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf32> ) -> tensor<1x12x4xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64} : (tensor<1x3x4xf32>, tensor<1x3x4xf32>) -> tensor<1x6x4xf32> loc("Concat1")
+  %1 = "onnx.Concat"(%0, %arg0) {axis = 1 : si64} : (tensor<1x6x4xf32>, tensor<1x3x4xf32>) -> tensor<1x9x4xf32> loc("Concat2")
+  %2 = "onnx.Concat"(%1, %arg1) {axis = 1 : si64} : (tensor<1x9x4xf32>, tensor<1x3x4xf32>) -> tensor<1x12x4xf32> loc("Concat3")
+  return %2 : tensor<1x12x4xf32>
+
+  // CHECK-LABEL: func @test_recompose_concat
+  // CHECK: "onnx.Concat"
+  // CHECK-SAME: loc([[LOC_FUSED:#.+]])
+  // CHECK-DAG:       [[LOC_C1:#.+]] = loc("Concat1")
+  // CHECK-DAG:       [[LOC_C2:#.+]] = loc("Concat2")
+  // CHECK-DAG:       [[LOC_C3:#.+]] = loc("Concat3")
+  // CHECK:           [[LOC_FUSED]] = loc(fused[[[LOC_C3]], [[LOC_C2]], [[LOC_C1]]]) 
+}
+
