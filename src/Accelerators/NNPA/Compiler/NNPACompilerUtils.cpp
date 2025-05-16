@@ -283,8 +283,10 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         // The createZLowStickExpansion pass may create parallel constructs,
         // they need to be handled here.
-        if (!nnpaDisableCompilerStickUnstick && enableParallel)
+        // hi alex
+        if (false && !nnpaDisableCompilerStickUnstick && enableParallel) {
           pm.addPass(mlir::createConvertSCFToOpenMPPass());
+        }
 
         pm.addPass(mlir::createCanonicalizerPass());
         // Constant folding for std.alloc.

@@ -42,7 +42,7 @@
 
 // Todo: cleanup after we are done experimenting.
 #define PREFETCH_CSU_DIST 0
-#define PREFETCH_CSU 1
+#define PREFETCH_CSU 0 /*hi alex, disabled*/
 
 using namespace mlir;
 
@@ -131,7 +131,7 @@ public:
       : OpRewritePattern<ZLowStickOp>(context, 1),
         enableParallel(enableParallelism) {}
 
-  bool enableParallel;
+  bool enableParallel = true;
 
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
@@ -351,6 +351,7 @@ public:
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
+    // hi alex
     patterns.insert<StickExpansionPattern>(&getContext(), enableParallel);
     patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallel);
     // patterns.insert<UnstickExpansionPattern>(&getContext());
