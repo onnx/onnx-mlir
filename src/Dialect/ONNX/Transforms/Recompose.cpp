@@ -828,6 +828,176 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
   }
 };
 
+struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
+  using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp1, PatternRewriter &rewriter) const final {
+    Value input = convOp1.getX();
+    if (!onnx_mlir::isRankedShapedType(input.getType()) ||
+        mlir::cast<ShapedType>(input.getType()).hasStaticShape() == false)
+      return failure();
+
+    // Collect all ONNXConvOps using this input.
+    SmallVector<ONNXConvOp> candidateConvs;
+    for (auto user : input.getUsers()) {
+      if (auto conv = dyn_cast<ONNXConvOp>(user))
+        candidateConvs.push_back(conv);
+    }
+
+    // Must have at least two convs to combine.
+    if (candidateConvs.size() < 2)
+      return failure();
+
+    // Ensure all candidate convs are compatible (including bias check).
+    for (size_t i = 1; i < candidateConvs.size(); ++i) {
+      if (!areCompatible(candidateConvs[0], candidateConvs[i]))
+        return failure();
+    }
+
+    auto totalUses = static_cast<size_t>(
+        std::distance(input.getUsers().begin(), input.getUsers().end()));
+    if (candidateConvs.size() != totalUses)
+      return failure();
+
+    SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
+
+    bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
+    Location loc = convOp1.getLoc();
+    auto inputType = mlir::cast<ShapedType>(input.getType());
+    Type elementType = inputType.getElementType();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    int64_t concatAxis = 1;
+
+    SmallVector<Value> weightValues;
+    int64_t totalOutputChannels = 0;
+    for (auto conv : parallelConvs) {
+      auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
+      weightValues.push_back(conv.getW());
+      totalOutputChannels += weightType.getShape()[0];
+    }
+
+    auto firstWeightType =
+        mlir::cast<ShapedType>(parallelConvs[0].getW().getType());
+    SmallVector<int64_t> newWeightShape(
+        firstWeightType.getShape().begin(), firstWeightType.getShape().end());
+    newWeightShape[0] = totalOutputChannels;
+    Type newWeightType =
+        RankedTensorType::get(newWeightShape, firstWeightType.getElementType());
+    Value newWeight = create.onnx.concat(newWeightType, weightValues, 0);
+
+    Value newBias;
+    if (allHaveBias) {
+      SmallVector<Value> biasValues;
+      for (auto conv : parallelConvs) {
+        biasValues.push_back(conv.getB());
+      }
+      SmallVector<int64_t> newBiasShape = {totalOutputChannels};
+      Type newBiasType = RankedTensorType::get(newBiasShape, elementType);
+      newBias = create.onnx.concat(newBiasType, biasValues, 0);
+    } else {
+      // Bias is absent for all. Assign a null Value (nullptr) instead of
+      // ONNXNoneOp.
+      newBias = nullptr;
+    }
+
+    SmallVector<int64_t> newOutputShape(
+        mlir::cast<ShapedType>(convOp1.getResult().getType())
+            .getShape()
+            .begin(),
+        mlir::cast<ShapedType>(convOp1.getResult().getType()).getShape().end());
+    newOutputShape[concatAxis] = totalOutputChannels;
+    auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
+
+    auto newConv =
+        rewriter.create<ONNXConvOp>(loc, newOutputType, input, newWeight,
+            newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
+            convOp1.getGroupAttr(), convOp1.getKernelShapeAttr(),
+            convOp1.getPadsAttr(), convOp1.getStridesAttr());
+
+    ONNXConcatOp commonConcatOp = nullptr;
+    bool allOutputsUsedInCommonConcat = true;
+
+    for (auto conv : parallelConvs) {
+      bool usedInCommonConcat = false;
+      for (auto user : conv.getResult().getUsers()) {
+        if (auto concatOp = dyn_cast<ONNXConcatOp>(user)) {
+          if (!commonConcatOp) {
+            commonConcatOp = concatOp;
+          }
+          if (concatOp != commonConcatOp) {
+            allOutputsUsedInCommonConcat = false;
+            break;
+          }
+          usedInCommonConcat = true;
+        } else {
+          allOutputsUsedInCommonConcat = false;
+          break;
+        }
+      }
+      if (!usedInCommonConcat || !allOutputsUsedInCommonConcat) {
+        allOutputsUsedInCommonConcat = false;
+        break;
+      }
+    }
+
+    if (allOutputsUsedInCommonConcat && commonConcatOp &&
+        commonConcatOp.getAxis() == 1) {
+      commonConcatOp.getResult().replaceAllUsesWith(newConv.getResult());
+      rewriter.eraseOp(commonConcatOp);
+    } else {
+      SmallVector<int64_t> splitSizesVec;
+      for (auto conv : parallelConvs) {
+        int64_t channels = mlir::cast<ShapedType>(conv.getResult().getType())
+                               .getShape()[concatAxis];
+        splitSizesVec.push_back(channels);
+      }
+
+      rewriter.setInsertionPointAfter(newConv);
+      ValueRange splitResults = onnx_mlir::emitSplitByChannels(
+          rewriter, loc, newConv.getResult(), splitSizesVec, concatAxis);
+
+      for (size_t i = 0; i < parallelConvs.size(); ++i) {
+        parallelConvs[i].getResult().replaceAllUsesWith(splitResults[i]);
+      }
+    }
+
+    for (auto conv : parallelConvs) {
+      rewriter.eraseOp(conv);
+    }
+
+    return success();
+  }
+
+  static bool areCompatible(ONNXConvOp a, ONNXConvOp b) {
+    if (a.getAutoPad() != b.getAutoPad() ||
+        a.getDilations() != b.getDilations() || a.getGroup() != b.getGroup() ||
+        a.getKernelShape() != b.getKernelShape() ||
+        a.getPads() != b.getPads() || a.getStrides() != b.getStrides())
+      return false;
+
+    auto shapeA = mlir::cast<ShapedType>(a.getW().getType()).getShape();
+    auto shapeB = mlir::cast<ShapedType>(b.getW().getType()).getShape();
+    if (shapeA != shapeB)
+      return false;
+
+    bool hasBiasA = !mlir::isa<NoneType>(a.getB().getType());
+    bool hasBiasB = !mlir::isa<NoneType>(b.getB().getType());
+    if (hasBiasA != hasBiasB)
+      return false;
+
+    if (hasBiasA) {
+      auto biasShapeA = mlir::cast<ShapedType>(a.getB().getType()).getShape();
+      auto biasShapeB = mlir::cast<ShapedType>(b.getB().getType()).getShape();
+      if (biasShapeA != biasShapeB)
+        return false;
+    }
+    return true;
+  }
+};
+
 struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
@@ -911,6 +1081,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
+  patterns.insert<CombineParallelConv2DPattern>(context);
 }
 
 /*!
