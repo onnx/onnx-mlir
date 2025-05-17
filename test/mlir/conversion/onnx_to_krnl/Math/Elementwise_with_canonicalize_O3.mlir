@@ -2575,3 +2575,38 @@ func.func private @test_shrink(%arg0 : tensor<512xf32>) -> tensor<*xf32> {
 // CHECK:           return [[RES_]] : memref<512xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<64x128xf32> {
+  %0 = "onnx.Mish"(%arg0) : (tensor<64x128xf32>) -> tensor<64x128xf32>
+  return %0 : tensor<64x128xf32>
+
+// CHECK-LABEL:  func.func @test_mish
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<64x128xf32>) -> memref<64x128xf32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<1.000000e+00> : vector<32xf32>
+// CHECK-DAG:       [[CST_8192_:%.+]] = arith.constant 8192 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<64x128xf32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_8192_]], [[RES_1_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<64x128xf32>, memref<1xindex>) -> memref<8192xf32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_8192_]], [[RES_2_]][0] : memref<1xindex>
+// CHECK:           [[VAR_reshape_2_:%.+]] = memref.reshape [[RES_]]([[RES_]]_1) : (memref<64x128xf32>, memref<1xindex>) -> memref<8192xf32>
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:             [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 8192){
+// CHECK:               [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<8192xf32>, vector<32xf32>
+// CHECK:               [[VAR_3_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:               [[VAR_4_:%.+]] = arith.addf [[VAR_3_]], [[VAR_cst_]] : vector<32xf32>
+// CHECK:               [[VAR_5_:%.+]] = math.log [[VAR_4_]] : vector<32xf32>
+// CHECK:               [[VAR_6_:%.+]] = math.tanh [[VAR_5_]] : vector<32xf32>
+// CHECK:               [[VAR_7_:%.+]] = arith.mulf [[LOAD_VAR_reshape_MEM_]], [[VAR_6_]] : vector<32xf32>
+// CHECK:               vector.store [[VAR_7_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<8192xf32>, vector<32xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<64x128xf32>
+// CHECK:         }
+}

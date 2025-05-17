@@ -1200,6 +1200,37 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXMishOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXMishOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXMishOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::LogGop, 1}, {GenericOps::MulGop, 1},
+      {GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXMishOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXMishOp(%X) = x * tanh(ln(1 + e^{x}))
+  CheckIfCustomScalarOpIsSupported<ONNXMishOp>(elementType);
+  Value operand = scalarOperands[0];
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value exp = create.math.exp(operand);
+  Value one = create.math.constant(elementType, 1);
+  Value softplusX = create.math.log(create.math.add(exp, one));
+  Value tanHSoftplusX = create.math.tanh(softplusX);
+  return create.math.mul(operand, tanHSoftplusX);
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXNegOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -1907,11 +1938,12 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXExpOp, mlir::ONNXFloorOp, mlir::ONNXGeluOp,
       mlir::ONNXBitwiseNotOp, mlir::ONNXHardSigmoidOp, mlir::ONNXHardSwishOp,
       mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp,
-      mlir::ONNXLogOp, mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
-      mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp, mlir::ONNXShrinkOp,
-      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
-      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
-      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXThresholdedReluOp,
+      mlir::ONNXLogOp, mlir::ONNXMishOp, mlir::ONNXNegOp, mlir::ONNXNotOp,
+      mlir::ONNXReciprocalOp, mlir::ONNXReluOp, mlir::ONNXRoundOp,
+      mlir::ONNXSeluOp, mlir::ONNXShrinkOp, mlir::ONNXSigmoidOp,
+      mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp, mlir::ONNXSoftplusOp,
+      mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp,
+      mlir::ONNXThresholdedReluOp,
       // Binary Op
       mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
       mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
@@ -2885,6 +2917,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMeanOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXMishOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXModOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,

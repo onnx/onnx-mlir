@@ -2084,6 +2084,11 @@ def get_test_models():
         # ==OP== Mod
         # ==MIN== 10
         # ==LIM==  Support float and double only. Only ppc64le and MacOS platforms support float16.
+        "test_mish_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_mod_mixed_sign_float32_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},

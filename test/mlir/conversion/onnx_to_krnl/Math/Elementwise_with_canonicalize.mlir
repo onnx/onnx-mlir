@@ -1659,3 +1659,28 @@ func.func private @test_shrink(%arg0 : tensor<512xf32>) -> tensor<*xf32> {
 // CHECK:        return [[RES_]] : memref<512xf32>
 // CHECK:      }
 }
+
+// -----
+
+func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<64x128xf32> {
+  %0 = "onnx.Mish"(%arg0) : (tensor<64x128xf32>) -> tensor<64x128xf32>
+  return %0 : tensor<64x128xf32>
+
+// CHECK-LABEL:  func.func @test_mish
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<64x128xf32>) -> memref<64x128xf32> {
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<64x128xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 64, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 128){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.exp [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = arith.addf [[VAR_3_]], [[CST_1_dot_000000_]] : f32
+// CHECK:             [[VAR_5_:%.+]] = math.log [[VAR_4_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = math.tanh [[VAR_5_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[VAR_6_]] : f32
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<64x128xf32>
+// CHECK:         }
+}
