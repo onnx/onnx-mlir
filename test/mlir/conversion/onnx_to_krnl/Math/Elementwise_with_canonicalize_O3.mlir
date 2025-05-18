@@ -2578,9 +2578,9 @@ func.func private @test_shrink(%arg0 : tensor<512xf32>) -> tensor<*xf32> {
 
 // -----
 
-func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<64x128xf32> {
-  %0 = "onnx.Mish"(%arg0) : (tensor<64x128xf32>) -> tensor<64x128xf32>
-  return %0 : tensor<64x128xf32>
+func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Mish"(%arg0) : (tensor<64x128xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func.func @test_mish
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<64x128xf32>) -> memref<64x128xf32> {
