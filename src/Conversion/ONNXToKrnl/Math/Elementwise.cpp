@@ -603,6 +603,45 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXShrinkOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXShrinkOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXShrinkOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 3}, {GenericOps::CompareGop, 2},
+      {GenericOps::SelectGop, 2}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXShrinkOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXShrinkOp: If x < -lambd, y = x + bias;
+  // If x > lambd, y = x - bias;Otherwise, y = 0.
+  CheckIfCustomScalarOpIsSupported<ONNXShrinkOp>(elementType);
+  Value operand = scalarOperands[0];
+  double biasLit = mlir::dyn_cast<ONNXShrinkOp>(op).getBias().convertToFloat();
+  double lambdLit =
+      mlir::dyn_cast<ONNXShrinkOp>(op).getLambd().convertToFloat();
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value bias = create.math.constant(elementType, biasLit);
+  Value lambd = create.math.constant(elementType, lambdLit);
+  Value negLambd = create.math.sub(zero, lambd);
+  Value isLessThanNegLambd = create.math.slt(operand, negLambd);
+  Value isGreaterThanLambd = create.math.sgt(operand, lambd);
+  Value isInputSubBiasOrZero = create.math.select(
+      isGreaterThanLambd, create.math.sub(operand, bias), zero);
+  return create.math.select(
+      isLessThanNegLambd, create.math.add(operand, bias), isInputSubBiasOrZero);
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXHardSigmoidOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -1842,7 +1881,7 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
-      mlir::ONNXTanOp, mlir::ONNXTanhOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXShrinkOp,
       // Binary Op
       mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
       mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
@@ -2827,6 +2866,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXShrinkOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSinOp>,
