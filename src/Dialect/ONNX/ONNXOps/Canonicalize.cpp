@@ -1550,6 +1550,65 @@ private:
 };
 
 // =============================================================================
+// Rewrite pattern concat
+// =============================================================================
+
+struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  // Helper function to check if an input is a mergeable Concat.
+  static bool isMergeableConcat(Value input, int64_t axis) {
+    ONNXConcatOp concatOp = input.getDefiningOp<ONNXConcatOp>();
+    if (!concatOp)
+      return false;
+    return (concatOp.getAxis() == axis) && (concatOp.getResult().hasOneUse());
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    ValueRange inputs = concatOp.getOperands();
+    int64_t axis = concatOp.getAxis();
+
+    // If there is only a single input, replace the concat with that input.
+    if (inputs.size() == 1) {
+      rewriter.replaceOp(concatOp, inputs[0]);
+      return success();
+    }
+
+    SmallVector<Value, 16> newInputs;
+    bool merged = false;
+    SmallVector<Location> concatLocations;
+    concatLocations.push_back(concatOp->getLoc());
+
+    // Flatten nested concat nodes.
+    for (Value input : inputs) {
+      if (isMergeableConcat(input, axis)) {
+        // Remove the nested concat and append its inputs.
+        ONNXConcatOp innerConcat = cast<ONNXConcatOp>(input.getDefiningOp());
+        newInputs.append(
+            innerConcat.getOperands().begin(), innerConcat.getOperands().end());
+        concatLocations.push_back(innerConcat->getLoc());
+        merged = true;
+      } else {
+        // Push non-mergeable input.
+        newInputs.push_back(input);
+      }
+    }
+
+    if (merged) {
+      // Create a new ONNXConcat op with the flattened inputs.
+      auto newConcat =
+          rewriter.create<ONNXConcatOp>(rewriter.getFusedLoc(concatLocations),
+              concatOp.getResult().getType(), newInputs, axis);
+      rewriter.replaceOp(concatOp, newConcat.getResult());
+      return success();
+    }
+
+    return failure();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern LayerNormalization
 // =============================================================================
 
@@ -1767,6 +1826,12 @@ void ONNXCastOp::getCanonicalizationPatterns(
   result.insert<SwapCastSlicePattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
+}
+
+/// on the ONNXConcatOp.
+void ONNXConcatOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RecomposeConcatPattern>(context);
 }
 
 /// on the ONNXConstantOp.
