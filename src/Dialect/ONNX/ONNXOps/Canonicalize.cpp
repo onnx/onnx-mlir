@@ -1566,7 +1566,6 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
   LogicalResult matchAndRewrite(
       ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
-    Location loc = concatOp.getLoc();
     ValueRange inputs = concatOp.getOperands();
     int64_t axis = concatOp.getAxis();
 
@@ -1578,6 +1577,8 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
     SmallVector<Value, 16> newInputs;
     bool merged = false;
+    SmallVector<Location> concatLocations;
+    concatLocations.push_back(concatOp->getLoc());
 
     // Flatten nested concat nodes.
     for (Value input : inputs) {
@@ -1586,6 +1587,7 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
         ONNXConcatOp innerConcat = cast<ONNXConcatOp>(input.getDefiningOp());
         newInputs.append(
             innerConcat.getOperands().begin(), innerConcat.getOperands().end());
+        concatLocations.push_back(innerConcat->getLoc());
         merged = true;
       } else {
         // Push non-mergeable input.
@@ -1595,8 +1597,9 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
     if (merged) {
       // Create a new ONNXConcat op with the flattened inputs.
-      auto newConcat = rewriter.create<ONNXConcatOp>(
-          loc, concatOp.getResult().getType(), newInputs, axis);
+      auto newConcat =
+          rewriter.create<ONNXConcatOp>(rewriter.getFusedLoc(concatLocations),
+              concatOp.getResult().getType(), newInputs, axis);
       rewriter.replaceOp(concatOp, newConcat.getResult());
       return success();
     }

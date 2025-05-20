@@ -7,6 +7,8 @@
 include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
+include "Decompose.td"
+
 /// Note: The DRR definition used for defining patterns is shown below:
 ///
 /// class Pattern<
@@ -15,15 +17,6 @@ include "src/Dialect/ONNX/ONNX.td"
 ///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
-
-def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
-
-def GetNullArrayAttr :  NativeCodeCall<"ArrayAttr()">;
-
-// Check if value has a type that is ranked with a shape.
-def HasRankAndShape:
-  Constraint<CPred<"::onnx_mlir::isRankedShapedType($_self.getType())">,
-  "A value has rank and shape">;
 
 //===----------------------------------------------------------------------===//
 // ONNXConvTransposeOp is rewritten into ONNXConv op and other ONNX ops to
@@ -105,7 +98,7 @@ def ShouldDecomposeConvTransposeOp: Constraint<
 
 def ConvTransposeOpPattern1: Pattern<
    (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
@@ -120,7 +113,7 @@ def ConvTransposeOpPattern1: Pattern<
 
 def ConvTransposeOpPattern2: Pattern<
    (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
