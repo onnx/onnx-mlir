@@ -124,7 +124,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **MeanVarianceNormalization** |none | | | |
 | **MelWeightMatrix** |none | | | |
 | **Min** |6 - * |Does not support unsigned numbers. Only ppc64le and MacOS platforms support float16. | |
-| **Mish** |22 - * | | | |
+| **Mish** |18 - * | | | |
 | **Mod** |10 - * |Support float and double only. Only ppc64le and MacOS platforms support float16. | |
 | **Momentum** |none | | | |
 | **Mul** |6 - * |Does not support short integers. | |
