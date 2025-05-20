@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -382,6 +383,7 @@ public:
       // an unknown to-be-inferred output shape. The final tensor.cast
       // reshapes the known shape to the desired output shape.
       auto computeOpShape = [&](SmallVector<int64_t> &reshapedOpShape,
+                                SmallVector<int64_t> &transposedOpDims,
                                 SmallVector<int64_t> &transposedOpShapes) {
         if (maxInputRank == 1)
           return;
@@ -398,6 +400,7 @@ public:
         // First the common_dims
         for (uint32_t i = 0; i < commonElems.size(); i++) {
           reshapedOpShape.push_back(commonElems[i].shape);
+          transposedOpDims.push_back(commonElems[i].dim);
         }
 
         // Then the LHS squeezed dims
@@ -406,12 +409,14 @@ public:
           // other input.
           if (lhsSqueezedElems[i].shape != 1) {
             reshapedOpShape.push_back(lhsSqueezedElems[i].shape);
+            transposedOpDims.push_back(lhsSqueezedElems[i].dim);
           }
         }
         // The last squeezed dim is lhs[-2] which needs to be
         // checked separately for broadcasting
         if (lhsRank > 1) {
           reshapedOpShape.push_back(lhsBroadcastedShape[maxInputRank - 2]);
+          transposedOpDims.push_back(maxInputRank - 2);
         }
 
         // then the RHS squeezed dims except rhs[-1] which is handled like
@@ -419,12 +424,17 @@ public:
         for (uint32_t i = 0; i < rhsSqueezedElems.size() - 1; i++) {
           if (rhsSqueezedElems[i].shape != 1) {
             reshapedOpShape.push_back(rhsSqueezedElems[i].shape);
+            transposedOpDims.push_back(rhsSqueezedElems[i].dim);
           }
         }
         // rhs[-1]
         if (rhsRank > 1) {
           reshapedOpShape.push_back(rhsBroadcastedShape[maxInputRank - 1]);
+          transposedOpDims.push_back(maxInputRank - 1);
         }
+
+        // The transposition order is the inverse of what we actually want.
+        transposedOpDims = mlir::invertPermutationVector(transposedOpDims);
 
         // Final transposed output shape construction
         for (uint32_t i = 0; i < maxInputRank - 2; i++) {
@@ -447,27 +457,17 @@ public:
       // Calculated output shapes for reshape and transpose
       SmallVector<int64_t> reshapedOpShape;
       SmallVector<int64_t> transposedOpShape;
-      computeOpShape(reshapedOpShape, transposedOpShape);
+      SmallVector<int64_t> transposedOpDims;
+      computeOpShape(reshapedOpShape, transposedOpDims, transposedOpShape);
 
       // Perform reshape
       auto reshapeOp = builder.reshape(castToOrigOp, reshapedOpShape);
 
-      // Calculate transmutation required
-      SetVector<int32_t> transmutationSetVec;
-      for (unsigned i = 0; i < transposedOpShape.size(); i++) {
-        for (unsigned j = 0; j < reshapedOpShape.size(); j++) {
-          if (!transmutationSetVec.contains(j) &&
-              transposedOpShape[i] == reshapedOpShape[j]) {
-            transmutationSetVec.insert(j);
-            break;
-          }
-        }
-      }
-      ArrayRef<int32_t> transVec = transmutationSetVec.getArrayRef();
-
+      SmallVector<int32_t> transposedOpDimsI32;
+      llvm::copy(transposedOpDims, std::back_inserter(transposedOpDimsI32));
       // Perform final reshape
-      output = isTransposeRequired(transVec)
-                   ? builder.transpose(reshapeOp, transVec)
+      output = isTransposeRequired(transposedOpDimsI32)
+                   ? builder.transpose(reshapeOp, transposedOpDimsI32)
                    : reshapeOp;
     }
 

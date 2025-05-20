@@ -7,6 +7,8 @@
 include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
+include "Decompose.td"
+
 /// Note: The DRR definition used for defining patterns is shown below:
 ///
 /// class Pattern<
@@ -15,16 +17,6 @@ include "src/Dialect/ONNX/ONNX.td"
 ///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
-
-def GetZeroFloatAttr :
-	NativeCodeCall<"$_builder.getFloatAttr($_builder.getF32Type(), 0)">;
-
-def GetNullFloatAttr : NativeCodeCall<"FloatAttr()">;
-
-// Check if value has a type that is ranked with a shape.
-def HasRankAndShape:
-  Constraint<CPred<"::onnx_mlir::isRankedShapedType($_self.getType())">,
-  "A value has rank and shape">;
 
 def hasNoActivationConsumer: Constraint<
   CPred<"onnx_mlir::hasNoActivationConsumer($_self)">,
@@ -67,7 +59,7 @@ def hasDefaultDilation: Constraint<
 
 def ConvTransposeOpAsConv2dWithLReluPattern1: Pattern<
    (ONNXLeakyReluOp (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides), $alpha),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
@@ -79,7 +71,7 @@ def ConvTransposeOpAsConv2dWithLReluPattern1: Pattern<
 
 def ConvTransposeOpAsConv2dWithReluPattern1: Pattern<
    (ONNXReluOp (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides)),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
@@ -91,7 +83,7 @@ def ConvTransposeOpAsConv2dWithReluPattern1: Pattern<
 
 def ConvTransposeOpAsConv2dPattern1: Pattern<
    (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
