@@ -2761,3 +2761,98 @@ func.func @test_round() -> tensor<5xf32> {
   // CHECK: {{.*}} = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 2.000000e+00, 2.000000e+00, -4.000000e+00]> : tensor<5xf32>
   // CHECK-NOT: {{.*}} = "onnx.Round"{{.*}}
 }
+
+
+//===----------------------------------------------------------------------===//
+/// Test for Ops that can likely be fused with a (const) bias
+
+func.func @test_matmul_add_lhs(%arg0: tensor<1x4x2xi32>, %arg1: tensor<1x2x4xi32>, %arg3: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+  %0 = onnx.Constant dense<1> : tensor<1x4x4xi32>
+  %1 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+  %2 = "onnx.Add"(%1, %0) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %3 = "onnx.Add"(%2, %arg3) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  "onnx.Return"(%3) : (tensor<1x4x4xi32>) -> ()
+// CHECK-LABEL:  func.func @test_matmul_add_lhs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x2xi32>, [[PARAM_1_:%.+]]: tensor<1x2x4xi32>, [[PARAM_2_:%.+]]: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+// CHECK-DAG:       [[CST:%.+]] = onnx.Constant dense<1> : tensor<1x4x4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[CST]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[PARAM_2_]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x4x4xi32>
+}
+
+// -----
+
+func.func @test_matmul_add_rhs(%arg0: tensor<1x4x2xi32>, %arg1: tensor<1x2x4xi32>, %arg3: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+  %0 = onnx.Constant dense<1> : tensor<1x4x4xi32>
+  %1 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+  %2 = "onnx.Add"(%1, %0) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %3 = "onnx.Add"(%arg3, %2) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  "onnx.Return"(%3) : (tensor<1x4x4xi32>) -> ()
+// CHECK-LABEL:  func.func @test_matmul_add_rhs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x2xi32>, [[PARAM_1_:%.+]]: tensor<1x2x4xi32>, [[PARAM_2_:%.+]]: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+// CHECK-DAG:       [[CST:%.+]] = onnx.Constant dense<1> : tensor<1x4x4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[CST]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[PARAM_2_]], [[VAR_2_]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x4x4xi32>
+}
+
+// -----
+
+func.func @test_two_matmuls_with_bias(%arg0: tensor<1x4x2xi32>, %arg1: tensor<1x2x4xi32>, %arg3: tensor<1x4x2xi32>, %arg4: tensor<1x2x4xi32>) -> tensor<1x4x4xi32> {
+  %cst_0 = onnx.Constant dense<1> : tensor<1x4x4xi32>
+  %cst_1 = onnx.Constant dense<2> : tensor<1x4x4xi32>
+  %matmul_0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+  %matmul_1 = "onnx.MatMul"(%arg3, %arg4) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+  %add_0 = "onnx.Add"(%matmul_0, %cst_0) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %add_1 = "onnx.Add"(%matmul_1, %cst_1) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %add_2 = "onnx.Add"(%add_0, %add_1) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  "onnx.Return"(%add_2) : (tensor<1x4x4xi32>) -> ()
+// CHECK-LABEL:  func.func @test_two_matmuls_with_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x2xi32>, [[PARAM_1_:%.+]]: tensor<1x2x4xi32>, [[PARAM_2_:%.+]]: tensor<1x4x2xi32>, [[PARAM_3_:%.+]]: tensor<1x2x4xi32>) -> tensor<1x4x4xi32> {
+// CHECK-DAG:       [[CST:%.+]] = onnx.Constant dense<3> : tensor<1x4x4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_2_]], [[PARAM_3_]]) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_1_]], [[CST]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Add"([[VAR_3_]], [[VAR_2_]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<1x4x4xi32>
+}
+
+// -----
+
+func.func @test_one_matmul_with_bias_lhs(%arg0: tensor<1x4x2xi32>, %arg1: tensor<1x2x4xi32>, %arg3: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+  %cst_0 = onnx.Constant dense<1> : tensor<1x4x4xi32>
+  %cst_1 = onnx.Constant dense<2> : tensor<1x4x4xi32>
+  %matmul_0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+  %add_0 = "onnx.Add"(%matmul_0, %cst_0) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %add_1 = "onnx.Add"(%arg3, %cst_1) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %add_2 = "onnx.Add"(%add_0, %add_1) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  "onnx.Return"(%add_2) : (tensor<1x4x4xi32>) -> ()
+// CHECK-LABEL:  func.func @test_one_matmul_with_bias_lhs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x2xi32>, [[PARAM_1_:%.+]]: tensor<1x2x4xi32>, [[PARAM_2_:%.+]]: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+// CHECK-DAG:       [[CST:%.+]] = onnx.Constant dense<3> : tensor<1x4x4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[CST]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[PARAM_2_]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x4x4xi32>
+}
+
+// -----
+
+func.func @test_one_matmul_with_bias_rhs(%arg0: tensor<1x4x2xi32>, %arg1: tensor<1x2x4xi32>, %arg3: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+  %cst_0 = onnx.Constant dense<1> : tensor<1x4x4xi32>
+  %cst_1 = onnx.Constant dense<2> : tensor<1x4x4xi32>
+  %matmul_0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+  %add_0 = "onnx.Add"(%matmul_0, %cst_0) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %add_1 = "onnx.Add"(%arg3, %cst_1) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  %add_2 = "onnx.Add"(%add_1, %add_0) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+  "onnx.Return"(%add_2) : (tensor<1x4x4xi32>) -> ()
+// CHECK-LABEL:  func.func @test_one_matmul_with_bias_rhs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x2xi32>, [[PARAM_1_:%.+]]: tensor<1x2x4xi32>, [[PARAM_2_:%.+]]: tensor<1x4x4xi32>) -> tensor<1x4x4xi32> {
+// CHECK-DAG:       [[CST:%.+]] = onnx.Constant dense<3> : tensor<1x4x4xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x4x2xi32>, tensor<1x2x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[CST]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[PARAM_2_]], [[VAR_2_]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x4x4xi32>
+}

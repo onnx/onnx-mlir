@@ -220,3 +220,16 @@
 // DISABLED:           %[[VAL_3:.*]] = "onnx.ConvTranspose"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "test", output_padding = [1, 1], output_shape = [10, 8], strides = [3, 2]} : (tensor<?x?x3x3xf32>, tensor<?x?x3x3xf32>, none) -> tensor<?x?x10x8xf32>
 // DISABLED:           onnx.Return %[[VAL_3]] : tensor<?x?x10x8xf32>
 // DISABLED:         }
+
+// -----
+
+// Test that are is no decomposition for grouped convtransposes
+func.func @test_group_convtranspose(%arg0: tensor<1x256x16x16xf32>, %arg1: tensor<256x1x4x4xf32>) -> (tensor<1x256x32x32xf32>) {    
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 256 : si64, kernel_shape = [4, 4], onnx_node_name = "/dla_up/ida_0/up_1/ConvTranspose", pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<1x256x16x16xf32>, tensor<256x1x4x4xf32>, none) -> tensor<1x256x32x32xf32>
+    return %1 : tensor<1x256x32x32xf32>
+}
+// CHECK-LABEL:  func.func @test_group_convtranspose
+// CHECK:    "onnx.ConvTranspose
+// DISABLED-LABEL:  func.func @test_group_convtranspose
+// DISABLED:    "onnx.ConvTranspose

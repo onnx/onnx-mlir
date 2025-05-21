@@ -116,6 +116,10 @@ def HasRankAndShape:
   Constraint<CPred<"::onnx_mlir::isRankedShapedType($_self.getType())">,
   "A value has rank and shape">;
 
+def IntOne : AttrConstraint<
+    CPred<"::mlir::matchPattern($_self, m_One())">,
+    "is integer one">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
