@@ -508,7 +508,7 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
   config.useTopDownTraversal = true;
 
   // Simplify shape-related ops.
-  if (failed(applyPatternsAndFoldGreedily(moduleOp, std::move(patterns))))
+  if (failed(applyPatternsGreedily(moduleOp, std::move(patterns))))
     signalPassFailure();
 }
 
