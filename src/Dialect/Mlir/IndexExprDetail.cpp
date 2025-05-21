@@ -142,6 +142,28 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
     dimParam = dimSymbol;
 }
 
+// Initialize a Questionmark with the value of val[index].
+// Assume that the existing code handles the constant case already.
+// Here a Questionmark is generated, perhaps with dimParam info.
+// To find out the info for dimParam, the definition chain of val will be inspected.
+// The possible pattern is value from ConcatOp.
+
+static std::string getDimParamForIndexedValueUtil(Value val, int64_t index){
+  return std::string("");
+}
+
+void IndexExprImpl::initAsQuestionmarkForIndexedValue(Value tensorOrMemref, int64_t index) {
+  llvm::hash_code questionValue = llvm::hash_combine(
+      mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
+  init(/*isDefined*/ true, /*literal*/ false,
+      /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
+      questionValue, AffineExpr(nullptr), Value(nullptr));
+
+  std::string dimSymbol = getDimParamForIndexedValueUtil(tensorOrMemref, index);
+  if (dimSymbol != "")
+    dimParam = dimSymbol;
+}
+
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
   assert((kind != IndexExprKind::Questionmark) &&
          "literals are either affine or predicate");

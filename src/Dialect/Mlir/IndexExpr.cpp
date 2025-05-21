@@ -1612,11 +1612,14 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(bool isFloatFlag) : IndexExpr() {
 }
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(
-    Value tensorOrMemref, int64_t index)
+    Value tensorOrMemref, int64_t index, bool forValue)
     : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
-  indexExprObj->initAsQuestionmark(tensorOrMemref, index);
+  if (forValue)
+    indexExprObj->initAsQuestionmarkForIndexedValue(tensorOrMemref, index);
+  else 
+    indexExprObj->initAsQuestionmark(tensorOrMemref, index);
 }
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr)

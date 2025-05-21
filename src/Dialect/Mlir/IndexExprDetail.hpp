@@ -43,6 +43,11 @@ public:
   // question mark is assigned to a unique value hashed from the given
   // tensorOrMemref and dimension index.
   void initAsQuestionmark(mlir::Value tensorOrMemref, int64_t index);
+  // Initialize a question mark for a indexed value, the value of val[index]
+  // In general this value could be constant. Here only symbolic case is
+  // considered, and the dim_param symbol is propagated, if exists.
+  // In constrast, the above function is to initialize with the shape.
+  void initAsQuestionmarkForIndexedValue(mlir::Value val, int64_t index);
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsLiteral(double const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);

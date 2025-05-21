@@ -441,6 +441,21 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // broadcasting for any reasons, hasNoBroadcast is set to false.
   bool hasNoBroadcast = true;
   for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
+    // Added code for dimparam: all input should have the same dynamic dim 
+    bool sameDyn = true;
+    DimsExpr dimsInput0 = inputsDims[0];
+    if (dimsInput0[r].isQuestionmark() && dimsInput0[r].hasDimParam()) {
+      for (uint64_t i = 1; i < inputsDims.size(); i++) {
+        DimsExpr dims = inputsDims[i];
+        if (!(dims[r].isQuestionmark() && dims[r].hasDimParam() && dimsInput0[r].getDimParam() == dims[r].getDimParam())) {
+          sameDyn = false;
+        }
+      }
+    }
+    // If this dimension has the same dynamic dim, no further analysis is needed
+    // to guarantee this dimesion has NO broadcast
+    if (sameDyn)
+      continue;
     bool hasOne, hasOtherThanOne;
     hasOne = hasOtherThanOne = false;
     for (DimsExpr dims : inputsDims) {
