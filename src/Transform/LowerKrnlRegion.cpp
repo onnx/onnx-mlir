@@ -70,7 +70,7 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<LowerKrnlRegion>(&getContext());
 
-    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+    if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
 };

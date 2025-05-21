@@ -145,7 +145,7 @@ struct ONNXHybridTransformPass
       config.maxNumRewrites =
           maxNumRewritesOffset + maxNumRewritesMultiplier * numOps;
     }
-    if (failed(applyPatternsAndFoldGreedily(body, patterns, config))) {
+    if (failed(applyPatternsGreedily(body, patterns, config))) {
       llvm::errs() << "\nWarning: onnx-hybrid-transform didn't converge with "
                    << "max-num-rewrites-offset="
                    << maxNumRewritesOffset.getValue() << ", "

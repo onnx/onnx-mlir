@@ -28,6 +28,7 @@
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
+#include "mlir/Conversion/UBToLLVM/UBToLLVM.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
@@ -210,6 +211,8 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   vector::populateVectorInsertExtractStridedSliceTransforms(patterns);
   vector::populateVectorStepLoweringPatterns(patterns);
   vector::populateVectorRankReducingFMAPattern(patterns);
+  // Some vector ops are lower to UB. Hence, lower UB to LLVM.
+  ub::populateUBToLLVMConversionPatterns(typeConverter, patterns);
 
   populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);

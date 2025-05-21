@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --zlow-stick-expansion %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --zlow-stick-expansion --disable-memref-prefetch=false %s -split-input-file | FileCheck %s
 
 // -----
 
