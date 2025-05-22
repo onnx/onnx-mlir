@@ -656,6 +656,15 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   build(builder, state, opNameAttr, tagAttr, nodeNameAttr);
 }
 
+void KrnlInstrumentOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+
+  // KrnlInstrumentOp writes to output stream
+  effects.emplace_back(
+      MemoryEffects::Write::get(), SideEffects::DefaultResource::get());
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//
@@ -1045,7 +1054,7 @@ void KrnlSeqAllocOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
   for (auto inp = getLengthMutable().begin(); inp != getLengthMutable().end();
-       ++inp)
+      ++inp)
     effects.emplace_back(
         MemoryEffects::Read::get(), inp, SideEffects::DefaultResource::get());
   OpResult output = getOperation()->getOpResults()[0];
