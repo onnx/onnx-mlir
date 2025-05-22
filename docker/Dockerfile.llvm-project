@@ -49,6 +49,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               gcc gcc-c++ git libtool make ncurses-devel ninja-build \
               python39 python39-devel python39-pip python39-setuptools \
               python39-wheel tzdata-java zlib-devel && \
+	  # Workaround broken ubi8 amd64 image not creating pip3 symlink
+	  [ ! -f /usr/bin/pip3 ] && ln -sf ./pip3.9 /usr/bin/pip3 && \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
                Cython pytest==6.2.5 numpy==1.21.5 pytest-forked==1.4.0 \
