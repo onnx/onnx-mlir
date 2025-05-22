@@ -1054,7 +1054,7 @@ void KrnlSeqAllocOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
   for (auto inp = getLengthMutable().begin(); inp != getLengthMutable().end();
-      ++inp)
+       ++inp)
     effects.emplace_back(
         MemoryEffects::Read::get(), inp, SideEffects::DefaultResource::get());
   OpResult output = getOperation()->getOpResults()[0];
