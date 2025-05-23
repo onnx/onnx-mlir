@@ -36,8 +36,6 @@ func.func @test_stick_expansion_with_sat(%arg0: memref<16x8x128xf32>) -> memref<
 // CHECK:             [[VAR_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#2)
 // CHECK:             [[VAR_3_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<16x8x128xf16, #map>
 // CHECK:             [[VAR_4_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#2, [[VAR_3_]])
-// CHECK:             krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, read, locality<1>, data : memref<16x8x128xf32>
-// CHECK:             krnl.prefetch [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, write, locality<1>, data : memref<16x8x128xf16, #map>
 // CHECK:             affine.for [[I_3_:%.+]] = 0 to 64 step 32 {
 // CHECK:               [[VAR_5_:%.+]] = affine.apply [[MAP_3_]]([[I_3_]]){{.}}[[VAR_2_]]{{.}}
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_5_]]{{.}} : memref<16x8x128xf32>, vector<4xf32>
@@ -131,8 +129,6 @@ func.func @test_stick_expansion_without_sat(%arg0: memref<16x8x128xf32>) -> memr
 // CHECK:             [[VAR_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#2)
 // CHECK:             [[VAR_3_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<16x8x128xf16, #map>
 // CHECK:             [[VAR_4_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#2, [[VAR_3_]])
-// CHECK:             krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, read, locality<1>, data : memref<16x8x128xf32>
-// CHECK:             krnl.prefetch [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, write, locality<1>, data : memref<16x8x128xf16, #map>
 // CHECK:             affine.for [[I_3_:%.+]] = 0 to 64 step 32 {
 // CHECK:               [[VAR_5_:%.+]] = affine.apply [[MAP_3_]]([[I_3_]]){{.}}[[VAR_2_]]{{.}}
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_5_]]{{.}} : memref<16x8x128xf32>, vector<4xf32>
@@ -218,8 +214,6 @@ func.func @test_unstick_expansion(%arg0: memref<16x8x128xf16, #map>) -> memref<1
 // CHECK:                 [[VAR_6_:%.+]] = affine.apply [[MAP_1_]]([[VAR_5_]])
 // CHECK:                 [[VAR_7_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]]{{.}} : memref<16x8x128xf16, #map>
 // CHECK:                 [[VAR_8_:%.+]] = affine.apply [[MAP_2_]]([[VAR_5_]]){{.}}[[VAR_7_]]{{.}}
-// CHECK:                 krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]]{{.}}, read, locality<1>, data : memref<16x8x128xf16, #map>
-// CHECK:                 krnl.prefetch [[RES_]]{{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]]{{.}}, write, locality<1>, data : memref<16x8x128xf32>
 // CHECK:                 scf.if [[VAR_true_]] {
 // CHECK:                   scf.for [[I_3_:%.+]] = [[CST_0_]] to [[CST_64_]] step [[CST_32_]] {
 // CHECK-DAG:                 [[VAR_9_:%.+]] = affine.apply [[MAP_3_]]([[I_3_]]){{.}}[[VAR_6_]]{{.}}
@@ -309,9 +303,7 @@ func.func @test_unstick_expansion_127(%arg0: memref<16x8x127xf16, #map>) -> memr
 // CHECK:                 [[VAR_7_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]]{{.}} : memref<16x8x127xf16, #map>
 // CHECK-DAG:             [[VAR_8_:%.+]] = affine.apply [[MAP_2_]]([[VAR_5_]]){{.}}[[VAR_7_]]{{.}}
 // CHECK-DAG:             [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<8xf32>
-// CHECK:                 krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]]{{.}}, read, locality<1>, data : memref<16x8x127xf16, #map>
-// CHECK:                 krnl.prefetch [[RES_]]{{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]]{{.}}, write, locality<1>, data : memref<16x8x127xf32>
-// CHECK:                 [[VAR_9_:%.+]] = affine.apply [[MAP_3_]]([[VAR_5_]]){{.}}[[VAR_7_]]{{.}}
+// CHECK-DAG:             [[VAR_9_:%.+]] = affine.apply [[MAP_3_]]([[VAR_5_]]){{.}}[[VAR_7_]]{{.}}
 // CHECK:                 [[VAR_10_:%.+]] = arith.cmpi sge, [[VAR_9_]], [[CST_0_]] : index
 // CHECK:                 scf.if [[VAR_10_]] {
 // CHECK:                   scf.for [[I_3_:%.+]] = [[CST_0_]] to [[CST_64_]] step [[CST_32_]] {
