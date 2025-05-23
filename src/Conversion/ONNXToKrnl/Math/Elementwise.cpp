@@ -318,16 +318,6 @@ GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
 }
 
 template <>
-struct ScalarOp<ONNXPowOp> {
-  using FOp = math::PowFOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
-GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
-  return {{GenericOps::PowGop, 1}};
-}
-
-template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
@@ -1252,6 +1242,32 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   return create.math.neg(operand);
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar binary ops for lowering ONNXPowOp
+//===----------------------------------------------------------------------===//
+
+template <>
+GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
+  return {{GenericOps::PowGop, 1}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXPowOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXGeluOp>(elementType);
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+  Type lhsElemType = getElementType(lhs.getType());
+  Type rhsElemType = getElementType(rhs.getType());
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  if (lhsElemType != rhsElemType) {
+    // Conversions needed.
+    rhs = create.math.cast(lhs.getType(), rhs);
+  }
+  return create.math.pow(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
