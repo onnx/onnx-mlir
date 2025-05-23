@@ -656,6 +656,15 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   build(builder, state, opNameAttr, tagAttr, nodeNameAttr);
 }
 
+void KrnlInstrumentOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+
+  // KrnlInstrumentOp writes to output stream
+  effects.emplace_back(
+      MemoryEffects::Write::get(), SideEffects::DefaultResource::get());
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//
