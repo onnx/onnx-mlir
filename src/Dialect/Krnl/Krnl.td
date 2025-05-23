@@ -1305,7 +1305,8 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
 }
 
 def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
-    []> {
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
   let summary = "instrumentation point.";
   let description = [{
     Operation that invokes the runtime instrument utility.
