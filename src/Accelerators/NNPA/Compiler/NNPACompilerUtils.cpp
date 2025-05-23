@@ -281,11 +281,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         addKrnlToAffinePasses(pm);
         // Optimizations at ZLow after normalizing MemRefs.
         pm.addPass(zlow::createZLowRewritePass());
-        // The createZLowStickExpansion pass may create parallel constructs,
-        // they need to be handled here.
-        if (!nnpaDisableCompilerStickUnstick && enableParallel)
-          pm.addPass(mlir::createConvertSCFToOpenMPPass());
-
         pm.addPass(mlir::createCanonicalizerPass());
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
