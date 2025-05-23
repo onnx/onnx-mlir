@@ -382,6 +382,7 @@ using ONNXLogOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLogSoftmaxOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLpNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXMeanVarianceNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXMishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNegOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNotOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRandomNormalLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
