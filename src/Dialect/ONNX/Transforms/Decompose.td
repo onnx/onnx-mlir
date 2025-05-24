@@ -584,7 +584,7 @@ def ConvTransposeOpPattern2: Pattern<
 // Rewrite `ONNXConstantOfShapeOp {value} (%shape)` into
 //         `ONNXExpandOp(ONNXConstantOp {value}, %shape)
 //===----------------------------------------------------------------------===//
-//hi alex crash here
+
 def ConstantOfShapePattern: Pat<
   (ONNXConstantOfShapeOp:$res $shape, $value),
   (ONNXExpandOp (ONNXConstantOpFromDenseAttr (ReshapeElementsAttrToRank0WithDefaultValue $shape, $value)),
