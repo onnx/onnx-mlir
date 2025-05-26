@@ -45,3 +45,27 @@ func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf
   // CHECK:           [[LOC_FUSED]] = loc(fused[[[LOC_C3]], [[LOC_C2]], [[LOC_C1]]]) 
 }
 
+// -----
+
+func.func @consecutive_clips(%arg0: tensor<3x1024x1024xf32>) -> (tensor<3x1024x1024xf32> {onnx.name = "output"}) {
+  %0 = onnx.Constant dense<-5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %2 = onnx.Constant dense<-3.000000e-01> : tensor<f32>
+  %3 = onnx.Constant dense<3.000000e-01> : tensor<f32>
+  %4 = "onnx.Clip"(%arg0, %0, %1) : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32> loc("Clip1")
+  %5 = "onnx.Clip"(%4, %2, %3) : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32> loc("Clip2")
+  onnx.Return %5 : tensor<3x1024x1024xf32>
+
+  // CHECK-LABEL: func.func @consecutive_clips
+  // CHECK: onnx.Max  
+  // CHECK-SAME: loc([[FUSED_LOC:#.+]])
+  // CHECK: onnx.Min
+  // CHECK-SAME: loc([[FUSED_LOC]])
+
+  // CHECK: onnx.Clip
+  // CHECK-SAME: loc([[FUSED_LOC]])
+
+  // CHECK-DAG: [[LOC_CLIP1:#.+]] = loc("Clip1")
+  // CHECK-DAG: [[LOC_CLIP2:#.+]] = loc("Clip2")
+  // CHECK: [[FUSED_LOC]] = loc(fused[[[LOC_CLIP2]], [[LOC_CLIP1]]])
+}
