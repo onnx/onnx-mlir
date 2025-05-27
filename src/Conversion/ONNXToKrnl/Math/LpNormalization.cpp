@@ -34,91 +34,52 @@ public:
       ONNXLpNormalizationOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
 
+    using LocalDialectBuilder =
+        MultiDialectBuilder<IndexExprBuilderForKrnl, OnnxBuilder>;
     Operation *op = lpNormOp.getOperation();
     Location loc = ONNXLoc<ONNXLpNormalizationOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    LocalDialectBuilder create(rewriter, loc);
+
+    // Get shape.
+    ONNXLpNormalizationOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     Value input = adaptor.getInput();
-    double p = adaptor.getP();
-    int64_t axis = adaptor.getAxis();
-
-    MultiDialectBuilder<MathBuilder, KrnlBuilder, MemRefBuilder,
-        IndexExprBuilderForKrnl>
-        create(rewriter, loc);
-    IndexExprScope scope(create.krnl);
-
-    // Prepare shape and type.
-    MemRefType inputMemRefType = cast<MemRefType>(input.getType());
-    Type elementType = inputMemRefType.getElementType();
-    int64_t rank = inputMemRefType.getRank();
-
-    if (axis < 0)
-      axis += rank;
-
-    // Compute dimensions.
-    SmallVector<IndexExpr> dims;
-    create.krnlIE.getShapeAsDims(input, dims);
-
-    // Allocate output memref.
-    MemRefType outputType = cast<MemRefType>(
+    auto inputType = mlir::cast<ShapedType>(input.getType());
+    auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(lpNormOp.getResult().getType()));
-    Value output = create.mem.alignedAlloc(outputType, dims);
+    Type elementType = resMemRefType.getElementType();
 
-    // Allocate buffer for sum: same shape as input, but axis dim = 1
-    SmallVector<IndexExpr> reducedDims(dims);
-    reducedDims[axis] = LitIE(1);
-    SmallVector<int64_t> reduceShape;
-    for (auto d : reducedDims)
-      reduceShape.push_back(
-          d.isLiteral() ? d.getLiteral() : ShapedType::kDynamic);
-    MemRefType reduceType = MemRefType::get(reduceShape, elementType);
-    Value reduceMemRef = create.mem.alignedAlloc(reduceType, reducedDims);
+    int64_t axis = adaptor.getAxis();
+    double p = adaptor.getP();
+    llvm::SmallVector<int64_t> reductionShape(
+        inputType.getShape().begin(), inputType.getShape().end());
+    reductionShape[axis] = 1;
+    llvm::SmallVector<int64_t> axesIntArray{axis};
 
-    Value zero = create.math.constant(elementType, 0.0);
-    create.krnl.memset(reduceMemRef, zero);
+    Value axes = create.onnx.constant(
+        create.getBuilder().getI64TensorAttr(axesIntArray));
+    TensorType reductionType =
+        RankedTensorType::get(reductionShape, elementType);
+    Value res = nullptr;
+    if (p == 1) {
+      // Y =  x / sum (abs(x), axis)
+      Value abs = create.onnx.abs(input);
+      Value sumAbs = create.onnx.reduceSum(reductionType, abs, axes);
+      res = create.onnx.div(input, sumAbs);
+    } else if (p == 2) {
+      // Y =  x / sqrt(sum((x^2),axis))
+      Value mul = create.onnx.mul(input, input);
+      Value sumMul = create.onnx.reduceSum(reductionType, mul, axes);
+      Value sqrtSumMul = create.onnx.sqrt(sumMul);
+      res = create.onnx.div(input, sqrtSumMul);
+    } else {
+      llvm_unreachable(
+          "The order of the normalization, only 1 or 2 are supported.");
+    }
 
-    // Compute norm value into reduceMemRef
-    ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LitIE(0));
-    create.krnl.iterateIE(loopDef, loopDef, lbs, dims,
-        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
-          Value x = create.krnl.load(input, loopInd);
-          Value val = nullptr;
-
-          if (p == 1)
-            val = create.math.abs(x);
-          else if (p == 2)
-            val = create.math.mul(x, x);
-          else
-            llvm_unreachable("Unsupported LpNorm order (only p=1 or p=2)");
-
-          // Broadcast index
-          SmallVector<Value> reduceIndex(loopInd.begin(), loopInd.end());
-          reduceIndex[axis] = create.math.constantIndex(0);
-
-          Value acc = create.krnl.load(reduceMemRef, reduceIndex);
-          Value sum = create.math.add(acc, val);
-          create.krnl.store(sum, reduceMemRef, reduceIndex);
-        });
-
-    // Normalize output = input / norm
-    create.krnl.iterateIE(loopDef, loopDef, lbs, dims,
-        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
-          Value x = create.krnl.load(input, loopInd);
-
-          SmallVector<Value> reduceIndex(loopInd.begin(), loopInd.end());
-          reduceIndex[axis] = create.math.constantIndex(0);
-          Value norm = create.krnl.load(reduceMemRef, reduceIndex);
-
-          if (p == 2)
-            norm = create.math.sqrt(norm);
-
-          Value y = create.math.div(x, norm);
-          create.krnl.store(y, output, loopInd);
-        });
-
-    rewriter.replaceOp(op, output);
-    onnxToKrnlSimdReport(op);
+    rewriter.replaceOp(op, {create.onnx.toMemref(input)});
     return success();
   }
 };
