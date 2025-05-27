@@ -555,7 +555,7 @@ TensorType OnnxBuilder::toTensor(Type input) const {
   return RankedTensorType::get(aTy.getShape(), elementTy);
 }
 
-TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
+SmallVector<Type, 4> OnnxBuilder::toTensors(TypeRange inputs) const {
   if (llvm::all_of(inputs, [](Type t) { return (mlir::isa<TensorType>(t)); }))
     return inputs;
   assert(llvm::all_of(inputs, [](Type t) {
@@ -570,7 +570,7 @@ TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
     }
     resultTypes.emplace_back(RankedTensorType::get(aTy.getShape(), elementTy));
   }
-  return TypeRange(resultTypes);
+  return resultTypes;
 }
 
 Value OnnxBuilder::toMemref(Value input) const {
