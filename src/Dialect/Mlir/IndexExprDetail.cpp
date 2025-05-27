@@ -24,6 +24,8 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include <mutex>
 
 #define DEBUG_TYPE "index-expr"
@@ -148,7 +150,30 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
 // To find out the info for dimParam, the definition chain of val will be inspected.
 // The possible pattern is value from ConcatOp.
 
+std::string getDimParamForDimOp(Value val) {
+  auto dimOp = val.getDefiningOp<ONNXDimOp>();
+  if (dimOp) {
+      Value dataOfDim = dimOp.getData();
+      // Get the index of onnx.Dim
+      int64_t axis = dimOp.getAxis();
+      //return std::string(std::to_string(axis));
+      return getDimParamUtil(dataOfDim, axis);
+  }
+  return std::string("");
+}
+
 static std::string getDimParamForIndexedValueUtil(Value val, int64_t index){
+  // Pattern#1: The value comes from Concat. The index can be used to trace back
+  // the particular input of Concat.
+  // Copy code from src/Dialect/ONNX/ONNXOps/Tensor/Reshape
+  val.dump();
+  if (areDimsFromConcat(val)) {
+    printf("Check point 1\n");
+    SmallVector<Value> shapeDimVals;
+    // Question: need to check the shape of input of Concat?
+    getDims(val, shapeDimVals);
+    return getDimParamForDimOp(shapeDimVals[index]);
+  }
   return std::string("");
 }
 

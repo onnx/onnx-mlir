@@ -128,8 +128,13 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Compute the total number of elements from the shape values.
   IndexExpr numOfElementsFromShape = LitIE(1);
+  SmallVector<IndexExpr, 4> constVals;
+  createIE->getIntFromArrayAsSymbols(shape, constVals);
   for (unsigned i = 0; i < outputRank; ++i) {
-    IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
+    IndexExpr dimShape = constVals[i];
+    if (dimShape.hasDimParam()) {
+      printf("check point: hasDimParam()\n");
+    }
     if (dimShape.isUndefined())
       return op->emitError("shape input parameter could not be processed");
     IndexExpr dim;

@@ -239,6 +239,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
     else
       return DimIE(castedVal);
   }
+  printf("check point: call QuestionmarkIndexExp\n");
   return QuestionmarkIndexExpr(array, i, true);
 }
 
@@ -391,9 +392,8 @@ IndexExpr IndexExprBuilder::getShapeAsSymbol(
 
 IndexExpr IndexExprBuilder::getShapeAsDim(
     Value tensorOrMemrefValue, uint64_t i) {
-  if (isLiteralShape(tensorOrMemrefValue, i)) {
+  if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
-  }
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return DimIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
