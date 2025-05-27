@@ -22,6 +22,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/LRN.cpp
   Math/MatMul.cpp
   Math/MatMulInteger.cpp
+  Math/MeanVarianceNormalization.cpp
   Math/QLinearMatMul.cpp
   Math/RandomNormal.cpp
   Math/RandomNormalLike.cpp
