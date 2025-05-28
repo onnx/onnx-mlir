@@ -158,15 +158,14 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // should be -1 (represented as QuestionmarkIndexExpr)
   SmallVector<IndexExpr, 4> dims;
   createIE->getIntFromArrayAsSymbols(shape, dims);
-  //outputIgnoredDims.clear();
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
       IndexExpr dimShape = dims[i];
       if (auto search = outputIgnoredDims.find(i);
           search != outputIgnoredDims.end())
-       // The outputIgnoreDims are dim with symbolic size and can not be -1.
-       // However, the current folding of IndexExp can not propagate the 
-       // dim_param info. Fix this in future.
+        // The outputIgnoreDims are dim with symbolic size and can not be -1.
+        // However, the current folding of IndexExp can not propagate the 
+        // dim_param info. Fix this in future.
         outputDims[i] = dimShape;
       else
         outputDims[i] = outputDims[i].selectOrSelf(
