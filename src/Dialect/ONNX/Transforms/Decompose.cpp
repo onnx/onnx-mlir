@@ -607,6 +607,21 @@ Value normalizeConstantOp(
   return createONNX.constant(denseAttr);
 }
 
+ElementsAttr reshapeElementsAttrToRank0WithDefaultValue(
+    PatternRewriter &rewriter, Value shape, Attribute val) {
+  if (!val) {
+    // Default is 0.0 in float32. It is not created by default in the ONNX
+    // getValue() as the ONNX td does not define a default value. So explicitly
+    // create a dense array of 1 zero value here.
+    Type elementType = rewriter.getF32Type();
+    RankedTensorType tensorType = RankedTensorType::get({1}, elementType);
+    FloatAttr floatAttr = rewriter.getFloatAttr(elementType, 0.0);
+    val = DenseElementsAttr::get(tensorType, floatAttr.getValue());
+  }
+  return OnnxElementsAttrBuilder(shape.getContext())
+      .reshape(cast<ElementsAttr>(val), {});
+}
+
 } // namespace onnx_mlir
 
 namespace {
