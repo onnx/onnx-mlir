@@ -84,6 +84,9 @@ std::string getDimParamFromString(std::string dimParams, int64_t index) {
   return std::string("");
 }
 
+static const std::string FUNC_DIM_PARAMS("onnx.dim_params");
+static const std::string OP_DIM_PARAMS("onnx.out_dim_params_");
+
 std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
   if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) {
     int64_t argIndex = blockArg.getArgNumber();
@@ -94,9 +97,9 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
       // ArrayAttr dimAttr = funcOp.getArgAttrsAttr();
       DictionaryAttr dictAttr =
           mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
-      if (dictAttr && dictAttr.contains("onnx.dim_params")) {
+      if (dictAttr && dictAttr.contains(FUNC_DIM_PARAMS)) {
         StringAttr dimParamAttr = mlir::cast<StringAttr>(
-            dictAttr.getNamed("onnx.dim_params").value().getValue());
+            dictAttr.getNamed(FUNC_DIM_PARAMS).value().getValue());
         return getDimParamFromString(
             std::string(dimParamAttr.getValue().str()), index);
       }
@@ -111,11 +114,11 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
       // func.func parameter?
       return std::string("");
     } else {
-      // Get the info from attribute "onnx.dim_param"
+      // Get the info from attribute "onnx.out_dim_param_*"
       auto opResult = llvm::cast<OpResult>(tensorOrMemref);
       unsigned resultIndex = opResult.getResultNumber();
       Attribute dimParamAttr =
-          op->getAttr("onnx.dim_params_" + std::to_string(resultIndex));
+          op->getAttr(OP_DIM_PARAMS + std::to_string(resultIndex));
       if (!dimParamAttr)
         return std::string("");
       return getDimParamFromString(
@@ -138,7 +141,7 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
       /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
       questionValue, AffineExpr(nullptr), Value(nullptr));
 
-  // Get the dimSymbol from the onnx.dim_params
+  // Get the dimSymbol from the dim_params
   // This symbol acts similar to questionValue, but predefined from onnx model
   std::string dimSymbol = getDimParamUtil(tensorOrMemref, index);
   if (dimSymbol != "")
@@ -148,22 +151,22 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
 // Initialize a Questionmark with the value of val[index].
 // Assume that the existing code handles the constant case already.
 // Here a Questionmark is generated, perhaps with dimParam info.
-// To find out the info for dimParam, the definition chain of val will be inspected.
-// The possible pattern is value from ConcatOp.
+// To find out the info for dimParam, the definition chain of val will be
+// inspected. The possible pattern is value from ConcatOp.
 
 std::string getDimParamForDimOp(Value val) {
   auto dimOp = val.getDefiningOp<ONNXDimOp>();
   if (dimOp) {
-      Value dataOfDim = dimOp.getData();
-      // Get the index of onnx.Dim
-      int64_t axis = dimOp.getAxis();
-      //return std::string(std::to_string(axis));
-      return getDimParamUtil(dataOfDim, axis);
+    Value dataOfDim = dimOp.getData();
+    // Get the index of onnx.Dim
+    int64_t axis = dimOp.getAxis();
+    // return std::string(std::to_string(axis));
+    return getDimParamUtil(dataOfDim, axis);
   }
   return std::string("");
 }
 
-static std::string getDimParamForIndexedValueUtil(Value val, int64_t index){
+static std::string getDimParamForIndexedValueUtil(Value val, int64_t index) {
   // Pattern#1: The value comes from Concat. The index can be used to trace back
   // the particular input of Concat.
   // Copy code from src/Dialect/ONNX/ONNXOps/Tensor/Reshape
@@ -176,7 +179,8 @@ static std::string getDimParamForIndexedValueUtil(Value val, int64_t index){
   return std::string("");
 }
 
-void IndexExprImpl::initAsQuestionmarkForIndexedValue(Value tensorOrMemref, int64_t index) {
+void IndexExprImpl::initAsQuestionmarkForIndexedValue(
+    Value tensorOrMemref, int64_t index) {
   llvm::hash_code questionValue = llvm::hash_combine(
       mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
   init(/*isDefined*/ true, /*literal*/ false,

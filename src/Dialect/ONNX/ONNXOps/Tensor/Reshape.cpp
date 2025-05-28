@@ -164,7 +164,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
       if (auto search = outputIgnoredDims.find(i);
           search != outputIgnoredDims.end())
         // The outputIgnoreDims are dim with symbolic size and can not be -1.
-        // However, the current folding of IndexExp can not propagate the 
+        // However, the current folding of IndexExp can not propagate the
         // dim_param info. Fix this in future.
         outputDims[i] = dimShape;
       else

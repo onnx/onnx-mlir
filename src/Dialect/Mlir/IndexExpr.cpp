@@ -149,7 +149,7 @@ bool IndexExprScope::isCurrentScope() const {
 
 bool IndexExprScope::isEnclosingScope() const {
   for (IndexExprScope *s = getCurrentScopePtr()->parentScope; s;
-       s = s->parentScope) {
+      s = s->parentScope) {
     if (s == this)
       return true;
   }
@@ -1618,7 +1618,7 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   if (forValue)
     indexExprObj->initAsQuestionmarkForIndexedValue(tensorOrMemref, index);
-  else 
+  else
     indexExprObj->initAsQuestionmark(tensorOrMemref, index);
 }
 
