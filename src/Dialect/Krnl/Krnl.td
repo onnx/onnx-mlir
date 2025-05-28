@@ -1382,7 +1382,7 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
     Operation that generates a random normally distributed tensor.
   }];
 
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$output,
+  let arguments = (ins Arg<AnyTypeOf<[AnyMemRef]>, "output of the random tensor", [MemWrite]>:$output,
     Index:$numberOfValues,
     AnyFloat:$mean,
     AnyFloat:$scale,
@@ -1423,7 +1423,7 @@ def KrnlNoneOp : Op<Krnl_Dialect, "noValue"> {
     }]>];
 }
 
-def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> {
+def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable, DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Print a tensor.";
   let description = [{
     This operation can be used to generate a call to a runtime function which prints a tensor.
@@ -1440,7 +1440,7 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);
 }
 
-def KrnlPrintOp : Op<Krnl_Dialect, "print", [MemRefsNormalizable]> {
+def KrnlPrintOp : Op<Krnl_Dialect, "print", [MemRefsNormalizable, DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Print a value.";
   let description = [{
     This operation can be used to print the input value. The user needs to provide a
