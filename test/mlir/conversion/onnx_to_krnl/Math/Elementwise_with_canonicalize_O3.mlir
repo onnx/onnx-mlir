@@ -2615,11 +2615,12 @@ func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
 func.func private @test_meanvariancenormalization(%arg0 : tensor<2x4x3x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.MeanVarianceNormalization"(%arg0) {axes=[0,2,3]} : (tensor<2x4x3x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
+  
 // CHECK-LABEL:  func.func private @test_meanvariancenormalization
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4x3x10xf32>) -> memref<2x4x3x10xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[CST_6_dot_000000_:%.+]] = arith.constant 6.000000e+01 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_6_dot_000000_:%.+]] = arith.constant 6.000000e+01 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x4x1x1xf32>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x4x1x1xf32>
 // CHECK:           krnl.memset [[RES_]], [[CST_0_dot_000000_]] : memref<1x4x1x1xf32>
