@@ -239,7 +239,6 @@ IndexExpr IndexExprBuilder::getValFromArray(
     else
       return DimIE(castedVal);
   }
-  printf("check point: call QuestionmarkIndexExp\n");
   return QuestionmarkIndexExpr(array, i, true);
 }
 

@@ -128,13 +128,8 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Compute the total number of elements from the shape values.
   IndexExpr numOfElementsFromShape = LitIE(1);
-  SmallVector<IndexExpr, 4> constVals;
-  createIE->getIntFromArrayAsSymbols(shape, constVals);
   for (unsigned i = 0; i < outputRank; ++i) {
-    IndexExpr dimShape = constVals[i];
-    if (dimShape.hasDimParam()) {
-      printf("check point: hasDimParam()\n");
-    }
+    IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
     if (dimShape.isUndefined())
       return op->emitError("shape input parameter could not be processed");
     IndexExpr dim;
@@ -161,11 +156,21 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // are computed. Thus, only update the dim with -1 here.
   // When data is unranked tensor, output dims with -1 or 0 (allowzero == 0)
   // should be -1 (represented as QuestionmarkIndexExpr)
+  SmallVector<IndexExpr, 4> dims;
+  createIE->getIntFromArrayAsSymbols(shape, dims);
+  //outputIgnoredDims.clear();
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
-      IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
-      outputDims[i] = outputDims[i].selectOrSelf(
-          dimShape == -1, numOfElements.floorDiv(numOfElementsFromShape));
+      IndexExpr dimShape = dims[i];
+      if (auto search = outputIgnoredDims.find(i);
+          search != outputIgnoredDims.end())
+       // The outputIgnoreDims are dim with symbolic size and can not be -1.
+       // However, the current folding of IndexExp can not propagate the 
+       // dim_param info. Fix this in future.
+        outputDims[i] = dimShape;
+      else
+        outputDims[i] = outputDims[i].selectOrSelf(
+            dimShape == -1, numOfElements.floorDiv(numOfElementsFromShape));
     } else {
       // ToFix: can not check getAllowzero because the operandAdaptor is
       // constructed without attributes
