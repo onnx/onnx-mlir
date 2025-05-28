@@ -666,6 +666,32 @@ void KrnlInstrumentOp::getEffects(
 }
 
 //===----------------------------------------------------------------------===//
+// KrnlPrintTensorOp
+//===----------------------------------------------------------------------===//
+
+void KrnlPrintTensorOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+
+  effects.emplace_back(MemoryEffects::Read::get(), &getInputMutable());
+
+  effects.emplace_back(
+      MemoryEffects::Write::get(), SideEffects::DefaultResource::get());
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlPrintOp
+//===----------------------------------------------------------------------===//
+
+void KrnlPrintOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+
+  effects.emplace_back(
+      MemoryEffects::Write::get(), SideEffects::DefaultResource::get());
+}
+
+//===----------------------------------------------------------------------===//
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//
 
