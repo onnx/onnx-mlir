@@ -156,16 +156,14 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // are computed. Thus, only update the dim with -1 here.
   // When data is unranked tensor, output dims with -1 or 0 (allowzero == 0)
   // should be -1 (represented as QuestionmarkIndexExpr)
-  //SmallVector<IndexExpr, 4> dims;
-  //createIE->getIntFromArrayAsSymbols(shape, dims);
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
       IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);//dims[i];
       if (auto search = outputIgnoredDims.find(i);
           search != outputIgnoredDims.end())
-        // The outputIgnoreDims are dim with symbolic size and can not be -1.
-        // However, the current folding of IndexExp can not propagate the
-        // dim_param info. Fix this in future.
+        // The outputIgnoreDims are dim with symbolic value matching a dim in data.
+        // Therefore, it can not be -1.
+        // The current folding of IndexExp can not propagate the dim_param info. 
         outputDims[i] = dimShape;
       else
         outputDims[i] = outputDims[i].selectOrSelf(

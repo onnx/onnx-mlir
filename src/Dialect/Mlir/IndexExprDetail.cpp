@@ -85,7 +85,8 @@ std::string getDimParamFromString(std::string dimParams, int64_t index) {
 }
 
 // Get DimParam from the direct defining op of the tensorOrMemref
-std::string getDimParamFromDirectDefiningOpUtil(Value tensorOrMemref, int64_t index) {
+std::string getDimParamFromDirectDefiningOpUtil(
+    Value tensorOrMemref, int64_t index) {
   if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) {
     int64_t argIndex = blockArg.getArgNumber();
     Block *block = blockArg.getOwner();
@@ -157,15 +158,19 @@ static std::string getDimParamForIndexedValueUtil(Value val, int64_t index) {
 }
 
 std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
-  if (std::string resultString = getDimParamFromDirectDefiningOpUtil(tensorOrMemref, index); resultString != "") {
+  if (std::string resultString =
+          getDimParamFromDirectDefiningOpUtil(tensorOrMemref, index);
+      resultString != "") {
     return resultString;
-  } else if(std::string resultString = getDimParamForIndexedValueUtil(tensorOrMemref, index); resultString != "") {
+  } else if (std::string resultString =
+                getDimParamForIndexedValueUtil(tensorOrMemref, index);
+             resultString != "") {
     return resultString;
   } else {
     return std::string("");
   }
 }
- 
+
 // Used for runtime dims; integer by default.
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
