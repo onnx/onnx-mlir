@@ -969,7 +969,9 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
       fields_to_convert = ztensor->transformed_desc->dim2;
 
       // convert_data_format() will dump the converted entries here
-      uint16_t temp_buff[fields_to_convert];
+      uint16_t *temp_buff =
+          (uint16_t *)malloc(fields_to_convert * sizeof(uint16_t));
+      assert(temp_buff && "failed to allocate temp buff");
 
       // number of bytes to jump from the beginning of the last C-stick to the
       // next page-boundary
@@ -1057,7 +1059,8 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
         // done with all the C/H/W, go to the next n
         output_offset = out_offset_n + bytes_per_n;
       }
-    }
+      free(temp_buff);
+    } // End of if NCHW
   } else if (ztensor->transformed_desc->layout == ZDNN_HWCK) {
 
     uint64_t bytes_per_h =
@@ -1420,7 +1423,8 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
 
       // Save the gate data for slicing later.
       // (e.g., LSTM) va_arg order: F (FWD,BWD), I (FWD,BWD), C...etc.
-      void *gate_data[num_gates];
+      void **gate_data = (void **)malloc(num_gates * sizeof(void *));
+      assert(gate_data && "failed to allocate data");
       for (uint8_t i = 0; i < num_gates; i++) {
         gate_data[i] = va_arg(argptr, void *);
       }
@@ -1508,7 +1512,7 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
         // Set that the output ztensor has completed transformation.
         ztensor->is_transformed = true;
       }
-
+      free(gate_data);
     } while (false);
 
   } else {
