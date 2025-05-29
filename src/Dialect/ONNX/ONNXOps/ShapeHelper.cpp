@@ -94,7 +94,7 @@ static void refineDimParams(
   if (dimParamsStr == "")
     return;
   StringAttr dimParamsAttr = StringAttr::get(op->getContext(), dimParamsStr);
-  op->setAttr("onnx.dim_params_" + std::to_string(resultIndex),
+  op->setAttr(OP_DIM_PARAMS + std::to_string(resultIndex),
       StringAttr(dimParamsAttr));
 }
 

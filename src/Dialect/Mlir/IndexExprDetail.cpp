@@ -84,17 +84,14 @@ std::string getDimParamFromString(std::string dimParams, int64_t index) {
   return std::string("");
 }
 
-static const std::string FUNC_DIM_PARAMS("onnx.dim_params");
-static const std::string OP_DIM_PARAMS("onnx.out_dim_params_");
-
-std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
+// Get DimParam from the direct defining op of the tensorOrMemref
+std::string getDimParamFromDirectDefiningOpUtil(Value tensorOrMemref, int64_t index) {
   if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) {
     int64_t argIndex = blockArg.getArgNumber();
     Block *block = blockArg.getOwner();
     Operation *op = block->getParentOp();
     if (op && llvm::isa<func::FuncOp>(op)) {
       func::FuncOp funcOp = llvm::cast<func::FuncOp>(op);
-      // ArrayAttr dimAttr = funcOp.getArgAttrsAttr();
       DictionaryAttr dictAttr =
           mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
       if (dictAttr && dictAttr.contains(FUNC_DIM_PARAMS)) {
@@ -128,6 +125,47 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
   }
 }
 
+// Initialize a Questionmark with the value of val[index].
+// Assume that the existing code handles the constant case already.
+// Here a Questionmark is generated, perhaps with dimParam info.
+// To find out the info for dimParam, the definition chain of val will be
+// inspected. The possible pattern is value from ConcatOp.
+
+std::string getDimParamForDimOp(Value val) {
+  auto dimOp = val.getDefiningOp<ONNXDimOp>();
+  if (dimOp) {
+    Value dataOfDim = dimOp.getData();
+    // Get the index of onnx.Dim
+    int64_t axis = dimOp.getAxis();
+    // return std::string(std::to_string(axis));
+    return getDimParamFromDirectDefiningOpUtil(dataOfDim, axis);
+  }
+  return std::string("");
+}
+
+static std::string getDimParamForIndexedValueUtil(Value val, int64_t index) {
+  // Pattern#1: The value comes from Concat. The index can be used to trace back
+  // the particular input of Concat.
+  // Copy code from src/Dialect/ONNX/ONNXOps/Tensor/Reshape
+  if (areDimsFromConcat(val)) {
+    SmallVector<Value> shapeDimVals;
+    // Question: need to check the shape of input of Concat?
+    getDims(val, shapeDimVals);
+    return getDimParamForDimOp(shapeDimVals[index]);
+  }
+  return std::string("");
+}
+
+std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
+  if (std::string resultString = getDimParamFromDirectDefiningOpUtil(tensorOrMemref, index); resultString != "") {
+    return resultString;
+  } else if(std::string resultString = getDimParamForIndexedValueUtil(tensorOrMemref, index); resultString != "") {
+    return resultString;
+  } else {
+    return std::string("");
+  }
+}
+ 
 // Used for runtime dims; integer by default.
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
@@ -146,37 +184,6 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   std::string dimSymbol = getDimParamUtil(tensorOrMemref, index);
   if (dimSymbol != "")
     dimParam = dimSymbol;
-}
-
-// Initialize a Questionmark with the value of val[index].
-// Assume that the existing code handles the constant case already.
-// Here a Questionmark is generated, perhaps with dimParam info.
-// To find out the info for dimParam, the definition chain of val will be
-// inspected. The possible pattern is value from ConcatOp.
-
-std::string getDimParamForDimOp(Value val) {
-  auto dimOp = val.getDefiningOp<ONNXDimOp>();
-  if (dimOp) {
-    Value dataOfDim = dimOp.getData();
-    // Get the index of onnx.Dim
-    int64_t axis = dimOp.getAxis();
-    // return std::string(std::to_string(axis));
-    return getDimParamUtil(dataOfDim, axis);
-  }
-  return std::string("");
-}
-
-static std::string getDimParamForIndexedValueUtil(Value val, int64_t index) {
-  // Pattern#1: The value comes from Concat. The index can be used to trace back
-  // the particular input of Concat.
-  // Copy code from src/Dialect/ONNX/ONNXOps/Tensor/Reshape
-  if (areDimsFromConcat(val)) {
-    SmallVector<Value> shapeDimVals;
-    // Question: need to check the shape of input of Concat?
-    getDims(val, shapeDimVals);
-    return getDimParamForDimOp(shapeDimVals[index]);
-  }
-  return std::string("");
 }
 
 void IndexExprImpl::initAsQuestionmarkForIndexedValue(

@@ -244,7 +244,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
     return QuestionmarkIndexExpr(isFloat);
   else
     // Try to get more info from array[i]
-    return QuestionmarkIndexExpr(array, i, true);
+    return QuestionmarkIndexExpr(array, i);
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {
