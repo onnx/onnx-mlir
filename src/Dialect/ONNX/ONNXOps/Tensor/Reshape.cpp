@@ -161,9 +161,9 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
       IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);//dims[i];
       if (auto search = outputIgnoredDims.find(i);
           search != outputIgnoredDims.end())
-        // The outputIgnoreDims are dim with symbolic value matching a dim in data.
-        // Therefore, it can not be -1.
-        // The current folding of IndexExp can not propagate the dim_param info. 
+        // The outputIgnoreDims are dim with symbolic value matching a dim in
+        // data. Therefore, it can not be -1. The current folding of IndexExp
+        // can not propagate the dim_param info.
         outputDims[i] = dimShape;
       else
         outputDims[i] = outputDims[i].selectOrSelf(

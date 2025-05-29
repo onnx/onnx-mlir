@@ -163,7 +163,7 @@ std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
       resultString != "") {
     return resultString;
   } else if (std::string resultString =
-                getDimParamForIndexedValueUtil(tensorOrMemref, index);
+                 getDimParamForIndexedValueUtil(tensorOrMemref, index);
              resultString != "") {
     return resultString;
   } else {
