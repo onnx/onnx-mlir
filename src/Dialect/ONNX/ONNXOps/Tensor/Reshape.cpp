@@ -158,7 +158,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // should be -1 (represented as QuestionmarkIndexExpr)
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
-      IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);//dims[i];
+      IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
       if (auto search = outputIgnoredDims.find(i);
           search != outputIgnoredDims.end())
         // The outputIgnoreDims are dim with symbolic value matching a dim in
