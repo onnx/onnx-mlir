@@ -4028,8 +4028,8 @@ func.func @dim_params_1(%arg0: tensor<?x10xf32> {onnx.dim_params = "0:batch_size
   onnx.Return %1 : tensor<?x10xf32>
 // CHECK-LABEL:  func.func @dim_params_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}, [[PARAM_1_:%.+]]: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}) -> (tensor<?x10xf32> {onnx.name = "sum"}) {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) {onnx.dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) {onnx.out_dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?x10xf32>
 // CHECK:         }
 }
@@ -4042,7 +4042,7 @@ func.func @test_matmul_2_param(%arg0 : tensor<16x?x64x42xf32> {onnx.dim_params="
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func.func @test_matmul_2_param
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<16x?x64x42xf32> {onnx.dim_params = "1:dim1"}, [[PARAM_1_:%.+]]: tensor<42x?xf32> {onnx.dim_params = "1:dim2"}) -> tensor<16x?x64x?xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) {onnx.dim_params_0 = "1:dim1,3:dim2"} : (tensor<16x?x64x42xf32>, tensor<42x?xf32>) -> tensor<16x?x64x?xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "1:dim1,3:dim2"} : (tensor<16x?x64x42xf32>, tensor<42x?xf32>) -> tensor<16x?x64x?xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<16x?x64x?xf32>
 // CHECK:         }
 }

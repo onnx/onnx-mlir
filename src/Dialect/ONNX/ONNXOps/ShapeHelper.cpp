@@ -94,8 +94,8 @@ static void refineDimParams(
   if (dimParamsStr == "")
     return;
   StringAttr dimParamsAttr = StringAttr::get(op->getContext(), dimParamsStr);
-  op->setAttr(OP_DIM_PARAMS + std::to_string(resultIndex),
-      StringAttr(dimParamsAttr));
+  op->setAttr(
+      OP_DIM_PARAMS + std::to_string(resultIndex), StringAttr(dimParamsAttr));
 }
 
 /// Refine `inferredDims` using the output's shape if possible. For example,
@@ -441,21 +441,22 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // broadcasting for any reasons, hasNoBroadcast is set to false.
   bool hasNoBroadcast = true;
   for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
-    // Added code for dimparam: all input should have the same dynamic dim 
-    bool sameDyn = true;
+    // Check with dim_param info: if all input of this dimension has same
+    // dim_param, sameDyn will remain true, and further check of this dimension
+    // is no needed.
     DimsExpr dimsInput0 = inputsDims[0];
     if (dimsInput0[r].isQuestionmark() && dimsInput0[r].hasDimParam()) {
+      bool sameDyn = true;
       for (uint64_t i = 1; i < inputsDims.size(); i++) {
         DimsExpr dims = inputsDims[i];
-        if (!(dims[r].isQuestionmark() && dims[r].hasDimParam() && dimsInput0[r].getDimParam() == dims[r].getDimParam())) {
+        if (!(dims[r].isQuestionmark() && dims[r].hasDimParam() &&
+                dimsInput0[r].getDimParam() == dims[r].getDimParam())) {
           sameDyn = false;
         }
       }
+      if (sameDyn)
+        continue;
     }
-    // If this dimension has the same dynamic dim, no further analysis is needed
-    // to guarantee this dimesion has NO broadcast
-    if (sameDyn)
-      continue;
     bool hasOne, hasOtherThanOne;
     hasOne = hasOtherThanOne = false;
     for (DimsExpr dims : inputsDims) {

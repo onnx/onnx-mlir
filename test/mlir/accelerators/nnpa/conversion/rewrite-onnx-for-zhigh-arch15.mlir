@@ -242,10 +242,10 @@ func.func @test_nd_qlinearmatmul_nd_nd_not_rewriting(%arg0: tensor<?x?x384x64xf3
 
 // CHECK-LABEL:  func.func @test_nd_qlinearmatmul_nd_nd_not_rewriting
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x384x64xf32> {onnx.dim_params = "0:bs,1:sl"}, [[PARAM_1_:%.+]]: tensor<1x?x64x384xf32> {onnx.dim_params = "1:sl"}, [[PARAM_2_:%.+]]: tensor<f32>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<?x?x384x384xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, onnx.dim_params_0 = "0:bs,1:sl", saturate = 1 : si64} : (tensor<?x?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x64xi8>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.QuantizeLinear"([[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, onnx.dim_params_0 = "1:sl", saturate = 1 : si64} : (tensor<1x?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<1x?x64x384xi8>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.QLinearMatMul"([[VAR_0_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_3_]]) {onnx.dim_params_0 = "0:bs,1:sl"} : (tensor<?x?x384x64xi8>, tensor<f32>, tensor<i8>, tensor<1x?x64x384xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xi8>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.DequantizeLinear"([[VAR_2_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, onnx.dim_params_0 = "0:bs,1:sl"} : (tensor<?x?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, onnx.out_dim_params_0 = "0:bs,1:sl", saturate = 1 : si64} : (tensor<?x?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x64xi8>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.QuantizeLinear"([[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, onnx.out_dim_params_0 = "1:sl", saturate = 1 : si64} : (tensor<1x?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<1x?x64x384xi8>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.QLinearMatMul"([[VAR_0_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_3_]]) {onnx.out_dim_params_0 = "0:bs,1:sl"} : (tensor<?x?x384x64xi8>, tensor<f32>, tensor<i8>, tensor<1x?x64x384xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xi8>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.DequantizeLinear"([[VAR_2_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, onnx.out_dim_params_0 = "0:bs,1:sl"} : (tensor<?x?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xf32>
 // CHECK:           return [[VAR_3_]] : tensor<?x?x384x384xf32>
 // CHECK:         }
 }
