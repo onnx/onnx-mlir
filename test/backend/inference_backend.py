@@ -2145,6 +2145,13 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== MeanVarianceNormalization
+        # ==MIN== 13
+        "test_mvn_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Neg
         # ==MIN== 6
         "test_neg_example_cpu": {
