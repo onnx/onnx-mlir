@@ -239,7 +239,12 @@ IndexExpr IndexExprBuilder::getValFromArray(
     else
       return DimIE(castedVal);
   }
-  return QuestionmarkIndexExpr(isFloat);
+
+  if (isFloat)
+    return QuestionmarkIndexExpr(isFloat);
+  else
+    // Try to get more info from array[i]
+    return QuestionmarkIndexExpr(array, i);
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {

@@ -38,6 +38,10 @@
 
 namespace onnx_mlir {
 
+// Define the attribute name for onnx.dim_param and its propagation
+const std::string FUNC_DIM_PARAMS("onnx.dim_params");
+const std::string OP_DIM_PARAMS("onnx.out_dim_params_");
+
 //===----------------------------------------------------------------------===//
 // Support functions.
 //===----------------------------------------------------------------------===//

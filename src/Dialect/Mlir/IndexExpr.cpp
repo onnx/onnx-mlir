@@ -237,6 +237,8 @@ bool IndexExpr::hasAffineExpr() const { return getObj().hasAffineExpr(); }
 
 bool IndexExpr::hasValue() const { return getObj().hasValue(); }
 
+bool IndexExpr::hasDimParam() const { return getObj().hasDimParam(); }
+
 //===----------------------------------------------------------------------===//
 // IndexExpr list queries.
 //===----------------------------------------------------------------------===//
@@ -412,6 +414,8 @@ AffineExpr IndexExpr::getAffineExpr() const {
 }
 
 Value IndexExpr::getValue() const { return getObj().getValue(); }
+
+std::string IndexExpr::getDimParam() const { return getObj().getDimParam(); }
 
 void IndexExpr::getAffineMapAndOperands(
     AffineMap &map, SmallVectorImpl<Value> &operands) const {
