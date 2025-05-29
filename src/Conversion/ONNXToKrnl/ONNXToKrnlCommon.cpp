@@ -622,15 +622,15 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     IndexExpr tripCount = ub[i] - lb[i];
     if (!tripCount.isLiteral()) {
       // Got a dyn dim, assume will be large enough.
-      LVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
+      LLVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
       parDim = i;
       return true;
     }
     if (tripCount.getLiteral() >= minSize) {
       // Got a literal dim with large enough trip count.
-      LVM_DEBUG(llvm::dbgs()
-                << "Pick dim " << i << " as " << tripCount.getLiteral()
-                << " greater than " << minSize << "\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Pick dim " << i << " as " << tripCount.getLiteral()
+                 << " greater than " << minSize << "\n");
       parDim = i;
       return true;
     }

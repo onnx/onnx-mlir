@@ -148,6 +148,7 @@ private:
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
     if (enableParallel) {
+      fprintf(stderr, "hi alex, enable parallel in scalar transpose\n");
       int64_t parId;
       // TODO: consider flattening the outer dims, or along inner dims.
       if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
@@ -222,6 +223,7 @@ private:
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LitIE(0));
     if (enableParallel) {
+      fprintf(stderr, "hi alex, enable parallel in block transpose\n");
       int64_t parId;
       // Note that if there is only 1 dim, lastExclusiveDim is automatically
       // reduced to 1 in the findSuitableParallelDimension call.
@@ -233,6 +235,8 @@ private:
         onnxToKrnlParallelReport(
             op, false, -1, -1, "no dim with enough work in block transpose");
       }
+    } else {
+            fprintf(stderr, "hi alex, enable parallel off in block transpose\n");
     }
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
