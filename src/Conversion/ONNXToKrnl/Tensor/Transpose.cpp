@@ -15,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#include "src/Compiler/CompilerOptions.hpp" // hi alex
+
 #define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
@@ -77,9 +79,9 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     // make sure the block's elements are consecutive.
     //
     // Otherwise, do element-wise copying.
-
-    if (auto numLastDims =
-            unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr))
+    int numLastDims =
+        unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr);
+    if (numLastDims > 0)
       blockTranspose(
           op, data, alloc, permAttr, &create, numLastDims, enableParallel);
     else
@@ -141,6 +143,14 @@ private:
   void scalarTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create,
       bool enableParallel) const {
+
+    if (debugTestCompilerOpt) { // hi alex
+      fprintf(stderr, "use new optimization\n");
+      scalarTransposeIteratingOverOutputDims(
+          op, inputMemRef, outputMemRef, permAttr, create, enableParallel);
+      return;
+    }
+
     uint64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
@@ -163,7 +173,7 @@ private:
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
-          // Compute the indices used by the load operation.
+          // Compute the indices used by the store operation.
           SmallVector<IndexExpr, 4> storeIndices;
           for (uint64_t i = 0; i < rank; ++i) {
             Value index = indices[ArrayAttrIntVal(permAttr, i)];
@@ -171,6 +181,55 @@ private:
           }
           Value loadData = createKrnl.load(inputMemRef, indices);
           createKrnl.storeIE(loadData, outputMemRef, storeIndices);
+        });
+  }
+
+  void scalarTransposeIteratingOverOutputDims(Operation *op, Value inputMemRef,
+      Value outputMemRef, std::optional<ArrayAttr> permAttr, MDBuilder *create,
+      bool enableParallel) const {
+    int64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
+    ValueRange loopDef = create->krnl.defineLoops(rank);
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
+    SmallVector<IndexExpr, 4> ubs;
+    create->krnlIE.getShapeAsDims(outputMemRef, ubs);
+
+    if (enableParallel) {
+      fprintf(stderr, "hi alex, enable parallel in scalar output transpose \n");
+      int64_t parId;
+      // TODO: consider flattening the outer dims, or along inner dims.
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
+        create->krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], ubs[parId], "scalar transpose");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in scalar output transpose");
+      }
+    }
+
+    SmallVector<int64_t, 4> reversePermute;
+    for (int64_t o = 0; o < rank; ++o) {
+      int64_t inputIndex = -1;
+      for (int64_t i = 0; i < rank; ++i) {
+        if (ArrayAttrIntVal(permAttr, i) == o) {
+          // Found our input index
+          assert(inputIndex == -1 && "permutation must be a bijection (1)");
+          inputIndex = i;
+        }
+      }
+      assert(inputIndex != -1 && "permutation must be a bijection (2)");
+      reversePermute.emplace_back(inputIndex);
+    }
+    create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange storeIndices) {
+          // Compute the indices used by the load operation.
+          SmallVector<IndexExpr, 4> loadIndices;
+          for (int64_t o = 0; o < rank; ++o) {
+            Value index = storeIndices[reversePermute[o]];
+            loadIndices.emplace_back(DimIE(index));
+          }
+          Value loadData = createKrnl.loadIE(inputMemRef, loadIndices);
+          createKrnl.store(loadData, outputMemRef, storeIndices);
         });
   }
 
@@ -223,7 +282,9 @@ private:
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LitIE(0));
     if (enableParallel) {
-      fprintf(stderr, "hi alex, enable parallel in block transpose\n");
+      // Because we are doing block copying, there is no risk that the
+      // parallelized dimension result in systematic false sharing of the
+      // destination tensor. No precautions are needed here.
       int64_t parId;
       // Note that if there is only 1 dim, lastExclusiveDim is automatically
       // reduced to 1 in the findSuitableParallelDimension call.
@@ -235,8 +296,6 @@ private:
         onnxToKrnlParallelReport(
             op, false, -1, -1, "no dim with enough work in block transpose");
       }
-    } else {
-            fprintf(stderr, "hi alex, enable parallel off in block transpose\n");
     }
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
