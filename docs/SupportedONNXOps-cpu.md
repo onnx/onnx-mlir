@@ -29,7 +29,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
-| **Binarizer** |none | | | |
+| **Binarizer** |1 - * | | | |
 | **BitShift** |none | | | |
 | **BitwiseAnd** |18 - * | | |
 | **BitwiseNot** |18 - * | Only supports signed integers | | 
