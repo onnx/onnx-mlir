@@ -357,6 +357,7 @@ using ONNXAsinhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXAtanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXAtanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBernoulliOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXBinarizerOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBitwiseNotOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCastOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeilOpShapeHelper = ONNXUnaryOpShapeHelper;
