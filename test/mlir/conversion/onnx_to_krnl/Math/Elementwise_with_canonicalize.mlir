@@ -1684,6 +1684,7 @@ func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
 // CHECK:           return [[RES_]] : memref<64x128xf32>
 // CHECK:         }
 }
+
 // -----
 
 func.func private @test_meanvariancenormalization(%arg0 : tensor<2x4x3x10xf32>) -> tensor<*xf32> {
@@ -1740,5 +1741,28 @@ func.func private @test_meanvariancenormalization(%arg0 : tensor<2x4x3x10xf32>) 
 // CHECK:             krnl.store [[VAR_8_2_]], [[RES_4_]]{{.}}[[VAR_3_2_]]#0, [[VAR_3_2_]]#1, [[VAR_3_2_]]#2, [[VAR_3_2_]]#3] : memref<2x4x3x10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_4_]] : memref<2x4x3x10xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_binarizer(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Binarizer"(%arg0) {threshold = 1.0 : f32} : (tensor<64x128xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_binarizer
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<64x128xf32>) -> memref<64x128xf32> {
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<64x128xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 64, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 128){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
+// CHECK:             [[VAR_3_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[CST_1_dot_000000_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = arith.extui [[VAR_3_]] : i1 to i32
+// CHECK:             [[VAR_5_:%.+]] = arith.sitofp [[VAR_4_]] : i32 to f32
+// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<64x128xf32>
 // CHECK:         }
 }
