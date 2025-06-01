@@ -2611,7 +2611,45 @@ func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
 // CHECK:         }
 }
 
-// ----- 
+// -----
+
+func.func private @test_bitshift_right(%arg0 : tensor<128x512xui32>, %arg1 : tensor<128x512xui32>) -> tensor<*xui32> {
+  %0 = "onnx.BitShift"(%arg0, %arg1) {direction = "RIGHT"} : (tensor<128x512xui32>, tensor<128x512xui32>) -> tensor<*xui32>
+  "func.return"(%0) : (tensor<*xui32>) -> ()
+
+// CHECK-LABEL:  func.func private @test_bitshift_right
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128x512xui32>, [[PARAM_1_:%.+]]: memref<128x512xui32>) -> memref<128x512xui32> {
+// CHECK-DAG:       [[CST_65536_:%.+]] = arith.constant 65536 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128x512xui32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_65536_]], [[RES_1_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<128x512xui32>, memref<1xindex>) -> memref<65536xui32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_65536_]], [[RES_2_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_2_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<128x512xui32>, memref<1xindex>) -> memref<65536xui32>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_65536_]], [[RES_3_]][0] : memref<1xindex>
+// CHECK:           [[VAR_reshape_4_:%.+]] = memref.reshape [[RES_]]([[RES_]]_3) : (memref<128x512xui32>, memref<1xindex>) -> memref<65536xui32>
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:             [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 65536){
+// CHECK:               [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:           [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<65536xui32>, vector<32xui32>
+// CHECK-DAG:           [[LOAD_VAR_reshape_2_MEM_:%.+]] = vector.load [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<65536xui32>, vector<32xui32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_VAR_reshape_MEM_]] : vector<32xui32> to vector<32xi32>
+// CHECK-DAG:           [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_VAR_reshape_2_MEM_]] : vector<32xui32> to vector<32xi32>
+// CHECK:               [[VAR_6_:%.+]] = arith.shrui [[VAR_4_]], [[VAR_5_]] : vector<32xi32>
+// CHECK:               [[VAR_7_:%.+]] = builtin.unrealized_conversion_cast [[VAR_6_]] : vector<32xi32> to vector<32xui32>
+// CHECK:               vector.store [[VAR_7_]], [[VAR_reshape_4_]]{{.}}[[VAR_1_]]{{.}} : memref<65536xui32>, vector<32xui32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<128x512xui32>
+// CHECK:         }
+}
+
+// -----
 
 func.func private @test_meanvariancenormalization(%arg0 : tensor<2x4x3x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.MeanVarianceNormalization"(%arg0) {axes=[0,2,3]} : (tensor<2x4x3x10xf32>) -> tensor<*xf32>
