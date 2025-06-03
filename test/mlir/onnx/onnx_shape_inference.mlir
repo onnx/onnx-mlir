@@ -4024,3 +4024,16 @@ func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK:           return [[VAR_0_]] : tensor<?x10xf32>
 // CHECK:         }
 }
+
+func.func private @test_hammingwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.HammingWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+// CHECK-LABEL:  func.func private @test_hammingwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HammingWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+
+
