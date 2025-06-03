@@ -20,10 +20,10 @@ func.func private @test_hammingwindow(%arg0 : tensor<i32>) -> tensor<?xf32> {
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_1_]])){
 // CHECK:             [[VAR_4_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
 // CHECK:             [[VAR_5_:%.+]] = arith.index_cast [[VAR_4_]] : index to i64
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.sitofp [[VAR_5_]] : i64 to f32
-// CHECK-DAG:         [[VAR_7_:%.+]] = arith.sitofp [[VAR_2_]] : i32 to f32
-// CHECK:             [[VAR_8_:%.+]] = arith.mulf [[VAR_6_]], [[CST_6_dot_283185_]] : f32
-// CHECK:             [[VAR_9_:%.+]] = arith.divf [[VAR_8_]], [[VAR_7_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.sitofp [[VAR_5_]] : i64 to f32
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.mulf [[VAR_6_]], [[CST_6_dot_283185_]] : f32
+// CHECK-DAG:         [[VAR_8_:%.+]] = arith.sitofp [[VAR_2_]] : i32 to f32
+// CHECK:             [[VAR_9_:%.+]] = arith.divf [[VAR_7_]], [[VAR_8_]] : f32
 // CHECK:             [[VAR_10_:%.+]] = math.cos [[VAR_9_]] : f32
 // CHECK:             [[VAR_11_:%.+]] = arith.mulf [[VAR_10_]], [[CST_4_dot_565300_]] : f32
 // CHECK:             [[VAR_12_:%.+]] = arith.subf [[CST_5_dot_434700_]], [[VAR_11_]] : f32

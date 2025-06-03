@@ -40,6 +40,7 @@ struct ONNXHammingWindowOpLowering
         dyn_cast<ONNXHammingWindowOp>(op).getOutputDatatype());
     mlir::Type outType = convertONNXTypeToMLIRType(rewriter, onnxType);
 
+    // Formula = 0.54347 - 0.45653 * cos(2 * pi * i / (N - 1))
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, SCFBuilder,
         IndexExprBuilderForKrnl>
         create(rewriter, loc);
@@ -48,7 +49,7 @@ struct ONNXHammingWindowOpLowering
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     auto memRefType = cast<MemRefType>(convertedType);
 
-    // If periodic, size += 1
+    // If periodic, N += 1
     auto periodic = dyn_cast<ONNXHammingWindowOp>(op).getPeriodic();
     auto one = create.math.constant(rewriter.getI32Type(), 1);
     Value computesize =
@@ -63,10 +64,9 @@ struct ONNXHammingWindowOpLowering
     alloc = create.mem.alignedAlloc(memRefType, dynamicDimValues);
 
     // Constants used in the formula
-    // w_i = 0.54 - 0.46 * cos(2 * pi * i / (N - 1))
-    Value c0_54 = create.math.constant(outType, 0.54347f);
-    Value c0_46 = create.math.constant(outType, 0.45653f);
-    Value two_pi = create.math.constant(outType, 6.283185f); // 2 * pi
+    Value c0_54 = create.math.constant(outType, 0.54347);
+    Value c0_46 = create.math.constant(outType, 0.45653);
+    Value two_pi = create.math.constant(outType, 6.283185); // 2 * pi
 
     // denominator: N - 1
     Value denomF = create.math.sub(computesize, one);
@@ -78,13 +78,15 @@ struct ONNXHammingWindowOpLowering
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
           Value i = loopIVs[0];
           Value iFloat = create.math.cast(outType, i);
-          Value angle = create.math.div(create.math.mul(two_pi, iFloat),
-              create.math.cast(outType, denomF));
+          Value mulValue = create.math.mul(two_pi, iFloat);
+          Value castdemon = create.math.cast(outType, denomF);
+          Value angle = create.math.div(mulValue, castdemon);
           //  cos(2 * pi * i / (N - 1))
           Value cosApprox = create.math.cos(angle);
-          Value scaled = create.math.mul(c0_46, cosApprox); // 0.46 * cos(angle)
+          Value scaled =
+              create.math.mul(c0_46, cosApprox); // 0.45653 * cos(angle)
           Value w_i =
-              create.math.sub(c0_54, scaled); // 0.54 - 0.46 * cos(angle)
+              create.math.sub(c0_54, scaled); // 0.54347 - 0.45653 * cos(angle)
           create.krnl.store(w_i, alloc, {i});
         });
 
