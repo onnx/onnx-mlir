@@ -120,7 +120,7 @@ version_dict = {
     "Compress": [11],
     "Concat": [13],
     "ConcatFromSequence": [11],
-    "Constant": [19],
+    "Constant": [21],
     "ConstantOfShape": [20],
     "Conv": [22],
     "ConvInteger": [10],

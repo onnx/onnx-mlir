@@ -11,6 +11,7 @@
 #ifndef ONNX_MLIR_B_TYPE_H
 #define ONNX_MLIR_B_TYPE_H
 
+#include "src/Support/Int4.hpp"
 #include "src/Support/SmallFP.hpp"
 
 #include "mlir/IR/BuiltinTypes.h"
@@ -69,7 +70,12 @@ enum class BType : int8_t {
   FLOAT8E5M2FNUZ = 20,  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
   // clang-format on
 
-  MAX_BTYPE = 20 // TODO: update this if more types are added to the enum
+  // 4-bit integer data types
+  UINT4 = 21, // Unsigned integer in range [0, 15]
+  INT4 = 22,  // Signed integer in range [-8, 7], using two's-complement
+              // representation
+
+  MAX_BTYPE = 23 // TODO: update this if more types are added to the enum
 };
 
 constexpr int kNumBTypes = static_cast<int8_t>(BType::MAX_BTYPE) + 1;
@@ -104,13 +110,18 @@ struct BTypeTraitBase {
   static constexpr BType btype = BTYPE;
   static constexpr bool isFloat =
       std::is_floating_point_v<CPPTY> || isSmallFPType<CPPTY>;
-  static constexpr bool isInt = std::is_integral_v<CPPTY>;
+  static constexpr bool isInt =
+      std::is_integral_v<CPPTY> || std::numeric_limits<CPPTY>::is_integer;
   static constexpr bool isIntOrFloat = isInt || isFloat;
-  static constexpr bool isSignedInt = isInt && std::is_signed_v<CPPTY>;
-  static constexpr bool isUnsignedInt = isInt && !std::is_signed_v<CPPTY>;
+  static constexpr bool isSignedInt =
+      (isInt &&
+          (std::is_signed_v<CPPTY> || std::numeric_limits<CPPTY>::is_signed));
+  static constexpr bool isUnsignedInt = (isInt && !isSignedInt);
   static constexpr unsigned bytewidth = bytewidthOf<CPPTY>();
   static constexpr unsigned bitwidth =
-      std::is_same_v<CPPTY, bool> ? 1 : (CHAR_BIT * bytewidth);
+      std::is_same_v<CPPTY, bool>
+          ? 1
+          : (inAnyInt4Type<CPPTY> ? 4 : (CHAR_BIT * bytewidth));
   using cpptype = CPPTY;
   using widetype = std::conditional_t<isFloat, double,
       std::conditional_t<isSignedInt, int64_t, uint64_t>>;
@@ -130,6 +141,8 @@ struct CppTypeTrait : public detail::BTypeTraitBase<BType::UNDEFINED, CPPTY> {};
   struct CppTypeTrait<CPPTY> : public BTypeTrait<BTYPE> {}
 
 DEFINE_BTypeCppTypeTraits(BType::BOOL, bool);
+DEFINE_BTypeCppTypeTraits(BType::INT4, int_4);
+DEFINE_BTypeCppTypeTraits(BType::UINT4, uint_4);
 DEFINE_BTypeCppTypeTraits(BType::INT8, int8_t);
 DEFINE_BTypeCppTypeTraits(BType::UINT8, uint8_t);
 DEFINE_BTypeCppTypeTraits(BType::INT16, int16_t);
@@ -246,6 +259,8 @@ auto dispatchByBType(BType btype, Action &&act) {
   // clang-format off
   switch (btype) {
   case BType::BOOL           : return ACT(BType::BOOL);
+  case BType::INT4           : return ACT(BType::INT4);
+  case BType::UINT4          : return ACT(BType::UINT4);
   case BType::INT8           : return ACT(BType::INT8);
   case BType::UINT8          : return ACT(BType::UINT8);
   case BType::INT16          : return ACT(BType::INT16);

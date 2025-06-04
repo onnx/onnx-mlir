@@ -81,6 +81,7 @@ struct TransformValueToONNXData {
     // int32_data is used for:
     // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16,
     // float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz
+    // int4 and uint4 are packed, int32_data stores 2 int4s or uint4s.
     return tp.int32_data();
   }
 };
@@ -130,9 +131,11 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
-  return OnnxElementsAttrBuilder(ctx).fromArray<T>(
-      tensorType, [array, &transformation](MutableArrayRef<T> copy) {
-        std::transform(array.begin(), array.end(), copy.data(), transformation);
+  return OnnxElementsAttrBuilder(ctx).fromArray<T>(tensorType,
+      [array, &transformation, tensorType](MutableArrayRef<T> copy) {
+        for (int64_t idx = 0;
+             idx < cast<ShapedType>(tensorType).getNumElements(); ++idx)
+          transformation(array, copy, idx);
       });
 }
 
@@ -153,6 +156,12 @@ T swappedBytes(T x) {
     return llvm::sys::getSwappedBytes(x);
 }
 
+template <typename FromContainer, typename To, typename Transform>
+auto getRangeTransformer(Transform transform) {
+  return [transform](FromContainer data, MutableArrayRef<To> output,
+             size_t idx) { output[idx] = transform(data[idx]); };
+}
+
 template <typename T>
 ElementsAttr createElementsAttrFromMemoryBuffer_LE(
     RankedTensorType tensorType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
@@ -160,7 +169,8 @@ ElementsAttr createElementsAttrFromMemoryBuffer_LE(
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
   if constexpr (shouldSwapLEBytes<T>) {
     ArrayRef<T> array = asArrayRef<T>(membuf->getBuffer());
-    return createElmAttrFromArray<T>(tensorType, array, swappedBytes<T>);
+    return createElmAttrFromArray<T>(tensorType, array,
+        getRangeTransformer<ArrayRef<T>, T>(swappedBytes<T>));
   } else {
     return OnnxElementsAttrBuilder(ctx).fromMemoryBuffer(
         tensorType, std::move(membuf));
@@ -170,13 +180,22 @@ ElementsAttr createElementsAttrFromMemoryBuffer_LE(
 template <typename T>
 ElementsAttr createElmAttrFromRawBytes_LE(
     RankedTensorType tensorType, ArrayRef<char> bytes) {
+  if constexpr (inAnyInt4Type<T>) {
+    // two int4s are packed into one byte each
+    return createElmAttrFromArray<T>(tensorType, bytes,
+        [](ArrayRef<char> data, MutableArrayRef<T> output, size_t idx) {
+          const bool isEven = (idx % 2) == 0;
+          output[idx] = T::extractFromPacked(data[idx / 2], isEven);
+        });
+  }
   ArrayRef<T> array = castArrayRef<T>(bytes);
-  return createElmAttrFromArray<T>(tensorType, array, [](T x) {
-    if constexpr (shouldSwapLEBytes<T>)
-      return swappedBytes<T>(x);
-    else
-      return x;
-  });
+  return createElmAttrFromArray<T>(
+      tensorType, array, getRangeTransformer<ArrayRef<T>, T>([](T x) {
+        if constexpr (shouldSwapLEBytes<T>)
+          return swappedBytes<T>(x);
+        else
+          return x;
+      }));
 }
 
 // Converts to the cpp type 'To' that correspond's to the tensor element type
@@ -192,11 +211,24 @@ To deserializeDatum(const From &from) {
     return from;
 }
 
+template <typename To, typename From>
+void deserializeDatumRange(const google::protobuf::RepeatedField<From> &data,
+    MutableArrayRef<To> output, size_t idx) {
+  if constexpr (inAnyInt4Type<To>) {
+    const bool isEven = (idx % 2) == 0;
+    // int4 and uint4 are packed, each int32_data stores 2 int4s or uint4s.
+    output[idx] = To::extractFromPacked(data[idx / 2], /*isFirst*/ isEven);
+  } else {
+    output[idx] = deserializeDatum<To, From>(data[idx]);
+  }
+}
+
 template <typename T, typename U>
 ElementsAttr createElmAttrFromProtoData(RankedTensorType tensorType,
     const google::protobuf::RepeatedField<U> &data) {
   // "Deserialize" the data to the correct bitwidth.
-  return createElmAttrFromArray<T>(tensorType, data, deserializeDatum<T, U>);
+  return createElmAttrFromArray<T>(
+      tensorType, data, deserializeDatumRange<T, U>);
 }
 
 // Returns ElementsAttr with tp's data.
