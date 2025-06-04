@@ -96,27 +96,26 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     return t.getRank() == 0 || (t.getRank() == 1 && t.getDimSize(0) == 1);
   };
 
+  Value input = getX();
+  const auto inputTy = mlir::cast<ShapedType>(input.getType());
+
   Value scale = getXScale();
-  auto scaleTy = mlir::cast<ShapedType>(scale.getType());
-  if (scaleTy.hasRank() && scaleTy.getRank() > 1)
-    return emitOpError("x_scale must be a scalar or 1-D tensor");
-  int64_t scaleLen = nonScalar1DLen(scaleTy);
+  const auto scaleTy = mlir::cast<ShapedType>(scale.getType());
+  if (scaleTy.hasRank() && inputTy.hasRank() &&
+      scaleTy.getRank() != inputTy.getRank() && scaleTy.getRank() > 1)
+    return emitOpError("x_scale rank needs to be 0, 1 or match x rank");
+  const bool isScaleRankKnown = scaleTy.hasRank();
+  const bool isPerAxis = isScaleRankKnown && scaleTy.getRank() == 1 &&
+                         !scaleTy.isDynamicDim(0) && scaleTy.getDimSize(0) != 1;
+  const bool isBlock = isScaleRankKnown && scaleTy.getRank() > 1;
 
   Value zero = getXZeroPoint();
-  int64_t zeroLen = ShapedType::kDynamic;
   if (!isNoneValue(zero)) {
-    if (auto zeroTy = mlir::dyn_cast<RankedTensorType>(zero.getType())) {
-      if (zeroTy.getRank() > 1)
-        return emitOpError("x_zero_point must be a scalar or 1-D tensor");
-      zeroLen = nonScalar1DLen(zeroTy);
-      if (auto scaleTy = mlir::dyn_cast<RankedTensorType>(scale.getType())) {
-        if ((isScalar(scaleTy) && scaleLen != ShapedType::kDynamic) ||
-            (zeroLen != ShapedType::kDynamic && isScalar(zeroTy)) ||
-            (zeroLen != ShapedType::kDynamic &&
-                scaleLen != ShapedType::kDynamic && zeroLen != scaleLen))
-          return emitOpError(
-              "x_scale and x_zero_point must have the same shape");
-      }
+    const auto zeroTy = mlir::cast<ShapedType>(zero.getType());
+    if (zeroTy.hasRank() && scaleTy.hasRank() &&
+        (zeroTy.getRank() != scaleTy.getRank() ||
+            zeroTy.getShape() != scaleTy.getShape())) {
+      return emitOpError("x_zero_point must have the same shape as x_scale");
     }
 
     // TODO: Figure out whether to introduce a variant of this check from the
@@ -126,37 +125,35 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     // if (getElementType(getX().getType()) != getElementType(zero.getType()))
     //   return emitOpError("x and x_zero_point must have the same data type");
 
-    if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
+    if (getElementType(zero.getType()).isInteger(32) && zeroTy.hasRank() &&
+        zeroTy.getRank() != 0) {
       if (auto values = getElementAttributeFromONNXValue(zero)) {
         WideNum zero = WideNum::widen<BType::INT32>(0);
         if (!ElementsAttrBuilder::allEqual(values, zero))
           return emitOpError("x_zero_point must be 0 for data type int32");
       }
-  }
+    }
 
-  if (scaleLen == ShapedType::kDynamic && zeroLen == ShapedType::kDynamic) {
-    // Either x_scale or x_zero_point is scalar, so quantization is per-tensor /
-    // per layer and axis is ignored and there is nothing more to verify, or
-    // their 1-D rank is unknown and we cannot verify more until they are known.
-  } else {
-    // If x_scale or x_zero_point is a non-scalar 1-D tensor then quantization
-    // is per-axis.
-    int64_t d = scaleLen != ShapedType::kDynamic ? scaleLen : zeroLen;
-    if (auto xTy = mlir::dyn_cast<RankedTensorType>(getX().getType())) {
-      int64_t r = xTy.getRank();
-      // axis attribute must be in the range [-r,rShapedType::kDynamic].
-      int64_t a = getAxis();
-      if (a < -r || a >= r)
-        return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-            *this->getOperation(), "axis", a,
-            onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
-      if (a < 0)
-        a += r;
-      if (!xTy.isDynamicDim(a) && xTy.getDimSize(a) != d)
-        return emitOpError("x_scale and x_zero_point 1-D tensor length must "
-                           "match the input axis dim size");
-    } else {
-      // Cannot verify more until x rank is known.
+    if (isPerAxis) {
+      const int64_t d = scaleTy.getDimSize(0);
+      if (auto xTy = mlir::dyn_cast<RankedTensorType>(getX().getType())) {
+        int64_t r = xTy.getRank();
+        // axis attribute must be in the range [-r,rShapedType::kDynamic].
+        int64_t a = getAxis();
+        if (a < -r || a >= r)
+          return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+              *this->getOperation(), "axis", a,
+              onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
+        if (a < 0)
+          a += r;
+        if (!xTy.isDynamicDim(a) && xTy.getDimSize(a) != d)
+          return emitOpError("x_scale and x_zero_point 1-D tensor length must "
+                             "match the input axis dim size");
+      }
+    }
+
+    if (isBlock) {
+      // TODO: Add verifier for block dequantization.
     }
   }
 
