@@ -30,9 +30,8 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
 
   Value data = operandAdaptor.getData();
-  if (!hasShapeAndRank(data)) {
+  if (!hasShapeAndRank(data))
     return failure();
-  }
   int64_t rank = createIE->getShapedTypeRank(data);
 
   // Transposition which handles the default case of
@@ -70,6 +69,33 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
+
+LogicalResult ONNXTransposeOp::verify() {
+
+  Value data = getData();
+  if (!hasShapeAndRank(data))
+    return success();
+
+  int64_t rank = mlir::cast<ShapedType>(data.getType()).getRank();
+  auto permAttr = getPermAttr();
+
+  // No permute pattern, it becomes an inverse, its good.
+  if (!permAttr)
+    return success();
+  // Has a permute, make sure its good.
+  for (int64_t i = 0; i < rank; ++i) {
+    int64_t p = ArrayAttrIntVal(permAttr, i);
+    if (p < 0)
+      p += rank;
+    if (p < 0)
+      return emitOpError() << "Transpose op with too low a permute value (" << p
+                           << " at index " << i << ")";
+    if (p >= rank)
+      return emitOpError() << "Transpose op with too high a permute value ("
+                           << p << " at index " << i << ")";
+  }
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // Shape Inference
