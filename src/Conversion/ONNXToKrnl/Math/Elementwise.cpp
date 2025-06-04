@@ -2283,7 +2283,7 @@ struct ONNXElementwiseUnaryOpLowering
       bool simdOnly, canOverCompute = true;
       GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
       int64_t totVL =
-          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
+          computeSuitableSimdUnrollFactor(outputMemRefType, collapsedInnermostLoops,
               mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -2462,7 +2462,7 @@ struct ONNXElementwiseBinaryOpLowering
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
       GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
       int64_t totVL =
-          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
+          computeSuitableSimdUnrollFactor(outputMemRefType, collapsedInnermostLoops,
               mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == outputRank)
@@ -2638,7 +2638,7 @@ struct ONNXElementwiseVariadicOpLowering
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
       GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
       int64_t totVL =
-          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
+          computeSuitableSimdUnrollFactor(outputMemRefType, collapsedInnermostLoops,
               mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == outputRank)

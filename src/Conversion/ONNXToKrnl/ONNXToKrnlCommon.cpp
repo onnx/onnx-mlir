@@ -608,7 +608,7 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
 // which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
 // requirement by definition. If found one, it is parDim and the function
-// returns true.
+// returns true. Otherwise parDim is unchanged.
 
 bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
@@ -643,7 +643,7 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
 //===----------------------------------------------------------------------===//
 
 // New style.
-int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {
   // Default return values for no simd.
@@ -741,7 +741,7 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
   return archVL * unrollVL;
 }
 
-int64_t capVLForMaxUnroll(
+int64_t capVLForMaxSimdUnroll(
     MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL) {
   if (totVL == 1)
     return 1; // Simd already disabled, nothing to cap.
@@ -757,7 +757,7 @@ int64_t capVLForMaxUnroll(
   return archVL * unrollVL;
 }
 
-int64_t boostVLForMinUnroll(
+int64_t boostVLForMinSimdUnroll(
     MemRefType memRefType, MemRefType convertedMemRefType, int64_t totVL) {
   if (totVL == 1)
     return 1; // Simd already disabled, nothing to cap.
@@ -801,7 +801,7 @@ int64_t capVLForSimdOnly(
 }
 
 // Old style.
-int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
@@ -852,6 +852,28 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
     }
   }
   llvm_unreachable("should always find u==1 feasible");
+}
+
+//===----------------------------------------------------------------------===//
+// Support for unrolling without leftovers.
+//===----------------------------------------------------------------------===//
+
+int64_t getNoLeftoverUnrollFactor(IndexExpr &lb, IndexExpr &ub,
+    int64_t unrollFactor, int64_t &literalTripCount) {
+  IndexExpr tripCount = ub - lb;
+  // Consider only literal trip counts.
+  if (!tripCount.isLiteral())
+    return 1;
+  literalTripCount = tripCount.getLiteral();
+  for (int64_t u = unrollFactor; u > 1; --u) {
+    if (literalTripCount % u == 0) {
+      // Found a suitable unroll factor that divides the trip count without
+      // without leftovers.
+      return u;
+    }
+  }
+  // None found;
+  return 1;
 }
 
 //===----------------------------------------------------------------------===//
