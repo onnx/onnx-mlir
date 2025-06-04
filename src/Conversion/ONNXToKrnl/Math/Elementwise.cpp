@@ -368,6 +368,46 @@ struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
 };
+//===----------------------------------------------------------------------===//
+// Scalar binary ops for lowering ONNXBitShiftOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXBitShiftOp> {
+  using FOp = NotSuportedScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXBitShiftOp>(Type t, Operation *op) {
+  return {{GenericOps::ShiftGop, 1}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXBitShiftOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value input = scalarOperands[0];
+  Value shift = scalarOperands[1];
+
+  CheckIfCustomScalarOpIsSupported<ONNXBitShiftOp>(elementType);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+
+  // If the attribute "direction" is RIGHT, this operator moves its binary
+  // representation toward the right side so that the input value is effectively
+  // decreased. If the attribute "direction" is LEFT, bits of binary
+  // representation moves toward the left side, which results the increase of
+  // its actual value
+
+  StringRef direction = mlir::dyn_cast<ONNXBitShiftOp>(op).getDirection();
+
+  if (direction.equals_insensitive("LEFT")) {
+    return create.math.shli(input, shift);
+  }
+  if (direction.equals_insensitive("RIGHT")) {
+    return create.math.shri(input, shift);
+  }
+  llvm_unreachable("unsupported case for this particular op.");
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXGeluOp
@@ -1974,9 +2014,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
       mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXThresholdedReluOp,
       // Binary Op
-      mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
-      mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
-      mlir::ONNXPowOp,
+      mlir::ONNXBitShiftOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
+      mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp,
+      mlir::ONNXModOp, mlir::ONNXPowOp,
       // Variadic Op
       mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
       mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
@@ -2912,6 +2952,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXBinarizerOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitShiftOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseAndOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,

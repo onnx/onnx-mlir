@@ -444,6 +444,7 @@ OpsWithVerifier = [
     "Sub",
     "Sum",
     "TopK",
+    "Transpose",
     "Unique",
     "Upsample",
     "Where",

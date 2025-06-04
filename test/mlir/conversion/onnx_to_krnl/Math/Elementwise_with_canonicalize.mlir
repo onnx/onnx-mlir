@@ -1687,6 +1687,31 @@ func.func @test_mish(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func private @test_bitshift_left(%arg0 : tensor<128x512xui32>, %arg1 : tensor<128x512xui32>) -> tensor<*xui32> {
+  %0 = "onnx.BitShift"(%arg0, %arg1) {direction = "LEFT"} : (tensor<128x512xui32>, tensor<128x512xui32>) -> tensor<*xui32>
+  "func.return"(%0) : (tensor<*xui32>) -> ()
+
+// CHECK-LABEL:  func.func private @test_bitshift_left
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128x512xui32>, [[PARAM_1_:%.+]]: memref<128x512xui32>) -> memref<128x512xui32> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128x512xui32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 128, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 512){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<128x512xui32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<128x512xui32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_]] : ui32 to i32
+// CHECK-DAG:         [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_1_MEM_]] : ui32 to i32
+// CHECK:             [[VAR_6_:%.+]] = arith.shli [[VAR_4_]], [[VAR_5_]] : i32
+// CHECK:             [[VAR_7_:%.+]] = builtin.unrealized_conversion_cast [[VAR_6_]] : i32 to ui32
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<128x512xui32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<128x512xui32>
+// CHECK:         }
+}
+
+// -----
+
 func.func private @test_meanvariancenormalization(%arg0 : tensor<2x4x3x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.MeanVarianceNormalization"(%arg0) {axes=[0,2,3]} : (tensor<2x4x3x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
