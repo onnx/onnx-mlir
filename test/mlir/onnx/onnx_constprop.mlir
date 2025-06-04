@@ -2318,6 +2318,34 @@ func.func @test_constant_of_shape() -> tensor<3xi64> {
 
 // -----
 
+func.func @test_constant_of_shape_i4() -> tensor<3xi4> {
+  %0 = onnx.Constant dense<3> : tensor<1xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<-2> : tensor<1xi4>} : (tensor<1xi64>) -> tensor<3xi4>
+  "onnx.Return"(%1) : (tensor<3xi4>) -> ()
+
+// CHECK-LABEL:  func.func @test_constant_of_shape_i4
+// CHECK-SAME:   () -> tensor<3xi4> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<-2> : tensor<3xi4>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3xi4>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_constant_of_shape_ui4() -> tensor<3xui4> {
+  %0 = onnx.Constant dense<3> : tensor<1xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<2> : tensor<1xui4>} : (tensor<1xi64>) -> tensor<3xui4>
+  "onnx.Return"(%1) : (tensor<3xui4>) -> ()
+
+// CHECK-LABEL:  func.func @test_constant_of_shape_ui4
+// CHECK-SAME:   () -> tensor<3xui4> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<2> : tensor<3xui4>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3xui4>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_constant_of_shape_empty_tensor() -> tensor<f32> {
   %0 = onnx.Constant dense<> : tensor<0xi64>
   %1 = "onnx.ConstantOfShape"(%0) {value = dense<2.0> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
