@@ -15,9 +15,6 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-// hi alex
-#include "src/Compiler/CompilerOptions.hpp"
-
 #define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
@@ -86,13 +83,8 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
       blockTranspose(
           op, data, alloc, permAttr, &create, numLastDims, enableParallel);
     } else {
-      if (debugTestCompilerOpt) { // hi alex
-        scalarTransposeOverOutputs(
-            op, data, alloc, permAttr, &create, enableParallel);
-      } else {
-        scalarTransposeOverInputs(
-            op, data, alloc, permAttr, &create, enableParallel);
-      }
+      scalarTransposeOverOutputs(
+          op, data, alloc, permAttr, &create, enableParallel);
     }
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
@@ -147,7 +139,8 @@ private:
   }
 
   // Do transpose by copying elements one-by-one, iterating over the inputs.
-  // This scatter the outputs stores.
+  // This scatter the outputs stores. Not in use anymore as slower than
+  // scalarTransposeOverOutputs.
   void scalarTransposeOverInputs(Operation *op, Value inputMemRef,
       Value outputMemRef, std::optional<ArrayAttr> permAttr, MDBuilder *create,
       bool enableParallel) const {

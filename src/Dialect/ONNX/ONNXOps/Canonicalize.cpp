@@ -2345,7 +2345,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
   result.insert<FuseTransposeAndTanhPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
-  result.insert<HandleNegativePermutePatternInTranspose>(context); // hi alex
+  result.insert<HandleNegativePermutePatternInTranspose>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
