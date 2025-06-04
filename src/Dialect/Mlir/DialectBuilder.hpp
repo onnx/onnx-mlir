@@ -172,6 +172,9 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
   mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
 
+  mlir::Value shli(mlir::Value lhs, mlir::Value rhs) const; // B/Int only
+  mlir::Value shri(mlir::Value lhs, mlir::Value rhs) const; // B/Int only
+
   mlir::Value min(mlir::Value lhs, mlir::Value rhs) const; // B.
   mlir::Value max(mlir::Value lhs, mlir::Value rhs) const; // B.
 
