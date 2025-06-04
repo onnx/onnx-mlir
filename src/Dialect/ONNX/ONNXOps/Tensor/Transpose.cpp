@@ -33,7 +33,7 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   if (!hasShapeAndRank(data)) {
     return failure();
   }
-  auto rank = createIE->getShapedTypeRank(data);
+  int64_t rank = createIE->getShapedTypeRank(data);
 
   // Transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
@@ -42,7 +42,7 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
     auto builder = Builder(op->getContext());
-    for (int i = rank - 1; i >= 0; --i)
+    for (int64_t i = rank - 1; i >= 0; --i)
       defaultVals.emplace_back(i);
     // Set default attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
@@ -52,8 +52,12 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
 
   // Perform transposition according to perm attribute.
   DimsExpr transposedDims;
-  for (decltype(rank) i = 0; i < rank; ++i) {
+  for (int64_t i = 0; i < rank; ++i) {
     int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
+    if (inputIndex < 0)
+      inputIndex += rank;
+    assert(inputIndex >= 0 && inputIndex < rank &&
+           "transpose permute attribute out of bound");
     transposedDims.emplace_back(createIE->getShapeAsDim(data, inputIndex));
   }
 
