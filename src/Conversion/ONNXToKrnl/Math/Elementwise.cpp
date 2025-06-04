@@ -2351,9 +2351,9 @@ struct ONNXElementwiseUnaryOpLowering
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = true;
       GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
-      int64_t totVL =
-          computeSuitableSimdUnrollFactor(outputMemRefType, collapsedInnermostLoops,
-              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+      int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
+          collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+          simdOnly);
       if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             simdLoopStaticTripCount, "unary fully flattened");
@@ -2530,9 +2530,9 @@ struct ONNXElementwiseBinaryOpLowering
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
       GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
-      int64_t totVL =
-          computeSuitableSimdUnrollFactor(outputMemRefType, collapsedInnermostLoops,
-              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+      int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
+          collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+          simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -2706,9 +2706,9 @@ struct ONNXElementwiseVariadicOpLowering
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
       GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
-      int64_t totVL =
-          computeSuitableSimdUnrollFactor(outputMemRefType, collapsedInnermostLoops,
-              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+      int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
+          collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+          simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,

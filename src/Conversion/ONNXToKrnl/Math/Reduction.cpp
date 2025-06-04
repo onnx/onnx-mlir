@@ -816,9 +816,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // partial vectors.
           GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
           bool canOverCompute = false;
-          totVL =
-              computeSuitableSimdUnrollFactor(memRefInType, innermostLoopCollapse,
-                  mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+          totVL = computeSuitableSimdUnrollFactor(memRefInType,
+              innermostLoopCollapse, mix, canOverCompute,
+              simdLoopStaticTripCount, simdOnly);
           if (!hasHorizontalSimdSupport) {
             // When we don't have horizontal SIMD support, we use a code gen
             // scheme that relies on unrolling. So we don't want any unrollVL
