@@ -641,7 +641,7 @@ bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
 // size of the memref being collapsed for SIMD. simdLoopStaticTripCount:
 // provide an estimation of the SIMD loop trip count. If runtime, return -1;
 // if cannot simdize, return 0; otherwise, return that literal.
-int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount);
 
@@ -663,17 +663,17 @@ int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
 //
 // Now some SIMD scheme may allow to write past the last original loop
 // iterations; in this case we may ignore the simdOnly flag .
-int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &GenOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly);
 // Cap totVL so that it is at most maxUnrollVL * archVL.
-int64_t capVLForMaxUnroll(
+int64_t capVLForMaxSimdUnroll(
     mlir::MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL);
 // In some type conversion loops we may have a given totVL based on a given
 // memRef type and gen op mix. But the final result may be converted to a
 // different type, which may requires a minimum unroll to proceed as a single
 // SIMD operation. This call adjust the totVL for that case.
-int64_t boostVLForMinUnroll(mlir::MemRefType memRefType,
+int64_t boostVLForMinSimdUnroll(mlir::MemRefType memRefType,
     mlir::MemRefType convertedMemRefType, int64_t totVL);
 // Enabling a simdOnly code generation scheme by capping totVL so that it
 // divides simdLoopStaticTripCount. When not possible (either because
@@ -681,6 +681,13 @@ int64_t boostVLForMinUnroll(mlir::MemRefType memRefType,
 // runtime only), then disable SIMD by returning totVL = 1.
 int64_t capVLForSimdOnly(mlir::MemRefType memRefType, int64_t totVL,
     int64_t simdLoopStaticTripCount);
+
+// Unrelated to SIMD: find the largest unroll factor that divides the trip count
+// (lb -ub). When the trip count is not a compile time constant, return 1. When
+// no unroll factor can divide the trip count, also return 1.
+// literalTripCount is set when trip count is compile time constant.
+int64_t getNoLeftoverUnrollFactor(IndexExpr &lb, IndexExpr &ub,
+    int64_t unrollFactor, int64_t &literalTripCount);
 
 //===----------------------------------------------------------------------===//
 // Support functions for reporting.
