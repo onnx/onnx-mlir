@@ -234,7 +234,7 @@ if (NOT BUILD_SHARED_LIBS)
 endif()
 
 pybind11_add_module(PyCompile PyOMCompileSession.cpp)
-add_dependencies(PyCompile onnx_proto)
+add_dependencies(PyCompile onnx)
 target_compile_options(PyCompile
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
