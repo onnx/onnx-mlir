@@ -77,14 +77,15 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     // make sure the block's elements are consecutive.
     //
     // Otherwise, do element-wise copying.
-
-    if (auto numLastDims =
-            unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr))
+    int numLastDims =
+        unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr);
+    if (numLastDims > 0) {
       blockTranspose(
           op, data, alloc, permAttr, &create, numLastDims, enableParallel);
-    else
-      scalarTranspose(op, data, alloc, permAttr, &create, enableParallel);
-
+    } else {
+      scalarTransposeOverOutputs(
+          op, data, alloc, permAttr, &create, enableParallel);
+    }
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
     return success();
@@ -137,10 +138,13 @@ private:
     return numberOfUnchangedInnerDims;
   }
 
-  // Do transpose by copying elements one-by-one.
-  void scalarTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
-      std::optional<ArrayAttr> permAttr, MDBuilder *create,
+  // Do transpose by copying elements one-by-one, iterating over the inputs.
+  // This scatter the outputs stores. Not in use anymore as slower than
+  // scalarTransposeOverOutputs.
+  void scalarTransposeOverInputs(Operation *op, Value inputMemRef,
+      Value outputMemRef, std::optional<ArrayAttr> permAttr, MDBuilder *create,
       bool enableParallel) const {
+
     uint64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
@@ -161,15 +165,102 @@ private:
     }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
-          // Compute the indices used by the load operation.
+        [&](const KrnlBuilder &createKrnl, ValueRange loadIndices) {
+          // Compute the loadIndices used by the store operation.
           SmallVector<IndexExpr, 4> storeIndices;
           for (uint64_t i = 0; i < rank; ++i) {
-            Value index = indices[ArrayAttrIntVal(permAttr, i)];
+            Value index = loadIndices[ArrayAttrIntVal(permAttr, i)];
             storeIndices.emplace_back(DimIE(index));
           }
-          Value loadData = createKrnl.load(inputMemRef, indices);
+          Value loadData = createKrnl.load(inputMemRef, loadIndices);
           createKrnl.storeIE(loadData, outputMemRef, storeIndices);
+        });
+  }
+
+  // Scalar transpose where we iterates over the ouput, scatter the loads.
+  void scalarTransposeOverOutputs(Operation *op, Value inputMemRef,
+      Value outputMemRef, std::optional<ArrayAttr> permAttr, MDBuilder *create,
+      bool enableParallel) const {
+    int64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
+    ValueRange loopDef = create->krnl.defineLoops(rank);
+    SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
+    SmallVector<IndexExpr, 4> ubs;
+    create->krnlIE.getShapeAsDims(outputMemRef, ubs);
+
+    int64_t parId = -1;
+    if (enableParallel) {
+      // TODO: consider flattening the outer dims, or along inner dims.
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
+        create->krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], ubs[parId], "scalar transpose");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in scalar output transpose");
+      }
+    }
+    // Compute the reverse permute pattern, so that we know what the inputs
+    // indices should be given the output indices.
+    SmallVector<int64_t, 4> reversePermute;
+    for (int64_t o = 0; o < rank; ++o) {
+      int64_t inputIndex = -1;
+      for (int64_t i = 0; i < rank; ++i) {
+        if (ArrayAttrIntVal(permAttr, i) == o) {
+          // Found our input index
+          assert(inputIndex == -1 && "permutation must be a bijection (1)");
+          inputIndex = i;
+        }
+      }
+      assert(inputIndex != -1 && "permutation must be a bijection (2)");
+      reversePermute.emplace_back(inputIndex);
+    }
+
+    // Test for easy unrolling for the innermost store dimension.
+    const int64_t unroll = 8;
+    int64_t uDim = rank - 1;
+    if (parId < uDim) {
+      int64_t tripCount;
+      int64_t u =
+          getNoLeftoverUnrollFactor(lbs[uDim], ubs[uDim], unroll, tripCount);
+      if (u > 1) {
+        // We can easily unroll: save original lb and ub of the unroll dim.
+        IndexExpr lb = lbs[uDim];
+        // Reorganize lb/ub of last dim to be from 0 .. tripCount / u;
+        lbs[uDim] = LitIE(0);
+        ubs[uDim] = LitIE(tripCount / u);
+        // Iterate over blocked innermost loop.
+        create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+            [&](const KrnlBuilder &createKrnl, ValueRange indices) {
+              IndexExprScope innerScope(createKrnl);
+              SmallVector<IndexExpr, 4> storeIndices = SymListIE(indices);
+              // Reconstitute the original index as "lb + u * index".
+              IndexExpr uIndex = storeIndices[uDim] * u;
+              uIndex = SymIE(lb) + uIndex;
+              // Fully unrolled loop.
+              for (int i = 0; i < u; ++i) {
+                // And add the current unroll amount (0.. u-1).
+                storeIndices[uDim] = uIndex + LitIE(i);
+                // Compute the indices used by the load operation.
+                SmallVector<IndexExpr, 4> loadIndices;
+                for (int64_t o = 0; o < rank; ++o)
+                  loadIndices.emplace_back(storeIndices[reversePermute[o]]);
+                Value loadData = createKrnl.loadIE(inputMemRef, loadIndices);
+                createKrnl.storeIE(loadData, outputMemRef, storeIndices);
+              }
+            });
+        return;
+      }
+    }
+
+    // Default without unrolling.
+    create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange storeIndices) {
+          // Compute the indices used by the load operation.
+          SmallVector<Value, 4> loadIndices;
+          for (int64_t o = 0; o < rank; ++o)
+            loadIndices.emplace_back(storeIndices[reversePermute[o]]);
+          Value loadData = createKrnl.load(inputMemRef, loadIndices);
+          createKrnl.store(loadData, outputMemRef, storeIndices);
         });
   }
 
@@ -222,6 +313,9 @@ private:
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LitIE(0));
     if (enableParallel) {
+      // Because we are doing block copying, there is no risk that the
+      // parallelized dimension result in systematic false sharing of the
+      // destination tensor. No precautions are needed here.
       int64_t parId;
       // Note that if there is only 1 dim, lastExclusiveDim is automatically
       // reduced to 1 in the findSuitableParallelDimension call.
