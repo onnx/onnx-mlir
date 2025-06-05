@@ -359,6 +359,12 @@ Value MathBuilder::clip(Value val, Value lb, Value ub) const {
   return min(val, ub); // Clip upper range.
 }
 
+Value MathBuilder::cos(Value val) const {
+  if (isScalarOrVectorFloat(val))
+    return b().create<math::CosOp>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");

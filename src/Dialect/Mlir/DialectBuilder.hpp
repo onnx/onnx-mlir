@@ -128,6 +128,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value ceil(mlir::Value val) const;                     // Float only.
   mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
   mlir::Value clip(mlir::Value val, mlir::Value lb, mlir::Value ub) const; // B.
+  mlir::Value cos(mlir::Value val) const;
   mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // B/Float only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;      // B.
   mlir::Value erf(mlir::Value val) const;
