@@ -432,7 +432,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   int64_t simdLoopStaticTripCount;
   bool simdOnly, canOverCompute = false;
   int64_t totVL =
-      computeSuitableUnrollFactor(inputType, collapsedInnermostLoops, mix,
+      computeSuitableSimdUnrollFactor(inputType, collapsedInnermostLoops, mix,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Test if loop trip count is long enough for a parallel execution.
   if (enableParallel) {
@@ -816,14 +816,14 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // partial vectors.
           GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
           bool canOverCompute = false;
-          totVL =
-              computeSuitableUnrollFactor(memRefInType, innermostLoopCollapse,
-                  mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+          totVL = computeSuitableSimdUnrollFactor(memRefInType,
+              innermostLoopCollapse, mix, canOverCompute,
+              simdLoopStaticTripCount, simdOnly);
           if (!hasHorizontalSimdSupport) {
             // When we don't have horizontal SIMD support, we use a code gen
             // scheme that relies on unrolling. So we don't want any unrollVL
             // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
-            totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
+            totVL = capVLForMaxSimdUnroll(memRefInType, totVL, 1);
           }
 #if REDUCTION_MULTIPLE_OF_VL_ONLY
           // Currently fails with krnl to affine without this. Should

@@ -358,6 +358,46 @@ struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
 };
+//===----------------------------------------------------------------------===//
+// Scalar binary ops for lowering ONNXBitShiftOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXBitShiftOp> {
+  using FOp = NotSuportedScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXBitShiftOp>(Type t, Operation *op) {
+  return {{GenericOps::ShiftGop, 1}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXBitShiftOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value input = scalarOperands[0];
+  Value shift = scalarOperands[1];
+
+  CheckIfCustomScalarOpIsSupported<ONNXBitShiftOp>(elementType);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+
+  // If the attribute "direction" is RIGHT, this operator moves its binary
+  // representation toward the right side so that the input value is effectively
+  // decreased. If the attribute "direction" is LEFT, bits of binary
+  // representation moves toward the left side, which results the increase of
+  // its actual value
+
+  StringRef direction = mlir::dyn_cast<ONNXBitShiftOp>(op).getDirection();
+
+  if (direction.equals_insensitive("LEFT")) {
+    return create.math.shli(input, shift);
+  }
+  if (direction.equals_insensitive("RIGHT")) {
+    return create.math.shri(input, shift);
+  }
+  llvm_unreachable("unsupported case for this particular op.");
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXGeluOp
@@ -495,6 +535,35 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
   // TODO: currently don't support String to * or * to String
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   return create.math.cast(elementType, scalarOperands[0]);
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXBinarizerOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXBinarizerOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXBinarizerOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::ConversionGop, 1}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXBinarizerOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXBinarizerOp: If x > threshold ? 1 : 0;
+  CheckIfCustomScalarOpIsSupported<ONNXBinarizerOp>(elementType);
+  Value operand = scalarOperands[0];
+  double thresholdLit =
+      mlir::dyn_cast<ONNXBinarizerOp>(op).getThreshold().convertToFloat();
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value threshold = create.math.constant(elementType, thresholdLit);
+  Value isGreaterThanThreshold = create.math.sgt(operand, threshold);
+  return create.math.cast(elementType, isGreaterThanThreshold);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1947,23 +2016,23 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
 
   return enqueueFusibleOp<
       // Unary Op
-      mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp, mlir::ONNXCeilOp,
-      mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
-      mlir::ONNXCeluOp, mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp,
-      mlir::ONNXAcoshOp, mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp,
-      mlir::ONNXExpOp, mlir::ONNXFloorOp, mlir::ONNXGeluOp,
-      mlir::ONNXBitwiseNotOp, mlir::ONNXHardSigmoidOp, mlir::ONNXHardSwishOp,
-      mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp,
-      mlir::ONNXLogOp, mlir::ONNXMishOp, mlir::ONNXNegOp, mlir::ONNXNotOp,
-      mlir::ONNXReciprocalOp, mlir::ONNXReluOp, mlir::ONNXRoundOp,
-      mlir::ONNXSeluOp, mlir::ONNXShrinkOp, mlir::ONNXSigmoidOp,
-      mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp, mlir::ONNXSoftplusOp,
-      mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp,
-      mlir::ONNXThresholdedReluOp,
+      mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXBinarizerOp,
+      mlir::ONNXCastOp, mlir::ONNXCeilOp, mlir::ONNXCosOp, mlir::ONNXCoshOp,
+      mlir::ONNXDequantizeLinearOp, mlir::ONNXCeluOp, mlir::ONNXEluOp,
+      mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp, mlir::ONNXAsinOp,
+      mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp, mlir::ONNXFloorOp,
+      mlir::ONNXGeluOp, mlir::ONNXBitwiseNotOp, mlir::ONNXHardSigmoidOp,
+      mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp,
+      mlir::ONNXLeakyReluOp, mlir::ONNXLogOp, mlir::ONNXMishOp, mlir::ONNXNegOp,
+      mlir::ONNXNotOp, mlir::ONNXReciprocalOp, mlir::ONNXReluOp,
+      mlir::ONNXRoundOp, mlir::ONNXSeluOp, mlir::ONNXShrinkOp,
+      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
+      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXThresholdedReluOp,
       // Binary Op
-      mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
-      mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
-      mlir::ONNXPowOp,
+      mlir::ONNXBitShiftOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
+      mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp,
+      mlir::ONNXModOp, mlir::ONNXPowOp,
       // Variadic Op
       mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
       mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
@@ -2298,9 +2367,9 @@ struct ONNXElementwiseUnaryOpLowering
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = true;
       GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
-      int64_t totVL =
-          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
-              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+      int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
+          collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+          simdOnly);
       if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             simdLoopStaticTripCount, "unary fully flattened");
@@ -2477,9 +2546,9 @@ struct ONNXElementwiseBinaryOpLowering
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
       GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
-      int64_t totVL =
-          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
-              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+      int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
+          collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+          simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -2653,9 +2722,9 @@ struct ONNXElementwiseVariadicOpLowering
       int64_t simdLoopStaticTripCount;
       bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
       GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
-      int64_t totVL =
-          computeSuitableUnrollFactor(outputMemRefType, collapsedInnermostLoops,
-              mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+      int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
+          collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+          simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -2898,6 +2967,8 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXBinarizerOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitShiftOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseAndOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,

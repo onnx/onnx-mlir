@@ -29,8 +29,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
-| **Binarizer** |none | | | |
-| **BitShift** |none | | | |
+| **Binarizer** |1 - * | | | |
+| **BitShift** |11 - * | | | |
 | **BitwiseAnd** |18 - * | | |
 | **BitwiseNot** |18 - * | Only supports signed integers | | 
 | **BitwiseOr** |18 - * | | |
@@ -112,7 +112,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Log** |6 - * | | |
 | **LogSoftmax** |13 - * |Axis 0, 1, and default currently disabled due to changes in ONNX 1.8.1/Opset 13. |Temporally removed due to changes in onnx 1.8.1. |
 | **Loop** |6 - * |Input must have static shape. Does not support int4 and uint4. | |
-| **LpNormalization** |none | | | |
+| **LpNormalization** |1 - * | | | |
 | **LpPool** |none | | | |
 | **MatMul** |6 - * | | |
 | **MatMulInteger** |10 - * | | |
@@ -121,7 +121,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **MaxRoiPool** |none | | | |
 | **MaxUnpool** |none | | | |
 | **Mean** |6 - * | | |
-| **MeanVarianceNormalization** |none | | | |
+| **MeanVarianceNormalization** |9 - * | | | |
 | **MelWeightMatrix** |none | | | |
 | **Min** |6 - * |Does not support unsigned numbers. Only ppc64le and MacOS platforms support float16. | |
 | **Mish** |18 - * | | | |

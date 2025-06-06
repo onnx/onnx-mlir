@@ -545,6 +545,40 @@ Value MathBuilder::ule(Value lhs, Value rhs) const {
   llvm_unreachable("expected unsigned int");
 }
 
+Value MathBuilder::shli(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isScalarOrVectorInteger(lhs)) {
+    Type elemType = elementTypeOfScalarOrVector(lhs);
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castShift = b().create<arith::ShLIOp>(loc(), castLhs, castRhs);
+      return castToUnsigned(castShift, elemWidth);
+    } else
+      return b().create<arith::ShLIOp>(loc(), lhs, rhs);
+  }
+  llvm_unreachable("expected int");
+}
+
+Value MathBuilder::shri(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isScalarOrVectorInteger(lhs)) {
+    Type elemType = elementTypeOfScalarOrVector(lhs);
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castShift = b().create<arith::ShRUIOp>(loc(), castLhs, castRhs);
+      return castToUnsigned(castShift, elemWidth);
+    } else
+      return b().create<arith::ShRSIOp>(loc(), lhs, rhs);
+  }
+  llvm_unreachable("expected int");
+}
+
 Value MathBuilder::gt(Value lhs, Value rhs) const {
   splatToMatch(lhs, rhs);
   if (isScalarOrVectorUnsignedInteger(lhs))

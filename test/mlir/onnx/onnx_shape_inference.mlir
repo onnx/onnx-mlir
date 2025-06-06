@@ -4009,3 +4009,18 @@ func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
 // CHECK:         }
   return %0 : tensor<*xf32>
 }
+
+// -----
+
+// Test Binarizer Sample
+
+func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Binarizer"(%arg0) {threshold = 1.0 : f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_binarizer
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Binarizer"([[PARAM_0_]]) {threshold = 1.000000e+00 : f32} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x10xf32>
+// CHECK:         }
+}

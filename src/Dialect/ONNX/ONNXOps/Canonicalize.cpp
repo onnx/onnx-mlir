@@ -1974,6 +1974,60 @@ struct RemoveGroupNormPattern2
 };
 
 // =============================================================================
+// Rewrite pattern for ONNXTransposeOp
+// =============================================================================
+
+// Handle negative permute pattern here as they are used in many many places.
+// Added also the default where no permute is given.
+// Still had to also handle them in shape inference
+class HandleNegativePermutePatternInTranspose
+    : public OpRewritePattern<ONNXTransposeOp> {
+public:
+  using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXTransposeOp onnxTransposeOp,
+      PatternRewriter &rewriter) const override {
+    Location loc = onnxTransposeOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+
+    Value data = onnxTransposeOp.getData();
+    if (!hasShapeAndRank(data))
+      return failure();
+    // Get rank and permutation attribute, if any.
+    int64_t rank = mlir::cast<ShapedType>(data.getType()).getRank();
+    auto permAttr = onnxTransposeOp.getPermAttr();
+
+    if (!permAttr) {
+      // No Permute, default to reverse order.
+      SmallVector<int64_t, 4> defaultPerm;
+      for (int64_t i = rank - 1; i >= 0; --i)
+        defaultPerm.emplace_back(i);
+      Value res = create.transposeInt64(data, defaultPerm);
+      rewriter.replaceOp(onnxTransposeOp, res);
+      return success();
+    }
+
+    bool hasNegativePermVal = false;
+    SmallVector<int64_t, 4> newPerm;
+    for (int64_t i = 0; i < rank; ++i) {
+      int64_t p = ArrayAttrIntVal(permAttr, i);
+      if (p < 0) {
+        hasNegativePermVal = true;
+        p += rank;
+      }
+      newPerm.emplace_back(p);
+    }
+    // No negative value, no need to canonicalize.
+    if (!hasNegativePermVal)
+      return failure();
+    // Had a negative number, replace the transpose.
+    Value res = create.transposeInt64(data, newPerm);
+    rewriter.replaceOp(onnxTransposeOp, res);
+    return success();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -2291,6 +2345,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
   result.insert<FuseTransposeAndTanhPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
+  result.insert<HandleNegativePermutePatternInTranspose>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
