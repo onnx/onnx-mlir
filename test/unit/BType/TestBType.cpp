@@ -104,10 +104,10 @@ public:
     assert((std::is_same_v<CppType<dbuint4>, uint_4>));
 
     constexpr WideNum n = WideNum::from(toBType<int_4>, true);
-    assert(n.i64 == 1.0);
+    assert(n.i64 == 1);
 
     constexpr WideNum nu = WideNum::from(toBType<uint_4>, true);
-    assert(nu.u64 == 1.0);
+    assert(nu.u64 == 1);
 
     return 0;
   }
