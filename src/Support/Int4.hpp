@@ -54,7 +54,7 @@ protected:
 } // namespace detail
 
 template <class T>
-constexpr bool inAnyInt4Type = std::is_base_of_v<detail::Int4Base<T>, T>;
+constexpr bool isAnyInt4Type = std::is_base_of_v<detail::Int4Base<T>, T>;
 
 class int_4 : public detail::Int4Base<int_4> {
   using Base = detail::Int4Base<int_4>;

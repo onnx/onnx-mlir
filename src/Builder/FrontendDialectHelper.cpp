@@ -180,7 +180,7 @@ ElementsAttr createElementsAttrFromMemoryBuffer_LE(
 template <typename T>
 ElementsAttr createElmAttrFromRawBytes_LE(
     RankedTensorType tensorType, ArrayRef<char> bytes) {
-  if constexpr (inAnyInt4Type<T>) {
+  if constexpr (isAnyInt4Type<T>) {
     // two int4s are packed into one byte each
     return createElmAttrFromArray<T>(tensorType, bytes,
         [](ArrayRef<char> data, MutableArrayRef<T> output, size_t idx) {
@@ -214,7 +214,7 @@ To deserializeDatum(const From &from) {
 template <typename To, typename From>
 void deserializeDatumRange(const google::protobuf::RepeatedField<From> &data,
     MutableArrayRef<To> output, size_t idx) {
-  if constexpr (inAnyInt4Type<To>) {
+  if constexpr (isAnyInt4Type<To>) {
     const bool isEven = (idx % 2) == 0;
     // int4 and uint4 are packed, each int32_data stores 2 int4s or uint4s.
     output[idx] = To::extractFromPacked(data[idx / 2], /*isFirst*/ isEven);

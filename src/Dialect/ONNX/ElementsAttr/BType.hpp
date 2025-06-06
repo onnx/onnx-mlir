@@ -121,7 +121,7 @@ struct BTypeTraitBase {
   static constexpr unsigned bitwidth =
       std::is_same_v<CPPTY, bool>
           ? 1
-          : (inAnyInt4Type<CPPTY> ? 4 : (CHAR_BIT * bytewidth));
+          : (isAnyInt4Type<CPPTY> ? 4 : (CHAR_BIT * bytewidth));
   using cpptype = CPPTY;
   using widetype = std::conditional_t<isFloat, double,
       std::conditional_t<isSignedInt, int64_t, uint64_t>>;
