@@ -61,11 +61,13 @@ class int_4 : public detail::Int4Base<int_4> {
 
 public:
   using Base::Int4Base;
+
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, int_4>>>
   explicit int_4(T value) {
     auto expanded = static_cast<int64_t>(value);
     ui = expanded & 0x0F;
   }
+
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, int_4>>>
   explicit operator T() const {
     if (ui & 0x08) {
