@@ -30,8 +30,8 @@ public:
 
   /// Extracts the 4-bit integer from a packed representation.
   /// The packed representation is expected to be packed in the LSB byte in the
-  /// integer T. If `isFirst` is true, it extracts the MSB 4 bits; otherwise,
-  /// it extracts the LSB 4 bits from this byte.
+  /// integer T. If `isFirst` is true, it extracts the LSB 4 bits; otherwise,
+  /// it extracts the MSB 4 bits from this byte.
   template <typename T, typename U = std::enable_if_t<std::is_integral_v<T>>>
   static constexpr IT extractFromPacked(T packed, bool isFirst) {
     IT result;
