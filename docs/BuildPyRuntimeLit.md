@@ -2,20 +2,19 @@
 
 ## Purpsoe
 
-PyRuntime lit is a different way to build the original PyRuntime (src/Runtime/python).
-All necessary dependence, such as llvm_project and onnx-mlir compiler is removed. The purpose is to easily build the python driver for the model execution on 
-different systems. Currently, only the OMTenserUtils (src/Runtime), Python driver (src/Runtime/python), third_party/onnx and third_party/pybind11 are built.
-
+onnx-mlir compiler can compile an ONNX model into a shared library (.so), and also provide a python driver to run the generated shared library through python code. That is PyRuntimeC. Originally, the PyRuntimeC is built with the onnx-mlir compiler, and consequently need the build of llvm_project. The PyRuntimeC lit is a different way to build the python d PyRuntime (src/Runtime/python) that does not need to
+build llvm_project or onnx-mlir compiler. The purpose is to easily build the python driver for the model execution on different systems. The compilation can be done either with a local compiler, or with compiler container image through docker or podman package.
+Currently, only the OMTenserUtils (src/Runtime), Python driver (src/Runtime/python), third_party/onnx and third_party/pybind11 are built.
 The build of PyRuntime lit is controlled by a CMake option: ONNX_MLIR_ENABLE_PYRUNTIME_LIT. Without this option to cmake, the whole system remains the same.
 
-## Functionalities
-1. Build the python driver without llvm_project and onnx-mlir compiler built.
-2. The python driver can be used with utils/RunONNXModel.py, or onnxmlir python package.
-3. With PyRuntime lit, the compiler has not been built locally and docker image of onnx-mlir has to be usd to compile the model. The onnxmlir package contains
-the python code to use python docker package to perform the compilation. Alternatively, the old script, onnx-mlir/docker/onnx-mlir.py, can do the fulfill the same task with subprocess and docker CLI.
-
 ## How to use
-You can find the script for build and run at "onnx-mlir/utils/build-pyruntime-lit.sh.
+First, you need to create a python virtual env to be able to install python package, depending on the setup on your machine. For example,
+```
+python -m venv path/to/store/your/venv
+. path/to/store/your/venv/bin/activate
+```
+You can find the script to set up and run test  at "onnx-mlir/utils/build-pyruntime-lit.sh.
+
 ```
 #!/bin/bash
 
@@ -29,11 +28,25 @@ make OMCreatePyRuntimePackage
 
 # Install the package
 pip3 install -e src/Runtime/python/onnxmlir
-# -e is necessary for current package. Need to add resource description
-# to install the pre-compiled binary
+# -e is necessary for current package.
+# To make sure to have container related package, you can install with
+# pip3 install -e src/Runtime/python/onnxmlir[docker], or
+# pip3 install -e src/Runtime/python/onnxmlir[podman]
 
 # Run test case
 cd src/Runtime/python/onnxmlir/tests
 python3 test_1.py
 # Current limitation on where the model is
 ```
+
+If you already has the source code for onnx-mlir, you may simply create another build directory for PyRuntime light. For example:
+```
+cd path/to/existing/onnx-mlir
+mkdir build-light
+cd build-ligth
+cmake .. -DONNX_MLIR_ENABLE_PYRUNTIME_LIT=ON
+make
+make OMCreatePyRuntimePackage
+
+```
+Note: the virtual env is not needed for compiler build, but only for pip install.

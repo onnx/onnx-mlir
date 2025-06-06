@@ -118,8 +118,17 @@ class InferenceSession:
         else:
             # Import container tool, either docker or podman package
             if self.container_engine == "docker":
+                if "docker" not in sys.modules:
+                    print(
+                        "The required python package, 'docker', cannot be found. If you want to compile the model with a compiler container image through docker package, you can either do 'pip install docker', or install onnxmlir with `pip install -e path/onnxmlir[docker]`"
+                    )
+                    exit(-1)
                 import docker as ce
             else:
+                if "podman" not in sys.modules:
+                    print(
+                        "The required python package, 'podman', cannot be found. If you want to compile the model with a compiler container image through podman package, you can either do 'pip install podman', or install onnxmlir with `pip install -e path/onnxmlir[podman]`"
+                    )
                 import podman as ce
             # The docker and podman package has the same interface
             # Get container client using env setting.
