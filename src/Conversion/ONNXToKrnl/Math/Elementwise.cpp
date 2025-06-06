@@ -1318,6 +1318,12 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 template <>
+struct ScalarOp<ONNXPowOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
 GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
   return {{GenericOps::PowGop, 1}};
 }
@@ -1326,16 +1332,11 @@ template <>
 Value emitScalarOpFor<ONNXPowOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  CheckIfCustomScalarOpIsSupported<ONNXGeluOp>(elementType);
+  CheckIfCustomScalarOpIsSupported<ONNXPowOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Type lhsElemType = getElementType(lhs.getType());
-  Type rhsElemType = getElementType(rhs.getType());
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  if (lhsElemType != rhsElemType) {
-    // Conversions needed.
-    rhs = create.math.cast(lhs.getType(), rhs);
-  }
+  // Cover the float ^ float, int ^ int, float ^ int cases.
   return create.math.pow(lhs, rhs);
 }
 
