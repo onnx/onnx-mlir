@@ -1279,12 +1279,15 @@ public:
     // need to do anything here.
     if ((inputWidth == expWidth) &&
         ((inputIsInt && expIsInt) || (inputIsFloat && expIsFloat) ||
-            (inputIsFloat && expIsFloat)))
+            (inputIsFloat && expIsInt)))
       return failure();
 
+    fprintf(stderr, "hi alex: iw %d, ew %i, input i/f %d/%d, exp i/f %d/%d\n",
+        (int)inputWidth, (int)expWidth, (int)inputIsInt, (int)inputIsFloat,
+        (int)expIsInt, (int)expIsFloat);
     // Rewrite pow with a cast of the exp type to the input type.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    Value newExp = create.onnx.cast(exp, input.getType());
+    Value newExp = create.onnx.cast(exp, inputElementType);
     Value newPow = create.onnx.pow(input, newExp);
     rewriter.replaceOp(op, {newPow});
     return success();
