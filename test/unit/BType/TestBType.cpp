@@ -91,7 +91,7 @@ public:
   }
 
   int test_Int4() {
-    std::cout << "test_:" << std::endl;
+    std::cout << "test_Int4:" << std::endl;
 
     // Test that constexpr works for all these:
     constexpr int_4 int4z{};
