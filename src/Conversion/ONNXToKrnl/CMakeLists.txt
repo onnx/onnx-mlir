@@ -28,6 +28,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/QLinearMatMul.cpp
   Math/RandomNormal.cpp
   Math/RandomNormalLike.cpp
+  Math/RandomUniform.cpp
   Math/Reduction.cpp
   Math/Softmax.cpp
   Math/TopK.cpp

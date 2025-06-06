@@ -1389,6 +1389,20 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
     AnyFloat:$seed);
 }
 
+def KrnlRandomUniformOp : Op<Krnl_Dialect, "random_uniform",
+    [MemRefsNormalizable]> {
+  let summary = "Generate a random uniform tensor.";
+  let description = [{
+    Operation that generates a random uniformally distributed tensor.
+  }];
+
+  let arguments = (ins Arg<AnyTypeOf<[AnyMemRef]>, "output of the random tensor", [MemWrite]>:$output,
+    Index:$numberOfValues,
+    AnyFloat:$low,
+    AnyFloat:$high,
+    AnyFloat:$seed);
+}
+
 def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
     [Pure, MemRefsNormalizable]> {
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
