@@ -318,16 +318,6 @@ GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
 }
 
 template <>
-struct ScalarOp<ONNXPowOp> {
-  using FOp = math::PowFOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
-GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
-  return {{GenericOps::PowGop, 1}};
-}
-
-template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
@@ -1321,6 +1311,33 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   return create.math.neg(operand);
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar binary ops for lowering ONNXPowOp
+//===----------------------------------------------------------------------===//
+
+template <>
+struct ScalarOp<ONNXPowOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
+  return {{GenericOps::PowGop, 1}};
+}
+
+template <>
+Value emitScalarOpFor<ONNXPowOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXPowOp>(elementType);
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  // Cover the float ^ float, int ^ int, float ^ int cases.
+  return create.math.pow(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
