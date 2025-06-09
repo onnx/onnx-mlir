@@ -1260,10 +1260,9 @@ public:
     bool inputIsFloat = isa<FloatType>(inputElementType);
     bool expIsInt = isa<IntegerType>(expElementType);
     bool expIsFloat = isa<FloatType>(expElementType);
-    int64_t inputWidth =
-        mlir::cast<ShapedType>(input.getType()).getElementTypeBitWidth();
-    int64_t expWidth =
-        mlir::cast<ShapedType>(exp.getType()).getElementTypeBitWidth();
+    // Since verifier make sure we only have int or float, can use call below.
+    int64_t inputWidth = inputElementType.getIntOrFloatBitWidth();
+    int64_t expWidth = expElementType.getIntOrFloatBitWidth();
 
     // Detect cases that MLIR supports without conversions => failure, aka no
     // need to do anything here.
