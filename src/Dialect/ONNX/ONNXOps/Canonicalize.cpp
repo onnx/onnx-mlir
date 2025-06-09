@@ -1250,30 +1250,20 @@ public:
       ONNXPowOp powOp, PatternRewriter &rewriter) const override {
     Operation *op = powOp.getOperation();
     Location loc = powOp.getLoc();
-
     Value input = powOp.getX();
     Value exp = powOp.getY();
-    if (!hasShapeAndRank(input) || !hasShapeAndRank(exp))
-      return failure(); // Cannot apply pattern until ranks are known.
 
     // Characterize element types.
-    Type inputElementType =
-        mlir::cast<ShapedType>(input.getType()).getElementType();
-    Type expElementType =
-        mlir::cast<ShapedType>(exp.getType()).getElementType();
+    Type inputElementType = getElementTypeOrSelf(input);
+    Type expElementType = getElementTypeOrSelf(exp);
     bool inputIsInt = isa<IntegerType>(inputElementType);
     bool inputIsFloat = isa<FloatType>(inputElementType);
     bool expIsInt = isa<IntegerType>(expElementType);
     bool expIsFloat = isa<FloatType>(expElementType);
-    int64_t inputWidth = 0, expWidth = 0;
-    if (inputIsInt)
-      inputWidth = mlir::cast<IntegerType>(inputElementType).getWidth();
-    else if (inputIsFloat)
-      inputWidth = mlir::cast<FloatType>(inputElementType).getWidth();
-    if (expIsInt)
-      expWidth = mlir::cast<IntegerType>(expElementType).getWidth();
-    else if (expIsFloat)
-      expWidth = mlir::cast<FloatType>(expElementType).getWidth();
+    int64_t inputWidth =
+        mlir::cast<ShapedType>(input.getType()).getElementTypeBitWidth();
+    int64_t expWidth =
+        mlir::cast<ShapedType>(exp.getType()).getElementTypeBitWidth();
 
     // Detect cases that MLIR supports without conversions => failure, aka no
     // need to do anything here.
