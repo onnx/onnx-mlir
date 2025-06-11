@@ -20,6 +20,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Gemm.cpp
   Math/Hardmax.cpp
   Math/LpNormalization.cpp
+  Math/HammingWindow.cpp
   Math/LRN.cpp
   Math/MatMul.cpp
   Math/MatMulInteger.cpp
