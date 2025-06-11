@@ -1,0 +1,120 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+// int4_external_data.json is an onnx model that outputs int4 and uint4 tensors, 
+// where the constant tensors are stored as external data in int4_external_data.external
+// json and external_data are generated with utils/testing/int4_data.py external
+{
+    "irVersion": "10",
+    "graph": {
+        "node": [
+            {
+                "output": [
+                    "output_int4"
+                ],
+                "opType": "Constant",
+                "attribute": [
+                    {
+                        "name": "value",
+                        "t": {
+                            "dims": [
+                                "5"
+                            ],
+                            "dataType": 22,
+                            "name": "tensor_int4",
+                            "externalData": [
+                                {
+                                    "key": "location",
+                                    "value": "int4_external_data.external"
+                                },
+                                {
+                                    "key": "offset",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "length",
+                                    "value": "3"
+                                }
+                            ],
+                            "dataLocation": "EXTERNAL"
+                        },
+                        "type": "TENSOR"
+                    }
+                ]
+            },
+            {
+                "output": [
+                    "output_uint4"
+                ],
+                "opType": "Constant",
+                "attribute": [
+                    {
+                        "name": "value",
+                        "t": {
+                            "dims": [
+                                "3"
+                            ],
+                            "dataType": 21,
+                            "name": "tensor_uint4",
+                            "externalData": [
+                                {
+                                    "key": "location",
+                                    "value": "int4_external_data.external"
+                                },
+                                {
+                                    "key": "offset",
+                                    "value": "3"
+                                },
+                                {
+                                    "key": "length",
+                                    "value": "2"
+                                }
+                            ],
+                            "dataLocation": "EXTERNAL"
+                        },
+                        "type": "TENSOR"
+                    }
+                ]
+            }
+        ],
+        "name": "int4_external_data",
+        "output": [
+            {
+                "name": "output_int4",
+                "type": {
+                    "tensorType": {
+                        "elemType": 22,
+                        "shape": {
+                            "dim": [
+                                {
+                                    "dimValue": "5"
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "name": "output_uint4",
+                "type": {
+                    "tensorType": {
+                        "elemType": 21,
+                        "shape": {
+                            "dim": [
+                                {
+                                    "dimValue": "3"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "opsetImport": [
+        {
+            "version": "21"
+        }
+    ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 1, -1, 2, -2]> : tensor<5xi4>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0, 1, 15]> : tensor<3xui4>

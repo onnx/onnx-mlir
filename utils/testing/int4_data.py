@@ -7,7 +7,8 @@
 #
 # The model outputs 2 constant tensors with int4 and uint4 data types.
 # The data_format command line argument controls whether the tensor data
-# is represented "nonraw" (normally) or "raw" (as raw_data byte arrays).
+# is represented "nonraw" (normally), "raw" (as raw_data byte arrays) or
+# "external" (as external data in a separate file).
 #
 ################################################################################
 
@@ -20,7 +21,9 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "data_format", choices=["raw", "nonraw"], help="Tensor data representation"
+    "data_format",
+    choices=["raw", "nonraw", "external"],
+    help="Tensor data representation",
 )
 parser.add_argument("--save_dot_onnx", action="store_true", help="Save model as .onnx")
 args = parser.parse_args()
@@ -58,7 +61,7 @@ def make_i4_tensor(
 
 
 def main():
-    raw = args.data_format == "raw"
+    raw = args.data_format != "nonraw"
 
     dtype = np.dtype("int8")  # Numpy does not support int4, so we use int8
 
@@ -106,7 +109,17 @@ def main():
     graph = helper.make_graph(nodes, name, inputs, outputs)
     model = helper.make_model(graph)
     onnx.checker.check_model(model)
-    if args.save_dot_onnx:
+    if args.data_format == "external":
+        onnx.save_model(
+            model,
+            f"{name}.onnx",
+            save_as_external_data=True,
+            location=f"{name}.external",
+            size_threshold=0,
+            convert_attribute=True,
+        )
+        onnx.checker.check_model(model)
+    elif args.save_dot_onnx:
         onnx.save_model(model, f"{name}.onnx")
     print(MessageToJson(model))
 

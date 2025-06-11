@@ -163,11 +163,24 @@ auto getRangeTransformer(Transform transform) {
 }
 
 template <typename T>
+void extractIntOrUint4FromPackedByteArray(
+    ArrayRef<char> data, MutableArrayRef<T> output, size_t idx) {
+  // two int4s are packed into one byte each
+  const bool isEven = (idx % 2) == 0;
+  output[idx] = T::extractFromPacked(data[idx / 2], isEven);
+}
+
+template <typename T>
 ElementsAttr createElementsAttrFromMemoryBuffer_LE(
     RankedTensorType tensorType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
-  if constexpr (shouldSwapLEBytes<T>) {
+  if constexpr (isAnyInt4Type<T>) {
+    // int4 and uint4 are packed, each int32_data stores 2 int4s or uint4s.
+    return createElmAttrFromArray<T>(tensorType,
+        ArrayRef<char>(membuf->getBuffer().begin(), membuf->getBuffer().end()),
+        extractIntOrUint4FromPackedByteArray<T>);
+  } else if constexpr (shouldSwapLEBytes<T>) {
     ArrayRef<T> array = asArrayRef<T>(membuf->getBuffer());
     return createElmAttrFromArray<T>(tensorType, array,
         getRangeTransformer<ArrayRef<T>, T>(swappedBytes<T>));
@@ -181,21 +194,18 @@ template <typename T>
 ElementsAttr createElmAttrFromRawBytes_LE(
     RankedTensorType tensorType, ArrayRef<char> bytes) {
   if constexpr (isAnyInt4Type<T>) {
-    // two int4s are packed into one byte each
-    return createElmAttrFromArray<T>(tensorType, bytes,
-        [](ArrayRef<char> data, MutableArrayRef<T> output, size_t idx) {
-          const bool isEven = (idx % 2) == 0;
-          output[idx] = T::extractFromPacked(data[idx / 2], isEven);
-        });
+    return createElmAttrFromArray<T>(
+        tensorType, bytes, extractIntOrUint4FromPackedByteArray<T>);
+  } else {
+    ArrayRef<T> array = castArrayRef<T>(bytes);
+    return createElmAttrFromArray<T>(
+        tensorType, array, getRangeTransformer<ArrayRef<T>, T>([](T x) {
+          if constexpr (shouldSwapLEBytes<T>)
+            return swappedBytes<T>(x);
+          else
+            return x;
+        }));
   }
-  ArrayRef<T> array = castArrayRef<T>(bytes);
-  return createElmAttrFromArray<T>(
-      tensorType, array, getRangeTransformer<ArrayRef<T>, T>([](T x) {
-        if constexpr (shouldSwapLEBytes<T>)
-          return swappedBytes<T>(x);
-        else
-          return x;
-      }));
 }
 
 // Converts to the cpp type 'To' that correspond's to the tensor element type
@@ -215,6 +225,8 @@ template <typename To, typename From>
 void deserializeDatumRange(const google::protobuf::RepeatedField<From> &data,
     MutableArrayRef<To> output, size_t idx) {
   if constexpr (isAnyInt4Type<To>) {
+    static_assert(std::is_same_v<From, int32_t>,
+        "int4 and uint4 can only be deserialized from int32_data");
     const bool isEven = (idx % 2) == 0;
     // int4 and uint4 are packed, each int32_data stores 2 int4s or uint4s.
     output[idx] = To::extractFromPacked(data[idx / 2], /*isFirst*/ isEven);

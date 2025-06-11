@@ -87,9 +87,8 @@ public:
 
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, uint_4>>>
   explicit uint_4(T value) {
-    // Ensure the value fits in 4 bits.
     const auto expanded = static_cast<uint64_t>(value);
-    ui = expanded;
+    ui = expanded & 0x0F;
   }
 
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, uint_4>>>

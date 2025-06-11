@@ -109,35 +109,64 @@ public:
         using cpptype = CppType<btype>;
 
         Type elementType = mlirTypeOfBType(btype, ctx);
-        ShapedType type = RankedTensorType::get({2, 1}, elementType);
-        cpptype one(1);
-        Attribute a = elmsBuilder.toDisposableElementsAttr(
-            DenseElementsAttr::get(type, one));
-        ElementsAttr e = mlir::cast<ElementsAttr>(a);
-        assert(e.isSplat());
-        DisposableElementsAttr i = mlir::cast<DisposableElementsAttr>(e);
-        assert(i.isSplat());
+        if (elementType.getIntOrFloatBitWidth() == sizeof(cpptype) * 8) {
+          ShapedType type = RankedTensorType::get({2, 1}, elementType);
+          cpptype one(1);
+          Attribute a = elmsBuilder.toDisposableElementsAttr(
+              DenseElementsAttr::get(type, one));
+          ElementsAttr e = mlir::cast<ElementsAttr>(a);
+          assert(e.isSplat());
+          DisposableElementsAttr i = mlir::cast<DisposableElementsAttr>(e);
+          assert(i.isSplat());
 
-        assert(eq<cpptype>(i.getSplatValue<cpptype>(), one));
+          assert(eq<cpptype>(i.getSplatValue<cpptype>(), one));
 
-        auto b = i.value_begin<cpptype>();
-        assert(eq<cpptype>(*b, one));
+          auto b = i.value_begin<cpptype>();
+          assert(eq<cpptype>(*b, one));
 
-        if (isFloatBType(btype)) {
-          auto apf = i.getSplatValue<APFloat>();
-          assert(near(apf.convertToDouble(), static_cast<double>(one)));
-        } else {
+          if (isFloatBType(btype)) {
+            auto apf = i.getSplatValue<APFloat>();
+            assert(near(apf.convertToDouble(), static_cast<double>(one)));
+          } else {
+            bool isSigned = isSignedIntBType(btype);
+            auto api = i.getSplatValue<APInt>();
+            auto x =
+                WideNum::fromAPInt(api, isSigned).template to<cpptype>(btype);
+            assert(eq<cpptype>(x, one));
+          }
+
+          auto d = i.toDenseElementsAttr();
+          assert(eq<cpptype>(d.getSplatValue<cpptype>(), one));
+
+          return true;
+        } else if (!isFloatBType(btype)) {
+          ShapedType type = RankedTensorType::get({2, 1}, elementType);
+          APInt one(
+              elementType.getIntOrFloatBitWidth(), 1, isSignedIntBType(btype));
+          Attribute a = elmsBuilder.toDisposableElementsAttr(
+              DenseElementsAttr::get(type, one));
+          ElementsAttr e = mlir::cast<ElementsAttr>(a);
+          assert(e.isSplat());
+          DisposableElementsAttr i = mlir::cast<DisposableElementsAttr>(e);
+          assert(i.isSplat());
+
+          assert(eq<APInt>(i.getSplatValue<APInt>(), one));
+
+          auto b = i.value_begin<APInt>();
+          assert(eq<APInt>(*b, one));
+
           bool isSigned = isSignedIntBType(btype);
           auto api = i.getSplatValue<APInt>();
-          auto x =
-              WideNum::fromAPInt(api, isSigned).template to<cpptype>(btype);
-          assert(eq<cpptype>(x, one));
+          auto x = WideNum::fromAPInt(api, isSigned).toAPInt(btype);
+          assert(eq<APInt>(x, one));
+
+          auto d = i.toDenseElementsAttr();
+          assert(eq<APInt>(d.getSplatValue<APInt>(), one));
+
+          return true;
         }
-
-        auto d = i.toDenseElementsAttr();
-        assert(eq<cpptype>(d.getSplatValue<cpptype>(), one));
-
-        return true;
+        llvm_unreachable("BType size should match CppType size or be an int. "
+                         "If not, this test needs to be updated.");
       });
     });
     assert(all);
