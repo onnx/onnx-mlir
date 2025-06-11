@@ -650,6 +650,8 @@ def data_without_top_bottom_quartile(data, percent):
         return data
     return data[trim:-trim]
 
+def cache_string(model_name, compile_option):
+    return "model: " + model_name + "; compile option: " + compile_option
 
 ################################################################################
 # Inference Session implementing RunONNXModel.
@@ -747,17 +749,18 @@ class InferenceSession:
         # Otherwise, compile the ONNX model.
         if args.load_model:
             self.model_dir = args.load_model
-            compiler_option_file = os.path.join(self.model_dir, "compiler-option.txt")
+            compiler_option_file = os.path.join(self.model_dir, "compiler_option.txt")
+            expected_string = cache_string(args.model ,args.compile_args)
             with open(compiler_option_file, "r") as f:
                 options_from_file = f.read()
-                if options_from_file != args.compile_args:
+                if options_from_file != expected_string:
                     print(
                         "Try to load model from",
                         args.load_model,
                         " using different options than when saved, abort",
                     )
                     print('  save options: "' + options_from_file + '"')
-                    print('  load options: "' + args.compile_args + '"')
+                    print('  load options: "' + expected_string + '"')
                     exit(1)
         else:
             # Compile the ONNX model.
@@ -837,11 +840,12 @@ class InferenceSession:
                     print("Saving the compilation log to", args.save_model, "\n")
                     f.write(msg)
                 compiler_option_file_path = os.path.join(
-                    args.save_model, "compiler-option.txt"
+                    args.save_model, "compiler_option.txt"
                 )
+                expected_string = cache_string(args.model ,args.compile_args)
                 with open(compiler_option_file_path, "w") as ff:
                     print("Saving the compilation options to", args.save_model, "\n")
-                    ff.write(args.compile_args)
+                    ff.write(expected_string)
 
             # Exit if only compiling the model.
             if args.compile_only:
