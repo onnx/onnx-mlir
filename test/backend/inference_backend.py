@@ -1374,6 +1374,18 @@ def get_test_models():
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
+        # ==OP== HammingWindow
+        # ==MIN== 17
+        "test_hammingwindow_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_hammingwindow_symmetric_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Hardmax
         # ==MIN== 1
         "test_hardmax_axis_0_cpu": {
