@@ -506,7 +506,7 @@ def make_report(stat_message):
                     count_time_str += ", {:.7f}".format(det_time * time_unit)
                     count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
 
-                det_output = "\n    " + count_time_str + ": " + det_key
+                det_output = "\n    " + count_time_str + ", " + det_key
                 det_output_key = get_sorting_key(det_count, det_key, det_time)
                 if det_output_key in sorted_det_output:
                     sorted_det_output[det_output_key] += det_output
@@ -550,9 +550,9 @@ def make_report(stat_message):
     if report_level < 2:
         print("  op-name:", num_desc)
     elif report_level == 2:
-        print("   " + num_desc + ":", stat_message, "\n")
+        print("   " + num_desc + ",", stat_message, "\n")
     elif report_level == 3:
-        print("   " + num_desc + ": node-name, ", stat_message, "\n")
+        print("   " + num_desc + ", node-name, ", stat_message, "\n")
     print("")
     stat_details = ""
     if supported_only:
