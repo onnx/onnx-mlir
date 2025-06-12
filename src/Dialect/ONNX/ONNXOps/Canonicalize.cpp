@@ -1272,12 +1272,12 @@ public:
       return failure();
 
     // Rewrite pow with a cast of the exp type to the input type
-    // Standard is fuzzy on how to handle conversions in mix type situations. We
-    // should revisit this code if the standard change from the currently
-    // (unofficial, aka ORT) policy which is simply to convert the exponenet to
-    // the type of the base & output. This is especially "questionable" when the
-    // base is an integer type and the exponent is a float, as 0.5 could express
-    // a square root operation.
+    // TODO: Standard is fuzzy on how to handle conversions in mix type
+    // situations. We should revisit this code if the standard change from the
+    // currently (unofficial, aka ORT) policy which is simply to convert the
+    // exponenet to the type of the base & output. This is especially
+    // "questionable" when the base is an integer type and the exponent is a
+    // float, as 0.5 could express a square root operation.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Value newExp = create.onnx.cast(exp, inputElementType);
     Value newPow = create.onnx.pow(input, newExp);
