@@ -346,9 +346,9 @@ LogicalResult ONNXPowOp::verify() {
   // Removed integer restriction.
   Type inputElementType = getElementTypeOrSelf(getX());
   Type expElementType = getElementTypeOrSelf(getY());
-  if (!(isa<IntegerType>(inputElementType) || isa<FloatType>(inputElementType)))
+  if (!isa<IntegerType, FloatType>(inputElementType))
     return emitError("Pow base (X) must be an int or a float");
-  if (!(isa<IntegerType>(expElementType) || isa<FloatType>(expElementType)))
+  if (!isa<IntegerType, FloatType>(expElementType))
     return emitError("Pow exponent (Y)must be an int or a float");
   return success();
 }
