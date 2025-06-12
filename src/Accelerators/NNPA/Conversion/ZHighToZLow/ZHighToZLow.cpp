@@ -86,8 +86,7 @@ Value insertAllocForZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
 
   // Insert alloc.
   SmallVector<IndexExpr> dimList(dims.begin(), dims.end());
-  MultiDialectBuilder<MathBuilder, MemRefBuilder, KrnlBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
   return create.mem.alignedAlloc(resType, dimList, alignment);
 }
 
