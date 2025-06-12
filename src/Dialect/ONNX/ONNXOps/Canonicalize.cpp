@@ -1239,6 +1239,47 @@ private:
   int64_t maxPower;
 };
 
+class PowConversionRewritePattern : public OpRewritePattern<ONNXPowOp> {
+public:
+  using OpRewritePattern<ONNXPowOp>::OpRewritePattern;
+
+  PowConversionRewritePattern(MLIRContext *context, int64_t maxPower)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXPowOp powOp, PatternRewriter &rewriter) const override {
+    Operation *op = powOp.getOperation();
+    Location loc = powOp.getLoc();
+    Value input = powOp.getX();
+    Value exp = powOp.getY();
+
+    // Characterize element types.
+    Type inputElementType = getElementTypeOrSelf(input);
+    Type expElementType = getElementTypeOrSelf(exp);
+    bool inputIsInt = isa<IntegerType>(inputElementType);
+    bool inputIsFloat = isa<FloatType>(inputElementType);
+    bool expIsInt = isa<IntegerType>(expElementType);
+    bool expIsFloat = isa<FloatType>(expElementType);
+    // Since verifier make sure we only have int or float, can use call below.
+    int64_t inputWidth = inputElementType.getIntOrFloatBitWidth();
+    int64_t expWidth = expElementType.getIntOrFloatBitWidth();
+
+    // Detect cases that MLIR supports without conversions => failure, aka no
+    // need to do anything here.
+    if ((inputWidth == expWidth) &&
+        ((inputIsInt && expIsInt) || (inputIsFloat && expIsFloat) ||
+            (inputIsFloat && expIsInt)))
+      return failure();
+
+    // Rewrite pow with a cast of the exp type to the input type.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value newExp = create.onnx.cast(exp, inputElementType);
+    Value newPow = create.onnx.pow(input, newExp);
+    rewriter.replaceOp(op, {newPow});
+    return success();
+  }
+};
+
 // Rewrite a pattern like the following:
 //
 // %shape = onnx.Concat(%dim1, %dim2)
@@ -2367,6 +2408,7 @@ void ONNXPowOp::getCanonicalizationPatterns(
   // Is 64 necessary? Maybe too high?
   result.insert<PowToMulRewritePattern>(context, 64);
   result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
+  result.insert<PowConversionRewritePattern>(context);
 }
 
 /// on the ONNXXorOp.

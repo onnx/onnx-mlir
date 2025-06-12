@@ -107,6 +107,9 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value scale, mlir::Value bias, int64_t axis,
       mlir::FloatAttr epsilon, mlir::IntegerAttr stashType) const;
 
+  // ONNXPowOp
+  mlir::Value pow(mlir::Value input, mlir::Value exp) const;
+
   // ONNXQLinearMatMulOp
   mlir::Value qlinearMatMul(mlir::Type outputType, mlir::Value a,
       mlir::Value aScale, mlir::Value aZeroPoint, mlir::Value b,
