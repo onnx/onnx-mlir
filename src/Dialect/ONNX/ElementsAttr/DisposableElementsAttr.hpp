@@ -207,7 +207,7 @@ public:
   using iterator_range = llvm::iterator_range<iterator<X>>;
 
   // This implementation enables the value_begin() and getValues() methods
-  // from the ElementsAttr interface, for the NonContiguousIterableTypesT types.
+  // from the ElementsAttr interface
   template <typename X>
   FailureOr<iterator<X>> try_value_begin_impl(OverloadToken<X>) const;
 
