@@ -88,7 +88,10 @@ class InferenceSession:
 
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]
-            if self.compiler_image_name == "local" or self.compiler_image_name ==  "None":
+            if (
+                self.compiler_image_name == "local"
+                or self.compiler_image_name == "None"
+            ):
                 self.compiler_image_name = None
             self.compiler_path = find_compiler_path(self.compiler_image_name)
             if self.compiler_path is None and "compiler_path" not in kwargs.keys():
