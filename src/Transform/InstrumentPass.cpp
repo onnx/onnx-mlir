@@ -119,8 +119,10 @@ public:
   }
 
   void runOnOperation() override {
-    if (instrumentOps == "" || instrumentOps == "NONE")
-      return;
+    assert(instrumentOps != "" && instrumentOps != "NONE" &&
+           "should only be here if we have something to instrument");
+    fprintf(stderr, "hi alex, run instrument pass\n");
+
     allowedOps.setRegexString(instrumentOps);
     bool hasInitializedRuntime = false;
 

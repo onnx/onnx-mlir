@@ -229,5 +229,8 @@ void removeUnrelatedOptions(
     const std::vector<llvm::cl::OptionCategory *> Categories);
 void initCompilerConfig();
 
+// Return true when we are instrumenting one or more ops at the target stage.
+bool hasInstrumentation(InstrumentStages targetInstrumentationStage);
+
 } // namespace onnx_mlir
 #endif

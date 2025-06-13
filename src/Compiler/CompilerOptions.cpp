@@ -1415,4 +1415,12 @@ void initCompilerConfig() {
   }
 }
 
+bool hasInstrumentation(InstrumentStages targetInstrumentationStage) {
+  // Want it here?
+  if (instrumentStage != targetInstrumentationStage)
+    return false;
+  // Now check if we are instrumenting anything
+  return (instrumentOps != "" && instrumentOps != "NONE");
+}
+
 } // namespace onnx_mlir

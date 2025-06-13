@@ -24,6 +24,10 @@
 namespace onnx_mlir {
 namespace krnl {
 
+// Return a node name from its optional node name, or location.
+mlir::StringAttr getExtendedNodeName(mlir::OpBuilder &builder, mlir::Location loc,
+    mlir::StringAttr nodeNameAttr);
+
 // Adapted from:
 // https://github.com/tensorflow/mlir/blob/6a150d70c7e06fb37cddd7188fa48cde9a90fe59/lib/Dialect/StandardOps/Ops.cpp#L197
 // Main difference is that it advances the iterator `begin` as it consumes

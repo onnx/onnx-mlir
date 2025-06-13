@@ -21,6 +21,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "mlir/IR/Value.h"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -637,7 +638,7 @@ void KrnlRegionOp::build(OpBuilder &builder, OperationState &result,
 // KrnlEntryPointOp
 //===----------------------------------------------------------------------===//
 
-void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
+void KrnlEntryPointOp::build(OpBuilder &builder, OperationState &state,
     SymbolRefAttr funcAttr, IntegerAttr numInputs, IntegerAttr numOutputs,
     StringAttr signature) {
   state.addAttribute(KrnlEntryPointOp::getEntryPointFuncAttrName(), funcAttr);
@@ -646,14 +647,22 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getSignatureAttrName(), signature);
 }
 
-void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
-    Operation *op, int tag = 0) {
+void KrnlInstrumentOp::build(
+    OpBuilder &builder, OperationState &state, Operation *op, int tag = 0) {
   const char *opName = op->getName().getStringRef().data();
   StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
   IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
   StringAttr nodeNameAttr =
       op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
-  build(builder, state, opNameAttr, tagAttr, nodeNameAttr);
+#if 1 // hi alex
+  std::string fullNodeNameStr = getNodeNameInPresenceOfOpt(op);
+  StringAttr fullNodeNameAttr = builder.getStringAttr(fullNodeNameStr);
+#else
+  Location loc = op->getLoc();
+  StringAttr fullNodeNameAttr =
+      krnl::getExtendedNodeName(builder, loc, nodeNameAttr);
+#endif
+  build(builder, state, opNameAttr, tagAttr, fullNodeNameAttr);
 }
 
 void KrnlInstrumentOp::getEffects(
@@ -695,7 +704,7 @@ void KrnlPrintOp::getEffects(
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//
 
-void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlBlockOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsLoop, int64_t odsTileSize) {
   SmallVector<Type, 4> blockResType(
       2, krnl::LoopType::get(odsBuilder.getContext()));
@@ -707,7 +716,7 @@ void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
 // KrnlPermuteOp
 //===----------------------------------------------------------------------===//
 
-void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlPermuteOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops,
     ArrayRef<int64_t> odsMap) {
   uint64_t rank = odsLoops.size();
@@ -729,7 +738,7 @@ void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
 // KrnlGetInductionVariableValueOp
 //===----------------------------------------------------------------------===//
 
-void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlGetInductionVariableValueOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops) {
   int64_t rank = odsLoops.size();
   SmallVector<Type, 6> types(rank, odsBuilder.getIndexType());
@@ -851,7 +860,7 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 // KrnlMatMulOp
 //===----------------------------------------------------------------------===//
 
-void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlMatMulOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsA, ValueRange aOdsStart,
     Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
     ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
@@ -875,7 +884,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       odsOverCompute);
 }
 
-void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlMatMulOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsA, ValueRange aOdsStart,
     Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
     ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
@@ -942,7 +951,7 @@ MutableOperandRange KrnlMatMulOp::getLoopRefs() { return getLoopsMutable(); }
 // KrnlCopyToBufferOp
 //===----------------------------------------------------------------------===//
 
-void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlCopyToBufferOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
     ValueRange odsStarts, Value odsPadValue, ArrayRef<int64_t> odsTileSize,
     ArrayRef<int64_t> odsPadToNext, bool odsTranspose) {
@@ -954,7 +963,7 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
       odsPadValue, tileSizeAttr, padToNextAttr, odsTranspose);
 }
 
-void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlCopyToBufferOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
     ValueRange odsStarts, Value odsPadValue, bool odsTranspose) {
   // Massage types.
@@ -1000,7 +1009,7 @@ LogicalResult KrnlCopyToBufferOp::verify() {
 // KrnlCopyFromBufferOp
 //===----------------------------------------------------------------------===//
 
-void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlCopyFromBufferOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
     ValueRange odsStarts, ArrayRef<int64_t> odsTileSize) {
   // Massage types.
@@ -1010,7 +1019,7 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
       tileSizeAttr);
 }
 
-void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
+void KrnlCopyFromBufferOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
     ValueRange odsStarts) {
   // Massage types.

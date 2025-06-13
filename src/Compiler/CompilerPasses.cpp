@@ -157,6 +157,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Keep this pass at the end of this function.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
+    fprintf(stderr, "hi alex, see profile-ir=Onnx in normal driver 1\n");
+
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
     // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp
@@ -166,9 +168,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
-  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx)) {
+    // hi alex
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+    fprintf(stderr, "hi alex, add profile-ir=Onnx in normal driver 2\n");
+  }
   // Print Signatures of each op at runtime if enabled. Should not run
   // signature and instrument passes at the same time as time may include printf
   // overheads.
@@ -273,8 +278,10 @@ void addKrnlToLLVMPasses(
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
 
-  if (profileIR)
+  if (profileIR) {
+    fprintf(stderr, "hi alex, cleanup profile ir in main pass 3\n");
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
+  }
 
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
