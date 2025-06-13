@@ -359,6 +359,12 @@ Value MathBuilder::clip(Value val, Value lb, Value ub) const {
   return min(val, ub); // Clip upper range.
 }
 
+Value MathBuilder::cos(Value val) const {
+  if (isScalarOrVectorFloat(val))
+    return b().create<math::CosOp>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
@@ -417,9 +423,13 @@ Value MathBuilder::sqrt(Value val) const {
 
 Value MathBuilder::pow(Value base, Value exp) const {
   splatToMatch(base, exp);
-  if (isScalarOrVectorFloat(base))
+  if (isScalarOrVectorFloat(base) && isScalarOrVectorFloat(exp))
     return b().create<math::PowFOp>(loc(), base, exp);
-  llvm_unreachable("expected base float");
+  if (isScalarOrVectorFloat(base) && isScalarOrVectorInteger(exp))
+    return b().create<math::FPowIOp>(loc(), base, exp);
+  if (isScalarOrVectorInteger(base) && isScalarOrVectorInteger(exp))
+    return b().create<math::IPowIOp>(loc(), base, exp);
+  llvm_unreachable("expected pow: float ^ float, int ^ int, float ^ int");
 }
 
 Value MathBuilder::neg(Value val) const {

@@ -1403,6 +1403,100 @@ func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf3
 
 // -----
 
+// COM: no changes for float - int of same size.
+func.func @pow_no_convert(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1xi32>) -> tensor<3x4x5xf32> {
+    %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<1xi32>) -> tensor<3x4x5xf32>
+    onnx.Return %0 : tensor<3x4x5xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @pow_no_convert
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>, [[PARAM_1_:%.+]]: tensor<1xi32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Pow"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<3x4x5xf32>, tensor<1xi32>) -> tensor<3x4x5xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4x5xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: conv introduced due to different size.
+func.func @pow_convert_size1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1xf64>) -> tensor<3x4x5xf32> {
+    %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<1xf64>) -> tensor<3x4x5xf32>
+    onnx.Return %0 : tensor<3x4x5xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @pow_convert_size1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>, [[PARAM_1_:%.+]]: tensor<1xf64>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_1_]]) {saturate = 1 : si64, to = f32} : (tensor<1xf64>) -> tensor<1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Pow"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3x4x5xf32>, tensor<1xf32>) -> tensor<3x4x5xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x4x5xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: conv introduced due to different size.
+func.func @pow_convert_size2(%arg0: tensor<3x4x5xi32>, %arg1: tensor<1xi64>) -> tensor<3x4x5xi32> {
+    %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<3x4x5xi32>, tensor<1xi64>) -> tensor<3x4x5xi32>
+    onnx.Return %0 : tensor<3x4x5xi32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @pow_convert_size2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xi32>, [[PARAM_1_:%.+]]: tensor<1xi64>) -> tensor<3x4x5xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_1_]]) {saturate = 1 : si64, to = i32} : (tensor<1xi64>) -> tensor<1xi32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Pow"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3x4x5xi32>, tensor<1xi32>) -> tensor<3x4x5xi32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x4x5xi32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: conv introduced due to different size. Note it converts the i64 to f32... could have done i32 too.
+func.func @pow_convert_size3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1xi64>) -> tensor<3x4x5xf32> {
+    %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<1xi64>) -> tensor<3x4x5xf32>
+    onnx.Return %0 : tensor<3x4x5xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @pow_convert_size3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>, [[PARAM_1_:%.+]]: tensor<1xi64>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_1_]]) {saturate = 1 : si64, to = f32} : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Pow"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3x4x5xf32>, tensor<1xf32>) -> tensor<3x4x5xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x4x5xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: conv introduced due to unsupported mlir combination (int ^ float)
+func.func @pow_convert_size4(%arg0: tensor<3x4x5xi32>, %arg1: tensor<1xf32>) -> tensor<3x4x5xi32> {
+    %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<3x4x5xi32>, tensor<1xf32>) -> tensor<3x4x5xi32>
+    onnx.Return %0 : tensor<3x4x5xi32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @pow_convert_size4
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xi32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<3x4x5xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_1_]]) {saturate = 1 : si64, to = i32} : (tensor<1xf32>) -> tensor<1xi32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Pow"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3x4x5xi32>, tensor<1xi32>) -> tensor<3x4x5xi32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x4x5xi32>
+}
+
+// -----
+
+// COM: Expand Pow into multiple Mul if exponent is an integer and <= 64. With mix_types
+func.func @expand_pow_into_mul_f32_int_exponent(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+    %cst = onnx.Constant dense<5> : tensor<i32>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<i32>) -> tensor<3x4x5xf32>
+    onnx.Return %0 : tensor<3x4x5xf32>
+
+// CHECK-LABEL:  func.func @expand_pow_into_mul_f32_int_exponent
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<3x4x5xf32>
+// CHECK:        }
+}
+// -----
+
 // Check BinaryOpBroadcastAxisPattern. Example from inception-v2-6 model.
 func.func @mul_broadcast_axis_unsqueeze(%279: tensor<1x64x112x112xf32>, %138: tensor<64xf32>) -> tensor<*xf32> {
   %280 = "onnx.Mul"(%279, %138) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<1x64x112x112xf32>, tensor<64xf32>) -> tensor<*xf32>
