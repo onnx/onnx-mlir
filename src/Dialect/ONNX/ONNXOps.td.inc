@@ -6222,7 +6222,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution. The shape
