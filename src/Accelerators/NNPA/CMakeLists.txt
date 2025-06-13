@@ -35,6 +35,16 @@ endif()
 include(zdnn.cmake)
 setup_zdnn(v1.1.2)
 
+option(ZDNNX_DEBUG "Enable ZDNNX debug informaiton" ON)
+if (ZDNNX_DEBUG)
+  add_compile_definitions(ZDNNX_DEBUG)
+endif()
+
+option(ZDNNX_WITH_OMP "Enable ZDNNX with OMP" OFF)
+if (ZDNNX_WITH_OMP)
+  add_compile_definitions(ZDNNX_WITH_OMP)
+endif()
+
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
 add_subdirectory(Support)
