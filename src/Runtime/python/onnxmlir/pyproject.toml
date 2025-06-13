@@ -16,10 +16,14 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
 ]
-dependences = [
-    "numpy",
-    "docker",
+
+dependencies = [
+    "numpy"
 ]
+
+[project.optional-dependencies]
+docker = ['docker']
+podman = ['podman']
 
 [project.urls]
 Homepage = "https://github.com/onnx/onnx-mlir"
