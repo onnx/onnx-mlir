@@ -291,6 +291,10 @@ Value OnnxBuilder::padZero(Value input, Value pads) const {
   return pad(input, pads, b().create<ONNXNoneOp>(loc()), "constant");
 }
 
+Value OnnxBuilder::pow(Value input, Value exp) const {
+  return createOpAndInferShapes<ONNXPowOp>(toTensor(input), toTensor(exp));
+}
+
 Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true

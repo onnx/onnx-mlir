@@ -423,9 +423,13 @@ Value MathBuilder::sqrt(Value val) const {
 
 Value MathBuilder::pow(Value base, Value exp) const {
   splatToMatch(base, exp);
-  if (isScalarOrVectorFloat(base))
+  if (isScalarOrVectorFloat(base) && isScalarOrVectorFloat(exp))
     return b().create<math::PowFOp>(loc(), base, exp);
-  llvm_unreachable("expected base float");
+  if (isScalarOrVectorFloat(base) && isScalarOrVectorInteger(exp))
+    return b().create<math::FPowIOp>(loc(), base, exp);
+  if (isScalarOrVectorInteger(base) && isScalarOrVectorInteger(exp))
+    return b().create<math::IPowIOp>(loc(), base, exp);
+  llvm_unreachable("expected pow: float ^ float, int ^ int, float ^ int");
 }
 
 Value MathBuilder::neg(Value val) const {
