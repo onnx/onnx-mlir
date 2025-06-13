@@ -652,16 +652,8 @@ void KrnlInstrumentOp::build(
   const char *opName = op->getName().getStringRef().data();
   StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
   IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
-  StringAttr nodeNameAttr =
-      op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
-#if 1 // hi alex
   std::string fullNodeNameStr = getNodeNameInPresenceOfOpt(op);
   StringAttr fullNodeNameAttr = builder.getStringAttr(fullNodeNameStr);
-#else
-  Location loc = op->getLoc();
-  StringAttr fullNodeNameAttr =
-      krnl::getExtendedNodeName(builder, loc, nodeNameAttr);
-#endif
   build(builder, state, opNameAttr, tagAttr, fullNodeNameAttr);
 }
 

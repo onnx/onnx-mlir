@@ -515,9 +515,9 @@ static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
 static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
     "instrument-signature",
     llvm::cl::desc(
-        "Specify which high-level operations should be selected for printing\n"
-        "the type and shape of their input/output tensors.\n"
-        "The ops are selected by their op name.\n"
+        "Print at runtime the type and shape for the input and output tensors\n"
+        "of the specified operations. Code is inserted as specified by the\n"
+        "--instrument-stage option.\n"
         "The instrument-signature defines the pattern to select the ops.\n"
         "\"NONE\" for no instrument (default).\n"
         "\"ALL\" or \"\" for all available operations.\n"
@@ -532,9 +532,9 @@ static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
 static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
     "instrument-onnx-node",
     llvm::cl::desc(
-        "Specify which onnx operation node will be selected for \n"
-        "inserting a runtime call after the node to print the data of\n"
-        "their input/output tensors.\n"
+        "Print at runtime the type, shape and data values for the\n"
+        "input and output tensors of the specified operations.\n"
+        "Code is inserted as specified by the --instrument-stage option.\n"
         "The ops are selected by their onnx node name, which is a string\n"
         "attribute unique to each onnx node (most of time).\n"
         "You can find them in the output of --EmitONNXIR\n"
@@ -1419,8 +1419,17 @@ bool hasInstrumentation(InstrumentStages targetInstrumentationStage) {
   // Want it here?
   if (instrumentStage != targetInstrumentationStage)
     return false;
-  // Now check if we are instrumenting anything
+  // Now check if we are time/memory instrumenting anything.
   return (instrumentOps != "" && instrumentOps != "NONE");
+}
+
+bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
+  // Want it here?
+  if (instrumentStage != targetInstrumentationStage)
+    return false;
+  // Now check if we are signature instrumenting anything.
+  return (instrumentSignatures != "" && instrumentSignatures != "NONE") ||
+         (instrumentOnnxNode != "" && instrumentOnnxNode != "NONE");
 }
 
 } // namespace onnx_mlir

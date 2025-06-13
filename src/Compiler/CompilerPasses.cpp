@@ -153,12 +153,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
-  // Add instrumentation for Onnx Ops
-  // Keep this pass at the end of this function.
+  // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
+  // at the end of this function.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
-    fprintf(stderr, "hi alex, see profile-ir=Onnx in normal driver 1\n");
-
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
     // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp
@@ -168,18 +166,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
-  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx)) {
-    // hi alex
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
-    fprintf(stderr, "hi alex, add profile-ir=Onnx in normal driver 2\n");
-  }
-  // Print Signatures of each op at runtime if enabled. Should not run
-  // signature and instrument passes at the same time as time may include printf
-  // overheads.
-  if (instrumentSignatures != "NONE" || instrumentOnnxNode != "NONE")
+  // hi alex
+  if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,

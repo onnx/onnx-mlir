@@ -841,19 +841,25 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
     name += filename + ":" + std::to_string(loc.getLine()) + postfix;
   };
 
+  fprintf(stderr, "hi alex: get node name in presence of op for op\n  ");
+  op->dump();
+
   StringAttr nodeName;
   // Try with op onnx_node_name attribute.
   nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
   if (nodeName) {
+    fprintf(stderr, "  hi alex, got it from attribute onnx_node_name\n");
     return nodeName.str();
   }
   // Try with op location.
   Location loc = op->getLoc();
   if (auto nameLoc = mlir::dyn_cast<NameLoc>(loc)) {
+    fprintf(stderr, "  hi alex, got it from name loc\n");
     return nameLoc.getName().str();
   }
   if (auto fusedLoc = mlir::dyn_cast<FusedLoc>(loc)) {
     // Combine each location name and set it as nodeName.
+    fprintf(stderr, "  hi alex, got it from name fused loc\n");
     std::string name;
     for (Location locIt : fusedLoc.getLocations()) {
       if (auto nameLocIt = mlir::dyn_cast<NameLoc>(locIt))
@@ -872,11 +878,13 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
   }
   if (useFileLine) {
     if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(loc)) {
+      fprintf(stderr, "  hi alex, got it from line and loc\n");
       std::string name = "";
       getNameFromFileLineLoc(fileLineColLoc, name);
       return name;
     }
   }
+  fprintf(stderr, "  hi alex, got it nowwhere\n");
   return "NOTSET";
 }
 

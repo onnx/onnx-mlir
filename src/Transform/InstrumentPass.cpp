@@ -28,6 +28,9 @@
 
 #include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -121,7 +124,6 @@ public:
   void runOnOperation() override {
     assert(instrumentOps != "" && instrumentOps != "NONE" &&
            "should only be here if we have something to instrument");
-    fprintf(stderr, "hi alex, run instrument pass\n");
 
     allowedOps.setRegexString(instrumentOps);
     bool hasInitializedRuntime = false;
@@ -141,6 +143,10 @@ public:
       // ```
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
+      // Skip other instrument ops.
+      if (isa<KrnlInstrumentOp>(op) || isa<ONNXPrintSignatureOp>(op))
+        return WalkResult::advance();
+
       std::string opName = op->getName().getStringRef().str();
       if (allowedOps.isEnabled(opName)) {
         Location loc = op->getLoc();

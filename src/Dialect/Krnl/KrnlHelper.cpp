@@ -28,8 +28,7 @@ namespace onnx_mlir {
 
 namespace krnl {
 
-
-// hi alex
+#if 0 // hi alex
 StringAttr getExtendedNodeName(
     OpBuilder &builder, Location loc, StringAttr inputNodeName) {
   StringRef nodeName;
@@ -66,6 +65,7 @@ StringAttr getExtendedNodeName(
     nodeName = StringRef("NOTSET"); // Not sure if safe to return this.
   return builder.getStringAttr(nodeName);
 }
+#endif
 
 void printDimAndSymbolList(Operation::operand_iterator &begin, unsigned numDims,
     unsigned numSymbols, OpAsmPrinter &p) {

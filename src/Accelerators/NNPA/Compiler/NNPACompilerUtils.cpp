@@ -111,17 +111,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
 
-#if 0 // hi alex, no need to add it here
-// Insert an instrumentation before lowering onnx to zhigh to get onnx level
-// profiling.
-
-if (instrumentStage == onnx_mlir::InstrumentStages::Onnx) {
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
-        fprintf(stderr, "hi alex, add profile-ir=Onnx in NNPA driver 5\n");
-    }
-#endif
-
   // Lowering ONNX to ZHigh.
   pm.addPass(onnx_mlir::createONNXToZHighPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -186,7 +175,6 @@ if (instrumentStage == onnx_mlir::InstrumentStages::Onnx) {
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
-    fprintf(stderr, "hi alex, see profile-ir=ZHigh in NNPA driver 4\n");
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
     instrumentOps = "onnx.*,zhigh.*";
     // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
@@ -197,16 +185,15 @@ if (instrumentStage == onnx_mlir::InstrumentStages::Onnx) {
     instrumentActions |= (1 << 3) - 1;
   }
 
-  // Insert an instrumentation after lowering onnx to zhigh to get profiling
-  // for onnx and zhigh ops.
-  // Keep this pass at the end of this function.
-
-  // hi alex
-  if (hasInstrumentation(onnx_mlir::InstrumentStages::ZHigh)) {
+  // Insert an instrumentation after lowering onnx to zhigh to get profiling /
+  // signatures for onnx and zhigh ops. Keep this pass at the end of this
+  // function. hi alex
+  if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
+        instrumentSignatures, instrumentOnnxNode));
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
-    fprintf(stderr, "hi alex, add profile-ir=ZHigh in NNPA driver 6\n");
-  }
 }
 
 void normalizeMemRefsPasses(mlir::PassManager &pm) {
@@ -295,21 +282,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
-#if 0// hi alex, do we need something like this?
-      if (profileIR == onnx_mlir::ProfileIRs::ZLow) {
-        fprintf(stderr, "hi alex, see profile-ir=ZLow in NNPA driver 4\n");
-        instrumentStage = onnx_mlir::InstrumentStages::ZLow;
-        instrumentOps = "onnx.*,zhigh.*,zlow.*";
-        // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp
-        // and InstrumentReportTime. Disable the last bit for
-        // InstrumentReportMemory because of its big overhead. Users can
-        // optionally enable the last bit by using
-        // --InstrumentReportMemory option.
-        instrumentActions |= (1 << 3) - 1;
-      }
-#endif
-      // Insert an instrumentation after lowering zhigh to zlow to get profiling
-      // for zlow ops
+      // Insert an instrumentation after lowering zhigh to zlow to get
+      // profiling/signatures for zlow ops
+      if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZLow))
+      // Omit printing signatures that late.
+        assert(false && "Printing signature information at ZLow instrument "
+                        "stage is currently unsupported");
       if (hasInstrumentation(onnx_mlir::InstrumentStages::ZLow))
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
             instrumentOps, instrumentControlBits));

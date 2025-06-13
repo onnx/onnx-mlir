@@ -107,24 +107,28 @@ public:
               loc, fullNameAttr, detail, operAndRes);
         }
       };
-
-      if (isa<func::FuncDialect>(dialect) || isa<ONNXPrintSignatureOp>(op)) {
+      if (isa<func::FuncDialect>(dialect) ||
+          isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
-        // as ONNX print signature ops.
-      } else if (signaturePattern != "NONE") {
-        std::string opName = op->getName().getStringRef().str();
-        checkAndInsert(traceSpecificOpPattern, opName, 0);
-      } else if (nodeNamePattern != "NONE") {
-        StringAttr onnxNodeName =
-            op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-        if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-          std::string nodeNameString = onnxNodeName.getValue().str();
-          checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+        // as ONNX instrument operations.
+      } else {
+        if (signaturePattern != "NONE" && signaturePattern != "") {
+          std::string opName = op->getName().getStringRef().str();
+          checkAndInsert(traceSpecificOpPattern, opName, 0);
+        }
+        if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
+          StringAttr onnxNodeName =
+              op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+          if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+            std::string nodeNameString = onnxNodeName.getValue().str();
+            checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+          }
         }
       }
     });
   }
 };
+
 } // end anonymous namespace
 
 /*!
