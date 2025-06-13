@@ -52,6 +52,11 @@ class InferenceSession:
     def handleParameters(self, model_path, **kwargs):
         if "debug" in kwargs.keys():
             self.debug = kwargs["debug"]
+        if "compile_tag" in kwargs.keys():
+            self.compile_tag = kwargs["compile_tag"]
+        else:
+            self.compile_tag = "NONE"
+
         self.model_path = model_path
         if model_path.endswith(".mlir"):
             self.model_suffix = ".mlir"
@@ -83,6 +88,8 @@ class InferenceSession:
 
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]
+            if self.compiler_image_name == "local" or self.compiler_image_name ==  "None":
+                self.compiler_image_name = None
             self.compiler_path = find_compiler_path(self.compiler_image_name)
             if self.compiler_path is None and "compiler_path" not in kwargs.keys():
                 print(
@@ -95,7 +102,7 @@ class InferenceSession:
             self.compiler_path = find_compiler_path(self.compiler_image_name)
 
         if "container_engine" in kwargs.keys():
-            self.container_tool = kwargs["container_engine"]
+            self.container_engine = kwargs["container_engine"]
             if self.container_engine != "docker" and self.container_engine != "podman":
                 print("container engine has to be either docker or podman")
                 exit(1)
@@ -104,11 +111,6 @@ class InferenceSession:
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
-
-        if "compile_tag" in kwargs.keys():
-            self.compile_tag = kwargs["compile_tag"]
-        else:
-            self.compile_tag = "NONE"
 
     def checkCompiler(self):
         if self.compiler_image_name == None:
@@ -241,7 +243,11 @@ class InferenceSession:
 
         return OMExecutionSession(self.compiled_model, self.compile_tag)
 
-    def run(self, outputname, input_feed, **kwargs):
+    # wrapper for onnxruntime interface
+    def run_ort(self, outputname, input_feed, **kwargs):
+        return self.run(input_feed, **kwargs)
+
+    def run(self, input_feed, **kwargs):
         inputs = []
         input_signature = self.session.input_signature()
         input_names = get_names_in_signature(input_signature)
