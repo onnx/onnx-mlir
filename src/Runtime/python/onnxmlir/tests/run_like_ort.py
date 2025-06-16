@@ -4,8 +4,6 @@ import onnxmlir
 a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
 b = a + 4
 
-sess = onnxmlir.InferenceSession(
-    "test_add.onnx", compile-args="-O3 --parallel"
-)
+sess = onnxmlir.InferenceSession("test_add.onnx", compile_args="-O3 --parallel")
 r = sess.run_ort(["my_out"], {"x": a, "y": b})
 print(r)
