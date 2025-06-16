@@ -142,6 +142,5 @@ public:
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXSignaturePass(
     const std::string pattern, const std::string nodePattern) {
-  fprintf(stderr, "hi alex, add sig instr\n");
   return std::make_unique<InstrumentONNXSignaturePass>(pattern, nodePattern);
 }

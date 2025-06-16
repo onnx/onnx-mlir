@@ -28,45 +28,6 @@ namespace onnx_mlir {
 
 namespace krnl {
 
-#if 0 // hi alex
-StringAttr getExtendedNodeName(
-    OpBuilder &builder, Location loc, StringAttr inputNodeName) {
-  StringRef nodeName;
-  if (inputNodeName && !inputNodeName.empty())
-    nodeName = inputNodeName.strref();
-  else if (auto nameLoc = mlir::dyn_cast<NameLoc>(loc))
-    nodeName = nameLoc.getName();
-  else if (auto fusedLoc = mlir::dyn_cast<FusedLoc>(loc)) {
-    // Combine each location name and set it as nodeName, appended by "-".
-    std::string name;
-    for (Location locIt : fusedLoc.getLocations()) {
-      if (auto nameLocIt = mlir::dyn_cast<NameLoc>(locIt))
-        name += nameLocIt.getName().str() + "-";
-      else if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(locIt)) {
-        std::string filename =
-            llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
-        name += filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
-      }
-    }
-    if (name.empty())
-      name = "NOTSET";
-    else
-      name.pop_back(); // remove last "-"
-    Location newLoc = NameLoc::get(builder.getStringAttr(name));
-    nodeName = mlir::cast<NameLoc>(newLoc).getName();
-  } else if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(loc)) {
-    std::string filename =
-        llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
-    std::string name =
-        filename + ":" + std::to_string(fileLineColLoc.getLine());
-    Location newLoc = NameLoc::get(builder.getStringAttr(name));
-    nodeName = mlir::cast<NameLoc>(newLoc).getName();
-  } else
-    nodeName = StringRef("NOTSET"); // Not sure if safe to return this.
-  return builder.getStringAttr(nodeName);
-}
-#endif
-
 void printDimAndSymbolList(Operation::operand_iterator &begin, unsigned numDims,
     unsigned numSymbols, OpAsmPrinter &p) {
   p << '(';

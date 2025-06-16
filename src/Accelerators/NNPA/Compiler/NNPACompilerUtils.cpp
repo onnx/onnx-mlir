@@ -97,11 +97,9 @@ void configurePassesNNPA() {
       quantOpTypes = nnpaQuantOpTypes;
     }
   }
-#if 1 // hi alex
-      // Set the proper instrumentation stage before we add any passes
+  // Set the proper instrumentation stage before we add any passes.
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh)
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
-#endif
 
   configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
       isDynQuant, isActivationSym, isWeightSym, quantOpTypes);
@@ -194,7 +192,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling /
   // signatures for onnx and zhigh ops. Keep this pass at the end of this
-  // function. hi alex
+  // function. Add createInstrument (timing) second so that it will guarantee
+  // not to include timing of the signature printing.
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
@@ -237,7 +236,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     pm.addInstrumentation(
         std::make_unique<onnx_mlir::zhigh::ZHighDisposableGarbageCollector>(
             pm.getContext()));
-    // hi alex
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
     pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,

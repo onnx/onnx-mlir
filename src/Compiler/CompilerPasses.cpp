@@ -166,7 +166,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
-  // hi alex
+  // Add createInstrument (timing) second so that it will guarantee not to
+  // include timing of the signature printing.
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
@@ -271,10 +272,8 @@ void addKrnlToLLVMPasses(
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
 
-  if (profileIR) {
-    fprintf(stderr, "hi alex, cleanup profile ir in main pass 3\n");
+  if (profileIR)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
-  }
 
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
