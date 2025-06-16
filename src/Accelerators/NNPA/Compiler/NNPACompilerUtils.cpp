@@ -97,6 +97,12 @@ void configurePassesNNPA() {
       quantOpTypes = nnpaQuantOpTypes;
     }
   }
+#if 1 // hi alex
+      // Set the proper instrumentation stage before we add any passes
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh)
+    instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
+#endif
+
   configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
       isDynQuant, isActivationSym, isWeightSym, quantOpTypes);
 }
@@ -175,7 +181,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
-    instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
+    assert(instrumentStage == onnx_mlir::InstrumentStages::ZHigh &&
+           "expected set to this");
     instrumentOps = "onnx.*,zhigh.*";
     // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
     // InstrumentReportTime.
@@ -230,6 +237,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     pm.addInstrumentation(
         std::make_unique<onnx_mlir::zhigh::ZHighDisposableGarbageCollector>(
             pm.getContext()));
+    // hi alex
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
     pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,
@@ -285,7 +293,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       // Insert an instrumentation after lowering zhigh to zlow to get
       // profiling/signatures for zlow ops
       if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZLow))
-      // Omit printing signatures that late.
+        // Omit printing signatures that late.
         assert(false && "Printing signature information at ZLow instrument "
                         "stage is currently unsupported");
       if (hasInstrumentation(onnx_mlir::InstrumentStages::ZLow))
