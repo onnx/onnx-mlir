@@ -47,7 +47,7 @@ namespace mlir {
 LogicalResult ONNXHammingWindowOp::inferShapes(
     std::function<void(mlir::Region &)> shapeInferenceFunc) {
   (void)shapeInferenceFunc;
-  auto sizeType = getSize().getType().dyn_cast<RankedTensorType>();
+  auto sizeType = mlir::cast<RankedTensorType>(getSize().getType());
   if (!sizeType || sizeType.getRank() != 0) {
     return success();
   }
