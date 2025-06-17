@@ -343,14 +343,13 @@ LogicalResult ONNXOrOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPowOp::verify() {
-  ShapedType lhsTy = mlir::cast<ShapedType>(getX().getType());
-  ShapedType rhsTy = mlir::cast<ShapedType>(getY().getType());
-  Type rhsETy = rhsTy.getElementType();
-  Type lhsETy = lhsTy.getElementType();
-  if (rhsETy != lhsETy)
-    return emitOpError("Pow with different input type not implemented yet");
-  if (mlir::isa<IntegerType>(lhsETy) || mlir::isa<IntegerType>(lhsETy))
-    return emitOpError("Integer power not implemented yet");
+  // Removed integer restriction.
+  Type inputElementType = getElementTypeOrSelf(getX());
+  Type expElementType = getElementTypeOrSelf(getY());
+  if (!isa<IntegerType, FloatType>(inputElementType))
+    return emitError("Pow base (X) must be an int or a float");
+  if (!isa<IntegerType, FloatType>(expElementType))
+    return emitError("Pow exponent (Y)must be an int or a float");
   return success();
 }
 
