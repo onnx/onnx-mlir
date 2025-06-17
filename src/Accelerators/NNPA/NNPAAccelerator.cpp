@@ -62,7 +62,13 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
   libs.push_back("RuntimeNNPA");
   libs.push_back("zdnn");
 #ifdef ZDNNX_WITH_OMP
-  libs.push_back("gomp");
+  // ompruntime migh be added in advance if --parallel is used.
+  // Check if ompruntime exists or not.
+  std::vector<std::string> existingLibs =
+      getCompilerConfig(CCM_SHARED_LIB_DEPS);
+  if (!llvm::any_of(
+          existingLibs, [](std::string s) { return s == "ompruntime"; }))
+    libs.push_back("ompruntime");
 #endif
   addCompilerConfig(CCM_SHARED_LIB_DEPS, libs, true);
 };
