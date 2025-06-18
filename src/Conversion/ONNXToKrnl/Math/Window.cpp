@@ -24,6 +24,56 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+//===----------------------------------------------------------------------===//
+// Window Compute Helper Templates
+//===----------------------------------------------------------------------===//
+
+template <typename ONNXOp>
+Value emitWindowCompute(MultiDialectBuilder<KrnlBuilder, MathBuilder> &create,
+    Value iFloat, Value denomF, Type outType);
+
+template <>
+Value emitWindowCompute<ONNXHammingWindowOp>(
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> &create, Value iFloat,
+    Value denomF, Type outType) {
+  // Formula: 0.54347 - 0.45653 * cos(2 * pi * i / (N - 1))
+  Value c0_54347 = create.math.constant(outType, 0.54347);
+  Value c0_45653 = create.math.constant(outType, 0.45653);
+  Value c2pi = create.math.constant(outType, 2.0 * M_PI);
+  Value num = create.math.mul(c2pi, iFloat);
+  Value angle = create.math.div(num, denomF);
+  Value cosAngle = create.math.cos(angle); // cos(2 * pi * i / (N - 1))
+  Value term = create.math.mul(c0_45653, cosAngle);
+  return create.math.sub(c0_54347, term);
+}
+
+template <>
+Value emitWindowCompute<ONNXBlackmanWindowOp>(
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> &create, Value iFloat,
+    Value denomF, Type outType) {
+  // Formula: 0.42 - 0.5*cos(2*pi*i/(N-1)) + 0.08*cos(4*pi*i/(N-1))
+  Value c0_42 = create.math.constant(outType, 0.42);
+  Value c0_5 = create.math.constant(outType, 0.5);
+  Value c0_08 = create.math.constant(outType, 0.08);
+  Value c2pi = create.math.constant(outType, 2.0 * M_PI);
+  Value c4pi = create.math.constant(outType, 4.0 * M_PI);
+
+  Value num1 = create.math.mul(c2pi, iFloat);
+  Value angle1 = create.math.div(num1, denomF);
+  Value cosAngle1 = create.math.cos(angle1);      // cos(2*pi*i/(N-1)
+  Value term1 = create.math.mul(c0_5, cosAngle1); // 0.5*cos(2*pi*i/(N-1))
+
+  Value num2 = create.math.mul(c4pi, iFloat);
+  Value angle2 = create.math.div(num2, denomF);
+  Value cosAngle2 = create.math.cos(angle2);       // cos(4*pi*i/(N-1)
+  Value term2 = create.math.mul(c0_08, cosAngle2); // 0.08*cos(4*pi*i/(N-1))
+
+  Value result = create.math.sub(c0_42, term1);
+  return create.math.add(result, term2);
+}
+
+//===----------------------------------------------------------------------===//
+
 template <typename ONNXOp>
 struct GenericWindowOpLowering : public OpConversionPattern<ONNXOp> {
   using OpConversionPattern<ONNXOp>::OpConversionPattern;
@@ -79,45 +129,8 @@ struct GenericWindowOpLowering : public OpConversionPattern<ONNXOp> {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(krnlBuilder);
           Value i = loopIVs[0];
           Value iFloat = create.math.cast(outType, i);
-          Value w_i;
-          if constexpr (std::is_same<ONNXOp, ONNXHammingWindowOp>::value) {
-            // Formula: 0.54347 - 0.45653 * cos(2 * pi * i / (N - 1))
-            Value c0_54347 = create.math.constant(outType, 0.54347);
-            Value c0_45653 = create.math.constant(outType, 0.45653);
-            Value c2pi = create.math.constant(outType, 2.0 * M_PI);
-
-            Value num = create.math.mul(c2pi, iFloat);
-            Value angle = create.math.div(num, denomF);
-            Value cosAngle =
-                create.math.cos(angle); // cos(2 * pi * i / (N - 1))
-            Value term = create.math.mul(c0_45653, cosAngle);
-            w_i = create.math.sub(c0_54347, term);
-
-          } else if constexpr (std::is_same<ONNXOp,
-                                   ONNXBlackmanWindowOp>::value) {
-            // Formula: 0.42 - 0.5*cos(2*pi*i/(N-1)) + 0.08*cos(4*pi*i/(N-1))
-            Value c0_42 = create.math.constant(outType, 0.42);
-            Value c0_5 = create.math.constant(outType, 0.5);
-            Value c0_08 = create.math.constant(outType, 0.08);
-            Value c2pi = create.math.constant(outType, 2.0 * M_PI);
-            Value c4pi = create.math.constant(outType, 4.0 * M_PI);
-
-            Value num1 = create.math.mul(c2pi, iFloat);
-            Value angle1 = create.math.div(num1, denomF);
-            Value cosAngle1 = create.math.cos(angle1); // cos(2*pi*i/(N-1)
-            Value term1 =
-                create.math.mul(c0_5, cosAngle1); // 0.5*cos(2*pi*i/(N-1))
-
-            Value num2 = create.math.mul(c4pi, iFloat);
-            Value angle2 = create.math.div(num2, denomF);
-            Value cosAngle2 = create.math.cos(angle2); // cos(4*pi*i/(N-1)
-            Value term2 =
-                create.math.mul(c0_08, cosAngle2); // 0.08*cos(4*pi*i/(N-1))
-
-            Value result = create.math.sub(c0_42, term1);
-            w_i = create.math.add(result, term2);
-          }
-
+          Value w_i =
+              emitWindowCompute<ONNXOp>(create, iFloat, denomF, outType);
           krnlBuilder.store(w_i, alloc, {i});
         });
 
