@@ -12,7 +12,6 @@ add_onnx_mlir_library(OMKrnlToLLVM
   KrnlPrintTensor.cpp
   KrnlPrint.cpp
   KrnlRandomNormal.cpp
-  KrnlRandomUniform.cpp
   KrnlRoundEven.cpp
   KrnlStrlen.cpp
   KrnlStrncmp.cpp

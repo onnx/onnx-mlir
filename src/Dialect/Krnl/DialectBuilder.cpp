@@ -465,12 +465,6 @@ void KrnlBuilder::randomNormal(Value alloc, Value numberOfRandomValues,
       loc(), alloc, numberOfRandomValues, mean, scale, seed);
 }
 
-void KrnlBuilder::randomUniform(Value alloc, Value numberOfRandomValues,
-    Value low, Value high, Value seed) const {
-  b().create<KrnlRandomUniformOp>(
-      loc(), alloc, numberOfRandomValues, low, high, seed);
-}
-
 Value KrnlBuilder::findIndex(Value input, Value G, Value V, Value len) const {
   return b().create<KrnlFindIndexOp>(
       loc(), b().getIndexType(), input, G, V, len);

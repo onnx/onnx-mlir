@@ -1261,25 +1261,6 @@ Traits: `MemRefsNormalizable`
 | `seed` | floating-point |
 
 
-### `krnl.random_uniform` (KrnlRandomUniformOp)
-
-_Generate a random uniform tensor._
-
-Operation that generates a random uniformally distributed tensor.
-
-Traits: `MemRefsNormalizable`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `output` | memref of any type values |
-| `numberOfValues` | index |
-| `high` | floating-point |
-| `low` | floating-point |
-| `seed` | floating-point |
-
-
 ### `krnl.region` (KrnlRegionOp)
 
 _Affine boundary for krnl loops_

@@ -301,8 +301,6 @@ struct KrnlBuilder : public DialectBuilder {
   // Onnx-mlir runtime functions.
   void randomNormal(mlir::Value alloc, mlir::Value numberOfRandomValues,
       mlir::Value mean, mlir::Value scale, mlir::Value seed) const;
-  void randomUniform(mlir::Value alloc, mlir::Value numberOfRandomValues,
-      mlir::Value low, mlir::Value high, mlir::Value seed) const;
   mlir::Value findIndex(
       mlir::Value input, mlir::Value G, mlir::Value V, mlir::Value len) const;
 };

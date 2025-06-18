@@ -7,12 +7,11 @@ func.func @test_random_uniform_f32type() -> tensor<*xf32> {
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_random_uniform_f32type
 // CHECK-SAME:   () -> memref<3x4x5xf32> {
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
-// CHECK-DAG:       [[CST_60_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
-// CHECK:           "krnl.random_uniform"([[RES_]], [[CST_60_]], [[CST_0_dot_000000_]], [[CST_1_dot_000000_]], [[CST_1_dot_000000_]]_1) : (memref<3x4x5xf32>, index, f32, f32, f32) -> ()
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
+// CHECK:           "krnl.call"([[RES_]], [[CST_0_dot_000000_]], [[CST_1_dot_000000_]], [[CST_2_dot_000000_]]) {funcName = "run_uniform_random", numOfOutput = 1 : si64} : (memref<3x4x5xf32>, f32, f32, f32) -> ()
 // CHECK:           return [[RES_]] : memref<3x4x5xf32>
 // CHECK:         }
 }
@@ -23,12 +22,11 @@ func.func @test_random_uniform_f64type() -> tensor<*xf64> {
 
 // CHECK-LABEL:  func.func @test_random_uniform_f64type
 // CHECK-SAME:   () -> memref<3x4x5xf64> {
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf64>
-// CHECK-DAG:       [[CST_60_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f64
-// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f64
-// CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f64
-// CHECK:           "krnl.random_uniform"([[RES_]], [[CST_60_]], [[CST_0_dot_000000_]], [[CST_1_dot_000000_]], [[CST_1_dot_000000_]]_1) : (memref<3x4x5xf64>, index, f64, f64, f64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[CST_0_dot_000000_]], [[CST_1_dot_000000_]], [[CST_2_dot_000000_]]) {funcName = "run_uniform_random", numOfOutput = 1 : si64} : (memref<3x4x5xf64>, f32, f32, f32) -> ()
 // CHECK:           return [[RES_]] : memref<3x4x5xf64>
 // CHECK:         }
 }
@@ -40,12 +38,11 @@ func.func @test_random_uniform_without_seed() -> tensor<*xf32> {
 
 // CHECK-LABEL:  func.func @test_random_uniform_without_seed
 // CHECK-SAME:   () -> memref<3x4x5xf32> {
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
-// CHECK-DAG:       [[CST_60_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
-// CHECK-DAG:       [[CST_7_dot_200000_:%.+]] = arith.constant 
-// CHECK:           "krnl.random_uniform"([[RES_]], [[CST_60_]], [[CST_0_dot_000000_]], [[CST_1_dot_000000_]], [[CST_1_dot_000000_]]_1) : (memref<3x4x5xf32>, index, f32, f32, f32) -> ()
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[SEED_:%.+]] = arith.constant 
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
+// CHECK:           "krnl.call"([[RES_]], [[CST_0_dot_000000_]], [[CST_1_dot_000000_]], [[SEED_]]) {funcName = "run_uniform_random", numOfOutput = 1 : si64} : (memref<3x4x5xf32>, f32, f32, f32) -> ()
 // CHECK:           return [[RES_]] : memref<3x4x5xf32>
 // CHECK:         }
 }
