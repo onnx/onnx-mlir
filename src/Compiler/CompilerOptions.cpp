@@ -692,7 +692,7 @@ static llvm::cl::list<std::string, std::vector<std::string>> extraLibsOpt("l",
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
-    llvm::cl::desc("Profile operations in an IR:"),
+    llvm::cl::desc("Profile operations in an IR (timing and signature):"),
     llvm::cl::location(profileIR),
     llvm::cl::values(clEnumVal(None, "No profiling. Default value."),
         clEnumVal(

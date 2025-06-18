@@ -188,6 +188,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // overhead. Users can optionally enable the last bit by using
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
+    // Also enable instrumentation of signatures.
+    instrumentSignatures = "onnx.*,zhigh.*";
   }
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling /

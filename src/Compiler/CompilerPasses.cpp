@@ -165,6 +165,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // optionally enable the last bit by using
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
+    // Also enable instrumentation of signatures.
+    instrumentSignatures = "onnx.*";
   }
   // Add createInstrument (timing) second so that it will guarantee not to
   // include timing of the signature printing.
