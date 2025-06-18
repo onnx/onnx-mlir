@@ -923,7 +923,7 @@ ONNXConstantOp getONNXConstOpFromVector(
 Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     ONNXConvTransposeOp op, Value convTransposeResult, Value input,
     Value weights, Value bias, ArrayAttr dilations, IntegerAttr group,
-    ArrayAttr kernel_shape, ArrayAttr pads, ArrayAttr strides,
+    ArrayAttr inputKernelShape, ArrayAttr pads, ArrayAttr strides,
     FloatAttr alpha) {
 
   RankedTensorType weightsType =
@@ -933,7 +933,7 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   RankedTensorType outputType =
       mlir::cast<RankedTensorType>(convTransposeResult.getType());
   auto convTransposeOutputShape = outputType.getShape();
-  auto kernelShape = getIntVectorFromArrayAttr(kernel_shape);
+  auto kernelShape = getIntVectorFromArrayAttr(inputKernelShape);
   auto padsShape =
       (pads) ? getIntVectorFromArrayAttr(pads) : SmallVector<int64_t>({0, 0});
   auto stridesShape = (strides) ? getIntVectorFromArrayAttr(strides)
@@ -981,8 +981,9 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   // This is the shape of the output from each conv, which contributes to the
   // final ofm.
   SmallVector<int64_t> convOutputShape(convTransposeOutputShape);
-  convOutputShape[convOutputShape.size() - 1] =
-      (convOutputShape[convOutputShape.size() - 1] / stridesShape[0] + 1);
+  int64_t innermostDim = convOutputShape.size() - 1;
+  convOutputShape[innermostDim] =
+      (convOutputShape[innermostDim] / stridesShape[0] + 1);
 
   ShapedType convTransposeOutputType =
       mlir::cast<ShapedType>(op.getY().getType());
@@ -996,8 +997,8 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
 
   // The shape of the conv output to be consumed.
   SmallVector<int64_t> convSliceOutputShape(convTransposeOutputShape);
-  convSliceOutputShape[convOutputShape.size() - 1] = std::floor(
-      convTransposeOutputShape[convOutputShape.size() - 1] / stridesShape[0]);
+  convSliceOutputShape[innermostDim] =
+      std::floor(convTransposeOutputShape[innermostDim] / stridesShape[0]);
   auto convSliceOutputType = RankedTensorType::get(
       convSliceOutputShape, convTransposeOutputType.getElementType());
 
@@ -1014,7 +1015,7 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
         convOutputType);
     auto startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1});
     auto endOnnxConstant = getONNXConstOpFromVector(
-        rewriter, loc, {convOutputShape[convOutputShape.size() - 1]});
+        rewriter, loc, {convOutputShape[innermostDim]});
 
     // for conv1 garbage is in 1st value, for conv2 it is last value.
     conv1 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv1,
@@ -1022,7 +1023,7 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
 
     startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {0});
     endOnnxConstant = getONNXConstOpFromVector(
-        rewriter, loc, {convOutputShape[convOutputShape.size() - 1] - 1});
+        rewriter, loc, {convOutputShape[innermostDim] - 1});
     conv2 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv2,
         startOnnxConstant, endOnnxConstant, axisOnnxConstant, stepOnnxConstant);
     // The two convOutputs are adjusted to add an extra dimension at the
@@ -1088,7 +1089,7 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
         convOutputType);
     auto startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {0});
     auto endOnnxConstant = getONNXConstOpFromVector(
-        rewriter, loc, {convOutputShape[convOutputShape.size() - 1] - 1});
+        rewriter, loc, {convOutputShape[innermostDim] - 1});
 
     // for conv1 and conv2 garbage is at end, for conv3 and conv4 it is at
     // start.
@@ -1099,7 +1100,7 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
         startOnnxConstant, endOnnxConstant, axisOnnxConstant, stepOnnxConstant);
     startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1});
     endOnnxConstant = getONNXConstOpFromVector(
-        rewriter, loc, {convOutputShape[convOutputShape.size() - 1]});
+        rewriter, loc, {convOutputShape[innermostDim]});
     conv3 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv3,
         startOnnxConstant, endOnnxConstant, axisOnnxConstant, stepOnnxConstant);
 
@@ -1180,7 +1181,7 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
         convOutputType);
     auto startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1});
     auto endOnnxConstant = getONNXConstOpFromVector(
-        rewriter, loc, {convOutputShape[convOutputShape.size() - 1]});
+        rewriter, loc, {convOutputShape[innermostDim]});
 
     conv4 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv4,
         startOnnxConstant, endOnnxConstant, axisOnnxConstant, stepOnnxConstant);
