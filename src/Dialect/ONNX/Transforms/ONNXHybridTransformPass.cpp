@@ -104,17 +104,27 @@ struct ONNXHybridTransformPass
                      "phased Conv"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableConvTranspose1dDecomposeToPhasedConv{*this,
+      "enable-convtranspose-1d-phased",
+      llvm::cl::desc(
+          "Enable decomposition of ONNX ConvTranspose 1D operator to "
+          "phased Conv"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass(bool enableRecomposition,
       bool enableQuarkQuantizedOpsLegalization,
       bool enableConvTransposeDecompose,
-      bool enableConvTransposeDecomposeToPhasedConv) {
+      bool enableConvTransposeDecomposeToPhasedConv,
+      bool enableConvTranspose1dDecomposeToPhasedConv) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
         enableConvTransposeDecomposeToPhasedConv;
+    this->enableConvTranspose1dDecomposeToPhasedConv =
+        enableConvTranspose1dDecomposeToPhasedConv;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -156,7 +166,8 @@ struct ONNXHybridTransformPass
     if (decomposition) {
       getDecomposeONNXToONNXPatterns(cumulativePatterns,
           enableConvTransposeDecompose,
-          enableConvTransposeDecomposeToPhasedConv);
+          enableConvTransposeDecomposeToPhasedConv,
+          enableConvTranspose1dDecomposeToPhasedConv);
     }
 
     if (recomposition) {
@@ -198,8 +209,10 @@ struct ONNXHybridTransformPass
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization,
     bool enableConvTransposeDecompose,
-    bool enableConvTransposeDecomposeToPhasedConv) {
+    bool enableConvTransposeDecomposeToPhasedConv,
+    bool enableConvTranspose1dDecomposeToPhasedConv) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
-      enableConvTransposeDecomposeToPhasedConv);
+      enableConvTransposeDecomposeToPhasedConv,
+      enableConvTranspose1dDecomposeToPhasedConv);
 }
