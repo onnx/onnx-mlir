@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
+##################### onnxmlirdocker.py ########################################
+#
+# Copyright 2019-2025 The IBM Research Authors.
+#
+################################################################################
+#
+# This script define a class to compile an onnx model with local compiler,
+# or with a container image.
+################################################################################
+
 import numpy as np
 import os
 import sys
@@ -14,7 +27,6 @@ class config:
     }
 
     default_compiler_image_name = "ghcr.io/onnxmlir/onnx-mlir-dev"
-    default_container_engine = "docker"
 
 
 def get_names_in_signature(signature):
@@ -106,11 +118,17 @@ class InferenceSession:
 
         if "container_engine" in kwargs.keys():
             self.container_engine = kwargs["container_engine"]
-            if self.container_engine != "docker" and self.container_engine != "podman":
-                print("container engine has to be either docker or podman")
+            if (
+                self.container_engine != "docker"
+                and self.container_engine != "podman"
+                and self.container_engine != None
+            ):
+                print(
+                    "Container_engine has to be either 'docker' or 'podman', or None to let system choose the availabe one."
+                )
                 exit(1)
         else:
-            self.container_engine = config.default_container_engine
+            self.container_engine = None
 
         if "compiler_path" in kwargs.keys():
             self.compiler_path = kwargs["compiler_path"]
@@ -122,7 +140,17 @@ class InferenceSession:
                 exit(-1)
         else:
             # Import container tool, either docker or podman package
-            if self.container_engine == "docker":
+            if self.container_engine is None:
+                try:
+                    import docker as ce
+                except ImportError:
+                    try:
+                        import podman as ce
+                    except ImportError:
+                        raise ImportError(
+                            "Failure to load docker or podman package. To install docker, you can either do 'pip install docker', or install onnxmlir with `pip install -e path/onnxmlir[docker]`. Similar for podman"
+                        )
+            elif self.container_engine == "docker":
                 try:
                     import docker as ce
                 except ImportError:
