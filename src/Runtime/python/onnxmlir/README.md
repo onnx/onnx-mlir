@@ -1,3 +1,4 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
 # onnx-mlir-python-driver
 This light weight python driver for onnx-mlir compiler is a python package that does not depend on the building of onnx-mlir compiler or llvm-project. It uses  onnx-mlir compiler container through docker or podman python package, or locally installed onnx-mlir compiler to compile a model, and then run the compiled model through python interface. 
 A simple example of using container can be found in [use_compiler_container.py](https://github.ibm.com/chentong/onnx-mlir-python-driver/blob/main/onnxmlir/tests/use_compiler_container.py):
@@ -15,8 +16,9 @@ sess = onnxmlir.InferenceSession(
     compiler_image_name="ghcr.io/onnxmlir/onnx-mlir-dev",
     compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
 )
-# In the above example, all the compiler container related options are the default
-# value. So the previous setence can be simplified to
+# In this example, all the options for InferenceSession related to compiler
+# container are of the default value.
+# You can simply use the following sentence.
 """
  sess = onnxmlir.InferenceSession("test_add.onnx", compile_args="-O3 --parallel")
 """
@@ -40,11 +42,11 @@ python3 -m venv path/to/store/your/installation
 ### Install the package
 If you want to use docker package:
 ```
-pip3 install -e onnx-mlir-python-dirver/onnxmlir[docker]
+pip3 install -e onnx-mlir-python-driver/onnxmlir[docker]
 ```
 If you want to use podman package:
 ```
-pip3 install -e onnx-mlir-python-dirver/onnxmlir[podman]
+pip3 install -e onnx-mlir-python-driver/onnxmlir[podman]
 ```
 ### Verify
 Run a test case in onnx-mlir-python-driver/tree/main/onnxmlir/tests. 
@@ -54,4 +56,4 @@ cd onnx-mlir-python-driver/tree/main/onnxmlir/tests
 python3 helloworld_with_precompiled_model.py
 ```
 When you try the onnx-mlir container for the first on your machine, it may take a while to pull the container from repo.
-You can find various examples in https://github.ibm.com/chentong/onnx-mlir-python-driver/tree/main/onnxmlir/tests.
+You can find more examples [here](https://github.ibm.com/chentong/onnx-mlir-python-driver/tree/main/onnxmlir/tests).
