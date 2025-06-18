@@ -93,7 +93,7 @@ extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern bool enableConvTransposeDecomposeToPhasedConv;         // common for both
-extern bool enableConvTranspose1dDecomposeToPhasedConv;         // common for both
+extern bool enableConvTranspose1dDecomposeToPhasedConv;       // common for both
 extern bool enableQuarkQuantizerLegalization;                 // common for both
 extern uint64_t compilationNumThreads;                        // common for both
 // AMD: Decompose unconditionally
