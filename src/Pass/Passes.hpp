@@ -79,7 +79,8 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
     bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization = false,
     bool enableConvTransposeDecompose = false,
-    bool enableConvTransposeDecomposeToPhasedConv = false, bool enableConvTranspose1dDecomposeToPhasedConv = false);
+    bool enableConvTransposeDecomposeToPhasedConv = false,
+    bool enableConvTranspose1dDecomposeToPhasedConv = false);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
