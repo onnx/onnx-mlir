@@ -29,8 +29,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
-| **Binarizer** |none | | | |
-| **BitShift** |none | | | |
+| **Binarizer** |1 - * | | | |
+| **BitShift** |11 - * | | | |
 | **BitwiseAnd** |18 - * | | |
 | **BitwiseNot** |18 - * | Only supports signed integers | | 
 | **BitwiseOr** |18 - * | | |
@@ -89,7 +89,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **GreaterOrEqual** |12 - * | | |
 | **GridSample** |none | | | |
 | **GroupNormalization** |18 - * | | |
-| **HammingWindow** |none | | | |
+| **HammingWindow** |17 - * | | | 
 | **HannWindow** |none | | | |
 | **HardSigmoid** |6 - * | | |
 | **HardSwish** |14 - * | | | |
@@ -121,7 +121,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **MaxRoiPool** |none | | | |
 | **MaxUnpool** |none | | | |
 | **Mean** |6 - * | | |
-| **MeanVarianceNormalization** |none | | | |
+| **MeanVarianceNormalization** |9 - * | | | |
 | **MelWeightMatrix** |none | | | |
 | **Min** |6 - * |Does not support unsigned numbers. Only ppc64le and MacOS platforms support float16. | |
 | **Mish** |18 - * | | | |

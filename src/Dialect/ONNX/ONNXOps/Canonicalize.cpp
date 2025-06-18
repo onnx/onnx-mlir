@@ -1239,6 +1239,53 @@ private:
   int64_t maxPower;
 };
 
+class PowConversionRewritePattern : public OpRewritePattern<ONNXPowOp> {
+public:
+  using OpRewritePattern<ONNXPowOp>::OpRewritePattern;
+
+  PowConversionRewritePattern(MLIRContext *context, int64_t maxPower)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXPowOp powOp, PatternRewriter &rewriter) const override {
+    Operation *op = powOp.getOperation();
+    Location loc = powOp.getLoc();
+    Value input = powOp.getX();
+    Value exp = powOp.getY();
+
+    // Characterize element types.
+    Type inputElementType = getElementTypeOrSelf(input);
+    Type expElementType = getElementTypeOrSelf(exp);
+    bool inputIsInt = isa<IntegerType>(inputElementType);
+    bool inputIsFloat = isa<FloatType>(inputElementType);
+    bool expIsInt = isa<IntegerType>(expElementType);
+    bool expIsFloat = isa<FloatType>(expElementType);
+    // Since verifier make sure we only have int or float, can use call below.
+    int64_t inputWidth = inputElementType.getIntOrFloatBitWidth();
+    int64_t expWidth = expElementType.getIntOrFloatBitWidth();
+
+    // Detect cases that MLIR supports without conversions => failure, aka no
+    // need to do anything here.
+    if ((inputWidth == expWidth) &&
+        ((inputIsInt && expIsInt) || (inputIsFloat && expIsFloat) ||
+            (inputIsFloat && expIsInt)))
+      return failure();
+
+    // Rewrite pow with a cast of the exp type to the input type
+    // TODO: Standard is fuzzy on how to handle conversions in mix type
+    // situations. We should revisit this code if the standard change from the
+    // currently (unofficial, aka ORT) policy which is simply to convert the
+    // exponenet to the type of the base & output. This is especially
+    // "questionable" when the base is an integer type and the exponent is a
+    // float, as 0.5 could express a square root operation.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value newExp = create.onnx.cast(exp, inputElementType);
+    Value newPow = create.onnx.pow(input, newExp);
+    rewriter.replaceOp(op, {newPow});
+    return success();
+  }
+};
+
 // Rewrite a pattern like the following:
 //
 // %shape = onnx.Concat(%dim1, %dim2)
@@ -1974,6 +2021,60 @@ struct RemoveGroupNormPattern2
 };
 
 // =============================================================================
+// Rewrite pattern for ONNXTransposeOp
+// =============================================================================
+
+// Handle negative permute pattern here as they are used in many many places.
+// Added also the default where no permute is given.
+// Still had to also handle them in shape inference
+class HandleNegativePermutePatternInTranspose
+    : public OpRewritePattern<ONNXTransposeOp> {
+public:
+  using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXTransposeOp onnxTransposeOp,
+      PatternRewriter &rewriter) const override {
+    Location loc = onnxTransposeOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+
+    Value data = onnxTransposeOp.getData();
+    if (!hasShapeAndRank(data))
+      return failure();
+    // Get rank and permutation attribute, if any.
+    int64_t rank = mlir::cast<ShapedType>(data.getType()).getRank();
+    auto permAttr = onnxTransposeOp.getPermAttr();
+
+    if (!permAttr) {
+      // No Permute, default to reverse order.
+      SmallVector<int64_t, 4> defaultPerm;
+      for (int64_t i = rank - 1; i >= 0; --i)
+        defaultPerm.emplace_back(i);
+      Value res = create.transposeInt64(data, defaultPerm);
+      rewriter.replaceOp(onnxTransposeOp, res);
+      return success();
+    }
+
+    bool hasNegativePermVal = false;
+    SmallVector<int64_t, 4> newPerm;
+    for (int64_t i = 0; i < rank; ++i) {
+      int64_t p = ArrayAttrIntVal(permAttr, i);
+      if (p < 0) {
+        hasNegativePermVal = true;
+        p += rank;
+      }
+      newPerm.emplace_back(p);
+    }
+    // No negative value, no need to canonicalize.
+    if (!hasNegativePermVal)
+      return failure();
+    // Had a negative number, replace the transpose.
+    Value res = create.transposeInt64(data, newPerm);
+    rewriter.replaceOp(onnxTransposeOp, res);
+    return success();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -2291,6 +2392,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
   result.insert<FuseTransposeAndTanhPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
+  result.insert<HandleNegativePermutePatternInTranspose>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
@@ -2312,6 +2414,7 @@ void ONNXPowOp::getCanonicalizationPatterns(
   // Is 64 necessary? Maybe too high?
   result.insert<PowToMulRewritePattern>(context, 64);
   result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
+  result.insert<PowConversionRewritePattern>(context);
 }
 
 /// on the ONNXXorOp.
