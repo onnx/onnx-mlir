@@ -151,11 +151,10 @@ static inline zdnn_status call_binary_op(const char *msg,
 
 // -----------------------------------------------------------------------------
 // Extension Functions
-// Same name as zdnn functions but with the `_ext` postfix.
-// TODO: Revise these names. Now they are used in onnx-mlir.
+// Same name as zdnn functions but with the `zdnnx` prefix instead of `zdnn`.
 // -----------------------------------------------------------------------------
 
-zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *input_a,
+zdnn_status zdnnx_matmul_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
     zdnn_ztensor *output) {
   zdnn_status status;
@@ -165,7 +164,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *input_a,
   return status;
 }
 
-zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *input_a,
+zdnn_status zdnnx_matmul_bcast_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
     zdnn_ztensor *output) {
   zdnn_status status;
@@ -175,7 +174,7 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *input_a,
   return status;
 }
 
-zdnn_status zdnn_matmul_transpose_op_ext(const zdnn_ztensor *input_a,
+zdnn_status zdnnx_matmul_transpose_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int transpose_a,
     int transpose_b, int opType, zdnn_ztensor *output) {
   zdnn_status status;
@@ -186,7 +185,7 @@ zdnn_status zdnn_matmul_transpose_op_ext(const zdnn_ztensor *input_a,
   return status;
 }
 
-zdnn_status zdnn_add_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+zdnn_status zdnnx_add(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_binary_op("Add", inputA, inputB, output, ZDNNX_ADD_OP);
@@ -194,7 +193,7 @@ zdnn_status zdnn_add_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
   return status;
 }
 
-zdnn_status zdnn_sub_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+zdnn_status zdnnx_sub(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_binary_op("Sub", inputA, inputB, output, ZDNNX_SUB_OP);
@@ -202,7 +201,7 @@ zdnn_status zdnn_sub_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
   return status;
 }
 
-zdnn_status zdnn_mul_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+zdnn_status zdnnx_mul(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_binary_op("Mul", inputA, inputB, output, ZDNNX_MUL_OP);
@@ -210,7 +209,7 @@ zdnn_status zdnn_mul_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
   return status;
 }
 
-zdnn_status zdnn_div_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+zdnn_status zdnnx_div(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_binary_op("Div", inputA, inputB, output, ZDNNX_DIV_OP);
@@ -218,7 +217,7 @@ zdnn_status zdnn_div_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
   return status;
 }
 
-zdnn_status zdnn_min_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+zdnn_status zdnnx_min(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_binary_op("Min", inputA, inputB, output, ZDNNX_MIN_OP);
@@ -226,7 +225,7 @@ zdnn_status zdnn_min_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
   return status;
 }
 
-zdnn_status zdnn_max_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+zdnn_status zdnnx_max(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_binary_op("Max", inputA, inputB, output, ZDNNX_MAX_OP);
@@ -234,19 +233,19 @@ zdnn_status zdnn_max_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
   return status;
 }
 
-zdnn_status zdnn_exp_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+zdnn_status zdnnx_exp(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status = call_unary_op("Exp", input, NULL, output, ZDNNX_EXP_OP);
   CHECK_ZDNN_STATUS(status, "zdnn_exp");
   return status;
 }
 
-zdnn_status zdnn_log_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+zdnn_status zdnnx_log(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status = call_unary_op("Log", input, NULL, output, ZDNNX_LOG_OP);
   CHECK_ZDNN_STATUS(status, "zdnn_log");
   return status;
 }
 
-zdnn_status zdnn_relu_ext(const zdnn_ztensor *input, const void *clipping_value,
+zdnn_status zdnnx_relu(const zdnn_ztensor *input, const void *clipping_value,
     zdnn_ztensor *output) {
   zdnn_status status =
       call_unary_op("Relu", input, clipping_value, output, ZDNNX_RELU_OP);
@@ -254,21 +253,21 @@ zdnn_status zdnn_relu_ext(const zdnn_ztensor *input, const void *clipping_value,
   return status;
 }
 
-zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+zdnn_status zdnnx_sigmoid(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       call_unary_op("Sigmoid", input, NULL, output, ZDNNX_SIGMOID_OP);
   CHECK_ZDNN_STATUS(status, "zdnn_sigmoid");
   return status;
 }
 
-zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+zdnn_status zdnnx_tanh(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       call_unary_op("Tanh", input, NULL, output, ZDNNX_TANH_OP);
   CHECK_ZDNN_STATUS(status, "zdnn_tanh");
   return status;
 }
 
-zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
+zdnn_status zdnnx_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
   zdnn_status status;
   CALL_ZDNNX_FUNC(
@@ -279,18 +278,18 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
 
 // -----------------------------------------------------------------------------
 // Extension Functions for arch15/z17
-// arch15/z17 specific zdnn functions but with the `_ext` postfix.
+// arch15/z17 specific zdnn functions but with the `zdnnx` prefix.
 // Retrieve the zdnn status message
 // -----------------------------------------------------------------------------
 
-zdnn_status zdnn_gelu_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+zdnn_status zdnnx_gelu(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       call_unary_op("Gelu", input, NULL, output, ZDNNX_GELU_OP);
   CHECK_ZDNN_STATUS(status, "zdnn_gelu");
   return status;
 }
 
-zdnn_status zdnn_invsqrt_ext(
+zdnn_status zdnnx_invsqrt(
     const zdnn_ztensor *input, float epsilon, zdnn_ztensor *output) {
   zdnn_status status =
       call_unary_op("Invsqrt", input, &epsilon, output, ZDNNX_INVSQRT_OP);
@@ -298,7 +297,7 @@ zdnn_status zdnn_invsqrt_ext(
   return status;
 }
 
-zdnn_status zdnn_leaky_relu_ext(const zdnn_ztensor *input,
+zdnn_status zdnnx_leaky_relu(const zdnn_ztensor *input,
     const void *clipping_value, float adjustment_factor, zdnn_ztensor *output) {
   zdnn_status status;
   CALL_ZDNNX_FUNC("LeakyRelu", zdnn_leaky_relu, zdnn_leaky_relu, input,
@@ -307,8 +306,8 @@ zdnn_status zdnn_leaky_relu_ext(const zdnn_ztensor *input,
   return status;
 }
 
-zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area,
-    int opType, zdnn_ztensor *output) {
+zdnn_status zdnnx_reduce(const zdnn_ztensor *input, void *save_area, int opType,
+    zdnn_ztensor *output) {
   zdnn_status status;
   CALL_ZDNNX_FUNC(
       "Reduce", zdnn_reduce, zdnn_reduce, input, save_area, opType, output);
@@ -316,7 +315,7 @@ zdnn_status zdnn_reduce_ext(const zdnn_ztensor *input, void *save_area,
   return status;
 }
 
-zdnn_status zdnn_sqrt_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
+zdnn_status zdnnx_sqrt(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       call_unary_op("Sqrt", input, NULL, output, ZDNNX_SQRT_OP);
   CHECK_ZDNN_STATUS(status, "zdnn_sqrt");
