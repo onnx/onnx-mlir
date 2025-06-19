@@ -24,6 +24,7 @@
 // Keep these values to avoid calling omp functions multiple times.
 extern uint32_t zdnnx_num_zaius;
 extern uint32_t zdnnx_min_num_procs_per_zaius;
+extern uint32_t zdnnx_num_procs;
 
 // The number of zaius is the number of omp places.
 uint32_t zdnnx_get_num_zaius();
