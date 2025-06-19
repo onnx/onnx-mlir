@@ -34,20 +34,21 @@ uint32_t zdnnx_num_procs = 0;
 // Utility functions
 // -----------------------------------------------------------------------------
 
-uint32_t get_num_zaius() {
+uint32_t zdnnx_get_num_zaius() {
   if (zdnnx_num_zaius > 0)
     return zdnnx_num_zaius;
-
   zdnnx_num_zaius = omp_get_num_places();
   if (zdnnx_num_zaius == 0) {
     // OMP_PLACES is not set. Return 1 to say using one processor.
     zdnnx_num_zaius = 1;
   }
+#ifdef ZDNNX_DEBUG
   printf("[zdnnx] num_zaius: %d\n", zdnnx_num_zaius);
+#endif
   return zdnnx_num_zaius;
 }
 
-uint32_t get_min_num_procs_per_zaiu() {
+uint32_t zdnnx_get_min_num_procs_per_zaiu() {
   if (zdnnx_min_num_procs_per_zaius > 0)
     return zdnnx_min_num_procs_per_zaius;
 
@@ -61,12 +62,14 @@ uint32_t get_min_num_procs_per_zaiu() {
     if (num_procs < zdnnx_min_num_procs_per_zaius)
       zdnnx_min_num_procs_per_zaius = num_procs;
   }
+#ifdef ZDNNX_DEBUG
   printf(
       "[zdnnx] min_num_procs_per_zaius: %d\n", zdnnx_min_num_procs_per_zaius);
+#endif
   return zdnnx_min_num_procs_per_zaius;
 }
 
-uint32_t get_num_procs() {
+uint32_t zdnnx_get_num_procs() {
   if (zdnnx_num_procs > 0)
     return zdnnx_num_procs;
 
@@ -77,8 +80,12 @@ uint32_t get_num_procs() {
     // OMP_PLACES is not set. Return 1 to say using one processor.
     zdnnx_num_procs = 1;
   }
+
+#ifdef ZDNNX_DEBUG
   printf("[zdnnx] num_procs: %d (%s)\n", zdnnx_num_procs,
       is_telum_1 ? "Telum I" : "Telum II");
+#endif
+
   return zdnnx_num_procs;
 }
 
@@ -134,8 +141,8 @@ zdnn_status omp_matmul(const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
   // over multiple zAIUs.
   uint32_t mdis_e1 = get_nnpa_max_dim_size(E1);
   uint32_t mdis_e2 = get_nnpa_max_dim_size(E2);
-  uint32_t num_zaius = get_num_zaius();
-  uint32_t num_procs_per_zaius = get_min_num_procs_per_zaiu();
+  uint32_t num_zaius = zdnnx_get_num_zaius();
+  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
   uint32_t BS = zdnnx_get_transformed_dim(input_a, E4);
   uint32_t M = zdnnx_get_transformed_dim(input_a, E2);
   uint32_t K = zdnnx_get_transformed_dim(input_a, E1);
@@ -309,9 +316,9 @@ zdnn_status omp_unary_elementwise(const zdnn_ztensor *input,
 
   // Select suitable tile sizes.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0, ts_e1 = 0;
-  uint32_t num_procs_per_zaius = get_min_num_procs_per_zaiu();
-  uint32_t num_tiles =
-      get_num_zaius() * ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
+  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaius() *
+                       ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
   if (isBigTensor) {
     ts_e4 = zdnnx_get_transformed_dim_per_tile(&input_view, num_tiles, E4);
     uint32_t mdis_e4 = get_nnpa_max_dim_size(E4);
@@ -442,9 +449,9 @@ zdnn_status omp_binary_elementwise(const zdnn_ztensor *input_a,
 
   // Select suitable tile sizes.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0, ts_e1 = 0;
-  uint32_t num_procs_per_zaius = get_min_num_procs_per_zaiu();
-  uint32_t num_tiles =
-      get_num_zaius() * ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
+  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaius() *
+                       ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
   if (isBigTensor) {
     ts_e4 = zdnnx_get_transformed_dim_per_tile(&input_a_view, num_tiles, E4);
     uint32_t mdis_e4 = get_nnpa_max_dim_size(E4);
@@ -542,9 +549,9 @@ zdnn_status omp_softmax(const zdnn_ztensor *input, void *save_area,
   uint32_t mdis_e2 = get_nnpa_max_dim_size(E2);
   uint32_t mdis_e4 = get_nnpa_max_dim_size(E4);
   uint64_t mts = get_nnpa_max_tensor_size();
-  uint32_t num_procs_per_zaius = get_min_num_procs_per_zaiu();
-  uint32_t num_tiles =
-      get_num_zaius() * ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
+  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaius() *
+                       ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
 
   // Select suitable tile sizes.
   // For softmax, do not split E1 since it affects accuracy of the final result.

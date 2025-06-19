@@ -24,14 +24,13 @@
 // Keep these values to avoid calling omp functions multiple times.
 extern uint32_t zdnnx_num_zaius;
 extern uint32_t zdnnx_min_num_procs_per_zaius;
-extern uint32_t zdnnx_num_procs;
 
 // The number of zaius is the number of omp places.
-uint32_t get_num_zaius();
+uint32_t zdnnx_get_num_zaius();
 // The minimum number of proccessors per place in OMP.
-uint32_t get_min_num_procs_per_zaiu();
+uint32_t zdnnx_get_min_num_procs_per_zaiu();
 // The total number of processors in OMP.
-uint32_t get_num_procs();
+uint32_t zdnnx_get_num_procs();
 
 zdnn_status omp_matmul(const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
     const zdnn_ztensor *input_c, int op_type, zdnn_ztensor *output,

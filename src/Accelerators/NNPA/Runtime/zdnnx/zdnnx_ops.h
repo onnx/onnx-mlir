@@ -19,7 +19,10 @@
 #include "zdnnx.h"
 
 // Keep these values to avoid calling zdnn functions multiple times.
-extern uint32_t nnpa_max_dim_size;
+extern uint32_t nnpa_max_dim_size_e4;
+extern uint32_t nnpa_max_dim_size_e3;
+extern uint32_t nnpa_max_dim_size_e2;
+extern uint32_t nnpa_max_dim_size_e1;
 extern uint64_t nnpa_max_tensor_size;
 
 typedef enum ElemementwiseOp {
