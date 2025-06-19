@@ -1,0 +1,3 @@
+#include onnxmlir/libs/PyRuntimeC.cpython-310-s390x-linux-gnu.so
+#include onnxmlir/libs/PyRuntimeC.cpython-312-s390x-linux-gnu.so
+include onnxmlir/libs/*.so

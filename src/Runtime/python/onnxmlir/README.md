@@ -1,7 +1,7 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 # onnx-mlir-python-driver
 This light weight python driver for onnx-mlir compiler is a python package that does not depend on the building of onnx-mlir compiler or llvm-project. It uses  onnx-mlir compiler container through docker or podman python package, or locally installed onnx-mlir compiler to compile a model, and then run the compiled model through python interface. 
-A simple example of using container can be found in [use_compiler_container.py](https://github.ibm.com/chentong/onnx-mlir-python-driver/blob/main/onnxmlir/tests/use_compiler_container.py):
+A simple example of using container can be found in [use_compiler_container.py](https://github.ibm.com/chentong/onnx-mlir-python-driver/blob/main/tests/use_compiler_container.py):
 ```
 import numpy as np
 import onnxmlir
@@ -42,18 +42,18 @@ python3 -m venv path/to/store/your/installation
 ### Install the package
 If you want to use docker package:
 ```
-pip3 install -e onnx-mlir-python-driver/onnxmlir[docker]
+pip3 install onnx-mlir-python-driver[docker]
 ```
 If you want to use podman package:
 ```
-pip3 install -e onnx-mlir-python-driver/onnxmlir[podman]
+pip3 install onnx-mlir-python-driver[podman]
 ```
 ### Verify
-Run a test case in onnx-mlir-python-driver/tree/main/onnxmlir/tests. 
+Run a test case in onnx-mlir-python-driver/tests. 
 You can try the precompiled model first to just check the package with container:
 ```
-cd onnx-mlir-python-driver/tree/main/onnxmlir/tests
+cd onnx-mlir-python-driver/tests
 python3 helloworld_with_precompiled_model.py
 ```
-When you try the onnx-mlir container for the first on your machine, it may take a while to pull the container from repo.
-You can find more examples [here](https://github.ibm.com/chentong/onnx-mlir-python-driver/tree/main/onnxmlir/tests).
+When you try the onnx-mlir container for the first time on your machine, it may take a while to pull the container from repo.
+You can find more examples [here](https://github.ibm.com/chentong/onnx-mlir-python-driver/tree/main/tests).
