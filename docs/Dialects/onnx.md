@@ -1015,7 +1015,7 @@ The operator casts the elements of a given input tensor (the first input) to
 the same data type as the elements of the second input tensor.
 See documentation of the Cast operator for further details.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -1032,14 +1032,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
-| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values
+| `target_type` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values
 
 ### `onnx.CastMap` (ONNXCastMapOp)
 
@@ -1145,7 +1145,7 @@ The rules then become:
 | [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
 | else | RNE | RNE | RNE | RNE |
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -1623,7 +1623,7 @@ _ONNX ConstantOfShape operation_
 
 Generate a tensor with given value and shape.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<20>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -1646,7 +1646,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of 1-bit signless integer values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.Constant` (ONNXConstantOp)
 
@@ -1655,7 +1655,7 @@ _ONNX Constant operation_
 This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,
 or value_* must be specified.
 
-Traits: `AlwaysSpeculatableImplTrait`, `ConstantLike`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `ConstantLike`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -1679,7 +1679,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values
 
 ### `onnx.ConvInteger` (ONNXConvIntegerOp)
 
@@ -2779,7 +2779,7 @@ Flattens the input tensor into a 2D matrix. If input tensor has shape
 (d_0, d_1, ... d_n) then the output will have shape
 (d_0 X d_1 ... d_(axis-1), d_axis X d_(axis+1) ... X dn).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -3996,7 +3996,7 @@ _ONNX Identity operation_
 
 Identity operator
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -4020,7 +4020,7 @@ _ONNX If operation_
 
 If conditional
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `HasOnnxSubgraphOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -4853,7 +4853,7 @@ point-wise operators (e.g. dropout, residual connections, linear layer).
 
 The input/output of subgraph (produced by loop node) matching is based on order instead of name. The implementation will figure out the names based on this order.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `HasOnnxSubgraphOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -6260,7 +6260,7 @@ output = [
 ]
 ```
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -8148,7 +8148,7 @@ If the attribute 'allowzero' is set, it is invalid for the specified shape to
 contain both a zero value and -1, as the value of the dimension corresponding
 to -1 cannot be determined uniquely.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -8837,7 +8837,7 @@ values are computed in the outer graph, they need to be passed in as extra state
     }
 
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `HasOnnxSubgraphOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -9428,7 +9428,7 @@ end: 2
 Output: [3]
 ```
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -9654,7 +9654,7 @@ _ONNX Size operation_
 
 Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<19>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -10183,7 +10183,7 @@ Takes an input `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
 the shape. If an axis is selected with shape entry not equal to one, an error is raised.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -10563,7 +10563,7 @@ Transpose the input tensor similar to numpy.transpose. For example, when
 perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
 will be (2, 1, 3).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -10889,7 +10889,7 @@ The rank of the output tensor (`output_rank`) is the rank of the input tensor (`
 Each value in `axes` should be within the (inclusive) range [-output_rank , output_rank - 1].
 The order of values in `axes` does not matter and can come in any order.
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<13>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<21>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
@@ -10958,7 +10958,7 @@ Upsample the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
 
-Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<9>`
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<10>`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
