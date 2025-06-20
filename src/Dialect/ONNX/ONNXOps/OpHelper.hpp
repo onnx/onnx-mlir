@@ -339,7 +339,7 @@ bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
 
 // This is to recognize a binary op, e.g. A*B where one of A and B is a constant
 // and the other one is defined by OP.
-// Note: this function can handle the communitive property of the binary op.
+// Note: this function can handle the commutative property of the binary op.
 //
 // For example, to recognize this pattern:
 // %x = "onnx.Tanh"()
