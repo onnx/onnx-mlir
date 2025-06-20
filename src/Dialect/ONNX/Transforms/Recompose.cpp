@@ -22,10 +22,9 @@
 
 #include <numeric>
 
-#include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -851,44 +850,10 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
-  ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
-
-  // These ops will be Recomposed into other ONNX ops. Hence, they will not be
-  // available after this pass.
-
-  // Recompose LayerNorm, starting from scale/mul op
-  target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
-    Value x, scale;
-    FloatAttr epsilon;
-    int64_t axis;
-    bool isRMSLayerNorm;
-    if (RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
-            op, x, scale, axis, epsilon, isRMSLayerNorm))
-      return false;
-
-    bool isExactGelu;
-    if (RecomposeGeluFromMulPattern::matchGeluPattern(op, x, isExactGelu))
-      return false;
-
-    return true;
-  });
-
-  // Recompose QLinearMatMul, starting from QuantizeLinear.
-  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
-  target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
-      [](ONNXQuantizeLinearOp op) {
-        Value a, aScale, aZeroPoint, b, bScale, bZeroPoint, outScale,
-            outZeroPoint;
-        return !RecomposeQLinearMatMulFromQuantizeLinearPattern::
-            matchQLinearMatMulPattern(op, a, aScale, aZeroPoint, b, bScale,
-                bZeroPoint, outScale, outZeroPoint);
-      });
-
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
 
-  if (failed(applyPartialConversion(function, target, std::move(patterns))))
+  if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
