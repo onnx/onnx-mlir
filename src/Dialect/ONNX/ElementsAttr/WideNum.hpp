@@ -63,11 +63,13 @@ union WideNum {
   constexpr T to(BType tag) const {
     switch (tag) {
     case BType::BOOL:
+    case BType::UINT4:
     case BType::UINT8:
     case BType::UINT16:
     case BType::UINT32:
     case BType::UINT64:
       return static_cast<T>(u64);
+    case BType::INT4:
     case BType::INT8:
     case BType::INT16:
     case BType::INT32:
@@ -91,11 +93,13 @@ union WideNum {
   static constexpr WideNum from(BType tag, T x) {
     switch (tag) {
     case BType::BOOL:
+    case BType::UINT4:
     case BType::UINT8:
     case BType::UINT16:
     case BType::UINT32:
     case BType::UINT64:
       return WideNum(static_cast<uint64_t>(x)); // .u64
+    case BType::INT4:
     case BType::INT8:
     case BType::INT16:
     case BType::INT32:

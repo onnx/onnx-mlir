@@ -641,6 +641,29 @@ func.func @test_castlike(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf16>) -> tensor
 
 // -----
 
+func.func @test_castlike_i4(%arg0 : tensor<*xf32>, %arg1 : tensor<*xi4>) -> tensor<*xi4> {
+  %0 = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<*xf32>, tensor<*xi4>) -> tensor<*xi4> 
+  "onnx.Return"(%0) : (tensor<*xi4>) -> ()
+
+  // CHECK-LABEL: test_castlike_i4
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = i4} : (tensor<*xf32>) -> tensor<*xi4> 
+  // CHECK: onnx.Return [[RES]] : tensor<*xi4>
+}
+
+// -----
+
+func.func @test_castlike_ui4(%arg0 : tensor<*xf32>, %arg1 : tensor<*xui4>) -> tensor<*xui4> {
+  %0 = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<*xf32>, tensor<*xui4>) -> tensor<*xui4> 
+  "onnx.Return"(%0) : (tensor<*xui4>) -> ()
+
+  // CHECK-LABEL: test_castlike_ui4
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = ui4} : (tensor<*xf32>) -> tensor<*xui4> 
+  // CHECK: onnx.Return [[RES]] : tensor<*xui4>
+}
+
+
+// -----
+
 func.func @test_sum(%arg0: tensor<128x10xf32>, %arg1: tensor<64x128x10xf32>, %arg2: tensor<10xf32>, %arg3: tensor<64x1x1xf32>) -> tensor<64x128x10xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<128x10xf32>, tensor<64x128x10xf32>, tensor<10xf32>, tensor<64x1x1xf32>) -> tensor<64x128x10xf32>
   onnx.Return %0 : tensor<64x128x10xf32> 

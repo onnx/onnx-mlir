@@ -1,0 +1,99 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+// int4_nonraw_data.json is an onnx model that outputs 2 constant tensors
+// with int4 and uint4 data types
+// json is generated with utils/testing/int4_data.py nonraw
+{
+  "irVersion": "10",
+  "graph": {
+    "node": [
+      {
+        "output": [
+          "output_int4"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "5"
+              ],
+              "dataType": 22,
+              "int32Data": [
+                16,
+                47,
+                14
+              ],
+              "name": "tensor_int4"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output_uint4"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 21,
+              "int32Data": [
+                16,
+                15
+              ],
+              "name": "tensor_uint4"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      }
+    ],
+    "name": "int4_nonraw_data",
+    "output": [
+      {
+        "name": "output_int4",
+        "type": {
+          "tensorType": {
+            "elemType": 22,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "5"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output_uint4",
+        "type": {
+          "tensorType": {
+            "elemType": 21,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "22"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 1, -1, 2, -2]> : tensor<5xi4>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0, 1, 15]> : tensor<3xui4>

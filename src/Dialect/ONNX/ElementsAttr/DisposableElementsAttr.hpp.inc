@@ -5,14 +5,13 @@
 //===----------------------------------------------------------------------===//
 
 namespace detail {
-// True for the types T in DisposableElementsAttr::NonContiguousIterableTypesT.
+ 
 template <typename T>
 constexpr bool isIterableType =
     llvm::is_one_of<T, Attribute, IntegerAttr, FloatAttr, APInt, APFloat,
         onnx_mlir::WideNum>::value ||
     onnx_mlir::CppTypeTrait<T>::isIntOrFloat;
 
-// Supports all the types T in NonContiguousIterableTypesT.
 template <typename T>
 T getNumber(Type elementType, onnx_mlir::BType tag, onnx_mlir::WideNum n) {
   static_assert(isIterableType<T>);
