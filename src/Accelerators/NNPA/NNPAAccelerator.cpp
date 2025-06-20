@@ -58,7 +58,19 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
 
   acceleratorTargets.push_back(this);
   // Order is important! libRuntimeNNPA depends on libzdnn
-  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"RuntimeNNPA", "zdnn"}, true);
+  std::vector<std::string> libs;
+  libs.push_back("RuntimeNNPA");
+  libs.push_back("zdnn");
+#ifdef ZDNNX_WITH_OMP
+  // ompruntime migh be added in advance if --parallel is used.
+  // Check if ompruntime exists or not.
+  std::vector<std::string> existingLibs =
+      getCompilerConfig(CCM_SHARED_LIB_DEPS);
+  if (!llvm::any_of(
+          existingLibs, [](std::string s) { return s == "ompruntime"; }))
+    libs.push_back("ompruntime");
+#endif
+  addCompilerConfig(CCM_SHARED_LIB_DEPS, libs, true);
 };
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
