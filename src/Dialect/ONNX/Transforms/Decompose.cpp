@@ -2147,7 +2147,6 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
   }
 };
 
-
 // Decompose a pad with negative padding size to slice + pad
 // Only supports static shapes
 struct DecomposeSlicePadPattern : public OpRewritePattern<ONNXPadOp> {
