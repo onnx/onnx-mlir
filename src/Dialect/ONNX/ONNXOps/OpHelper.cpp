@@ -844,14 +844,12 @@ std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
   StringAttr nodeName;
   // Try with op onnx_node_name attribute.
   nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
-  if (nodeName) {
+  if (nodeName)
     return nodeName.str();
-  }
   // Try with op location.
   Location loc = op->getLoc();
-  if (auto nameLoc = mlir::dyn_cast<NameLoc>(loc)) {
+  if (auto nameLoc = mlir::dyn_cast<NameLoc>(loc))
     return nameLoc.getName().str();
-  }
   if (auto fusedLoc = mlir::dyn_cast<FusedLoc>(loc)) {
     // Combine each location name and set it as nodeName.
     std::string name;

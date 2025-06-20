@@ -24,7 +24,7 @@ struct ONNXMeanVarianceNormalizationOpLowering
         IndexExprBuilderForKrnl>
         create(rewriter, loc);
     IndexExprScope scope(create.krnl);
-    MemRefType XType = X.getType().cast<MemRefType>();
+    MemRefType XType = mlir::cast<MemRefType>(X.getType());
     Type elementType = XType.getElementType();
     int64_t rank = XType.getRank();
 

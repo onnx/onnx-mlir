@@ -59,7 +59,8 @@ Additional help.
 
 Parameters on inputs:
   -c/--compile <file_log>: File name containing the compile-time statistics
-                           or runtime signature statistics.
+                           or runtime signature statistics. Default is same
+                           as runtime file.
   -r/--runtime <file_log>: File name containing the runtime time statistics.
 
 Parameters to focus analysis:
@@ -685,7 +686,7 @@ def main(argv):
                 make_stats = "SIMD"
                 make_legend = simd_legend
             else:
-                print_usage("statistics options are 'par', 'signature', or 'simd'")
+                print_usage("statistics options are 'par', 'perf', 'sig', or 'simd'")
         elif opt in ("--supported"):
             supported_only = True
         elif opt in ("--sort"):
@@ -722,6 +723,9 @@ def main(argv):
             make_stats = "PERF"
             make_legend = perf_legend
     print("Analyse", make_stats)
+    # Default compile file for sig
+    if make_stats != "PERF" and not compile_file_name:
+        compile_file_name = runtime_file_name
     # Default sorting preference.
     if not sorting_preference:
         if runtime_file_name:

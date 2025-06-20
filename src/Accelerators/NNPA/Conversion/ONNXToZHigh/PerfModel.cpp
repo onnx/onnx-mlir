@@ -202,10 +202,9 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
       msg += " Has broadcast.";
   });
 
-  // Handle case without broadcast. Right now, broadcast cases use the same
-  // method.
-  if (!hasBroadcast ||
-      hasBroadcast /* no perf measurement yet for broadcast case*/) {
+  // Handle case without broadcast (aka !hasBroadcast). Right now, broadcast
+  // cases (aka hasBroadcast) use the same method. So invoke in all cases.
+  if (/*!hasBroadcast || hasBroadcast */ true) {
     // For no broadcast, pick the largest B dimension.
     int64_t B = std::max(aB, bB);
     nnpaEstimatedTime = estimatedTimeForNNPA_MatMul_3ds(B, N, M, K);
