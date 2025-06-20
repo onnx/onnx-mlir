@@ -58,6 +58,7 @@ add_onnx_mlir_library(OMCompilerOptions
   LINK_LIBS PUBLIC
   MLIRIR
   OMAccelerator
+  LLVMTargetParser
   )
 
 

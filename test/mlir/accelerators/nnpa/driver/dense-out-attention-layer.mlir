@@ -1,4 +1,8 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZHighIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --march=z17 --maccel=NNPA --EmitZHighIR --printIR %s | FileCheck %s
+
+// -----
+
+// Pattern: bcast23 which is supported on arch15, not arch14
 
 // This pattern is found in bert models, where the output of attention layer is passed through a dense layer, then added with the attention layer's input.
 // To simplify the test we use the input of MatMul to mimic the input of attention layer.
