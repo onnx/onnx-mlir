@@ -688,7 +688,11 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
 
     bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
+
     Location loc = convOp1.getLoc();
+    for (auto conv : parallelConvs) {
+      loc = rewriter.getFusedLoc({loc, conv.getLoc()});
+    }
     auto inputType = mlir::cast<ShapedType>(input.getType());
     Type elementType = inputType.getElementType();
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
