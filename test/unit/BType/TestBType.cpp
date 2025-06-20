@@ -49,7 +49,7 @@ public:
   int test_dispatchByBType() {
     std::cout << "test_dispatchByBType:" << std::endl;
 
-    for (BType d = static_cast<BType>(0); d <= BType::MAX_BTYPE;
+    for (BType d = static_cast<BType>(0); d < BType::MAX_BTYPE;
          d = static_cast<BType>(static_cast<int>(d) + 1)) {
       if (d == BType::UNDEFINED || d == BType::STRING ||
           d == BType::COMPLEX64 || d == BType::COMPLEX128)
@@ -86,6 +86,28 @@ public:
       Type t = mlirTypeOfBType(d, ctx);
       assert(d == btypeOfMlirType(t));
     }
+
+    return 0;
+  }
+
+  int test_Int4() {
+    std::cout << "test_Int4:" << std::endl;
+
+    // Test that constexpr works for all these:
+    constexpr int_4 int4z{};
+    constexpr uint_4 uint4z{};
+    constexpr BType dbint4 = toBType<decltype(int4z)>;
+    constexpr BType dbuint4 = toBType<decltype(uint4z)>;
+    assert(dbint4 == toBType<int_4>);
+    assert(dbuint4 == toBType<uint_4>);
+    assert((std::is_same_v<CppType<dbint4>, int_4>));
+    assert((std::is_same_v<CppType<dbuint4>, uint_4>));
+
+    constexpr WideNum n = WideNum::from(toBType<int_4>, true);
+    assert(n.i64 == 1);
+
+    constexpr WideNum nu = WideNum::from(toBType<uint_4>, true);
+    assert(nu.u64 == 1);
 
     return 0;
   }
@@ -144,6 +166,7 @@ int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
   failures += test.test_dispatchByBType();
+  failures += test.test_Int4();
   failures += test.test_FloatingPoint16();
   failures += test.test_FloatingPoint8();
   if (failures != 0) {

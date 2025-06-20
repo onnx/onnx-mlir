@@ -28,7 +28,8 @@ namespace onnx_mlir {
 // patterns that can be used with any PatternRewriter, not conversion patterns.
 void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableConvTransposeDecompose,
-    bool enableConvTransposeDecomposeToPhasedConv);
+    bool enableConvTransposeDecomposeToPhasedConv,
+    bool enableConvTranspose1dDecomposeToPhasedConv);
 
 } // namespace onnx_mlir
 #endif

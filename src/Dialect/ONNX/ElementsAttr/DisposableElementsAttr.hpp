@@ -191,8 +191,9 @@ public:
   // because of strides and the possibility that bufferBType != btype.
   using NonContiguousIterableTypesT =
       std::tuple<Attribute, IntegerAttr, FloatAttr, APInt, APFloat, WideNum,
-          bool, int8_t, uint8_t, int16_t, int8_t, int32_t, uint32_t, int64_t,
-          uint64_t, onnx_mlir::float_16, onnx_mlir::bfloat_16, float, double>;
+          bool, onnx_mlir::int_4, onnx_mlir::uint_4, int8_t, uint8_t, int16_t,
+          int8_t, int32_t, uint32_t, int64_t, uint64_t, onnx_mlir::float_16,
+          onnx_mlir::bfloat_16, float, double>;
 
   // An underlying iota_range sequence iterator returns size_t flat indices
   // which are mapped to elements of type X by a function<X(size_t)>.
@@ -206,7 +207,7 @@ public:
   using iterator_range = llvm::iterator_range<iterator<X>>;
 
   // This implementation enables the value_begin() and getValues() methods
-  // from the ElementsAttr interface, for the NonContiguousIterableTypesT types.
+  // from the ElementsAttr interface
   template <typename X>
   FailureOr<iterator<X>> try_value_begin_impl(OverloadToken<X>) const;
 
