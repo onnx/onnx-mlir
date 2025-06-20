@@ -561,6 +561,34 @@ func.func @test_size2(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
 
 // -----
 
+func.func @consecutive_clips(%arg0: tensor<3x1024x1024xf32> {onnx.name = "input"}) -> (tensor<3x1024x1024xf32> {onnx.name = "output"}) {
+  %0 = onnx.Constant dense<-5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %2 = onnx.Constant dense<-3.000000e-01> : tensor<f32>
+  %3 = onnx.Constant dense<3.000000e-01> : tensor<f32>
+  %4 = "onnx.Clip"(%arg0, %0, %1) {onnx_node_name = "Clip_1"} : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
+  %5 = "onnx.Clip"(%4, %2, %3) {onnx_node_name = "Clip_2"} : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
+  onnx.Return %5 : tensor<3x1024x1024xf32>
+
+  // CHECK: module {
+  // CHECK: func.func @consecutive_clips(%[[ARG0:.*]]: tensor<3x1024x1024xf32> {{.*}}) -> (tensor<3x1024x1024xf32> {{.*}})
+  // CHECK: %[[VAR_1:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[VAR_2:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[VAR_3:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[VAR_4:.*]] = onnx.Constant dense<{{.*}}> : tensor<f32>
+  // CHECK: %[[CONST_MAX:.*]] = "onnx.Max"(%[[VAR_1]], %[[VAR_3]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  // CHECK: %[[CONST_MIN:.*]] = "onnx.Min"(%[[VAR_2]], %[[VAR_4]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+
+  // CHECK: %[[FUSED_CLIP:.*]] = "onnx.Clip"(%[[ARG0]], %[[CONST_MAX]], %[[CONST_MIN]]) : (tensor<3x1024x1024xf32>, tensor<f32>, tensor<f32>) -> tensor<3x1024x1024xf32>
+
+  // CHECK: onnx.Return %[[FUSED_CLIP]] : tensor<3x1024x1024xf32>
+
+  // CHECK: }
+
+}
+
+// -----
+
 // COM: Test rewriting GlobalAveragePool into ReduceMeanV13
 func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
@@ -944,6 +972,30 @@ func.func @test_fuse_add_conv_bias_unranked(%arg0 : tensor<*xf32>, %arg1 : tenso
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<*xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[VAR_0_]]) : (tensor<*xf32>, tensor<8x1x1xf32>) -> tensor<*xf32>
 // CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+}
+
+// -----
+
+// A bug was discovered when the constant being added was a scalar. This test
+// ensures that the compiler does not crash is such cases. Note that the fusion
+// does not occur, as we would need to first expand the constant to the right shape.
+
+func.func @test_fuse_add_conv_with_scalar_const(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.Constant"() {value = dense<2.0> : tensor<f32>} : () -> tensor<f32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<1x8x28x28xf32>, tensor<f32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %2 : tensor<1x8x28x28xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_fuse_add_conv_with_scalar_const
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x28x28xf32>, [[PARAM_1_:%.+]]: tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<1x8x28x28xf32>, tensor<f32>) -> tensor<1x8x28x28xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x8x28x28xf32>
+// CHECK:         }
 }
 
 // -----
