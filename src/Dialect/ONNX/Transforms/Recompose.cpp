@@ -814,8 +814,9 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       ONNXConvOp convOp1, PatternRewriter &rewriter) const final {
     Value input = convOp1.getX();
     if (!onnx_mlir::isRankedShapedType(input.getType()) ||
-        mlir::cast<ShapedType>(input.getType()).hasStaticShape() == false)
-      return failure();
+        !mlir::cast<ShapedType>(input.getType()).hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          convOp1, "input must be a ranked tensor with static shape");
 
     // Collect all ONNXConvOps using this input.
     SmallVector<ONNXConvOp> candidateConvs;
@@ -826,18 +827,21 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     // Must have at least two convs to combine.
     if (candidateConvs.size() < 2)
-      return failure();
+      return rewriter.notifyMatchFailure(
+          convOp1, "not enough conv ops to combine");
 
     // Ensure all candidate convs are compatible (including bias check).
     for (size_t i = 1; i < candidateConvs.size(); ++i) {
       if (!areCompatible(candidateConvs[0], candidateConvs[i]))
-        return failure();
+        return rewriter.notifyMatchFailure(
+            convOp1, "conv ops are not compatible for combining");
     }
 
     auto totalUses = static_cast<size_t>(
         std::distance(input.getUsers().begin(), input.getUsers().end()));
     if (candidateConvs.size() != totalUses)
-      return failure();
+      return rewriter.notifyMatchFailure(
+          convOp1, "number of candidate convs does not match input uses");
 
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
 
