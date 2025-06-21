@@ -48,6 +48,23 @@ Value emitWindowCompute<ONNXHammingWindowOp>(
 }
 
 template <>
+Value emitWindowCompute<ONNXHannWindowOp>(
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> &create, Value iFloat,
+    Value denomF, Type outType) {
+  // Formula: 0.5 * (1 - cos(2*pi*i/(N-1)))
+  Value c0_5 = create.math.constant(outType, 0.5);
+  Value c0_1 = create.math.constant(outType, 1.0);
+
+  Value c2pi = create.math.constant(outType, 2.0 * M_PI);
+  Value num = create.math.mul(c2pi, iFloat);
+  Value angle = create.math.div(num, denomF);
+  Value cosAngle = create.math.cos(angle);      // cos(2 * pi * i / (N - 1))
+  Value term = create.math.sub(c0_1, cosAngle); // (1 - cos(2 * pi * i/ (N-1)))
+
+  return create.math.mul(c0_5, term);
+}
+
+template <>
 Value emitWindowCompute<ONNXBlackmanWindowOp>(
     MultiDialectBuilder<KrnlBuilder, MathBuilder> &create, Value iFloat,
     Value denomF, Type outType) {
@@ -142,12 +159,14 @@ struct GenericWindowOpLowering : public OpConversionPattern<ONNXOp> {
 
 using ONNXHammingWindowOpLowering =
     GenericWindowOpLowering<ONNXHammingWindowOp>;
+using ONNXHannWindowOpLowering = GenericWindowOpLowering<ONNXHannWindowOp>;
 using ONNXBlackmanWindowOpLowering =
     GenericWindowOpLowering<ONNXBlackmanWindowOp>;
 
 void populateLoweringONNXWindowOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXHammingWindowOpLowering>(typeConverter, ctx);
+  patterns.insert<ONNXHannWindowOpLowering>(typeConverter, ctx);
   patterns.insert<ONNXBlackmanWindowOpLowering>(typeConverter, ctx);
 }
 
