@@ -23,18 +23,18 @@ func.func @test_onnx_conv2d_novalue(%arg0: tensor<5x3x256x256xf32>, %arg1 : tens
   %none = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Conv"(%arg0, %arg1, %none) {pads = [1, 2, 3, 4], dilations = [1, 1]} : (tensor<5x3x256x256xf32>, tensor<2x3x64x64xf32>, none) ->  tensor<5x2x197x199xf32>
   return %0 : tensor<5x2x197x199xf32>
-// CHECK-LABEL:   func.func @test_onnx_conv2d_novalue(
-// CHECK-SAME:                                        %[[VAL_0:.*]]: tensor<5x3x256x256xf32>,
-// CHECK-SAME:                                        %[[VAL_1:.*]]: tensor<2x3x64x64xf32>) -> tensor<5x2x197x199xf32> {
-// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_3:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_2]] : (tensor<5x3x256x256xf32>, tensor<4xi32>) -> tensor<5x256x256x3xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_1]], %[[VAL_2]] : (tensor<2x3x64x64xf32>, tensor<4xi32>) -> tensor<2x64x64x3xf32>
-// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<2xf32>}> : () -> tensor<2xf32>
-// CHECK:           %[[VAL_9:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
-// CHECK:           %[[VAL_6:.*]] = tosa.conv2d %[[VAL_3]], %[[VAL_4]], %[[VAL_5]], %[[VAL_9]], %[[VAL_9]] {acc_type = f32, dilation = array<i64: 1, 1>, pad = array<i64: 1, 3, 2, 4>, stride = array<i64: 1, 1>} : (tensor<5x256x256x3xf32>, tensor<2x64x64x3xf32>, tensor<2xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<5x197x199x2xf32>
-// CHECK:           %[[VAL_7:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_8:.*]] = tosa.transpose %[[VAL_6]], %[[VAL_7]] : (tensor<5x197x199x2xf32>, tensor<4xi32>) -> tensor<5x2x197x199xf32>
-// CHECK:           return %[[VAL_8]] : tensor<5x2x197x199xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_onnx_conv2d_novalue
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x256x256xf32>, [[PARAM_1_:%.+]]: tensor<2x3x64x64xf32>) -> tensor<5x2x197x199xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.transpose [[PARAM_0_]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x3x256x256xf32>) -> tensor<5x256x256x3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.transpose [[PARAM_1_]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<2x3x64x64xf32>) -> tensor<2x64x64x3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<2xf32>}> : () -> tensor<2xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
+// CHECK:           [[VAR_4_:%.+]] = tosa.conv2d [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_3_]] {acc_type = f32, dilation = array<i64: 1, 1>, pad = array<i64: 1, 3, 2, 4>, stride = array<i64: 1, 1>} : (tensor<5x256x256x3xf32>, tensor<2x64x64x3xf32>, tensor<2xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<5x197x199x2xf32>
+// CHECK:           [[VAR_5_:%.+]] = tosa.transpose [[VAR_4_]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x197x199x2xf32>) -> tensor<5x2x197x199xf32>
+// CHECK:           return [[VAR_5_]] : tensor<5x2x197x199xf32>
+// CHECK:         }
 }
 
 // -----
@@ -45,14 +45,12 @@ func.func @test_onnx_conv2d_no_dilation_pad(%arg0: tensor<5x3x256x256xf32>, %arg
 // CHECK-LABEL:   func.func @test_onnx_conv2d_no_dilation_pad(
 // CHECK-SAME:                                                %[[VAL_0:.*]]: tensor<5x3x256x256xf32>,
 // CHECK-SAME:                                                %[[VAL_1:.*]]: tensor<7x3x64x64xf32>) -> tensor<5x7x15x15xf32> {
-// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_3:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_2]] : (tensor<5x3x256x256xf32>, tensor<4xi32>) -> tensor<5x256x256x3xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_1]], %[[VAL_2]] : (tensor<7x3x64x64xf32>, tensor<4xi32>) -> tensor<7x64x64x3xf32>
-// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<7xf32>}> : () -> tensor<7xf32>
-// CHECK:           %[[VAL_9:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
+// CHECK:           %[[VAL_3:.*]] = tosa.transpose %[[VAL_0]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x3x256x256xf32>) -> tensor<5x256x256x3xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_1]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<7x3x64x64xf32>) -> tensor<7x64x64x3xf32>
+// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<7xf32>}> : () -> tensor<7xf32>
+// CHECK:           %[[VAL_9:.*]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
 // CHECK:           %[[VAL_6:.*]] = tosa.conv2d %[[VAL_3]], %[[VAL_4]], %[[VAL_5]], %[[VAL_9]], %[[VAL_9]] {acc_type = f32, dilation = array<i64: 1, 1>, pad = array<i64: 0, 0, 0, 0>, stride = array<i64: 13, 13>} : (tensor<5x256x256x3xf32>, tensor<7x64x64x3xf32>, tensor<7xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<5x15x15x7xf32>
-// CHECK:           %[[VAL_7:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_8:.*]] = tosa.transpose %[[VAL_6]], %[[VAL_7]] : (tensor<5x15x15x7xf32>, tensor<4xi32>) -> tensor<5x7x15x15xf32>
+// CHECK:           %[[VAL_8:.*]] = tosa.transpose %[[VAL_6]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x15x15x7xf32>) -> tensor<5x7x15x15xf32>
 // CHECK:           return %[[VAL_8]] : tensor<5x7x15x15xf32>
 }
 
@@ -64,14 +62,12 @@ func.func @test_onnx_conv2d_no_dilation_pad_stride(%arg0: tensor<5x3x256x260xf32
 // CHECK-LABEL:   func.func @test_onnx_conv2d_no_dilation_pad_stride(
 // CHECK-SAME:                                                       %[[VAL_0:.*]]: tensor<5x3x256x260xf32>,
 // CHECK-SAME:                                                       %[[VAL_1:.*]]: tensor<2x3x60x64xf32>) -> tensor<5x2x197x197xf32> {
-// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_3:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_2]] : (tensor<5x3x256x260xf32>, tensor<4xi32>) -> tensor<5x256x260x3xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_1]], %[[VAL_2]] : (tensor<2x3x60x64xf32>, tensor<4xi32>) -> tensor<2x60x64x3xf32>
-// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<2xf32>}> : () -> tensor<2xf32>
-// CHECK:           %[[VAL_9:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
+// CHECK:           %[[VAL_3:.*]] = tosa.transpose %[[VAL_0]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x3x256x260xf32>) -> tensor<5x256x260x3xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_1]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<2x3x60x64xf32>) -> tensor<2x60x64x3xf32>
+// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<2xf32>}> : () -> tensor<2xf32>
+// CHECK:           %[[VAL_9:.*]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
 // CHECK:           %[[VAL_6:.*]] = tosa.conv2d %[[VAL_3]], %[[VAL_4]], %[[VAL_5]], %[[VAL_9]], %[[VAL_9]] {acc_type = f32, dilation = array<i64: 1, 1>, pad = array<i64: 0, 0, 0, 0>, stride = array<i64: 1, 1>} : (tensor<5x256x260x3xf32>, tensor<2x60x64x3xf32>, tensor<2xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<5x197x197x2xf32>
-// CHECK:           %[[VAL_7:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_8:.*]] = tosa.transpose %[[VAL_6]], %[[VAL_7]] : (tensor<5x197x197x2xf32>, tensor<4xi32>) -> tensor<5x2x197x197xf32>
+// CHECK:           %[[VAL_8:.*]] = tosa.transpose %[[VAL_6]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x197x197x2xf32>) -> tensor<5x2x197x197xf32>
 // CHECK:           return %[[VAL_8]] : tensor<5x2x197x197xf32>
 }
 
@@ -130,12 +126,10 @@ func.func @test_onnx_conv2d_autopad(%arg0: tensor<5x3x125x256xf32>, %arg1 : tens
 // CHECK-SAME:                                        %[[VAL_0:.*]]: tensor<5x3x125x256xf32>,
 // CHECK-SAME:                                        %[[VAL_1:.*]]: tensor<2x3x64x64xf32>,
 // CHECK-SAME:                                        %[[VAL_2:.*]]: tensor<2xf32>) -> tensor<5x2x125x256xf32> {
-// CHECK:           %[[VAL_3:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_3]] : (tensor<5x3x125x256xf32>, tensor<4xi32>) -> tensor<5x125x256x3xf32>
-// CHECK:           %[[VAL_5:.*]] = tosa.transpose %[[VAL_1]], %[[VAL_3]] : (tensor<2x3x64x64xf32>, tensor<4xi32>) -> tensor<2x64x64x3xf32>
-// CHECK-DAG:       %[[ZERO:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
-// CHECK:           %[[VAL_6:.*]] = tosa.conv2d %[[VAL_4]], %[[VAL_5]], %[[VAL_2]], %[[ZERO]], %[[ZERO]] {acc_type = f32, dilation = array<i64: 1, 1>, pad = array<i64: 32, 31, 32, 31>, stride = array<i64: 1, 1>} : (tensor<5x125x256x3xf32>, tensor<2x64x64x3xf32>, tensor<2xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<5x125x256x2xf32>
-// CHECK:           %[[VAL_7:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK:           %[[VAL_8:.*]] = tosa.transpose %[[VAL_6]], %[[VAL_7]] : (tensor<5x125x256x2xf32>, tensor<4xi32>) -> tensor<5x2x125x256xf32>
-// CHECK:           return %[[VAL_8]] : tensor<5x2x125x256xf32>
+// CHECK:           %[[VAL_3:.*]] = tosa.transpose %[[VAL_0]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x3x125x256xf32>) -> tensor<5x125x256x3xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.transpose %[[VAL_1]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<2x3x64x64xf32>) -> tensor<2x64x64x3xf32>
+// CHECK-DAG:       %[[ZERO:.*]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
+// CHECK:           %[[VAL_5:.*]] = tosa.conv2d %[[VAL_3]], %[[VAL_4]], %[[VAL_2]], %[[ZERO]], %[[ZERO]] {acc_type = f32, dilation = array<i64: 1, 1>, pad = array<i64: 32, 31, 32, 31>, stride = array<i64: 1, 1>} : (tensor<5x125x256x3xf32>, tensor<2x64x64x3xf32>, tensor<2xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<5x125x256x2xf32>
+// CHECK:           %[[VAL_6:.*]] = tosa.transpose %[[VAL_5]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x125x256x2xf32>) -> tensor<5x2x125x256xf32>
+// CHECK:           return %[[VAL_6]] : tensor<5x2x125x256xf32>
 }

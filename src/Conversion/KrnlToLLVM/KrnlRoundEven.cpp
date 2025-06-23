@@ -60,8 +60,8 @@ public:
 
     if (inputVecType) {
       // Vector of 4 elements.
-      Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
-      Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
+      Type vecTypeI32 = VectorType::get({4}, i32Ty, /*scalable=*/false);
+      Type vecTypeF32 = VectorType::get({4}, f32Ty, /*scalable=*/false);
       // Use integer as container for inputs.
       Value inputVecI32 = create.llvm.bitcast(vecTypeI32, input);
       SmallVector<Value> asmVals{inputVecI32};
@@ -76,6 +76,7 @@ public:
                   /*asm_string=*/asmStr,
                   /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                   /*is_align_stack=*/false,
+                  /*tail_call_kind=*/LLVM::TailCallKind::None,
                   /*asm_dialect=*/LLVM::AsmDialectAttr(),
                   /*operand_attrs=*/ArrayAttr())
               .getResult(0);
@@ -98,6 +99,7 @@ public:
                   /*asm_string=*/asmStr,
                   /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                   /*is_align_stack=*/false,
+                  /*tail_call_kind=*/LLVM::TailCallKind::None,
                   /*asm_dialect=*/LLVM::AsmDialectAttr(),
                   /*operand_attrs=*/ArrayAttr())
               .getResult(0);

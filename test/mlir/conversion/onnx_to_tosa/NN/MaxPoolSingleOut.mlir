@@ -19,14 +19,16 @@ func.func @test_default_maxpoolsingleout(%arg0 : tensor<5x5x32x32xf32>) -> tenso
 func.func @test_default_maxpoolsingleout_pad(%arg0 : tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [3,3], pads = [1, 1, 1, 1] } : (tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32>
   "func.return"(%0) : (tensor<5x5x32x32xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_default_maxpoolsingleout_pad
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.transpose [[PARAM_0_]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x5x32x32xf32>) -> tensor<5x32x32x5xf32>
+// CHECK:           [[VAR_1_:%.+]] = tosa.max_pool2d [[VAR_0_]] {kernel = array<i64: 3, 3>, pad = array<i64: 1, 1, 1, 1>, stride = array<i64: 1, 1>} : (tensor<5x32x32x5xf32>) -> tensor<5x32x32x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.transpose [[VAR_1_]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x32x32x5xf32>) -> tensor<5x5x32x32xf32>
+// CHECK:           return [[VAR_2_]] : tensor<5x5x32x32xf32>
+// CHECK:         }
 }
-// CHECK-DAG:   func.func @test_default_maxpoolsingleout_pad(%arg0: tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32> {
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %0 : (tensor<5x5x32x32xf32>, tensor<4xi32>) -> tensor<5x32x32x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 3, 3>, pad = array<i64: 1, 1, 1, 1>, stride = array<i64: 1, 1>} : (tensor<5x32x32x5xf32>) -> tensor<5x32x32x5xf32>
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %3 : (tensor<5x32x32x5xf32>, tensor<4xi32>) -> tensor<5x5x32x32xf32>
-// CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x32x32xf32>
 
 // -----
 
@@ -93,25 +95,28 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad_ceil(%arg0 : tensor<
 func.func @test_default_maxpoolsingleout_autopad_valid(%arg0 : tensor<5x5x16x13xf32>) -> tensor<5x5x14x11xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "VALID", kernel_shape = [3,3]} : (tensor<5x5x16x13xf32>) -> tensor<5x5x14x11xf32>
   "func.return"(%0) : (tensor<5x5x14x11xf32>) -> ()
-}
-// CHECK-LABEL:   func.func @test_default_maxpoolsingleout_autopad_valid(%arg0: tensor<5x5x16x13xf32>) -> tensor<5x5x14x11xf32> {
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %0 : (tensor<5x5x16x13xf32>, tensor<4xi32>) -> tensor<5x16x13x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 3, 3>, pad = array<i64: 0, 0, 0, 0>, stride = array<i64: 1, 1>} : (tensor<5x16x13x5xf32>) -> tensor<5x14x11x5xf32>
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %3 : (tensor<5x14x11x5xf32>, tensor<4xi32>) -> tensor<5x5x14x11xf32>
-// CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x14x11xf32>
 
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_default_maxpoolsingleout_autopad_valid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x16x13xf32>) -> tensor<5x5x14x11xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.transpose [[PARAM_0_]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x5x16x13xf32>) -> tensor<5x16x13x5xf32>
+// CHECK:           [[VAR_1_:%.+]] = tosa.max_pool2d [[VAR_0_]] {kernel = array<i64: 3, 3>, pad = array<i64: 0, 0, 0, 0>, stride = array<i64: 1, 1>} : (tensor<5x16x13x5xf32>) -> tensor<5x14x11x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.transpose [[VAR_1_]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x14x11x5xf32>) -> tensor<5x5x14x11xf32>
+// CHECK:           return [[VAR_2_]] : tensor<5x5x14x11xf32>
+// CHECK:         }
+}
 // -----
 
 func.func @test_default_maxpoolsingleout_same_upper_ceil_mode(%arg0 : tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "SAME_UPPER", ceil_mode = 1 : si64, kernel_shape = [4,4], strides = [4, 4] } : (tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32>
   "func.return"(%0) : (tensor<5x5x4x4xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_default_maxpoolsingleout_same_upper_ceil_mode
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.transpose [[PARAM_0_]] {perms = array<i32: 0, 2, 3, 1>} : (tensor<5x5x16x13xf32>) -> tensor<5x16x13x5xf32>
+// CHECK:           [[VAR_1_:%.+]] = tosa.max_pool2d [[VAR_0_]] {kernel = array<i64: 4, 4>, pad = array<i64: 0, 0, 1, 2>, stride = array<i64: 4, 4>} : (tensor<5x16x13x5xf32>) -> tensor<5x4x4x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.transpose [[VAR_1_]] {perms = array<i32: 0, 3, 1, 2>} : (tensor<5x4x4x5xf32>) -> tensor<5x5x4x4xf32>
+// CHECK:           return [[VAR_2_]] : tensor<5x5x4x4xf32>
+// CHECK:         }
 }
-// CHECK-LABEL:   func.func @test_default_maxpoolsingleout_same_upper_ceil_mode(%arg0: tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32> {
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %0 : (tensor<5x5x16x13xf32>, tensor<4xi32>) -> tensor<5x16x13x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 4, 4>, pad = array<i64: 0, 0, 1, 2>, stride = array<i64: 4, 4>} : (tensor<5x16x13x5xf32>) -> tensor<5x4x4x5xf32>
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %3 : (tensor<5x4x4x5xf32>, tensor<4xi32>) -> tensor<5x5x4x4xf32>
-// CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x4x4xf32>
