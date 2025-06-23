@@ -104,10 +104,6 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   if (scaleTy.hasRank() && inputTy.hasRank() &&
       scaleTy.getRank() != inputTy.getRank() && scaleTy.getRank() > 1)
     return emitOpError("x_scale rank needs to be 0, 1 or match x rank");
-  const bool isScaleRankKnown = scaleTy.hasRank();
-  const bool isPerAxis = isScaleRankKnown && scaleTy.getRank() == 1 &&
-                         !scaleTy.isDynamicDim(0) && scaleTy.getDimSize(0) != 1;
-  const bool isBlock = isScaleRankKnown && scaleTy.getRank() > 1;
 
   Value zero = getXZeroPoint();
   if (!isNoneValue(zero)) {
@@ -134,6 +130,10 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
       }
     }
 
+    const bool isScaleRankKnown = scaleTy.hasRank();
+    const bool isPerAxis = isScaleRankKnown && scaleTy.getRank() == 1 &&
+                           !scaleTy.isDynamicDim(0) &&
+                           scaleTy.getDimSize(0) != 1;
     if (isPerAxis) {
       const int64_t d = scaleTy.getDimSize(0);
       if (auto xTy = mlir::dyn_cast<RankedTensorType>(getX().getType())) {
@@ -152,8 +152,10 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
       }
     }
 
+    const bool isBlock = isScaleRankKnown && scaleTy.getRank() > 1;
     if (isBlock) {
       // TODO: Add verifier for block dequantization.
+      return success();
     }
   }
 
