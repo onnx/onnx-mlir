@@ -25,9 +25,37 @@ func.func @test_cast_int4_and_uint4_to_from_int8_uint8(%arg0: tensor<1xi4>, %arg
     %2 = "onnx.Cast"(%arg1) {saturate = 1 : si64, to = ui8} : (tensor<1xui4>) -> tensor<1xui8>
     %3 = "onnx.Cast"(%2) {saturate = 1 : si64, to = ui4} : (tensor<1xui8>) -> tensor<1xui4>
     onnx.Return %1, %3 : tensor<1xi4>, tensor<1xui4>
-    // CHECK-LABEL:   func.func @test_cast_int4_and_uint4_to_from_int8_uint8(
-    // TOSA does not support int4 casting
-    // CHECK-NOT: tosa.cast 
+// CHECK-LABEL:  func.func @test_cast_int4_and_uint4_to_from_int8_uint8
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi4>, [[PARAM_1_:%.+]]: tensor<1xui4>) -> (tensor<1xi4>, tensor<1xui4>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.cast [[PARAM_0_]] : (tensor<1xi4>) -> tensor<1xi8>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.cast [[VAR_0_]] : (tensor<1xi8>) -> tensor<1xi4>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.cast [[PARAM_1_]] : (tensor<1xui4>) -> tensor<1xui8>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.cast [[VAR_2_]] : (tensor<1xui8>) -> tensor<1xui4>
+// CHECK:           onnx.Return [[VAR_1_]], [[VAR_3_]] : tensor<1xi4>, tensor<1xui4>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_cast_int4_and_uint4_to_float_and_back(%arg0: tensor<1xi4>, %arg1: tensor<1xui4>) -> (tensor<1xi4>, tensor<1xui4>) {
+    %0 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f32} : (tensor<1xi4>) -> tensor<1xf32>
+    %1 = "onnx.Cast"(%0) {saturate = 1 : si64, to = i4} : (tensor<1xf32>) -> tensor<1xi4>
+    %2 = "onnx.Cast"(%arg1) {saturate = 1 : si64, to = f32} : (tensor<1xui4>) -> tensor<1xf32>
+    %3 = "onnx.Cast"(%2) {saturate = 1 : si64, to = ui4} : (tensor<1xf32>) -> tensor<1xui4>
+    onnx.Return %1, %3 : tensor<1xi4>, tensor<1xui4>
+// CHECK-LABEL:  func.func @test_cast_int4_and_uint4_to_float_and_back
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi4>, [[PARAM_1_:%.+]]: tensor<1xui4>) -> (tensor<1xi4>, tensor<1xui4>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.cast [[PARAM_0_]] : (tensor<1xi4>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.greater_equal [[VAR_0_]], [[VAR_1_]] : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xi1>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.floor [[VAR_0_]] : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.ceil [[VAR_0_]] : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = tosa.select [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] : (tensor<1xi1>, tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = tosa.cast [[VAR_5_]] : (tensor<1xf32>) -> tensor<1xi4>
+// CHECK-DAG:       [[VAR_7_:%.+]] = tosa.cast [[PARAM_1_]] : (tensor<1xui4>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Cast"([[VAR_7_]]) {saturate = 1 : si64, to = ui4} : (tensor<1xf32>) -> tensor<1xui4>
+// CHECK:           onnx.Return [[VAR_6_]], [[VAR_8_]] : tensor<1xi4>, tensor<1xui4>
+// CHECK:         }
 }
 
 // -----
