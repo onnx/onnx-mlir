@@ -483,6 +483,7 @@ OpsWithResultTypeInference = [
     "Loop",
     "RandomNormal",
     "RandomNormalLike",
+    "RandomUniform",
     "Scan",
 ]
 

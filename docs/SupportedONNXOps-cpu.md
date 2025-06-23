@@ -35,7 +35,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **BitwiseNot** |18 - * | Only supports signed integers | | 
 | **BitwiseOr** |18 - * | | |
 | **BitwiseXor** |18 - * | | |
-| **BlackmanWindow** |none | | | |
+| **BlackmanWindow** |17 - * | | | 
 | **Cast** |6 - * |Cast only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4. | |
 | **CastLike** |19 - * |CastLike only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4. | |
 | **CastMap** |none | | | |
@@ -150,7 +150,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **RNN** |7 - * |W, B and R must be constants. | |
 | **RandomNormal** |none | | | |
 | **RandomNormalLike** |none | | | |
-| **RandomUniform** |none | | | |
+| **RandomUniform** |1 - * | | | |
 | **RandomUniformLike** |none | | | |
 | **Range** |11 - * | | |
 | **Reciprocal** |6 - * | | |
