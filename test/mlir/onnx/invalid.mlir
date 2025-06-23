@@ -108,7 +108,7 @@ func.func @test_dequantize_linear_verifier_1(%arg0 : tensor<5x5x1xi32>, %arg1 : 
 // -----
 
 func.func @test_dequantize_linear_verifier_2(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<?xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
-  // expected-error @+1 {{'onnx.DequantizeLinear' op x_scale and x_zero_point 1-D tensor length must match the input axis dim size}}
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_zero_point must have the same shape as x_scale}}
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<?xf32>, tensor<3xi32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
@@ -124,7 +124,7 @@ func.func @test_dequantize_linear_verifier_3(%arg0 : tensor<5x5x1xi32>, %arg1 : 
 // -----
 
 func.func @test_dequantize_linear_verifier_4(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<5xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
-  // expected-error @+1 {{'onnx.DequantizeLinear' op x_scale and x_zero_point must have the same shape}}
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_zero_point must have the same shape as x_scale}}
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<5xf32>, tensor<3xi32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
@@ -132,7 +132,7 @@ func.func @test_dequantize_linear_verifier_4(%arg0 : tensor<5x5x1xi32>, %arg1 : 
 // -----
 
 func.func @test_dequantize_linear_verifier_5(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<5xf32>, %arg2 : tensor<1x5xi32>) -> tensor<*xf32> {
-  // expected-error @+1 {{'onnx.DequantizeLinear' op x_zero_point must be a scalar or 1-D tensor}}
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_zero_point must have the same shape as x_scale}}
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<5xf32>, tensor<1x5xi32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
@@ -140,7 +140,7 @@ func.func @test_dequantize_linear_verifier_5(%arg0 : tensor<5x5x1xi32>, %arg1 : 
 // -----
 
 func.func @test_dequantize_linear_verifier_6(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<1x5xf32>) -> tensor<*xf32> {
-  // expected-error @+2 {{'onnx.DequantizeLinear' op x_scale must be a scalar or 1-D tensor}}
+  // expected-error @+2 {{'onnx.DequantizeLinear' op x_scale rank needs to be 0, 1 or match x rank}}
   %0 = "onnx.NoValue"() {value} : () -> none
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {} : (tensor<5x5x1xi32>, tensor<1x5xf32>, none)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
@@ -152,6 +152,15 @@ func.func @test_dequantize_linear_verifier_7(%arg0 : tensor<5x5x1xi32>, %arg1 : 
   // expected-error @+2 {{'onnx.DequantizeLinear' op x_zero_point must be 0 for data type int32}}
   %0 = "onnx.Constant"(){ value = dense<1> : tensor<5xi32> } : () -> tensor<5xi32>
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {} : (tensor<5x5x1xi32>, tensor<5xf32>, tensor<5xi32>)  -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_dequantize_linear_verifier_block_valid(%arg0 : tensor<5x5x1xi8>, %arg1 : tensor<5x5x1xf32>) -> tensor<*xf32> {
+  // COM: Valid, no error expected
+  %0 = "onnx.Constant"(){ value = dense<1> : tensor<5x5x1xi8> } : () -> tensor<5x5x1xi8>
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {axis = 1 : si64, block_size = 1 : si64} : (tensor<5x5x1xi8>, tensor<5x5x1xf32>, tensor<5x5x1xi8>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
