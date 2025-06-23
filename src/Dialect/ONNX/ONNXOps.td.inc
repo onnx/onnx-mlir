@@ -478,6 +478,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
   [Pure, OpVersionTrait<15>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX BatchNormalization operation";
   let description = [{
   Carries out batch normalization as described in the paper
@@ -554,6 +555,7 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
 
 def ONNXBatchNormalizationV9Op:ONNX_Op<"BatchNormalizationV9",
   [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX BatchNormalization operation";
   let description = [{
   Carries out batch normalization as described in the paper
@@ -1294,7 +1296,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
 
 def ONNXConcatOp:ONNX_Op<"Concat",
   [Pure, OpVersionTrait<13>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;  
+  let hasCanonicalizer = 1;
   let summary = "ONNX Concat operation";
   let description = [{
   Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
@@ -3263,6 +3265,7 @@ def ONNXGridSampleV16Op:ONNX_Op<"GridSampleV16",
 
 def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
   [Pure, OpVersionTrait<21>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in
@@ -3319,6 +3322,7 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
 
 def ONNXGroupNormalizationV18Op:ONNX_Op<"GroupNormalizationV18",
   [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in
@@ -3607,6 +3611,7 @@ def ONNXIfOp:ONNX_Op<"If",
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
   [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   Carries out instance normalization as described in the paper

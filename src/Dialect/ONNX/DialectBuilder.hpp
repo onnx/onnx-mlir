@@ -196,7 +196,11 @@ struct OnnxBuilder : DialectBuilder {
   // d1, d2, d3). Call to "Shape(input, {0, 1, 3, 2})" will produce a tensor
   // with "[d0, d1, d3, d2]" values. Or call to "Shape(input, {0, 2, 3})" will
   // produce a shape of reduced dimensions (4D->3D) with dims "[d0, d2, d3]".
+  // Negative values are indices counting from the end of the shape.
   mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm) const;
+  // Same as above, but output after permute is further unsqueezed.
+  mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm,
+      mlir::ArrayRef<int64_t> unsqueeze) const;
 
   // ONNXSliceOp
   mlir::Value slice(mlir::Type outputType, mlir::Value input,

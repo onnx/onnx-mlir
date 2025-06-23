@@ -369,6 +369,7 @@ bool isSuitableForZDNN<ONNXAddOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
+  // Rule below is true for adds that are not fused into matmul.
   if (!dimAnalysis->sameShape(op.getA(), op.getB()))
     return onnxToZHighUnsupportedReport(op.getOperation(),
         "The dynamic dimension analysis couldn't identify "
@@ -677,7 +678,7 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   // (https://github.com/onnx/onnx/blob/main/docs/Operators.md#MatMul) on zDNN
   // by using broadcasting etc.
   if ((shapeA.size() == 2) && (shapeB.size() == 2)) {
-    // unstacked case
+    // Unstacked case.
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       if (shapeA[1] != shapeB[0]) {
         std::string message = "Unstacked case: the 2nd dim of A (" +
@@ -689,7 +690,7 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     }
     return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 3)) {
-    // stacked w/o bcast case
+    // Stacked w/o bcast case.
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       if ((shapeA[0] != shapeB[0]) || (shapeA[2] != shapeB[1])) {
         std::string message =
@@ -704,7 +705,7 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     }
     return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
-    // stacked w/ bcast23 case
+    // Bcast23 case.
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       if (shapeA[2] != shapeB[0]) {
         std::string message = "Stacked w/ bcast23 case: the 3rd dim of A (" +
@@ -716,7 +717,7 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     }
     return true;
   } else if ((shapeA.size() == 2) && (shapeB.size() == 3)) {
-    // stacked w/ bcast1 case
+    // Bcast1 case.
     if (!isCompatibleWithNNPALevel(NNPALevel::M15))
       return onnxToZHighInCompatibilityReport(
           op.getOperation(), NNPALevel::M15);
