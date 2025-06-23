@@ -199,7 +199,7 @@ static llvm::cl::opt<int, true> onnxConstPropExpansionBoundOpt(
     "onnx-const-prop-expansion-bound",
     llvm::cl::desc(
         "ONNX dialect constant propagation maximum expansion factor\n"
-        "Constants are not propagated if their bytes size exceed "
+        "Constants are not propagated if their bytes size exceed\n"
         "the aggregate operands' sizes by more than this factor\n"
         "Set to -1 to always propagate, which is the default."),
     llvm::cl::location(onnxConstPropExpansionBound), llvm::cl::init(-1),
