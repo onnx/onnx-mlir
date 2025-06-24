@@ -126,14 +126,13 @@ func.func @customop_quantize(%arg0: tensor<*xf32>, %arg1: tensor<f32>, %arg2: te
 
 // -----
 
-// COM: Do not recompose per axis quantization (for now)
 func.func @customop_quantize_axis(%arg0: tensor<*xf32>, %arg1: tensor<5xf32>, %arg2: tensor<5xui16>) -> tensor<*xui16> {
     %1 = "onnx.Custom"(%arg0, %arg1, %arg2) {domain_name = "com.microsoft", function_name = "QuantizeLinear"} : (tensor<*xf32>, tensor<5xf32>, tensor<5xui16>) -> tensor<*xui16>
     onnx.Return %1: tensor<*xui16>
 
 // CHECK-LABEL:  func.func @customop_quantize_axis
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<5xf32>, [[PARAM_2_:%.+]]: tensor<5xui16>) -> tensor<*xui16> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {domain_name = "com.microsoft", function_name = "QuantizeLinear"} : (tensor<*xf32>, tensor<5xf32>, tensor<5xui16>) -> tensor<*xui16>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<*xf32>, tensor<5xf32>, tensor<5xui16>) -> tensor<*xui16>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<*xui16>
 // CHECK:         }
 }
@@ -154,14 +153,13 @@ func.func @customop_dequantize(%arg0: tensor<*xui16>, %arg1: tensor<f32>, %arg2:
 
 // -----
 
-// COM: Do not recompose per axis quantization (for now)
 func.func @customop_dequantize_axis(%arg0: tensor<*xui16>, %arg1: tensor<5xf32>, %arg2: tensor<5xui16>) -> tensor<*xf32> {
     %1 = "onnx.Custom"(%arg0, %arg1, %arg2) {domain_name = "com.microsoft", function_name = "DequantizeLinear"} : (tensor<*xui16>, tensor<5xf32>, tensor<5xui16>) -> tensor<*xf32>
     onnx.Return %1: tensor<*xf32>
 
 // CHECK-LABEL:  func.func @customop_dequantize_axis
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xui16>, [[PARAM_1_:%.+]]: tensor<5xf32>, [[PARAM_2_:%.+]]: tensor<5xui16>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {domain_name = "com.microsoft", function_name = "DequantizeLinear"} : (tensor<*xui16>, tensor<5xf32>, tensor<5xui16>) -> tensor<*xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DequantizeLinear"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<*xui16>, tensor<5xf32>, tensor<5xui16>) -> tensor<*xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
