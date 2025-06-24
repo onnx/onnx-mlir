@@ -27,7 +27,6 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
-
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -749,14 +748,24 @@ struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   }
 };
 
-struct RecomposeDepthToSpaceCRD : public OpRewritePattern<ONNXReshapeOp> {
-  using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
+// Result of attempting recomposing DepthToSpace. Contains useful information
+// for the matching
+struct DepthToSpaceRecompositionResult {
+  Value input;
+  int64_t blockSize;
+  std::string mode;
+  Location fusedLocation;
+};
+
+template <typename Derived>
+struct RecomposeDepthToSpace : public OpRewritePattern<ONNXReshapeOp> {
+  using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const final {
     using namespace onnx_mlir;
     std::optional<DepthToSpaceRecompositionResult> result =
-        matchDepthToSpaceCRDPattern(reshapeOp);
+        Derived::matchDepthToSpacePattern(reshapeOp);
     if (!result) {
       return failure();
     }
@@ -769,35 +778,22 @@ struct RecomposeDepthToSpaceCRD : public OpRewritePattern<ONNXReshapeOp> {
     return success();
   }
 
-  // Result of attempting recomposing DepthToSpace. Contains useful information
-  // for the matching
-  struct DepthToSpaceRecompositionResult {
-    Value input;
-    int64_t blockSize;
-    std::string mode;
-    Location fusedLocation;
-  };
-
   static std::optional<DepthToSpaceRecompositionResult>
-  matchDepthToSpaceCRDPattern(ONNXReshapeOp reshapeOp) {
+  matchDepthToSpacePattern(ONNXReshapeOp reshapeOp,
+      function_ref<bool(ArrayRef<int64_t>, ArrayRef<int64_t>)> fstReshapePred,
+      function_ref<bool(ArrayRef<int64_t>)> transposePred) {
     using namespace onnx_mlir;
-    // DepthToSpace mode CRD match:
-    // DepthToSpace(x) =
-    //   %r0 = reshape %x NxCxHxW -> NxC//(B*B)xBxBxHxW
-    //   %t  = transpose %r0 perm=[0, 1, 4, 2, 5, 3]
-    //   %r1 = reshape NxC//(B*B)xHxBxWxB -> NxC//(B*B)x(HxB)x(WxB)
-
     ONNXReshapeOp r0;
     ONNXTransposeOp t;
     ONNXReshapeOp r1 = reshapeOp;
 
     t = r1->getOperand(0).getDefiningOp<ONNXTransposeOp>();
     if (!t) {
-      return reportFailureForCRDMode("missing transpose");
+      return reportFailure("missing transpose");
     }
     r0 = t->getOperand(0).getDefiningOp<ONNXReshapeOp>();
     if (!r0) {
-      return reportFailureForCRDMode("missing first reshape");
+      return reportFailure("missing first reshape");
     }
 
     auto hasShapedStaticType = [](Type ty) {
@@ -810,7 +806,7 @@ struct RecomposeDepthToSpaceCRD : public OpRewritePattern<ONNXReshapeOp> {
                          t.getType(), r1.getType()},
             hasShapedStaticType);
     if (!haveOperationsValidTy) {
-      return reportFailureForCRDMode(
+      return reportFailure(
           "pattern operations have no shaped static tensor types");
     }
 
@@ -818,35 +814,33 @@ struct RecomposeDepthToSpaceCRD : public OpRewritePattern<ONNXReshapeOp> {
     ArrayRef<int64_t> fstReshapeInShape = fstReshapeInTy.getShape();
     const size_t fstReshapeInRank = fstReshapeInTy.getRank();
     if (fstReshapeInRank != 4) {
-      return reportFailureForCRDMode("input rank is not 4D ");
+      return reportFailure("input rank is not 4D ");
     }
 
     auto fstReshapeOutTy = cast<ShapedType>(r0.getType());
     ArrayRef<int64_t> fstReshapeOutShape = fstReshapeOutTy.getShape();
     const size_t fstReshapeOutRank = fstReshapeOutTy.getRank();
     if (fstReshapeOutRank != 6) {
-      return reportFailureForCRDMode("output rank of first reshape is not 6D");
+      return reportFailure("output rank of first reshape is not 6D");
     }
 
-    // Check for concrete reshape pattern:
+    // Blocksize can be found in both working modes in dimension 2
+    // CRD:
     //   reshape %x NxCxHxW -> NxC//(B*B)xBxBxHxW
+    //                         0 1        2 3 4 5
+    // DCR:
+    //   reshape %x NxCxHxW -> NxBxBxC//(B*B)xHxW
+    //                         0 1 2 3        4 5
     const int64_t blocksize = fstReshapeOutShape[2];
-    if (blocksize != fstReshapeOutShape[3]) {
-      return reportFailureForCRDMode("blocksize do not match in dim 2 and 3");
-    }
 
-    if (fstReshapeInShape[0] != fstReshapeOutShape[0] ||
-        fstReshapeInShape[1] != fstReshapeOutShape[1] * blocksize * blocksize ||
-        fstReshapeInShape[2] != fstReshapeOutShape[4] ||
-        fstReshapeInShape[3] != fstReshapeOutShape[5]) {
-      return reportFailureForCRDMode("unexpected first reshape result shape");
-    }
+    if (!fstReshapePred(fstReshapeInShape, fstReshapeOutShape))
+      return std::nullopt;
 
     // Check for concrete permutation pattern:
     //   transpose %r0 perm=[0, 1, 4, 2, 5, 3]
     std::optional<ArrayAttr> permOpt = t.getPerm();
     if (!permOpt) {
-      return reportFailureForCRDMode("missing permutation on transpose");
+      return reportFailure("missing permutation on transpose");
     }
 
     // Get transpose permutation
@@ -854,12 +848,11 @@ struct RecomposeDepthToSpaceCRD : public OpRewritePattern<ONNXReshapeOp> {
     ArrayAttrIntVals(*permOpt, perms);
 
     // Check for transpose permutation
-    constexpr std::array<int64_t, 6> expectedPerms = {0, 1, 4, 2, 5, 3};
-    if (perms != ArrayRef(expectedPerms)) {
-      return reportFailureForCRDMode("unexpected permutations");
-    }
+    if (!transposePred(perms))
+      return std::nullopt;
 
-    // Check for concrete reshape pattern:
+    // Check for concrete reshape pattern. This pattern applies to both DCR and
+    // CRD modes:
     //   reshape NxC//(B*B)xHxBxWxB -> NxC//(B*B)x(HxB)x(WxB)
     auto sndReshapeInTy = cast<ShapedType>(t.getType());
     ArrayRef<int64_t> sndReshapeInShape = sndReshapeInTy.getShape();
@@ -868,27 +861,129 @@ struct RecomposeDepthToSpaceCRD : public OpRewritePattern<ONNXReshapeOp> {
     ArrayRef<int64_t> sndReshapeOutShape = sndReshapeOutTy.getShape();
     const size_t sndReshapeOutRank = sndReshapeOutTy.getRank();
     if (sndReshapeOutRank != 4) {
-      return reportFailureForCRDMode("out rank of second reshape is not 4D");
+      return reportFailure("out rank of second reshape is not 4D");
     }
 
     if (sndReshapeInShape[0] != sndReshapeOutShape[0] ||
         sndReshapeInShape[1] != sndReshapeOutShape[1] ||
         sndReshapeInShape[2] * sndReshapeInShape[3] != sndReshapeOutShape[2] ||
         sndReshapeInShape[4] * sndReshapeInShape[5] != sndReshapeOutShape[3]) {
-      return reportFailureForCRDMode("unexpected second reshape result shape");
+      return reportFailure("unexpected second reshape result shape");
     }
 
     Location fusedLocation = FusedLoc::get(
         reshapeOp->getContext(), {r0->getLoc(), t->getLoc(), r1->getLoc()});
 
-    return DepthToSpaceRecompositionResult{
-        /*input=*/r0.getOperand(0), blocksize, /*mode=*/"CRD", fusedLocation};
+    return DepthToSpaceRecompositionResult{/*input=*/r0.getOperand(0),
+        blocksize, /*mode=*/Derived::mode.str(), fusedLocation};
   }
 
-  static std::nullopt_t reportFailureForCRDMode(std::string msg) {
+  static std::nullopt_t reportFailure(
+      StringRef msg, StringRef depthToSpaceMode = "") {
     // Can disable line below if not needed.
-    LLVM_DEBUG(llvm::dbgs() << "DepthToSpace [CRD] failure: " << msg << "\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "DepthToSpace "
+               << (depthToSpaceMode.empty()
+                          ? std::string("")
+                          : llvm::formatv("[{0}]", depthToSpaceMode))
+               << " failure: " << msg << "\n");
     return std::nullopt;
+  }
+};
+
+struct RecomposeDepthToSpaceDCR
+    : public RecomposeDepthToSpace<RecomposeDepthToSpaceDCR> {
+  using RecomposeDepthToSpace::RecomposeDepthToSpace;
+
+  static std::optional<DepthToSpaceRecompositionResult>
+  matchDepthToSpacePattern(ONNXReshapeOp reshapeOp) {
+    auto fstReshapePredForDCR = [](ArrayRef<int64_t> fstReshapeInShape,
+                                    ArrayRef<int64_t> fstReshapeOutShape) {
+      // Check for concrete reshape pattern:
+      //   reshape %x NxCxHxW -> NxBxBxC//(B*B)xHxW
+      const int64_t blocksize = fstReshapeOutShape[2];
+      if (blocksize != fstReshapeOutShape[1]) {
+        reportFailureForDCRMode("blocksize do not match in dim 1 and 2");
+        return false;
+      }
+
+      if (fstReshapeInShape[0] != fstReshapeOutShape[0] ||
+          fstReshapeInShape[1] !=
+              fstReshapeOutShape[3] * blocksize * blocksize ||
+          fstReshapeInShape[2] != fstReshapeOutShape[4] ||
+          fstReshapeInShape[3] != fstReshapeOutShape[5]) {
+        reportFailureForDCRMode("unexpected first reshape result shape");
+        return false;
+      }
+
+      return true;
+    };
+
+    auto transposePredForDCR = [&](ArrayRef<int64_t> transposePerms) {
+      constexpr std::array<int64_t, 6> expectedPerms = {0, 3, 4, 1, 5, 2};
+      if (transposePerms != ArrayRef(expectedPerms)) {
+        reportFailureForDCRMode("unexpected permutations");
+        return false;
+      }
+      return true;
+    };
+
+    return RecomposeDepthToSpace::matchDepthToSpacePattern(
+        reshapeOp, fstReshapePredForDCR, transposePredForDCR);
+  }
+
+  static constexpr StringLiteral mode = "DCR";
+
+  static std::nullopt_t reportFailureForDCRMode(StringRef msg) {
+    return reportFailure(msg, mode);
+  }
+};
+
+struct RecomposeDepthToSpaceCRD
+    : public RecomposeDepthToSpace<RecomposeDepthToSpaceCRD> {
+  using RecomposeDepthToSpace::RecomposeDepthToSpace;
+
+  static std::optional<DepthToSpaceRecompositionResult>
+  matchDepthToSpacePattern(ONNXReshapeOp reshapeOp) {
+    auto fstReshapePredForCRD = [](ArrayRef<int64_t> fstReshapeInShape,
+                                    ArrayRef<int64_t> fstReshapeOutShape) {
+      // Check for concrete reshape pattern:
+      //   reshape %x NxCxHxW -> NxC//(B*B)xBxBxHxW
+      const int64_t blocksize = fstReshapeOutShape[2];
+      if (blocksize != fstReshapeOutShape[3]) {
+        reportFailureForCRDMode("blocksize do not match in dim 2 and 3");
+        return false;
+      }
+
+      if (fstReshapeInShape[0] != fstReshapeOutShape[0] ||
+          fstReshapeInShape[1] !=
+              fstReshapeOutShape[1] * blocksize * blocksize ||
+          fstReshapeInShape[2] != fstReshapeOutShape[4] ||
+          fstReshapeInShape[3] != fstReshapeOutShape[5]) {
+        reportFailureForCRDMode("unexpected first reshape result shape");
+        return false;
+      }
+
+      return true;
+    };
+
+    auto transposePredForCRD = [&](ArrayRef<int64_t> transposePerms) {
+      constexpr std::array<int64_t, 6> expectedPerms = {0, 1, 4, 2, 5, 3};
+      if (transposePerms != ArrayRef(expectedPerms)) {
+        reportFailureForCRDMode("unexpected permutations");
+        return false;
+      }
+      return true;
+    };
+
+    return RecomposeDepthToSpace::matchDepthToSpacePattern(
+        reshapeOp, fstReshapePredForCRD, transposePredForCRD);
+  }
+
+  static constexpr StringLiteral mode = "CRD";
+
+  static std::nullopt_t reportFailureForCRDMode(StringRef msg) {
+    return reportFailure(msg, mode);
   }
 };
 
@@ -1175,6 +1270,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeDepthToSpaceCRD>(context);
+  patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
   patterns.insert<CombineParallelConv2DPattern>(context);

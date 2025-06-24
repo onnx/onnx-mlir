@@ -702,7 +702,7 @@ func.func @test_gelu_erf_two_adds(%arg0: tensor<?x?x3072xf32>, %arg1: tensor<307
 
 // -----
 
-func.func @test_depth_to_space_cdr(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
+func.func @test_depth_to_space_CRD(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
   %0 = onnx.Constant dense<[-1, 32, 2, 2, 540, 960]> : tensor<6xi64>
   %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
   %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x32x2x2x540x960xf32>
@@ -710,7 +710,7 @@ func.func @test_depth_to_space_cdr(%arg0: tensor<1x128x540x960xf32>) -> tensor<1
   %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x32x540x2x960x2xf32>, tensor<4xi64>) -> tensor<1x32x1080x1920xf32>
   return %4 : tensor<1x32x1080x1920xf32>
 }
-// CHECK-LABEL:func.func @test_depth_to_space_cdr
+// CHECK-LABEL:func.func @test_depth_to_space_CRD
 // CHECK-SAME:   (%[[PARAM_1:.+]]: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32>
 //      CHECK:  %[[DTS:.+]] = "onnx.DepthToSpace"(%[[PARAM_1]]) {blocksize = 2 : si64, mode = "CRD"} : (tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32>
 //      CHECK:  return %[[DTS]] : tensor<1x32x1080x1920xf32>
@@ -718,7 +718,7 @@ func.func @test_depth_to_space_cdr(%arg0: tensor<1x128x540x960xf32>) -> tensor<1
 
 // -----
 
-func.func @test_depth_to_space_cdr_missing_transpose_perm(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
+func.func @test_depth_to_space_CRD_missing_transpose_perm(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
   %0 = onnx.Constant dense<[-1, 32, 2, 2, 540, 960]> : tensor<6xi64>
   %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
   %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x32x2x2x540x960xf32>
@@ -730,7 +730,7 @@ func.func @test_depth_to_space_cdr_missing_transpose_perm(%arg0: tensor<1x128x54
 
 // -----
 
-func.func @test_depth_to_space_cdr_unexpected_first_reshape_result(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x540x3840xf32> {
+func.func @test_depth_to_space_CRD_unexpected_first_reshape_result(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x540x3840xf32> {
   %0 = onnx.Constant dense<[-1, 32, 1, 4, 540, 960]> : tensor<6xi64>
   %1 = onnx.Constant dense<[-1, 32, 524, 3840]> : tensor<4xi64>
   %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x32x1x4x540x960xf32>
@@ -742,7 +742,7 @@ func.func @test_depth_to_space_cdr_unexpected_first_reshape_result(%arg0: tensor
 
 // -----
 
-func.func @test_depth_to_space_cdr_unexpected_perm(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
+func.func @test_depth_to_space_CRD_unexpected_perm(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
   %0 = onnx.Constant dense<[-1, 32, 2, 2, 540, 960]> : tensor<6xi64>
   %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
   %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x32x2x2x540x960xf32>
@@ -754,7 +754,7 @@ func.func @test_depth_to_space_cdr_unexpected_perm(%arg0: tensor<1x128x540x960xf
 
 // -----
 
-func.func @test_depth_to_space_cdr_unexpected_second_reshape_result(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x1x32x1080x1920xf32> {
+func.func @test_depth_to_space_CRD_unexpected_second_reshape_result(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x1x32x1080x1920xf32> {
   %0 = onnx.Constant dense<[-1, 32, 2, 2, 540, 960]> : tensor<6xi64>
   %1 = onnx.Constant dense<[-1, 1, 32, 1080, 1920]> : tensor<5xi64>
   %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x32x2x2x540x960xf32>
@@ -766,11 +766,87 @@ func.func @test_depth_to_space_cdr_unexpected_second_reshape_result(%arg0: tenso
 
 // -----
 
-func.func @test_depth_to_space_cdr_not_static_shapes(%arg0: tensor<*xf32>) -> tensor<*xf32> {
+func.func @test_depth_to_space_CRD_not_static_shapes(%arg0: tensor<*xf32>) -> tensor<*xf32> {
   %0 = onnx.Constant dense<[-1, 32, 2, 2, 540, 960]> : tensor<6xi64>
   %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
   %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<*xf32>, tensor<6xi64>) -> tensor<*xf32>
   %3 = "onnx.Transpose"(%2) {perm = [0, 1, 4, 2, 5, 3]} : (tensor<*xf32>) -> tensor<*xf32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<*xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %4 : tensor<*xf32>
+}
+// CHECK-NOT: onnx.DepthToSpace
+
+// -----
+
+func.func @test_depth_to_space_DCR(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
+  %0 = onnx.Constant dense<[-1, 2, 2, 32, 540, 960]> : tensor<6xi64>
+  %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x2x2x32x540x960xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [0, 3, 4, 1, 5, 2]} : (tensor<1x2x2x32x540x960xf32>) -> tensor<1x32x540x2x960x2xf32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x32x540x2x960x2xf32>, tensor<4xi64>) -> tensor<1x32x1080x1920xf32>
+  return %4 : tensor<1x32x1080x1920xf32>
+}
+// CHECK-LABEL:func.func @test_depth_to_space_DCR
+// CHECK-SAME:   (%[[PARAM_1:.+]]: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32>
+//      CHECK:  %[[DTS:.+]] = "onnx.DepthToSpace"(%[[PARAM_1]]) {blocksize = 2 : si64, mode = "DCR"} : (tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32>
+//      CHECK:  return %[[DTS]] : tensor<1x32x1080x1920xf32>
+//      CHECK:}
+
+// -----
+
+func.func @test_depth_to_space_DCR_missing_transpose_perm(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
+  %0 = onnx.Constant dense<[-1, 2, 2, 32, 540, 960]> : tensor<6xi64>
+  %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x2x2x32x540x960xf32>
+  %3 = "onnx.Transpose"(%2) : (tensor<1x2x2x32x540x960xf32>) -> tensor<1x32x540x2x960x2xf32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x32x540x2x960x2xf32>, tensor<4xi64>) -> tensor<1x32x1080x1920xf32>
+  return %4 : tensor<1x32x1080x1920xf32>
+}
+// CHECK-NOT: onnx.DepthToSpace
+
+// -----
+
+func.func @test_depth_to_space_DCR_unexpected_first_reshape_result(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x2x17280x1920xf32> {
+  %0 = onnx.Constant dense<[-1, 2, 32, 2, 540, 960]> : tensor<6xi64>
+  %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x2x32x2x540x960xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [0, 3, 4, 1, 5, 2]} : (tensor<1x2x32x2x540x960xf32>) -> tensor<1x2x540x32x960x2xf32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x2x540x32x960x2xf32>, tensor<4xi64>) -> tensor<1x2x17280x1920xf32>
+  return %4 : tensor<1x2x17280x1920xf32>
+}
+// CHECK-NOT: onnx.DepthToSpace
+
+// -----
+
+func.func @test_depth_to_space_DCR_unexpected_perm(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x1080x1920xf32> {
+  %0 = onnx.Constant dense<[-1, 2, 2, 32, 540, 960]> : tensor<6xi64>
+  %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x2x2x32x540x960xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [0, 3, 4, 2, 5, 1]} : (tensor<1x2x2x32x540x960xf32>) -> tensor<1x32x540x2x960x2xf32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x32x540x2x960x2xf32>, tensor<4xi64>) -> tensor<1x32x1080x1920xf32>
+  return %4 : tensor<1x32x1080x1920xf32>
+}
+// CHECK-NOT: onnx.DepthToSpace
+
+// -----
+
+func.func @test_depth_to_space_DCR_unexpected_second_reshape_result(%arg0: tensor<1x128x540x960xf32>) -> tensor<1x32x540x3680xf32> {
+  %0 = onnx.Constant dense<[-1, 2, 2, 32, 540, 960]> : tensor<6xi64>
+  %1 = onnx.Constant dense<[-1, 32, 540, 3680]> : tensor<4xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x128x540x960xf32>, tensor<6xi64>) -> tensor<1x2x2x32x540x960xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [0, 3, 4, 1, 5, 2]} : (tensor<1x2x2x32x540x960xf32>) -> tensor<1x32x540x2x960x2xf32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x32x540x2x960x2xf32>, tensor<4xi64>) -> tensor<1x32x540x3680xf32>
+  return %4 : tensor<1x32x540x3680xf32>
+}
+// CHECK-NOT: onnx.DepthToSpace
+
+// -----
+
+func.func @test_depth_to_space_DCR_not_static_shapes(%arg0: tensor<*xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[-1, 2, 2, 32, 540, 960]> : tensor<6xi64>
+  %1 = onnx.Constant dense<[-1, 32, 1080, 1920]> : tensor<4xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<*xf32>, tensor<6xi64>) -> tensor<*xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [0, 3, 4, 1, 5, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<*xf32>, tensor<4xi64>) -> tensor<*xf32>
   return %4 : tensor<*xf32>
 }

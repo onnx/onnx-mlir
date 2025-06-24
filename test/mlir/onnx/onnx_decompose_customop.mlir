@@ -119,7 +119,7 @@ func.func @customop_quantize(%arg0: tensor<*xf32>, %arg1: tensor<f32>, %arg2: te
 
 // CHECK-LABEL:  func.func @customop_quantize
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<ui16>) -> tensor<*xui16> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<*xf32>, tensor<f32>, tensor<ui16>) -> tensor<*xui16>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<*xf32>, tensor<f32>, tensor<ui16>) -> tensor<*xui16>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<*xui16>
 // CHECK:         }
 }
@@ -147,7 +147,7 @@ func.func @customop_dequantize(%arg0: tensor<*xui16>, %arg1: tensor<f32>, %arg2:
 
 // CHECK-LABEL:  func.func @customop_dequantize
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xui16>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<ui16>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.DequantizeLinear"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64} : (tensor<*xui16>, tensor<f32>, tensor<ui16>) -> tensor<*xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DequantizeLinear"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<*xui16>, tensor<f32>, tensor<ui16>) -> tensor<*xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }

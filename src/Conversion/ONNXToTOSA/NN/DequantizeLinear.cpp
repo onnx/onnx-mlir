@@ -54,11 +54,15 @@ public:
       return rewriter.notifyMatchFailure(
           loc, "expected zero point to be none or have tensor type");
     }
-
-    if (auto scaleTy = cast<ShapedType>(adaptor.getXScale().getType());
-        !scaleTy.hasStaticShape()) {
+    const auto scaleTy = cast<ShapedType>(adaptor.getXScale().getType());
+    if (!scaleTy.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           loc, "expected scale to have static shape");
+    }
+
+    if (scaleTy.getRank() > 1) {
+      return rewriter.notifyMatchFailure(
+          loc, "block quantization is not yet supported");
     }
 
     int64_t axis = op.getAxis();

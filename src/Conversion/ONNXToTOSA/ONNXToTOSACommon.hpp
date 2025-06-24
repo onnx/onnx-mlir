@@ -93,7 +93,8 @@ inline bool isTOSABool(mlir::Type type) {
 
 inline bool isTOSAInt(mlir::Type type) {
   mlir::IntegerType intType = mlir::dyn_cast<mlir::IntegerType>(type);
-  std::set<unsigned> intWidth{1, 8, 16, 32, 48, 64};
+  // Int 4 is not a tosa int, but supported by tosa.mlir
+  std::set<unsigned> intWidth{1, 4, 8, 16, 32, 48, 64};
   return intType && (intType.isSignless() || intType.isUnsignedInteger()) &&
          (intWidth.find(intType.getWidth()) != intWidth.end());
 }

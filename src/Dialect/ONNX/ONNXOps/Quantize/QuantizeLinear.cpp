@@ -39,7 +39,7 @@ LogicalResult ONNXQuantizeLinearOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
-
+// TODO: Add verifier
 //===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
@@ -52,13 +52,22 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
   }
 
   Type elementType;
-  Value zero = getYZeroPoint();
-  if (isNoneValue(zero)) {
-    // If zero point type isn't provided, output type defaults to ui8.
-    elementType = IntegerType::get(getContext(), 8, IntegerType::Unsigned);
+
+  const auto outputDtype =
+      static_cast<onnx::TensorProto_DataType>(getOutputDtype());
+  if (outputDtype != onnx::TensorProto_DataType_UNDEFINED) {
+    // If output type is specified, use it.
+    auto builder = OpBuilder(getContext());
+    elementType = convertONNXTypeToMLIRType(builder, outputDtype);
   } else {
-    // If zero point is provided, output type is same as zero point type.
-    elementType = mlir::cast<ShapedType>(zero.getType()).getElementType();
+    Value zero = getYZeroPoint();
+    if (isNoneValue(zero)) {
+      // If zero point type isn't provided, output type defaults to ui8.
+      elementType = IntegerType::get(getContext(), 8, IntegerType::Unsigned);
+    } else {
+      // If zero point is provided, output type is same as zero point type.
+      elementType = mlir::cast<ShapedType>(zero.getType()).getElementType();
+    }
   }
 
   ONNXQuantizeLinearOpShapeHelper shapeHelper(getOperation(), {});

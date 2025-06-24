@@ -47,11 +47,22 @@ public:
       return rewriter.notifyMatchFailure(
           loc, "expected zero point to have static shape");
     }
-
-    if (auto zpTy = dyn_cast<ShapedType>(adaptor.getYScale().getType());
-        zpTy && !zpTy.hasStaticShape()) {
+    auto scaleTy = dyn_cast<ShapedType>(adaptor.getYScale().getType());
+    if (scaleTy && !scaleTy.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           loc, "expected scale to have static shape");
+    }
+
+    if (scaleTy.getRank() > 1) {
+      return rewriter.notifyMatchFailure(
+          loc, "block quantization is not yet supported");
+    }
+
+    if (const auto outputDtype =
+            static_cast<onnx::TensorProto_DataType>(op.getOutputDtype());
+        outputDtype != onnx::TensorProto_DataType_UNDEFINED) {
+      return rewriter.notifyMatchFailure(
+          loc, "custom output dtype not yet supported");
     }
 
     if (!op.getSaturate()) {

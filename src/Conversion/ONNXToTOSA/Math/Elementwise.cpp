@@ -379,6 +379,11 @@ public:
       return rewriter.notifyMatchFailure(op, "expected valid input type");
     }
     if (isa<FloatType>(inputTy.getElementType()) &&
+        resultTy.getElementType().isUnsignedInteger()) {
+      return rewriter.notifyMatchFailure(
+          op, "TOSA does not support cast from float to unsigned integer");
+    }
+    if (isa<FloatType>(inputTy.getElementType()) &&
         isa<IntegerType>(resultTy.getElementType())) {
       // ONNX.Cast has truncating behavior, and tosa.cast has rounds
       // half-to-even. We simulate truncate by floor for positive values and
