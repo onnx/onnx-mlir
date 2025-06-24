@@ -359,10 +359,10 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
         "shapes for dynamic inputs.\n"
         "\"value\" is in the format of "
         "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
-        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
-        "0 or being -1 for all input indices), and\n"
-        "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
-        "unknown dimensions)."),
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (They can be an "
+        "integer starting from 0, a range e.g. 5-17, or -1 for all input indices)"
+        ", and\n \"D1, D2, ...\" are dimension sizes (positive integers or -1 "
+        "for unknown dimensions)."),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
     llvm::cl::cat(OnnxMlirOptions));
 
