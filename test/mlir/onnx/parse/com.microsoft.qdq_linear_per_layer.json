@@ -1,0 +1,161 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s | FileCheck %s
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x1x1xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<3xf32> {onnx.name = "y_scale"}, [[PARAM_2_:%.+]]: tensor<3xui8> {onnx.name = "y_zero_point"}, [[PARAM_3_:%.+]]: tensor<1x3x1x3xui8> {onnx.name = "add_in"}) -> (tensor<1x3x1x3xui8> {onnx.name = "add_out"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64, domain_name = "com.microsoft", function_name = "QuantizeLinear", onnx_node_name = "onnx.Custom_0", output_element_type = ui8, shape_infer_pattern = "SameAs"} : (tensor<1x3x1x1xf32>, tensor<3xf32>, tensor<3xui8>) -> tensor<1x3x1x1xui8>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_3_]]) {onnx_node_name = "onnx.Add_1"} : (tensor<1x3x1x1xui8>, tensor<1x3x1x3xui8>) -> tensor<1x3x1x3xui8>
+// CHECK:           return [[VAR_1_]] : tensor<1x3x1x3xui8>
+// CHECK:         }
+{
+  "irVersion": "10",
+  "producerName": "onnx-custom-op-example",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "x",
+          "y_scale",
+          "y_zero_point"
+        ],
+        "output": [
+          "y"
+        ],
+        "opType": "QuantizeLinear",
+        "attribute": [
+          {
+            "name": "axis",
+            "i": "1",
+            "type": "INT"
+          }
+        ],
+        "domain": "com.microsoft"
+      },
+      {
+        "input": [
+          "y",
+          "add_in"
+        ],
+        "output": [
+          "add_out"
+        ],
+        "opType": "Add"
+      }
+    ],
+    "name": "CustomQuantizeLinearGraph",
+    "input": [
+      {
+        "name": "x",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "1"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "y_scale",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "y_zero_point",
+        "type": {
+          "tensorType": {
+            "elemType": 2,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "add_in",
+        "type": {
+          "tensorType": {
+            "elemType": 2,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "add_out",
+        "type": {
+          "tensorType": {
+            "elemType": 2,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "domain": "",
+      "version": "17"
+    },
+    {
+      "domain": "com.microsoft",
+      "version": "1"
+    }
+  ]
+}
