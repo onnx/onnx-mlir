@@ -755,19 +755,22 @@ class InferenceSession:
             # Verify that we have the same options:
             #  if we have saved the options in the "compiler_option.txt" file, and
             #  if we have provided compiler options
-            if args.compile_args and os.path.exists(compiler_option_file):
+            if os.path.exists(compiler_option_file):
                 expected_string = cache_string(args.model, args.compile_args)
                 with open(compiler_option_file, "r") as f:
                     options_from_file = f.read()
-                    if options_from_file != expected_string:
-                        print(
-                            "Try to load model from",
-                            args.load_model,
-                            " using different options than when saved, abort",
-                        )
-                        print('  save options: "' + options_from_file + '"')
-                        print('  load options: "' + expected_string + '"')
-                        exit(1)
+                    if args.compile_args:
+                        if options_from_file != expected_string:
+                            print(
+                                "Try to load model from",
+                                args.load_model,
+                                " using different options than when saved, abort",
+                            )
+                            print('  Save options: "' + options_from_file + '"')
+                            print('  Load options: "' + expected_string + '"')
+                            exit(1)
+                    else:
+                        print('  Cached model options: "' + options_from_file + '"')
         else:
             # Compile the ONNX model.
             self.temp_dir = tempfile.TemporaryDirectory()
