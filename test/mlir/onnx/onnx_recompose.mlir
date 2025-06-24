@@ -478,8 +478,8 @@ func.func @rms_layer_norm_v3(%x: tensor<1x384x768xf32>) -> (tensor<1x384x768xf32
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @rms_layer_norm_v3
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>) -> tensor<1x384x768xf32> {
-// CHECK:           [[PARAM_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
-// CHECK:           [[PARAM_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[PARAM_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK-DAG:       [[PARAM_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none)
 // CHECK:           return [[Y_]] : tensor<1x384x768xf32>
 // CHECK:         }
@@ -502,8 +502,8 @@ func.func @rms_layer_norm_v3_dyn_shape(%x: tensor<1x?x768xf32>) -> (tensor<1x?x7
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @rms_layer_norm_v3_dyn_shape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?x768xf32>) -> tensor<1x?x768xf32> {
-// CHECK:           [[PARAM_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
-// CHECK:           [[PARAM_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[PARAM_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK-DAG:       [[PARAM_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x?x768xf32>, tensor<768xf32>, none) -> (tensor<1x?x768xf32>, none)
 // CHECK:           return [[Y_]] : tensor<1x?x768xf32>
 // CHECK:         }
