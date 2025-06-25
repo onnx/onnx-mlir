@@ -1436,7 +1436,7 @@ private:
         givenOutputTypes.push_back(outElementType);
 
         auto shapeInferAttr = builder_.getNamedAttr(
-            "shape_infer_pattern", builder_.getStringAttr("MDBroadcast"));
+            "shape_infer_pattern", builder_.getStringAttr("SameAs"));
         attributes.push_back(shapeInferAttr);
       }
     }

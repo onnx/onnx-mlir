@@ -2730,6 +2730,8 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
     auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
         customOp->getResultTypes(), customOp.getOperands(), filteredAttrs);
 
+    postProcess(customOp, newOp, rewriter);
+
     onnx_mlir::IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
     bool isNewOpValid;
     if (auto info = newOp->getName().getRegisteredInfo()) {
@@ -2750,6 +2752,9 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
     return success();
   }
 
+  virtual void postProcess(const ONNXCustomOp & /*customOp*/,
+      OpToCreate & /*newOP*/, PatternRewriter & /*rewriter*/) const {}
+
   std::string operationNameToRewrite;
 };
 
@@ -2768,13 +2773,23 @@ struct CustomOpMicrosoftQDquantizeLinear
 
     const auto scale = customOp->getOperand(1);
     const auto zeroPoint = customOp->getOperand(2);
-    if (!isScalarTensor(scale) || !isScalarTensor(zeroPoint)) {
-      return rewriter.notifyMatchFailure(
-          customOp, "Only supports per-tensor quantization for now");
+    const auto isScalarOr1dTensor = [](Value v) {
+      auto shapedType = dyn_cast<ShapedType>(v.getType());
+      return shapedType && shapedType.hasRank() &&
+             (shapedType.getRank() == 0 || (shapedType.getRank() == 1));
+    };
+    if (!isScalarOr1dTensor(scale) || !isScalarOr1dTensor(zeroPoint)) {
+      return rewriter.notifyMatchFailure(customOp,
+          "Only supports per-tensor or per-layer quantization for now");
     }
-    // Axis is ignored if scale and zeroPoint are scalars, so we do not need to
-    // handle/check it
     return success();
+  }
+
+  void postProcess(const ONNXCustomOp &customOp, OpToCreate &newOP,
+      PatternRewriter & /*rewriter*/) const override {
+    if (customOp->hasAttr("axis")) {
+      newOP.setAxisAttr(customOp->getAttrOfType<IntegerAttr>("axis"));
+    }
   }
 };
 
