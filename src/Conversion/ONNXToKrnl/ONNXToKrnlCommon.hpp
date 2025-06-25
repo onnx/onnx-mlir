@@ -547,74 +547,38 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
             typeConverter, ctx, /*benefit higher than default*/ 10),
         opsForCall(opsForCall) {}
   std::string opsForCall;
-  
-  mlir::LogicalResult matchAndRewrite(OP_TYPE onnxOp,
-      ADAPTOR_TYPE adaptor,
-      mlir::ConversionPatternRewriter &rewriter) const final {
 
-       mlir::Operation *op = onnxOp.getOperation();
-       if (!checkOpToCall(op, opsForCall))
+  mlir::LogicalResult matchAndRewrite(OP_TYPE onnxOp, ADAPTOR_TYPE adaptor,
+      mlir::ConversionPatternRewriter &rewriter) const final {
+    // Check if the op is in the list of ops to lower to krnl.Call. If not,
+    // return failure.
+    mlir::Operation *op = onnxOp.getOperation();
+    if (!checkOpToCall(op, opsForCall))
       return mlir::failure();
 
-    // Additional checks TODO: Should there be a conditional check for write?
-    // Also where is this being used?
-        mlir::Location loc = onnx_mlir::ONNXLoc<OP_TYPE>(op);
-        mlir::ValueRange operands = adaptor.getOperands();
+    mlir::Location loc = onnx_mlir::ONNXLoc<OP_TYPE>(op);
+    mlir::ValueRange operands = adaptor.getOperands();
 
-        // Get shape.
-        MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
-            rewriter, loc);
+    // Get shape.
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
 
-        SHAPEHELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
-        shapeHelper.computeShapeAndAssertOnFailure();
-        // Insert an allocation and deallocation for the result of this operation.
-        std::vector<mlir::Value> allocs = allocForONNXOp<OP_TYPE>(
-            onnxOp, rewriter, this->typeConverter, shapeHelper);
+    SHAPEHELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    // Insert an allocation and deallocation for the result of this operation.
+    std::vector<mlir::Value> allocs = allocForONNXOp<OP_TYPE>(
+        onnxOp, rewriter, this->typeConverter, shapeHelper);
 
-        // Create krnl.call here.
-        // You may customize the krnl.call according to your library
-        // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
-        std::string funcName = op->getName().getStringRef().str().substr(5);
-        rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
-            /*keep all attributes*/ true);
-        rewriter.replaceOp(op, allocs);
+    // Create krnl.call here.
+    // You may customize the krnl.call according to your library
+    // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
+    std::string funcName = op->getName().getStringRef().str().substr(5);
+    rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
+        /*keep all attributes*/ true);
+    rewriter.replaceOp(op, allocs);
 
-        return mlir::success();
-}
-
-//   mlir::LogicalResult match(OP_TYPE onnxOp) const final {
-//     mlir::Operation *op = onnxOp.getOperation();
-//     if (!checkOpToCall(op, opsForCall))
-//       return mlir::failure();
-
-//     // Additional checks
-
-//     return mlir::success();
-//  }
-//   void rewrite(OP_TYPE onnxOp, ADAPTOR_TYPE adaptor,
-//       mlir::ConversionPatternRewriter &rewriter) const final {
-//     mlir::Operation *op = onnxOp.getOperation();
-//     mlir::Location loc = onnx_mlir::ONNXLoc<OP_TYPE>(op);
-//     mlir::ValueRange operands = adaptor.getOperands();
-
-//     // Get shape.
-//     MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
-//         rewriter, loc);
-
-//     SHAPEHELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
-//     shapeHelper.computeShapeAndAssertOnFailure();
-//     // Insert an allocation and deallocation for the result of this operation.
-//     std::vector<mlir::Value> allocs = allocForONNXOp<OP_TYPE>(
-//         onnxOp, rewriter, this->typeConverter, shapeHelper);
-
-//     // Create krnl.call here.
-//     // You may customize the krnl.call according to your library
-//     // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
-//     std::string funcName = op->getName().getStringRef().str().substr(5);
-//     rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
-//         /*keep all attributes*/ true);
-//     rewriter.replaceOp(op, allocs);
-//   }
+    return mlir::success();
+  }
 };
 
 using ONNXConvOpToCall =
