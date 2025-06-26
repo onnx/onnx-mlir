@@ -53,10 +53,6 @@ ModelInputShaper::ModelInputShaper() : force_dim_dynamic_enabled_(false) {
 
 void ModelInputShaper::setShapeInformation(
     const std::string &shapeInformation) {
-  char INPUT_SEP = ',';
-  char DIM_SEP = 'x';
-  char INPUT_DIM_SEP = ':';
-  char INPUT_RANGE_SEP = '-';
   if (!shapeInformation.empty()) {
     std::stringstream shapeInfoString(shapeInformation);
     std::string shapeString;
@@ -86,7 +82,8 @@ void ModelInputShaper::setShapeInformation(
       size_t rangePos = inputString.find(INPUT_RANGE_SEP);
       std::string startString = inputString.substr(0, rangePos);
       std::string endString = inputString.substr(rangePos + 1);
-      bool isRangeInput = (startString != "" && endString != "");
+      assert(endString != "" && "input_id has _ at the end");
+      bool isRangeInput = (startString != "");
       // Insert (input_id, dim_value) to the shape info.
       SmallVector<int64_t> inputIDs;
       if (isRangeInput) {
