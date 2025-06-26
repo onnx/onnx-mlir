@@ -47,6 +47,7 @@ bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool enableConvTransposeDecomposeToPhasedConv;         // common for both
+bool enableConvTranspose1dDecomposeToPhasedConv;       // common for both
 bool enableQuarkQuantizerLegalization;                 // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
@@ -300,6 +301,15 @@ static llvm::cl::opt<bool, true> enableConvTransposeDecomposeTo4ConvOptionOpt(
                    "phased Conv."),
     llvm::cl::location(enableConvTransposeDecomposeToPhasedConv),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true>
+    enableConvTranspose1dDecomposeToPhasedConvOptionOpt(
+        "enable-convtranspose-1d-decompose-phased-conv",
+        llvm::cl::desc(
+            "Enable decomposition of ONNX ConvTranspose 1D operator to "
+            "phased Conv."),
+        llvm::cl::location(enableConvTranspose1dDecomposeToPhasedConv),
+        llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> enableQuarkQuantizerLegalizationOptionOpt(
     "enable-quark-quantizer-legalization",

@@ -45,6 +45,24 @@ func.func @test_int_dense() -> tensor<2xi8> {
 
 // -----
 
+func.func @test_int4_dense() -> tensor<2xi4> {
+  %0 = "onnx.Constant"() {value = dense<[-1, -2]> : tensor<2xi4>} : () -> tensor<2xi4>
+  return %0 : tensor<2xi4>
+// CHECK-LABEL: @test_int4_dense() -> tensor<2xi4>
+// CHECK:       "tosa.const"() <{value = dense<[-1, -2]> : tensor<2xi4>}> : () -> tensor<2xi4>
+}
+
+// -----
+
+func.func @test_uint4_dense() -> tensor<2xui4> {
+  %0 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xui4>} : () -> tensor<2xui4>
+  return %0 : tensor<2xui4>
+// CHECK-LABEL: @test_uint4_dense() -> tensor<2xui4>
+// CHECK:       "tosa.const"() <{value = dense<[1, 2]> : tensor<2xui4>}> : () -> tensor<2xui4>
+}
+
+// -----
+
 func.func @test_bool_single() -> tensor<i1> {
   %0 = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
   return %0 : tensor<i1>

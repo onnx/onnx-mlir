@@ -29,6 +29,7 @@ BType btypeOfMlirType(Type type) {
   auto itype = mlir::cast<IntegerType>(type);
   switch (itype.getWidth()) {
     case  1: return BType::BOOL;
+    case  4: return itype.isUnsigned() ? BType::UINT4  : BType::INT4;
     case  8: return itype.isUnsigned() ? BType::UINT8  : BType::INT8;
     case 16: return itype.isUnsigned() ? BType::UINT16 : BType::INT16;
     case 32: return itype.isUnsigned() ? BType::UINT32 : BType::INT32;
@@ -43,6 +44,8 @@ Type mlirTypeOfBType(BType btype, MLIRContext *ctx) {
   // clang-format off
   switch (btype) {
     case BType::BOOL           : return b.getI1Type();
+    case BType::INT4           : return b.getIntegerType(4);
+    case BType::UINT4          : return b.getIntegerType(4, false);
     case BType::INT8           : return b.getIntegerType(8);
     case BType::UINT8          : return b.getIntegerType(8, false);
     case BType::INT16          : return b.getIntegerType(16);

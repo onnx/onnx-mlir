@@ -86,14 +86,16 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass(
       /*target=*/"", opts.enableConvTransposeDecompose,
-      opts.enableConvTransposeDecomposeToPhasedConv));
+      opts.enableConvTransposeDecomposeToPhasedConv,
+      opts.enableConvTranspose1dDecomposeToPhasedConv));
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
         !disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
         opts.enableConvTransposeDecompose,
-        opts.enableConvTransposeDecomposeToPhasedConv));
+        opts.enableConvTransposeDecomposeToPhasedConv,
+        opts.enableConvTranspose1dDecomposeToPhasedConv));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
@@ -102,7 +104,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
           onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
               /*enableQuarkQuantizedOpsLegalization=*/false,
               opts.enableConvTransposeDecompose,
-              opts.enableConvTransposeDecomposeToPhasedConv));
+              opts.enableConvTransposeDecomposeToPhasedConv,
+              opts.enableConvTranspose1dDecomposeToPhasedConv));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -144,7 +147,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
         !disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
         opts.enableConvTransposeDecompose,
-        opts.enableConvTransposeDecomposeToPhasedConv));
+        opts.enableConvTransposeDecomposeToPhasedConv,
+        opts.enableConvTranspose1dDecomposeToPhasedConv));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
@@ -349,6 +353,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     opts.enableConvTransposeDecompose = enableConvTransposeDecomposeOption;
     opts.enableConvTransposeDecomposeToPhasedConv =
         enableConvTransposeDecomposeToPhasedConv;
+    opts.enableConvTranspose1dDecomposeToPhasedConv =
+        enableConvTranspose1dDecomposeToPhasedConv;
     addONNXToMLIRPasses(pm, /*target CPU*/ false,
         /*donotScrubDisposableElementsAttr=*/false, opts);
   }
