@@ -2305,7 +2305,7 @@ public:
     } else {
       if (SIMD_FOR_DLF16_CONVERSION) {
         // a vector of 4 elements of i32 - for input
-        Type vecTypeI32 =mlir::VectorType::get(4, i32Ty);
+        Type vecTypeI32 = mlir::VectorType::get(4, i32Ty);
         // a vector of 8 elements of i16 - for output
         Type vecTypeI16 = mlir::VectorType::get(8, i16Ty);
         Type vecTypeF16 = mlir::VectorType::get(8, f16Ty);

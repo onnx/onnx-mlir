@@ -78,8 +78,6 @@ public:
 
     // If transA or transB are present, create Transpose operators.
     if (transA) {
-      //Value targetTensor =
-      //    tosaBuilder.getConst(llvm::SmallVector<int32_t>{0, 2, 1}, {3});
       auto permsAttr = mlir::DenseI32ArrayAttr::get(context, {0, 2, 1});
       Type outputType =
           RankedTensorType::get(dynamicTensorShape, AType.getElementType());
@@ -88,8 +86,6 @@ public:
               .getResult();
     }
     if (transB) {
-      // Value targetTensor =
-      //    tosaBuilder.getConst(llvm::SmallVector<int32_t>{0, 2, 1}, {3});
       auto permsAttr = mlir::DenseI32ArrayAttr::get(context, {0, 2, 1});
       Type outputType =
           RankedTensorType::get(dynamicTensorShape, BType.getElementType());

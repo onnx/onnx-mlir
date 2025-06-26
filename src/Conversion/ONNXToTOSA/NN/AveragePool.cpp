@@ -59,8 +59,8 @@ void handleIncludePadAttr(
   // In-place update of AveragePool by setting operand to PadOp
   // and pads attribute to {0, 0, 0, 0}.
   rewriter.modifyOpInPlace(op, [&]() { op->setOperand(0, padOp); });
-  rewriter.modifyOpInPlace(op,
-      [&]() { op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0})); });
+  rewriter.modifyOpInPlace(op, [&]() { 
+    op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0})); });
 }
 
 class ONNXAveragePoolOpLoweringToTOSA

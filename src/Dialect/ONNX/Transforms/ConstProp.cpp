@@ -1152,7 +1152,8 @@ class SplitOfConst : public OpRewritePattern<ONNXSplitOp> {
 public:
   using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
     if (!isDenseONNXConstant(splitOp.getInput()))
       return failure();
     Value split = splitOp.getSplit();
@@ -1170,7 +1171,8 @@ class IfOfConst : public OpRewritePattern<ONNXIfOp> {
 public:
   using OpRewritePattern<ONNXIfOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXIfOp ifOp, PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXIfOp ifOp, PatternRewriter &rewriter) const override {
     if (!isDenseONNXConstant(ifOp.getCond()))
       return failure();
 
@@ -1197,7 +1199,7 @@ public:
     rewriter.inlineBlockBefore(newBlock, ifOp);
     rewriter.replaceOp(ifOp, outputs);
     return success();
-    }
+  }
 };
 
 //===----------------------------------------------------------------------===//
