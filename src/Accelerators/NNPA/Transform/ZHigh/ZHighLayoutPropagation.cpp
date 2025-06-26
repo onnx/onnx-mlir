@@ -367,7 +367,7 @@ struct ZHighLayoutPropagationPass
     // rules in this pass.
     ZHighStickOp::getCanonicalizationPatterns(patterns, &getContext());
     ZHighUnstickOp::getCanonicalizationPatterns(patterns, &getContext());
-    (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
+    (void)applyPatternsGreedily(function, std::move(patterns));
   }
 };
 } // anonymous namespace
