@@ -142,3 +142,23 @@ func.func @test_conv_concat_dependency(%arg0: tensor<1x1x512x512xf32>) -> tensor
 // CHECK:           return [[VAR_6_]] : tensor<1x64x512x512xf32>
 // CHECK:         }
 }
+
+func.func @test_conv_concat_not_static_shape(%arg0: tensor<1x1x512x512xf32>, %0: tensor<*xf32>) -> tensor<1x64x512x512xf32> {
+  %1 = onnx.Constant dense<0.00999999977> : tensor<32xf32>
+  %2 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
+  %3 = onnx.Constant dense<0.00999999977> : tensor<32xf32>
+  %4 = "onnx.Conv"(%arg0, %0, %1) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<*xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+  %5 = "onnx.Conv"(%arg0, %2, %3) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x?x512x512xf32>
+  %6 = "onnx.Concat"(%4, %5) {axis = 1 : si64} : (tensor<1x32x512x512xf32>, tensor<1x?x512x512xf32>) -> tensor<1x64x512x512xf32>
+  return %6 : tensor<1x64x512x512xf32>
+
+// CHECK-LABEL:  func.func @test_conv_concat_not_static_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x512x512xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> tensor<1x64x512x512xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_12", pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<*xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_13", pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 1 : si64, onnx_node_name = "onnx.Concat_14"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x64x512x512xf32>
+// CHECK:           return [[VAR_4_]] : tensor<1x64x512x512xf32>
+// CHECK:         }
+}
