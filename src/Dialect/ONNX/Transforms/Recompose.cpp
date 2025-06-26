@@ -660,6 +660,10 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       return rewriter.notifyMatchFailure(
           convOp1, "input must be a ranked tensor with static shape");
 
+    if (!cast<ShapedType>(convOp1.getType()).hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          convOp1, "output type must be a ranked tensor with static shape");
+
     // Collect all ONNXConvOps using this input.
     SmallVector<ONNXConvOp> candidateConvs;
     for (auto user : input.getUsers()) {
@@ -686,6 +690,20 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
           convOp1, "number of candidate convs does not match input uses");
 
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
+
+    SmallVector<Value> weightValues;
+    int64_t totalOutputChannels = 0;
+    for (auto conv : parallelConvs) {
+      auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
+      if (!weightType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            conv, "weight must be a ranked tensor with static shape");
+      if (!cast<ShapedType>(conv.getType()).hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            conv, "output type must be a ranked tensor with static shape");
+      weightValues.push_back(conv.getW());
+      totalOutputChannels += weightType.getShape()[0];
+    }
 
     auto *latestConv =
         llvm::max_element(parallelConvs, [](ONNXConvOp a, ONNXConvOp b) {
@@ -734,14 +752,6 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
         rewriter, loc);
 
     int64_t concatAxis = 1;
-
-    SmallVector<Value> weightValues;
-    int64_t totalOutputChannels = 0;
-    for (auto conv : parallelConvs) {
-      auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
-      weightValues.push_back(conv.getW());
-      totalOutputChannels += weightType.getShape()[0];
-    }
 
     auto firstWeightType =
         mlir::cast<ShapedType>(parallelConvs[0].getW().getType());
