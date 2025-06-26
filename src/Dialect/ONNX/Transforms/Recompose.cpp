@@ -22,6 +22,7 @@
 
 #include <numeric>
 
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -75,7 +76,6 @@ ValueRange emitSplitByChannels(PatternRewriter &rewriter, Location loc,
     splitShape[axis] = size;
     resultTypes.push_back(RankedTensorType::get(splitShape, elementType));
   }
-  rewriter.setInsertionPointAfter(input.getDefiningOp());
   // Perform Split Operation
   ValueRange results =
       create.onnx.split(ArrayRef(resultTypes), input, splitConstant, axis);
@@ -785,6 +785,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     newOutputShape[concatAxis] = totalOutputChannels;
     auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(*latestConv);
     auto newConv =
         rewriter.create<ONNXConvOp>(loc, newOutputType, input, newWeight,
             newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
@@ -819,8 +821,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     if (allOutputsUsedInCommonConcat && commonConcatOp &&
         commonConcatOp.getAxis() == 1) {
-      commonConcatOp.getResult().replaceAllUsesWith(newConv.getResult());
-      rewriter.eraseOp(commonConcatOp);
+      rewriter.replaceOp(commonConcatOp, newConv);
     } else {
       SmallVector<int64_t> splitSizesVec;
       for (auto conv : parallelConvs) {
@@ -829,15 +830,15 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
         splitSizesVec.push_back(channels);
       }
 
-      rewriter.setInsertionPointAfter(newConv);
       ValueRange splitResults = onnx_mlir::emitSplitByChannels(
           rewriter, loc, newConv.getResult(), splitSizesVec, concatAxis);
-
       for (size_t i = 0; i < parallelConvs.size(); ++i) {
-        parallelConvs[i].getResult().replaceAllUsesWith(splitResults[i]);
+        rewriter.replaceAllOpUsesWith(parallelConvs[i], splitResults[i]);
       }
+      // Sort the block topological, as the operations after the split may be in
+      // the wrong place otherwise
+      mlir::sortTopologically(newConv->getBlock());
     }
-
     for (auto conv : parallelConvs) {
       rewriter.eraseOp(conv);
     }
