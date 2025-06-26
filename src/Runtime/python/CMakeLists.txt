@@ -83,7 +83,7 @@ target_include_directories(OMPyExecutionSessionBase
 # which we add back through target_compile_definitions and
 # target_include_directories.
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
-add_dependencies(PyRuntimeC onnx_proto)
+add_dependencies(PyRuntimeC onnx)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
@@ -134,7 +134,7 @@ if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 endif()
 
 pybind11_add_module(PyCompileAndRuntimeC PyOMCompileExecutionSession.cpp)
-add_dependencies(PyCompileAndRuntimeC onnx_proto)
+add_dependencies(PyCompileAndRuntimeC onnx)
 target_compile_options(PyCompileAndRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
