@@ -687,6 +687,41 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
 
+    auto *latestConv =
+        llvm::max_element(parallelConvs, [](ONNXConvOp a, ONNXConvOp b) {
+          return a->isBeforeInBlock(b.getOperation());
+        });
+
+    const auto checkIfOtherConvsReachable = [&](ONNXConvOp conv) {
+      SmallVector<Operation *> worklist;
+      DenseSet<Operation *> visited;
+      worklist.push_back(conv.getOperation());
+      while (!worklist.empty()) {
+        Operation *current = worklist.back();
+        worklist.pop_back();
+
+        for (auto *user : current->getUsers()) {
+          if (auto otherConv = dyn_cast<ONNXConvOp>(user)) {
+            if (llvm::is_contained(parallelConvs, otherConv)) {
+              // Found another conv that is part of the parallel convs.
+              return true;
+            }
+          }
+          if (visited.insert(user).second &&
+              user->isBeforeInBlock(*latestConv)) {
+            worklist.push_back(user);
+          }
+        };
+      }
+      return false;
+    };
+    // Ensure all convolutions are really parallel, none of then can be part of
+    // the input of another convolution
+    if (llvm::any_of(parallelConvs, checkIfOtherConvsReachable)) {
+      return rewriter.notifyMatchFailure(
+          convOp1, "conv ops are not parallel (reachable from each other)");
+    }
+
     bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
 
     Location loc = convOp1.getLoc();
