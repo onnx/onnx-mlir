@@ -447,7 +447,7 @@ OpsWithVerifier = [
 ]
 
 # Op with fold function
-OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean"]
+OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean", "Slice"]
 
 # Op with ConstantLike trait
 OpsWithConstantLike = ["Constant"]
