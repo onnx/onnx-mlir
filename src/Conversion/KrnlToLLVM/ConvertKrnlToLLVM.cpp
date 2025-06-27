@@ -197,12 +197,12 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   vector::populateVectorBitCastLoweringPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(
-      patterns, vector::VectorTransformsOptions());
+      patterns, vector::VectorContractLowering());
   vector::populateVectorMaskOpLoweringPatterns(patterns);
   vector::populateVectorShapeCastLoweringPatterns(patterns);
   vector::populateVectorInterleaveLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(
-      patterns, vector::VectorTransformsOptions());
+      patterns, vector::VectorTransposeLowering());
   // Vector transfer ops with rank > 1 should be lowered with VectorToSCF.
   vector::populateVectorTransferLoweringPatterns(
       patterns, /*maxTransferRank=*/1);

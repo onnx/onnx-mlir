@@ -232,7 +232,7 @@ private:
         create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
             [&](const KrnlBuilder &createKrnl, ValueRange indices) {
               IndexExprScope innerScope(createKrnl);
-              SmallVector<IndexExpr, 4> storeIndices = SymListIE(indices);
+              SmallVector<IndexExpr, 4> storeIndices = DimListIE(indices);
               // Reconstitute the original index as "lb + u * index".
               IndexExpr uIndex = storeIndices[uDim] * u;
               uIndex = SymIE(lb) + uIndex;

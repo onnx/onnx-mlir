@@ -29,7 +29,8 @@ func.func @test_neg(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 // CHECK-LABEL:  func @test_neg
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.negate [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK: [[ZERO_0_:%.+]] = "tosa.const"() <{values = dense<0.000000e+00> : tensor<1xf32>}> : () -> tensor<1xf32>
+// CHECK: [[VAR_0_:%.+]] = tosa.negate [[PARAM_0_]], [[ZERO_0_]], [[ZERO_0_]] : (tensor<10x10xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<10x10xf32>
 }
 
 // -----
@@ -60,10 +61,10 @@ func.func @test_add_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
 // CHECK-LABEL:  func.func @test_add_broadcast
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<13x21x1xf32> {
-// CHECK:           [[SHAPE:%.+]] = tosa.const_shape {value = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
-// CHECK:           [[VAR_0_:%.+]] = tosa.reshape [[PARAM_1_]], [[SHAPE]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.add [[PARAM_0_]], [[VAR_0_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
-// CHECK:           return [[VAR_1_]] : tensor<13x21x1xf32>
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape  {values = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK:           [[VAR_1_:%.+]] = tosa.reshape [[PARAM_1_]], [[VAR_0_]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.add [[PARAM_0_]], [[VAR_1_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
+// CHECK:           return [[VAR_2_]] : tensor<13x21x1xf32>
 }
 
 
@@ -84,10 +85,10 @@ func.func @test_sub_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
 // CHECK-LABEL:  func.func @test_sub_broadcast
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<13x21x1xf32> {
-// CHECK:           [[SHAPE:%.+]] = tosa.const_shape {value = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
-// CHECK:           [[VAR_0_:%.+]] = tosa.reshape [[PARAM_1_]], [[SHAPE]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
-// CHECK:           [[VAR_1_:%.+]] = tosa.sub [[PARAM_0_]], [[VAR_0_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
-// CHECK:           return [[VAR_1_]] : tensor<13x21x1xf32>
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape  {values = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK:           [[VAR_1_:%.+]] = tosa.reshape [[PARAM_1_]], [[VAR_0_]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.sub [[PARAM_0_]], [[VAR_1_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
+// CHECK:           return [[VAR_2_]] : tensor<13x21x1xf32>
 }
 
 
@@ -96,9 +97,10 @@ func.func @test_sub_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 func.func @test_div(%arg0: tensor<13x21x1xi32>, %arg1: tensor<13x21x1xi32>) -> tensor<13x21x1xi32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xi32>, tensor<13x21x1xi32>) -> tensor<13x21x1xi32>
   "func.return"(%0) : (tensor<13x21x1xi32>) -> ()
-// CHECK-LABEL:  func @test_div
+// CHECK-LABEL:  func.func @test_div
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xi32>, [[PARAM_1_:%.+]]: tensor<13x21x1xi32>) -> tensor<13x21x1xi32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.int_div [[PARAM_0_]], [[PARAM_1_]] : (tensor<13x21x1xi32>, tensor<13x21x1xi32>) -> tensor<13x21x1xi32>
+// CHECK:           [[VAR_0_:%.+]] = tosa.intdiv [[PARAM_0_]], [[PARAM_1_]] : (tensor<13x21x1xi32>, tensor<13x21x1xi32>) -> tensor<13x21x1xi32>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi32>
 }
 
 // -----
@@ -106,11 +108,12 @@ func.func @test_div(%arg0: tensor<13x21x1xi32>, %arg1: tensor<13x21x1xi32>) -> t
 func.func @test_div_broadcast(%arg0: tensor<13x21x1xi32>, %arg1: tensor<1xi32>) -> tensor<13x21x1xi32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xi32>, tensor<1xi32>) -> tensor<13x21x1xi32>
   "func.return"(%0) : (tensor<13x21x1xi32>) -> ()
-// CHECK-LABEL:  func @test_div_broadcast
+// CHECK-LABEL:  func.func @test_div_broadcast
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xi32>, [[PARAM_1_:%.+]]: tensor<1xi32>) -> tensor<13x21x1xi32> {
-// CHECK-NEXT:      [[SHAPE:%.+]] = tosa.const_shape {value = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.reshape [[PARAM_1_]], [[SHAPE]] : (tensor<1xi32>, !tosa.shape<3>) -> tensor<1x1x1xi32>
-// CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.int_div [[PARAM_0_]], [[VAR_0_]] : (tensor<13x21x1xi32>, tensor<1x1x1xi32>) -> tensor<13x21x1xi32>
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape  {values = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK:           [[VAR_1_:%.+]] = tosa.reshape [[PARAM_1_]], [[VAR_0_]] : (tensor<1xi32>, !tosa.shape<3>) -> tensor<1x1x1xi32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.intdiv [[PARAM_0_]], [[VAR_1_]] : (tensor<13x21x1xi32>, tensor<1x1x1xi32>) -> tensor<13x21x1xi32>
+// CHECK:           return [[VAR_2_]] : tensor<13x21x1xi32>
 }
 
 // -----
@@ -118,11 +121,12 @@ func.func @test_div_broadcast(%arg0: tensor<13x21x1xi32>, %arg1: tensor<1xi32>) 
 func.func @test_div_decomposed(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
-// CHECK-LABEL:  func @test_div_decomposed
+// CHECK-LABEL:  func.func @test_div_decomposed
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.reciprocal [[PARAM_1_]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
-// CHECK-NEXT:      [[ZERO:%.+]] = "tosa.const"() <{value = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
-// CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.mul [[PARAM_0_]], [[VAR_0_]], [[ZERO]] : (tensor<13x21x1xf32>, tensor<13x21x1xf32>, tensor<1xi8>) -> tensor<13x21x1xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.reciprocal [[PARAM_1_]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{values = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[VAR_2_:%.+]] = tosa.mul [[PARAM_0_]], [[VAR_0_]], [[VAR_1_]] : (tensor<13x21x1xf32>, tensor<13x21x1xf32>, tensor<1xi8>) -> tensor<13x21x1xf32>
+// CHECK:           return [[VAR_2_]] : tensor<13x21x1xf32>
 }
 
 // -----
@@ -130,11 +134,13 @@ func.func @test_div_decomposed(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1
 func.func @test_div_decomposed_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
-// CHECK-LABEL:  func @test_div_decomposed_broadcast
+// CHECK-LABEL:  func.func @test_div_decomposed_broadcast
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<13x21x1xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.reciprocal [[PARAM_1_]] : (tensor<1xf32>) -> tensor<1xf32>
-// CHECK-NEXT:      [[SHAPE:%.+]] = tosa.const_shape {value = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
-// CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.reshape [[VAR_0_]], [[SHAPE]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
-// CHECK-NEXT:      [[ZERO:%.+]] = "tosa.const"() <{value = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
-// CHECK-NEXT:      [[VAR_2_:%.+]] = tosa.mul [[PARAM_0_]], [[VAR_1_]], [[ZERO]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>, tensor<1xi8>) -> tensor<13x21x1xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.reciprocal [[PARAM_1_]] : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.const_shape  {values = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.reshape [[VAR_0_]], [[VAR_1_]] : (tensor<1xf32>, !tosa.shape<3>) -> tensor<1x1x1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{values = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[VAR_4_:%.+]] = tosa.mul [[PARAM_0_]], [[VAR_2_]], [[VAR_3_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>, tensor<1xi8>) -> tensor<13x21x1xf32>
+// CHECK:           return [[VAR_4_]] : tensor<13x21x1xf32>
 }

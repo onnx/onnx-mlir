@@ -166,7 +166,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                     MDBuilder create(b);
                     IndexExprScope innerScope(b, &outerScope);
                     IndexExpr l = DimIE(loopInd[0]);
-                    DimsExpr innerIndices = SymListIE(outerIndices);
+                    DimsExpr innerIndices = DimListIE(outerIndices);
                     innerIndices[d1] = innerIndices[d1] + l;
                     mlir::SmallVector<mlir::Value, 8> vecOfF32Vals;
                     // Load archVL (8) f16 values from input via reinterpreted
@@ -207,7 +207,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
                       IndexExpr l = DimIE(loopInd[0]);
-                      DimsExpr innerIndices = SymListIE(outerIndices);
+                      DimsExpr innerIndices = DimListIE(outerIndices);
                       innerIndices[d1] = innerIndices[d1] + l;
                       mlir::SmallVector<mlir::Value, 8> vecOfF32Vals;
                       // Load f16 values from input via reinterpreted data
@@ -248,7 +248,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                       // Load converted value.
                       mlir::Value f32 = create.krnl.loadIE(bufferF32, {l});
 
-                      DimsExpr innerIndices = SymListIE(outerIndices);
+                      DimsExpr innerIndices = DimListIE(outerIndices);
                       innerIndices[d1] = innerIndices[d1] + SymIE(lastL);
                       innerIndices[d1] = innerIndices[d1] + l;
                       processScalarF32Val(create.krnl, f32, innerIndices);

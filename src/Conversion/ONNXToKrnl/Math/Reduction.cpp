@@ -1121,7 +1121,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       bool simdOnly) const {
     IndexExpr lb = LitIE(0);
     IndexExpr ub = SymIE(simdUB);
-    SmallVector<IndexExpr, 4> outputAF = SymListIE(outLoopInd);
+    SmallVector<IndexExpr, 4> outputAF = DimListIE(outLoopInd);
     SmallVector<IndexExpr, 4> inputAF = outputAF;
     inputAF.emplace_back(lb);
     SmallVector<IndexExpr, 4> tmpAF(2, lb); // tmpAlloc is 2D
@@ -1245,11 +1245,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     IndexExpr lb = zero;
     IndexExpr ub = SymIE(simdUB);
     int64_t rank = blockedOutLoopInd.size();
-    DimsExpr inputAF = SymListIE(blockedOutLoopInd);
+    DimsExpr inputAF = DimListIE(blockedOutLoopInd);
     inputAF[rank - 1] = blockedCurrIndex;
     inputAF.emplace_back(zero);
     DimsExpr tmpAF = {zero, zero};
-    DimsExpr outputAF = SymListIE(blockedOutLoopInd);
+    DimsExpr outputAF = DimListIE(blockedOutLoopInd);
     Value identity = getIdentityValue<ONNXReductionOp>(
         rewriter, create.getLoc(), elementType);
     if (simdOnly) {

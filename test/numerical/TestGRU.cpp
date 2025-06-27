@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     const int isDynB = *rc::gen::element(0, 1);
 
     RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(
-        D, S, B, I, H, L, isDynS == 0, isDynB == 0, layout));
+        D, S, B, I, H, L, isDynS, isDynB, layout));
   });
   if (!success)
     return 1;
