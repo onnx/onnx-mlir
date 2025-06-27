@@ -13,7 +13,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/STLExtras.h"
 
-#include <bits/stdc++.h>
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <string>
