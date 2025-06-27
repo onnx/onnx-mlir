@@ -63,6 +63,15 @@ public:
   // -1 is used to indicate all input indices.
   static constexpr int64_t kUserAllInputs = -1;
 
+  // Separator between inputs.
+  static constexpr char INPUT_SEP = ',';
+  // Separator between dimensions.
+  static constexpr char DIM_SEP = 'x';
+  // Separator between one input and its dimensions.
+  static constexpr char INPUT_DIM_SEP = ':';
+  // Separator to define a range of input indices, e.g. 2-5.
+  static constexpr char INPUT_RANGE_SEP = '-';
+
   ModelInputShaper();
 
   // shapeInformation specifies custom shapes for the inputs of the ONNX model,
