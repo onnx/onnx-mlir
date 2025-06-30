@@ -1,3 +1,3 @@
 git clone -n https://github.com/xilinx/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 590a988c1ddf5dd7507f48b45a10bbf2dac84e01 && cd ..
+cd llvm-project && git checkout 776b07b472a12db1a451fb4bfc737e05c0ee0b1c && cd ..
