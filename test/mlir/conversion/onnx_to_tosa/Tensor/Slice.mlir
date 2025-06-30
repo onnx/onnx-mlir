@@ -79,7 +79,7 @@ func.func @slice_just_steps(%arg0: tensor<100x200xf32>) -> tensor<20x20xf32> {
 func.func @slice_steps_and_edges(%arg0: tensor<100x200xf32>) -> tensor<16x17xf32> {
   %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %starts = "onnx.Constant"() {value = dense<[5, 10]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[85, 180]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[82, 178]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[5, 10]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<16x17xf32>
   return %1 : tensor<16x17xf32> 
