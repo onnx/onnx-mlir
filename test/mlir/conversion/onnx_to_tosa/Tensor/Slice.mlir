@@ -129,3 +129,16 @@ func.func @slice_just_steps_with_padding(%arg0: tensor<99x195xf32>) -> tensor<20
 // CHECK: %4 = tosa.slice %3 {size = array<i64: 20, 1, 20, 1>, start = array<i64: 0, 0, 0, 0>} : (tensor<20x5x20x10xf32>) -> tensor<20x1x20x1xf32>
 // CHECK: %5 = tosa.reshape %4 {new_shape = array<i64: 20, 20>} : (tensor<20x1x20x1xf32>) -> tensor<20x20xf32>
 // CHECK: return %5 : tensor<20x20xf32>
+
+// -----
+
+func.func @slice_negative_steps(%arg0: tensor<100x200xf32>) -> tensor<20x20xf32> {
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[0, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[100, 200]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[-5, -10]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<20x20xf32>
+  return %1 : tensor<20x20xf32> 
+}
+// CHECK-LABEL: func @slice_negative_steps
+// CHECK: onnx.Slice

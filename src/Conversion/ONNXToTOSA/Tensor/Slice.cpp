@@ -74,6 +74,10 @@ public:
     llvm::SmallVector<int64_t, 4> steps;
     IndexExpr::getLiteral(shapeHelper.steps, steps);
 
+    if (llvm::any_of(steps, [](int64_t step) { return step < 0; })) {
+      return rewriter.notifyMatchFailure(op, "negative step not supported.");
+    }
+
     // 1: Pad if not enough data at the end to fit the final step
     // start (S) = 2, end (E) = 1, step (T) = 4
     // |SSXTTTXTTTXTTTXTTTXTE| => |SSXTTTXTTTXTTTXTTTXTEP|
