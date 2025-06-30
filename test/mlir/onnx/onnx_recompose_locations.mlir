@@ -46,28 +46,28 @@ func.func @test_combine_conv_split(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x9
   return %12 : tensor<1x96x512x512xf32>
 
 // CHECK-LABEL:  func.func @test_combine_conv_split
-// XFAIL-CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x512x512xf32>
-// XFAIL-CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<32> : tensor<3xi64>
-// XFAIL-CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
-// XFAIL-CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32xf32>
-// XFAIL-CHECK-NOT: separator of consecutive DAGs
-// XFAIL-CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_1_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<32x1x3x3xf32>, tensor<32x1x3x3xf32>, tensor<32x1x3x3xf32>) -> tensor<96x1x3x3xf32> loc([[LOC_FUSED:#.+]])
-// XFAIL-CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_2_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<32xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<96xf32> loc([[LOC_FUSED:#.+]])
-// XFAIL-CHECK:           [[VAR_5_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_3_]], [[VAR_4_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<96x1x3x3xf32>, tensor<96xf32>) -> tensor<1x96x512x512xf32> loc([[LOC_FUSED:#.+]])
-// XFAIL-CHECK:           [[VAR_6_:%.+]]:3 = "onnx.Split"([[VAR_5_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x96x512x512xf32>, tensor<3xi64>) -> (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) loc([[LOC_FUSED:#.+]])
-// XFAIL-CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Relu"([[VAR_6_]]#2) : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32> loc([[LOC_RELU:#.+]])
-// XFAIL-CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Sigmoid"([[VAR_6_]]#1) : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32> loc([[LOC_SIGMOID:#.+]])
-// XFAIL-CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Tanh"([[VAR_6_]]#0) : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32> loc([[LOC_TANH:#.+]])
-// XFAIL-CHECK:           [[VAR_10_:%.+]] = "onnx.Concat"([[VAR_7_]], [[VAR_8_]], [[VAR_9_]]) {axis = 1 : si64} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x96x512x512xf32> loc([[LOC_ORIGINAL_CONCAT:#.+]])
-// XFAIL-CHECK:           return [[VAR_10_]] : tensor<1x96x512x512xf32>
-// XFAIL-CHECK:         }
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x512x512xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<32> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_1_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<32x1x3x3xf32>, tensor<32x1x3x3xf32>, tensor<32x1x3x3xf32>) -> tensor<96x1x3x3xf32> loc([[LOC_FUSED:#.+]])
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_2_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<32xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<96xf32> loc([[LOC_FUSED:#.+]])
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_3_]], [[VAR_4_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<96x1x3x3xf32>, tensor<96xf32>) -> tensor<1x96x512x512xf32> loc([[LOC_FUSED:#.+]])
+// CHECK:           [[VAR_6_:%.+]]:3 = "onnx.Split"([[VAR_5_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x96x512x512xf32>, tensor<3xi64>) -> (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) loc([[LOC_FUSED:#.+]])
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Relu"([[VAR_6_]]#2) : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32> loc([[LOC_RELU:#.+]])
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Sigmoid"([[VAR_6_]]#1) : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32> loc([[LOC_SIGMOID:#.+]])
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Tanh"([[VAR_6_]]#0) : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32> loc([[LOC_TANH:#.+]])
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Concat"([[VAR_7_]], [[VAR_8_]], [[VAR_9_]]) {axis = 1 : si64} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x96x512x512xf32> loc([[LOC_ORIGINAL_CONCAT:#.+]])
+// CHECK:           return [[VAR_10_]] : tensor<1x96x512x512xf32>
+// CHECK:         }
 
-// XFAIL-CHECK-DAG:       [[LOC_RELU:#.+]] = loc("relu")
-// XFAIL-CHECK-DAG:       [[LOC_SIGMOID:#.+]] = loc("sigmoid")
-// XFAIL-CHECK-DAG:       [[LOC_TANH:#.+]] = loc("tanh")
-// XFAIL-CHECK-DAG:       [[LOC_ORIGINAL_CONCAT:#.+]] = loc("concat")
-// XFAIL-CHECK-DAG:       [[LOC_CONV1:#.+]] = loc("conv1")
-// XFAIL-CHECK-DAG:       [[LOC_CONV2:#.+]] = loc("conv2")
-// XFAIL-CHECK-DAG:       [[LOC_CONV3:#.+]] = loc("conv3")
-// XFAIL-CHECK-DAG:       [[LOC_FUSED]] = loc(fused[[[LOC_CONV1]], [[LOC_CONV3]], [[LOC_CONV2]]])
+// CHECK-DAG:       [[LOC_RELU:#.+]] = loc("relu")
+// CHECK-DAG:       [[LOC_SIGMOID:#.+]] = loc("sigmoid")
+// CHECK-DAG:       [[LOC_TANH:#.+]] = loc("tanh")
+// CHECK-DAG:       [[LOC_ORIGINAL_CONCAT:#.+]] = loc("concat")
+// CHECK-DAG:       [[LOC_CONV1:#.+]] = loc("conv1")
+// CHECK-DAG:       [[LOC_CONV2:#.+]] = loc("conv2")
+// CHECK-DAG:       [[LOC_CONV3:#.+]] = loc("conv3")
+// CHECK-DAG:       [[LOC_FUSED]] = loc(fused[[[LOC_CONV1]], [[LOC_CONV3]], [[LOC_CONV2]]])
 }
