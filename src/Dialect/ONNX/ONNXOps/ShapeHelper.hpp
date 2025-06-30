@@ -912,6 +912,7 @@ struct ONNXWindowsOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXHammingWindowOpShapeHelper = ONNXWindowsOpShapeHelper<mlir::ONNXHammingWindowOp>;
+using ONNXHannWindowOpShapeHelper = ONNXWindowsOpShapeHelper<mlir::ONNXHannWindowOp>;
 using ONNXBlackmanWindowOpShapeHelper = ONNXWindowsOpShapeHelper<mlir::ONNXBlackmanWindowOp>;
 // clang-format on
 //===----------------------------------------------------------------------===//
