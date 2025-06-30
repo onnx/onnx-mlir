@@ -1,9 +1,8 @@
 name: Out-of-tree build
 
 on:
-  pull_request:
   push:
-    branches: [ main, feature/onnx-to-tosa ]
+    branches: [ main ]
 
 concurrency:
   # Build every push to main

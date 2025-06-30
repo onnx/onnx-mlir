@@ -1273,7 +1273,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
-  patterns.insert<CombineParallelConv2DPattern>(context);
+  // AMD Temporary disabled as this pattern is buggy.
+  // patterns.insert<CombineParallelConv2DPattern>(context);
 }
 
 /*!
