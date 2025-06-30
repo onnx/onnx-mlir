@@ -230,3 +230,23 @@ func.func @test_batchnormv9_f16_dynamic(%arg0: tensor<100x3x?x?xf16>) -> (tensor
 // CHECK:           [[Y_:%.+]], [[VAR_running_mean_:%.+]], [[VAR_running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {epsilon = 1.00000007E-5 : f32, momentum = 1.000000e-03 : f32, training_mode = 0 : si64} : (tensor<100x3x?x?xf16>, tensor<3xf16>, tensor<3xf16>, tensor<3xf16>, tensor<3xf16>) -> (tensor<*xf16>, tensor<*xf16>, tensor<*xf16>)
 // CHECK:           return [[Y_]], [[VAR_running_mean_]], [[VAR_running_var_]] : tensor<*xf16>, tensor<*xf16>, tensor<*xf16>
 // CHECK:         }
+
+// -----
+func.func @test_split_relu_movement_missing_shape(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<*xf32>, tensor<1x3x2xf32>) {
+  %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+  %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+  %1 = "onnx.Relu"(%0#0) {onnx_node_name = "onnx.Relu_1"} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+  %2 = "onnx.Relu"(%0#1) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x3x2xf32>) -> tensor<*xf32>
+  %3 = "onnx.Relu"(%0#2) {onnx_node_name = "onnx.Relu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  onnx.Return %1, %2, %3 : tensor<1x2x2xf32>, tensor<*xf32>, tensor<1x3x2xf32>
+}
+
+// CHECK-LABEL:  func.func @test_split_relu_movement_missing_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<*xf32>, tensor<1x3x2xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]]:3 = "onnx.Split"([[PARAM_0_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Relu"([[VAR_1_]]#0) {onnx_node_name = "onnx.Relu_1"} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Relu"([[VAR_1_]]#1) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x3x2xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Relu"([[VAR_1_]]#2) {onnx_node_name = "onnx.Relu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+// CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] : tensor<1x2x2xf32>, tensor<*xf32>, tensor<1x3x2xf32>
+// CHECK:         }

@@ -2096,6 +2096,75 @@ struct RemoveBatchNormPattern
   }
 };
 
+// "Pulls" Relu-like operations up through a SplitOp
+struct PullReluLikeOpsThroughSplitPattern
+    : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+
+    Operation *firstUser = nullptr;
+    SmallVector<Operation *> reluLikeOps;
+    Location newLoc = rewriter.getUnknownLoc();
+
+    const auto areFilteredAttrsEqual = [](Operation *op1, Operation *op2) {
+      DenseMap<StringRef, Attribute> filteredAttrs1;
+      DenseMap<StringRef, Attribute> filteredAttrs2;
+      for (const auto &attr : op1->getAttrs()) {
+        if (attr.getName() != "onnx_node_name") {
+          filteredAttrs1[attr.getName()] = attr.getValue();
+        }
+      }
+      for (const auto &attr : op2->getAttrs()) {
+        if (attr.getName() != "onnx_node_name") {
+          filteredAttrs2[attr.getName()] = attr.getValue();
+        }
+      }
+      return filteredAttrs1 == filteredAttrs2;
+    };
+
+    for (Operation *op : splitOp->getUsers()) {
+      // TODO: This pattern could be more generic, for all unary, elementwise
+      // ops. Having a trait for them would make this easier.
+      if (!isa<ONNXReluOp, ONNXLeakyReluOp>(op)) {
+        return rewriter.notifyMatchFailure(
+            splitOp, "SplitOp must be used by a Relu-like op");
+      }
+      if (op->getOperand(0).getType() != op->getResult(0).getType()) {
+        // This could happen if shape inference did not run
+        return rewriter.notifyMatchFailure(
+            splitOp, "Relu-like op must have same input and output type");
+      }
+      if (!firstUser) {
+        firstUser = op;
+      } else {
+        if (firstUser->getName() != op->getName() ||
+            !areFilteredAttrsEqual(firstUser, op)) {
+          return rewriter.notifyMatchFailure(splitOp,
+              "SplitOp must be used by Relu-like ops of the same type "
+              "and attributes");
+        }
+      }
+      reluLikeOps.push_back(op);
+      newLoc = rewriter.getFusedLoc({newLoc, op->getLoc()});
+    }
+    rewriter.setInsertionPoint(splitOp);
+    auto *newRelu = rewriter.clone(*reluLikeOps.front());
+    rewriter.modifyOpInPlace(newRelu, [&]() {
+      newRelu->setOperand(0, splitOp.getOperand(0));
+      newRelu->getResult(0).setType(splitOp.getOperand(0).getType());
+      newRelu->setLoc(newLoc);
+    });
+    rewriter.modifyOpInPlace(
+        splitOp, [&]() { splitOp->setOperand(0, newRelu->getResult(0)); });
+    for (Operation *op : reluLikeOps) {
+      rewriter.replaceOp(op, op->getOperands());
+    }
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -2367,6 +2436,13 @@ void ONNXSoftmaxV11Op::getCanonicalizationPatterns(
 void ONNXSpaceToDepthOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RemoveSpaceToDepthDepthToSpacePattern>(context);
+}
+
+/// on the ONNXSplitOp
+void ONNXSplitOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<PullReluLikeOpsThroughSplitPattern>(context);
+  ;
 }
 
 /// on the ONNXSqueezeOp.
