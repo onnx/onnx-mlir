@@ -201,3 +201,16 @@ LogicalResult ONNXSliceOp::inferShapes(
   ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+OpFoldResult ONNXSliceOp::fold(FoldAdaptor adaptor) {
+
+  auto inputTy = llvm::dyn_cast<RankedTensorType>(getData().getType());
+  auto outputTy = llvm::dyn_cast<RankedTensorType>(getOutput().getType());
+  if (inputTy && inputTy == outputTy && inputTy.hasStaticShape()) {
+    return getData();
+  }
+  return nullptr;
+}

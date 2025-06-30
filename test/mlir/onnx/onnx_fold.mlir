@@ -44,3 +44,19 @@ func.func @test_reduceMeanIsNoopWithEmptyAxes(%arg0: tensor<4x512x256x8xf32>) ->
 // CHECK-SAME: (%[[VAL_0:.*]]: tensor<4x512x256x8xf32>) -> tensor<4x512x256x8xf32> {
 // CHECK:   return %[[VAL_0]] : tensor<4x512x256x8xf32>
 // CHECK: }
+
+// -----
+
+func.func @test_slice(%arg0: tensor<16x1x2500x4xf32>) -> tensor<16x1x2500x4xf32> {
+  %0 = onnx.Constant dense<0> : tensor<1xi64>
+  %1 = onnx.Constant dense<4> : tensor<1xi64>
+  %2 = onnx.Constant dense<3> : tensor<1xi64>
+  %3 = onnx.Constant dense<1> : tensor<1xi64>
+  %4 = "onnx.Slice"(%arg0, %0, %1, %2, %3) : (tensor<16x1x2500x4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<16x1x2500x4xf32>
+  return %4 : tensor<16x1x2500x4xf32>
+}
+
+// CHECK-LABEL: @test_slice
+// CHECK-SAME: (%[[VAL_0:.*]]: tensor<16x1x2500x4xf32>) -> tensor<16x1x2500x4xf32> {
+// CHECK:   return %[[VAL_0]] : tensor<16x1x2500x4xf32>
+// CHECK: }

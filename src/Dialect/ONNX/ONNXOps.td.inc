@@ -8972,6 +8972,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
       return sh;
     }
   }];
+  let hasFolder = 1;
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
