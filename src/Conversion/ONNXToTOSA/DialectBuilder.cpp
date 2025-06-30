@@ -437,8 +437,8 @@ FailureOr<Value> TosaBuilder::resizeWindowBasedOps(mlir::Value &value,
 // Return null if none is found.
 ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
   auto definingOp = value.getDefiningOp();
-  // If we have a cast between index/integer, skip it, i.e. get the defining op
-  // that is the input to the cast.
+  // If we have a cast between index/integer, skip it, i.e. get the defining
+  // op that is the input to the cast.
   if (auto castOp = dyn_cast_or_null<arith::IndexCastOp>(definingOp)) {
     Value input = castOp.getIn();
     definingOp = input.getDefiningOp();

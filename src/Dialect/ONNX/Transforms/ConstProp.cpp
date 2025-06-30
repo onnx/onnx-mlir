@@ -1265,7 +1265,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   getConstPropONNXToONNXPatterns(patterns);
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+  if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
