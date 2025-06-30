@@ -22,6 +22,7 @@
 
 #include <numeric>
 
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -75,7 +76,6 @@ ValueRange emitSplitByChannels(PatternRewriter &rewriter, Location loc,
     splitShape[axis] = size;
     resultTypes.push_back(RankedTensorType::get(splitShape, elementType));
   }
-  rewriter.setInsertionPointAfter(input.getDefiningOp());
   // Perform Split Operation
   ValueRange results =
       create.onnx.split(ArrayRef(resultTypes), input, splitConstant, axis);
@@ -1057,6 +1057,10 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       return rewriter.notifyMatchFailure(
           convOp1, "input must be a ranked tensor with static shape");
 
+    if (!cast<ShapedType>(convOp1.getType()).hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          convOp1, "output type must be a ranked tensor with static shape");
+
     // Collect all ONNXConvOps using this input.
     SmallVector<ONNXConvOp> candidateConvs;
     for (auto user : input.getUsers()) {
@@ -1084,6 +1088,55 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
 
+    SmallVector<Value> weightValues;
+    int64_t totalOutputChannels = 0;
+    for (auto conv : parallelConvs) {
+      auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
+      if (!weightType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            conv, "weight must be a ranked tensor with static shape");
+      if (!cast<ShapedType>(conv.getType()).hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            conv, "output type must be a ranked tensor with static shape");
+      weightValues.push_back(conv.getW());
+      totalOutputChannels += weightType.getShape()[0];
+    }
+
+    auto *latestConv =
+        llvm::max_element(parallelConvs, [](ONNXConvOp a, ONNXConvOp b) {
+          return a->isBeforeInBlock(b.getOperation());
+        });
+
+    const auto checkIfOtherConvsReachable = [&](ONNXConvOp conv) {
+      SmallVector<Operation *> worklist;
+      DenseSet<Operation *> visited;
+      worklist.push_back(conv.getOperation());
+      while (!worklist.empty()) {
+        Operation *current = worklist.back();
+        worklist.pop_back();
+
+        for (auto *user : current->getUsers()) {
+          if (auto otherConv = dyn_cast<ONNXConvOp>(user)) {
+            if (llvm::is_contained(parallelConvs, otherConv)) {
+              // Found another conv that is part of the parallel convs.
+              return true;
+            }
+          }
+          if (visited.insert(user).second &&
+              user->isBeforeInBlock(*latestConv)) {
+            worklist.push_back(user);
+          }
+        };
+      }
+      return false;
+    };
+    // Ensure all convolutions are really parallel, none of then can be part of
+    // the input of another convolution
+    if (llvm::any_of(parallelConvs, checkIfOtherConvsReachable)) {
+      return rewriter.notifyMatchFailure(
+          convOp1, "conv ops are not parallel (reachable from each other)");
+    }
+
     bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
 
     Location loc = convOp1.getLoc();
@@ -1096,14 +1149,6 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
         rewriter, loc);
 
     int64_t concatAxis = 1;
-
-    SmallVector<Value> weightValues;
-    int64_t totalOutputChannels = 0;
-    for (auto conv : parallelConvs) {
-      auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
-      weightValues.push_back(conv.getW());
-      totalOutputChannels += weightType.getShape()[0];
-    }
 
     auto firstWeightType =
         mlir::cast<ShapedType>(parallelConvs[0].getW().getType());
@@ -1137,6 +1182,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     newOutputShape[concatAxis] = totalOutputChannels;
     auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(*latestConv);
     auto newConv =
         rewriter.create<ONNXConvOp>(loc, newOutputType, input, newWeight,
             newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
@@ -1171,8 +1218,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     if (allOutputsUsedInCommonConcat && commonConcatOp &&
         commonConcatOp.getAxis() == 1) {
-      commonConcatOp.getResult().replaceAllUsesWith(newConv.getResult());
-      rewriter.eraseOp(commonConcatOp);
+      rewriter.replaceOp(commonConcatOp, newConv);
     } else {
       SmallVector<int64_t> splitSizesVec;
       for (auto conv : parallelConvs) {
@@ -1181,15 +1227,15 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
         splitSizesVec.push_back(channels);
       }
 
-      rewriter.setInsertionPointAfter(newConv);
       ValueRange splitResults = onnx_mlir::emitSplitByChannels(
           rewriter, loc, newConv.getResult(), splitSizesVec, concatAxis);
-
       for (size_t i = 0; i < parallelConvs.size(); ++i) {
-        parallelConvs[i].getResult().replaceAllUsesWith(splitResults[i]);
+        rewriter.replaceAllOpUsesWith(parallelConvs[i], splitResults[i]);
       }
+      // Sort the block topological, as the operations after the split may be in
+      // the wrong place otherwise
+      mlir::sortTopologically(newConv->getBlock());
     }
-
     for (auto conv : parallelConvs) {
       rewriter.eraseOp(conv);
     }
@@ -1273,8 +1319,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
-  // AMD Temporary disabled as this pattern is buggy.
-  // patterns.insert<CombineParallelConv2DPattern>(context);
+  patterns.insert<CombineParallelConv2DPattern>(context);
 }
 
 /*!
