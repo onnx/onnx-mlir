@@ -18,6 +18,10 @@
 #ifndef ZDNNX_ZDNNX_OPS_PRIVATE_H
 #define ZDNNX_ZDNNX_OPS_PRIVATE_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+
 #include "zdnnx.h"
 
 typedef enum ElemementwiseOp {
