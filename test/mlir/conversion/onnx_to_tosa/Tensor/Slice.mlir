@@ -158,18 +158,18 @@ func.func @slice_start_greater_than_dim(%arg0: tensor<10x30xf32>) -> tensor<*xf3
 
 // -----
 
-func.func @slice_step_greater_than_dim(%arg0: tensor<10x30xf32>) -> tensor<1x2xf32> {
+func.func @slice_step_greater_than_dim(%arg0: tensor<9x30xf32>) -> tensor<1x2xf32> {
   %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %starts = "onnx.Constant"() {value = dense<[5, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[9, 25]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[8, 25]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[10, 10]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<10x30xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<1x2xf32>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<9x30xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<1x2xf32>
   return %1 : tensor<1x2xf32> 
 }
 // CHECK-LABEL: func @slice_step_greater_than_dim
-// CHECK: %0 = tosa.const_shape {value = dense<[0, 0, 5, 0]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK: %0 = tosa.const_shape {value = dense<[0, 0, 6, 0]> : tensor<4xindex>} : () -> !tosa.shape<4>
 // CHECK: %1 = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
-// CHECK: %2 = tosa.pad %arg0, %0, %1 : (tensor<10x30xf32>, !tosa.shape<4>, tensor<f32>) -> tensor<15x30xf32>
+// CHECK: %2 = tosa.pad %arg0, %0, %1 : (tensor<9x30xf32>, !tosa.shape<4>, tensor<f32>) -> tensor<15x30xf32>
 // CHECK: %3 = tosa.slice %2 {size = array<i64: 10, 20>, start = array<i64: 5, 5>} : (tensor<15x30xf32>) -> tensor<10x20xf32>
 // CHECK: %4 = tosa.reshape %3 {new_shape = array<i64: 1, 10, 2, 10>} : (tensor<10x20xf32>) -> tensor<1x10x2x10xf32>
 // CHECK: %5 = tosa.slice %4 {size = array<i64: 1, 1, 2, 1>, start = array<i64: 0, 0, 0, 0>} : (tensor<1x10x2x10xf32>) -> tensor<1x1x2x1xf32>
