@@ -16,53 +16,6 @@
 #define ZDNNX_ZDNNX_OPS_H
 
 #include "zdnn.h"
-#include "zdnnx.h"
-
-// Keep these values to avoid calling zdnn functions multiple times.
-extern uint32_t nnpa_max_dim_size_e4;
-extern uint32_t nnpa_max_dim_size_e3;
-extern uint32_t nnpa_max_dim_size_e2;
-extern uint32_t nnpa_max_dim_size_e1;
-extern uint64_t nnpa_max_tensor_size;
-
-typedef enum ElemementwiseOp {
-  // Binary
-  ZDNNX_ADD_OP = 0,
-  ZDNNX_DIV_OP = 1,
-  ZDNNX_MAX_OP = 2,
-  ZDNNX_MIN_OP = 3,
-  ZDNNX_MUL_OP = 4,
-  ZDNNX_SUB_OP = 5,
-  // Unary
-  ZDNNX_EXP_OP = 50,
-  ZDNNX_GELU_OP = 51,
-  ZDNNX_INVSQRT_OP = 52,
-  ZDNNX_LEAKY_RELU_OP = 53,
-  ZDNNX_LOG_OP = 54,
-  ZDNNX_RELU_OP = 55,
-  ZDNNX_SIGMOID_OP = 56,
-  ZDNNX_SQRT_OP = 57,
-  ZDNNX_TANH_OP = 58,
-} ElemementwiseOp;
-
-// Get the max number of elements per dim on zAIU.
-uint32_t get_nnpa_max_dim_size(zdnnx_axis dim_index);
-
-// Get the max number of elements per tensor on zAIU.
-uint64_t get_nnpa_max_tensor_size();
-
-/**
- * \brief Check zdnn status
- *
- * Check if the zdnn status is not a zdnn_ok and print out the
- * status message along with the error
- *
- * @param status zdnn status
- * @param zdnn_name name of the zdnn api
- */
-void check_status(zdnn_status status, const char *zdnn_name);
-
-#define CHECK_ZDNN_STATUS(status, zdnn_name) check_status((status), (zdnn_name))
 
 // -----------------------------------------------------------------------------
 // Extension Functions

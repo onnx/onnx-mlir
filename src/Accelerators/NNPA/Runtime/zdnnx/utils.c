@@ -17,7 +17,7 @@
 #include "zdnnx.h"
 #include "zdnnx_private.h"
 
-bool is_equal_split(zdnnx_split_info *split_info) {
+bool zdnnx_is_equal_split(zdnnx_split_info *split_info) {
   bool equalSplit =
       ((split_info->flags & (EQUAL_SPLIT_E4 | EQUAL_SPLIT_E3 | EQUAL_SPLIT_E2 |
                                 EQUAL_SPLIT_E1)) ==
@@ -25,11 +25,11 @@ bool is_equal_split(zdnnx_split_info *split_info) {
   return equalSplit;
 }
 
-bool is_full_buffer_reuse(zdnnx_split_info *split_info) {
+bool zdnnx_is_full_buffer_reuse(zdnnx_split_info *split_info) {
   return (split_info->flags & REUSE_FULL_BUFFER);
 }
 
-bool is_full_tile(zdnnx_tile *tile) {
+bool zdnnx_is_full_tile(zdnnx_tile *tile) {
   zdnnx_split_info *split_info = tile->split_info;
   uint32_t *num_tiles = split_info->num_tiles;
   // Most of the tiles except last ones are full tiles.
@@ -46,7 +46,7 @@ bool is_full_tile(zdnnx_tile *tile) {
   return full_tile;
 }
 
-void unreachable() {
+void zdnnx_unreachable() {
 // Uses compiler specific extensions if possible.
 // Even if no extension is used, undefined behavior is still raised by
 // an empty function body and the noreturn attribute.

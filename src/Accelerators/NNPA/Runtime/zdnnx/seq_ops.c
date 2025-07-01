@@ -33,11 +33,11 @@ static bool select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
     uint32_t *ts_e3, uint32_t *ts_e2, uint32_t *ts_e1) {
   uint32_t shape[4];
   zdnnx_get_transformed_shape(t, shape);
-  uint32_t max_dim_size_e4 = get_nnpa_max_dim_size(E4);
-  uint32_t max_dim_size_e3 = get_nnpa_max_dim_size(E3);
-  uint32_t max_dim_size_e2 = get_nnpa_max_dim_size(E2);
-  uint32_t max_dim_size_e1 = get_nnpa_max_dim_size(E1);
-  uint64_t max_tensor_size = get_nnpa_max_tensor_size();
+  uint32_t max_dim_size_e4 = zdnnx_get_nnpa_max_dim_size(E4);
+  uint32_t max_dim_size_e3 = zdnnx_get_nnpa_max_dim_size(E3);
+  uint32_t max_dim_size_e2 = zdnnx_get_nnpa_max_dim_size(E2);
+  uint32_t max_dim_size_e1 = zdnnx_get_nnpa_max_dim_size(E1);
+  uint64_t max_tensor_size = zdnnx_get_nnpa_max_tensor_size();
 
   bool e4_exceeded = (shape[E4] > max_dim_size_e4);
   bool e3_exceeded = (shape[E3] > max_dim_size_e3);
@@ -156,7 +156,7 @@ static bool select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
   return true;
 }
 
-zdnn_status seq_unary_elementwise(const zdnn_ztensor *input,
+zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
     const void *scalar_input, zdnn_ztensor *output, ElemementwiseOp op_type) {
 #ifdef ZDNNX_DEBUG
   printf("[UnaryElementwise op_type %d]\n", op_type);
@@ -256,7 +256,7 @@ zdnn_status seq_unary_elementwise(const zdnn_ztensor *input,
   return ZDNN_OK;
 }
 
-zdnn_status seq_binary_elementwise(const zdnn_ztensor *input_a,
+zdnn_status zdnnx_seq_binary_elementwise(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, zdnn_ztensor *output,
     ElemementwiseOp op_type) {
 #ifdef ZDNNX_DEBUG
@@ -357,7 +357,7 @@ zdnn_status seq_binary_elementwise(const zdnn_ztensor *input_a,
   return ZDNN_OK;
 }
 
-zdnn_status seq_softmax(const zdnn_ztensor *input, void *save_area,
+zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[Softmax]\n");
@@ -424,9 +424,9 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
       input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
 }
 
-zdnn_status seq_matmul(const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
-    const zdnn_ztensor *input_c, int op_type, zdnn_ztensor *output,
-    bool is_bcast) {
+zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
+    zdnn_ztensor *output, bool is_bcast) {
 #ifdef ZDNNX_DEBUG
   printf("[MatMul]\n");
 #endif

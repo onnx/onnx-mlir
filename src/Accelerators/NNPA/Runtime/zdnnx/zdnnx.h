@@ -22,10 +22,10 @@
 // Common structures
 // -----------------------------------------------------------------------------
 
-extern bool is_telum_1;
+extern bool zdnnx_is_telum_1;
 // We want to enable zdnn status messages when a user manually specifies the
 // environment variable.
-extern bool OMStatusMessagesEnabled;
+extern bool zdnnx_status_message_enabled;
 
 // (e4, e3, e2, e1) in ztensor.transformed_desc.
 typedef enum zdnnx_axis {

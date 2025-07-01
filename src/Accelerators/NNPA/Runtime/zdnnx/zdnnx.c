@@ -21,8 +21,8 @@
 #include "zdnnx.h"
 #include "zdnnx_private.h"
 
-bool is_telum_1 = false;
-bool OMStatusMessagesEnabled = 0;
+bool zdnnx_is_telum_1 = false;
+bool zdnnx_status_message_enabled = 0;
 
 static void get_ztensor_shape(const zdnn_tensor_desc *desc, uint32_t *shape) {
   // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
@@ -75,7 +75,7 @@ static void *malloc_aligned_4k(size_t size) {
 static inline void copy_data_for_tile(
     zdnnx_tile *tile, bool block_copy, bool tile_to_full) {
   // No-op if the full buffer is reused.
-  if (is_full_buffer_reuse(tile->split_info))
+  if (zdnnx_is_full_buffer_reuse(tile->split_info))
     return;
 
   zdnnx_split_info *split_info = tile->split_info;
@@ -316,7 +316,7 @@ static void prepare_tile_desc(uint64_t *bufferSize,
     pre_transformed_desc->dim1 = tile_shape[E2];
     break;
   default:
-    unreachable();
+    zdnnx_unreachable();
   }
 
   // Generate a transformed desc.
@@ -333,13 +333,13 @@ static void prepare_tile_desc(uint64_t *bufferSize,
 // -----------------------------------------------------------------------------
 void zdnnx_init() {
   zdnn_init();
-  is_telum_1 =
+  zdnnx_is_telum_1 =
       zdnn_is_nnpa_installed() &&
       (zdnn_is_nnpa_parmblk_fmt_installed(1, NNPA_PARMBLKFORMAT_1) == false);
   // Get message status setting by users.
   const char *s = getenv("OM_STATUS_MESSAGES_ENABLED");
   if (s)
-    OMStatusMessagesEnabled = atoi(s);
+    zdnnx_status_message_enabled = atoi(s);
 }
 
 // -----------------------------------------------------------------------------
@@ -397,7 +397,7 @@ uint32_t zdnnx_get_transformed_dim_per_tile(
                AIU_2BYTE_CELLS_PER_STICK) *
            AIU_2BYTE_CELLS_PER_STICK;
   }
-  unreachable();
+  zdnnx_unreachable();
   return 0;
 }
 
@@ -632,8 +632,8 @@ void zdnnx_print_split_info(
         debugInfo, split_info->num_tiles[E4], split_info->num_tiles[E3],
         split_info->num_tiles[E2], split_info->num_tiles[E1]);
     printf("[%s] Reuse the full buffer: %s. Equal split: %s\n", debugInfo,
-        (is_full_buffer_reuse(split_info)) ? "YES" : "NO",
-        is_equal_split(split_info) ? "YES" : "NO");
+        (zdnnx_is_full_buffer_reuse(split_info)) ? "YES" : "NO",
+        zdnnx_is_equal_split(split_info) ? "YES" : "NO");
   }
 }
 
@@ -666,7 +666,7 @@ void zdnnx_set_tile(zdnnx_split_info *split_info, zdnnx_tile *tile,
   uint32_t *last_tile_shape = split_info->last_tile_shape;
 
   // Set buffer_size, pre_transform_desc, and transformed_desc.
-  if (is_full_tile(tile)) {
+  if (zdnnx_is_full_tile(tile)) {
     // Reuse descriptors in split_info.
     tile_ztensor->buffer_size = split_info->tile_buffer_size;
     tile_ztensor->pre_transformed_desc =
@@ -695,7 +695,7 @@ void zdnnx_set_tile(zdnnx_split_info *split_info, zdnnx_tile *tile,
   // Check if we can reuse the full buffer first.
   // If we cannot reuse the full buffer, then use the given buffer if any or
   // allocate a new buffer.
-  if (is_full_buffer_reuse(split_info)) {
+  if (zdnnx_is_full_buffer_reuse(split_info)) {
     // Reuse the full buffer, so compute an offset for the tile buffer to
     // point to.
     // (d6 = e4, d5 = e1/64, d4 = e3, d3 = e2/32, d2 = 32, d1 = 64)
@@ -753,7 +753,7 @@ void zdnnx_free_tile_buffer(zdnnx_tile *tile) {
   if (tile->flags & TILE_USE_EXTERNAL_BUFFER)
     return;
 
-  if (is_full_buffer_reuse(tile->split_info))
+  if (zdnnx_is_full_buffer_reuse(tile->split_info))
     return;
 
   // Tile has its own buffer. Free the buffer.

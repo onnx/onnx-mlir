@@ -6,6 +6,7 @@ add_onnx_mlir_library(RuntimeNNPA STATIC
   OMRuntimeNNPA.c
   zdnnx/zdnnx.c
   zdnnx/zdnnx_ops.c
+  zdnnx/zdnnx_ops_private.c
   zdnnx/seq_ops.c
   zdnnx/omp_ops.c
   zdnnx/utils.c

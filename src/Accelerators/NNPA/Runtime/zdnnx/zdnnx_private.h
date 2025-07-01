@@ -71,9 +71,9 @@ typedef enum zdnnx_axis_6d {
 // Utility functions
 // -----------------------------------------------------------------------------
 
-bool is_equal_split(zdnnx_split_info *split_info);
-bool is_full_tile(zdnnx_tile *tile);
-bool is_full_buffer_reuse(zdnnx_split_info *split_info);
-void unreachable();
+bool zdnnx_is_equal_split(zdnnx_split_info *split_info);
+bool zdnnx_is_full_tile(zdnnx_tile *tile);
+bool zdnnx_is_full_buffer_reuse(zdnnx_split_info *split_info);
+void zdnnx_unreachable();
 
 #endif // ZDNNX_ZDNNX_PRIVATE_H

@@ -26,15 +26,14 @@
 #include "zdnnx_ops.h"
 
 // Keep these values to avoid calling omp functions multiple times.
-uint32_t zdnnx_num_zaius = 0;
-uint32_t zdnnx_min_num_procs_per_zaius = 0;
-uint32_t zdnnx_num_procs = 0;
+static uint32_t zdnnx_num_zaius = 0;
+static uint32_t zdnnx_min_num_procs_per_zaius = 0;
 
 // -----------------------------------------------------------------------------
 // Utility functions
 // -----------------------------------------------------------------------------
 
-uint32_t zdnnx_get_num_zaius() {
+static uint32_t zdnnx_get_num_zaius() {
   if (zdnnx_num_zaius > 0)
     return zdnnx_num_zaius;
   zdnnx_num_zaius = omp_get_num_places();
@@ -48,7 +47,7 @@ uint32_t zdnnx_get_num_zaius() {
   return zdnnx_num_zaius;
 }
 
-uint32_t zdnnx_get_min_num_procs_per_zaiu() {
+static uint32_t zdnnx_get_min_num_procs_per_zaiu() {
   if (zdnnx_min_num_procs_per_zaius > 0)
     return zdnnx_min_num_procs_per_zaius;
 
@@ -69,26 +68,6 @@ uint32_t zdnnx_get_min_num_procs_per_zaiu() {
   return zdnnx_min_num_procs_per_zaius;
 }
 
-uint32_t zdnnx_get_num_procs() {
-  if (zdnnx_num_procs > 0)
-    return zdnnx_num_procs;
-
-  zdnnx_num_procs = 0;
-  for (int i = 0; i < omp_get_num_places(); ++i)
-    zdnnx_num_procs += omp_get_place_num_procs(i);
-  if (zdnnx_num_procs == 0) {
-    // OMP_PLACES is not set. Return 1 to say using one processor.
-    zdnnx_num_procs = 1;
-  }
-
-#ifdef ZDNNX_DEBUG
-  printf("[zdnnx] num_procs: %d (%s)\n", zdnnx_num_procs,
-      is_telum_1 ? "Telum I" : "Telum II");
-#endif
-
-  return zdnnx_num_procs;
-}
-
 // -----------------------------------------------------------------------------
 // Matrix multiplication
 // -----------------------------------------------------------------------------
@@ -103,9 +82,9 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
       input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
 }
 
-zdnn_status omp_matmul(const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
-    const zdnn_ztensor *input_c, int op_type, zdnn_ztensor *output,
-    bool is_bcast) {
+zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
+    zdnn_ztensor *output, bool is_bcast) {
   // MatMul types in zdnn:
   // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
   // - stacked  : A (3DS), B (3DS), C (2DS), Y (3DS)
@@ -139,8 +118,8 @@ zdnn_status omp_matmul(const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
   //
   // In all cases, use `OMP_PLACES` to specify zAIUs so that threads are spread
   // over multiple zAIUs.
-  uint32_t mdis_e1 = get_nnpa_max_dim_size(E1);
-  uint32_t mdis_e2 = get_nnpa_max_dim_size(E2);
+  uint32_t mdis_e1 = zdnnx_get_nnpa_max_dim_size(E1);
+  uint32_t mdis_e2 = zdnnx_get_nnpa_max_dim_size(E2);
   uint32_t num_zaius = zdnnx_get_num_zaius();
   uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
   uint32_t BS = zdnnx_get_transformed_dim(input_a, E4);
@@ -275,7 +254,7 @@ zdnn_status omp_matmul(const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
   return ZDNN_OK;
 }
 
-zdnn_status omp_unary_elementwise(const zdnn_ztensor *input,
+zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
     const void *scalar_input, zdnn_ztensor *output, ElemementwiseOp op_type) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP UnaryElementwise op_type %d]\n", op_type);
@@ -321,7 +300,7 @@ zdnn_status omp_unary_elementwise(const zdnn_ztensor *input,
                        ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
   if (isBigTensor) {
     ts_e4 = zdnnx_get_transformed_dim_per_tile(&input_view, num_tiles, E4);
-    uint32_t mdis_e4 = get_nnpa_max_dim_size(E4);
+    uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
     while (ts_e4 > mdis_e4) {
       ts_e4 /= 2;
     }
@@ -406,7 +385,7 @@ zdnn_status omp_unary_elementwise(const zdnn_ztensor *input,
   return ZDNN_OK;
 }
 
-zdnn_status omp_binary_elementwise(const zdnn_ztensor *input_a,
+zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, zdnn_ztensor *output,
     ElemementwiseOp op_type) {
 #ifdef ZDNNX_DEBUG
@@ -454,7 +433,7 @@ zdnn_status omp_binary_elementwise(const zdnn_ztensor *input_a,
                        ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
   if (isBigTensor) {
     ts_e4 = zdnnx_get_transformed_dim_per_tile(&input_a_view, num_tiles, E4);
-    uint32_t mdis_e4 = get_nnpa_max_dim_size(E4);
+    uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
     while (ts_e4 > mdis_e4) {
       ts_e4 /= 2;
     }
@@ -538,7 +517,7 @@ zdnn_status omp_binary_elementwise(const zdnn_ztensor *input_a,
   return ZDNN_OK;
 }
 
-zdnn_status omp_softmax(const zdnn_ztensor *input, void *save_area,
+zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP Softmax]\n");
@@ -546,9 +525,9 @@ zdnn_status omp_softmax(const zdnn_ztensor *input, void *save_area,
 
   uint32_t shape[4];
   zdnnx_get_transformed_shape(input, shape);
-  uint32_t mdis_e2 = get_nnpa_max_dim_size(E2);
-  uint32_t mdis_e4 = get_nnpa_max_dim_size(E4);
-  uint64_t mts = get_nnpa_max_tensor_size();
+  uint32_t mdis_e2 = zdnnx_get_nnpa_max_dim_size(E2);
+  uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
+  uint64_t mts = zdnnx_get_nnpa_max_tensor_size();
   uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
   uint32_t num_tiles = zdnnx_get_num_zaius() *
                        ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);

@@ -61,14 +61,21 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
   std::vector<std::string> libs;
   libs.push_back("RuntimeNNPA");
   libs.push_back("zdnn");
+  // Add OMP library if needed.
 #ifdef ZDNNX_WITH_OMP
+  // Use LLVM's OpenMP if LLVM is built with OpenMP enabled.
+  std::string ompLib = "ompruntime";
+#ifndef ZDNNX_WITH_OMP_LLVM
+  // Use GCC's OpenMP if LLVM is not built with OpenMP enabled.
+  ompLib = "gomp";
+#endif
   // ompruntime migh be added in advance if --parallel is used.
   // Check if ompruntime exists or not.
   std::vector<std::string> existingLibs =
       getCompilerConfig(CCM_SHARED_LIB_DEPS);
   if (!llvm::any_of(
-          existingLibs, [](std::string s) { return s == "ompruntime"; }))
-    libs.push_back("ompruntime");
+          existingLibs, [&ompLib](std::string s) { return s == ompLib; }))
+    libs.push_back(ompLib);
 #endif
   addCompilerConfig(CCM_SHARED_LIB_DEPS, libs, true);
 };
