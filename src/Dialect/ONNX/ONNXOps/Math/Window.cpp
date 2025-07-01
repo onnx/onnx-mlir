@@ -69,6 +69,16 @@ LogicalResult ONNXHammingWindowOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// HannWindow
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXHannWindowOp::inferShapes(
+    std::function<void(mlir::Region &)> shapeInferenceFunc) {
+  (void)shapeInferenceFunc;
+  return onnx_mlir::inferWindowOpShape(*this);
+}
+
+//===----------------------------------------------------------------------===//
 // BlackmanWindow
 //===----------------------------------------------------------------------===//
 
@@ -86,5 +96,6 @@ LogicalResult ONNXBlackmanWindowOp::inferShapes(
 
 namespace onnx_mlir {
 template struct ONNXWindowsOpShapeHelper<mlir::ONNXHammingWindowOp>;
+template struct ONNXWindowsOpShapeHelper<mlir::ONNXHannWindowOp>;
 template struct ONNXWindowsOpShapeHelper<mlir::ONNXBlackmanWindowOp>;
 } // namespace onnx_mlir
