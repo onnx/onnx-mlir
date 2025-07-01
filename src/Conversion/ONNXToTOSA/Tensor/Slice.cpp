@@ -79,7 +79,7 @@ public:
     }
 
     // 1: Pad if not enough data at the end to fit the final step
-    // start (S) = 2, end (E) = 1, step (T) = 4
+    // start (S) = 2, end (E) = -1, step (T) = 4
     // |SSXTTTXTTTXTTTXTTTXTE| => |SSXTTTXTTTXTTTXTTTXTEP|
     llvm::SmallVector<int64_t, 4> paddedOutShape(inShape);
     llvm::SmallVector<int64_t, 8> pads;
@@ -104,7 +104,7 @@ public:
     }
 
     // 2: Slice the edges leaving enough data to fit the final step
-    // start (S) = 2, end (E) = 5, step (T) = 4
+    // start (S) = 2, end (E) = -5, step (T) = 4
     // |SSXTTTXTTTXTTTXTTTXTEEEEE| => |XTTTXTTTXTTTXTTTXTEE|
     llvm::SmallVector<int64_t, 4> sizes;
     sizes.resize(inShape.size());
