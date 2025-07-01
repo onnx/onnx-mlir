@@ -23,32 +23,18 @@
 static inline zdnn_status call_unary_op(const char *msg,
     const zdnn_ztensor *input, const void *scalar_input, zdnn_ztensor *output,
     ElemementwiseOp op_type) {
-  ZDNNX_START_TIMING();
-
   zdnn_status status;
-  if (zdnnx_get_num_procs() == 1)
-    status = zdnnx_seq_unary_elementwise(input, scalar_input, output, op_type);
-  else
-    status = zdnnx_omp_unary_elementwise(input, scalar_input, output, op_type);
-
-  ZDNNX_STOP_TIMING(msg);
-
+  ZDNNX_CALL_FUNC(msg, zdnnx_seq_unary_elementwise, zdnnx_omp_unary_elementwise,
+      input, scalar_input, output, op_type);
   return status;
 }
 
 static inline zdnn_status call_binary_op(const char *msg,
     const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
     zdnn_ztensor *output, ElemementwiseOp op_type) {
-  ZDNNX_START_TIMING();
-
   zdnn_status status;
-  if (zdnnx_get_num_procs() == 1)
-    status = zdnnx_seq_binary_elementwise(input_a, input_b, output, op_type);
-  else
-    status = zdnnx_omp_binary_elementwise(input_a, input_b, output, op_type);
-
-  ZDNNX_STOP_TIMING(msg);
-
+  ZDNNX_CALL_FUNC(msg, zdnnx_seq_binary_elementwise,
+      zdnnx_omp_binary_elementwise, input_a, input_b, output, op_type);
   return status;
 }
 
@@ -61,7 +47,7 @@ zdnn_status zdnnx_matmul_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
     zdnn_ztensor *output) {
   zdnn_status status;
-  CALL_ZDNNX_FUNC("MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul, input_a,
+  ZDNNX_CALL_FUNC("MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul, input_a,
       input_b, input_c, op_type, output, /*is_bcast=*/false);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul");
   return status;
@@ -71,7 +57,7 @@ zdnn_status zdnnx_matmul_bcast_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
     zdnn_ztensor *output) {
   zdnn_status status;
-  CALL_ZDNNX_FUNC("MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul, input_a,
+  ZDNNX_CALL_FUNC("MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul, input_a,
       input_b, input_c, op_type, output, /*is_bcast=*/true);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul_bcast");
   return status;
@@ -81,7 +67,7 @@ zdnn_status zdnnx_matmul_transpose_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int transpose_a,
     int transpose_b, int opType, zdnn_ztensor *output) {
   zdnn_status status;
-  CALL_ZDNNX_FUNC("Transposed MatMul", zdnn_matmul_transpose_op,
+  ZDNNX_CALL_FUNC("Transposed MatMul", zdnn_matmul_transpose_op,
       zdnn_matmul_transpose_op, input_a, input_b, input_c, transpose_a,
       transpose_b, opType, output);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul_transpose");
@@ -173,7 +159,7 @@ zdnn_status zdnnx_tanh(const zdnn_ztensor *input, zdnn_ztensor *output) {
 zdnn_status zdnnx_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
   zdnn_status status;
-  CALL_ZDNNX_FUNC("Softmax", zdnnx_seq_softmax, zdnnx_omp_softmax, input,
+  ZDNNX_CALL_FUNC("Softmax", zdnnx_seq_softmax, zdnnx_omp_softmax, input,
       save_area, act_func, output);
   ZDNNX_CHECK_STATUS(status, "zdnn_softmax");
   return status;
@@ -203,7 +189,7 @@ zdnn_status zdnnx_invsqrt(
 zdnn_status zdnnx_leaky_relu(const zdnn_ztensor *input,
     const void *clipping_value, float adjustment_factor, zdnn_ztensor *output) {
   zdnn_status status;
-  CALL_ZDNNX_FUNC("LeakyRelu", zdnn_leaky_relu, zdnn_leaky_relu, input,
+  ZDNNX_CALL_FUNC("LeakyRelu", zdnn_leaky_relu, zdnn_leaky_relu, input,
       clipping_value, adjustment_factor, output);
   ZDNNX_CHECK_STATUS(status, "zdnn_leakyrelu");
   return status;
@@ -212,7 +198,7 @@ zdnn_status zdnnx_leaky_relu(const zdnn_ztensor *input,
 zdnn_status zdnnx_reduce(const zdnn_ztensor *input, void *save_area, int opType,
     zdnn_ztensor *output) {
   zdnn_status status;
-  CALL_ZDNNX_FUNC(
+  ZDNNX_CALL_FUNC(
       "Reduce", zdnn_reduce, zdnn_reduce, input, save_area, opType, output);
   ZDNNX_CHECK_STATUS(status, "zdnn_reduce");
   return status;

@@ -65,7 +65,7 @@ typedef enum ElemementwiseOp {
 #endif
 
 #ifdef ZDNNX_WITH_OMP
-#define CALL_ZDNNX_FUNC(msg, seq_func, omp_func, ...)                          \
+#define ZDNNX_CALL_FUNC(msg, seq_func, omp_func, ...)                          \
   ZDNNX_START_TIMING();                                                        \
   if (zdnnx_get_num_procs() == 1)                                              \
     status = seq_func(__VA_ARGS__);                                            \
@@ -73,7 +73,7 @@ typedef enum ElemementwiseOp {
     status = omp_func(__VA_ARGS__);                                            \
   ZDNNX_STOP_TIMING(msg);
 #else
-#define CALL_ZDNNX_FUNC(msg, seq_func, omp_func, ...)                          \
+#define ZDNNX_CALL_FUNC(msg, seq_func, omp_func, ...)                          \
   ZDNNX_START_TIMING();                                                        \
   status = seq_func(__VA_ARGS__);                                              \
   ZDNNX_STOP_TIMING(msg);
@@ -87,10 +87,6 @@ uint32_t zdnnx_get_nnpa_max_dim_size(zdnnx_axis dim_index);
 
 // Get the max number of elements per tensor on zAIU.
 uint64_t zdnnx_get_nnpa_max_tensor_size();
-
-// The total number of processors.
-// Return 1 if there is no OpenMP..
-uint32_t zdnnx_get_num_procs();
 
 /**
  * \brief Check zdnn status

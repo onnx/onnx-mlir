@@ -28,6 +28,7 @@
 // Keep these values to avoid calling omp functions multiple times.
 static uint32_t zdnnx_num_zaius = 0;
 static uint32_t zdnnx_min_num_procs_per_zaius = 0;
+static uint32_t zdnnx_num_procs = 0;
 
 // -----------------------------------------------------------------------------
 // Utility functions
@@ -66,6 +67,26 @@ static uint32_t zdnnx_get_min_num_procs_per_zaiu() {
       "[zdnnx] min_num_procs_per_zaius: %d\n", zdnnx_min_num_procs_per_zaius);
 #endif
   return zdnnx_min_num_procs_per_zaius;
+}
+
+uint32_t zdnnx_get_num_procs() {
+  if (zdnnx_num_procs > 0)
+    return zdnnx_num_procs;
+
+  zdnnx_num_procs = 0;
+  for (int i = 0; i < omp_get_num_places(); ++i)
+    zdnnx_num_procs += omp_get_place_num_procs(i);
+  if (zdnnx_num_procs == 0) {
+    // OMP_PLACES is not set. Return 1 to say using one processor.
+    zdnnx_num_procs = 1;
+  }
+
+#ifdef ZDNNX_DEBUG
+  printf("[zdnnx] num_procs: %d (%s)\n", zdnnx_num_procs,
+      zdnnx_is_telum_1 ? "Telum I" : "Telum II");
+#endif
+
+  return zdnnx_num_procs;
 }
 
 // -----------------------------------------------------------------------------
