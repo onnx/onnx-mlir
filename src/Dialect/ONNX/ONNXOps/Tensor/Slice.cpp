@@ -203,3 +203,32 @@ LogicalResult ONNXSliceOp::inferShapes(
   ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+OpFoldResult ONNXSliceOp::fold(FoldAdaptor adaptor) {
+
+  auto isZero = [&](auto start) { return start.getLiteral() == 0; };
+  auto isOne = [&](auto step) { return step.getLiteral() == 1; };
+
+  auto inputTy = llvm::dyn_cast<RankedTensorType>(getData().getType());
+  auto outputTy = llvm::dyn_cast<RankedTensorType>(getOutput().getType());
+  if (inputTy && inputTy == outputTy && inputTy.hasStaticShape()) {
+    // Get starts and steps via ShapeHelper.
+    ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
+    if (failed(shapeHelper.computeShape()))
+      return nullptr;
+
+    // All starts must be 0.
+    if (!llvm::all_of(shapeHelper.starts, isZero)) {
+      return nullptr;
+    }
+    // All steps must be 1.
+    if (!llvm::all_of(shapeHelper.steps, isOne)) {
+      return nullptr;
+    }
+    return getData();
+  }
+  return nullptr;
+}

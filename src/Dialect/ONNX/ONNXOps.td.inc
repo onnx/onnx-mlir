@@ -8972,6 +8972,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
       return sh;
     }
   }];
+  let hasFolder = 1;
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
@@ -9233,6 +9234,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
 
 def ONNXSplitOp:ONNX_Op<"Split",
   [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified 'axis'.

@@ -347,10 +347,16 @@ public:
           rewriter.getF32FloatAttr(maxFloat));
     } else {
       if (!isNoneValue(min)) {
+        if (mlir::tosa::EqualizeRanks(rewriter, op->getLoc(), res, min)
+                .failed())
+          return failure();
         res = tosa::CreateOpAndInfer<mlir::tosa::MaximumOp>(
             rewriter, op->getLoc(), op.getType(), res, min);
       }
       if (!isNoneValue(max)) {
+        if (mlir::tosa::EqualizeRanks(rewriter, op->getLoc(), res, max)
+                .failed())
+          return failure();
         res = tosa::CreateOpAndInfer<mlir::tosa::MinimumOp>(
             rewriter, op->getLoc(), op.getType(), res, max);
       }

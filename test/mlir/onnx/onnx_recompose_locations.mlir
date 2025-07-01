@@ -45,7 +45,6 @@ func.func @test_combine_conv_split(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x9
   %12 = "onnx.Concat"(%9, %10, %11) {axis = 1 : si64} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x96x512x512xf32> loc("concat")
   return %12 : tensor<1x96x512x512xf32>
 
-// CHECK-LABEL:  func.func @test_combine_conv_split
 // XFAIL-CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x512x512xf32>
 // XFAIL-CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<32> : tensor<3xi64>
 // XFAIL-CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
