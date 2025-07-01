@@ -323,6 +323,7 @@ static void prepare_tile_desc(uint64_t *bufferSize,
   zdnn_status status =
       zdnn_generate_transformed_desc(pre_transformed_desc, transformed_desc);
   assert((status == ZDNN_OK) && "Failed to generate a transformed desc.");
+  (void)status; // Prevent unused warning when assert is disabled.
 
   // Set buffer size.
   *bufferSize = zdnn_getsize_ztensor(transformed_desc);
@@ -418,10 +419,12 @@ void zdnnx_create_view(const zdnn_ztensor *input, zdnn_ztensor *input_view,
   zdnn_status status = zdnn_generate_transformed_desc(
       input_view->pre_transformed_desc, input_view->transformed_desc);
   assert((status == ZDNN_OK) && "Failed to generate a transformed desc.");
+  (void)status; // Prevent unused warning when assert is disabled.
 
   // Verify the buffer size.
   uint64_t bufferSize = zdnn_getsize_ztensor(input_view->transformed_desc);
   assert(bufferSize == input->buffer_size && "Invalid ztensor view");
+  (void)bufferSize; // Prevent unused warning when assert is disabled.
 }
 
 // -----------------------------------------------------------------------------
