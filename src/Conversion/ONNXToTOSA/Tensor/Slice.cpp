@@ -85,8 +85,8 @@ public:
     llvm::SmallVector<int64_t, 8> pads(inShape.size(), 0);
     pads.resize(inShape.size() * 2);
     for (size_t i = 0; i < inShape.size(); i++) {
-      int64_t padNeeded =
-          std::max((outShape[i] * steps[i]) - (inShape[i] - starts[i]), 0l);
+      int64_t padNeeded = std::max(
+          (outShape[i] * steps[i]) - (inShape[i] - starts[i]), int64_t(0));
 
       pads[inShape.size() + i] = padNeeded;
 
