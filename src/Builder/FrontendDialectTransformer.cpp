@@ -383,6 +383,12 @@ private:
     case onnx::TypeProto::kOptionalType:
       return ImportOptionalType(type_proto);
       break;
+    case onnx::TypeProto::kMapType:
+      llvm_unreachable("Map type is not yet supported in ONNX-MLIR");
+      break;
+    case onnx::TypeProto::kSparseTensorType:
+      llvm_unreachable("Sparse tensor type is not yet supported in ONNX-MLIR");
+      break;
     default:
       llvm_unreachable("unexpected type");
       break;
