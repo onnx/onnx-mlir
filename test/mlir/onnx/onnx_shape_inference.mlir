@@ -4302,12 +4302,12 @@ func.func @test_stft_no_frame_length(%signal: tensor<1x32x1xf32>) -> tensor<*xf3
 
 func.func @test_slice_negative_steps(%arg0: tensor<100x200xf32>) -> tensor<*xf32> {
   %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[0, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[100, 200]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[-10, -20]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[10, 20]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[-5, -10]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
   return %1 : tensor<*xf32> 
 }
 // CHECK-LABEL:  func.func @test_slice_negative_steps
 // CHECK:          "onnx.Slice"
-// CHECK-SAME:       (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<20x20xf32>
+// CHECK-SAME:       (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<16x16xf32>

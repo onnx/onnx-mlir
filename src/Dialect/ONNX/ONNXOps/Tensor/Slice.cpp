@@ -109,9 +109,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     IndexExpr endFinal = IndexExpr::select(stepInput < 0, neg, pos);
 
     // Calculation for output size.
-    IndexExpr absStepInput =
-        stepInput.selectOrSelf(stepInput < 0, 0 - stepInput);
-    IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(absStepInput);
+    IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(stepInput);
     // should use a max
     dimOutputFinal = dimOutputFinal.selectOrSelf(dimOutputFinal < 0, 0);
 
