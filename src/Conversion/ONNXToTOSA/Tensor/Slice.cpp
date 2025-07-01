@@ -82,14 +82,13 @@ public:
     // start (S) = 2, end (E) = -1, step (T) = 4
     // |SSXTTTXTTTXTTTXTTTXTE| => |SSXTTTXTTTXTTTXTTTXTEP|
     llvm::SmallVector<int64_t, 4> paddedOutShape(inShape);
-    llvm::SmallVector<int64_t, 8> pads;
+    llvm::SmallVector<int64_t, 8> pads(inShape.size(), 0);
     pads.resize(inShape.size() * 2);
     for (size_t i = 0; i < inShape.size(); i++) {
       int64_t padNeeded =
           std::max((outShape[i] * steps[i]) - (inShape[i] - starts[i]), 0l);
 
-      pads[2 * i] = 0;
-      pads[2 * i + 1] = padNeeded;
+      pads[inShape.size() + i] = padNeeded;
 
       paddedOutShape[i] += padNeeded;
     }

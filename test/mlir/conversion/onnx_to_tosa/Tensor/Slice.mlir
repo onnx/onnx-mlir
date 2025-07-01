@@ -102,7 +102,7 @@ func.func @slice_steps_and_edges_with_padding(%arg0: tensor<99x195xf32>) -> tens
   return %1 : tensor<19x19xf32> 
 }
 // CHECK-LABEL: func @slice_steps_and_edges_with_padding
-// CHECK: %0 = tosa.const_shape {value = dense<[0, 0, 1, 5]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK: %0 = tosa.const_shape {value = dense<[0, 1, 0, 5]> : tensor<4xindex>} : () -> !tosa.shape<4>
 // CHECK: %1 = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
 // CHECK: %2 = tosa.pad %arg0, %0, %1 : (tensor<99x195xf32>, !tosa.shape<4>, tensor<f32>) -> tensor<100x200xf32>
 // CHECK: %3 = tosa.slice %2 {size = array<i64: 95, 190>, start = array<i64: 5, 10>} : (tensor<100x200xf32>) -> tensor<95x190xf32>
@@ -122,7 +122,7 @@ func.func @slice_just_steps_with_padding(%arg0: tensor<99x195xf32>) -> tensor<20
   return %1 : tensor<20x20xf32> 
 }
 // CHECK-LABEL: func @slice_just_steps_with_padding
-// CHECK: %0 = tosa.const_shape {value = dense<[0, 0, 1, 5]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK: %0 = tosa.const_shape {value = dense<[0, 1, 0, 5]> : tensor<4xindex>} : () -> !tosa.shape<4>
 // CHECK: %1 = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
 // CHECK: %2 = tosa.pad %arg0, %0, %1 : (tensor<99x195xf32>, !tosa.shape<4>, tensor<f32>) -> tensor<100x200xf32>
 // CHECK: %3 = tosa.reshape %2 {new_shape = array<i64: 20, 5, 20, 10>} : (tensor<100x200xf32>) -> tensor<20x5x20x10xf32>
@@ -167,7 +167,7 @@ func.func @slice_step_greater_than_dim(%arg0: tensor<9x30xf32>) -> tensor<1x2xf3
   return %1 : tensor<1x2xf32> 
 }
 // CHECK-LABEL: func @slice_step_greater_than_dim
-// CHECK: %0 = tosa.const_shape {value = dense<[0, 0, 6, 0]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK: %0 = tosa.const_shape {value = dense<[0, 6, 0, 0]> : tensor<4xindex>} : () -> !tosa.shape<4>
 // CHECK: %1 = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
 // CHECK: %2 = tosa.pad %arg0, %0, %1 : (tensor<9x30xf32>, !tosa.shape<4>, tensor<f32>) -> tensor<15x30xf32>
 // CHECK: %3 = tosa.slice %2 {size = array<i64: 10, 20>, start = array<i64: 5, 5>} : (tensor<15x30xf32>) -> tensor<10x20xf32>
@@ -175,3 +175,23 @@ func.func @slice_step_greater_than_dim(%arg0: tensor<9x30xf32>) -> tensor<1x2xf3
 // CHECK: %5 = tosa.slice %4 {size = array<i64: 1, 1, 2, 1>, start = array<i64: 0, 0, 0, 0>} : (tensor<1x10x2x10xf32>) -> tensor<1x1x2x1xf32>
 // CHECK: %6 = tosa.reshape %5 {new_shape = array<i64: 1, 2>} : (tensor<1x1x2x1xf32>) -> tensor<1x2xf32>
 // CHECK: return %6 : tensor<1x2xf32>
+
+// -----
+
+func.func @slice_4d(%arg0: tensor<1x56x56x92xf32>) -> tensor<1x28x28x92xf32> {
+  %axes = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[1, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[56,56]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[2, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<1x56x56x92xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<1x28x28x92xf32>
+  return %1 : tensor<1x28x28x92xf32> 
+}
+// CHECK-LABEL: func @slice_4d
+// CHECK: %0 = tosa.const_shape {value = dense<[0, 0, 0, 1, 0, 1, 0, 0]> : tensor<8xindex>} : () -> !tosa.shape<8>
+// CHECK: %1 = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
+// CHECK: %2 = tosa.pad %arg0, %0, %1 : (tensor<1x56x56x92xf32>, !tosa.shape<8>, tensor<f32>) -> tensor<1x57x57x92xf32>
+// CHECK: %3 = tosa.slice %2 {size = array<i64: 1, 56, 56, 92>, start = array<i64: 0, 1, 1, 0>} : (tensor<1x57x57x92xf32>) -> tensor<1x56x56x92xf32>
+// CHECK: %4 = tosa.reshape %3 {new_shape = array<i64: 1, 28, 2, 28, 2, 92>} : (tensor<1x56x56x92xf32>) -> tensor<1x28x2x28x2x92xf32>
+// CHECK: %5 = tosa.slice %4 {size = array<i64: 1, 28, 1, 28, 1, 92>, start = array<i64: 0, 0, 0, 0, 0, 0>} : (tensor<1x28x2x28x2x92xf32>) -> tensor<1x28x1x28x1x92xf32>
+// CHECK: %6 = tosa.reshape %5 {new_shape = array<i64: 1, 28, 28, 92>} : (tensor<1x28x1x28x1x92xf32>) -> tensor<1x28x28x92xf32>
+// CHECK: return %6 : tensor<1x28x28x92xf32>
