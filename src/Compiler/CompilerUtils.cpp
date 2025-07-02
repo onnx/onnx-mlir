@@ -722,6 +722,7 @@ std::string dirName(StringRef inputFilename) {
     options.verboseOutput = VerboseOutput;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.useOutputNameAsLocation = useOutputNameAsLocation;
+    options.allowMissingOutputTypes = allowMissingOutputTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
     options.dimParams = dimParams;
@@ -742,6 +743,7 @@ std::string dirName(StringRef inputFilename) {
     mlir::OwningOpRef<ModuleOp> &module, std::string &errorMessage) {
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
+  options.allowMissingOutputTypes = allowMissingOutputTypes;
   options.useOutputNameAsLocation = useOutputNameAsLocation;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.allowSorting = allowSorting;
