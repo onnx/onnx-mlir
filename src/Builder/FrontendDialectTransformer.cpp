@@ -1641,6 +1641,9 @@ private:
             "Failed to import output type for '" + output.name() + "\n";
         return ec;
       }
+      llvm::errs() << "Warning: "
+                   << "Failed to import output type for '" << output.name()
+                   << "', using inferred type instead.\n";
       parsedOutputType = val.getType();
     }
 
