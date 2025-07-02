@@ -399,7 +399,7 @@ static llvm::cl::opt<bool, true> allowMissingOutputTypesOpt(
     llvm::cl::desc("Allow missing output "
                    "types in the ONNX model. ONNX-MLIR will try to use type "
                    "inference for them."),
-    llvm::cl::location(allowMissingOutputTypes), llvm::cl::init(false),
+    llvm::cl::location(allowMissingOutputTypes), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<int, true> repeatOnnxTransformOpt("repeatOnnxTransform",
