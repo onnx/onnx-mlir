@@ -48,6 +48,10 @@ struct ImportOptions {
   bool invokeOnnxVersionConverter = false;
   bool allowSorting = true;
   bool useOutputNameAsLocation = false;
+
+  // Allow missing output types and use type inference to determine them.
+  bool allowMissingOutputTypes = false;
+
   // Custom shape information for the graph inputs.
   // Its format is 'input_id:dim,dim,dim|input_id:dim,dim,dim'
   // E.g. An ONNX model has two dynamic inputs

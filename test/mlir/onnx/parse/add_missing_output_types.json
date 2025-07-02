@@ -1,0 +1,101 @@
+// Json generated with utils/testing/add_missing_output_types.py
+
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --allowMissingOutputTypes=false --printIR %s 2> failed.log; cat failed.log  | FileCheck --check-prefix=FAILURE %s 
+
+// FAILURE: Could not successfully parse ONNX file
+// FAILURE: ONNX type with id: 0 is not a valid type
+// FAILURE: Failed to import output type for
+// FAILURE: Failed to import main graph, could not get its function type
+
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --allowMissingOutputTypes=true --printIR %s  | FileCheck --check-prefix=INFERRED %s
+// INFERRED-LABEL:  func.func @main_graph
+// INFERRED-SAME:   ([[PARAM_0_:%.+]]: tensor<3x1xf32> {onnx.name = "input_a"}, [[PARAM_1_:%.+]]: tensor<1x3xf32> {onnx.name = "input_b"}) -> (tensor<*xf32> {onnx.name = "output_c"}, tensor<3x3xf32> {onnx.name = "output_d"}) {
+// INFERRED-DAG:       [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) {domain_name = "test", function_name = "test.Add", onnx_node_name = "add_node_custom"} : (tensor<3x1xf32>, tensor<1x3xf32>) -> tensor<*xf32>
+// INFERRED-DAG:       [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx_node_name = "add_node"} : (tensor<3x1xf32>, tensor<1x3xf32>) -> tensor<3x3xf32>
+// INFERRED:           return [[VAR_0_]], [[VAR_1_]] : tensor<*xf32>, tensor<3x3xf32>
+// INFERRED:         }
+
+{
+  "irVersion": "10",
+  "producerName": "onnx-example",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "input_a",
+          "input_b"
+        ],
+        "output": [
+          "output_c"
+        ],
+        "name": "add_node_custom",
+        "opType": "test.Add",
+        "domain": "test"
+      },
+      {
+        "input": [
+          "input_a",
+          "input_b"
+        ],
+        "output": [
+          "output_d"
+        ],
+        "name": "add_node",
+        "opType": "Add"
+      }
+    ],
+    "name": "add_graph",
+    "input": [
+      {
+        "name": "input_a",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "input_b",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "output_c"
+      },
+      {
+        "name": "output_d"
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "domain": "test",
+      "version": "1"
+    }
+  ]
+}

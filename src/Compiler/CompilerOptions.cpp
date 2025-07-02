@@ -105,6 +105,7 @@ bool useOldBufferization;                  // onnx-mlir only
 bool enableTiming;                         // onnx-mlir only
 bool enableBoundCheck;                     // onnx-mlir only
 bool useOutputNameAsLocation;              // onnx-mlir only
+bool allowMissingOutputTypes;              // onnx-mlir only
 bool split_input_file;                     // onnx-mlir-opt only
 bool verify_diagnostics;                   // onnx-mlir-opt only
 bool verify_passes;                        // onnx-mlir-opt only
@@ -391,6 +392,17 @@ static llvm::cl::opt<bool, true> useOnnxModelTypesOpt("useOnnxModelTypes",
 static llvm::cl::opt<bool, true> useOutputNameAsLocationOpt(
     "useOutputNameAsLocation", llvm::cl::desc("Use output name as location."),
     llvm::cl::location(useOutputNameAsLocation), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> allowMissingOutputTypesOpt(
+    "allowMissingOutputTypes",
+    llvm::cl::desc(
+        "Allow missing output  types in the ONNX model. If enabled, type "
+        "inference will be used to infer missing output types. This is done by "
+        "copying the, potential inferred, output type of the node connected to "
+        "the output. According to ONNX, all outputs MUST have types. Therefore "
+        "this option has to be considered as a stretch best effort."),
+    llvm::cl::location(allowMissingOutputTypes), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<int, true> repeatOnnxTransformOpt("repeatOnnxTransform",

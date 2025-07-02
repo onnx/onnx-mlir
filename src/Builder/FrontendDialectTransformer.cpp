@@ -171,8 +171,8 @@ public:
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
-    ErrorOr<mlir::func::FuncOp> importGraphResult =
-        importGraph(model.graph(), errorMessage);
+    ErrorOr<mlir::func::FuncOp> importGraphResult = importGraph(
+        model.graph(), options_.allowMissingOutputTypes, errorMessage);
     if (auto ec = importGraphResult.getError()) {
       return ec;
     }
@@ -541,7 +541,7 @@ private:
    */
   ErrorOr<FunctionType> importGraph(const onnx::GraphProto &graph,
       Region &region, Operation *op, bool useReturn,
-      std::string &errorMessage) {
+      bool allowMissingOutputTypes, std::string &errorMessage) {
     frontend_symbols_.pushScope(graph.name());
     onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
@@ -648,8 +648,8 @@ private:
     // Import the output tensors
     for (const auto &output : graph.output()) {
       std::string dimParams = "";
-      const auto ec =
-          ImportOutputTensor(output, retTys, retVals, errorMessage, &dimParams);
+      const auto ec = ImportOutputTensor(output, retTys, retVals, errorMessage,
+          allowMissingOutputTypes, &dimParams);
       if (ec) {
         errorMessage +=
             "Failed to import output tensor '" + output.name() + "'.\n";
@@ -910,8 +910,8 @@ private:
         region.push_back(new Block);
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
-        const ErrorOr<FunctionType> importGraphResult =
-            importGraph(attr.g(), region, op, false, errorMessage);
+        const ErrorOr<FunctionType> importGraphResult = importGraph(attr.g(),
+            region, op, false, options_.allowMissingOutputTypes, errorMessage);
         if (auto ec = importGraphResult.getError()) {
           return ec;
         }
@@ -1523,7 +1523,6 @@ private:
       const onnx::NodeProto &node, std::string &errorMessage) {
     llvm::StringRef opName = node.op_type();
     auto funcName = opName.str();
-    std::vector<Type> outputTypes;
     std::vector<Value> inputs;
     ErrorOr<std::vector<NamedAttribute>> importedAttributes =
         ImportNodeAttributes(node, errorMessage);
@@ -1630,18 +1629,27 @@ private:
       const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
       llvm::SmallVectorImpl<Value> &ret_vals, std::string &errorMessage,
-      std::string *dim_params = nullptr) {
+      bool allowMissingType, std::string *dim_params = nullptr) {
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
-    if (output.type().value_case() == onnx::TypeProto::kTensorType) {
-      ErrorOr<Type> parsedOutputType =
-          ImportType(output.type(), errorMessage, dim_params);
-      if (auto ec = parsedOutputType.getError()) {
+
+    ErrorOr<Type> parsedOutputType =
+        ImportType(output.type(), errorMessage, dim_params);
+    if (auto ec = parsedOutputType.getError()) {
+      if (!allowMissingType || ec != InvalidOnnxFormat) {
         errorMessage +=
             "Failed to import output type for '" + output.name() + "\n";
         return ec;
       }
-      Type outTy = *parsedOutputType;
+      llvm::errs() << "Warning: "
+                   << "Failed to import output type for '" << output.name()
+                   << "', using (potential inferred) type of node connected to "
+                      "result instead.\n";
+      parsedOutputType = val.getType();
+    }
+
+    Type outTy = *parsedOutputType;
+    if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
         outTy = UnrankedTensorType::get(
             mlir::cast<TensorType>(outTy).getElementType());
@@ -1650,15 +1658,9 @@ private:
       }
       ret_types.emplace_back(val.getType());
     } else {
-      ErrorOr<Type> parsedOutputType =
-          ImportType(output.type(), errorMessage, dim_params);
-      if (auto ec = parsedOutputType.getError()) {
-        errorMessage +=
-            "Failed to import output type for '" + output.name() + "\n";
-        return ec;
-      }
-      ret_types.emplace_back(*parsedOutputType);
+      ret_types.emplace_back(outTy);
     }
+
     ret_vals.push_back(val);
     return CompilerSuccess;
   }
@@ -1714,10 +1716,15 @@ private:
   /*!
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
+   * @param allowMissingOutputTypes If true, type inference will be used to
+   * infer missing output types. This is done by copying the, potential
+   * inferred, output type of the node connected to the output. According to
+   * ONNX, all outputs MUST have types. Therefore this option has to be
+   * considered as a stretch best effort.
    * @return A function corresponding to the imported computation graph.
    */
-  ErrorOr<func::FuncOp> importGraph(
-      const onnx::GraphProto &graph, std::string &errorMessage) {
+  ErrorOr<func::FuncOp> importGraph(const onnx::GraphProto &graph,
+      bool allowMissingOutputTypes, std::string &errorMessage) {
     const std::string &name = "main_graph";
     auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
@@ -1728,7 +1735,8 @@ private:
 
     ErrorOr<FunctionType> importedFuncType =
         importGraph(graph, /*region=*/mainFunc.getBody(),
-            /*op=*/mainFunc.getOperation(), /*useReturn=*/true, errorMessage);
+            /*op=*/mainFunc.getOperation(), /*useReturn=*/true,
+            /*allowMissingOutputTypes=*/allowMissingOutputTypes, errorMessage);
     if (auto ec = importedFuncType.getError()) {
       errorMessage +=
           "Failed to import main graph, could not get its function type\n";
