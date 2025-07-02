@@ -1643,7 +1643,8 @@ private:
       }
       llvm::errs() << "Warning: "
                    << "Failed to import output type for '" << output.name()
-                   << "', using inferred type instead.\n";
+                   << "', using (potential inferred) type of node connected to "
+                      "result instead.\n";
       parsedOutputType = val.getType();
     }
 
@@ -1716,8 +1717,10 @@ private:
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
    * @param allowMissingOutputTypes If true, type inference will be used to
-   * 'guess' missing output types. According to ONNX, all outputs MUST have
-   * types
+   * infer missing output types. This is done by copying the, potential
+   * inferred, output type of the node connected to the output. According to
+   * ONNX, all outputs MUST have types. Therefore this option has to be
+   * considered as a stretch best effort.
    * @return A function corresponding to the imported computation graph.
    */
   ErrorOr<func::FuncOp> importGraph(const onnx::GraphProto &graph,
