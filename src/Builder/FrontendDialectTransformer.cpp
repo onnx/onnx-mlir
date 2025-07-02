@@ -1523,7 +1523,6 @@ private:
       const onnx::NodeProto &node, std::string &errorMessage) {
     llvm::StringRef opName = node.op_type();
     auto funcName = opName.str();
-    std::vector<Type> outputTypes;
     std::vector<Value> inputs;
     ErrorOr<std::vector<NamedAttribute>> importedAttributes =
         ImportNodeAttributes(node, errorMessage);
