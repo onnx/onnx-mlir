@@ -1632,18 +1632,20 @@ private:
       bool allowMissingType, std::string *dim_params = nullptr) {
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
-    if (output.type().value_case() == onnx::TypeProto::kTensorType) {
-      ErrorOr<Type> parsedOutputType =
-          ImportType(output.type(), errorMessage, dim_params);
-      if (auto ec = parsedOutputType.getError()) {
-        if (!allowMissingType || ec != InvalidOnnxFormat) {
-          errorMessage +=
-              "Failed to import output type for '" + output.name() + "\n";
-          return ec;
-        }
-        parsedOutputType = val.getType();
+
+    ErrorOr<Type> parsedOutputType =
+        ImportType(output.type(), errorMessage, dim_params);
+    if (auto ec = parsedOutputType.getError()) {
+      if (!allowMissingType || ec != InvalidOnnxFormat) {
+        errorMessage +=
+            "Failed to import output type for '" + output.name() + "\n";
+        return ec;
       }
-      Type outTy = *parsedOutputType;
+      parsedOutputType = val.getType();
+    }
+
+    Type outTy = *parsedOutputType;
+    if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
         outTy = UnrankedTensorType::get(
             mlir::cast<TensorType>(outTy).getElementType());
@@ -1652,18 +1654,9 @@ private:
       }
       ret_types.emplace_back(val.getType());
     } else {
-      ErrorOr<Type> parsedOutputType =
-          ImportType(output.type(), errorMessage, dim_params);
-      if (auto ec = parsedOutputType.getError()) {
-        if (!allowMissingType || ec != InvalidOnnxFormat) {
-          errorMessage +=
-              "Failed to import output type for '" + output.name() + "\n";
-          return ec;
-        }
-        parsedOutputType = val.getType();
-      }
-      ret_types.emplace_back(*parsedOutputType);
+      ret_types.emplace_back(outTy);
     }
+
     ret_vals.push_back(val);
     return CompilerSuccess;
   }
