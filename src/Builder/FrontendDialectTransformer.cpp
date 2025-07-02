@@ -60,6 +60,8 @@ SUPPRESS_WARNINGS_POP
 
 using namespace mlir;
 
+using llvm::ErrorOr;
+
 namespace {
 
 bool isDefaultDomain(std::string_view domain) {
@@ -163,13 +165,16 @@ public:
     InitHandlerMap();
   }
 
-  ModuleOp ImportONNXModel(
-      const onnx::ModelProto &model, ImportOptions options) {
+  ErrorOr<ModuleOp> ImportONNXModel(const onnx::ModelProto &model,
+      ImportOptions options, std::string &errorMessage) {
     options_ = options;
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
-    importGraph(model.graph());
+    auto importGraphResult = importGraph(model.graph(), errorMessage);
+    if (auto ec = importGraphResult.getError()) {
+      return ec;
+    }
     if (options_.verboseOutput) {
       llvm::errs()
           << "The ONNX model has " << num_of_parameters_
@@ -205,8 +210,9 @@ private:
   // Keep shape information set by users.
   ModelInputShaper modelInputShaper_;
 
-  using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
-      const onnx::NodeProto &);
+  using ImportHandlerType = std::error_code (
+      onnx_mlir::detail::FrontendGenImpl::*)(
+      const onnx::NodeProto &, std::string & /*errorMessage*/);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
 
@@ -344,13 +350,17 @@ private:
     return RankedTensorType::get(tensor_dims, elementType);
   }
 
-  Type ImportSequenceType(
-      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
+  ErrorOr<Type> ImportSequenceType(const onnx::TypeProto &type_proto,
+      std::string &errorMessage, std::string *dim_params = nullptr) {
     auto input_seq_type = type_proto.sequence_type();
     if (input_seq_type.has_elem_type()) {
       onnx::TypeProto elem_type = input_seq_type.elem_type();
-      assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
-             "expect tensor inside sequence type");
+      if (elem_type.value_case() != onnx::TypeProto::kTensorType) {
+        errorMessage +=
+            "In ONNX-MLIR only tensors are (yet) supported as element "
+            "type of Sequences.\n";
+        return CompilerFailure;
+      }
       Type mlir_elem_type = ImportTensorType(elem_type, dim_params);
       if (!mlir::isa<ShapedType>(mlir_elem_type))
         llvm_unreachable("Seq type is incorrect");
@@ -358,55 +368,67 @@ private:
           mlir::SeqType::get(mlir::cast<ShapedType>(mlir_elem_type), -1);
       return seq_type;
     }
-    llvm_unreachable("unexpected type");
+    errorMessage += "Sequence type must have an element type.\n";
+    return InvalidOnnxFormat;
   }
 
-  OptType ImportOptionalType(const onnx::TypeProto &type_proto) {
+  ErrorOr<OptType> ImportOptionalType(
+      const onnx::TypeProto &type_proto, std::string &errorMessage) {
     auto input_opt_type = type_proto.optional_type();
     if (input_opt_type.has_elem_type()) {
       onnx::TypeProto elem_type = input_opt_type.elem_type();
-      Type mlir_elem_type = ImportType(elem_type);
-      return mlir::OptType::get(mlir_elem_type);
+      auto mlir_elem_type = ImportType(elem_type, errorMessage);
+      if (auto ec = mlir_elem_type.getError()) {
+        return ec;
+      }
+      return mlir::OptType::get(*mlir_elem_type);
     }
-    llvm_unreachable("unexpected type");
+    errorMessage += "Optional type must have an element type.\n";
+    return InvalidOnnxFormat;
   }
 
-  Type ImportType(
-      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
+  ErrorOr<Type> ImportType(const onnx::TypeProto &type_proto,
+      std::string &errorMessage, std::string *dim_params = nullptr) {
     switch (type_proto.value_case()) {
     case onnx::TypeProto::kTensorType:
       return ImportTensorType(type_proto, dim_params);
-      break;
     case onnx::TypeProto::kSequenceType:
-      return ImportSequenceType(type_proto, dim_params);
-      break;
+      return ImportSequenceType(type_proto, errorMessage, dim_params);
     case onnx::TypeProto::kOptionalType:
-      return ImportOptionalType(type_proto);
-      break;
+      return ImportOptionalType(type_proto, errorMessage);
     case onnx::TypeProto::kMapType:
-      llvm_unreachable("Map type is not yet supported in ONNX-MLIR");
-      break;
+      errorMessage += "Map type is not yet supported in ONNX-MLIR.\n";
+      return CompilerFailure;
     case onnx::TypeProto::kSparseTensorType:
-      llvm_unreachable("Sparse tensor type is not yet supported in ONNX-MLIR");
-      break;
-    default:
-      llvm_unreachable("unexpected type");
-      break;
+      errorMessage += "Sparse tensor type is not yet supported in ONNX-MLIR.\n";
+      return CompilerFailure;
+    case onnx::TypeProto::kOpaqueType:
+    case onnx::TypeProto::VALUE_NOT_SET:
+      errorMessage +=
+          "ONNX type with id: " + std::to_string(type_proto.value_case()) +
+          " is not a valid type\n";
+      return InvalidOnnxFormat;
     }
+    llvm_unreachable("unexpected type in ImportType");
   }
 
-  std::optional<Type> ConvertOnnxType(const std::string &onnx_name) {
+  std::optional<ErrorOr<Type>> ConvertOnnxType(
+      const std::string &onnx_name, std::string &errorMessage) {
     if (options_.useOnnxModelTypes) {
       if (const onnx::TypeProto *onnxTypePtr =
               onnx_type_map.GetByOnnxName(onnx_name)) {
-        return std::optional<Type>(ImportType(*onnxTypePtr));
+        auto importedType = ImportType(*onnxTypePtr, errorMessage);
+        if (auto ec = importedType.getError()) {
+          return ec;
+        }
+        return *importedType;
       }
     }
-    return std::optional<Type>();
+    return std::nullopt;
   }
 
-  NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
-      onnx::AttributeProto attr) {
+  ErrorOr<NamedAttribute> convertOnnxAttributeProtoToMlirNamedAttribute(
+      onnx::AttributeProto attr, std::string &errorMessage) {
     Attribute mlirAttr;
     switch (attr.type()) {
     case onnx::AttributeProto::FLOAT:
@@ -439,28 +461,39 @@ private:
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::ArrayRef(vectorStringRef));
     } break;
-    case onnx::AttributeProto::TYPE_PROTO:
-      mlirAttr = TypeAttr::get(ImportType(attr.tp()));
-      break;
+    case onnx::AttributeProto::TYPE_PROTO: {
+      auto importedType = ImportType(attr.tp(), errorMessage);
+      if (auto ec = importedType.getError()) {
+        return ec;
+      }
+      mlirAttr = TypeAttr::get(*importedType);
+    } break;
     case onnx::AttributeProto::GRAPH:
-      llvm_unreachable("Subgraph attribute is imported as regions.");
-      break;
+      errorMessage += "Subgraph attribute is imported as regions.";
+      return InvalidOnnxFormat;
     default:
-      llvm_unreachable("datatype for attribute is not implemented");
-      break;
+      errorMessage += "datatype for attribute is not implemented";
+      return CompilerFailure;
     }
     return builder_.getNamedAttr(attr.name(), mlirAttr);
   }
 
-  std::vector<NamedAttribute> ImportNodeAttributes(
-      const onnx::NodeProto &node) {
+  ErrorOr<std::vector<NamedAttribute>> ImportNodeAttributes(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::vector<NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       const auto &attr = node.attribute(i);
       // Ignore subgraph attributes, as they will be imported as regions.
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
         continue;
-      attributes.push_back(convertOnnxAttributeProtoToMlirNamedAttribute(attr));
+      auto importedNodeAttr =
+          convertOnnxAttributeProtoToMlirNamedAttribute(attr, errorMessage);
+      if (auto ec = importedNodeAttr.getError()) {
+        errorMessage += "Failed to import attribute '" + attr.name() +
+                        "' for node '" + node.op_type() + "'.\n";
+        return ec;
+      }
+      attributes.push_back(*importedNodeAttr);
     }
 
     // If the node has a name, then import it.
@@ -505,8 +538,9 @@ private:
    * terminator, otherwise, will use ONNXYieldOp as terminator.
    * @return function type corresponding to the subgraph input/output signature.
    */
-  FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
-      Operation *op, bool useReturn) {
+  ErrorOr<FunctionType> importGraph(const onnx::GraphProto &graph,
+      Region &region, Operation *op, bool useReturn,
+      std::string &errorMessage) {
     frontend_symbols_.pushScope(graph.name());
     onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
@@ -544,7 +578,14 @@ private:
       if (initializerNames.count(input.name()) == 0) {
         inputNames.push_back(input.name());
         std::string dimParams = "";
-        Type argTy = ImportType(input.type(), &dimParams);
+        auto importedInputType =
+            ImportType(input.type(), errorMessage, &dimParams);
+        if (auto ec = importedInputType.getError()) {
+          errorMessage +=
+              "Failed to import input type for '" + input.name() + "\n";
+          return ec;
+        }
+        Type argTy = *importedInputType;
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
         // For each input tensor, use either all dimensions by the compiler
         // option OR all dimensions in the original onnx model. Dimensions
@@ -595,7 +636,10 @@ private:
 
     // Import nodes in the subgraph.
     for (const auto &item : graph.node()) {
-      ImportNode(item);
+      const auto ec = ImportNode(item, errorMessage);
+      if (ec) {
+        return ec;
+      }
     }
 
     llvm::SmallVector<Type, 4> retTys;
@@ -603,7 +647,13 @@ private:
     // Import the output tensors
     for (const auto &output : graph.output()) {
       std::string dimParams = "";
-      ImportOutputTensor(output, retTys, retVals, &dimParams);
+      const auto ec =
+          ImportOutputTensor(output, retTys, retVals, errorMessage, &dimParams);
+      if (ec) {
+        errorMessage +=
+            "Failed to import output tensor '" + output.name() + "'.\n";
+        return ec;
+      }
       if (!dimParams.empty())
         outputDimParams.emplace_back(dimParams);
     }
@@ -635,7 +685,8 @@ private:
     return builder_.getFunctionType(argTypes, retTys);
   }
 
-  void ImportNodeGeneric(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodeGeneric(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
       if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
@@ -647,7 +698,11 @@ private:
       result.addTypes(UnrankedTensorType::get(builder_.getF32Type()));
     }
     result.addOperands(inputs);
-    result.addAttributes(ImportNodeAttributes(node));
+    auto importedNodeAttributes = ImportNodeAttributes(node, errorMessage);
+    if (auto ec = importedNodeAttributes.getError()) {
+      return ec;
+    }
+    result.addAttributes(*importedNodeAttributes);
     // Create corresponding regions for graph attributes.
     for (const auto &attr : node.attribute())
       // Ignore subgraph attributes, as they will be imported as regions.
@@ -659,6 +714,7 @@ private:
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(node.output()[i], r);
     }
+    return CompilerSuccess;
   }
 
   static constexpr int MAX_NUM_TYPES = 30;
@@ -766,9 +822,10 @@ private:
   }
 
   template <typename T>
-  void buildOutputAndOperation(const onnx::NodeProto &node,
-      std::vector<Value> inputs, int expectedNumOperands,
-      int expectedNumResults, const std::vector<NamedAttribute> &attributes,
+  [[nodiscard]] std::error_code buildOutputAndOperation(
+      const onnx::NodeProto &node, std::vector<Value> inputs,
+      int expectedNumOperands, int expectedNumResults,
+      const std::vector<NamedAttribute> &attributes, std::string &errorMessage,
       std::vector<Type> givenOutputTypes = std::vector<Type>()) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
@@ -795,8 +852,12 @@ private:
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
-      } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
-        outputTypes.emplace_back(onnxModelType.value());
+      } else if (auto onnxModelType =
+                     ConvertOnnxType(node.output(i), errorMessage)) {
+        if (auto ec = onnxModelType->getError()) {
+          return ec;
+        }
+        outputTypes.emplace_back(*onnxModelType.value());
       } else {
         unsigned int j = i;
         // Variadic output is a single ODS result.
@@ -847,7 +908,11 @@ private:
         region.push_back(new Block);
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
-        importGraph(attr.g(), region, op, false);
+        const auto importGraphResult =
+            importGraph(attr.g(), region, op, false, errorMessage);
+        if (auto ec = importGraphResult.getError()) {
+          return ec;
+        }
         if (!options_.useOnnxModelTypes) {
           // Output types are propagated from region terminator to op results
           // in opWithTypeInference logic below.
@@ -873,6 +938,7 @@ private:
       if (output != "")
         frontend_symbols_.AddMapping(output, op->getResult(i));
     }
+    return CompilerSuccess;
   }
 
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
@@ -888,25 +954,33 @@ private:
   }
 
   template <typename T>
-  void buildOperation(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code buildOperation(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::vector<Value> inputs;
     int expectedNumOperands = T::getNumberOfOperands();
     int expectedNumResults = T::getNumberOfResults();
     getNodeInputs(node, inputs);
-    auto attributes = ImportNodeAttributes(node);
-    buildOutputAndOperation<T>(
-        node, inputs, expectedNumOperands, expectedNumResults, attributes);
+    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    if (auto ec = importedAttributes.getError()) {
+      return ec;
+    }
+    return buildOutputAndOperation<T>(node, inputs, expectedNumOperands,
+        expectedNumResults, *importedAttributes, errorMessage);
   }
 
   // The output type of CategoryMapper needs special handling
   // If the input is I64, the output is string.
   // If the input is string, the output is I64.
-  void ImportCategoryMapper(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportCategoryMapper(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::vector<Value> inputs;
     int expectedNumOperands = ONNXCategoryMapperOp::getNumberOfOperands();
     int expectedNumResults = ONNXCategoryMapperOp::getNumberOfResults();
     getNodeInputs(node, inputs);
-    auto attributes = ImportNodeAttributes(node);
+    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    if (auto ec = importedAttributes.getError()) {
+      return ec;
+    }
     std::vector<Type> outputTypes;
     auto inputType = mlir::cast<TensorType>(inputs[0].getType());
     if (inputType.getElementType().isInteger(64)) {
@@ -915,12 +989,13 @@ private:
     } else {
       outputTypes.emplace_back(builder_.getIntegerType(64));
     }
-    buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
-        expectedNumOperands, expectedNumResults, attributes, outputTypes);
+    return buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
+        expectedNumOperands, expectedNumResults, *importedAttributes,
+        errorMessage, outputTypes);
   }
 
-  std::vector<NamedAttribute> ImportCastAttributes(
-      const onnx::NodeProto &node) {
+  ErrorOr<std::vector<NamedAttribute>> ImportCastAttributes(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::vector<NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
@@ -931,8 +1006,15 @@ private:
         Attribute mlirAttr = TypeAttr::get(mlir_type);
         attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
       } else {
-        NamedAttribute na = convertOnnxAttributeProtoToMlirNamedAttribute(attr);
-        attributes.push_back(na);
+        auto mlirNamedAttr =
+            convertOnnxAttributeProtoToMlirNamedAttribute(attr, errorMessage);
+        if (auto ec = mlirNamedAttr.getError()) {
+          errorMessage += "Failed to import cast attribute for node '" +
+                          node.op_type() + "'.\n";
+          return ec;
+        }
+
+        attributes.push_back(*mlirNamedAttr);
       }
     }
 
@@ -947,7 +1029,8 @@ private:
   /*!
    * Special handle for Cast operations.
    */
-  void ImportNodeCast(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodeCast(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::vector<Value> inputs;
     int expectedNumOperands = ONNXCastOp::getNumberOfOperands();
     int expectedNumResults = ONNXCastOp::getNumberOfResults();
@@ -960,50 +1043,57 @@ private:
           inputs.push_back(*valuePtr);
         }
       }
-    auto attributes = ImportCastAttributes(node);
-    buildOutputAndOperation<ONNXCastOp>(
-        node, inputs, expectedNumOperands, expectedNumResults, attributes);
+    auto importedCastAttributes = ImportCastAttributes(node, errorMessage);
+    if (auto ec = importedCastAttributes.getError()) {
+      return ec;
+    }
+    return buildOutputAndOperation<ONNXCastOp>(node, inputs,
+        expectedNumOperands, expectedNumResults, *importedCastAttributes,
+        errorMessage);
   }
 
   /*!
    * Special handle for MaxPool operations.
    */
-  void ImportNodeMaxPool(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodeMaxPool(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      buildOperation<ONNXMaxPoolSingleOutOp>(node);
+      return buildOperation<ONNXMaxPoolSingleOutOp>(node, errorMessage);
     } else {
-      buildOperation<ONNXMaxPoolOp>(node);
+      return buildOperation<ONNXMaxPoolOp>(node, errorMessage);
     }
   }
 
   /*!
    * Special handle for BatchNormalization operations.
    */
-  void ImportNodeBatchNormalization(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodeBatchNormalization(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
       // Inference mode with one output.
-      buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
+      return buildOperation<ONNXBatchNormalizationInferenceModeOp>(
+          node, errorMessage);
     } else if (nOuts == 5) {
       // Training mode with four trailing optional outputs.
-      buildOperation<ONNXBatchNormalizationV9Op>(node);
+      return buildOperation<ONNXBatchNormalizationV9Op>(node, errorMessage);
     } else {
       // Training mode with two trailing optional outputs.
-      buildOperation<ONNXBatchNormalizationOp>(node);
+      return buildOperation<ONNXBatchNormalizationOp>(node, errorMessage);
     }
   }
 
   /*!
    * Special handle for Dropout operations.
    */
-  void ImportNodeDropout(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodeDropout(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     int nOps = node.input().size();
     int nIn = ONNXDropoutOp::getNumberOfOperands();
     if (nOps == nIn) {
       // All inputs are specified
-      buildOperation<ONNXDropoutOp>(node);
-      return;
+      return buildOperation<ONNXDropoutOp>(node, errorMessage);
     }
 
     // Add the default value for optional input
@@ -1045,14 +1135,19 @@ private:
       inputs.push_back(constantResult);
     }
     int nOut = ONNXDropoutOp::getNumberOfResults();
-    auto attributes = ImportNodeAttributes(node);
-    buildOutputAndOperation<ONNXDropoutOp>(node, inputs, nIn, nOut, attributes);
+    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    if (auto ec = importedAttributes.getError()) {
+      return ec;
+    }
+    return buildOutputAndOperation<ONNXDropoutOp>(
+        node, inputs, nIn, nOut, *importedAttributes, errorMessage);
   }
 
   /*!
    * Special handle for Pad operations.
    */
-  void ImportNodePad(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodePad(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     int nOps = node.input().size();
     if (nOps == 2) {
       llvm::SmallVector<int64_t, 2> dims;
@@ -1077,14 +1172,19 @@ private:
 
       int nIn = ONNXPadOp::getNumberOfOperands();
       int nOut = ONNXPadOp::getNumberOfResults();
-      auto attributes = ImportNodeAttributes(node);
-      buildOutputAndOperation<ONNXPadOp>(node, inputs, nIn, nOut, attributes);
+      auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+      if (auto ec = importedAttributes.getError()) {
+        return ec;
+      }
+      return buildOutputAndOperation<ONNXPadOp>(
+          node, inputs, nIn, nOut, *importedAttributes, errorMessage);
     } else {
-      buildOperation<ONNXPadOp>(node);
+      return buildOperation<ONNXPadOp>(node, errorMessage);
     }
   }
 
-  void ImportNodeSlice(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNodeSlice(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     std::array<Value, 5> inVals = {
         nullptr,
     };
@@ -1101,8 +1201,11 @@ private:
     // Data input is imported but starts, ends, axes, and steps may come from
     // attributes, and need to be created as constant ops.
     const Type elementType = builder_.getIntegerType(64);
-    const auto attributes = ImportNodeAttributes(node);
-    for (auto attr : attributes) {
+    const auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    if (auto ec = importedAttributes.getError()) {
+      return ec;
+    }
+    for (auto attr : *importedAttributes) {
       if (auto arrayAttr = mlir::dyn_cast<ArrayAttr>(attr.getValue())) {
         const auto tensorType =
             RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
@@ -1135,7 +1238,8 @@ private:
     int nOut = ONNXSliceOp::getNumberOfResults();
     const auto in = std::vector<Value>(inVals.begin(), inVals.end());
 
-    buildOutputAndOperation<ONNXSliceOp>(node, in, nIn, nOut, attributes);
+    return buildOutputAndOperation<ONNXSliceOp>(
+        node, in, nIn, nOut, *importedAttributes, errorMessage);
   }
 
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
@@ -1229,9 +1333,10 @@ private:
   // a function decomposition.
   // Case 1: modelLocalFunction is the model local function, schema is null.
   // Case 2: modelLocalFunction is null, schema has the function decomposition.
-  void ImportFunctionCallNode(const onnx::NodeProto &node,
-      const onnx::OpSchema *schema,
-      const onnx::FunctionProto *modelLocalFunction) {
+  [[nodiscard]] std::error_code ImportFunctionCallNode(
+      const onnx::NodeProto &node, const onnx::OpSchema *schema,
+      const onnx::FunctionProto *modelLocalFunction,
+      std::string &errorMessage) {
     assert((schema != nullptr) != (modelLocalFunction != nullptr) &&
            "pass either schema or modelLocalFunction, not both");
 
@@ -1373,7 +1478,10 @@ private:
       }
 
       for (auto &fb_node : graph.node()) {
-        ImportNode(fb_node);
+        const auto ec = ImportNode(fb_node, errorMessage);
+        if (ec) {
+          return ec;
+        }
       }
 
       for (auto &name : functionProto.output()) {
@@ -1400,14 +1508,20 @@ private:
       Value value = outputs[i];
       BindOnnxName(name, value);
     }
+    return CompilerSuccess;
   }
 
-  void ImportCustomNode(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportCustomNode(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     llvm::StringRef opName = node.op_type();
     auto funcName = opName.str();
     std::vector<Type> outputTypes;
     std::vector<Value> inputs;
-    auto attributes = ImportNodeAttributes(node);
+    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    if (auto ec = importedAttributes.getError()) {
+      return ec;
+    }
+    auto attributes = *importedAttributes;
     auto mlirAttr = builder_.getStringAttr(funcName);
     auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
     attributes.push_back(funcAttr);
@@ -1449,11 +1563,12 @@ private:
 
     // ToFix: The type inference may go wrong if the element type of the output
     // of CustomOp is not the same as the first input.
-    buildOutputAndOperation<ONNXCustomOp>(
-        node, inputs, nIn, nOut, attributes, givenOutputTypes);
+    return buildOutputAndOperation<ONNXCustomOp>(
+        node, inputs, nIn, nOut, attributes, errorMessage, givenOutputTypes);
   }
 
-  void ImportNode(const onnx::NodeProto &node) {
+  [[nodiscard]] std::error_code ImportNode(
+      const onnx::NodeProto &node, std::string &errorMessage) {
     if (isDefaultDomain(node.domain()) || (node.domain() == "ai.onnx.ml") ||
         (node.domain() == "ai.onnx.preview.training")) {
       std::string opName = node.op_type() + GetImportVersionOfNode(node);
@@ -1462,8 +1577,7 @@ private:
       if (!(std::find(funcs.begin(), funcs.end(), opName) != funcs.end())) {
         if (handler != import_handler_map_.end()) {
           // It's a regular op with a registered handler.
-          (this->*(handler->second))(node);
-          return;
+          return (this->*(handler->second))(node, errorMessage);
         }
       }
     }
@@ -1472,20 +1586,20 @@ private:
     if (schema &&
         (schema->HasFunction() || schema->HasContextDependentFunction())) {
       // The op has a function decomposition.
-      ImportFunctionCallNode(node, schema, /*modelLocalFunction=*/nullptr);
-      return;
+      return ImportFunctionCallNode(
+          node, schema, /*modelLocalFunction=*/nullptr, errorMessage);
     }
 
     auto model_function = in_model_functions_.find(
         GetModelLocalFunctionsMapIdentifier(node.domain(), node.op_type()));
     if (model_function != in_model_functions_.end()) {
-      ImportFunctionCallNode(node, /*schema=*/nullptr, model_function->second);
-      return;
+      return ImportFunctionCallNode(
+          node, /*schema=*/nullptr, model_function->second, errorMessage);
     }
 
     emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
                               "represents a custom operator.");
-    ImportCustomNode(node);
+    return ImportCustomNode(node, errorMessage);
   }
 
   void InitHandlerMap() {
@@ -1503,14 +1617,22 @@ private:
    * @param ret_vals a vector of mlir Value representing graph's output.
    * @param dim_params a comma-separated string of dimIndex:dimParam.
    */
-  void ImportOutputTensor(const onnx::ValueInfoProto &output,
+  [[nodiscard]] std::error_code ImportOutputTensor(
+      const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
-      llvm::SmallVectorImpl<Value> &ret_vals,
+      llvm::SmallVectorImpl<Value> &ret_vals, std::string &errorMessage,
       std::string *dim_params = nullptr) {
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
-      Type outTy = ImportType(output.type(), dim_params);
+      auto parsedOutputType =
+          ImportType(output.type(), errorMessage, dim_params);
+      if (auto ec = parsedOutputType.getError()) {
+        errorMessage +=
+            "Failed to import output type for '" + output.name() + "\n";
+        return ec;
+      }
+      Type outTy = *parsedOutputType;
       if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
         outTy = UnrankedTensorType::get(
             mlir::cast<TensorType>(outTy).getElementType());
@@ -1519,9 +1641,17 @@ private:
       }
       ret_types.emplace_back(val.getType());
     } else {
-      ret_types.emplace_back(ImportType(output.type(), dim_params));
+      auto parsedOutputType =
+          ImportType(output.type(), errorMessage, dim_params);
+      if (auto ec = parsedOutputType.getError()) {
+        errorMessage +=
+            "Failed to import output type for '" + output.name() + "\n";
+        return ec;
+      }
+      ret_types.emplace_back(*parsedOutputType);
     }
     ret_vals.push_back(val);
+    return CompilerSuccess;
   }
 
   // Move function attributes for argument/result names and dim_params into
@@ -1577,7 +1707,8 @@ private:
    * @param graph onnx graph proto.
    * @return A function corresponding to the imported computation graph.
    */
-  func::FuncOp importGraph(const onnx::GraphProto &graph) {
+  ErrorOr<func::FuncOp> importGraph(
+      const onnx::GraphProto &graph, std::string &errorMessage) {
     const std::string &name = "main_graph";
     auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
@@ -1586,9 +1717,14 @@ private:
     mainFunc.getBody().push_back(new Block);
     builder_.setInsertionPointToStart(&mainFunc.getBody().back());
 
-    auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
-        /*op=*/mainFunc.getOperation(), /*useReturn=*/true);
-    mainFunc.setType(funcType);
+    auto importedFuncType = importGraph(graph, /*region=*/mainFunc.getBody(),
+        /*op=*/mainFunc.getOperation(), /*useReturn=*/true, errorMessage);
+    if (auto ec = importedFuncType.getError()) {
+      errorMessage +=
+          "Failed to import main graph, could not get its function type\n";
+      return ec;
+    }
+    mainFunc.setType(*importedFuncType);
 
     // Move function attributes for argument/result names and dim_params into
     // argument/result attributes.
@@ -1607,8 +1743,10 @@ private:
 
 } // namespace detail
 
-bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
-    OwningOpRef<ModuleOp> &module, ImportOptions options) {
+[[nodiscard]] std::error_code ImportFrontendModelInternal(
+    onnx::ModelProto &model, MLIRContext &context,
+    OwningOpRef<ModuleOp> &module, ImportOptions options,
+    std::string &errorMessage) {
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
@@ -1622,8 +1760,8 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
 
   if (options.allowSorting && !IsTopologicallySorted(model.graph())) {
     if (!SortGraph(model.mutable_graph())) {
-      llvm::errs() << "The graph is not topologically sortable.\n";
-      return false;
+      errorMessage += "The graph is not topologically sortable.\n";
+      return InvalidOnnxFormat;
     }
   }
 
@@ -1645,35 +1783,35 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
     if (options.useOnnxModelTypes)
       onnx::shape_inference::InferShapes(convertModel);
-    ImportFrontendModel(convertModel, context, module, options);
+    return ImportFrontendModel(
+        convertModel, context, module, errorMessage, options);
   } else {
     if (options.useOnnxModelTypes)
       onnx::shape_inference::InferShapes(model);
-    ImportFrontendModel(model, context, module, options);
+    return ImportFrontendModel(model, context, module, errorMessage, options);
   }
-  return true;
+  return CompilerSuccess;
 }
 
-// Return 0 on success, error otherwise.
-int ImportFrontendModelArray(const void *onnxBuffer, int size,
-    MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    std::string *errorMessage, ImportOptions options) {
+[[nodiscard]] std::error_code ImportFrontendModelArray(const void *onnxBuffer,
+    int size, MLIRContext &context, OwningOpRef<ModuleOp> &module,
+    std::string &errorMessage, ImportOptions options) {
   onnx::ModelProto model;
 
   bool parse_success = model.ParseFromArray(onnxBuffer, size);
   if (!parse_success) {
-    *errorMessage = "Unable to parse onnxBuffer";
+    errorMessage += "Unable to parse onnxBuffer\n";
     return InvalidOnnxFormat;
   }
-  ImportFrontendModelInternal(model, context, module, options);
-  return CompilerSuccess;
+  return ImportFrontendModelInternal(
+      model, context, module, options, errorMessage);
 }
 
 namespace {
-int readAndStripComments(
-    StringRef fname, std::string *errorMessage, std::string &contents) {
+[[nodiscard]] std::error_code readAndStripComments(
+    StringRef fname, std::string &errorMessage, std::string &contents) {
   contents.clear();
-  auto buf = openInputFile(fname, errorMessage);
+  auto buf = openInputFile(fname, &errorMessage);
   if (!buf) {
     return InvalidInputFileAccess;
   }
@@ -1697,32 +1835,32 @@ int readAndStripComments(
 } // namespace
 
 // Return 0 on success, error otherwise.
-int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
-    OwningOpRef<ModuleOp> &module, std::string *errorMessage,
-    ImportOptions options) {
+[[nodiscard]] std::error_code ImportFrontendModelFile(StringRef model_fname,
+    MLIRContext &context, OwningOpRef<ModuleOp> &module,
+    std::string &errorMessage, ImportOptions options) {
   onnx::ModelProto model;
   if (model_fname.ends_with(".onnxtext")) {
     std::string text;
-    int ret = readAndStripComments(model_fname, errorMessage, text);
-    if (ret != CompilerSuccess)
+    const auto ret = readAndStripComments(model_fname, errorMessage, text);
+    if (ret)
       return ret;
 
     onnx::OnnxParser parser(text.c_str());
     auto status = parser.Parse(model);
     if (!status.IsOK()) {
-      *errorMessage = "ONNX Text Model Parsing Failed on " + model_fname.str() +
+      errorMessage += "ONNX Text Model Parsing Failed on " + model_fname.str() +
                       " with error '" + status.ErrorMessage() + "'";
       return InvalidOnnxFormat;
     }
   } else if (model_fname.ends_with(".json")) {
     std::string json;
-    int ret = readAndStripComments(model_fname, errorMessage, json);
-    if (ret != CompilerSuccess)
+    const auto ret = readAndStripComments(model_fname, errorMessage, json);
+    if (ret)
       return ret;
 
     auto status = google::protobuf::util::JsonStringToMessage(json, &model);
     if (!status.ok()) {
-      *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +
+      errorMessage += "Json Model Parsing Failed on " + model_fname.str() +
                       " with error '" + status.ToString() + "'";
       return InvalidOnnxFormat;
     }
@@ -1734,30 +1872,37 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
       std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
       // check if the input file is opened
       if (!input.is_open()) {
-        *errorMessage = "Unable to open or access " + model_fname.str();
+        errorMessage += "Unable to open or access " + model_fname.str();
         return InvalidInputFileAccess;
       }
       parse_success = model.ParseFromIstream(&input);
     }
     if (!parse_success) {
-      *errorMessage = "Onnx Model Parsing Failed on " + model_fname.str();
+      errorMessage += "Onnx Model Parsing Failed on " + model_fname.str();
       return InvalidOnnxFormat;
     }
   }
 
-  if (!ImportFrontendModelInternal(model, context, module, options)) {
-    *errorMessage = "Onnx Model Import Failed on " + model_fname.str();
-    return CompilerFailure;
+  if (auto ec = ImportFrontendModelInternal(
+          model, context, module, options, errorMessage)) {
+    errorMessage += "Onnx Model Import Failed for " + model_fname.str();
+    return ec;
   }
 
   return CompilerSuccess;
 }
 
-void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
-    OwningOpRef<ModuleOp> &module, ImportOptions options) {
+[[nodiscard]] std::error_code ImportFrontendModel(const onnx::ModelProto &model,
+    MLIRContext &context, OwningOpRef<ModuleOp> &module,
+    std::string &errorMessage, ImportOptions options) {
 
   detail::FrontendGenImpl myONNXGen(context);
-  module = myONNXGen.ImportONNXModel(model, options);
+  auto importedModule = myONNXGen.ImportONNXModel(model, options, errorMessage);
+  if (auto ec = importedModule.getError()) {
+    return ec;
+  }
+  module = *importedModule;
+  return CompilerSuccess;
 }
 
 } // namespace onnx_mlir

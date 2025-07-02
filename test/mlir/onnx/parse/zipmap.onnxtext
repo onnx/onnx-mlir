@@ -13,4 +13,4 @@
 zipmapper (float[3] input) => (seq(map(int64, float)) output) {
    output = ZipMap <classlabels_int64s = [10, 20, 30]> (input)
 }
-// FAILED: "expect tensor inside sequence type"
+// FAILED: In ONNX-MLIR only tensors are (yet) supported as element type of Sequences.
