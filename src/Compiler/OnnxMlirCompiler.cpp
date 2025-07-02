@@ -146,7 +146,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   loadDialects(context);
 
   std::string internalErrorMessage;
-  const auto rc = processInputArray(
+  const std::error_code rc = processInputArray(
       inputBuffer, bufferSize, context, module, internalErrorMessage);
   if (rc) {
     if (errorMessage != NULL)

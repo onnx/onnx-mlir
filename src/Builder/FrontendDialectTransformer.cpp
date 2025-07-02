@@ -171,7 +171,8 @@ public:
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
-    auto importGraphResult = importGraph(model.graph(), errorMessage);
+    ErrorOr<mlir::func::FuncOp> importGraphResult =
+        importGraph(model.graph(), errorMessage);
     if (auto ec = importGraphResult.getError()) {
       return ec;
     }
@@ -377,7 +378,7 @@ private:
     auto input_opt_type = type_proto.optional_type();
     if (input_opt_type.has_elem_type()) {
       onnx::TypeProto elem_type = input_opt_type.elem_type();
-      auto mlir_elem_type = ImportType(elem_type, errorMessage);
+      ErrorOr<Type> mlir_elem_type = ImportType(elem_type, errorMessage);
       if (auto ec = mlir_elem_type.getError()) {
         return ec;
       }
@@ -417,7 +418,7 @@ private:
     if (options_.useOnnxModelTypes) {
       if (const onnx::TypeProto *onnxTypePtr =
               onnx_type_map.GetByOnnxName(onnx_name)) {
-        auto importedType = ImportType(*onnxTypePtr, errorMessage);
+        ErrorOr<Type> importedType = ImportType(*onnxTypePtr, errorMessage);
         if (auto ec = importedType.getError()) {
           return ec;
         }
@@ -462,7 +463,7 @@ private:
       mlirAttr = builder_.getStrArrayAttr(llvm::ArrayRef(vectorStringRef));
     } break;
     case onnx::AttributeProto::TYPE_PROTO: {
-      auto importedType = ImportType(attr.tp(), errorMessage);
+      ErrorOr<Type> importedType = ImportType(attr.tp(), errorMessage);
       if (auto ec = importedType.getError()) {
         return ec;
       }
@@ -486,7 +487,7 @@ private:
       // Ignore subgraph attributes, as they will be imported as regions.
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
         continue;
-      auto importedNodeAttr =
+      ErrorOr<NamedAttribute> importedNodeAttr =
           convertOnnxAttributeProtoToMlirNamedAttribute(attr, errorMessage);
       if (auto ec = importedNodeAttr.getError()) {
         errorMessage += "Failed to import attribute '" + attr.name() +
@@ -578,7 +579,7 @@ private:
       if (initializerNames.count(input.name()) == 0) {
         inputNames.push_back(input.name());
         std::string dimParams = "";
-        auto importedInputType =
+        ErrorOr<Type> importedInputType =
             ImportType(input.type(), errorMessage, &dimParams);
         if (auto ec = importedInputType.getError()) {
           errorMessage +=
@@ -698,7 +699,8 @@ private:
       result.addTypes(UnrankedTensorType::get(builder_.getF32Type()));
     }
     result.addOperands(inputs);
-    auto importedNodeAttributes = ImportNodeAttributes(node, errorMessage);
+    ErrorOr<std::vector<NamedAttribute>> importedNodeAttributes =
+        ImportNodeAttributes(node, errorMessage);
     if (auto ec = importedNodeAttributes.getError()) {
       return ec;
     }
@@ -908,7 +910,7 @@ private:
         region.push_back(new Block);
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
-        const auto importGraphResult =
+        const ErrorOr<FunctionType> importGraphResult =
             importGraph(attr.g(), region, op, false, errorMessage);
         if (auto ec = importGraphResult.getError()) {
           return ec;
@@ -960,7 +962,8 @@ private:
     int expectedNumOperands = T::getNumberOfOperands();
     int expectedNumResults = T::getNumberOfResults();
     getNodeInputs(node, inputs);
-    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    ErrorOr<std::vector<NamedAttribute>> importedAttributes =
+        ImportNodeAttributes(node, errorMessage);
     if (auto ec = importedAttributes.getError()) {
       return ec;
     }
@@ -977,7 +980,8 @@ private:
     int expectedNumOperands = ONNXCategoryMapperOp::getNumberOfOperands();
     int expectedNumResults = ONNXCategoryMapperOp::getNumberOfResults();
     getNodeInputs(node, inputs);
-    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    ErrorOr<std::vector<NamedAttribute>> importedAttributes =
+        ImportNodeAttributes(node, errorMessage);
     if (auto ec = importedAttributes.getError()) {
       return ec;
     }
@@ -1006,7 +1010,7 @@ private:
         Attribute mlirAttr = TypeAttr::get(mlir_type);
         attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
       } else {
-        auto mlirNamedAttr =
+        ErrorOr<NamedAttribute> mlirNamedAttr =
             convertOnnxAttributeProtoToMlirNamedAttribute(attr, errorMessage);
         if (auto ec = mlirNamedAttr.getError()) {
           errorMessage += "Failed to import cast attribute for node '" +
@@ -1043,7 +1047,8 @@ private:
           inputs.push_back(*valuePtr);
         }
       }
-    auto importedCastAttributes = ImportCastAttributes(node, errorMessage);
+    ErrorOr<std::vector<NamedAttribute>> importedCastAttributes =
+        ImportCastAttributes(node, errorMessage);
     if (auto ec = importedCastAttributes.getError()) {
       return ec;
     }
@@ -1135,7 +1140,8 @@ private:
       inputs.push_back(constantResult);
     }
     int nOut = ONNXDropoutOp::getNumberOfResults();
-    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    ErrorOr<std::vector<NamedAttribute>> importedAttributes =
+        ImportNodeAttributes(node, errorMessage);
     if (auto ec = importedAttributes.getError()) {
       return ec;
     }
@@ -1172,7 +1178,8 @@ private:
 
       int nIn = ONNXPadOp::getNumberOfOperands();
       int nOut = ONNXPadOp::getNumberOfResults();
-      auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+      ErrorOr<std::vector<NamedAttribute>> importedAttributes =
+          ImportNodeAttributes(node, errorMessage);
       if (auto ec = importedAttributes.getError()) {
         return ec;
       }
@@ -1201,7 +1208,8 @@ private:
     // Data input is imported but starts, ends, axes, and steps may come from
     // attributes, and need to be created as constant ops.
     const Type elementType = builder_.getIntegerType(64);
-    const auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    const ErrorOr<std::vector<NamedAttribute>> importedAttributes =
+        ImportNodeAttributes(node, errorMessage);
     if (auto ec = importedAttributes.getError()) {
       return ec;
     }
@@ -1517,7 +1525,8 @@ private:
     auto funcName = opName.str();
     std::vector<Type> outputTypes;
     std::vector<Value> inputs;
-    auto importedAttributes = ImportNodeAttributes(node, errorMessage);
+    ErrorOr<std::vector<NamedAttribute>> importedAttributes =
+        ImportNodeAttributes(node, errorMessage);
     if (auto ec = importedAttributes.getError()) {
       return ec;
     }
@@ -1625,7 +1634,7 @@ private:
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
-      auto parsedOutputType =
+      ErrorOr<Type> parsedOutputType =
           ImportType(output.type(), errorMessage, dim_params);
       if (auto ec = parsedOutputType.getError()) {
         errorMessage +=
@@ -1641,7 +1650,7 @@ private:
       }
       ret_types.emplace_back(val.getType());
     } else {
-      auto parsedOutputType =
+      ErrorOr<Type> parsedOutputType =
           ImportType(output.type(), errorMessage, dim_params);
       if (auto ec = parsedOutputType.getError()) {
         errorMessage +=
@@ -1717,8 +1726,9 @@ private:
     mainFunc.getBody().push_back(new Block);
     builder_.setInsertionPointToStart(&mainFunc.getBody().back());
 
-    auto importedFuncType = importGraph(graph, /*region=*/mainFunc.getBody(),
-        /*op=*/mainFunc.getOperation(), /*useReturn=*/true, errorMessage);
+    ErrorOr<FunctionType> importedFuncType =
+        importGraph(graph, /*region=*/mainFunc.getBody(),
+            /*op=*/mainFunc.getOperation(), /*useReturn=*/true, errorMessage);
     if (auto ec = importedFuncType.getError()) {
       errorMessage +=
           "Failed to import main graph, could not get its function type\n";
@@ -1897,7 +1907,8 @@ namespace {
     std::string &errorMessage, ImportOptions options) {
 
   detail::FrontendGenImpl myONNXGen(context);
-  auto importedModule = myONNXGen.ImportONNXModel(model, options, errorMessage);
+  ErrorOr<ModuleOp> importedModule =
+      myONNXGen.ImportONNXModel(model, options, errorMessage);
   if (auto ec = importedModule.getError()) {
     return ec;
   }

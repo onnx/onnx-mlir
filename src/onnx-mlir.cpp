@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
   auto inputFileTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
-  const auto rc =
+  const std::error_code rc =
       processInputFile(inputFilename, context, module, errorMessage);
   if (rc) {
     llvm::errs() << "Error processing: " << inputFilename << "\n";
