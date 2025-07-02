@@ -71,12 +71,12 @@ void showCompilePhase(std::string msg);
 // end to end. Initializes accelerator(s) if required.
 void loadDialects(mlir::MLIRContext &context);
 
-// ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
-int processInputFile(llvm::StringRef inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
-int processInputArray(const void *onnxBuffer, int bufferSize,
+[[nodiscard]] std::error_code processInputFile(llvm::StringRef inputFilename,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string *errorMessage);
+    std::string &errorMessage);
+[[nodiscard]] std::error_code processInputArray(const void *onnxBuffer,
+    int bufferSize, mlir::MLIRContext &context,
+    mlir::OwningOpRef<mlir::ModuleOp> &module, std::string &errorMessage);
 
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);

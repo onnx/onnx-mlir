@@ -697,9 +697,9 @@ std::string dirName(StringRef inputFilename) {
 }
 } // namespace
 
-// Return 0 on success, error number on failure.
-int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
+[[nodiscard]] std::error_code processInputFile(StringRef inputFilename,
+    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module,
+    std::string &errorMessage) {
   // Decide if the input file is an ONNX model (either ONNX protobuf, ONNX text,
   // or JSON) or a model specified in MLIR.
   // The extension of the file is the decider.
@@ -711,9 +711,9 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
 
   if (!inputIsSTDIN && !inputIsONNX && !inputIsONNXText && !inputIsJSON &&
       !inputIsMLIR) {
-    *errorMessage = "Invalid input file \"" + inputFilename.str() +
+    errorMessage += "Invalid input file \"" + inputFilename.str() +
                     "\": Either an ONNX model (.onnx or .onnxtext or .json), "
-                    "or an MLIR file (.mlir) needs to be provided.";
+                    "or an MLIR file (.mlir) needs to be provided.\n";
     return InvalidInputFile;
   }
 
@@ -737,10 +737,9 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
   return CompilerSuccess;
 }
 
-// Return 0 on success, error code on error.
-int processInputArray(const void *onnxBuffer, int bufferSize,
-    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module,
-    std::string *errorMessage) {
+[[nodiscard]] std::error_code processInputArray(const void *onnxBuffer,
+    int bufferSize, mlir::MLIRContext &context,
+    mlir::OwningOpRef<ModuleOp> &module, std::string &errorMessage) {
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.useOutputNameAsLocation = useOutputNameAsLocation;

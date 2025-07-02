@@ -146,22 +146,23 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   loadDialects(context);
 
   std::string internalErrorMessage;
-  int rc = processInputArray(
-      inputBuffer, bufferSize, context, module, &internalErrorMessage);
-  if (rc != CompilerSuccess) {
+  const std::error_code rc = processInputArray(
+      inputBuffer, bufferSize, context, module, internalErrorMessage);
+  if (rc) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
-    return rc;
+    return rc.value();
   }
 
   std::string outputBaseNameStr(outputBaseName);
-  rc = compileModule(module, context, outputBaseNameStr, emissionTarget);
-  if (rc == CompilerSuccess && outputFilename) {
+  const int cmrc =
+      compileModule(module, context, outputBaseNameStr, emissionTarget);
+  if (cmrc == CompilerSuccess && outputFilename) {
     // Copy Filename
     std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
     *outputFilename = strdup(name.c_str());
   }
-  return rc;
+  return cmrc;
 }
 
 ONNX_MLIR_EXPORT char *omCompileOutputFileName(

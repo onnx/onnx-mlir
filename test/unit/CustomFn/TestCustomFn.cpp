@@ -85,7 +85,12 @@ int check(ModelProto &model) {
 
   onnx_mlir::ImportOptions options;
   options.useOnnxModelTypes = true;
-  onnx_mlir::ImportFrontendModel(model, context, module, options);
+  std::string errorMessage;
+  if (auto ec = onnx_mlir::ImportFrontendModel(
+          model, context, module, errorMessage, options)) {
+    std::cerr << "Error importing model: " << errorMessage << "\n";
+    return 1;
+  }
 
   mlir::PassManager pm(
       module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
