@@ -91,10 +91,6 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     //       co = g * COPerGroup + coPerGroup;
 
     auto bodyFunction = [&](ValueRange outerIndices) {
-      // Insert a krnl region and set the inner loop with a separate affine
-      // region.
-      // KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-      // rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
       // Compute the Channel In Indices.
       IndexExprScope outerScope(create.krnl);
       // Compute the channel out index "co".
