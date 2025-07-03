@@ -58,8 +58,8 @@ public:
     assert(srcOffset >= 0 && "offset expected non negative");
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs, pads,
         readSize, buffBounds, sourceBounds;
-    create.krnlIE.getShapeAsSymbols(buffMemref, buffBounds);
-    create.krnlIE.getShapeAsSymbols(sourceMemref, sourceBounds);
+    create.krnlIE.getShapeAsDims(buffMemref, buffBounds);
+    create.krnlIE.getShapeAsDims(sourceMemref, sourceBounds);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     create.krnlIE.getIntFromArrayAsLiterals(
         copyToBufferOp.getPadToNextAttr(), 1, pads, buffRank);

@@ -353,7 +353,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
         Value bs(indices[0]), hs(indices[1]);
-        SymbolIndexExpr bsie(bs), hsie(hs);
+        DimIndexExpr bsie(bs), hsie(hs); // Chnage from SymbolIE to DimIE
         LiteralIndexExpr hsieLit(hiddenSize);
 
         Value CtVal = createKrnl.load(Ct, indices);
