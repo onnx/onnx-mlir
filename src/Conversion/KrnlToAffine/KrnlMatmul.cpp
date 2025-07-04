@@ -74,9 +74,9 @@ public:
         C(operandAdaptor.getC());
     SmallVector<IndexExpr, 4> aBounds, bBounds, cBounds, aTileSizeFromAttr,
         bTileSizeFromAttr, cTileSizeFromAttr, computeTileSizeFromAttr;
-    create.krnlIE.getShapeAsSymbols(A, aBounds);
-    create.krnlIE.getShapeAsSymbols(B, bBounds);
-    create.krnlIE.getShapeAsSymbols(C, cBounds);
+    create.krnlIE.getShapeAsDims(A, aBounds);
+    create.krnlIE.getShapeAsDims(B, bBounds);
+    create.krnlIE.getShapeAsDims(C, cBounds);
     int64_t aRank(aBounds.size()), bRank(bBounds.size()), cRank(cBounds.size());
     // Tile sizes for A/B/C are determined by their memref unless explicitly
     // specified by an optional argument. That allows A/B/C memrefs to be
@@ -117,7 +117,7 @@ public:
       kComputeTileSize = computeTileSizeFromAttr[2];
     }
     // Get the global upper bound of the original computations.
-    SymbolIndexExpr iGlobalUB(operandAdaptor.getIGlobalUB()),
+    DimIndexExpr iGlobalUB(operandAdaptor.getIGlobalUB()),
         jGlobalUB(operandAdaptor.getJGlobalUB()),
         kGlobalUB(operandAdaptor.getKGlobalUB());
 
@@ -171,7 +171,7 @@ public:
     // A[i, k];
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
-      aStart.emplace_back(SymIE(operandAdaptor.getAGlobalIndexMemStart()[t]));
+      aStart.emplace_back(DimIE(operandAdaptor.getAGlobalIndexMemStart()[t]));
     aStart.emplace_back(
         iGlobalIndexComputeStart -
         DimIE(operandAdaptor.getAGlobalIndexMemStart()[aRank - 2]));
@@ -180,7 +180,7 @@ public:
         DimIE(operandAdaptor.getAGlobalIndexMemStart()[aRank - 1]));
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
-      bStart.emplace_back(SymIE(operandAdaptor.getBGlobalIndexMemStart()[t]));
+      bStart.emplace_back(DimIE(operandAdaptor.getBGlobalIndexMemStart()[t]));
     bStart.emplace_back(
         kGlobalIndexComputeStart -
         DimIE(operandAdaptor.getBGlobalIndexMemStart()[bRank - 2]));
@@ -189,7 +189,7 @@ public:
         DimIE(operandAdaptor.getBGlobalIndexMemStart()[bRank - 1]));
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
-      cStart.emplace_back(SymIE(operandAdaptor.getCGlobalIndexMemStart()[t]));
+      cStart.emplace_back(DimIE(operandAdaptor.getCGlobalIndexMemStart()[t]));
     cStart.emplace_back(
         iGlobalIndexComputeStart -
         DimIE(operandAdaptor.getCGlobalIndexMemStart()[cRank - 2]));

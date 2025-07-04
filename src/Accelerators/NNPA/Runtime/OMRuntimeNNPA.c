@@ -23,7 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "zDNNExtension/zDNNExtension.h"
+#include "zdnn.h"
+#include "zdnnx/zdnnx.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,8 +71,8 @@ extern "C" {
  *
  * OMInitAccelNNPA() is thread safe, and is guaranteed to set
  * OMIsInitAccelNNPA=1 once any other threads are guaranteed to see the full
- * effects of the zdnn_init(). Because Z does not has a release consistency
- * memory subsystem, we don't need a hard memory fence between zdnn_init() and
+ * effects of the zdnnx_init(). Because Z does not has a release consistency
+ * memory subsystem, we don't need a hard memory fence between zdnnx_init() and
  * OMIsInitAccelNNPA=1.
  *
  * For the OMShutdownAccelNNPA(), we simply set the OMIsInitAccelNNPA flag to
@@ -103,9 +104,7 @@ void OMInitAccelNNPA() {
     /* Test again in the mutex to see if accelerator is not initialized. */
     if (!OMIsInitAccelNNPA) {
       /* Still uninitialized, actual init. */
-      zdnn_init();
-      /* Initialize settings for ztensor splitting. */
-      zDNNExtensionInit();
+      zdnnx_init();
       /* No need for a fence due to strong consistency. */
       OMIsInitAccelNNPA = 1;
     } /* Release mutex. */
@@ -160,9 +159,7 @@ uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
     /* Test again in the mutex to see if accelerator is not initialized. */
     if (!OMIsInitAccelNNPA) {
       /* Still uninitialized, actual init. */
-      zdnn_init();
-      /* Initialize settings for ztensor splitting. */
-      zDNNExtensionInit();
+      zdnnx_init();
       /* Check if version is compatible */
       if (zdnn_is_version_runnable((uint32_t)versionNum))
         isCompatible = 1;

@@ -98,10 +98,10 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
       [&](const KrnlBuilder &ck, ValueRange loopInd) {
         IndexExprScope scope(ck);
         IndexExpr t = DimIE(loopInd[0]);
-        DimsExpr currDims = SymListIE(dims);
+        DimsExpr currDims = DimListIE(dims);
         // Reduce lbs, ubs for parallel region, if any.
-        DimsExpr currLbs = SymListIE(lbs);
-        DimsExpr currUbs = SymListIE(ubs);
+        DimsExpr currLbs = DimListIE(lbs);
+        DimsExpr currUbs = DimListIE(ubs);
         // In sequential cases (threadNum ==1, loopInd[1,2]== orig lb,ub).
         currLbs[parId] = SymIE(loopInd[1]);
         currUbs[parId] = SymIE(loopInd[2]);

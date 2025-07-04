@@ -193,7 +193,7 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
 
   /// Determine whether the index is valid:
   // CHECK:       [[EV1:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-  // CHECK-DAG:   [[GEP1:%.+]] = llvm.getelementptr [[EV1]]{{.*}}[[INDEX]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr
+  // CHECK-DAG:   [[GEP1:%.+]] = llvm.getelementptr {{.*}}[[EV1]]{{.*}}[[INDEX]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr
   // CHECK-DAG:   [[INDEX1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr
 
   /// Store the index if valid, otherwise store the default value:
