@@ -2213,3 +2213,23 @@ func.func @group_norm5d_v21(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<4xf32>,
 // CHECK:           onnx.Return [[VAR_11_]] : tensor<3x4x6x8x16xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @fuse_matmul_mul(%arg0: tensor<?x2048xf32>) -> (tensor<?x2048xf32>) {
+  %b = onnx.Constant dense<3.0> : tensor<2048x2048xf32>
+  %c = onnx.Constant dense<5.0> : tensor<f32>
+  %0 = "onnx.MatMul"(%arg0, %b) : (tensor<?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x2048xf32>
+  %1 = "onnx.Mul"(%0, %c) : (tensor<?x2048xf32>, tensor<f32>) -> tensor<?x2048xf32>
+  onnx.Return %1 : tensor<?x2048xf32>
+
+// CHECK-LABEL:  func.func @fuse_matmul_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x2048xf32>) -> tensor<?x2048xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3.000000e+00> : tensor<2048x2048xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<5.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_0_]], [[VAR_1_]]) : (tensor<2048x2048xf32>, tensor<f32>) -> tensor<2048x2048xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x2048xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x2048xf32>
+// CHECK:         }
+}
+
