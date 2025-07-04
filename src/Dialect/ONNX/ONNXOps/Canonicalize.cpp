@@ -2074,16 +2074,16 @@ public:
   }
 };
 
-// "Pulls" Relu-like operations up through a SplitOp
-struct PullReluLikeOpsThroughSplitPattern
-    : public OpRewritePattern<ONNXSplitOp> {
+// Pulls the specified op up through a split op.
+template <typename OpToPull>
+struct PullOpThroughSplitPattern : public OpRewritePattern<ONNXSplitOp> {
   using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
 
     Operation *firstUser = nullptr;
-    SmallVector<Operation *> reluLikeOps;
+    SmallVector<Operation *> opsToPullUp;
     Location newLoc = rewriter.getUnknownLoc();
 
     const auto areFilteredAttrsEqual = [](Operation *op1, Operation *op2) {
@@ -2103,40 +2103,37 @@ struct PullReluLikeOpsThroughSplitPattern
     };
 
     for (Operation *op : splitOp->getUsers()) {
-      // TODO: This pattern could be more generic, for all unary, elementwise
-      // ops. Having a trait for them would make this easier.
-      if (!isa<ONNXReluOp, ONNXLeakyReluOp>(op)) {
+      if (!isa<OpToPull>(op)) {
         return rewriter.notifyMatchFailure(
-            splitOp, "SplitOp must be used by a Relu-like op");
+            splitOp, "SplitOp is not used by targeted op");
       }
       if (op->getOperand(0).getType() != op->getResult(0).getType()) {
         // This could happen if shape inference did not run
         return rewriter.notifyMatchFailure(
-            splitOp, "Relu-like op must have same input and output type");
+            splitOp, "Targeted op must have same input and output type");
       }
       if (!firstUser) {
         firstUser = op;
       } else {
-        if (firstUser->getName() != op->getName() ||
-            !areFilteredAttrsEqual(firstUser, op)) {
+        if (!areFilteredAttrsEqual(firstUser, op)) {
           return rewriter.notifyMatchFailure(splitOp,
-              "SplitOp must be used by Relu-like ops of the same type "
+              "SplitOp must be used by ops of the same type "
               "and attributes");
         }
       }
-      reluLikeOps.push_back(op);
+      opsToPullUp.push_back(op);
       newLoc = rewriter.getFusedLoc({newLoc, op->getLoc()});
     }
     rewriter.setInsertionPoint(splitOp);
-    auto *newRelu = rewriter.clone(*reluLikeOps.front());
-    rewriter.modifyOpInPlace(newRelu, [&]() {
-      newRelu->setOperand(0, splitOp.getOperand(0));
-      newRelu->getResult(0).setType(splitOp.getOperand(0).getType());
-      newRelu->setLoc(newLoc);
+    auto *newOpBeforeSplit = rewriter.clone(*opsToPullUp.front());
+    rewriter.modifyOpInPlace(newOpBeforeSplit, [&]() {
+      newOpBeforeSplit->setOperand(0, splitOp.getOperand(0));
+      newOpBeforeSplit->getResult(0).setType(splitOp.getOperand(0).getType());
+      newOpBeforeSplit->setLoc(newLoc);
     });
-    rewriter.modifyOpInPlace(
-        splitOp, [&]() { splitOp->setOperand(0, newRelu->getResult(0)); });
-    for (Operation *op : reluLikeOps) {
+    rewriter.modifyOpInPlace(splitOp,
+        [&]() { splitOp->setOperand(0, newOpBeforeSplit->getResult(0)); });
+    for (Operation *op : opsToPullUp) {
       rewriter.replaceOp(op, op->getOperands());
     }
     return success();
@@ -2406,7 +2403,10 @@ void ONNXSpaceToDepthOp::getCanonicalizationPatterns(
 /// on the ONNXSplitOp
 void ONNXSplitOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<PullReluLikeOpsThroughSplitPattern>(context);
+  // TODO: This pattern could be more generic, for all unary, elementwise
+  // ops. Having a trait for them would make this easier.
+  results.insert<PullOpThroughSplitPattern<ONNXReluOp>>(context);
+  results.insert<PullOpThroughSplitPattern<ONNXLeakyReluOp>>(context);
   ;
 }
 
