@@ -2060,6 +2060,78 @@ return %2 : tensor<1x12x4xf32>
 }
 
 // -----
+func.func @test_split_relu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+  %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+  %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+  %1 = "onnx.Relu"(%0#0) {onnx_node_name = "onnx.Relu_1"} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+  %2 = "onnx.Relu"(%0#1) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  %3 = "onnx.Relu"(%0#2) {onnx_node_name = "onnx.Relu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  onnx.Return %1, %2, %3 : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+}
+// CHECK-LABEL:  func.func @test_split_relu_movement
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Relu"([[PARAM_0_]]) {onnx_node_name = "onnx.Relu_1"} : (tensor<1x8x2xf32>) -> tensor<1x8x2xf32>
+// CHECK:           [[VAR_2_:%.+]]:3 = "onnx.Split"([[VAR_1_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+// CHECK:           onnx.Return [[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2 : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+// CHECK:         }
+
+// -----
+func.func @test_split_relu_movement_not_all_equal(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+  %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+  %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+  %1 = "onnx.Relu"(%0#0) {onnx_node_name = "onnx.Relu_1"} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+  %2 = "onnx.LeakyRelu"(%0#1) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  %3 = "onnx.Relu"(%0#2) {onnx_node_name = "onnx.Relu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  onnx.Return %1, %2, %3 : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+}
+// CHECK-LABEL:  func.func @test_split_relu_movement_not_all_equal
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]]:3 = "onnx.Split"([[PARAM_0_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Relu"([[VAR_1_]]#0) {onnx_node_name = "onnx.Relu_1"} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.LeakyRelu"([[VAR_1_]]#1) {alpha = 0.00999999977 : f32, onnx_node_name = "onnx.Relu_2"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Relu"([[VAR_1_]]#2) {onnx_node_name = "onnx.Relu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+// CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+// CHECK:         }
+
+// -----
+func.func @test_split_leakyrelu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+  %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+  %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+  %1 = "onnx.LeakyRelu"(%0#0) {onnx_node_name = "onnx.LRelu_1", alpha = 0.2 : f32} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+  %2 = "onnx.LeakyRelu"(%0#1) {onnx_node_name = "onnx.LRelu_2", alpha = 0.2 : f32} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  %3 = "onnx.LeakyRelu"(%0#2) {onnx_node_name = "onnx.LRelu_3", alpha = 0.2 : f32} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  onnx.Return %1, %2, %3 : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+}
+// CHECK-LABEL:  func.func @test_split_leakyrelu_movement
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.LeakyRelu"([[PARAM_0_]]) {alpha = 2.000000e-01 : f32, onnx_node_name = "onnx.LRelu_1"} : (tensor<1x8x2xf32>) -> tensor<1x8x2xf32>
+// CHECK:           [[VAR_2_:%.+]]:3 = "onnx.Split"([[VAR_1_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+// CHECK:           onnx.Return [[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2 : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+// CHECK:         }
+
+// -----
+func.func @test_split_leakyrelu_movement_different_alpha(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+  %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+  %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+  %1 = "onnx.LeakyRelu"(%0#0) {onnx_node_name = "onnx.LRelu_1", alpha = 0.2 : f32} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+  %2 = "onnx.LeakyRelu"(%0#1) {onnx_node_name = "onnx.LRelu_2", alpha = 0.2 : f32} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  %3 = "onnx.LeakyRelu"(%0#2) {onnx_node_name = "onnx.LRelu_3", alpha = 0.3 : f32} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+  onnx.Return %1, %2, %3 : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+}
+// CHECK-LABEL:  func.func @test_split_leakyrelu_movement_different_alpha
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]]:3 = "onnx.Split"([[PARAM_0_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.LeakyRelu"([[VAR_1_]]#0) {alpha = 2.000000e-01 : f32, onnx_node_name = "onnx.LRelu_1"} : (tensor<1x2x2xf32>) -> tensor<1x2x2xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.LeakyRelu"([[VAR_1_]]#1) {alpha = 2.000000e-01 : f32, onnx_node_name = "onnx.LRelu_2"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.LeakyRelu"([[VAR_1_]]#2) {alpha = 3.000000e-01 : f32, onnx_node_name = "onnx.LRelu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
+// CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] : tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>
+// CHECK:         }
+
+// -----
 
 // Not rewriting since the operand in ConcatOp is neither DimOp nor ConstantOp.
 func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>) -> tensor<2xi64> {
