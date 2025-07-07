@@ -51,6 +51,7 @@ public:
     auto shapeB = BType.getShape();
     auto resultType = mlir::cast<TensorType>(
         getTypeConverter()->convertType(op.getResult().getType()));
+    auto context = op.getContext();
 
     // C is optional, if it's not there, we need to be aware of it for later
     // computations
@@ -77,21 +78,19 @@ public:
 
     // If transA or transB are present, create Transpose operators.
     if (transA) {
-      Value targetTensor =
-          tosaBuilder.getConst(llvm::SmallVector<int32_t>{0, 2, 1}, {3});
+      auto permsAttr = mlir::DenseI32ArrayAttr::get(context, {0, 2, 1});
       Type outputType =
           RankedTensorType::get(dynamicTensorShape, AType.getElementType());
       A = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
-          rewriter, loc, outputType, A, targetTensor)
+          rewriter, loc, outputType, A, permsAttr)
               .getResult();
     }
     if (transB) {
-      Value targetTensor =
-          tosaBuilder.getConst(llvm::SmallVector<int32_t>{0, 2, 1}, {3});
+      auto permsAttr = mlir::DenseI32ArrayAttr::get(context, {0, 2, 1});
       Type outputType =
           RankedTensorType::get(dynamicTensorShape, BType.getElementType());
       B = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
-          rewriter, loc, outputType, B, targetTensor)
+          rewriter, loc, outputType, B, permsAttr)
               .getResult();
     }
 
