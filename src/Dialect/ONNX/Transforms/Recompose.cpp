@@ -1147,6 +1147,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     Type elementType = inputType.getElementType();
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, loc);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(*latestConv);
 
     int64_t concatAxis = 1;
 
@@ -1169,9 +1171,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       Type newBiasType = RankedTensorType::get(newBiasShape, elementType);
       newBias = create.onnx.concat(newBiasType, biasValues, 0);
     } else {
-      // Bias is absent for all. Assign a null Value (nullptr) instead of
-      // ONNXNoneOp.
-      newBias = nullptr;
+      newBias = parallelConvs[0].getB();
     }
 
     SmallVector<int64_t> newOutputShape(
@@ -1182,8 +1182,6 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     newOutputShape[concatAxis] = totalOutputChannels;
     auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
 
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointAfter(*latestConv);
     auto newConv =
         rewriter.create<ONNXConvOp>(loc, newOutputType, input, newWeight,
             newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
