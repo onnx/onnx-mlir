@@ -36,7 +36,7 @@ endif()
 add_custom_command(
   OUTPUT ${OMRuntimeTestModelLibraryFiles}
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/gen_add_onnx.py
-  COMMAND onnx-mlir add.onnx -o ${OMRuntimeTestModelLibraryName}
+  COMMAND onnx-mlir add.onnx --preserveBitcode -o ${OMRuntimeTestModelLibraryName}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS onnx-mlir
   )
