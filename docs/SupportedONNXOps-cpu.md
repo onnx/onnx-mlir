@@ -90,7 +90,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **GridSample** |none | | | |
 | **GroupNormalization** |18 - * | | |
 | **HammingWindow** |17 - * | | | 
-| **HannWindow** |none | | | |
+| **HannWindow** |17 - * | | | |
 | **HardSigmoid** |6 - * | | |
 | **HardSwish** |14 - * | | | |
 | **Hardmax** |6 - * | | |

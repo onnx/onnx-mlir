@@ -246,7 +246,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
         }
         auto type = mlir::cast<mlir::MemRefType>(input.getType());
         int64_t rank = type.getRank();
-        DimsExpr AF = SymListIE(inputAFs[i]);
+        DimsExpr AF = DimListIE(inputAFs[i]);
         assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
         if (MemRefBuilder::hasOneElementInInnermostDims(input, 1)) {
           // Has a reference with a scalar innermost dim, just load as a
@@ -267,7 +267,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       // Store all the outputs as vectors of VL values,
       for (int64_t i = 0; i < outputNum; ++i) {
         auto type = mlir::cast<mlir::MemRefType>(outputs[i].getType());
-        DimsExpr AF = SymListIE(outputAFs[i]);
+        DimsExpr AF = DimListIE(outputAFs[i]);
         int64_t rank = type.getRank();
         assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
         AF[rank - 1] = AF[rank - 1] + ind;
@@ -315,7 +315,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       }
       auto type = mlir::cast<mlir::MemRefType>(input.getType());
       int64_t rank = type.getRank();
-      DimsExpr AF = SymListIE(inputAFs[i]);
+      DimsExpr AF = DimListIE(inputAFs[i]);
       if (MemRefBuilder::hasOneElementInInnermostDims(input, 1)) {
         // Has a reference with a scalar innermost dim, just load as a
         // scalar. No need to add the induction variable.
@@ -333,7 +333,7 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     // Store all the outputs as vectors of VL values,
     for (int64_t i = 0; i < outputNum; ++i) {
       auto type = mlir::cast<mlir::MemRefType>(outputs[i].getType());
-      DimsExpr AF = SymListIE(outputAFs[i]);
+      DimsExpr AF = DimListIE(outputAFs[i]);
       int64_t rank = type.getRank();
       assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
       AF[rank - 1] = AF[rank - 1] + ind;
