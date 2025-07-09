@@ -10,6 +10,7 @@ add_onnx_mlir_library(OMMlirDialects
   DEPENDS
   OMKrnlIncGen
   OMSpecializedKernelOpInterface
+  OMCompilerOptions
 
   LINK_LIBS PUBLIC
   # OMCompilerOptions
