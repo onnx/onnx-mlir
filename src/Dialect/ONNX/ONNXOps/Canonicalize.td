@@ -430,7 +430,7 @@ def FuseMulConvNullBiasPattern: Pat<
 //
 //===----------------------------------------------------------------------===//
 def FuseScalarMulMatMulPattern: Pat<
- (ONNXMulOp (ONNXMatMulOp $a, $b), $c),
+ (ONNXMulOp (either (ONNXMatMulOp $a, $b), $c)),
  (ONNXMatMulOp $a, (ONNXMulOp $b, $c)),
  [(IsFromONNXConstantOp $b), (IsScalarConstantTensor $c)]
 >;
