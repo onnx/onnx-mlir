@@ -65,6 +65,7 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::ValueRange defineLoops(int64_t originalLoopNum) const;
   mlir::ValueRange block(mlir::Value loop, int64_t blockSize) const;
   void permute(mlir::ValueRange loops, mlir::ArrayRef<int64_t> map) const;
+  void unroll(mlir::Value loop) const;
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops, mlir::Value numThreads,
@@ -78,8 +79,6 @@ struct KrnlBuilder : public DialectBuilder {
   using KrnlLoopBodyFn = impl::LoopBodyFn<KrnlBuilder>;
   using KrnlLoopBody2Fn = mlir::function_ref<void(
       const KrnlBuilder &, mlir::ValueRange, mlir::ValueRange)>;
-  using KrnlLoopBody3Fn = mlir::function_ref<void(const KrnlBuilder &,
-      mlir::ValueRange, mlir::ValueRange, mlir::ValueRange)>;
 
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,

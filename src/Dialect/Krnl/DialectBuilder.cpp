@@ -148,6 +148,10 @@ void KrnlBuilder::permute(ValueRange loops, ArrayRef<int64_t> map) const {
   b().create<KrnlPermuteOp>(loc(), loops, map);
 }
 
+void KrnlBuilder::unroll(Value loop) const {
+  b().create<KrnlUnrollOp>(loc(), loop);
+}
+
 ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
   return b()
       .template create<KrnlGetInductionVariableValueOp>(loc(), loops)
