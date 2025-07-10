@@ -78,6 +78,8 @@ struct KrnlBuilder : public DialectBuilder {
   using KrnlLoopBodyFn = impl::LoopBodyFn<KrnlBuilder>;
   using KrnlLoopBody2Fn = mlir::function_ref<void(
       const KrnlBuilder &, mlir::ValueRange, mlir::ValueRange)>;
+  using KrnlLoopBody3Fn = mlir::function_ref<void(const KrnlBuilder &,
+      mlir::ValueRange, mlir::ValueRange, mlir::ValueRange)>;
 
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
@@ -95,6 +97,9 @@ struct KrnlBuilder : public DialectBuilder {
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
+  void iterateIE(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
+      mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBody2Fn bodyBuilderFn) const;
   // Deprecated.
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
