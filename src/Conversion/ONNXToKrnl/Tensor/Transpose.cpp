@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/SmallVectorHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
 
@@ -215,6 +216,7 @@ private:
       reversePermute.emplace_back(inputIndex);
     }
 
+    SmallVector<Value, 4> optimizedLoopDef = loopDef;
     // Test for easy unrolling for the innermost store dimension.
     const int64_t unroll = 8;
     int64_t uDim = rank - 1;
@@ -223,38 +225,17 @@ private:
       int64_t u =
           getNoLeftoverUnrollFactor(lbs[uDim], ubs[uDim], unroll, tripCount);
       if (u > 1) {
-        // We can easily unroll: save original lb and ub of the unroll dim.
-        IndexExpr lb = lbs[uDim];
-        // Reorganize lb/ub of last dim to be from 0 .. tripCount / u;
-        lbs[uDim] = LitIE(0);
-        ubs[uDim] = LitIE(tripCount / u);
-        // Iterate over blocked innermost loop.
-        create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-            [&](const KrnlBuilder &createKrnl, ValueRange indices) {
-              IndexExprScope innerScope(createKrnl);
-              SmallVector<IndexExpr, 4> storeIndices = DimListIE(indices);
-              // Reconstitute the original index as "lb + u * index".
-              IndexExpr uIndex = storeIndices[uDim] * u;
-              uIndex = SymIE(lb) + uIndex;
-              // Fully unrolled loop.
-              for (int i = 0; i < u; ++i) {
-                // And add the current unroll amount (0.. u-1).
-                storeIndices[uDim] = uIndex + LitIE(i);
-                // Compute the indices used by the load operation.
-                SmallVector<IndexExpr, 4> loadIndices;
-                for (int64_t o = 0; o < rank; ++o)
-                  loadIndices.emplace_back(storeIndices[reversePermute[o]]);
-                Value loadData = createKrnl.loadIE(inputMemRef, loadIndices);
-                createKrnl.storeIE(loadData, outputMemRef, storeIndices);
-              }
-            });
-        return;
+        ValueRange blockedLoopDef = create->krnl.block(loopDef[uDim], u);
+        create->krnl.unroll(blockedLoopDef[1]);
+        optimizedLoopDef = firstFew<Value, 4>(loopDef, -2);
+        optimizedLoopDef.emplace_back(blockedLoopDef[0]);
+        optimizedLoopDef.emplace_back(blockedLoopDef[1]);
       }
     }
 
-    // Default without unrolling.
-    create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](const KrnlBuilder &createKrnl, ValueRange storeIndices) {
+    create->krnl.iterateIE(loopDef, optimizedLoopDef, lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange storeIndices,
+            ValueRange optimizedIndices) {
           // Compute the indices used by the load operation.
           SmallVector<Value, 4> loadIndices;
           for (int64_t o = 0; o < rank; ++o)

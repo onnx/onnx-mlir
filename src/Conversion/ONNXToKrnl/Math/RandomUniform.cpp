@@ -31,9 +31,6 @@ struct ONNXRandomUniformOpLowering
     Location loc = ONNXLoc<ONNXRandomUniformOp>(op);
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
-    ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
-    size_t outputRank = outputMemRefShape.size();
-    Type elementType = outputMemRefType.getElementType();
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
 

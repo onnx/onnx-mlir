@@ -24,13 +24,13 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
 // CHECK:           "zlow.relu"([[RES_1_]], [[VAR_1_]], [[RES_2_]]) {layout = "2D"} : (memref<1x1x1x1x32x64xf16>, memref<2xi64>, memref<1x1x1x1x32x64xf16>) -> ()
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 5 {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to 1 {
-// CHECK:               [[LOAD_RES_2_MEM_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] * 3, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
-// CHECK:               affine.store [[LOAD_RES_2_MEM_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] * 3] : memref<1x1x1x1x32x64xf16>
-// CHECK:               [[LOAD_RES_2_MEM_1_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] * 3 + 1, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
-// CHECK:               affine.store [[LOAD_RES_2_MEM_1_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] * 3 + 1] : memref<1x1x1x1x32x64xf16>
-// CHECK:               [[LOAD_RES_2_MEM_2_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] * 3 + 2, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
-// CHECK:               affine.store [[LOAD_RES_2_MEM_2_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] * 3 + 2] : memref<1x1x1x1x32x64xf16>
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 3 step 3 {
+// CHECK:               [[LOAD_RES_2_MEM_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]], [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_2_MEM_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               [[LOAD_RES_2_MEM_1_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] + 1, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_2_MEM_1_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] + 1] : memref<1x1x1x1x32x64xf16>
+// CHECK:               [[LOAD_RES_2_MEM_2_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] + 2, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_2_MEM_2_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] + 2] : memref<1x1x1x1x32x64xf16>
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
