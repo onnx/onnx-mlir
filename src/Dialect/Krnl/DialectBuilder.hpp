@@ -83,6 +83,10 @@ struct KrnlBuilder : public DialectBuilder {
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
       KrnlLoopBodyFn bodyBuilderFn) const;
+  void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
+      mlir::ValueRange lbs, mlir::ValueRange ubs,
+      KrnlLoopBody2Fn bodyBuilderFn) const;
+
   // Deprecated.
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,

@@ -192,6 +192,21 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ValueRange lbs, ValueRange ubs, KrnlLoopBody2Fn bodyBuilderFn) const {
+  // Check that originalLoops, lbs, and ubs have the same rank.
+  assert(originalLoops.size() == lbs.size() && "expected same rank");
+  assert(originalLoops.size() == ubs.size() && "expected same rank");
+  b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs, ubs,
+      ValueRange(),
+      [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
+          ValueRange args, ValueRange iterArgs) {
+        KrnlBuilder createKrnl(builder, loc);
+        ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
+        bodyBuilderFn(createKrnl, origLoopArgs, indices);
+      });
+}
+
 // Deprecated
 KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
