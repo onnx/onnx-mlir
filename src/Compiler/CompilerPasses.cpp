@@ -256,6 +256,8 @@ void addKrnlToLLVMPasses(
   mlir::bufferization::buildBufferDeallocationPipeline(
       pm, bufferDeallocOptions);
   pm.addPass(mlir::createConvertBufferizationToMemRefPass());
+  // This pass is necessary to move deallocation after the last user.
+  pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
 
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
