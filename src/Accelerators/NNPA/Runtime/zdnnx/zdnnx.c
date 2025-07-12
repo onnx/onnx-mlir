@@ -640,6 +640,10 @@ void zdnnx_print_split_info(
   }
 }
 
+uint32_t zdnnx_get_num_tiles(zdnnx_split_info *split_info, zdnnx_axis axis) {
+  return split_info->num_tiles[axis];
+}
+
 // -----------------------------------------------------------------------------
 // Functions to work with tiles
 // -----------------------------------------------------------------------------

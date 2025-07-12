@@ -179,10 +179,7 @@ void zdnnx_free_buffer(void *aligned_ptr);
  * @param axis axis E1, E2, E3, or E4
  * @return the number of tiles.
  */
-inline uint32_t zdnnx_get_num_tiles(
-    zdnnx_split_info *split_info, zdnnx_axis axis) {
-  return split_info->num_tiles[axis];
-}
+uint32_t zdnnx_get_num_tiles(zdnnx_split_info *split_info, zdnnx_axis axis);
 
 /**
  * \brief Check if there is only one tile in split_info.
