@@ -429,6 +429,7 @@ OpsWithVerifier = [
     "Pad",
     "Pow",
     "RandomNormalLike",
+    "RandomUniformLike",
     "Range",
     "Reshape",
     "Resize",
@@ -485,6 +486,7 @@ OpsWithResultTypeInference = [
     "RandomNormal",
     "RandomNormalLike",
     "RandomUniform",
+    "RandomUniformLike",
     "Scan",
 ]
 
