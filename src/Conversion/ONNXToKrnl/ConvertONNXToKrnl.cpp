@@ -222,6 +222,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomUniformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRandomUniformLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLpNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXQLinearMatMulOpPattern(patterns, typeConverter, ctx);
