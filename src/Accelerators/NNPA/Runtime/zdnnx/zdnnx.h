@@ -178,12 +178,15 @@ void zdnnx_free_buffer(void *aligned_ptr);
  * @param split_info information for splitting
  * @param axis axis E1, E2, E3, or E4
  * @return the number of tiles.
- */
-inline uint32_t zdnnx_get_num_tiles(
+ * @note For clang compilers, this function needs to be static inline if the
+ *implementation is in a header file. Otherwise, it will cause errors when
+ *linking multiple object files that include this header file. This is a common
+ *issue with inline functions defined in header files.
+ **/
+static inline uint32_t zdnnx_get_num_tiles(
     zdnnx_split_info *split_info, zdnnx_axis axis) {
   return split_info->num_tiles[axis];
 }
-
 /**
  * \brief Check if there is only one tile in split_info.
  *
