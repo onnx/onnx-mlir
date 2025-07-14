@@ -183,7 +183,8 @@ void zdnnx_free_buffer(void *aligned_ptr);
  *linking multiple object files that include this header file. This is a common
  *issue with inline functions defined in header files.
  **/
-static inline uint32_t zdnnx_get_num_tiles(zdnnx_split_info *split_info, zdnnx_axis axis) {
+static inline uint32_t zdnnx_get_num_tiles(
+    zdnnx_split_info *split_info, zdnnx_axis axis) {
   return split_info->num_tiles[axis];
 }
 /**
