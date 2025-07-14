@@ -431,10 +431,6 @@ void zdnnx_create_view(const zdnn_ztensor *input, zdnn_ztensor *input_view,
 // Functions to work with spliting information
 // -----------------------------------------------------------------------------
 
-uint32_t zdnnx_get_num_tiles(zdnnx_split_info *split_info, zdnnx_axis axis) {
-  return split_info->num_tiles[axis];
-}
-
 bool zdnnx_has_one_tile(zdnnx_split_info *split_info) {
   return (split_info->flags & NO_SPLIT);
 }
