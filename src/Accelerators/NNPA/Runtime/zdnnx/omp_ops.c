@@ -37,11 +37,17 @@ static uint32_t zdnnx_num_procs = 0;
 static uint32_t zdnnx_get_num_zaius() {
   if (zdnnx_num_zaius > 0)
     return zdnnx_num_zaius;
-  zdnnx_num_zaius = omp_get_num_places();
-  if (zdnnx_num_zaius == 0) {
-    // OMP_PLACES is not set. Return 1 to say using one processor.
-    zdnnx_num_zaius = 1;
+
+  // If OM_NUM_ZAIU_THREADS is set, use it.
+  // Otherwise, use OMP_NUM_THREADS.
+  const char *env_num_zaius = getenv("OM_NUM_ZAIU_THREADS");
+  if (env_num_zaius != NULL) {
+    zdnnx_num_zaius = atoi(env_num_zaius);
+  } else {
+    const char *env = getenv("OMP_NUM_THREADS");
+    zdnnx_num_zaius = (env != NULL) ? atoi(env) : 1;
   }
+
 #ifdef ZDNNX_DEBUG
   printf("[zdnnx] num_zaius: %d\n", zdnnx_num_zaius);
 #endif
@@ -51,17 +57,7 @@ static uint32_t zdnnx_get_num_zaius() {
 static uint32_t zdnnx_get_min_num_procs_per_zaiu() {
   if (zdnnx_min_num_procs_per_zaius > 0)
     return zdnnx_min_num_procs_per_zaius;
-
-  zdnnx_min_num_procs_per_zaius = (uint32_t)-1;
-  for (int i = 0; i < omp_get_num_places(); ++i) {
-    uint32_t num_procs = omp_get_place_num_procs(i);
-    if (num_procs == 0) {
-      zdnnx_min_num_procs_per_zaius = 1;
-      break;
-    }
-    if (num_procs < zdnnx_min_num_procs_per_zaius)
-      zdnnx_min_num_procs_per_zaius = num_procs;
-  }
+  zdnnx_min_num_procs_per_zaius = 1;
 #ifdef ZDNNX_DEBUG
   printf(
       "[zdnnx] min_num_procs_per_zaius: %d\n", zdnnx_min_num_procs_per_zaius);
@@ -73,13 +69,9 @@ uint32_t zdnnx_get_num_procs() {
   if (zdnnx_num_procs > 0)
     return zdnnx_num_procs;
 
-  zdnnx_num_procs = 0;
-  for (int i = 0; i < omp_get_num_places(); ++i)
-    zdnnx_num_procs += omp_get_place_num_procs(i);
-  if (zdnnx_num_procs == 0) {
-    // OMP_PLACES is not set. Return 1 to say using one processor.
-    zdnnx_num_procs = 1;
-  }
+  // If OMP_NUM_THREADS is not set, it is the sequential mode.
+  const char *env = getenv("OMP_NUM_THREADS");
+  zdnnx_num_procs = (env != NULL) ? atoi(env) : 1;
 
 #ifdef ZDNNX_DEBUG
   printf("[zdnnx] num_procs: %d (%s)\n", zdnnx_num_procs,
