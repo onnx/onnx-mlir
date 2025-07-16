@@ -233,9 +233,8 @@ private:
       }
     }
 
-    create->krnl.iterateIE(loopDef, optimizedLoopDef, lbs, ubs,
-        [&](const KrnlBuilder &createKrnl, ValueRange storeIndices,
-            ValueRange optimizedIndices) {
+    create->krnl.iterateIEWithOrigLoop(loopDef, optimizedLoopDef, lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange storeIndices) {
           // Compute the indices used by the load operation.
           SmallVector<Value, 4> loadIndices;
           for (int64_t o = 0; o < rank; ++o)

@@ -83,9 +83,13 @@ struct KrnlBuilder : public DialectBuilder {
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
       KrnlLoopBodyFn bodyBuilderFn) const;
-  void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
-      mlir::ValueRange lbs, mlir::ValueRange ubs,
-      KrnlLoopBody2Fn bodyBuilderFn) const;
+
+  // Iterate over original loops given the original loops, optimized loops, lbs
+  // and ubs. Lambda function implement the body of the loop, and receive a KRNL
+  // builder and the original loop indices.
+  void iterateWithOrigLoop(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
+      mlir::ValueRange ubs, KrnlLoopBodyFn bodyBuilderFn) const;
 
   // Deprecated.
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
@@ -100,9 +104,10 @@ struct KrnlBuilder : public DialectBuilder {
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
-  void iterateIE(mlir::ValueRange originalLoops,
+  void iterateIEWithOrigLoop(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
-      mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBody2Fn bodyBuilderFn) const;
+      mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
+
   // Deprecated.
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,

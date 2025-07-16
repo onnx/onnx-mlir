@@ -192,8 +192,9 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
-void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
-    ValueRange lbs, ValueRange ubs, KrnlLoopBody2Fn bodyBuilderFn) const {
+void KrnlBuilder::iterateWithOrigLoop(ValueRange originalLoops,
+    ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs,
+    KrnlLoopBodyFn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -202,8 +203,7 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
       [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
           ValueRange args, ValueRange iterArgs) {
         KrnlBuilder createKrnl(builder, loc);
-        ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
-        bodyBuilderFn(createKrnl, origLoopArgs, indices);
+        bodyBuilderFn(createKrnl, origLoopArgs);
       });
 }
 
@@ -239,9 +239,9 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
   iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
-void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
-    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
-    KrnlLoopBody2Fn bodyBuilderFn) const {
+void KrnlBuilder::iterateIEWithOrigLoop(ValueRange originalLoops,
+    ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+    KrnlLoopBodyFn bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
@@ -250,8 +250,7 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
       [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
           ValueRange args, ValueRange iterArgs) {
         KrnlBuilder createKrnl(builder, loc);
-        ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
-        bodyBuilderFn(createKrnl, origLoopArgs, indices);
+        bodyBuilderFn(createKrnl, origLoopArgs);
       });
 }
 
