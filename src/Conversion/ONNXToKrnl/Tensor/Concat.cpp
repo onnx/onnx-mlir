@@ -88,17 +88,23 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different
+      // Explore parallelism at the first two outermost dimensions and give up
+      // if the found dimension is 'axis'.
       commonUB[axis] = ubs[axis];
       if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId)) {
-          create.krnl.parallel(loopDef[0]);
+        int64_t parId = -1;
+        if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId)) {
+          if (parId == axis)
+            parId = -1;
+          else
+            create.krnl.parallel(loopDef[parId]);
+        }
+        if (parId != -1)
           onnxToKrnlParallelReport(
               op, true, parId, lbs[parId], ubs[parId], "concat");
-        } else {
+        else
           onnxToKrnlParallelReport(
               op, false, -1, -1, "no par dim with enough work in concat");
-        }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
