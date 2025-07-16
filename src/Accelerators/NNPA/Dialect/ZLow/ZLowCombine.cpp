@@ -28,11 +28,34 @@ namespace {
 namespace onnx_mlir {
 namespace zlow {
 
+class RemoveUnstickOpPattern : public OpRewritePattern<ZLowUnstickOp> {
+public:
+  using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
+
+  RemoveUnstickOpPattern(MLIRContext *context)
+      : OpRewritePattern(context, /*benefit=*/1) {}
+
+  LogicalResult matchAndRewrite(
+      ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    if (unstickOp.getOut().hasOneUse()) {
+      rewriter.eraseOp(unstickOp);
+      return success();
+    } else {
+      return failure();
+    }
+  }
+};
+
 /// Register optimization patterns as "canonicalization" patterns on the
 /// ZLowDummyOp.
 void ZLowDummyOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RemoveDummyOpPattern>(context);
+}
+
+void ZLowUnstickOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RemoveUnstickOpPattern>(context);
 }
 
 /// ZLowConvertF32ToDLF16Op.
