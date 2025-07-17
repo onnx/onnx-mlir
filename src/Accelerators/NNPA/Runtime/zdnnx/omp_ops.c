@@ -26,59 +26,43 @@
 #include "zdnnx_ops.h"
 
 // Keep these values to avoid calling omp functions multiple times.
-static uint32_t zdnnx_num_zaius = 0;
-static uint32_t zdnnx_min_num_procs_per_zaius = 0;
-static uint32_t zdnnx_num_procs = 0;
+static uint32_t zdnnx_num_zaiu_threads = 0;
+static uint32_t zdnnx_min_num_threads_per_zaiu = 0;
 
 // -----------------------------------------------------------------------------
 // Utility functions
 // -----------------------------------------------------------------------------
 
-static uint32_t zdnnx_get_num_zaius() {
-  if (zdnnx_num_zaius > 0)
-    return zdnnx_num_zaius;
+uint32_t zdnnx_get_num_zaiu_threads() {
+  if (zdnnx_num_zaiu_threads > 0)
+    return zdnnx_num_zaiu_threads;
 
   // If OM_NUM_ZAIU_THREADS is set, use it.
   // Otherwise, use OMP_NUM_THREADS.
-  const char *env_num_zaius = getenv("OM_NUM_ZAIU_THREADS");
-  if (env_num_zaius != NULL) {
-    zdnnx_num_zaius = atoi(env_num_zaius);
+  const char *env_num_zaiu_threads = getenv("OM_NUM_ZAIU_THREADS");
+  if (env_num_zaiu_threads != NULL) {
+    zdnnx_num_zaiu_threads = atoi(env_num_zaiu_threads);
   } else {
     const char *env = getenv("OMP_NUM_THREADS");
-    zdnnx_num_zaius = (env != NULL) ? atoi(env) : 1;
+    zdnnx_num_zaiu_threads = (env != NULL) ? atoi(env) : 1;
   }
 
 #ifdef ZDNNX_DEBUG
-  printf("[zdnnx] num_zaius: %d\n", zdnnx_num_zaius);
+  printf("[zdnnx] num_zaiu_threads: %d\n", zdnnx_num_zaiu_threads);
 #endif
-  return zdnnx_num_zaius;
+  return zdnnx_num_zaiu_threads;
 }
 
-static uint32_t zdnnx_get_min_num_procs_per_zaiu() {
-  if (zdnnx_min_num_procs_per_zaius > 0)
-    return zdnnx_min_num_procs_per_zaius;
-  zdnnx_min_num_procs_per_zaius = 1;
+static uint32_t zdnnx_get_min_num_threads_per_zaiu() {
+  if (zdnnx_min_num_threads_per_zaiu > 0)
+    return zdnnx_min_num_threads_per_zaiu;
+  // Fix to 1 at this moment.
+  zdnnx_min_num_threads_per_zaiu = 1;
 #ifdef ZDNNX_DEBUG
   printf(
-      "[zdnnx] min_num_procs_per_zaius: %d\n", zdnnx_min_num_procs_per_zaius);
+      "[zdnnx] min_num_threads_per_zaiu: %d\n", zdnnx_min_num_threads_per_zaiu);
 #endif
-  return zdnnx_min_num_procs_per_zaius;
-}
-
-uint32_t zdnnx_get_num_procs() {
-  if (zdnnx_num_procs > 0)
-    return zdnnx_num_procs;
-
-  // If OMP_NUM_THREADS is not set, it is the sequential mode.
-  const char *env = getenv("OMP_NUM_THREADS");
-  zdnnx_num_procs = (env != NULL) ? atoi(env) : 1;
-
-#ifdef ZDNNX_DEBUG
-  printf("[zdnnx] num_procs: %d (%s)\n", zdnnx_num_procs,
-      zdnnx_is_telum_1 ? "Telum I" : "Telum II");
-#endif
-
-  return zdnnx_num_procs;
+  return zdnnx_min_num_threads_per_zaiu;
 }
 
 // -----------------------------------------------------------------------------
@@ -133,8 +117,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
   // over multiple zAIUs.
   uint32_t mdis_e1 = zdnnx_get_nnpa_max_dim_size(E1);
   uint32_t mdis_e2 = zdnnx_get_nnpa_max_dim_size(E2);
-  uint32_t num_zaius = zdnnx_get_num_zaius();
-  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
+  uint32_t num_zaiu_threads = zdnnx_get_num_zaiu_threads();
+  uint32_t num_threads_per_zaiu = zdnnx_get_min_num_threads_per_zaiu();
   uint32_t BS = zdnnx_get_transformed_dim(input_a, E4);
   uint32_t M = zdnnx_get_transformed_dim(input_a, E2);
   uint32_t K = zdnnx_get_transformed_dim(input_a, E1);
@@ -147,8 +131,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
 
   zdnnx_split_info si_a, si_b, si_c, si_y;
   uint32_t ts_e4 = 0, ts_e2 = 0, ts_e1 = 0;
-  bool enoughBS = (num_zaius == 1 && BS >= num_procs_per_zaius) ||
-                  (num_zaius > 1 && BS >= num_zaius);
+  bool enoughBS = (num_zaiu_threads == 1 && BS >= num_threads_per_zaiu) ||
+                  (num_zaiu_threads > 1 && BS >= num_zaiu_threads);
   bool exceedM = M > mdis_e2;
   bool exceedN = N > mdis_e1;
 
@@ -156,9 +140,9 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
   // Set tile_size for BS.
   if (enoughBS && !exceedM && !exceedN) {
     // Only splitting BS is enough.
-    uint32_t num_tiles_per_e4 = num_zaius;
-    if (num_zaius == 1)
-      num_tiles_per_e4 = num_procs_per_zaius;
+    uint32_t num_tiles_per_e4 = num_zaiu_threads;
+    if (num_zaiu_threads == 1)
+      num_tiles_per_e4 = num_threads_per_zaiu;
     ts_e4 = zdnnx_get_transformed_dim_per_tile(input_a, num_tiles_per_e4, E4);
     splitBSOnly = true;
   } else if (BS != 1) {
@@ -183,11 +167,12 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
       // Tiles over M are parallelized over multiple zaius.
       // Multiple threads per zaiu along N is to minimize data copy for the
       // output.
-      num_tiles_per_e1 = num_procs_per_zaius;
+      num_tiles_per_e1 = num_threads_per_zaiu;
     } else {
       // Two threads along N to minimize warmup overhead of zdnn calls
       // if possible.
-      num_tiles_per_e1 = num_zaius * ((num_procs_per_zaius < 2) ? 1 : 2);
+      num_tiles_per_e1 =
+          num_zaiu_threads * ((num_threads_per_zaiu < 2) ? 1 : 2);
     }
     ts_e1 = zdnnx_get_transformed_dim_per_tile(input_b, num_tiles_per_e1, E1);
     while (ts_e1 > mdis_e1) {
@@ -308,9 +293,9 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
 
   // Select suitable tile sizes.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0, ts_e1 = 0;
-  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
-  uint32_t num_tiles = zdnnx_get_num_zaius() *
-                       ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
+  uint32_t num_threads_per_zaiu = zdnnx_get_min_num_threads_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaiu_threads() *
+                       ((num_threads_per_zaiu > 2) ? 2 : num_threads_per_zaiu);
   if (isBigTensor) {
     ts_e4 = zdnnx_get_transformed_dim_per_tile(&input_view, num_tiles, E4);
     uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
@@ -441,9 +426,9 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
 
   // Select suitable tile sizes.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0, ts_e1 = 0;
-  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
-  uint32_t num_tiles = zdnnx_get_num_zaius() *
-                       ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
+  uint32_t num_threads_per_zaiu = zdnnx_get_min_num_threads_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaiu_threads() *
+                       ((num_threads_per_zaiu > 2) ? 2 : num_threads_per_zaiu);
   if (isBigTensor) {
     ts_e4 = zdnnx_get_transformed_dim_per_tile(&input_a_view, num_tiles, E4);
     uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
@@ -541,9 +526,9 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
   uint32_t mdis_e2 = zdnnx_get_nnpa_max_dim_size(E2);
   uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
   uint64_t mts = zdnnx_get_nnpa_max_tensor_size();
-  uint32_t num_procs_per_zaius = zdnnx_get_min_num_procs_per_zaiu();
-  uint32_t num_tiles = zdnnx_get_num_zaius() *
-                       ((num_procs_per_zaius > 2) ? 2 : num_procs_per_zaius);
+  uint32_t num_threads_per_zaiu = zdnnx_get_min_num_threads_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaiu_threads() *
+                       ((num_threads_per_zaiu > 2) ? 2 : num_threads_per_zaiu);
 
   // Select suitable tile sizes.
   // For softmax, do not split E1 since it affects accuracy of the final result.
