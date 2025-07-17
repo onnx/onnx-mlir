@@ -387,6 +387,7 @@ using ONNXMishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNegOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNotOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRandomNormalLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXRandomUniformLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReciprocalOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRoundOpShapeHelper = ONNXUnaryOpShapeHelper;
