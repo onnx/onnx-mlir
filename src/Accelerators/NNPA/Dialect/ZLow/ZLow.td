@@ -445,6 +445,7 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
       build($_builder, $_state, X, Out, layout, IntegerAttr());
     }]>
   ];
+  let hasCanonicalizer = 1;
 }
 
 def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable,
