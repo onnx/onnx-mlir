@@ -243,7 +243,8 @@ ParseResult KrnlDefineLoopsOp::parse(
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgInits,
-    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+    function_ref<void(
+        OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>
         bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
@@ -281,7 +282,11 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   if (bodyBuilderFn) {
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
-    bodyBuilderFn(builder, result.location, iterArgInits, iterArgs);
+    SmallVector<Value, 4> originalLoopArgs;
+    for (auto arg : body->getArguments())
+      originalLoopArgs.push_back(arg);
+    bodyBuilderFn(
+        builder, result.location, originalLoopArgs, iterArgInits, iterArgs);
     ensureTerminator(*bodyRegion, builder, result.location);
   } else {
     ensureTerminator(*bodyRegion, builder, result.location);
@@ -291,7 +296,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
     ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+    function_ref<void(
+        OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>
         bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
@@ -312,7 +318,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+    function_ref<void(
+        OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>
         bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   SmallVector<Value, 4> origLoops, optLoops;
