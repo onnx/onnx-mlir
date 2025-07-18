@@ -151,7 +151,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **RandomNormal** |none | | | |
 | **RandomNormalLike** |none | | | |
 | **RandomUniform** |1 - * | | | |
-| **RandomUniformLike** |none | | | |
+| **RandomUniformLike** |1 - * | | | |
 | **Range** |11 - * | | |
 | **Reciprocal** |6 - * | | |
 | **ReduceL1** |13 - * |do_not_keep_dim not supported. | |
