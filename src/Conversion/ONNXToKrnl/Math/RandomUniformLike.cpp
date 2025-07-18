@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- RandomUniform.cpp - Lowering RandomUniform Op//----------===//
+//===----- RandomUniformLike.cpp - Lowering RandomUniformLike Op//--------===//
 //
 // Copyright 2025  The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the ONNX Random Uniform Operator to Krnl dialect.
+// This file lowers the ONNX Random Uniform Like Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,16 +19,19 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
+
 namespace onnx_mlir {
-struct ONNXRandomUniformOpLowering
-    : public OpConversionPattern<ONNXRandomUniformOp> {
-  ONNXRandomUniformOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+
+struct ONNXRandomUniformLikeOpLowering
+    : public OpConversionPattern<ONNXRandomUniformLikeOp> {
+  ONNXRandomUniformLikeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
       : OpConversionPattern(typeConverter, ctx) {}
-  LogicalResult matchAndRewrite(ONNXRandomUniformOp randOp,
-      ONNXRandomUniformOpAdaptor adaptor,
+  LogicalResult matchAndRewrite(ONNXRandomUniformLikeOp randOp,
+      ONNXRandomUniformLikeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = randOp.getOperation();
-    Location loc = ONNXLoc<ONNXRandomUniformOp>(op);
+    Location loc = ONNXLoc<ONNXRandomUniformLikeOp>(op);
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
@@ -48,7 +51,7 @@ struct ONNXRandomUniformOpLowering
       doubleSeed = seed->convertToDouble();
     Value seedValue = create.math.constant(rewriter.getF32Type(), doubleSeed);
 
-    SmallVector<Value, 5> operands = {alloc, lowValue, highValue, seedValue};
+    SmallVector<Value, 4> operands = {alloc, lowValue, highValue, seedValue};
     // Create a call to the runtime function for uniform random generation.
     rewriter.create<KrnlCallOp>(loc, "run_uniform_random", 1, operands);
 
@@ -57,9 +60,10 @@ struct ONNXRandomUniformOpLowering
     return success();
   }
 };
-void populateLoweringONNXRandomUniformOpPattern(RewritePatternSet &patterns,
+
+void populateLoweringONNXRandomUniformLikeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXRandomUniformOpLowering>(typeConverter, ctx);
+  patterns.insert<ONNXRandomUniformLikeOpLowering>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
