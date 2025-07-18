@@ -65,7 +65,7 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     // Enable parallelism if required.
     if (enableParallel) {
       int64_t parId = -1;
-      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 4)) {
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId)) {
         create.krnl.parallel(outputLoopDef[parId]);
         onnxToKrnlParallelReport(
             op, true, parId, lbs[parId], ubs[parId], "expand");
