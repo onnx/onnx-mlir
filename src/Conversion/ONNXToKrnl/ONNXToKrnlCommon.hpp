@@ -234,8 +234,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarIOp<Op>>(
-          loc, elementType, scalarsSplatted, std::nullopt);
+      return rewriter.create<ScalarIOp<Op>>(loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
@@ -247,8 +246,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarFOp<Op>>(
-          loc, elementType, scalarsSplatted, std::nullopt);
+      return rewriter.create<ScalarFOp<Op>>(loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported float operation");
   } else {

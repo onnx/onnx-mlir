@@ -157,7 +157,7 @@ def KrnlYieldOp : Op<Krnl_Dialect, "yield", [Pure, Terminator, ReturnLike,
   let arguments = (ins Variadic<AnyType>:$operands);
 
   let builders = [
-    OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
+    OpBuilder<(ins), [{ build($_builder, $_state, llvm::ArrayRef<mlir::Value>()); }]>
   ];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
@@ -204,7 +204,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, Implici
   let builders = [
     // Main builder.
     OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
-      CArg<"ValueRange", "std::nullopt">:$iterArgs,
+      CArg<"ValueRange", "llvm::ArrayRef<mlir::Value>()">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins

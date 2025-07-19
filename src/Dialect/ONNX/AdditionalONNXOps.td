@@ -355,7 +355,7 @@ def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
 
   let builders = [
     OpBuilder<(ins),
-    [{ build($_builder, $_state, std::nullopt); }]>];
+    [{ build($_builder, $_state, llvm::ArrayRef<mlir::Value>()); }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
