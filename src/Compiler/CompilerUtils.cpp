@@ -172,7 +172,8 @@ int Command::exec(std::string wdir) const {
 
   std::string errMsg;
   int rc = llvm::sys::ExecuteAndWait(_path, llvm::ArrayRef(argsRef),
-      /*Env=*/{}, /*Redirects=*/{},
+      /*Env=*/{},
+      /*Redirects=*/{},
       /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
   if (rc != 0) {
