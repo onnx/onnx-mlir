@@ -44,7 +44,7 @@
 // TODO: see if it impacts performance significantly and investigate why
 // it causes issues with lowering.
 #define PREFETCH_CSU_DIST 0
-#define PREFETCH_CSU 0
+#define PREFETCH_CSU 1
 
 using namespace mlir;
 
