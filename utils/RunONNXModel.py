@@ -95,14 +95,6 @@ def check_non_negative(argname, value):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--log-to-file",
-    action="store",
-    nargs="?",
-    const="compilation.log",
-    default=None,
-    help="Output compilation messages to file, default compilation.log.",
-)
-parser.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
@@ -269,6 +261,25 @@ parser.add_argument(
     type=str,
     default="42",
     help="seed to initialize the random num generator for inputs.",
+)
+parser.add_argument(
+    "--write-compile-log",
+    action="store",
+    nargs="?",
+    metavar="PATH",
+    const="compile.log",
+    default=None,
+    help="Output compilation messages to file, default compile.log.",
+)
+parser.add_argument(
+    "--write-runtime-log",
+    action="store",
+    nargs="?",
+    metavar="PATH",
+    const="runtime.log",
+    default=None,
+    help="Output runtime profile info to file, default runtime.log. "
+    "These information will be printed out if the model is compiled with --profile-ir flag",
 )
 
 
@@ -806,11 +817,11 @@ class InferenceSession:
             start = time.perf_counter()
             ok, msg = execute_commands(command_str)
             # Dump the compilation log into a file.
-            if args.log_to_file:
+            if args.write_compile_log:
                 log_file = (
-                    args.log_to_file
-                    if args.log_to_file.startswith("/")
-                    else os.path.join(os.getcwd(), args.log_to_file)
+                    args.write_compile_log
+                    if args.write_compile_log.startswith("/")
+                    else os.path.join(os.getcwd(), args.write_compile_log)
                 )
                 print("  Compilation log is dumped into {}".format(log_file))
                 with open(log_file, "w") as f:
@@ -1093,6 +1104,15 @@ class InferenceSession:
         self.process_inputs(input_feed)
         # Running inference.
         print("Running inference ...")
+        if args.write_runtime_log:
+            log_file = (
+                args.write_runtime_log
+                if args.write_runtime_log.startswith("/")
+                else os.path.join(os.getcwd(), args.write_runtime_log)
+            )
+            print("  Runtime log is dumped into {}".format(log_file))
+            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = log_file
+
         for i in range(args.warmup):
             start = time.perf_counter()
             outs = self.run_inference()  # Using inputs from self.inputs.
