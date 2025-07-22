@@ -36,7 +36,7 @@ include(zdnn.cmake)
 setup_zdnn(v1.1.2)
 
 # Note: consider to use a compile flag instead.
-option(ZDNNX_DEBUG "Enable ZDNNX debug information" ON)
+option(ZDNNX_DEBUG "Enable ZDNNX debug information" OFF)
 if (ZDNNX_DEBUG)
   add_compile_definitions(ZDNNX_DEBUG)
 endif()
