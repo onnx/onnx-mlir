@@ -28,11 +28,15 @@ namespace {
 namespace onnx_mlir {
 namespace zlow {
 
+// A helper function to remove zlow operations whose outputs are ones in the
+// input operands. This function checks if the outputs have no other use rather
+// than the current zlow operation then it removes the zlow operation.
 static LogicalResult removeUnusedOp(
     PatternRewriter &rewriter, Operation *op, ArrayRef<int64_t> resultIndices) {
   SmallVector<Value> results;
   for (int64_t i : resultIndices)
     results.emplace_back(op->getOperands()[i]);
+  // Check if this operation is the only one that uses the output buffers.
   bool allHasOneUse =
       llvm::all_of(results, [](Value v) { return v.hasOneUse(); });
   if (allHasOneUse) {
