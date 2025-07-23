@@ -675,7 +675,7 @@ tblgen_types = (
     "F8E4M3FNUZ",
     "F8E5M2",
     "F8E5M2FNUZ",
-    "F4E2M1"
+    "F4E2M1",
     "AnyUI4",
     "AnyI4",
 )
