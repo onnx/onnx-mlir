@@ -675,7 +675,7 @@ tblgen_types = (
     "F8E4M3FNUZ",
     "F8E5M2",
     "F8E5M2FNUZ",
-    "F4E2M1",
+    "F4E2M1FN",
     "AnyUI4",
     "AnyI4",
 )
@@ -1086,6 +1086,7 @@ def parse_type_str(allowedType):
         "float8e4m3fnuz": "F8E4M3FNUZ",
         "float8e5m2": "F8E5M2",
         "float8e5m2fnuz": "F8E5M2FNUZ",
+        "float4e2m1": "F4E2M1FN",
         "complex64": "Complex<F32>",
         "complex128": "Complex<F64>",
         "string": "StringType",
