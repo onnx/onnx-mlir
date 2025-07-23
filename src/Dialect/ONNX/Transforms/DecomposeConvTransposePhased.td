@@ -45,7 +45,7 @@ def reverseWeightConvTranspose: NativeCodeCall<
   "onnx_mlir::reverseWeightTensor($_builder, $_loc, $0)">;
 
 def decomposeIntoPhasedConvs: NativeCodeCall<
-  "onnx_mlir::decomposeIntoPhasedConvs($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $0,$1, $2, $3, $4, $5, $6, $7, $8, $9)">;
+  "onnx_mlir::decomposeIntoPhasedConvs($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $0,$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)">;
 
 def ShouldDecomposeConvTransposeOpToPhasedConvs: Constraint<
   CPred<"onnx_mlir::ShouldDecomposeConvTransposeOpToPhasedConvs($_self, $0, $1, $2, $3)">,
@@ -56,6 +56,28 @@ def hasDefaultDilation: Constraint<
   CPred<"onnx_mlir::hasDefaultDilation($0)">,
   "Check if the dilation given is default"
 >;
+def ConvTransposeOpAsConv2dWithLReluAndQDQPattern2: Pattern<
+   (ONNXLeakyReluOp (ONNXDequantizeLinearOp:$ct_dq ( ONNXQuantizeLinearOp:$ct_q (ONNXConvTransposeOp:$res $x, (ONNXDequantizeLinearOp:$w_dq $w, $x_scale, $x_zero_point, $x_axis), $b,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides), $y_scale, $y_zero_point, $y_axis, $y_saturate), $r_scale, $r_zero_point, $r_axis),$alpha),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha, $ct_dq, $ct_q, $w_dq)
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 4)
+>;
+def ConvTransposeOpAsConv2dWithLReluAndQDQPattern1: Pattern<
+   (ONNXLeakyReluOp (ONNXConvTransposeOp:$res $x, (ONNXDequantizeLinearOp:$w_dq $w, $x_scale, $x_zero_point, $x_axis), $b,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides), $alpha),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha, (CreateNoneValue), (CreateNoneValue), $w_dq)
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 3)
+>;
 
 def ConvTransposeOpAsConv2dWithLReluPattern1: Pattern<
    (ONNXLeakyReluOp (ONNXConvTransposeOp:$res $x, $w, $b,
@@ -63,10 +85,32 @@ def ConvTransposeOpAsConv2dWithLReluPattern1: Pattern<
       $output_padding, $output_shape, $pads, $strides), $alpha),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha)
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha, (CreateNoneValue),(CreateNoneValue),(CreateNoneValue))
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
    (addBenefit 2)
+>;
+def ConvTransposeOpAsConv2dWithReluAndQDQPattern2: Pattern<
+   (ONNXReluOp (ONNXDequantizeLinearOp:$ct_dq ( ONNXQuantizeLinearOp:$ct_q (ONNXConvTransposeOp:$res $x, (ONNXDequantizeLinearOp:$w_dq $w, $x_scale, $x_zero_point, $x_axis), $b,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides), $y_scale, $y_zero_point, $y_axis, $y_saturate), $r_scale, $r_zero_point, $r_axis)),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, (GetZeroFloatAttr), $ct_dq, $ct_q, $w_dq)
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 4)
+>;
+def ConvTransposeOpAsConv2dWithReluAndQDQPattern1: Pattern<
+   (ONNXReluOp (ONNXConvTransposeOp:$res $x, (ONNXDequantizeLinearOp:$w_dq $w, $x_scale, $x_zero_point, $x_axis), $b,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides)),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, (GetZeroFloatAttr), (CreateNoneValue), (CreateNoneValue), $w_dq)
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 3)
 >;
 
 def ConvTransposeOpAsConv2dWithReluPattern1: Pattern<
@@ -75,9 +119,20 @@ def ConvTransposeOpAsConv2dWithReluPattern1: Pattern<
       $output_padding, $output_shape, $pads, $strides)),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, (GetZeroFloatAttr))
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, (GetZeroFloatAttr), (CreateNoneValue),(CreateNoneValue),(CreateNoneValue))
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
+   (addBenefit 2)
+>;
+def ConvTransposeOpAsConv2dWithQDQPattern1: Pattern<
+   (ONNXConvTransposeOp:$res $x, (ONNXDequantizeLinearOp:$w_dq $w, $x_scale, $x_zero_point, $x_axis), $b,
+      $auto_pad, $dilation, IntOne:$group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides,  (GetNullFloatAttr), (CreateNoneValue), (CreateNoneValue), $w_dq)
+   ],
+   [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(hasNoActivationConsumer:$res),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
    (addBenefit 2)
 >;
 
@@ -87,10 +142,12 @@ def ConvTransposeOpAsConv2dPattern1: Pattern<
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides,  (GetNullFloatAttr))
+    (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides,  (GetNullFloatAttr),  (CreateNoneValue),(CreateNoneValue),(CreateNoneValue))
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(hasNoActivationConsumer:$res),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
    (addBenefit 1)
 >;
+
+
 
 #endif // ONNX_DECOMPOSE_CONVTRANSPOSE_PHASED

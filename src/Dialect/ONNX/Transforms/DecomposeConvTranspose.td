@@ -43,9 +43,6 @@ def reverseWeightConvTranspose: NativeCodeCall<
 def getFinalOutputFromFourConvOutput: NativeCodeCall<
   "onnx_mlir::getFinalOutputFromFourConvOutput($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(),$0,$1,$2,$3)">;
 
-def decomposeIntoPhasedConvs: NativeCodeCall<
-  "onnx_mlir::decomposeIntoPhasedConvs($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $0,$1, $2, $3, $4, $5, $6, $7, $8, $9)">;
-
 def ph1WeightForConv: NativeCodeCall<
   "onnx_mlir::ph1WeightTensor($_builder, $_loc, $0)">;
 
