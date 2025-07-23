@@ -65,7 +65,7 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
             op, true, parId, lbs[parId], ubs[parId], "slice");
       } else {
         onnxToKrnlParallelReport(
-            op, false, -1, -1, "no par dim with enough work in expand");
+            op, false, -1, -1, "no par dim with enough work in slice");
       }
     }
 
