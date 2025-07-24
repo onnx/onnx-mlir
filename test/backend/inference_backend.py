@@ -291,11 +291,7 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # TODO: fix for incorrect value due to the ceil_mode.
-        # "test_averagepool_2d_ceil_last_window_starts_on_pad_cpu": { 
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        # "test_averagepool_2d_ceil_last_window_starts_on_pad_cpu": {},
         "test_averagepool_2d_default_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
