@@ -689,8 +689,21 @@ bool hasDefaultDilation(ArrayAttr dilation) {
 bool hasNoActivationConsumer(Value convTransposeResult) {
   auto result = convTransposeResult.getDefiningOp<ONNXConvTransposeOp>().getY();
   if (result.hasOneUse()) {
-    Operation *user = *(result.getUsers().begin());
-    return !mlir::isa<ONNXReluOp, ONNXLeakyReluOp>(user);
+    Operation *userAtDepth1FromConvt = *(result.getUsers().begin());
+    // Check for ConvTranspose->Quant->Dequant->Activation chain.
+    if (mlir::isa<ONNXQuantizeLinearOp>(userAtDepth1FromConvt)) {
+      Operation *userAtDepth2FromConvt =
+          *(userAtDepth1FromConvt->getResult(0).getUsers().begin());
+      if (mlir::isa<ONNXDequantizeLinearOp>(userAtDepth2FromConvt)) {
+        Operation *userAtDepth3FromConvt =
+            *(userAtDepth2FromConvt->getResult(0).getUsers().begin());
+        return !mlir::isa<ONNXReluOp, ONNXLeakyReluOp>(userAtDepth3FromConvt);
+      }
+      // If no Dequant node exists under Quant node, consider no activation.
+      return true;
+    }
+    // If No Quantize node exists under Convt, check for activation directly.
+    return !mlir::isa<ONNXReluOp, ONNXLeakyReluOp>(userAtDepth1FromConvt);
   }
   return true;
 }
@@ -1433,6 +1446,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto convtQuantAxis = convtQuantOp.getAxis();
     auto convtQuantSaturate = convtQuantOp.getSaturate();
     auto convtQuantLoc = convtQuantOp->getLoc();
+    Type quantElementType = getElementType(convtQuantOp.getType());
 
     // Properties from the ONNXDequantizeLinearOp Node taking input from Q node
     // which inturn taking input from ConvTranspose Node.
@@ -1440,16 +1454,20 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto convtDequantZeroPoint = convtDequantOp.getXZeroPoint();
     auto convtDequantAxis = convtDequantOp.getAxis();
     auto convtDequantLoc = convtDequantOp.getLoc();
+    Type dequantElementType = getElementType(convtDequantOp.getType());
 
-    RankedTensorType dequantOutputType =
-        mlir::cast<RankedTensorType>(convtDequantOp.getType());
+    RankedTensorType convOutputType =
+        mlir::cast<RankedTensorType>(conv.getType());
 
-    RankedTensorType qOutputType =
-        mlir::cast<RankedTensorType>(convtQuantOp.getType());
+    auto dequantOutputType =
+        RankedTensorType::get(convOutputType.getShape(), dequantElementType);
+
+    RankedTensorType quantOutputType =
+        RankedTensorType::get(convOutputType.getShape(), quantElementType);
 
     auto quantNode = rewriter.create<ONNXQuantizeLinearOp>(convtQuantLoc,
-        qOutputType, conv, convtQuantScale, convtQuantZeroPoint, convtQuantAxis,
-        convtQuantSaturate);
+        quantOutputType, conv, convtQuantScale, convtQuantZeroPoint,
+        convtQuantAxis, convtQuantSaturate);
 
     auto dequantNode = rewriter.create<ONNXDequantizeLinearOp>(convtDequantLoc,
         dequantOutputType, quantNode, convtDequantScale, convtDequantZeroPoint,

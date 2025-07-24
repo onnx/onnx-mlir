@@ -65,7 +65,7 @@ def ConvTransposeOpAsConv2dWithLReluAndQDQPattern2: Pattern<
     (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha, $ct_dq, $ct_q, $w_dq)
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
-   (addBenefit 4)
+   (addBenefit 3)
 >;
 def ConvTransposeOpAsConv2dWithLReluAndQDQPattern1: Pattern<
    (ONNXLeakyReluOp (ONNXConvTransposeOp:$res $x, (ONNXDequantizeLinearOp:$w_dq $w, $x_scale, $x_zero_point, $x_axis), $b,
@@ -76,7 +76,7 @@ def ConvTransposeOpAsConv2dWithLReluAndQDQPattern1: Pattern<
     (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, $alpha, (CreateNoneValue), (CreateNoneValue), $w_dq)
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
-   (addBenefit 3)
+   (addBenefit 2)
 >;
 
 def ConvTransposeOpAsConv2dWithLReluPattern1: Pattern<
@@ -110,7 +110,7 @@ def ConvTransposeOpAsConv2dWithReluAndQDQPattern1: Pattern<
     (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides, (GetZeroFloatAttr), (CreateNoneValue), (CreateNoneValue), $w_dq)
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
-   (addBenefit 3)
+   (addBenefit 2)
 >;
 
 def ConvTransposeOpAsConv2dWithReluPattern1: Pattern<
@@ -133,7 +133,7 @@ def ConvTransposeOpAsConv2dWithQDQPattern1: Pattern<
     (decomposeIntoPhasedConvs:$output $res, $x, $reversed_w, $b, $dilation, $group, $kernel_shape, $pads, $strides,  (GetNullFloatAttr), (CreateNoneValue), (CreateNoneValue), $w_dq)
    ],
    [(HasRankAndShape:$res), (hasDefaultDilation:$res $dilation),(hasNoActivationConsumer:$res),(ShouldDecomposeConvTransposeOpToPhasedConvs:$res $kernel_shape,$pads,$strides,$output_shape)], [],
-   (addBenefit 2)
+   (addBenefit 1)
 >;
 
 def ConvTransposeOpAsConv2dPattern1: Pattern<
