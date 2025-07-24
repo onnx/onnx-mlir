@@ -138,14 +138,14 @@ func.func @test_nd_qlinearmatmul_nd_nd(%arg0: tensor<?x?x384x64xf32> {onnx.dim_p
   // CHECK:           [[VAR_7_:%.+]] = "onnx.Slice"([[VAR_6_]], [[VAR_3_]], [[VAR_2_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
   // CHECK:           [[VAR_8_:%.+]] = "onnx.Concat"([[VAR_5_]], [[VAR_7_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
   // CHECK:           [[VAR_9_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_8_]]) {allowzero = 0 : si64} : (tensor<?x?x384x64xf32>, tensor<3xi64>) -> tensor<?x384x64xf32>
-  // CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.QuantizeLinear"([[VAR_9_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x384x64xi8>
+  // CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.QuantizeLinear"([[VAR_9_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x384x64xi8>
   // CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<?x?x64x384xf32>) -> tensor<4xi64>
   // CHECK:           [[VAR_12_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_3_]], [[VAR_2_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
   // CHECK:           [[VAR_13_:%.+]] = "onnx.Concat"([[VAR_5_]], [[VAR_12_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
   // CHECK:           [[VAR_14_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_13_]]) {allowzero = 0 : si64} : (tensor<?x?x64x384xf32>, tensor<3xi64>) -> tensor<?x64x384xf32>
-  // CHECK:           [[VAR_15_:%.+]] = "onnx.QuantizeLinear"([[VAR_14_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<?x64x384xi8>
+  // CHECK:           [[VAR_15_:%.+]] = "onnx.QuantizeLinear"([[VAR_14_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<?x64x384xi8>
   // CHECK:           [[VAR_16_:%.+]] = "onnx.QLinearMatMul"([[VAR_10_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_15_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_3_]]) : (tensor<?x384x64xi8>, tensor<f32>, tensor<i8>, tensor<?x64x384xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xi8>
-  // CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.DequantizeLinear"([[VAR_16_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64} : (tensor<?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xf32>
+  // CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.DequantizeLinear"([[VAR_16_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64} : (tensor<?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xf32>
   // CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x384x64xf32>) -> tensor<4xi64>
   // CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<?x?x64x384xf32>) -> tensor<4xi64>
   // CHECK-NOT: separator of consecutive DAGs
@@ -173,14 +173,14 @@ func.func @test_nd_qlinearmatmul_nd_2d(%arg0: tensor<?x?x384x64xf32> {onnx.dim_p
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.QuantizeLinear"([[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<64x384xi8>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.QuantizeLinear"([[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<64x384xi8>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x384x64xf32>) -> tensor<4xi64>
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Slice"([[VAR_8_]], [[VAR_4_]], [[VAR_3_]], [[VAR_5_]], [[VAR_2_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Concat"([[VAR_6_]], [[VAR_9_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_10_]]) {allowzero = 0 : si64} : (tensor<?x?x384x64xf32>, tensor<3xi64>) -> tensor<?x384x64xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.QuantizeLinear"([[VAR_11_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x384x64xi8>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.QuantizeLinear"([[VAR_11_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x384x64xi8>
 // CHECK:           [[VAR_13_:%.+]] = "onnx.QLinearMatMul"([[VAR_12_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_7_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_3_]]) : (tensor<?x384x64xi8>, tensor<f32>, tensor<i8>, tensor<64x384xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xi8>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.DequantizeLinear"([[VAR_13_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64} : (tensor<?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xf32>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.DequantizeLinear"([[VAR_13_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64} : (tensor<?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xf32>
 // CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x384x64xf32>) -> tensor<4xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_15_]], [[VAR_5_]], [[VAR_1_]], [[VAR_5_]], [[VAR_2_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
@@ -207,14 +207,14 @@ func.func @test_nd_qlinearmatmul_2d_nd(%arg0: tensor<384x64xf32>, %arg1: tensor<
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<384x64xi8>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64,  block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<384x64xi8>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<?x?x64x384xf32>) -> tensor<4xi64>
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Slice"([[VAR_8_]], [[VAR_4_]], [[VAR_3_]], [[VAR_5_]], [[VAR_2_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Concat"([[VAR_6_]], [[VAR_9_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_10_]]) {allowzero = 0 : si64} : (tensor<?x?x64x384xf32>, tensor<3xi64>) -> tensor<?x64x384xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.QuantizeLinear"([[VAR_11_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<?x64x384xi8>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.QuantizeLinear"([[VAR_11_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<?x64x384xi8>
 // CHECK:           [[VAR_13_:%.+]] = "onnx.QLinearMatMul"([[VAR_7_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_12_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_3_]]) : (tensor<384x64xi8>, tensor<f32>, tensor<i8>, tensor<?x64x384xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xi8>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.DequantizeLinear"([[VAR_13_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64} : (tensor<?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xf32>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.DequantizeLinear"([[VAR_13_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64} : (tensor<?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x384x384xf32>
 // CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<?x?x64x384xf32>) -> tensor<4xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_15_]], [[VAR_5_]], [[VAR_4_]], [[VAR_5_]], [[VAR_2_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
@@ -236,10 +236,10 @@ func.func @test_nd_qlinearmatmul_nd_nd_not_rewriting(%arg0: tensor<?x?x384x64xf3
 
 // CHECK-LABEL:  func.func @test_nd_qlinearmatmul_nd_nd_not_rewriting
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x384x64xf32> {onnx.dim_params = "0:bs,1:sl"}, [[PARAM_1_:%.+]]: tensor<1x?x64x384xf32> {onnx.dim_params = "1:sl"}, [[PARAM_2_:%.+]]: tensor<f32>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<?x?x384x384xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<?x?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x64xi8>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.QuantizeLinear"([[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, saturate = 1 : si64} : (tensor<1x?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<1x?x64x384xi8>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64,  block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<?x?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x64xi8>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.QuantizeLinear"([[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64,  block_size = 0 : si64, output_dtype = 0 : si64, precision = 0 : si64, saturate = 1 : si64} : (tensor<1x?x64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<1x?x64x384xi8>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.QLinearMatMul"([[VAR_0_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_3_]]) : (tensor<?x?x384x64xi8>, tensor<f32>, tensor<i8>, tensor<1x?x64x384xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xi8>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.DequantizeLinear"([[VAR_2_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64} : (tensor<?x?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.DequantizeLinear"([[VAR_2_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64} : (tensor<?x?x384x384xi8>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x384xf32>
 // CHECK:           return [[VAR_3_]] : tensor<?x?x384x384xf32>
 // CHECK:         }
 }
