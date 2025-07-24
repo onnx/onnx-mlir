@@ -20,8 +20,14 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
-  ONNXSliceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXSliceOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXSliceOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ONNXSliceOp sliceOp, ONNXSliceOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -48,7 +54,22 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
-    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
+    DimsExpr ubs = shapeHelper.getOutputDims();
+
+    // Enable parallelism if required.
+    if (enableParallel) {
+      int64_t parId = -1;
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId)) {
+        create.krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], ubs[parId], "slice");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, -1, -1, "no par dim with enough work in slice");
+      }
+    }
+
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope loopScope(createKrnl);
 
@@ -72,11 +93,14 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
     onnxToKrnlSimdReport(op);
     return success();
   }
+
+private:
+  bool enableParallel = false;
 };
 
 void populateLoweringONNXSliceOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
