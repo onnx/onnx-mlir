@@ -2226,20 +2226,13 @@ struct ZHighToZLowDataConversionLowering
     DimsExpr lbs = {LitIE(0)};
     bool useParallel = false;
     if (enableParallel) {
-      int64_t parId;
-      int64_t tripCount = flattenedOutputDims[0].isLiteral()
-                              ? std::ceil(flattenedOutputDims[0].getLiteral() /
-                                          static_cast<float>(archVL))
-                              : -1;
-      if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
-              /*min iter for going parallel*/ 1024)) {
+      int64_t parId = tryCreateKrnlParallel(create.krnl, op,
+          "dlf16-f32 conversion fully parallelized", {}, lbs,
+          flattenedOutputDims, 0, 1, {},
+          /*min iter for going parallel*/ 1024,
+          /*doNotCreateKrnlParallel=*/true);
+      if (parId != -1)
         useParallel = true;
-        onnxToKrnlParallelReport(op, /*successful*/ true, 0, tripCount,
-            "dlf16-f32 conversion fully parallelized");
-      } else {
-        onnxToKrnlParallelReport(op, false, 0, tripCount,
-            "not enough work for dlf16-f32 conversion");
-      }
     }
     onnxToKrnlSimdReport(op, /*successful*/ true, archVL,
         flattenedOutputDims[0].isLiteral() ? flattenedOutputDims[0].getLiteral()
