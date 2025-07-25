@@ -21,8 +21,8 @@
 #include "zdnnx_ops.h"
 #include "zdnnx_ops_private.h"
 
-// The total number of processors.
-uint32_t zdnnx_get_num_procs();
+// Get the number of threads for multiple zAIUs.
+uint32_t zdnnx_get_num_zaiu_threads();
 
 zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,

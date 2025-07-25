@@ -67,7 +67,7 @@ typedef enum ElemementwiseOp {
 #ifdef ZDNNX_WITH_OMP
 #define ZDNNX_CALL_FUNC(msg, seq_func, omp_func, ...)                          \
   ZDNNX_START_TIMING();                                                        \
-  if (zdnnx_get_num_procs() == 1)                                              \
+  if (zdnnx_get_num_zaiu_threads() == 1)                                       \
     status = seq_func(__VA_ARGS__);                                            \
   else                                                                         \
     status = omp_func(__VA_ARGS__);                                            \
