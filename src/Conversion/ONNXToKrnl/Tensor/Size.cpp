@@ -66,7 +66,7 @@ struct ONNXSizeOpLowering : public OpConversionPattern<ONNXSizeOp> {
       }
     }
 
-    create.krnl.store(noElements, alloc, std::nullopt);
+    create.krnl.store(noElements, alloc, llvm::ArrayRef<mlir::Value>());
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
     return success();
