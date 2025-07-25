@@ -32,6 +32,11 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "llvm/Support/Debug.h"
+
+// It may be useful to list the empty instrumentation, as it may indicate
+// operations that were wrongfully removed.
+#define DEBUG_TYPE "print_empty_instr"
 
 using namespace mlir;
 
@@ -99,8 +104,14 @@ public:
       return WalkResult::advance();
     });
     // Remove ops.
-    for (Operation *op : eraseOpList)
-      op->erase();
+    if (eraseOpList.size() > 0) {
+      LLVM_DEBUG(llvm::dbgs() << "List of empty instrumentations: start\n");
+      for (Operation *op : eraseOpList) {
+        LLVM_DEBUG(op->dump());
+        op->erase();
+      }
+      LLVM_DEBUG(llvm::dbgs() << "List of empty instrumentations: end\n");
+    }
   }
 };
 } // namespace onnx_mlir
