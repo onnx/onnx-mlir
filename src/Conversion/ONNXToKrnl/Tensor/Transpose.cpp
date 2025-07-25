@@ -152,18 +152,10 @@ private:
     SmallVector<IndexExpr, 4> ubs;
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
-    if (enableParallel) {
-      int64_t parId;
-      // TODO: consider flattening the outer dims, or along inner dims.
-      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
-        create->krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "scalar transpose");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, -1, -1, "no dim with enough work in scalar transpose");
-      }
-    }
+    // Enable parallelism if required.
+    if (enableParallel)
+      tryCreateKrnlParallel(
+          create->krnl, op, "scalar transpose", loopDef, lbs, ubs, 0, 2, {}, 8);
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loadIndices) {
@@ -191,14 +183,8 @@ private:
     int64_t parId = -1;
     if (enableParallel) {
       // TODO: consider flattening the outer dims, or along inner dims.
-      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
-        create->krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "scalar transpose");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in scalar output transpose");
-      }
+      parId = tryCreateKrnlParallel(
+          create->krnl, op, "scalar transpose", loopDef, lbs, ubs, 0, 2, {}, 8);
     }
     // Compute the reverse permute pattern, so that we know what the inputs
     // indices should be given the output indices.
@@ -296,17 +282,10 @@ private:
       // Because we are doing block copying, there is no risk that the
       // parallelized dimension result in systematic false sharing of the
       // destination tensor. No precautions are needed here.
-      int64_t parId;
       // Note that if there is only 1 dim, lastExclusiveDim is automatically
-      // reduced to 1 in the findSuitableParallelDimension call.
-      if (findSuitableParallelDimension(lbs, inUBs, 0, 2, parId, 8)) {
-        create->krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], inUBs[parId], "block transpose");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, -1, -1, "no dim with enough work in block transpose");
-      }
+      // reduced to 1 in the tryCreateKrnlParallel call.
+      tryCreateKrnlParallel(create->krnl, op, "block transpose", loopDef, lbs,
+          inUBs, 0, 2, {}, 8);
     }
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {

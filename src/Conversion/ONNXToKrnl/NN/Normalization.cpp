@@ -945,18 +945,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Iterate over 1st dim by block B.
     bool useParallel = false;
     if (enableParallel) {
-      int64_t parId;
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
-      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-              /*min iter for going parallel*/ 4)) {
+      if (tryCreateKrnlParallel(create.krnl, op, "layer-norm", {}, lb, ub, 0, 1,
+              {}, 4, /*doNotCreateKrnlParallel=*/true) != -1)
         useParallel = true;
-        onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "in layer-norm");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, 0, lb[0], ub[0], "not enough work in layer-norm");
-      }
-    } else {
-      onnxToKrnlParallelReport(op, false, -1, -1, "no parallel in layer norm");
     }
     Value tmpRedMemRef, tmpRedMemRef2;
     if (!useParallel) {

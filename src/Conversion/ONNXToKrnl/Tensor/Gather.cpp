@@ -97,18 +97,11 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     DimsExpr lbs(outputRank, zeroIE);
     DimsExpr ubs = shapeHelper.getOutputDims();
-    if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, ubs, 0, outputRank, parId)) {
-        create.krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "gather");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, -1, -1, "dim with not enough work in gather");
-      }
-    }
-    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
+    // Enable parallelism if required.
+    if (enableParallel)
+      tryCreateKrnlParallel(
+          create.krnl, op, "gather", loopDef, lbs, ubs, 0, outputRank);
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);

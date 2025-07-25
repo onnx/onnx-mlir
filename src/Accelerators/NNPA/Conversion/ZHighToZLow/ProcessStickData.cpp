@@ -55,14 +55,13 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   int64_t parId = 0;
   int64_t threadNum = 1;
   if (enableParallel) {
-    if (findSuitableParallelDimension(lbs, ubs, 0, rank - 1, parId, 8)) {
-      threadNum = 8; // TODO use more flexible value.
-      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-          "simd min/max for DQL in parallel ");
-    } else {
+    int64_t parId = tryCreateKrnlParallel(create.krnl, op,
+        "simd min/max for DQL in parallel", {}, lbs, ubs, 0, rank - 1, {},
+        /*min iter for going parallel*/ 8, /*doNotCreateKrnlParallel=*/true);
+    if (parId == -1) {
       enableParallel = false;
-      onnxToKrnlParallelReport(
-          op, false, -1, -1, "not enough work in simd min/max for DQL");
+    } else {
+      threadNum = 8; // TODO use more flexible value.
     }
   }
 

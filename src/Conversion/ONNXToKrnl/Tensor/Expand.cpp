@@ -63,17 +63,8 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
-    if (enableParallel) {
-      int64_t parId = -1;
-      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId)) {
-        create.krnl.parallel(outputLoopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "expand");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, -1, -1, "no par dim with enough work in expand");
-      }
-    }
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "expand", outputLoopDef, lbs, ubs);
 
     create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
