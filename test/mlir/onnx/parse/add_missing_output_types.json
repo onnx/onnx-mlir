@@ -15,6 +15,14 @@
 // INFERRED:           return [[VAR_0_]], [[VAR_1_]] : tensor<*xf32>, tensor<3x3xf32>
 // INFERRED:         }
 
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=true --allowMissingOutputTypes=true --printIR %s  | FileCheck --check-prefix=MODEL-TYPE %s
+// MODEL-TYPE-LABEL:  func.func @main_graph
+// MODEL-TYPE-SAME:   ([[PARAM_0_:%.+]]: tensor<3x1xf32> {onnx.name = "input_a"}, [[PARAM_1_:%.+]]: tensor<1x3xf32> {onnx.name = "input_b"}) -> (tensor<*xf32> {onnx.name = "output_c"}, tensor<3x3xf32> {onnx.name = "output_d"}) {
+// MODEL-TYPE-DAG:       [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) {domain_name = "test", function_name = "test.Add", onnx_node_name = "add_node_custom"} : (tensor<3x1xf32>, tensor<1x3xf32>) -> tensor<*xf32>
+// MODEL-TYPE-DAG:       [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx_node_name = "add_node"} : (tensor<3x1xf32>, tensor<1x3xf32>) -> tensor<3x3xf32>
+// MODEL-TYPE:           return [[VAR_0_]], [[VAR_1_]] : tensor<*xf32>, tensor<3x3xf32>
+// MODEL-TYPE:         }
+
 {
   "irVersion": "10",
   "producerName": "onnx-example",

@@ -13,7 +13,6 @@
 #ifndef ONNX_MLIR_FRONTEND_TRANSFORMER_H
 #define ONNX_MLIR_FRONTEND_TRANSFORMER_H
 
-#include <set>
 #include <string>
 
 #include "onnx/onnx_pb.h"
@@ -49,7 +48,11 @@ struct ImportOptions {
   bool allowSorting = true;
   bool useOutputNameAsLocation = false;
 
-  // Allow missing output types and use type inference to determine them.
+  // If true, type inference will be used to
+  // infer missing output types. This is done by copying the, potential
+  // inferred, output type of the node connected to the output. According to
+  // ONNX, all outputs MUST have types. Therefore this option has to be
+  // considered as a stretch best effort.
   bool allowMissingOutputTypes = false;
 
   // Custom shape information for the graph inputs.
@@ -90,7 +93,7 @@ struct ImportOptions {
 [[nodiscard]] std::error_code ImportFrontendModelArray(const void *onnxBuffer,
     int bufferSize, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string &errorMessage,
-    ImportOptions options = ImportOptions());
+    const ImportOptions &options = ImportOptions());
 
 /*!
  *  Import an ONNX model file into the ONNX Dialect.
@@ -100,7 +103,7 @@ struct ImportOptions {
 [[nodiscard]] std::error_code ImportFrontendModelFile(
     llvm::StringRef model_fname, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string &errorMessage,
-    ImportOptions options = ImportOptions());
+    const ImportOptions &options = ImportOptions());
 
 /*!
  *  Import an ONNX model proto into the ONNX Dialect.
@@ -109,7 +112,7 @@ struct ImportOptions {
  */
 [[nodiscard]] std::error_code ImportFrontendModel(const onnx::ModelProto &model,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string &errorMessage, ImportOptions options = ImportOptions());
+    std::string &errorMessage, const ImportOptions &options = ImportOptions());
 
 /*!
  *  TODO: Import models into other extension dialects that cover the
