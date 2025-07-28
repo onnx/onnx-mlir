@@ -159,20 +159,19 @@ using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
 
 class FrontendGenImpl {
 public:
-  explicit FrontendGenImpl(MLIRContext &context)
-      : context_(context), builder_(&context) {
+  explicit FrontendGenImpl(MLIRContext &context, const ImportOptions &options)
+      : options_(options), context_(context), builder_(&context) {
     module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
   }
 
-  ErrorOr<ModuleOp> ImportONNXModel(const onnx::ModelProto &model,
-      ImportOptions options, std::string &errorMessage) {
-    options_ = options;
+  ErrorOr<ModuleOp> ImportONNXModel(
+      const onnx::ModelProto &model, std::string &errorMessage) {
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
-    ErrorOr<mlir::func::FuncOp> importGraphResult = importGraph(
-        model.graph(), options_.allowMissingOutputTypes, errorMessage);
+    ErrorOr<mlir::func::FuncOp> importGraphResult =
+        importGraph(model.graph(), errorMessage);
     if (auto ec = importGraphResult.getError()) {
       return ec;
     }
@@ -193,7 +192,7 @@ public:
   }
 
 private:
-  ImportOptions options_;
+  const ImportOptions &options_;
   MLIRContext &context_;
   ModuleOp module_;
   OpBuilder builder_;
@@ -541,7 +540,7 @@ private:
    */
   ErrorOr<FunctionType> importGraph(const onnx::GraphProto &graph,
       Region &region, Operation *op, bool useReturn,
-      bool allowMissingOutputTypes, std::string &errorMessage) {
+      std::string &errorMessage) {
     frontend_symbols_.pushScope(graph.name());
     onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
@@ -648,8 +647,8 @@ private:
     // Import the output tensors
     for (const auto &output : graph.output()) {
       std::string dimParams = "";
-      const auto ec = ImportOutputTensor(output, retTys, retVals, errorMessage,
-          allowMissingOutputTypes, &dimParams);
+      const auto ec =
+          ImportOutputTensor(output, retTys, retVals, errorMessage, &dimParams);
       if (ec) {
         errorMessage +=
             "Failed to import output tensor '" + output.name() + "'.\n";
@@ -854,13 +853,22 @@ private:
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
-      } else if (auto onnxModelType =
-                     ConvertOnnxType(node.output(i), errorMessage)) {
-        if (auto ec = onnxModelType->getError()) {
-          return ec;
-        }
-        outputTypes.emplace_back(*onnxModelType.value());
       } else {
+        auto onnxModelType = ConvertOnnxType(node.output(i), errorMessage);
+        if (onnxModelType) {
+          const auto ec = onnxModelType->getError();
+          if (!ec) {
+            outputTypes.emplace_back(*onnxModelType.value());
+            continue;
+          }
+          if (!options_.allowMissingOutputTypes || ec != InvalidOnnxFormat) {
+            errorMessage += "Failed to get type for '" + node.output(i) + "\n";
+            return ec;
+          }
+          llvm::errs() << "Warning: "
+                       << "Failed to get type type for '" << node.output(i)
+                       << "', falling back to onnx-mlir based mapping.\n";
+        }
         unsigned int j = i;
         // Variadic output is a single ODS result.
         if (variadicOut)
@@ -910,8 +918,8 @@ private:
         region.push_back(new Block);
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
-        const ErrorOr<FunctionType> importGraphResult = importGraph(attr.g(),
-            region, op, false, options_.allowMissingOutputTypes, errorMessage);
+        const ErrorOr<FunctionType> importGraphResult =
+            importGraph(attr.g(), region, op, false, errorMessage);
         if (auto ec = importGraphResult.getError()) {
           return ec;
         }
@@ -1443,9 +1451,14 @@ private:
         GetOpsetImportsFromProto(functionProto);
 
     // Populates graph.value_info().
-    onnx::shape_inference::InferShapes(&graph, function_opset_map,
-        onnx::OpSchemaRegistry::Instance(),
-        /*options=*/{}, in_model_functions_);
+    try {
+      onnx::shape_inference::InferShapes(&graph, function_opset_map,
+          onnx::OpSchemaRegistry::Instance(),
+          /*options=*/{}, in_model_functions_);
+    } catch (const std::exception &e) {
+      llvm::errs() << "Warning: Caught exception running onnx shape inference: "
+                   << e.what() << "\n";
+    }
 
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
@@ -1629,14 +1642,14 @@ private:
       const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
       llvm::SmallVectorImpl<Value> &ret_vals, std::string &errorMessage,
-      bool allowMissingType, std::string *dim_params = nullptr) {
+      std::string *dim_params = nullptr) {
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
 
     ErrorOr<Type> parsedOutputType =
         ImportType(output.type(), errorMessage, dim_params);
     if (auto ec = parsedOutputType.getError()) {
-      if (!allowMissingType || ec != InvalidOnnxFormat) {
+      if (!options_.allowMissingOutputTypes || ec != InvalidOnnxFormat) {
         errorMessage +=
             "Failed to import output type for '" + output.name() + "\n";
         return ec;
@@ -1716,15 +1729,10 @@ private:
   /*!
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
-   * @param allowMissingOutputTypes If true, type inference will be used to
-   * infer missing output types. This is done by copying the, potential
-   * inferred, output type of the node connected to the output. According to
-   * ONNX, all outputs MUST have types. Therefore this option has to be
-   * considered as a stretch best effort.
    * @return A function corresponding to the imported computation graph.
    */
-  ErrorOr<func::FuncOp> importGraph(const onnx::GraphProto &graph,
-      bool allowMissingOutputTypes, std::string &errorMessage) {
+  ErrorOr<func::FuncOp> importGraph(
+      const onnx::GraphProto &graph, std::string &errorMessage) {
     const std::string &name = "main_graph";
     auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
@@ -1735,8 +1743,7 @@ private:
 
     ErrorOr<FunctionType> importedFuncType =
         importGraph(graph, /*region=*/mainFunc.getBody(),
-            /*op=*/mainFunc.getOperation(), /*useReturn=*/true,
-            /*allowMissingOutputTypes=*/allowMissingOutputTypes, errorMessage);
+            /*op=*/mainFunc.getOperation(), /*useReturn=*/true, errorMessage);
     if (auto ec = importedFuncType.getError()) {
       errorMessage +=
           "Failed to import main graph, could not get its function type\n";
@@ -1763,7 +1770,7 @@ private:
 
 [[nodiscard]] std::error_code ImportFrontendModelInternal(
     onnx::ModelProto &model, MLIRContext &context,
-    OwningOpRef<ModuleOp> &module, ImportOptions options,
+    OwningOpRef<ModuleOp> &module, const ImportOptions &options,
     std::string &errorMessage) {
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
@@ -1799,13 +1806,27 @@ private:
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
-    if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(convertModel);
+    if (options.useOnnxModelTypes) {
+      try {
+        onnx::shape_inference::InferShapes(convertModel);
+      } catch (const std::exception &e) {
+        llvm::errs()
+            << "Warning: Caught exception running onnx shape inference: "
+            << e.what() << "\n";
+      }
+    }
     return ImportFrontendModel(
         convertModel, context, module, errorMessage, options);
   } else {
-    if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(model);
+    if (options.useOnnxModelTypes) {
+      try {
+        onnx::shape_inference::InferShapes(model);
+      } catch (const std::exception &e) {
+        llvm::errs()
+            << "Warning: Caught exception running onnx shape inference: "
+            << e.what() << "\n";
+      }
+    }
     return ImportFrontendModel(model, context, module, errorMessage, options);
   }
   return CompilerSuccess;
@@ -1813,7 +1834,7 @@ private:
 
 [[nodiscard]] std::error_code ImportFrontendModelArray(const void *onnxBuffer,
     int size, MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    std::string &errorMessage, ImportOptions options) {
+    std::string &errorMessage, const ImportOptions &options) {
   onnx::ModelProto model;
 
   bool parse_success = model.ParseFromArray(onnxBuffer, size);
@@ -1855,7 +1876,7 @@ namespace {
 // Return 0 on success, error otherwise.
 [[nodiscard]] std::error_code ImportFrontendModelFile(StringRef model_fname,
     MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    std::string &errorMessage, ImportOptions options) {
+    std::string &errorMessage, const ImportOptions &options) {
   onnx::ModelProto model;
   if (model_fname.ends_with(".onnxtext")) {
     std::string text;
@@ -1912,11 +1933,11 @@ namespace {
 
 [[nodiscard]] std::error_code ImportFrontendModel(const onnx::ModelProto &model,
     MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    std::string &errorMessage, ImportOptions options) {
+    std::string &errorMessage, const ImportOptions &options) {
 
-  detail::FrontendGenImpl myONNXGen(context);
+  detail::FrontendGenImpl myONNXGen(context, options);
   ErrorOr<ModuleOp> importedModule =
-      myONNXGen.ImportONNXModel(model, options, errorMessage);
+      myONNXGen.ImportONNXModel(model, errorMessage);
   if (auto ec = importedModule.getError()) {
     return ec;
   }
