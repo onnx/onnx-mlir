@@ -41,7 +41,6 @@ def import_driver():
     if args.use_onnxmlir:
         from onnxmlir import InferenceSession as OMExecutionSession
 
-        print("imported")
     else:
         if not os.environ.get("ONNX_MLIR_HOME", None):
             raise RuntimeError(
@@ -839,16 +838,14 @@ class InferenceSession:
                     except (ValueError, SyntaxError):
                         args_dict[key] = value_str
 
-            # Inherited from RunONNXModel.py
-            args_dict["temp_dir"] = self.temp_dir
             if args.load_model:
                 model = shared_lib_path = (
                     args.load_model + f"/{self.default_model_name}.so"
                 )
             else:
+                # Inherit compiler option from RunONNXModel.py
                 model = args.model
                 args_dict["compile_options"] = args.compile_args + " -o " + output_path
-            print(args_dict)
             session = OMExecutionSession(model, **args_dict)
             self.session = session
             # The compile log is needed to save the model.
@@ -944,7 +941,8 @@ class InferenceSession:
                 print("Saving the shared library to", args.save_model)
                 shutil.copy2(shared_lib_path, args.save_model)
             else:
-                print("shared_lib_path does not exist")
+                print("file to save does not exist")
+                exit(-1)
             # .constants.bin file.
             constants_file_path = os.path.join(
                 self.model_dir, f"{self.default_model_name}.constants.bin"
