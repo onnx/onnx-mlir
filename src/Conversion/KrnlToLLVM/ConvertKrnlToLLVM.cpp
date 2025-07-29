@@ -274,6 +274,21 @@ void PostfixEntrypointNames(ModuleOp &module) {
   return;
 }
 
+/// Remove unhandled parameter attributes in function arguments, e.g.
+/// onnx.dim_params, onnx.name, etc.
+void removeUnhandledParamAttrs(ModuleOp &module) {
+  for (auto funcOp : module.getOps<func::FuncOp>()) {
+    for (size_t i = 0; i < funcOp.getNumArguments(); ++i) {
+      funcOp.removeArgAttr(i, "onnx.dim_params");
+      funcOp.removeArgAttr(i, "onnx.name");
+    }
+    for (size_t i = 0; i < funcOp.getNumResults(); ++i) {
+      funcOp.removeResultAttr(i, "onnx.dim_params");
+      funcOp.removeResultAttr(i, "onnx.name");
+    }
+  }
+}
+
 /// Keep original MemRefTypes for inputs and outputs. These information will be
 /// used for constructing OMTensors for inputs and outputs. We have to record
 /// this information at this point before they are disappeared during the
@@ -837,6 +852,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // The string is getting from the module's attribute
   // `onnx-mlir.symbol-postfix`.
   PostfixEntrypointNames(module);
+
+  // Remove unhandled parameter attributes in function arguments, e.g.
+  // onnx.dim_params, onnx.name, etc.
+  removeUnhandledParamAttrs(module);
 
   KRNL_ENTRY_POINT_ID = 0;
 
