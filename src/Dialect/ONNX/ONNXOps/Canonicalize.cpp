@@ -2325,6 +2325,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
+  results.insert<FuseScalarDivMatMulPattern>(context);
   results.insert<FuseScalarMulMatMulPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
