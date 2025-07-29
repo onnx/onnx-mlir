@@ -70,18 +70,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
-    if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(loopLbs, loopUbs, 0, 1, parId,
-              /*min iter for going parallel*/ 4)) {
-        create.krnl.parallel(outerLoopDef[0]);
-        onnxToKrnlParallelReport(op, true, parId, loopLbs[parId],
-            loopUbs[parId], "generic GEMM on outer loop");
-      } else {
-        onnxToKrnlParallelReport(op, false, parId, loopLbs[parId],
-            loopUbs[parId], "not enough work for parallel generic GEMM");
-      }
-    }
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "generic GEMM on outer loop",
+          outerLoopDef, loopLbs, loopUbs, 0, 1, {},
+          /*min iter for going parallel*/ 4);
     create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
         [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
@@ -229,19 +221,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
       create.krnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
           {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
-      if (enableParallel) {
-        int64_t parId;
-        SmallVector<IndexExpr, 1> lb(1, zeroIE), ub(1, I);
-        if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-                /*min iter for going parallel*/ 4 * iCacheTile)) {
-          create.krnl.parallel(ii1);
-          onnxToKrnlParallelReport(
-              op, true, 0, zeroIE, I, "GEMM tiled copy I parallel");
-        } else {
-          onnxToKrnlParallelReport(op, false, 0, zeroIE, I,
-              "not enough work for GEMM tiled copy I parallel");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op, "GEMM tiled copy I parallel",
+            {ii1}, {zeroIE}, {I}, 0, 1, {},
+            /*min iter for going parallel*/ 4 * iCacheTile);
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
           {I, J, K},
@@ -293,19 +276,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // level is a j, then all the Ks, then all the Is.
       create.krnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
-      if (enableParallel) {
-        int64_t parId;
-        SmallVector<IndexExpr, 1> lb(1, zeroIE), ub(1, J);
-        if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-                /*min iter for going parallel*/ 4 * jCacheTile)) {
-          create.krnl.parallel(jj1);
-          onnxToKrnlParallelReport(
-              op, true, 0, zeroIE, J, "GEMM tiled no copy J parallel");
-        } else {
-          onnxToKrnlParallelReport(op, false, 0, zeroIE, J,
-              "not enough work for GEMM tiled no copy J parallel");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op, "GEMM tiled no copy J parallel",
+            {jj1}, {zeroIE}, {J}, 0, 1, {},
+            /*min iter for going parallel*/ 4 * jCacheTile);
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       // Krnl Rule: must put all the iter bounds at once, but can only put the
       // "not currently used ones" like ii here last. Gave an error when ii was
@@ -355,19 +329,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       return;
     }
     ValueRange outerLoops = create.krnl.defineLoops(2);
-    if (enableParallel) {
-      int64_t parId;
-      SmallVector<IndexExpr, 1> lb(1, zeroIE), ub(1, I);
-      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-              /*min iter for going parallel*/ 16)) {
-        create.krnl.parallel(outerLoops[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, zeroIE, I, "outer loop on tiled Transposed Gemm");
-      } else {
-        onnxToKrnlParallelReport(op, false, 0, zeroIE, I,
-            "not enough work for outer loop on tiled Transposed Gemm");
-      }
-    }
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op,
+          "outer loop on tiled Transposed Gemm", outerLoops, {zeroIE}, {I}, 0,
+          1, {}, /*min iter for going parallel*/ 16);
     create.krnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
         [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.

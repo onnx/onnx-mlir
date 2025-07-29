@@ -93,14 +93,11 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    if (findSuitableParallelDimension(tiledLbs, tiledUbs, 0, rank, parId, 8)) {
-      onnxToKrnlParallelReport(op, true, parId, tiledLbs[parId],
-          tiledUbs[parId], "compiler-generated stickify");
-    } else {
+    parId = tryCreateKrnlParallel(create.krnl, op,
+        "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
+        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
+    if (parId == -1)
       enableParallel = false;
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "no dim with enough work in compiler-generated stickify");
-    }
   }
 
   // Compute max sticks (tiles of 64 values). It is actually not easy to compute

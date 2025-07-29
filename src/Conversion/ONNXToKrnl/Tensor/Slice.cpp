@@ -57,17 +57,8 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
-    if (enableParallel) {
-      int64_t parId = -1;
-      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId)) {
-        create.krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "slice");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, -1, -1, "no par dim with enough work in slice");
-      }
-    }
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "slice", loopDef, lbs, ubs, 0, 2);
 
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
