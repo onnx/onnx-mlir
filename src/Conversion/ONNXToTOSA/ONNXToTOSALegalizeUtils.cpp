@@ -50,7 +50,7 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
 
 llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector) {
-  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
+  llvm::SmallVector<int64_t> literalVector(indexVector.size());
   llvm::transform(indexVector, literalVector.begin(),
       [](const auto &indexExpr) { return indexExpr.getLiteral(); });
   return literalVector;
