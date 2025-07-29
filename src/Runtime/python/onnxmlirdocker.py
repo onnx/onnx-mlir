@@ -47,6 +47,11 @@ def find_compiler_path(image_name):
         return None
 
 
+# Class to wrap the OMExecutionSession class with the compilation with
+# container or local compiler.
+# Logically, InferenceSession can be a subclass of OMExecutionSession.
+# However, the OMExecutionSession is imported in a member function in current
+# implementation. ToFix later.
 class InferenceSession:
     def __init__(self, model_path, **kwargs):
         self.debug = False
@@ -303,3 +308,10 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
+
+    def input_signature(self):
+        return self.session.input_signature()
+
+    def output_signature(self):
+        return self.session.output_signature()
+
