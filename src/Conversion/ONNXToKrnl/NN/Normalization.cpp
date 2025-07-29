@@ -947,7 +947,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     if (enableParallel) {
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
       if (tryCreateKrnlParallel(create.krnl, op, "layer-norm", {}, lb, ub, 0, 1,
-              {}, 4, /*doNotCreateKrnlParallel=*/true) != -1)
+              {}, 4, /*createKrnlParallel=*/false) != -1)
         useParallel = true;
     }
     Value tmpRedMemRef, tmpRedMemRef2;

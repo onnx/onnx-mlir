@@ -57,7 +57,7 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   if (enableParallel) {
     int64_t parId = tryCreateKrnlParallel(create.krnl, op,
         "simd min/max for DQL in parallel", {}, lbs, ubs, 0, rank - 1, {},
-        /*min iter for going parallel*/ 8, /*doNotCreateKrnlParallel=*/true);
+        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
     if (parId == -1) {
       enableParallel = false;
     } else {

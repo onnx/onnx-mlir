@@ -95,7 +95,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
     parId = tryCreateKrnlParallel(create.krnl, op,
         "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
-        /*min iter for going parallel*/ 8, /*doNotCreateKrnlParallel=*/true);
+        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
     if (parId == -1)
       enableParallel = false;
   }

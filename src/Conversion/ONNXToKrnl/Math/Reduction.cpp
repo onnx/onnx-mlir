@@ -438,7 +438,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   if (enableParallel) {
     if (tryCreateKrnlParallel(create.krnl, op, "simd reduction to one element",
             {}, {lb}, {ub}, 0, 1, {}, 32 * totVL,
-            /*doNotCreateKrnlParallel=*/true) == -1)
+            /*createKrnlParallel=*/false) == -1)
       enableParallel = false;
   }
   if (!enableParallel) {

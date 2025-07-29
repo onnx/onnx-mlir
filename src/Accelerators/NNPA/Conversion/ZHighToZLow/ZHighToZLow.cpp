@@ -2230,7 +2230,7 @@ struct ZHighToZLowDataConversionLowering
           "dlf16-f32 conversion fully parallelized", {}, lbs,
           flattenedOutputDims, 0, 1, {},
           /*min iter for going parallel*/ 1024,
-          /*doNotCreateKrnlParallel=*/true);
+          /*createKrnlParallel=*/false);
       if (parId != -1)
         useParallel = true;
     }

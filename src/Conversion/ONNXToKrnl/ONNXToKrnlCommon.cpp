@@ -642,12 +642,12 @@ int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
     std::string msg, const ValueRange &loopDef, ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs, int64_t firstInclusiveDim,
     int64_t lastExclusiveDim, ArrayRef<int64_t> exclusiveDims, int64_t minSize,
-    bool doNotCreateKrnlParallel) {
+    bool createKrnlParallel) {
   int64_t parId = -1;
   if (findSuitableParallelDimension(
           lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
     if (!llvm::is_contained(exclusiveDims, parId)) {
-      if (!doNotCreateKrnlParallel)
+      if (createKrnlParallel)
         createKrnl.parallel(loopDef[parId]);
       onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
       return parId;

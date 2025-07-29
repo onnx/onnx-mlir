@@ -1786,7 +1786,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       if (tryCreateKrnlParallel(create.krnl, op,
               "inner-loop of elementwise simd partially flattened", loopDef,
               {zero}, {simdUb}, 0, 1, {}, VL * 32,
-              /*doNotCreateKrnlParallel=*/true) != -1)
+              /*createKrnlParallel=*/false) != -1)
         useParallelInSimdLoop = true;
     }
   }
