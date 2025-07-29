@@ -2219,6 +2219,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
   result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
       context);
+  result.insert<FuseScalarDivMatMulPattern>(context);
 }
 
 /// on the ONNXDropoutOp.
