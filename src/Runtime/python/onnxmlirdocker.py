@@ -47,6 +47,11 @@ def find_compiler_path(image_name):
         return None
 
 
+# Class to wrap the OMExecutionSession class with the compilation with
+# container or local compiler.
+# Logically, InferenceSession can be a subclass of OMExecutionSession.
+# However, the OMExecutionSession is imported in a member function in current
+# implementation. ToFix later.
 class InferenceSession:
     def __init__(self, model_path, **kwargs):
         self.debug = False
@@ -91,12 +96,24 @@ class InferenceSession:
         else:
             self.compile_options = ""
 
-        # Temporary directory for compilation
-        if "temp_dir" in kwargs.keys():
-            self.output_tempdir = kwargs["temp_dir"]
+        # Parse the compile_options to handle the -o option.
+        # If user does not specify the output, the compilation will be done in
+        # the temporary directory.
+        options_list = self.compile_options.split()
+
+        # Logically, container_output_dirname should be used for -o
+        if "-o" in options_list:
+            self.compiled_model = options_list[options_list.index("-o") + 1]
+            if not self.compiled_model.endswith(".so"):
+                self.compiled_model += ".so"
+            self.output_dirname = os.path.dirname(self.compiled_model)
         else:
-            self.output_tempdir = tempfile.TemporaryDirectory()
-        self.output_dirname = self.output_tempdir.name
+            self.output_dirname = tempfile.TemporaryDirectory().output_tempdir.name
+            self.compiled_model = os.path.join(
+                self.output_dirname,
+                self.model_basename.removesuffix(self.model_suffix) + ".so",
+            )
+            self.compile_options += f" -o {self.compiled_model}"
 
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]
@@ -176,8 +193,9 @@ class InferenceSession:
 
             try:
                 # Chek whether the specified compiler exists or not
+                print(self.compiler_image_name, self.compiler_path)
                 msg = self.container_client.containers.run(
-                    self.compiler_image_name, "test -e " + self.compiler_path
+                    self.compiler_image_name, "ls " + self.compiler_path
                 )
             except Exception as e:
                 print(
@@ -208,14 +226,6 @@ class InferenceSession:
             self.container_model_dirname, self.model_basename
         )
 
-        self.compiled_model = os.path.join(
-            self.output_dirname,
-            self.model_basename.removesuffix(self.model_suffix) + ".so",
-        )
-        command_str += " -o " + os.path.join(
-            self.container_output_dirname,
-            self.model_basename.removesuffix(self.model_suffix),
-        )
         # print(command_str)
 
         # Logically, the model directory could be mounted as read only.
@@ -238,6 +248,8 @@ class InferenceSession:
                             "bind": self.container_output_dirname,
                             "mode": "rw",
                         },
+                        # ToFix: mount the compiler which is not inside the container
+                        # or any other directory?
                     },
                 )
             except Exception as e:
@@ -303,3 +315,9 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
+
+    def input_signature(self):
+        return self.session.input_signature()
+
+    def output_signature(self):
+        return self.session.output_signature()
