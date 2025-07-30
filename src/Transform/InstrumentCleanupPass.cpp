@@ -36,7 +36,7 @@
 
 // It may be useful to list the empty instrumentation, as it may indicate
 // operations that were wrongfully removed.
-#define DEBUG_TYPE "print_empty_instrumentation"
+#define DEBUG_TYPE "print-empty-instrumentation"
 
 using namespace mlir;
 
