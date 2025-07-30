@@ -40,11 +40,13 @@
 
 #define DEBUG_TYPE "zlow-stick-expansion"
 
-// Prefetching is currently disabled due to issues with OpenMP lowering.
+// Prefetching is currently disabled due to issues with LLVM lowering.
+// Change this once fixes to prefetch are in LLVM.
 // TODO: see if it impacts performance significantly and investigate why
 // it causes issues with lowering.
+
 #define PREFETCH_CSU_DIST 0
-#define PREFETCH_CSU 1
+#define PREFETCH_CSU 0
 
 using namespace mlir;
 
@@ -136,6 +138,7 @@ public:
   bool enableParallel = true;
 
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
+
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
 
