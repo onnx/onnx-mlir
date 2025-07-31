@@ -191,18 +191,21 @@ class InferenceSession:
             except ct.errors.ImageNotFound:
                 image = self.container_client.images.pull(self.compiler_image_name)
 
-            try:
-                # Chek whether the specified compiler exists or not
-                print(self.compiler_image_name, self.compiler_path)
-                msg = self.container_client.containers.run(
-                    self.compiler_image_name, "ls " + self.compiler_path
-                )
-            except Exception as e:
-                print(
-                    "the compiler path does not exist in container: ",
-                    self.compiler_path,
-                )
-                exit(-1)
+            # Chek whether the specified compiler exists or not
+            if os.path.exists(self.compiler_path):
+                self.mount_compiler = True
+            else:
+                self.mount_compiler = False
+                try:
+                    msg = self.container_client.containers.run(
+                        self.compiler_image_name, "ls " + self.compiler_path
+                    )
+                except Exception as e:
+                    print(
+                        "the compiler path does not exist in container: ",
+                        self.compiler_path,
+                    )
+                    exit(-1)
 
     def Compile(self):
         # Logically use different variable for path in current env and
@@ -248,8 +251,21 @@ class InferenceSession:
                             "bind": self.container_output_dirname,
                             "mode": "rw",
                         },
-                        # ToFix: mount the compiler which is not inside the container
-                        # or any other directory?
+                        # Mount the compiler if needed.
+                        # ToFix: compiler built with container may fail, possibly because
+                        # the directory is mounted differently when the compiler is built
+                        # with container image.
+                        # A good practice is to always mount with the original path
+                        **(
+                            {
+                                os.path.dirname(self.compiler_path): {
+                                    "bind": os.path.dirname(self.compiler_path),
+                                    "mode": "rw",
+                                }
+                            }
+                            if self.mount_compiler
+                            else {}
+                        ),
                     },
                 )
             except Exception as e:

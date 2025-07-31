@@ -1262,7 +1262,7 @@ def handle_args():
         parser.set_defaults(**user_config)
         args = parser.parse_args()
 
-    print(args)
+    # print(args)
 
 
 ################################################################################
