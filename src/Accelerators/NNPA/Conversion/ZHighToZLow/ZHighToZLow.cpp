@@ -812,6 +812,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
+    // Since march=arch15, HW Stick/Unstick may be more efficient with 4k
+    // allocated pages for CPU data as well, or ensure that allocated data here
+    // is 4K aligned.
     Value alloc = nullptr;
     if (isNHWCLayout(layout)) {
       if (!nnpaDisableCompilerStickUnstick) {
@@ -828,7 +831,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
         alloc = create.mem.alignedAlloc(
             MemRefType::get({shape[0], shape[2], shape[3], shape[1]},
                 resType.getElementType()),
-            dimList);
+            dimList, gAlignment);
       } else {
         // Otherwise, we can directly stickify from NCHW.
         // Set pre-transformed layout to NCHW.
