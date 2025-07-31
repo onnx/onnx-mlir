@@ -143,28 +143,25 @@ public:
     return resizeAllocOfStickInput(stickOp);
   }
 
+  // Shared functions with other classes in this file.
   static LogicalResult resizeAllocOfStickInput(ZLowStickOp stickOp) {
-    fprintf(stderr, "hi alex, looking at defining op of stick\n");
-    stickOp.dump();
     memref::AllocOp allocOfXOp =
         stickOp.getX().getDefiningOp<memref::AllocOp>();
     if (!allocOfXOp) {
-      fprintf(stderr, "hi alex, do not have an alloc\n");
+      LLVM_DEBUG(llvm::dbgs() << "  stick input had no alloc (parameter)\n");
       return failure();
     }
-    fprintf(stderr, "hi alex, has alloc\n");
-    allocOfXOp.dump();
     auto alignmentAttr = allocOfXOp.getAlignment();
     int64_t intAlign = alignmentAttr ? alignmentAttr.value() : 1;
     fprintf(stderr, "alignment attribute is %d\n", (int)intAlign);
     if (intAlign >= gAlignment) {
-      fprintf(stderr, "hi alex, alloc already good as is\n");
+      LLVM_DEBUG(llvm::dbgs() << "  stick input is properly aligned\n");
       return failure();
     }
-    fprintf(stderr, "hi alex, increase alignment to 4k\n");
+    LLVM_DEBUG(
+        llvm::dbgs() << "  stick input alignment is too small; fix it\n");
     ::std::optional<uint64_t> attrValue(gAlignment);
     allocOfXOp.setAlignment(attrValue);
-
     return success();
   }
 };
