@@ -1240,13 +1240,24 @@ class InferenceSession:
 
 
 def load_user_config(config_file):
-    import yaml
-
     config_path = os.path.expanduser(config_file)
     if os.path.exists(config_path):
         with open(config_path) as f:
-            return yaml.safe_load(f)
-    return {}
+            try:
+                import yaml
+
+                config = yaml.safe_load(f)
+            except ImportError:
+                config = {}
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):  # empty or comment
+                        key, value = line.split(":", 1)
+                        config[key.strip()] = value.strip()
+        return config
+    else:
+        print(f"Configure file, {config_path}, does not exists")
+        exit(-1)
 
 
 def handle_args():
