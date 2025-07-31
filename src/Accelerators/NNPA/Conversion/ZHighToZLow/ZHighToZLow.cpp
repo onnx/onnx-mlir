@@ -831,7 +831,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
         alloc = create.mem.alignedAlloc(
             MemRefType::get({shape[0], shape[2], shape[3], shape[1]},
                 resType.getElementType()),
-            dimList, gAlignment);
+            dimList);
       } else {
         // Otherwise, we can directly stickify from NCHW.
         // Set pre-transformed layout to NCHW.
@@ -839,8 +839,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       }
     }
     if (alloc == nullptr)
-      alloc = insertAllocForZMemRef(
-          zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+      // Memory for output (which is not in stick format) so use normal
+      // alignment.
+      alloc = insertAllocForZMemRef(zMemRefType, shapeHelper.getOutputDims(),
+          op, rewriter, MemRefBuilder::defaultAlign);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);

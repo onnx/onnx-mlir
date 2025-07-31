@@ -58,14 +58,49 @@ namespace zlow {
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilder, SCFBuilder>;
 
+// Resize the alignment of the allocate that is the output to Unstick Op, which
+// is beneficial for unstick operations that executes on the NNPA accelerator of
+// march = arch15.
+class UnstickOutputAllocPattern : public OpRewritePattern<ZLowUnstickOp> {
+public:
+  UnstickOutputAllocPattern(MLIRContext *context)
+      : OpRewritePattern<ZLowUnstickOp>(context, 1) {}
+
+  using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    return resizeAllocOfUnstickOutput(unstickOp);
+  }
+
+  // Shared functions with other classes in this file.
+  static LogicalResult resizeAllocOfUnstickOutput(ZLowUnstickOp unstickOp) {
+    memref::AllocOp allocOfXOp =
+        unstickOp.getOut().getDefiningOp<memref::AllocOp>();
+    assert(allocOfXOp && "unstick output should always be allocated");
+    auto alignmentAttr = allocOfXOp.getAlignment();
+    int64_t intAlign = alignmentAttr ? alignmentAttr.value() : 1;
+    if (intAlign >= gAlignment) {
+      LLVM_DEBUG(llvm::dbgs() << "  stick input is properly aligned\n");
+      return failure();
+    }
+    LLVM_DEBUG(
+        llvm::dbgs() << "  stick input alignment is too small; fix it\n");
+    ::std::optional<uint64_t> attrValue(gAlignment);
+    allocOfXOp.setAlignment(attrValue);
+    return success();
+  }
+};
+
 /// Expand unstick operation to compiler generated code for suitable patterns,
 /// aka all but the 1D and 2DS data layouts at this time.
 class UnstickExpansionPattern : public OpRewritePattern<ZLowUnstickOp> {
 public:
-  UnstickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
+  UnstickExpansionPattern(MLIRContext *context, bool enableAllocNormalization,
+      bool enableParallelism)
       : OpRewritePattern<ZLowUnstickOp>(context, 1),
+        enableAllocNormalization(enableAllocNormalization),
         enableParallel(enableParallelism) {}
-
+  bool enableAllocNormalization = true;
   bool enableParallel = true;
 
   using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
@@ -84,7 +119,10 @@ public:
         layout.getValue().equals_insensitive("NHWC")) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
-    // Otherwise, we don't replace and keep the zdnn call.
+    // Otherwise, we don't replace and keep the zdnn call. Normalize alloc if
+    // necessary.
+    if (enableAllocNormalization)
+      return UnstickOutputAllocPattern::resizeAllocOfUnstickOutput(unstickOp);
     return failure();
   }
 
@@ -421,10 +459,10 @@ public:
       // Stick expansion also performs normalization to 4k of allocs.
       patterns.insert<StickExpansionPattern>(
           &getContext(), enableAllocNormalization, enableParallel);
-      patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallel);
+      patterns.insert<UnstickExpansionPattern>(
+          &getContext(), enableAllocNormalization, enableParallel);
     } else {
-      // No need to normalize unstick alloc output pattern as its already 4k
-      // aligned.
+      patterns.insert<UnstickOutputAllocPattern>(&getContext());
       patterns.insert<StickInputAllocPattern>(&getContext());
     }
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
