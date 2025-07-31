@@ -89,7 +89,7 @@ bool omMMapBinaryFile(
   int fd = open(filePath, O_RDONLY);
   if (fd < 0) {
     fprintf(stderr,
-        "Error while opening %s: %s. Please set OM_CONSTANT_PATH to the fold "
+        "Error while opening %s: %s. Please set OM_CONSTANT_PATH to the folder "
         "that contains %s.\n",
         filePath, strerror(errno), fname);
     if (basePath)
