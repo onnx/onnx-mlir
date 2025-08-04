@@ -15,7 +15,8 @@ inline static double ms_ceiling(double n, double m) { return ceil(n / m) * m; }
 
 // 3 parameter estimate functions(e3, e2, e1)
 #define ESTIMATE_TIME_FOR_DEV3(NAME, DEV)                                      \
-  double estimatedTimeFor##DEV##_##NAME(double e3, double e2, double e1) {     \
+  static double estimatedTimeFor##DEV##_##NAME(                                \
+      double e3, double e2, double e1) {                                       \
     if (isLessEqualNNPALevel(NNPALevel::M14))                                  \
       return arch14_estimatedTimeFor##DEV##_##NAME(e3, e2, e1);                \
     if (isLessEqualNNPALevel(NNPALevel::M15))                                  \
@@ -28,16 +29,18 @@ inline static double ms_ceiling(double n, double m) { return ceil(n / m) * m; }
   ESTIMATE_TIME_FOR_DEV3(NAME, NNPA)
 
 #define MISSING_ESTIMATE3(NAME, ARCH)                                          \
-  double ARCH##_estimatedTimeForCPU_##NAME(double e3, double e2, double e1) {  \
+  static double ARCH##_estimatedTimeForCPU_##NAME(                             \
+      double e3, double e2, double e1) {                                       \
     return e3 * e2 * e1;                                                       \
   }                                                                            \
-  double ARCH##_estimatedTimeForNNPA_##NAME(double e3, double e2, double e1) { \
+  static double ARCH##_estimatedTimeForNNPA_##NAME(                            \
+      double e3, double e2, double e1) {                                       \
     return 100 * e3 * e2 * e1;                                                 \
   }
 
 // 4 parameter estimate functions(e4, e3, e2, e1). Identical as above otherwise.
 #define ESTIMATE_TIME_FOR_DEV4(NAME, DEV)                                      \
-  double estimatedTimeFor##DEV##_##NAME(                                       \
+  static double estimatedTimeFor##DEV##_##NAME(                                \
       double e4, double e3, double e2, double e1) {                            \
     if (isLessEqualNNPALevel(NNPALevel::M14))                                  \
       return arch14_estimatedTimeFor##DEV##_##NAME(e4, e3, e2, e1);            \
@@ -49,11 +52,11 @@ inline static double ms_ceiling(double n, double m) { return ceil(n / m) * m; }
   ESTIMATE_TIME_FOR_DEV4(NAME, NNPA)
 
 #define MISSING_ESTIMATE4(NAME, ARCH)                                          \
-  double ARCH##_estimatedTimeForCPU_##NAME(                                    \
+  static double ARCH##_estimatedTimeForCPU_##NAME(                             \
       double e4, double e3, double e2, double e1) {                            \
     return e4 * e3 * e2 * e1;                                                  \
   }                                                                            \
-  double ARCH##_estimatedTimeForNNPA_##NAME(                                   \
+  static double ARCH##_estimatedTimeForNNPA_##NAME(                            \
       double e4, double e3, double e2, double e1) {                            \
     return 100 * e4 * e3 * e2 * e1;                                            \
   }
