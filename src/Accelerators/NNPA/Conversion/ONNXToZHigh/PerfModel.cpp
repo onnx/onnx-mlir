@@ -415,11 +415,11 @@ double estimateTimeForStickOp(Value oper) {
   processDim(oper, e4, e3, e2, e1, msg);
   // March 14, no NNPA support.
   if (isLessEqualNNPALevel(NNPALevel::M14))
-    return march14_estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+    return arch14_estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
   // Else returns minimum between CPU and NNPA
   if (isLessEqualNNPALevel(NNPALevel::M15)) {
-    double cpuTime = march15_estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
-    double nnpaTime = march15_estimatedTimeForNNPA_Stick_3ds(e4 * e3, e2, e1);
+    double cpuTime = arch15_estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+    double nnpaTime = arch15_estimatedTimeForNNPA_Stick_3ds(e4 * e3, e2, e1);
     return cpuTime < nnpaTime ? cpuTime : nnpaTime;
   }
   llvm_unreachable("add new NNPA architecture model here");
@@ -432,11 +432,11 @@ double estimateTimeForUnstickOp(Value oper) {
   processDim(oper, e4, e3, e2, e1, msg);
   // March 14, no NNPA support.
   if (isLessEqualNNPALevel(NNPALevel::M14))
-    return march14_estimatedTimeForCPU_Unstick_3ds(e4 * e3, e2, e1);
+    return arch14_estimatedTimeForCPU_Unstick_3ds(e4 * e3, e2, e1);
   // Else returns minimum between CPU and NNPA
   if (isLessEqualNNPALevel(NNPALevel::M15)) {
-    double cpuTime = march15_estimatedTimeForCPU_Unstick_3ds(e4 * e3, e2, e1);
-    double nnpaTime = march15_estimatedTimeForNNPA_Unstick_3ds(e4 * e3, e2, e1);
+    double cpuTime = arch15_estimatedTimeForCPU_Unstick_3ds(e4 * e3, e2, e1);
+    double nnpaTime = arch15_estimatedTimeForNNPA_Unstick_3ds(e4 * e3, e2, e1);
     return cpuTime < nnpaTime ? cpuTime : nnpaTime;
   }
   llvm_unreachable("add new NNPA architecture model here");

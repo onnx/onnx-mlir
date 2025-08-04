@@ -22,9 +22,9 @@ inline static double ms_ceiling(double n, double m) { return ceil(n / m) * m; }
 #define ESTIMATE_TIME_FOR_DEV3(NAME, DEV)                                      \
   double estimatedTimeFor##DEV##_##NAME(double e3, double e2, double e1) {     \
     if (isLessEqualNNPALevel(NNPALevel::M14))                                  \
-      return march14_estimatedTimeFor##DEV##_##NAME(e3, e2, e1);               \
+      return arch14_estimatedTimeFor##DEV##_##NAME(e3, e2, e1);               \
     if (isLessEqualNNPALevel(NNPALevel::M15))                                  \
-      return march15_estimatedTimeFor##DEV##_##NAME(e3, e2, e1);               \
+      return arch15_estimatedTimeFor##DEV##_##NAME(e3, e2, e1);               \
     llvm_unreachable("add new NNPA architecture model here");                  \
   }
 
@@ -45,8 +45,8 @@ inline static double ms_ceiling(double n, double m) { return ceil(n / m) * m; }
   double estimatedTimeFor##DEV##_##NAME(                                       \
       double e4, double e3, double e2, double e1) {                            \
     if (isLessEqualNNPALevel(NNPALevel::M14))                                  \
-      return march14_estimatedTimeFor##DEV##_##NAME(e4, e3, e2, e1);           \
-    return march15_estimatedTimeFor##DEV##_##NAME(e4, e3, e2, e1);             \
+      return arch14_estimatedTimeFor##DEV##_##NAME(e4, e3, e2, e1);           \
+    return arch15_estimatedTimeFor##DEV##_##NAME(e4, e3, e2, e1);             \
   }
 
 #define ESTIMATE_TIME_FOR4(NAME)                                               \
@@ -67,7 +67,7 @@ inline static double ms_ceiling(double n, double m) { return ceil(n / m) * m; }
 ESTIMATE_TIME_FOR3(Add_3ds)
 ESTIMATE_TIME_FOR3(Div_3ds)
 ESTIMATE_TIME_FOR3(Exp_3ds)
-MISSING_ESTIMATE3(Gelu_3ds, march14)
+MISSING_ESTIMATE3(Gelu_3ds, arch14)
 ESTIMATE_TIME_FOR3(Gelu_3ds)
 #if HI_ALEX
 ESTIMATE_TIME_FOR3(Log_3ds)

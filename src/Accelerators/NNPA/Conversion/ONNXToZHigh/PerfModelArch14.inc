@@ -9,13 +9,13 @@
 // =============================================================================
 
 // Operation Add_3ds: estimated times.
-double march14_estimatedTimeForCPU_Add_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Add_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9989711028792525
   return 3.9686846353007493e-07 + 1.1794164898251022e-10 * complexity;
 }
 // Operation Add_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Add_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Add_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9994266956239162
@@ -24,13 +24,13 @@ double march14_estimatedTimeForNNPA_Add_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Div_3ds: estimated times.
-double march14_estimatedTimeForCPU_Div_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Div_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9999973603706902
   return 6.024413187183776e-07 + 1.444210277092263e-09 * complexity;
 }
 // Operation Div_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Div_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Div_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9991809091918582
@@ -39,13 +39,13 @@ double march14_estimatedTimeForNNPA_Div_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Exp_3ds: estimated times.
-double march14_estimatedTimeForCPU_Exp_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Exp_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9964027710112378
   return -5.114482496042976e-06 + 4.191612771812482e-09 * complexity;
 }
 // Operation Exp_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Exp_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Exp_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9996489747804022
@@ -54,13 +54,13 @@ double march14_estimatedTimeForNNPA_Exp_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Log_3ds: estimated times.
-double march14_estimatedTimeForCPU_Log_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Log_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.98951908796714
   return -1.1673535780041665e-05 + 5.568744038404678e-09 * complexity;
 }
 // Operation Log_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Log_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Log_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9994743517297515
@@ -69,14 +69,14 @@ double march14_estimatedTimeForNNPA_Log_3ds(double e3, double e2, double e1) {
 }
 
 // Operation MatMul_3ds: estimated times.
-double march14_estimatedTimeForCPU_MatMul_3ds(
+double arch14_estimatedTimeForCPU_MatMul_3ds(
     double B, double N, double M, double K) {
   double complexity = B * (N * M * K);
   // Regression for CPU with r2 = 0.9993063132437037
   return 1.2274778896376187e-06 + 8.277833300031912e-11 * complexity;
 }
 // Operation MatMul_3ds: estimated times.
-double march14_estimatedTimeForNNPA_MatMul_3ds(
+double arch14_estimatedTimeForNNPA_MatMul_3ds(
     double B, double N, double M, double K) {
   double complexity =
       B * ms_ceiling(N, 2.0) * ms_ceiling(M, 64.0) * ms_ceiling(K, 64.0);
@@ -88,13 +88,13 @@ double march14_estimatedTimeForNNPA_MatMul_3ds(
 }
 
 // Operation Max_3ds: estimated times.
-double march14_estimatedTimeForCPU_Max_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Max_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.999934744283212
   return 3.2005877071463053e-07 + 1.1769966151617187e-10 * complexity;
 }
 // Operation Max_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Max_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Max_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.999738981118584
@@ -103,13 +103,13 @@ double march14_estimatedTimeForNNPA_Max_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Min_3ds: estimated times.
-double march14_estimatedTimeForCPU_Min_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Min_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9999348493035218
   return 3.5344354604038237e-07 + 1.175917606999914e-10 * complexity;
 }
 // Operation Min_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Min_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Min_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9994174686041679
@@ -118,13 +118,13 @@ double march14_estimatedTimeForNNPA_Min_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Mul_3ds: estimated times.
-double march14_estimatedTimeForCPU_Mul_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Mul_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9999212032519668
   return 3.506815960365203e-07 + 1.1755692215565626e-10 * complexity;
 }
 // Operation Mul_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Mul_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Mul_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9994566182095322
@@ -133,13 +133,13 @@ double march14_estimatedTimeForNNPA_Mul_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Pow2_3ds: estimated times.
-double march14_estimatedTimeForCPU_Pow2_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Pow2_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9999320368494156
   return 4.0421584022966975e-07 + 1.1715722909330777e-10 * complexity;
 }
 // Operation Pow2_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Pow2_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Pow2_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9994873079624843
@@ -148,13 +148,13 @@ double march14_estimatedTimeForNNPA_Pow2_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Pow3_3ds: estimated times.
-double march14_estimatedTimeForCPU_Pow3_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Pow3_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9998245341999067
   return 1.643157439725954e-06 + 2.5576590285464804e-10 * complexity;
 }
 // Operation Pow3_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Pow3_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Pow3_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.3286847571457816
@@ -163,13 +163,13 @@ double march14_estimatedTimeForNNPA_Pow3_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Pow4_3ds: estimated times.
-double march14_estimatedTimeForCPU_Pow4_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Pow4_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9999197459422748
   return 9.47474072842895e-07 + 2.4163095833040496e-10 * complexity;
 }
 // Operation Pow4_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Pow4_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Pow4_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9994611814325557
@@ -178,13 +178,13 @@ double march14_estimatedTimeForNNPA_Pow4_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Pow8_3ds: estimated times.
-double march14_estimatedTimeForCPU_Pow8_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Pow8_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9997872605697207
   return 8.784826358183354e-07 + 3.649713012323953e-10 * complexity;
 }
 // Operation Pow8_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Pow8_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Pow8_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9995041673834962
@@ -193,14 +193,14 @@ double march14_estimatedTimeForNNPA_Pow8_3ds(double e3, double e2, double e1) {
 }
 
 // Operation ReduceMean_4d: estimated times.
-double march14_estimatedTimeForCPU_ReduceMean_4d(
+double arch14_estimatedTimeForCPU_ReduceMean_4d(
     double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9581972945355149
   return -1.561907564731308e-07 + 1.2218609072525066e-10 * complexity;
 }
 // Operation ReduceMean_4d: estimated times.
-double march14_estimatedTimeForNNPA_ReduceMean_4d(
+double arch14_estimatedTimeForNNPA_ReduceMean_4d(
     double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
@@ -210,13 +210,13 @@ double march14_estimatedTimeForNNPA_ReduceMean_4d(
 }
 
 // Operation Relu_3ds: estimated times.
-double march14_estimatedTimeForCPU_Relu_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Relu_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9997916471943519
   return 4.020992561015175e-07 + 1.1775068214689546e-10 * complexity;
 }
 // Operation Relu_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Relu_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Relu_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9996967196634997
@@ -225,14 +225,13 @@ double march14_estimatedTimeForNNPA_Relu_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Sigmoid_3ds: estimated times.
-double march14_estimatedTimeForCPU_Sigmoid_3ds(
-    double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Sigmoid_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9999935862933553
   return 2.4666188614796535e-07 + 5.3819773454779955e-09 * complexity;
 }
 // Operation Sigmoid_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Sigmoid_3ds(
+double arch14_estimatedTimeForNNPA_Sigmoid_3ds(
     double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
@@ -242,14 +241,13 @@ double march14_estimatedTimeForNNPA_Sigmoid_3ds(
 }
 
 // Operation Softmax_3ds: estimated times.
-double march14_estimatedTimeForCPU_Softmax_3ds(
-    double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Softmax_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9998169150056859
   return 3.850778825086575e-06 + 6.476546494036936e-09 * complexity;
 }
 // Operation Softmax_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Softmax_3ds(
+double arch14_estimatedTimeForNNPA_Softmax_3ds(
     double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
@@ -259,7 +257,7 @@ double march14_estimatedTimeForNNPA_Softmax_3ds(
 }
 
 // Operation Stick_3ds: estimated times.
-double march14_estimatedTimeForCPU_Stick_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Stick_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9838446914891756
@@ -268,13 +266,13 @@ double march14_estimatedTimeForCPU_Stick_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Sub_3ds: estimated times.
-double march14_estimatedTimeForCPU_Sub_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Sub_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9989967088496832
   return 4.6884880875538195e-07 + 1.178543625471088e-10 * complexity;
 }
 // Operation Sub_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Sub_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Sub_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9997163549514938
@@ -283,13 +281,13 @@ double march14_estimatedTimeForNNPA_Sub_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Tanh_3ds: estimated times.
-double march14_estimatedTimeForCPU_Tanh_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Tanh_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9899146645413962
   return 4.591865418171123e-06 + 1.5243041278914726e-09 * complexity;
 }
 // Operation Tanh_3ds: estimated times.
-double march14_estimatedTimeForNNPA_Tanh_3ds(double e3, double e2, double e1) {
+double arch14_estimatedTimeForNNPA_Tanh_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9992996189301544
@@ -298,8 +296,7 @@ double march14_estimatedTimeForNNPA_Tanh_3ds(double e3, double e2, double e1) {
 }
 
 // Operation Unstick_3ds: estimated times.
-double march14_estimatedTimeForCPU_Unstick_3ds(
-    double e3, double e2, double e1) {
+double arch14_estimatedTimeForCPU_Unstick_3ds(double e3, double e2, double e1) {
   double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
   double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
   // Regression for NNPA with r2 = 0.9804634203145826
