@@ -60,6 +60,7 @@ static LogicalResult setAlignOfAlloc(memref::AllocOp allocOp) {
     LLVM_DEBUG(llvm::dbgs() << "  alloc is properly aligned\n");
     return failure();
   }
+  align = align < 1 ? 1 : align; // Avoid negative number.
   align = ((align + gAlignment - 1) / gAlignment) * gAlignment;
   LLVM_DEBUG(llvm::dbgs() << "  alloc not aligned ->" << align << "\n");
   ::std::optional<uint64_t> attrValue(align);
