@@ -774,3 +774,13 @@ void zdnnx_copy_data_to_full(zdnnx_tile *tile) {
 void zdnnx_copy_data_to_tile(zdnnx_tile *tile) {
   copy_data_for_tile(tile, /*block_copy=*/true, /*tile_to_full=*/false);
 }
+
+void zdnnx_copy_quant_params_to_tile(zdnnx_tile *tile) {
+  // No-op if the full buffer is reused.
+  if (zdnnx_is_full_buffer_reuse(tile->split_info))
+    return;
+
+  // Copy rec_scale and offset.
+  (&(tile->data))->rec_scale = tile->split_info->full_ztensor->rec_scale;
+  (&(tile->data))->offset = tile->split_info->full_ztensor->offset;
+}

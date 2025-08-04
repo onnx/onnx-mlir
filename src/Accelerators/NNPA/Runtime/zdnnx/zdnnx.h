@@ -315,4 +315,15 @@ void zdnnx_copy_data_to_tile(zdnnx_tile *tile);
  */
 void zdnnx_copy_data_to_full(zdnnx_tile *tile);
 
+/**
+ * \brief Copy quantization parameters i.e. rec_scale and offset from the full
+ * ztensor to the tile.
+ *
+ * Copying is no-op if there is no splitting or the full buffer is reused.
+ * This function can be called for different tiles in parallel.
+ *
+ * @param tile a pointer to a tile.
+ */
+void zdnnx_copy_quant_params_to_tile(zdnnx_tile *tile);
+
 #endif // ZDNNX_ZDNNX_H

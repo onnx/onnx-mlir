@@ -69,29 +69,10 @@ static uint32_t zdnnx_get_min_num_threads_per_zaiu() {
 // Matrix multiplication
 // -----------------------------------------------------------------------------
 
-static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
-  if (is_bcast)
-    return zdnn_matmul_bcast_op(
-        input_a, input_b, input_c, (zdnn_matmul_bcast_ops)op_type, output);
-  return zdnn_matmul_op(
-      input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
-}
-
-zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
-  // MatMul types in zdnn:
-  // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
-  // - stacked  : A (3DS), B (3DS), C (2DS), Y (3DS)
-  // - bcast    : A (3DS), B (2D),  C (1D),  Y (3DS)
-  zdnn_data_layouts a_layout = input_a->pre_transformed_desc->layout;
-  zdnn_data_layouts b_layout = input_b->pre_transformed_desc->layout;
-  zdnn_data_layouts c_layout = input_c->pre_transformed_desc->layout;
-  bool is_stacked =
-      (a_layout == ZDNN_3DS && b_layout == ZDNN_3DS && c_layout == ZDNN_2DS);
-
+static inline zdnn_status compute_tile_sizes_for_matmul(
+    const zdnn_ztensor *input_a, const zdnn_ztensor *input_b,
+    const zdnn_ztensor *input_c, uint32_t *ts_e4, uint32_t *ts_e2,
+    uint32_t *ts_e1, bool *split_bs_only, bool *split_m, bool *split_n) {
   // For a MatMul of A(BS,M,K)*B(K,N)+C(N),
   // - BS is e4 in (e4, e3, e2, e1), M is e2 and N is e1.
   //
@@ -129,41 +110,38 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
     return ZDNN_EXCEEDS_MDIS;
   }
 
-  zdnnx_split_info si_a, si_b, si_c, si_y;
-  uint32_t ts_e4 = 0, ts_e2 = 0, ts_e1 = 0;
   bool enoughBS = (num_zaiu_threads == 1 && BS >= num_threads_per_zaiu) ||
                   (num_zaiu_threads > 1 && BS >= num_zaiu_threads);
   bool exceedM = M > mdis_e2;
   bool exceedN = N > mdis_e1;
 
-  bool splitBSOnly = false, splitM = false, splitN = false;
   // Set tile_size for BS.
   if (enoughBS && !exceedM && !exceedN) {
     // Only splitting BS is enough.
     uint32_t num_tiles_per_e4 = num_zaiu_threads;
     if (num_zaiu_threads == 1)
       num_tiles_per_e4 = num_threads_per_zaiu;
-    ts_e4 = zdnnx_get_transformed_dim_per_tile(input_a, num_tiles_per_e4, E4);
-    splitBSOnly = true;
+    *ts_e4 = zdnnx_get_transformed_dim_per_tile(input_a, num_tiles_per_e4, E4);
+    *split_bs_only = true;
   } else if (BS != 1) {
     // Set tile_size to 1 to minize data copy.
-    ts_e4 = 1;
+    *ts_e4 = 1;
   }
 
   // Set tile_size for M.
   if (exceedM) {
     // Only split M when M exceeds MDIS.
-    ts_e2 = 8192;
-    splitM = true;
+    *ts_e2 = 8192;
+    *split_m = true;
   }
 
   // Set tile_size for N.
   if (exceedN) {
-    ts_e1 = 4096;
-    splitN = true;
-  } else if (!splitBSOnly) {
+    *ts_e1 = 4096;
+    *split_n = true;
+  } else if (!*split_bs_only) {
     uint32_t num_tiles_per_e1 = 1;
-    if (splitM) {
+    if (*split_m) {
       // Tiles over M are parallelized over multiple zaius.
       // Multiple threads per zaiu along N is to minimize data copy for the
       // output.
@@ -174,14 +152,49 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
       num_tiles_per_e1 =
           num_zaiu_threads * ((num_threads_per_zaiu < 2) ? 1 : 2);
     }
-    ts_e1 = zdnnx_get_transformed_dim_per_tile(input_b, num_tiles_per_e1, E1);
-    while (ts_e1 > mdis_e1) {
+    *ts_e1 = zdnnx_get_transformed_dim_per_tile(input_b, num_tiles_per_e1, E1);
+    while (*ts_e1 > mdis_e1) {
       num_tiles_per_e1 *= 2;
-      ts_e1 = zdnnx_get_transformed_dim_per_tile(input_b, num_tiles_per_e1, E1);
+      *ts_e1 =
+          zdnnx_get_transformed_dim_per_tile(input_b, num_tiles_per_e1, E1);
     }
-    splitN = (num_tiles_per_e1 != 1);
+    *split_n = (num_tiles_per_e1 != 1);
   }
+  return ZDNN_OK;
+}
 
+static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
+    zdnn_ztensor *output, bool is_bcast) {
+  if (is_bcast)
+    return zdnn_matmul_bcast_op(
+        input_a, input_b, input_c, (zdnn_matmul_bcast_ops)op_type, output);
+  return zdnn_matmul_op(
+      input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
+}
+
+zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
+    zdnn_ztensor *output, bool is_bcast) {
+  // MatMul types in zdnn:
+  // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
+  // - stacked  : A (3DS), B (3DS), C (2DS), Y (3DS)
+  // - bcast    : A (3DS), B (2D),  C (1D),  Y (3DS)
+  zdnn_data_layouts a_layout = input_a->pre_transformed_desc->layout;
+  zdnn_data_layouts b_layout = input_b->pre_transformed_desc->layout;
+  zdnn_data_layouts c_layout = input_c->pre_transformed_desc->layout;
+  bool is_stacked =
+      (a_layout == ZDNN_3DS && b_layout == ZDNN_3DS && c_layout == ZDNN_2DS);
+
+  // Compute tile sizes.
+  uint32_t ts_e4 = 0, ts_e2 = 0, ts_e1 = 0;
+  bool split_bs_only = false, split_m = false, split_n = false;
+  zdnn_status ts_status = compute_tile_sizes_for_matmul(input_a, input_b,
+      input_c, &ts_e4, &ts_e2, &ts_e1, &split_bs_only, &split_m, &split_n);
+  if (ts_status != ZDNN_OK)
+    return ts_status;
+
+  zdnnx_split_info si_a, si_b, si_c, si_y;
   zdnnx_prepare_split_info(&si_a, input_a, ts_e4, 0, ts_e2, 0, "MatMul A");
   zdnnx_prepare_split_info(&si_b, input_b, ts_e4, 0, 0, ts_e1, "MatMul B");
   zdnnx_prepare_split_info(&si_c, input_c, ts_e4, 0, 0, ts_e1, "MatMul C");
@@ -205,9 +218,9 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
   // Iterate over the tiles along the first dim of A.
   // Only enable parallelism at this level if there are enough work.
 
-#pragma omp parallel for num_threads(BT) if (splitBSOnly)
+#pragma omp parallel for num_threads(BT) if (split_bs_only)
   for (uint32_t bs = 0; bs < BT; ++bs) {
-#pragma omp parallel for num_threads(MT) if (splitM)
+#pragma omp parallel for num_threads(MT) if (split_m)
     for (uint32_t m = 0; m < MT; ++m) {
       /* Prepare and set an A tile at index (0, 0, m, 0). */
       zdnnx_tile ta;
@@ -216,7 +229,7 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
       zdnnx_copy_data_to_tile(&ta);
 
       // Iterate over the tiles along the second dim of B.
-#pragma omp parallel for shared(m, ta, is_bcast) num_threads(NT) if (splitN)
+#pragma omp parallel for shared(m, ta, is_bcast) num_threads(NT) if (split_n)
       for (uint32_t n = 0; n < NT; ++n) {
         /* Prepare and set B and C tiles at index (0, 0, 0, n). */
         zdnnx_tile tb, tc;
@@ -233,6 +246,112 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
         /* Operation */
         zdnn_status status = call_zdnn_matmul_op(
             &ta.data, &tb.data, &tc.data, op_type, &ty.data, is_bcast);
+        assert(status == ZDNN_OK);
+
+        /* Copy the output tile at (0, 0, m, n) to the full output. */
+        zdnnx_copy_data_to_full(&ty);
+
+        /* Free the B, C and Y tile buffers. */
+        zdnnx_free_tile_buffer(&tb);
+        zdnnx_free_tile_buffer(&tc);
+        zdnnx_free_tile_buffer(&ty);
+      }
+
+      // Free the A tile buffer.
+      zdnnx_free_tile_buffer(&ta);
+    }
+  }
+
+  return ZDNN_OK;
+}
+
+zdnn_status zdnnx_omp_quantized_matmul(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c,
+    zdnn_matmul_ops op_type, const int8_t clip_min, const int8_t clip_max,
+    const bool disable_clipping, const bool dequantize, const bool pre_computed,
+    void *work_area, zdnn_ztensor *output) {
+  // MatMul types in zdnn:
+  // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
+  // - stacked  : A (3DS), B (3DS), C (2DS), Y (3DS)
+  // - bcast    : A (3DS), B (2D),  C (1D),  Y (3DS)
+  zdnn_data_layouts a_layout = input_a->pre_transformed_desc->layout;
+  zdnn_data_layouts b_layout = input_b->pre_transformed_desc->layout;
+  zdnn_data_layouts c_layout = input_c->pre_transformed_desc->layout;
+  bool is_stacked =
+      (a_layout == ZDNN_3DS && b_layout == ZDNN_3DS && c_layout == ZDNN_2DS);
+
+  // Compute tile sizes.
+  uint32_t ts_e4 = 0, ts_e2 = 0, ts_e1 = 0;
+  bool split_bs_only = false, split_m = false, split_n = false;
+  zdnn_status ts_status = compute_tile_sizes_for_matmul(input_a, input_b,
+      input_c, &ts_e4, &ts_e2, &ts_e1, &split_bs_only, &split_m, &split_n);
+  if (ts_status != ZDNN_OK)
+    return ts_status;
+
+  zdnnx_split_info si_a, si_b, si_c, si_y;
+  zdnnx_prepare_split_info(
+      &si_a, input_a, ts_e4, 0, ts_e2, 0, "Quantized MatMul A");
+  zdnnx_prepare_split_info(
+      &si_b, input_b, ts_e4, 0, 0, ts_e1, "Quantized MatMul B");
+  zdnnx_prepare_split_info(
+      &si_c, input_c, ts_e4, 0, 0, ts_e1, "Quantized MatMul C");
+  zdnnx_prepare_split_info(
+      &si_y, output, ts_e4, 0, ts_e2, ts_e1, "Quantized MatMul Y");
+
+  // No splitting, call the zdnn matmul without any changes.
+  if (zdnnx_has_one_tile(&si_a) && zdnnx_has_one_tile(&si_b)) {
+#ifdef ZDNNX_DEBUG
+    printf("[Quantized MatMul] calling the original zdnn quantized matmul.\n");
+#endif
+    zdnn_status status = zdnn_quantized_matmul_op(input_a, input_b, input_c,
+        op_type, clip_min, clip_max, disable_clipping, dequantize, pre_computed,
+        work_area, output);
+    return status;
+  }
+
+  // Call zdnn_matmul_op on each tile.
+  // For each output tile at index (m, n): Y(m, n) = A(m, K) * B(K, n).
+  uint32_t BT = zdnnx_get_num_tiles(&si_a, E4);
+  uint32_t MT = zdnnx_get_num_tiles(&si_a, E2);
+  uint32_t NT = zdnnx_get_num_tiles(&si_b, E1);
+  // Iterate over the tiles along the first dim of A.
+  // Only enable parallelism at this level if there are enough work.
+
+#pragma omp parallel for num_threads(BT) if (split_bs_only)
+  for (uint32_t bs = 0; bs < BT; ++bs) {
+#pragma omp parallel for num_threads(MT) if (split_m)
+    for (uint32_t m = 0; m < MT; ++m) {
+      /* Prepare and set an A tile at index (0, 0, m, 0). */
+      zdnnx_tile ta;
+      zdnnx_set_tile(&si_a, &ta, NULL, bs, 0, m, 0);
+      /* Copy if reuse is off. */
+      zdnnx_copy_data_to_tile(&ta);
+      zdnnx_copy_quant_params_to_tile(&ta);
+
+      // Iterate over the tiles along the second dim of B.
+#pragma omp parallel for shared(m, ta) num_threads(NT) if (split_n)
+      for (uint32_t n = 0; n < NT; ++n) {
+        /* Prepare and set B and C tiles at index (0, 0, 0, n). */
+        zdnnx_tile tb, tc;
+        zdnnx_set_tile(&si_b, &tb, NULL, (is_stacked) ? bs : 0, 0, 0, n);
+        zdnnx_set_tile(&si_c, &tc, NULL, (is_stacked) ? bs : 0, 0, 0, n);
+        /* Copy if reuse is off. */
+        zdnnx_copy_data_to_tile(&tb);
+        zdnnx_copy_quant_params_to_tile(&tb);
+        zdnnx_copy_data_to_tile(&tc);
+        zdnnx_copy_quant_params_to_tile(&tc);
+
+        /* Prepare and set an output tile at index (0, 0, m, n). */
+        zdnnx_tile ty;
+        zdnnx_set_tile(&si_y, &ty, NULL, bs, 0, m, n);
+        /* Copy if reuse is off. */
+        zdnnx_copy_quant_params_to_tile(&ty);
+
+        /* Operation */
+        // TODO: could we reuse work_area in the parallel scenario?
+        zdnn_status status = zdnn_quantized_matmul_op(&ta.data, &tb.data,
+            &tc.data, op_type, clip_min, clip_max, disable_clipping, dequantize,
+            pre_computed, NULL, &ty.data);
         assert(status == ZDNN_OK);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */
