@@ -52,6 +52,21 @@
 
 using namespace mlir;
 
+// Ensure that alignment is a multiple of gAlignment.
+static LogicalResult setAlignOfAlloc(memref::AllocOp allocOp) {
+  auto alignmentAttr = allocOp.getAlignment();
+  int64_t align = alignmentAttr ? alignmentAttr.value() : 1;
+  if (align != 0 && align % gAlignment == 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  alloc is properly aligned\n");
+    return failure();
+  }
+  align = ((align + gAlignment - 1) / gAlignment) * gAlignment;
+  LLVM_DEBUG(llvm::dbgs() << "  alloc not aligned ->" << align << "\n");
+  ::std::optional<uint64_t> attrValue(align);
+  allocOp.setAlignment(attrValue);
+  return success();
+}
+
 namespace onnx_mlir {
 namespace zlow {
 
@@ -74,20 +89,10 @@ public:
 
   // Shared functions with other classes in this file.
   static LogicalResult resizeAllocOfUnstickOutput(ZLowUnstickOp unstickOp) {
-    memref::AllocOp allocOfXOp =
+    memref::AllocOp allocOfOutputOp =
         unstickOp.getOut().getDefiningOp<memref::AllocOp>();
-    assert(allocOfXOp && "unstick output should always be allocated");
-    auto alignmentAttr = allocOfXOp.getAlignment();
-    int64_t intAlign = alignmentAttr ? alignmentAttr.value() : 1;
-    if (intAlign >= gAlignment) {
-      LLVM_DEBUG(llvm::dbgs() << "  stick input is properly aligned\n");
-      return failure();
-    }
-    LLVM_DEBUG(
-        llvm::dbgs() << "  stick input alignment is too small; fix it\n");
-    ::std::optional<uint64_t> attrValue(gAlignment);
-    allocOfXOp.setAlignment(attrValue);
-    return success();
+    assert(allocOfOutputOp && "unstick output should always be allocated");
+    return setAlignOfAlloc(allocOfOutputOp);
   }
 };
 
@@ -189,18 +194,7 @@ public:
       LLVM_DEBUG(llvm::dbgs() << "  stick input had no alloc (parameter)\n");
       return failure();
     }
-    auto alignmentAttr = allocOfXOp.getAlignment();
-    int64_t intAlign = alignmentAttr ? alignmentAttr.value() : 1;
-    fprintf(stderr, "alignment attribute is %d\n", (int)intAlign);
-    if (intAlign >= gAlignment) {
-      LLVM_DEBUG(llvm::dbgs() << "  stick input is properly aligned\n");
-      return failure();
-    }
-    LLVM_DEBUG(
-        llvm::dbgs() << "  stick input alignment is too small; fix it\n");
-    ::std::optional<uint64_t> attrValue(gAlignment);
-    allocOfXOp.setAlignment(attrValue);
-    return success();
+    return setAlignOfAlloc(allocOfXOp);
   }
 };
 
