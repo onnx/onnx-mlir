@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+if (NOT ONNX_MLIR_ENABLE_PYBIND)
+  return()
+endif()
+
 if (NOT ONNX_MLIR_BUILD_TESTS)
   set(EXCLUDE_FROM_ALL ON)
 endif()

@@ -1,6 +1,11 @@
 
 # SPDX-License-Identifier: Apache-2.0
 
+# Runtime depends on pybind11, skip it if unavailable
+if (NOT ONNX_MLIR_ENABLE_PYBIND)
+  return()
+endif()
+
 if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 add_subdirectory(jni)
 add_subdirectory(omp)
