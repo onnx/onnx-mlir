@@ -7,6 +7,10 @@ add_onnx_mlir_rewriter(DecomposeConvTranspose1dPhased)
 
 add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_rewriter(ConvOpt)
+add_onnx_mlir_rewriter(ConcatOpt)
+add_onnx_mlir_rewriter(SliceOpt)
+add_onnx_mlir_rewriter(CastOpt)
+add_onnx_mlir_rewriter(QDQOpt)
 
 add_onnx_mlir_library(OMShapeInference
   ShapeInference.cpp
@@ -42,6 +46,10 @@ add_onnx_mlir_library(OMInstrumentONNX
 
 add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
+  ConcatOpt.cpp
+  SliceOpt.cpp
+  CastOpt.cpp  
+  QDQOpt.cpp    
   ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp

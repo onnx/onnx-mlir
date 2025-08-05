@@ -54,6 +54,10 @@ void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
     llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConcatOptONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createCastOptONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createSliceOptONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass();
 
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
