@@ -404,6 +404,14 @@ public:
     // Weight is a constant.
     if (!isDenseONNXConstant(B))
       return rewriter.notifyMatchFailure(op, "MatMul's B is not a constant.");
+    // Only quantize mm in MLP layers by checking B is 2048x8192: not good
+    ArrayRef<int64_t> bShape = getShape(B.getType());
+    // Only quantize down_proj in MLP layers
+    // if (bShape[0] != 8192 && bShape[1] != 2048)
+    //   return rewriter.notifyMatchFailure(op, "not down_proj.");
+    // Only quantize gate_proj and up_proj in MLP layers
+    if (bShape[0] != 2048 && bShape[1] != 8192)
+      return rewriter.notifyMatchFailure(op, "not gate_proj and up_proj.");
 
     if (C) {
       // Bias is a constant.
@@ -412,7 +420,7 @@ public:
       // B and C shapes must be consistent. The reduction shape of B on the
       // second dim from the last is the same as the shape of B, e.g. If B is
       // [2x3x4], C must be [2x4].
-      ArrayRef<int64_t> bShape = getShape(B.getType());
+      // ArrayRef<int64_t> bShape = getShape(B.getType());
       ArrayRef<int64_t> cShape = getShape(C.getType());
       int64_t bRank = bShape.size();
       int64_t cRank = cShape.size();

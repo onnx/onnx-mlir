@@ -326,7 +326,6 @@ zdnn_status zdnnx_omp_quantized_matmul(const zdnn_ztensor *input_a,
       zdnnx_set_tile(&si_a, &ta, NULL, bs, 0, m, 0);
       /* Copy if reuse is off. */
       zdnnx_copy_data_to_tile(&ta);
-      zdnnx_copy_quant_params_to_tile(&ta);
 
       // Iterate over the tiles along the second dim of B.
 #pragma omp parallel for shared(m, ta) num_threads(NT) if (split_n)
@@ -337,15 +336,11 @@ zdnn_status zdnnx_omp_quantized_matmul(const zdnn_ztensor *input_a,
         zdnnx_set_tile(&si_c, &tc, NULL, (is_stacked) ? bs : 0, 0, 0, n);
         /* Copy if reuse is off. */
         zdnnx_copy_data_to_tile(&tb);
-        zdnnx_copy_quant_params_to_tile(&tb);
         zdnnx_copy_data_to_tile(&tc);
-        zdnnx_copy_quant_params_to_tile(&tc);
 
         /* Prepare and set an output tile at index (0, 0, m, n). */
         zdnnx_tile ty;
         zdnnx_set_tile(&si_y, &ty, NULL, bs, 0, m, n);
-        /* Copy if reuse is off. */
-        zdnnx_copy_quant_params_to_tile(&ty);
 
         /* Operation */
         // TODO: could we reuse work_area in the parallel scenario?
