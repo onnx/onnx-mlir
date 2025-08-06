@@ -124,7 +124,7 @@ struct ONNXLayoutTransformOpLowering
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl);
           DimsExpr outerIndices;
-          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          getIndexExprList<DimIndexExpr>(loopInd, outerIndices);
           DimsExpr memAF = outerIndices;
           memAF[E1] =
               memAF[E1] * modVal; // Loop index for E1 is in tiles of modVal.
