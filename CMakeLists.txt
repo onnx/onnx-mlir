@@ -15,7 +15,7 @@ option(ONNX_MLIR_INSTALL_HEADERS "Install onnx-mlir headers" ON)
 option(ONNX_MLIR_INSTALL_LIBS "Install onnx-mlir libraries" ON)
 option(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS "Install onnx-mlir python bindings" ON)
 option(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
-option(ONNX_MLIR_ENABLE_PYBIND "Set to OFF for building without pybind11 or the relevant tests." ON)
+option(ONNX_MLIR_ENABLE_PYBIND "Set to OFF for building without pybind11 and features or tests depending on it." ON)
 
 if (NOT ONNX_MLIR_ENABLE_PYBIND)
   set(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT OFF)
