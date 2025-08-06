@@ -436,15 +436,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Test if loop trip count is long enough for a parallel execution.
   if (enableParallel) {
-    int64_t parId;
-    if (findSuitableParallelDimension({lb}, {ub}, 0, 1, parId, 32 * totVL)) {
-      onnxToKrnlParallelReport(
-          op, true, parId, lb, ub, "simd reduction to one element");
-    } else {
+    if (tryCreateKrnlParallel(create.krnl, op, "simd reduction to one element",
+            {}, {lb}, {ub}, 0, 1, {}, 32 * totVL,
+            /*createKrnlParallel=*/false) == -1)
       enableParallel = false;
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "not enough work in simd reduction to one element");
-    }
   }
   if (!enableParallel) {
     // Allocate temp and output memory
@@ -1058,18 +1053,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> lbs3(outRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
-      if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(lbs3, ubs3, 0, 1, parId,
-                /*min iter for going parallel*/ 4)) {
-          create.krnl.parallel(loop3Def[0]);
-          onnxToKrnlParallelReport(
-              op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
-        } else {
-          onnxToKrnlParallelReport(op, false, 0, lbs3[0], ubs3[0],
-              "not enough work in reduction scalar mean");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op, "reduction scalar mean",
+            loop3Def, lbs3, ubs3, 0, 1, {}, /*min iter for going parallel*/ 4);
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
           [&](const KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
@@ -1190,19 +1176,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
-    if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
-              /*min iter for going parallel*/ 128)) {
-        create.krnl.parallel(outLoopDef[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
-      } else {
-        enableParallel = false;
-        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
-            "not enough work for reduction h-simd");
-      }
-    }
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "reduction h-simd", outLoopDef,
+          lbs, flatOutDims, 0, 1, {}, /*min iter for going parallel*/ 128);
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
@@ -1345,17 +1321,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Iterate only over all but the inner loop of the flattened input.
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, flatOutDims, 0, flatOutRank, parId,
-              /*min iter for going parallel*/ 8 * VL)) {
-        create.krnl.parallel(optimizedOutLoopDef[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId],
-            flatOutDims[parId], "reduction shuffle h-simd");
-      } else {
-        enableParallel = false;
-        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
-            "not enough work for reduction shuffle h-simd");
-      }
+      tryCreateKrnlParallel(create.krnl, op, "reduction shuffle h-simd",
+          optimizedOutLoopDef, lbs, flatOutDims, 0, flatOutRank, {},
+          /*min iter for going parallel*/ 8 * VL);
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange blockedOutLoopInd) {

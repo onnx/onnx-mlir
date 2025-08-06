@@ -1776,34 +1776,18 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   IndexExpr simdUb = ubs.pop_back_val(); // Remove flattened ub.
   bool useParallelInSimdLoop = false;
   if (enableParallel) {
-    int64_t parId;
     if (outerLoopRank > 1) {
       // Outer loop parallelism.
-      if (findSuitableParallelDimension(
-              lbs, ubs, 0, std::min((int64_t)2, outerLoopRank), parId)) {
-        create.krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "outer-loop of elementwise simd partially flattened");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "not enough work in outermost-loops of elementwise simd "
-            "partially "
-            "flattened");
-      }
+      tryCreateKrnlParallel(create.krnl, op,
+          "outer-loop of elementwise simd partially flattened", loopDef, lbs,
+          ubs);
     } else {
       // SIMD loop parallelism.
-      DimsExpr simdLbs = {zero}, simdUbs = {simdUb};
-      if (findSuitableParallelDimension(
-              simdLbs, simdUbs, 0, 1, parId, VL * 32)) {
-        assert(parId == 0 && "expected loop zero to be parallelized");
+      if (tryCreateKrnlParallel(create.krnl, op,
+              "inner-loop of elementwise simd partially flattened", loopDef,
+              {zero}, {simdUb}, 0, 1, {}, VL * 32,
+              /*createKrnlParallel=*/false) != -1)
         useParallelInSimdLoop = true;
-        onnxToKrnlParallelReport(op, true, parId, zero, simdUb,
-            "innermost-loop of elementwise simd partially flattened");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "not enough work in innermost-loop of elementwise simd partially "
-            "flattened");
-      }
     }
   }
   create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -2404,18 +2388,9 @@ struct ONNXElementwiseUnaryOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
-      if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
-          create.krnl.parallel(loopDef[parId]);
-          onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-              "elementwise unary not simdized");
-        } else {
-          onnxToKrnlParallelReport(op, false, -1, -1,
-              "no dim with enough work in elementwise unary not simdized");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op, "elementwise unary not simdized",
+            loopDef, lbs, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value> args;
@@ -2587,18 +2562,9 @@ struct ONNXElementwiseBinaryOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       // TODO adjust in the future
-      if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
-          create.krnl.parallel(loopDef[parId]);
-          onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-              "elementwise binary not simdized");
-        } else {
-          onnxToKrnlParallelReport(op, false, -1, -1,
-              "no dim with enough work in elementwise binary not simdized");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op,
+            "elementwise binary not simdized", loopDef, lbs, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
@@ -2763,18 +2729,10 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
-      if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
-          create.krnl.parallel(loopDef[parId]);
-          onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-              "elementwise variadic not simdized");
-        } else {
-          onnxToKrnlParallelReport(op, false, -1, -1,
-              "no dim with enough work in elementwise variadic not simdized");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op,
+            "elementwise variable not simdized", loopDef, lbs, ubs);
+
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
@@ -2886,18 +2844,9 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
-      if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
-          create.krnl.parallel(loopDef[parId]);
-          onnxToKrnlParallelReport(
-              op, true, parId, lbs[parId], ubs[parId], "where op not simdized");
-        } else {
-          onnxToKrnlParallelReport(op, false, -1, -1,
-              "no dim with enough work in where op not simdized");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(
+            create.krnl, op, "where op not simdized", loopDef, lbs, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(&rewriter, shapeHelper.getScope());
