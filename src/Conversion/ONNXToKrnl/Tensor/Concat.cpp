@@ -91,21 +91,12 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       // Explore parallelism at the first two outermost dimensions and give up
       // if the found dimension is 'axis'.
       commonUB[axis] = ubs[axis];
-      if (enableParallel) {
-        int64_t parId = -1;
-        if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId)) {
-          if (parId == axis)
-            parId = -1;
-          else
-            create.krnl.parallel(loopDef[parId]);
-        }
-        if (parId != -1)
-          onnxToKrnlParallelReport(
-              op, true, parId, lbs[parId], ubs[parId], "concat");
-        else
-          onnxToKrnlParallelReport(
-              op, false, -1, -1, "no par dim with enough work in concat");
-      }
+
+      // Enable parallelism if required. Do not parallel on the axis dimension.
+      if (enableParallel)
+        tryCreateKrnlParallel(
+            create.krnl, op, "concat", loopDef, lbs, ubs, 0, 2, {axis});
+
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.

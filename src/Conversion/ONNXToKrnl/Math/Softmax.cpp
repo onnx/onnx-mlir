@@ -178,16 +178,8 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
     if (enableParallel) {
       assert(axis > 0 && "bad assumption");
-      int64_t parId;
-      if (findSuitableParallelDimension(outerLbs, outerUbs, 0, 1, parId,
-              /*min iter for going parallel*/ 4)) {
-        create.krnl.parallel(outerLoops[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, outerLbs[0], outerUbs[0], "softmax v11");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, 0, outerLbs[0], outerUbs[0], "softmax v11");
-      }
+      tryCreateKrnlParallel(
+          create.krnl, op, "softmax v1", outerLoops, outerLbs, outerUbs, 0, 1);
     }
     create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](const KrnlBuilder &ck, ValueRange outerIndices) {
@@ -236,18 +228,9 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     if (i != axis)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
 
-  if (enableParallel) {
-    int64_t parId;
-    if (findSuitableParallelDimension(outerLbs, outerUbs, 0, 1, parId,
-            /*min iter for going parallel*/ 4)) {
-      create.krnl.parallel(outerLoops[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, outerLbs[0], outerUbs[0], "softmax");
-    } else {
-      onnxToKrnlParallelReport(op, false, 0, outerLbs[0], outerUbs[0],
-          "not enough work for softmax");
-    }
-  }
+  if (enableParallel)
+    tryCreateKrnlParallel(
+        create.krnl, op, "softmax", outerLoops, outerLbs, outerUbs, 0, 1);
 
   // Emit outer loops.
   create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
