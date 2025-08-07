@@ -75,6 +75,39 @@ func.func @test_matmul_mul_not_fused(%arg0: tensor<?x3xf32>) -> (tensor<?x2xf32>
 
 // -----
 
+func.func @test_matmul_div_fused_1(%arg0: tensor<?x2048xf32>) -> (tensor<?x2048xf32>) {
+  %b = onnx.Constant dense<3.0> : tensor<2048x2048xf32>
+  %c = onnx.Constant dense<5.0> : tensor<f32>
+  %0 = "onnx.MatMul"(%arg0, %b) : (tensor<?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x2048xf32>
+  %1 = "onnx.Div"(%0, %c) : (tensor<?x2048xf32>, tensor<f32>) -> tensor<?x2048xf32>
+  onnx.Return %1 : tensor<?x2048xf32>
+
+// CHECK-LABEL:  func.func @test_matmul_div_fused_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x2048xf32>) -> tensor<?x2048xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3.000000e+00> : tensor<2048x2048xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<5.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Div"([[VAR_0_]], [[VAR_1_]]) : (tensor<2048x2048xf32>, tensor<f32>) -> tensor<2048x2048xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x2048xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x2048xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_matmul_div_not_fused(%arg0: tensor<?x3xf32>) -> (tensor<?x2xf32>) {
+  %b = onnx.Constant dense<3.0> : tensor<3x2xf32>
+  %c = onnx.Constant dense<[1.0, 5.0]> : tensor<2xf32>
+  %0 = "onnx.MatMul"(%arg0, %b) : (tensor<?x3xf32>, tensor<3x2xf32>) -> tensor<?x2xf32>
+  %1 = "onnx.Div"(%0, %c) : (tensor<?x2xf32>, tensor<2xf32>) -> tensor<?x2xf32>
+  onnx.Return %1 : tensor<?x2xf32>
+
+// CHECK-LABEL:  func.func @test_matmul_div_not_fused
+// CHECK: "onnx.MatMul"
+// CHECK-NEXT: "onnx.Div"
+}
+
+// -----
+
 // onnx.MatMul ops with more than one result uses should not get fused.
 // CHECK-LABEL: func @test_sigmoid_add(%{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>) -> tensor<10x10xf32>
 func.func @test_sigmoid_add(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>, %a2: tensor<10x10xf32>) -> tensor<10x10xf32> {
