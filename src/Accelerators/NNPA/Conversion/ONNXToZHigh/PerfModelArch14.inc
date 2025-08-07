@@ -9,7 +9,7 @@
 // =============================================================================
 
 // Operation Add_3ds: estimated times.
-static static double arch14_estimatedTimeForCPU_Add_3ds(
+static double arch14_estimatedTimeForCPU_Add_3ds(
     double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;
   // Regression for CPU with r2 = 0.9989711028792525
