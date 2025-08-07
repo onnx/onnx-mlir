@@ -435,6 +435,11 @@ def FuseScalarMulMatMulPattern: Pat<
  [(IsFromONNXConstantOp $b), (IsScalarConstantTensor $c)]
 >;
 
+def FuseScalarDivMatMulPattern: Pat<
+ (ONNXDivOp (ONNXMatMulOp $a, $b), $c),
+ (ONNXMatMulOp $a, (ONNXDivOp $b, $c)),
+ [(IsFromONNXConstantOp $b), (IsScalarConstantTensor $c)]
+>;
 
 
 // TODO add pattern for non-null bias with constraints:
