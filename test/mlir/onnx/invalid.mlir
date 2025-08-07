@@ -115,6 +115,16 @@ func.func @test_dequantize_linear_verifier_2(%arg0 : tensor<5x5x1xi32>, %arg1 : 
 
 // -----
 
+// We should not get any error for scalar values with different ranks.
+func.func @test_scalar_with_different_rank(%arg0 : tensor<5x5x1xi32>) -> tensor<5x5x1xf32> {
+  %0 = "onnx.Constant"(){ value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %1 = "onnx.Constant"(){ value = dense<2.0> : tensor<1xf32> } : () -> tensor<1xf32>
+  %2 = "onnx.DequantizeLinear"(%arg0, %1, %0) {} : (tensor<5x5x1xi32>, tensor<1xf32>, tensor<i32>)  -> tensor<5x5x1xf32>
+  "onnx.Return"(%2) : (tensor<5x5x1xf32>) -> ()
+}
+
+// -----
+
 func.func @test_dequantize_linear_verifier_3(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<3xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.DequantizeLinear' op x_scale and x_zero_point 1-D tensor length must match the input axis dim size}}
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<3xf32>, tensor<3xi32>)  -> tensor<*xf32>
