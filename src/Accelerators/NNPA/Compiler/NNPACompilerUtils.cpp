@@ -177,7 +177,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
 
   // hi alex
-  pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
+  if (nnpaUseFusionOpStickUnstick)
+    pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;

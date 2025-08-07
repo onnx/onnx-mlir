@@ -332,7 +332,7 @@ bool matchConstAndOp(mlir::Value A, mlir::Value B, double cst, OP &op);
 
 // This is to recognize a binary op, e.g. A*B where one of A and B is the given
 // value and the other one is defined by OP.
-// Note: this function can handle the communitive property of the binary op.
+// Note: this function can handle the commutative property of the binary op.
 //
 // For example, to recognize this pattern where %z is one of the inputs of *,
 // and the other input of * is defined by onnx.Tanh:

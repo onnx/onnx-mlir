@@ -2,25 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- DevicePlacement.cpp - Device Placement for NNPA -------------===//
+//===-------- FusionOpStickUnstick.cpp - Fuse compute op  -----------------===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass is to set device (CPU, or NNPA) for each operation in ONNX level.
-// Device placement can be decided by:
-// - user configuration file if given
-// - a cost model
-//
-// Device placement is done via setting `device` attribute for each operation.
-// Values for `device` attribute is one of the following strings:
-// - "": an empty string means the compiler decides whether the operation is on
-// CPU or NNPA.
-// - "nnpa": the operation may run on NNPA or CPU, and the final decision is
-// made by the compiler. If `device=nnpa` is the result of this device-placement
-// pass, then it means the compiler thinks it is suitable for NNPA.
-// - "cpu": the operation is guaranteed to run on CPU.
+// This pass detects patterns of unstick -> op -> stick (or subset) and when
+// successful, remove the stick/unstick to directly feed the ZTensor to the
+// compute operation. Lowering will deal with generating the proper code.
 //
 //===----------------------------------------------------------------------===//
 
@@ -39,6 +29,7 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -50,14 +41,199 @@ using namespace zhigh;
 
 // TODO: one use respond to false if same output is used twice by a given op.
 
+// TODO: for elementwise/variadic, test that the others are coming from constant
+// (ideal) or have no some other suitable condition.
+// TODO: also ensure that the pattern did not already apply (aha, but since we
+// remove stick/unstick, that should be trivial).
 namespace {
 
+// Check a node with type T is fusible or not.
+template <typename T>
+bool enqueueFusibleOpImpl(Operation *op) {
+  return isa<T>(op);
+}
+
+// Variadic template to iterate all the Elementwise Ops.
+// 1) Termination (void type): do nothing.
+template <typename T = void, class... Ts>
+bool enqueueFusibleOp(Operation *op);
+// 2) Recursion: test first type, and if not successful, recurse.
+template <typename T, class... Ts>
+bool enqueueFusibleOp(Operation *op) {
+  if (enqueueFusibleOpImpl<T>(op))
+    return true;
+  return enqueueFusibleOp<Ts...>(op);
+}
+// 3) By default, return false.
+template <>
+bool enqueueFusibleOp(Operation *op) {
+  return false;
+}
+
+// TODO: maybe unify the list from Elementwise.cpp and this one.
 bool canOpFuseWithStickUnstick(Operation *op) {
   if (!op)
     return false;
-  if (llvm::isa<ONNXAddOp>(op))
-    return true;
-  return false;
+  return enqueueFusibleOp<
+      // Unary Op
+      mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXBinarizerOp,
+      mlir::ONNXCastOp, mlir::ONNXCeilOp, mlir::ONNXCosOp, mlir::ONNXCoshOp,
+      mlir::ONNXDequantizeLinearOp, mlir::ONNXCeluOp, mlir::ONNXEluOp,
+      mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp, mlir::ONNXAsinOp,
+      mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp, mlir::ONNXFloorOp,
+      mlir::ONNXGeluOp, mlir::ONNXBitwiseNotOp, mlir::ONNXHardSigmoidOp,
+      mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp,
+      mlir::ONNXLeakyReluOp, mlir::ONNXLogOp, mlir::ONNXMishOp, mlir::ONNXNegOp,
+      mlir::ONNXNotOp, mlir::ONNXReciprocalOp, mlir::ONNXReluOp,
+      mlir::ONNXRoundOp, mlir::ONNXSeluOp, mlir::ONNXShrinkOp,
+      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
+      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXThresholdedReluOp,
+      // Binary Op
+      mlir::ONNXBitShiftOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
+      mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp,
+      mlir::ONNXModOp, mlir::ONNXPowOp,
+      // Variadic Op
+      mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
+      mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
+      mlir::ONNXSubOp, mlir::ONNXSumOp, mlir::ONNXXorOp>(op);
+}
+
+// Give an op that consumes referenceInputVal, check if all the other input
+// values have either the same shape for their last dim, or if there is a
+// broadcast from the other input value to the reference input value.
+bool sameLastDimOrUniBroadcast(
+    DimAnalysis *dimAnalysis, Operation *op, Value referenceInputVal) {
+  // Get innermost shape of reference input val.
+  ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
+  if (!refType)
+    return false;
+  int64_t innermostShapeOfRef =
+      refType.getShape()[refType.getShape().size() - 1];
+  // Now iterate over each of the inputs to op.
+  for (Value v : op->getOperands()) {
+    if (v == referenceInputVal)
+      continue;
+    if (dimAnalysis->sameDim(v, -1, referenceInputVal, -1))
+      continue;
+    // Check if we have a uni-directional broadcast known at compile time.
+    ShapedType vType = mlir::dyn_cast<ShapedType>(v.getType());
+    int64_t innermostShapeOfV = vType.getShape()[vType.getShape().size() - 1];
+    if (!ShapedType::isDynamic(innermostShapeOfRef) && innermostShapeOfV == 1)
+      continue;
+    // We have a case that we cannot handle.
+    return false;
+  }
+  return true;
+}
+
+Operation *getSingleUseOperationOf(Value val) {
+  Operation *singleOp = nullptr;
+  for(OpOperand use: val.getUses()) {
+    Operation *useOp = use.getOwner();
+    if (singleOp == nullptr) 
+      singleOp = useOp;
+    else if (singleOp != useOp)
+      return nullptr;
+  }
+  return singleOp;
+}
+
+// Return compute operation when fusion of unstick -> compute can be fused,
+// Nullptr is returned when not feasible. If unstick -> compute -> stick is
+// detected, then stickOp is further defined, otherwise it is  nullptr,
+Operation *patternForStickUnstickFusionFromUnstick(ZHighUnstickOp unstickOp,
+    DimAnalysis *dimAnalysis, ZHighStickOp &stickOpIfSuccessful) {
+  stickOpIfSuccessful = nullptr;
+  // Investigate if fusion is possible.
+  Value unstickVal = unstickOp.getOut();
+  // For merge, unstick value can only be used only once.
+  if (!unstickVal.hasOneUse())
+    return nullptr;
+  // Get use operation and ensure it can be used.
+  Operation *computeOp = *unstickOp->getUsers().begin();
+  if (!canOpFuseWithStickUnstick(computeOp))
+    return nullptr;
+  // Ensure that the output of unstick and op have the same shape.
+  // This essentially prevent a broadcasting to occur on the unstickified input.
+  // Check also that the compute op other inputs are fine (same or uni
+  // broadcast).
+  Value computeVal = computeOp->getResult(0);
+  if (!dimAnalysis->sameShape(unstickVal, computeVal)) {
+    llvm::dbgs() << "Unstick->compute (" << computeOp->getName()
+                 << ") fusion FAILURE due to output shape:\n  ";
+    unstickVal.dump();
+    llvm::dbgs() << "  ";
+    computeVal.dump();
+    return nullptr;
+  }
+  if (!sameLastDimOrUniBroadcast(dimAnalysis, computeOp, unstickVal)) {
+    llvm::dbgs() << "Unstick->compute (" << computeOp->getName()
+                 << ") fusion FAILURE due to input shapes:\n  ";
+    unstickVal.dump();
+    llvm::dbgs() << "  ";
+    computeVal.dump();
+    return nullptr;
+  }
+
+  // Now we have a unstick->compute that can be fused.
+  // But investigate first if we can further unify with the stick.
+  if (computeVal.hasOneUse()) {
+    Operation *nextOp = *computeOp->getUsers().begin();
+    ZHighStickOp stickOp = mlir::dyn_cast<ZHighStickOp>(nextOp);
+    if (stickOp) {
+      // Now we have a single Stick op as consumer of computeOp.
+      if (zhigh::getZTensorLayout(unstickOp.getIn().getType()) ==
+          zhigh::getZTensorLayout(stickOp.getOut().getType())) {
+        // Now we have the same layout for unstick input and stich output.
+        LLVM_DEBUG({
+          llvm::dbgs() << "Unstick->compute->stick (" << computeOp->getName()
+                       << ") fusion:\n  ";
+          unstickVal.dump();
+          llvm::dbgs() << "  ";
+          computeVal.dump();
+          llvm::dbgs() << "  ";
+          nextOp->dump();
+        });
+        stickOpIfSuccessful = stickOp;
+        return computeOp;
+      }
+    }
+  }
+  // Failed to find a suitable stick.
+  LLVM_DEBUG({
+    llvm::dbgs() << "Unstick->compute (" << computeOp->getName()
+                 << ") fusion:\n  ";
+    unstickVal.dump();
+    llvm::dbgs() << "  ";
+    computeVal.dump();
+  });
+  return computeOp;
+}
+
+// Return compute operation when compute -> stick can be fused.
+Operation *patternForStickUnstickFusionFromStick(
+    ZHighStickOp stickOp, DimAnalysis *dimAnalysis) {
+
+  // Input of stick can only be used once.
+  Value stickInputVal = stickOp.getIn();
+  if (!stickInputVal.hasOneUse())
+    return nullptr;
+
+  // Get use operation and ensure it can be used.
+  Operation *computeOp = stickInputVal.getDefiningOp();
+  if (!canOpFuseWithStickUnstick(computeOp))
+    return nullptr;
+
+  // ZHighUnstickOp unstickOp = computeOp->
+  LLVM_DEBUG({
+    llvm::dbgs() << "Compute->stick (" << computeOp->getName()
+                 << ") fusion:\n  ";
+    computeOp->dump();
+    llvm::dbgs() << "  ";
+    stickOp.dump();
+  });
+  return computeOp;
 }
 
 class PatternsStartingFromUnstick : public OpRewritePattern<ZHighUnstickOp> {
@@ -72,41 +248,13 @@ public:
   LogicalResult matchAndRewrite(
       ZHighUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
-    Value unstickVal = unstickOp.getOut();
-    // For merge, unstick can only be used once.
-    if (!unstickVal.hasOneUse())
-      return failure();
-    // Get use operation and ensure it can be used.
-    Operation *computeOp = *unstickOp->getUsers().begin();
-    if (!canOpFuseWithStickUnstick(computeOp))
-      return failure();
-    // Ensure that the output of unstick and op have the same shape.
-    Value computeVal = computeOp->getResult(0);
-    if (!dimAnalysis->sameShape(unstickVal, computeVal))
-      return failure();
-    // Now we have a unstick->compute that can be fused.
-    if (computeVal.hasOneUse()) {
-      Operation *nextOp = *computeOp->getUsers().begin();
-      if (mlir::isa<ZHighStickOp>(nextOp)) {
-        // Has a single Stick op as consumer of computeOp.
-        LLVM_DEBUG({
-          llvm::dbgs() << "Unstick->compute->stick fusion:\n  ";
-          unstickVal.dump();
-          llvm::dbgs() << "  ";
-          computeVal.dump();
-          llvm::dbgs() << "  ";
-          nextOp->dump();
-        });
-        return failure(); // hi alex, success once we have a transformation.
-      }
+    ZHighStickOp stickOp;
+    Operation *computeOp = patternForStickUnstickFusionFromUnstick(
+        unstickOp, dimAnalysis, stickOp);
+    if (computeOp) {
+      return failure(); // hi alex, success once we have a transformation.
     }
-    LLVM_DEBUG({
-      llvm::dbgs() << "Unstick->compute fusion:\n  ";
-      unstickVal.dump();
-      llvm::dbgs() << "  ";
-      computeVal.dump();
-    });
-    return failure(); // hi alex, success once we have a transformation.
+    return failure();
   }
 };
 
@@ -121,23 +269,12 @@ public:
   LogicalResult matchAndRewrite(
       ZHighStickOp stickOp, PatternRewriter &rewriter) const override {
 
-    // Input of stick can only be used once.
-    Value stickInputVal = stickOp.getIn();
-    if (!stickInputVal.hasOneUse())
-      return failure();
-
-    // Get use operation and ensure it can be used.
-    Operation *computeOp = stickInputVal.getDefiningOp();
-    if (!canOpFuseWithStickUnstick(computeOp))
-      return failure();
-
-    LLVM_DEBUG({
-      llvm::dbgs() << "compute->stick fusion:\n  ";
-      computeOp->dump();
-      llvm::dbgs() << "  ";
-      stickOp.dump();
-    });
-    return failure(); // hi alex, success once we have a transformation.
+    Operation *computeOp =
+        patternForStickUnstickFusionFromStick(stickOp, dimAnalysis);
+    if (computeOp) {
+      return failure(); // hi alex, success once we have a transformation.
+    }
+    return failure();
   }
 };
 
@@ -154,12 +291,18 @@ struct FusionOpStickUnstick
   StringRef getArgument() const override { return "fusion-op-stick-unstick"; }
 
   StringRef getDescription() const override {
-    return "Initiate the fusion of operations (elementwise) with stick/unstick "
+    return "Initiate the fusion of operations (elementwise) with "
+           "stick/unstick "
            "ops";
   }
 
   void runOnOperation() final {
     ModuleOp module = getOperation();
+
+    LLVM_DEBUG({
+      llvm::dbgs() << "IR before invoking Fusion of op, stick, and unstick:\n";
+      module.print(llvm::dbgs());
+    });
 
     DimAnalysis *dimAnalysis = new DimAnalysis(module);
     dimAnalysis->analyze();

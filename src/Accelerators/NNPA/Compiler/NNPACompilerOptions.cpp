@@ -142,4 +142,10 @@ llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset(
                    " scale and offset on CPU. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<bool> nnpaUseFusionOpStickUnstick(
+    "nnpa-enable-fusion-op-stick-unstick",
+    llvm::cl::desc("Enable fusion of eligible operations with "
+                   " surrounding stick and unstick ops. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
 } // namespace onnx_mlir

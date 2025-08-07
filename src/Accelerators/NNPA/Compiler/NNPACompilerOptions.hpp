@@ -78,6 +78,7 @@ extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 extern llvm::cl::opt<bool> nnpaDisableSaturation;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
+extern llvm::cl::opt<bool> nnpaUseFusionOpStickUnstick;
 extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;
 extern std::vector<std::string> nnpaQuantOpTypes;
 
