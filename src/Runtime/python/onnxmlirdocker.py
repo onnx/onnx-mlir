@@ -108,12 +108,14 @@ class InferenceSession:
                 self.compiled_model += ".so"
             self.output_dirname = os.path.dirname(self.compiled_model)
         else:
-            self.output_dirname = tempfile.TemporaryDirectory().output_tempdir.name
+            self.output_dirname = tempfile.TemporaryDirectory().name
             self.compiled_model = os.path.join(
-                self.output_dirname,
-                self.model_basename.removesuffix(self.model_suffix) + ".so",
+                self.output_dirname, self.model_basename.removesuffix(self.model_suffix)
             )
             self.compile_options += f" -o {self.compiled_model}"
+            # Compile will automatically append .so to the -o target
+            # Session need the suffix .so
+            self.compiled_model += ".so"
 
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]

@@ -36,20 +36,17 @@ VERBOSE = os.environ.get("VERBOSE", False)
 
 
 def import_driver():
-    global ONNX_MLIR
-    if args.use_onnxmlir:
-        try:
-            from onnxmlir import InferenceSession as SessionWrapper
-        except ImportError:
-            raise ImportError("Failed to import onnxmlir pacakge")
-    else:
+    global ONNX_MLIR, args
+    try:
+        from onnxmlir import InferenceSession as SessionWrapper
+
+        args.use_onnxmlir = True
+    except ImportError:
+        args.use_onnxmlir = False
         if not os.environ.get("ONNX_MLIR_HOME", None):
             raise RuntimeError(
-                "Environment variable ONNX_MLIR_HOME is not set, please set it to the"
-                " path to the HOME directory for onnx-mlir. The HOME directory for"
-                " onnx-mlir refers to the parent folder containing the bin, lib, etc"
-                " sub-folders in which ONNX-MLIR executables and libraries can be found,"
-                " typically `onnx-mlir/build/Debug`."
+                "To use native compiler, set environment variable ONNX_MLIR_HOME to the path to onnx-mlir."
+                " Typical example is `path-to-onnx-mlir/build/Debug, which is the parent folder containing the bin, lib, and etc for the compiler."
             )
         ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
         ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
@@ -63,10 +60,10 @@ def import_driver():
             from PyRuntime import OMExecutionSession as SessionWrapper
         except ImportError:
             raise ImportError(
-                "Looks like you did not build the PyRuntimeC target, build it by running"
-                " `make PyRuntimeC`. You may need to set ONNX_MLIR_HOME to"
-                " `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to"
-                " `build/Debug` by default."
+                " To compile a model, you can either\n 1) install the onnxmlir package to use the compiler container,"
+                " or\n 2) set environment variable ONNX_MLIR_HOME to use the native compiler.\n"
+                " The execution of the two approaches just failed in your environment."
+                " For trouble shooting, please refer to docs/DebuggingNumericalError.md for details"
             )
     return SessionWrapper
 
@@ -176,11 +173,6 @@ parser.add_argument(
 )
 parser.add_argument(
     "--atol", type=str, default="0.01", help="Absolute tolerance for verification."
-)
-parser.add_argument(
-    "--use-onnxmlir",
-    action="store_true",
-    help="Use the package onnxmlir to invoke compiler",
 )
 parser.add_argument(
     "-onnxmlir-args",
