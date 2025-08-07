@@ -64,7 +64,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
     && pip3 install --upgrade pip
 
 # Install protobuf
-ARG PROTOBUF_VERSION=4.25.1
+ARG PROTOBUF_VERSION=25.1
 RUN git clone --recursive https://github.com/protocolbuffers/protobuf.git \
     && cd protobuf \
     && git checkout v${PROTOBUF_VERSION} \

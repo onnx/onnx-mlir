@@ -10,6 +10,8 @@ cmake -G Ninja ../ \
     -Dprotobuf_BUILD_TESTS=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DCMAKE_CXX_STANDARD=17 \
+    -DABSL_PROPAGATE_CXX_STD=ON \
     ..
 cmake --build . --target install && ldconfig
 cd ../python && python3 setup.py install --cpp_implementation
