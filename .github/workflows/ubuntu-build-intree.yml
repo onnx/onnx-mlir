@@ -52,6 +52,7 @@ jobs:
           -DLLVM_ENABLE_PROJECTS=mlir \
           -DLLVM_EXTERNAL_PROJECTS="onnx-mlir" \
           -DONNX_MLIR_ENABLE_STABLEHLO=OFF \
+          -DONNX_MLIR_ENABLE_PYBIND=OFF \
           -DLLVM_EXTERNAL_ONNX_MLIR_SOURCE_DIR=. \
           -DLLVM_TARGETS_TO_BUILD=host \
           -DLLVM_BUILD_TOOLS=OFF \
