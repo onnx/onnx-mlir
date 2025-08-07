@@ -113,16 +113,9 @@ struct ONNXLayoutTransformOpLowering
 
     // Parallel...
     if (enableParallel) {
-      int64_t parId;
       // TODO: may want to check if ub of rank makes sense here.
-      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
-        create.krnl.parallel(loopDefs[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "layout transform fast pattern");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in layout transform fast pattern");
-      }
+      tryCreateKrnlParallel(create.krnl, op, "layout transform fast pattern",
+          loopDefs, lbs, ubs, 0, rank, {}, 8);
     }
 
     //  Outer loop (E1 iterates over tiles of 64 elements).
@@ -131,7 +124,7 @@ struct ONNXLayoutTransformOpLowering
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl);
           DimsExpr outerIndices;
-          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          getIndexExprList<DimIndexExpr>(loopInd, outerIndices);
           DimsExpr memAF = outerIndices;
           memAF[E1] =
               memAF[E1] * modVal; // Loop index for E1 is in tiles of modVal.
@@ -250,17 +243,9 @@ struct ONNXLayoutTransformOpLowering
     ValueRange loopDef = create.krnl.defineLoops(rank);
 
     if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId,
-              /*min iter for going parallel*/ 128)) {
-        onnxToKrnlParallelReport(op, /*successful*/ true, 0, lbs[0], ubs[0],
-            "LayoutTransform op fully parallelized with perfectly nested "
-            "loops");
-        create.krnl.parallel(loopDef[parId]);
-      } else {
-        onnxToKrnlParallelReport(op, /*successful*/ false, 0, lbs[0], ubs[0],
-            "not enough work for LayoutTransform op");
-      }
+      tryCreateKrnlParallel(create.krnl, op,
+          "LayoutTransform op fully parallelized with perfectly nested loops",
+          loopDef, lbs, ubs, 0, 1, {}, /*min iter for going parallel*/ 128);
     }
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
