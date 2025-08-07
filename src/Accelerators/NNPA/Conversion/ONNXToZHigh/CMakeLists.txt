@@ -33,11 +33,11 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   libzdnn
   
   LINK_LIBS PUBLIC
+  OMLayoutHelper
   OMNNPACompilerOptions
   OMONNXOps
   OMONNXToKrnl
   OMZHighOps
-  OMLayoutHelper
 
 
   ACCEL_INCLUDE_DIRS PRIVATE
@@ -71,6 +71,7 @@ add_onnx_mlir_library(OMDevicePlacement
   OMONNXOps
   OMONNXToZHigh
   OMRewriteONNXForZHigh
+  OMLayoutHelper
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}

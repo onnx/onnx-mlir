@@ -37,7 +37,7 @@ static constexpr int64_t MAXIMUM_NUM_HIDDEN_SIZE_GRU = 10880;
 typedef enum NNPALevel {
   NONE = 0,
   M14 = 1, // Associated with march=arch14 | z16.
-  M15 = 2, // Associated with march=arch15.
+  M15 = 2, // Associated with march=arch15 | z17.
 } NNPALevel;
 
 // The NNPA ZDNN versions. Keep in sync with enum NNPALevel.
