@@ -88,16 +88,19 @@ bool omMMapBinaryFile(
   }
   int fd = open(filePath, O_RDONLY);
   if (fd < 0) {
-    fprintf(stderr, "Error while opening %s: %s\n", filePath, strerror(errno));
+    fprintf(stderr,
+        "Error while opening %s: %s. Please set OM_CONSTANT_PATH to the folder "
+        "that contains %s.\n",
+        filePath, strerror(errno), fname);
     if (basePath)
       free(filePath);
     return false;
   }
 
 #ifdef __MVS__
-    void *tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
+  void *tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
 #else
-    void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
+  void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
 #endif
 
   if (tempAddr == MAP_FAILED) {
