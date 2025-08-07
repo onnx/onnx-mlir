@@ -236,16 +236,9 @@ public:
 
     // Parallel...
     if (enableParallel) {
-      int64_t parId;
       // TODO: may want to check if ub of rank makes sense here.
-      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
-        create.krnl.parallel(loopDefs[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "compiler-generated stickify");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in compiler-generated stickify");
-      }
+      tryCreateKrnlParallel(create.krnl, op, "compiler-generated stickify",
+          loopDefs, lbs, ubs, 0, rank, {}, /*min iter for going parallel*/ 8);
     }
 
     // Compute max tiles. It is actually not easy to compute the max number of
