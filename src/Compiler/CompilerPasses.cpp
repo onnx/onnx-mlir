@@ -79,14 +79,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  // Passes for remove
-  if (opts.enableRemoveQDQConcat)
-    pm.addPass(onnx_mlir::createConcatOptONNXToONNXPass());
-  if (opts.enableRemoveQDQCast)
-    pm.addPass(onnx_mlir::createCastOptONNXToONNXPass());
-  if (opts.enableRemoveQDQslice)
-    pm.addPass(onnx_mlir::createSliceOptONNXToONNXPass());
-
   if (!donotScrubDisposableElementsAttr)
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
