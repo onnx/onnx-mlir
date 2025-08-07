@@ -1,10 +1,17 @@
-# Check out protobuf
-PROTOBUF_VERSION=21.12
-git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
-
+# Check out protobuf source code and build and install it
+PROTOBUF_VERSION=4.25.1
+git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git \
 cd protobuf
-./autogen.sh
-./configure --enable-static=no
-make -j$(sysctl -n hw.logicalcpu) install
-cd python
-python3 setup.py install --cpp_implementation
+git submodule update --init --recursive
+mkdir build_source && cd build_source
+cmake -G Ninja ../ \
+    -Dprotobuf_BUILD_SHARED_LIBS=OFF \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -Dprotobuf_BUILD_TESTS=OFF \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    ..
+cmake --build . --target install && ldconfig
+cd ../python && python3 setup.py install --cpp_implementation
+protoc --version
+echo "protobuf installed"

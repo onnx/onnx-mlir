@@ -1,8 +1,9 @@
-REM Check out protobuf v21.12
-set protobuf_version=21.12
+REM Check out protobuf v4.25.1
+set protobuf_version=4.25.1
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
+git submodule update --init --recursive
 md protobuf_build
 cd protobuf_build
 call cmake %root_dir%\protobuf\cmake -G "Ninja" ^
