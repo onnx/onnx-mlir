@@ -16,7 +16,7 @@ cmake -G Ninja ../ \
     -DABSL_PROPAGATE_CXX_STD=ON \
     ..
 cmake --build . --target install
-cd ../python && python3 setup.py install --cpp_implementation
+cd ~/work/protobuf/python && python3 setup.py install --cpp_implementation
 export PATH=$INSTALL_PROTOBUF_PATH/protobuf/include:$INSTALL_PROTOBUF_PATH/protobuf/lib:$INSTALL_PROTOBUF_PATH/protobuf/bin:$PATH
 protoc --version
 echo "protobuf installed"
