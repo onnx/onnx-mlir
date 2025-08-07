@@ -158,7 +158,12 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
   // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
   // these ops, e.g vectorize the computation.
-  if (!nnpaDisableZHighToOnnx)
+
+  // If we used a placement heuristic that use cost model, we should probably
+  // not undo it here.
+  if (!nnpaDisableZHighToOnnx &&
+      !(nnpaPlacementHeuristic == FasterOpsWSU ||
+          nnpaPlacementHeuristic == MuchFasterOpsWSU))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
 
   // Constant propagation at ZHighIR: constant stickify.

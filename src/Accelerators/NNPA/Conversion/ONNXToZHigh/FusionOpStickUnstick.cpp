@@ -127,11 +127,13 @@ bool sameLastDimOrUniBroadcast(
   return true;
 }
 
+// When value is consumed by only one op, returns that op. Otherwise return
+// null.
 Operation *getSingleUseOperationOf(Value val) {
   Operation *singleOp = nullptr;
-  for(OpOperand use: val.getUses()) {
+  for (OpOperand &use : val.getUses()) {
     Operation *useOp = use.getOwner();
-    if (singleOp == nullptr) 
+    if (singleOp == nullptr)
       singleOp = useOp;
     else if (singleOp != useOp)
       return nullptr;
@@ -148,10 +150,10 @@ Operation *patternForStickUnstickFusionFromUnstick(ZHighUnstickOp unstickOp,
   // Investigate if fusion is possible.
   Value unstickVal = unstickOp.getOut();
   // For merge, unstick value can only be used only once.
-  if (!unstickVal.hasOneUse())
+  Operation *computeOp = getSingleUseOperationOf(unstickVal);
+  if (!computeOp)
     return nullptr;
-  // Get use operation and ensure it can be used.
-  Operation *computeOp = *unstickOp->getUsers().begin();
+  // Ensure compute op can be used.
   if (!canOpFuseWithStickUnstick(computeOp))
     return nullptr;
   // Ensure that the output of unstick and op have the same shape.
@@ -178,8 +180,8 @@ Operation *patternForStickUnstickFusionFromUnstick(ZHighUnstickOp unstickOp,
 
   // Now we have a unstick->compute that can be fused.
   // But investigate first if we can further unify with the stick.
-  if (computeVal.hasOneUse()) {
-    Operation *nextOp = *computeOp->getUsers().begin();
+  Operation *nextOp = getSingleUseOperationOf(computeVal);
+  if (nextOp) {
     ZHighStickOp stickOp = mlir::dyn_cast<ZHighStickOp>(nextOp);
     if (stickOp) {
       // Now we have a single Stick op as consumer of computeOp.
