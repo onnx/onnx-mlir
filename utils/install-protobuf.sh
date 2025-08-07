@@ -1,6 +1,6 @@
 # Check out protobuf source code and build and install it
 PROTOBUF_VERSION=4.25.1
-git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git \
+git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
 cd protobuf
 git submodule update --init --recursive
 mkdir build_source && cd build_source
