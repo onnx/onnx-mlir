@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --qdq-opt-onnx-to-onnx -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --qdq-opt-onnx-to-onnx %s -split-input-file | FileCheck %s
 
  func.func @test_qdq_pattern1(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16> {
     %0 = onnx.Constant dense<2.57987776E-5> : tensor<f32>
