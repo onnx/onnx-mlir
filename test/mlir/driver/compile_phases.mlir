@@ -1,14 +1,7 @@
-// RUN: onnx-mlir %s -o %t 2>&1 | FileCheck --check-prefix=EMIT-LIB %s && rm %t.so
+// Disabled as cruntime does not exist in test env (AMD): onnx-mlir %s -o %t 2>&1 | FileCheck --check-prefix=EMIT-LIB %s && rm %t.so
 // RUN: onnx-mlir %s --EmitObj -o %t 2>&1 | FileCheck --check-prefix=EMIT-OBJ %s && rm %t.o
 // Disabled as jni libs do not exist in test env (AMD): onnx-mlir %s --EmitJNI -o %t 2>&1 | FileCheck --check-prefix=EMIT-JNI %s && rm %t.jar
 // RUN: onnx-mlir %s --EmitLLVMIR -o %t 2>&1 | FileCheck --check-prefix=EMIT-LLVMIR %s && rm %t.onnx.mlir
-
-// EMIT-LIB: [1/6] {{.*}} Importing ONNX Model to MLIR Module from
-// EMIT-LIB: [2/6] {{.*}} Compiling and Optimizing MLIR Module
-// EMIT-LIB: [3/6] {{.*}} Translating MLIR Module to LLVM and Generating LLVM Optimized Bitcode
-// EMIT-LIB: [4/6] {{.*}} Generating Object from LLVM Bitcode
-// EMIT-LIB: [5/6] {{.*}} Linking and Generating the Output Shared Library
-// EMIT-LIB: [6/6] {{.*}} Compilation completed
 
 // EMIT-OBJ: [1/5] {{.*}} Importing ONNX Model to MLIR Module from
 // EMIT-OBJ: [2/5] {{.*}} Compiling and Optimizing MLIR Module

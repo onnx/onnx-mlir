@@ -1,6 +1,7 @@
 // RUN: onnx-mlir -tag="test" -v %s -o %t 2>&1 | FileCheck %s
 
 // REQUIRES: system-linux
+// REQUIRES: pybind
 // CHECK:      opt {{.*}} -o {{.*}}check_verbosity{{.*}}.bc
 // CHECK:      llc {{.*}} -filetype=obj {{.*}} -o {{.*}}check_verbosity{{.*}}.o {{.*}}check_verbosity{{.*}}.bc
 // CHECK:      {{clang|c|g}}++{{.*}} {{.*}}check_verbosity{{.*}}.o -o {{.*}}check_verbosity{{.*}}.so -shared -fPIC -L{{.*}}/lib -lcruntime

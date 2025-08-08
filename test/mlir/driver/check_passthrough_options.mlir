@@ -1,3 +1,5 @@
+// REQUIRES: pybind
+
 // RUN: onnx-mlir -Xopt --data-sections -tag="test" -v %s -o %t 2>&1 | FileCheck --check-prefix=OPT %s
 // RUN: onnx-mlir -Xllc --data-sections -tag="test" -v %s -o %t 2>&1 | FileCheck --check-prefix=LLC %s
 // RUN: onnx-mlir -mllvm --data-sections -tag="test" -v %s -o %t 2>&1 | FileCheck --check-prefix=LLVM %s
