@@ -28,6 +28,12 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
     zdnn_ztensor *output, bool is_bcast);
 
+zdnn_status zdnnx_omp_quantized_matmul(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c,
+    zdnn_matmul_ops op_type, const int8_t clip_min, const int8_t clip_max,
+    const bool disable_clipping, const bool dequantize, const bool pre_computed,
+    void *work_area, zdnn_ztensor *output);
+
 zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
     const void *scalar_input, zdnn_ztensor *output, ElemementwiseOp op_type);
 
