@@ -209,12 +209,14 @@ add_onnx_mlir_library(OMCompilerUtils
 # CompilerUtils does not require cruntime or jniruntime to build,
 # however, they are required for execution when using the EmitLib or EmitJNI
 # options
-add_dependencies(OMCompilerUtils cruntime)
-if (ONNX_MLIR_ENABLE_JNI)
-  add_dependencies(OMCompilerUtils jniruntime)
-endif()
-if (TARGET omp)
-  add_dependencies(OMCompilerUtils ompruntime)
+if (ONNX_MLIR_ENABLE_PYBIND)
+  add_dependencies(OMCompilerUtils cruntime)
+  if (ONNX_MLIR_ENABLE_JNI)
+    add_dependencies(OMCompilerUtils jniruntime)
+  endif()
+  if (TARGET omp)
+    add_dependencies(OMCompilerUtils ompruntime)
+  endif()
 endif()
 
 add_onnx_mlir_library(OMCompiler
@@ -239,29 +241,31 @@ if (NOT BUILD_SHARED_LIBS)
   target_compile_definitions(OMCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
 
-pybind11_add_module(PyCompile PyOMCompileSession.cpp)
-add_dependencies(PyCompile onnx_proto)
-if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-  target_compile_options(PyCompile PRIVATE /EHsc /GR)
-elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
-  target_compile_options(PyCompile PRIVATE -frtti -fexceptions)
-endif()
+if (ONNX_MLIR_ENABLE_PYBIND)
+  pybind11_add_module(PyCompile PyOMCompileSession.cpp)
+  add_dependencies(PyCompile onnx_proto)
+  if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    target_compile_options(PyCompile PRIVATE /EHsc /GR)
+  elseif (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+    target_compile_options(PyCompile PRIVATE -frtti -fexceptions)
+  endif()
 
-target_compile_definitions(PyCompile
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(PyCompile
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
-  )
-target_link_libraries(PyCompile
-  PRIVATE
-  OMCompiler
-  )
-
-if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
-  install(TARGETS PyCompile
-    DESTINATION lib
+  target_compile_definitions(PyCompile
+    PRIVATE
+    $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
     )
+  target_include_directories(PyCompile
+    PRIVATE
+    $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+    )
+  target_link_libraries(PyCompile
+    PRIVATE
+    OMCompiler
+    )
+
+  if(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS)
+    install(TARGETS PyCompile
+      DESTINATION lib
+      )
+  endif()
 endif()

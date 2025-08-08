@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Disabled when pybind unavailable.
+if (NOT ONNX_MLIR_ENABLE_PYBIND)
+  return()
+endif()
+
+
 set(ONNX_BACKENDTEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/backend)
 
 file(GENERATE

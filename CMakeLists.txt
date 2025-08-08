@@ -15,6 +15,12 @@ option(ONNX_MLIR_INSTALL_HEADERS "Install onnx-mlir headers" ON)
 option(ONNX_MLIR_INSTALL_LIBS "Install onnx-mlir libraries" ON)
 option(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS "Install onnx-mlir python bindings" ON)
 option(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
+option(ONNX_MLIR_ENABLE_PYBIND "Set to OFF for building without pybind11 and features or tests depending on it." ON)
+
+if (NOT ONNX_MLIR_ENABLE_PYBIND)
+  set(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT OFF)
+  set(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS OFF)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -183,9 +189,13 @@ if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(third_party/onnx)
   add_subdirectory(third_party/pybind11)
 else()
-  set(pybind11_FIND_QUIETLY ON)
+  if (ONNX_MLIR_ENABLE_PYBIND)
+    set(pybind11_FIND_QUIETLY ON)
+    add_subdirectory(third_party/pybind11)
+  else()
+    set(BUILD_ONNX_PYTHON FALSE) # prevent onnx from using pybind
+  endif()
   add_subdirectory(third_party/onnx EXCLUDE_FROM_ALL)
-  add_subdirectory(third_party/pybind11)
   add_subdirectory(third_party/rapidcheck EXCLUDE_FROM_ALL)
 
   if (ONNX_MLIR_ENABLE_STABLEHLO)

@@ -34,7 +34,8 @@ function(add_onnx_mlir_unittest test_name)
   set_tests_properties(${test_name} PROPERTIES LABELS unittest)
 endfunction()
 
-add_onnx_mlir_unittest(TestInstrumentation
+if (ONNX_MLIR_ENABLE_PYBIND)
+  add_onnx_mlir_unittest(TestInstrumentation
   TestInstrumentation.cpp
 
   INCLUDE_DIRS PUBLIC
@@ -43,6 +44,7 @@ add_onnx_mlir_unittest(TestInstrumentation
   LINK_LIBS PRIVATE
   cruntime
   )
+endif()
 
 add_subdirectory(BType)
 add_subdirectory(CustomFn)

@@ -51,3 +51,7 @@ llvm_config.add_tool_substitutions(tools, tool_dirs)
 # execution based on the available targets
 for arch in config.targets_to_build.split():
     config.available_features.add(arch.lower())
+
+# Remember whether pybind11 is available
+if config.enable_pybind:
+    config.available_features.add("pybind")

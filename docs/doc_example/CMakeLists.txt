@@ -77,28 +77,30 @@ add_onnx_mlir_executable(OMRuntimeTest
 
 set_output_directory(OMRuntimeTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-add_onnx_mlir_executable(OMRuntimeCppTest
-  main.cpp
+if (ONNX_MLIR_ENABLE_PYBIND)
+  add_onnx_mlir_executable(OMRuntimeCppTest
+    main.cpp
 
-  NO_INSTALL
+    NO_INSTALL
 
-  INCLUDE_DIRS PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}/include
+    INCLUDE_DIRS PRIVATE
+    ${ONNX_MLIR_SRC_ROOT}/include
 
-  LINK_LIBS PRIVATE
-  OMCompiler
-  OMExecutionSession
-  )
+    LINK_LIBS PRIVATE
+    OMCompiler
+    OMExecutionSession
+    )
 
-set_output_directory(OMRuntimeCppTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+  set_output_directory(OMRuntimeCppTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-add_test(NAME OMRuntimeTest COMMAND OMRuntimeTest WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-set_property(TARGET OMRuntimeTest PROPERTY FOLDER "Docs")
-set_tests_properties(OMRuntimeTest PROPERTIES LABELS doc-example)
-add_dependencies(doc-example OMRuntimeTest)
+  add_test(NAME OMRuntimeTest COMMAND OMRuntimeTest WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_property(TARGET OMRuntimeTest PROPERTY FOLDER "Docs")
+  set_tests_properties(OMRuntimeTest PROPERTIES LABELS doc-example)
+  add_dependencies(doc-example OMRuntimeTest)
 
-add_test(NAME OMRuntimeCppTest COMMAND OMRuntimeCppTest WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-set_property(TARGET OMRuntimeCppTest PROPERTY FOLDER "Docs")
-set_tests_properties(OMRuntimeCppTest PROPERTIES LABELS doc-example)
-set_tests_properties(OMRuntimeCppTest PROPERTIES ENVIRONMENT "ONNX_MLIR_LIBRARY_PATH=${ONNX_MLIR_LIBRARY_PATH}")
-add_dependencies(doc-example OMRuntimeCppTest)
+  add_test(NAME OMRuntimeCppTest COMMAND OMRuntimeCppTest WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_property(TARGET OMRuntimeCppTest PROPERTY FOLDER "Docs")
+  set_tests_properties(OMRuntimeCppTest PROPERTIES LABELS doc-example)
+  set_tests_properties(OMRuntimeCppTest PROPERTIES ENVIRONMENT "ONNX_MLIR_LIBRARY_PATH=${ONNX_MLIR_LIBRARY_PATH}")
+  add_dependencies(doc-example OMRuntimeCppTest)
+endif()
