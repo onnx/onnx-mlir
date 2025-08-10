@@ -34,8 +34,8 @@ fi
 # Pass library/include paths directly to setup.py
 (cd ~/work/protobuf/python && \
     PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
-    LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
-    CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" \
+    LDFLAGS="-std=c++17 -L$INSTALL_PROTOBUF_PATH/lib" \
+    CPPFLAGS="-std=c++17 -I$INSTALL_PROTOBUF_PATH/include" \
     CC="clang -std=c++17" \
     CXX="clang++ -std=c++17" \
     python3 setup.py install --cpp_implementation \
