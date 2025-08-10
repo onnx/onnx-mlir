@@ -36,7 +36,8 @@ fi
     PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
     LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
     CPPFLAGS="-I/$INSTALL_PROTOBUF_PATH/include" \
-    CXXFLAGS="-std=c++17"
+    CC="clang -std=c++17" \
+    CXX="clang++ -std=c++17" \
     python3 setup.py install --cpp_implementation \
     build_ext --library-dirs="$INSTALL_PROTOBUF_PATH/lib" --include-dirs="$INSTALL_PROTOBUF_PATH/include")
 
