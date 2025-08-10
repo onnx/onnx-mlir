@@ -35,6 +35,7 @@ fi
     PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
     LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
     CPPFLAGS="-I/$INSTALL_PROTOBUF_PATH/include" \
+    CXXFLAGS="-std=c++17"
     python3 setup.py install --cpp_implementation)
 
 # Update the main shell's PATH for subsequent commands like 'protoc --version'
