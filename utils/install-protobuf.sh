@@ -31,12 +31,15 @@ fi
 # Now navigate and run the python setup.py
 # Use a subshell to temporarily modify PATH and LDFLAGS for this specific command,
 # ensuring our installed protoc and libraries are found first.
+# Pass library/include paths directly to setup.py
 (cd ~/work/protobuf/python && \
     PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
     LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
     CPPFLAGS="-I/$INSTALL_PROTOBUF_PATH/include" \
     CXXFLAGS="-std=c++17"
-    python3 setup.py install --cpp_implementation)
+    python3 setup.py install --cpp_implementation \
+    --library-dirs="$INSTALL_PROTOBUF_PATH/lib" \
+    --include-dirs="$INSTALL_PROTOBUF_PATH/include")
 
 # Update the main shell's PATH for subsequent commands like 'protoc --version'
 export PATH="$INSTALL_PROTOBUF_PATH/bin:$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$PATH"
