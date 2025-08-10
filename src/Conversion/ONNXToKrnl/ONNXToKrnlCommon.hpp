@@ -625,6 +625,23 @@ bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
     mlir::ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
     int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
 
+// Try to find a suitable loop index for parallelism (parId), where
+// parId >= firstInclusiveDim && parId < exlusiveDim && parId is not in
+// exclusiveDim && tripCount(parId) >= minSize when tripCount can be determined
+// at compile time.
+//
+// If found, emit krnl.parallel op for parId and return parId.
+// Otherwise, do nothing and return -1.
+//
+// When `createKrnlParallel` is set to false, only parID is returned without
+// creating krnl.parallel.
+int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
+    mlir::Operation *op, std::string msg, const mlir::ValueRange &loopDef,
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    int64_t firstInclusiveDim = 0, int64_t lastExclusiveDim = 2,
+    mlir::ArrayRef<int64_t> exclusiveDims = {}, int64_t minSize = 4,
+    bool createKrnlParallel = true);
+
 //===----------------------------------------------------------------------===//
 // Support functions for determining simd unrolling.
 //===----------------------------------------------------------------------===//
