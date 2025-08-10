@@ -35,7 +35,7 @@ fi
 (cd ~/work/protobuf/python && \
     PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
     LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
-    CPPFLAGS="-I/$INSTALL_PROTOBUF_PATH/include" \
+    CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" \
     CC="clang -std=c++17" \
     CXX="clang++ -std=c++17" \
     python3 setup.py install --cpp_implementation \
