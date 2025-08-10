@@ -1,7 +1,8 @@
+# Exit immediately if a command exits with a non-zero status.
+set -e
 # Check out protobuf source code and build and install it
-set -e 
 PROTOBUF_VERSION=25.1
-INSTALL_PROTOBUF_PATH=~/work
+INSTALL_PROTOBUF_PATH=~/work/protobuf_install # Changed to a dedicated install directory
 git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
 cd protobuf
 git submodule update --init --recursive
@@ -16,7 +17,28 @@ cmake -G Ninja ../ \
     -DABSL_PROPAGATE_CXX_STD=ON \
     ..
 cmake --build . --target install
-cd ~/work/protobuf/python && python3 setup.py install --cpp_implementation
-export PATH=$INSTALL_PROTOBUF_PATH/protobuf/include:$INSTALL_PROTOBUF_PATH/protobuf/lib:$INSTALL_PROTOBUF_PATH/protobuf/bin:$PATH
+
+# Verify that protoc is installed correctly before proceeding
+echo "Verifying protoc installation at $INSTALL_PROTOBUF_PATH/bin/protoc..."
+if [ -f "$INSTALL_PROTOBUF_PATH/bin/protoc" ]; then
+    echo "protoc found."
+    "$INSTALL_PROTOBUF_PATH/bin/protoc" --version
+else
+    echo "Error: protoc not found at $INSTALL_PROTOBUF_PATH/bin/protoc. Installation might have failed."
+    exit 1
+fi
+
+# Now navigate and run the python setup.py
+# Use a subshell to temporarily modify PATH and LDFLAGS for this specific command,
+# ensuring our installed protoc and libraries are found first.
+(cd ~/work/protobuf/python && \
+    PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
+    LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
+    CPPFLAGS="-I/$INSTALL_PROTOBUF_PATH/include" \
+    python3 setup.py install --cpp_implementation)
+
+# Update the main shell's PATH for subsequent commands like 'protoc --version'
+export PATH="$INSTALL_PROTOBUF_PATH/bin:$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$PATH"
+
 protoc --version
 echo "protobuf installed"
