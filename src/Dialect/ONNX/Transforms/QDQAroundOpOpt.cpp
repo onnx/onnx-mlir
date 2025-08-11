@@ -4,26 +4,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Pass/Pass.h"
+#include <mlir/IR/Operation.h>
+#include <mlir/IR/PatternMatch.h>
+#include <mlir/Pass/Pass.h>
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Pass/Passes.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
-#include "src/Pass/Passes.hpp"
-#include "llvm/ADT/STLExtras.h"
 #include <cmath>
-    // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXReshapeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXGatherOp>,
-    //     RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
-    //     RemoveQDQAroundOpPattern<ONNXSliceOp>,
-    //     RemoveQDQAroundOpPattern<ONNXResizeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXFlattenOp>
+
 using namespace mlir;
 using namespace onnx_mlir;
 std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
@@ -41,6 +29,10 @@ std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
 std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
     ONNXReshapeOp reshapeOp) {
   return {reshapeOp.getData(), reshapeOp.getReshaped()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXGatherOp gatherOp) {
+  return {gatherOp.getData(), gatherOp.getOutput()};
 }
 std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
     ONNXReduceSumOp reduceOp) {
@@ -99,7 +91,9 @@ bool quantizationParamsMatch(
 namespace {
 template <typename T>
 class RemoveQDQAroundOpPattern : public OpRewritePattern<T> {
+public:
   using OpRewritePattern<T>::OpRewritePattern;
+
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
     Value input, output;
@@ -140,7 +134,6 @@ struct QDQAroundOpOptONNXToONNXPass
   }
 
   void runOnOperation() override {
-    auto function = getOperation();
     RewritePatternSet patterns(&getContext());
     patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
         RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
@@ -150,7 +143,7 @@ struct QDQAroundOpOptONNXToONNXPass
         RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
         RemoveQDQAroundOpPattern<ONNXSliceOp>,
         RemoveQDQAroundOpPattern<ONNXResizeOp>,
-        RemoveQDQAroundOpPattern<ONNXFlattenOp>>(&getContext());
+        RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
     // if (failed(applyPatternsGreedily(function, std::move(patterns))))
     //   signalPassFailure();
   }
