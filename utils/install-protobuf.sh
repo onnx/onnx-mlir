@@ -1,63 +1,34 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
-# Check out protobuf source code and build and install it
-PROTOBUF_VERSION=25.1
-INSTALL_PROTOBUF_PATH=~/work/protobuf_install # Changed to a dedicated install directory
-git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
-cd protobuf
-git submodule update --init --recursive
+
+export INSTALL_PROTOBUF_PATH=~/work/protobuf_install # Changed to a dedicated install directory
+export BUILD_TYPE=Release
+export CORE_NUMBER=1
+
+# Build protobuf from source with -fPIC on Unix-like system
+ORIGINAL_PATH=$(pwd)
+cd ..
+wget https://github.com/abseil/abseil-cpp/releases/download/20230802.2/abseil-cpp-20230802.2.tar.gz
+tar -xvf abseil-cpp-20230802.2.tar.gz
+
+wget https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protobuf-25.1.tar.gz
+tar -xvf protobuf-25.1.tar.gz
+cd protobuf-25.1
 mkdir build_source && cd build_source
-cmake -G Ninja ../ \
-    -Dprotobuf_BUILD_SHARED_LIBS=OFF \
-    -DCMAKE_INSTALL_PREFIX=$INSTALL_PROTOBUF_PATH \
-    -Dprotobuf_BUILD_TESTS=OFF \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-    -DCMAKE_CXX_STANDARD=17 \
-    -DABSL_PROPAGATE_CXX_STD=ON \
-    ..
-cmake --build . --target install
-
-# Verify that protoc is installed correctly before proceeding
-echo "Verifying protoc installation at $INSTALL_PROTOBUF_PATH/bin/protoc..."
-if [ -f "$INSTALL_PROTOBUF_PATH/bin/protoc" ]; then
-    echo "protoc found."
-    "$INSTALL_PROTOBUF_PATH/bin/protoc" --version
+cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=$INSTALL_PROTOBUF_PATH -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DABSL_ROOT_DIR="${ORIGINAL_PATH}/../abseil-cpp-20230802.2" -DCMAKE_CXX_STANDARD=17 -DABSL_PROPAGATE_CXX_STD=on ..
+if [ "$INSTALL_PROTOBUF_PATH" == "/usr" ]; then
+    # Don't use sudo for root
+    if [[ "$(id -u)" == "0" ]]; then
+      cmake --build . --target install --parallel $CORE_NUMBER
+    else
+      # install Protobuf on default system path so it needs sudo permission
+      sudo cmake --build . --target install --parallel $CORE_NUMBER
+    fi
 else
-    echo "Error: protoc not found at $INSTALL_PROTOBUF_PATH/bin/protoc. Installation might have failed."
-    exit 1
+    cmake --build . --target install --parallel $CORE_NUMBER
+    export PATH=$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$INSTALL_PROTOBUF_PATH/bin:$PATH
+    export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib"
+    export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include"
 fi
-
-# Now navigate and run the python setup.py
-# Use a subshell to temporarily modify PATH and LDFLAGS for this specific command,
-# ensuring our installed protoc and libraries are found first.
-# Pass library/include paths directly to setup.py
-if [ -d "$HOME/work/protobuf/python/build" ]; then
-  echo "Removing existing build directory..."
-  rm -rf "$HOME/work/protobuf/python/build"
-else
-  echo "No build directory to remove."
-fi
-
-cd ~/work/protobuf/python
-# Temporarily modify setup.py to remove the hardcoded -std=c++14 flag with 17
-# Use a backup extension like '.bak' for macOS sed.
-sed -i '.bak' "s/extra_compile_args\.append('-std=c++14')/extra_compile_args.append('-std=c++17')/g" setup.py
-
-(   export PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" && \
-    export CC="clang" && \
-    export CXX="clang++" && \
-    export CFLAGS="-std=c++17" && \
-    export CXXFLAGS="-std=c++17" && \
-    export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" &&\
-    export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" &&\
-    python3 setup.py install --cpp_implementation \
-    build_ext --library-dirs="$INSTALL_PROTOBUF_PATH/lib" --include-dirs="$INSTALL_PROTOBUF_PATH/include")
-
-#mv setup.py.bak setup.py
-
-# Update the main shell's PATH for subsequent commands like 'protoc --version'
-export PATH="$INSTALL_PROTOBUF_PATH/bin:$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$PATH"
-
 protoc --version
-echo "protobuf installed"
+cd $ORIGINAL_PATH
