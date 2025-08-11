@@ -39,16 +39,23 @@ else
   echo "No build directory to remove."
 fi
 
-(cd ~/work/protobuf/python && \
-    PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
-    CC="clang" \
-    CXX="clang++" \
-    CFLAGS="-std=c++17" \
-    CXXFLAGS="-std=c++17" \
-    LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
-    CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" \
+cd ~/work/protobuf/python
+# Temporarily modify setup.py to remove the hardcoded -std=c++14 flag
+# Use a backup extension like '.bak' for macOS sed.
+sed -i.bak 's/extra_compile_args.append(\'-std=c++14\')/#extra_compile_args.append(\'-std=c++14\') # Commented out by install script/g' setup.py
+
+
+(   export PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" && \
+    export CC="clang" && \
+    export CXX="clang++" && \
+    export CFLAGS="-std=c++17" && \
+    export CXXFLAGS="-std=c++17" && \
+    export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" &&\
+    export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" &&\
     python3 setup.py install --cpp_implementation \
     build_ext --library-dirs="$INSTALL_PROTOBUF_PATH/lib" --include-dirs="$INSTALL_PROTOBUF_PATH/include")
+
+mv setup.py.bak setup.py
 
 # Update the main shell's PATH for subsequent commands like 'protoc --version'
 export PATH="$INSTALL_PROTOBUF_PATH/bin:$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$PATH"
