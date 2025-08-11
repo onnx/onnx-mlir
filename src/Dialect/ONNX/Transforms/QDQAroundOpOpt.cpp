@@ -9,6 +9,7 @@
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/Pass/Pass.h>
 
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include <cmath>
 
@@ -116,7 +117,9 @@ public:
           return failure();
         }
         rewriter.replaceOp(dqOp, dqOp.getX());
-        rewriter.replaceOp(qOp, qOp.getY());
+        rewriter.replaceOp(qOp, qOp.getResult());
+    // rewriter.replaceOp(op, transOutputOp.getOperation()->getResult(0));
+
         return success();
       }
     };
@@ -134,6 +137,7 @@ struct QDQAroundOpOptONNXToONNXPass
   }
 
   void runOnOperation() override {
+    auto function = getOperation();
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
@@ -146,8 +150,8 @@ struct QDQAroundOpOptONNXToONNXPass
     //     RemoveQDQAroundOpPattern<ONNXResizeOp>,
     //     RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
     patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>>(ctx);
-    // if (failed(applyPatternsGreedily(function, std::move(patterns))))
-    //   signalPassFailure();
+    if (failed(applyPatternsGreedily(function, std::move(patterns))))
+      signalPassFailure();
   }
 };
 } // namespace
