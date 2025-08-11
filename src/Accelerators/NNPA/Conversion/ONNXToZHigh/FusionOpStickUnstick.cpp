@@ -39,6 +39,8 @@ using namespace mlir;
 using namespace onnx_mlir;
 using namespace zhigh;
 
+using OperationSet = std::set<Operation *>;
+
 // TODO: one use respond to false if same output is used twice by a given op.
 
 // TODO: for elementwise/variadic, test that the others are coming from constant
@@ -178,6 +180,9 @@ Operation *patternForStickUnstickFusionFromUnstick(ZHighUnstickOp unstickOp,
     return nullptr;
   }
 
+#if 0 
+  // Remove it for now, as we can handle the two part separately.
+
   // Now we have a unstick->compute that can be fused.
   // But investigate first if we can further unify with the stick.
   Operation *nextOp = getSingleUseOperationOf(computeVal);
@@ -203,6 +208,8 @@ Operation *patternForStickUnstickFusionFromUnstick(ZHighUnstickOp unstickOp,
     }
   }
   // Failed to find a suitable stick.
+#endif
+
   LLVM_DEBUG({
     llvm::dbgs() << "Unstick->compute (" << computeOp->getName()
                  << ") fusion:\n  ";
@@ -241,20 +248,30 @@ Operation *patternForStickUnstickFusionFromStick(
 class PatternsStartingFromUnstick : public OpRewritePattern<ZHighUnstickOp> {
 public:
   DimAnalysis *dimAnalysis;
+  OperationSet *unstickToRemove;
 
-  PatternsStartingFromUnstick(MLIRContext *context, DimAnalysis *dimAnalysis)
-      : OpRewritePattern<ZHighUnstickOp>(context, 1), dimAnalysis(dimAnalysis) {
-  }
+  PatternsStartingFromUnstick(MLIRContext *context, DimAnalysis *dimAnalysis,
+      OperationSet *unstickToRemove)
+      : OpRewritePattern<ZHighUnstickOp>(context, 1), dimAnalysis(dimAnalysis),
+        unstickToRemove(unstickToRemove) {}
 
   using OpRewritePattern<ZHighUnstickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ZHighUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
-    ZHighStickOp stickOp;
+    ZHighStickOp stickOp; // hi alex, remove once we commit to the 2 patterns.
     Operation *computeOp = patternForStickUnstickFusionFromUnstick(
         unstickOp, dimAnalysis, stickOp);
     if (computeOp) {
-      return failure(); // hi alex, success once we have a transformation.
+      int64_t operandNum = computeOp->getNumOperands();
+      rewriter.modifyOpInPlace(computeOp, [&]() {
+        for (int64_t i = 0; i < operandNum; ++i)
+          if (computeOp->getOperand(i) == unstickOp.getOut())
+            // Have to replace this operand by input of unstick.
+            computeOp->setOperand(i, unstickOp.getIn());
+      });
+      unstickToRemove->insert(unstickOp.getOperation());
+      return success();
     }
     return failure();
   }
@@ -263,9 +280,12 @@ public:
 class PatternsEndingWithStick : public OpRewritePattern<ZHighStickOp> {
 public:
   DimAnalysis *dimAnalysis;
+  OperationSet *stickToRemove;
 
-  PatternsEndingWithStick(MLIRContext *context, DimAnalysis *dimAnalysis)
-      : OpRewritePattern<ZHighStickOp>(context, 1), dimAnalysis(dimAnalysis) {}
+  PatternsEndingWithStick(MLIRContext *context, DimAnalysis *dimAnalysis,
+      OperationSet *stickToRemove)
+      : OpRewritePattern<ZHighStickOp>(context, 1), dimAnalysis(dimAnalysis),
+        stickToRemove(stickToRemove) {}
 
   using OpRewritePattern<ZHighStickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
@@ -274,7 +294,15 @@ public:
     Operation *computeOp =
         patternForStickUnstickFusionFromStick(stickOp, dimAnalysis);
     if (computeOp) {
-      return failure(); // hi alex, success once we have a transformation.
+      int64_t resultNum = computeOp->getNumResults();
+      assert(resultNum == 1 && "expect only one result for any fused ops");
+      assert(computeOp->getResult(0) == stickOp.getIn() &&
+             "expected ouput to be stick input");
+      //rewriter.modifyOpInPlace(computeOp, [&]() {
+        computeOp->getResult(0).replaceAllUsesWith(stickOp.getOut());
+      //});
+      stickToRemove->insert(stickOp.getOperation());
+      return success();
     }
     return failure();
   }
@@ -308,14 +336,23 @@ struct FusionOpStickUnstick
 
     DimAnalysis *dimAnalysis = new DimAnalysis(module);
     dimAnalysis->analyze();
+    OperationSet stickUnstickToRemove;
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
-    patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
+    patterns.insert<PatternsStartingFromUnstick>(
+        &getContext(), dimAnalysis, &stickUnstickToRemove);
+    //patterns.insert<PatternsEndingWithStick>(
+    //    &getContext(), dimAnalysis, &stickUnstickToRemove);
 
     if (failed(applyPatternsGreedily(module, std::move(patterns))))
       return signalPassFailure();
+
+#if 0
+    for (Operation *op : stickUnstickToRemove) {
+      op->erase();
+    }
+#endif
   }
 };
 

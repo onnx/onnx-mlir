@@ -779,9 +779,9 @@ bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
     else
       collapsedDynamicSize = collapsedDynamicSize * output[r];
   }
-  // every input dim can be collapsed.
+  // Every input dim can be collapsed.
   collapsedInnermostLoops = outputRank;
-  return true;
+  return true; // Unary cannot have broadcast, so its always manageable.
 }
 
 LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand,
