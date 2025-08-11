@@ -32,13 +32,21 @@ fi
 # Use a subshell to temporarily modify PATH and LDFLAGS for this specific command,
 # ensuring our installed protoc and libraries are found first.
 # Pass library/include paths directly to setup.py
+if [ -d "$HOME/work/protobuf/python/build" ]; then
+  echo "Removing existing build directory..."
+  rm -rf "$HOME/work/protobuf/python/build"
+else
+  echo "No build directory to remove."
+fi
+
 (cd ~/work/protobuf/python && \
     PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" \
-    LDFLAGS="-std=c++17 -L$INSTALL_PROTOBUF_PATH/lib" \
-    CPPFLAGS="-std=c++17 -I$INSTALL_PROTOBUF_PATH/include" \
-    CC="clang -std=c++17" \
-    CXXFLAGS="clang++ -std=c++17" \
+    CC="clang" \
+    CXX="clang++" \
     CFLAGS="-std=c++17" \
+    CXXFLAGS="-std=c++17" \
+    LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" \
+    CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" \
     python3 setup.py install --cpp_implementation \
     build_ext --library-dirs="$INSTALL_PROTOBUF_PATH/lib" --include-dirs="$INSTALL_PROTOBUF_PATH/include")
 
