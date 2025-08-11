@@ -4,13 +4,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include <mlir/IR/Operation.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/Pass/Pass.h>
-
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include <src/Dialect/ONNX/ONNXOps.hpp>
+#include <mlir/IR/IRMapping.h>
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include <cmath>
 
 using namespace mlir;
@@ -116,10 +116,26 @@ public:
                 qOp.getYScale(), qOp.getYZeroPoint())) {
           return failure();
         }
-        rewriter.replaceOp(dqOp, dqOp.getX());
-        rewriter.replaceOp(qOp, qOp.getResult());
-    // rewriter.replaceOp(op, transOutputOp.getOperation()->getResult(0));
 
+        // Map dqOp inputs to dqOp's inputs
+        IRMapping irMapping;
+        // irMapping.map(dqOp, dqOp.getX());
+        // for_each(opDataInputs, [&](Value val) {
+        //   auto dqOp = cast<DequantizeOp>(val.getDefiningOp());
+        // });
+
+        // SmallVector<Value> newInputs;
+        // transform(op->getOperands(), std::back_inserter(newInputs),
+            // [&](Value operand) { return irMapping.lookupOrDefault(operand); });
+
+        auto dequantTy = dqOp.getX().getType();
+        auto newOp = rewriter.create<T>(op.getLoc(),
+            TypeRange{op.getType().clone(dequantTy)}, ValueRange{dqOp.getX()},
+            op->getAttrs());
+        rewriter.replaceOp(op, newOp);
+
+        rewriter.replaceOp(dqOp, dqOp.getX());
+        // rewriter.replaceOp(qOp, newOp);
         return success();
       }
     };
