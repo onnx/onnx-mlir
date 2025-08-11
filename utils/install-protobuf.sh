@@ -40,7 +40,7 @@ else
 fi
 
 cd ~/work/protobuf/python
-# Temporarily modify setup.py to remove the hardcoded -std=c++14 flag
+# Temporarily modify setup.py to remove the hardcoded -std=c++14 flag with 17
 # Use a backup extension like '.bak' for macOS sed.
 sed -i '.bak' 's/extra_compile_args\.append('\''-std=c++14'\'')/extra_compile_args.append('\''-std=c++17'\'')/g' setup.py
 
