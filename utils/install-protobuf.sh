@@ -42,8 +42,7 @@ fi
 cd ~/work/protobuf/python
 # Temporarily modify setup.py to remove the hardcoded -std=c++14 flag
 # Use a backup extension like '.bak' for macOS sed.
-sed -i.bak 's/extra_compile_args.append(\'-std=c++14\')/#extra_compile_args.append(\'-std=c++14\') # Commented out by install script/g' setup.py
-
+sed -i '.bak' 's/extra_compile_args\.append('\''-std=c++14'\'')/#extra_compile_args.append('\''-std=c++14'\'') # Commented out by install script/g' setup.py
 
 (   export PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" && \
     export CC="clang" && \
