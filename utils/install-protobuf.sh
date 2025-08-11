@@ -51,8 +51,7 @@ sed -i '.bak' 's/extra_compile_args\.append('\''-std=c++14'\'')/#extra_compile_a
     export CXXFLAGS="-std=c++17" && \
     export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" &&\
     export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include" &&\
-    python3 setup.py install --cpp_implementation \
-    build_ext --library-dirs="$INSTALL_PROTOBUF_PATH/lib" --include-dirs="$INSTALL_PROTOBUF_PATH/include")
+    pip3 install .)
 
 mv setup.py.bak setup.py
 
