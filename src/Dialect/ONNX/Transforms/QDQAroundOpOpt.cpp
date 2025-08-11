@@ -4,10 +4,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include <mlir/IR/Operation.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/Pass/Pass.h>
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
 #include <cmath>
@@ -134,16 +134,18 @@ struct QDQAroundOpOptONNXToONNXPass
   }
 
   void runOnOperation() override {
-    RewritePatternSet patterns(&getContext());
-    patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
-        RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
-        RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
-        RemoveQDQAroundOpPattern<ONNXReshapeOp>,
-        RemoveQDQAroundOpPattern<ONNXGatherOp>,
-        RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
-        RemoveQDQAroundOpPattern<ONNXSliceOp>,
-        RemoveQDQAroundOpPattern<ONNXResizeOp>,
-        RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
+    auto *ctx = &getContext();
+    RewritePatternSet patterns(ctx);
+    // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXReshapeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXGatherOp>,
+    //     RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
+    //     RemoveQDQAroundOpPattern<ONNXSliceOp>,
+    //     RemoveQDQAroundOpPattern<ONNXResizeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
+    patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>>(ctx);
     // if (failed(applyPatternsGreedily(function, std::move(patterns))))
     //   signalPassFailure();
   }
