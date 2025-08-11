@@ -42,7 +42,7 @@ fi
 cd ~/work/protobuf/python
 # Temporarily modify setup.py to remove the hardcoded -std=c++14 flag with 17
 # Use a backup extension like '.bak' for macOS sed.
-sed -i '.bak' 's/extra_compile_args\.append('\''-std=c++14'\'')/extra_compile_args.append('\''-std=c++17'\'')/g' setup.py
+sed -i '.bak' "s/extra_compile_args\.append('-std=c++14')/extra_compile_args.append('-std=c++17')/g" setup.py
 
 (   export PATH="$INSTALL_PROTOBUF_PATH/bin:$PATH" && \
     export CC="clang" && \
@@ -54,7 +54,7 @@ sed -i '.bak' 's/extra_compile_args\.append('\''-std=c++14'\'')/extra_compile_ar
     python3 setup.py install --cpp_implementation \
     build_ext --library-dirs="$INSTALL_PROTOBUF_PATH/lib" --include-dirs="$INSTALL_PROTOBUF_PATH/include")
 
-mv setup.py.bak setup.py
+#mv setup.py.bak setup.py
 
 # Update the main shell's PATH for subsequent commands like 'protoc --version'
 export PATH="$INSTALL_PROTOBUF_PATH/bin:$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$PATH"
