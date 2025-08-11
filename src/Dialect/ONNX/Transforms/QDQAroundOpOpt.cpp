@@ -15,14 +15,49 @@
 #include "src/Pass/Passes.hpp"
 #include "llvm/ADT/STLExtras.h"
 #include <cmath>
-
+    // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXReshapeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXGatherOp>,
+    //     RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
+    //     RemoveQDQAroundOpPattern<ONNXSliceOp>,
+    //     RemoveQDQAroundOpPattern<ONNXResizeOp>,
+    //     RemoveQDQAroundOpPattern<ONNXFlattenOp>
 using namespace mlir;
 using namespace onnx_mlir;
 std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
     ONNXTransposeOp transposeOp) {
   return {transposeOp.getData(), transposeOp.getTransposed()};
 }
-
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXUnsqueezeOp unsqueezeOp) {
+  return {unsqueezeOp.getData(), unsqueezeOp.getExpanded()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXSqueezeOp squeezeOp) {
+  return {squeezeOp.getData(), squeezeOp.getSqueezed()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXReshapeOp reshapeOp) {
+  return {reshapeOp.getData(), reshapeOp.getReshaped()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXReduceSumOp reduceOp) {
+  return {reduceOp.getData(), reduceOp.getReduced()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXSliceOp sliceOp) {
+  return {sliceOp.getData(), sliceOp.getOutput()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXResizeOp resizeOp) {
+  return {resizeOp.getX(), resizeOp.getY()};
+}
+std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+    ONNXFlattenOp flattenOp) {
+  return {flattenOp.getInput(), flattenOp.getOutput()};
+}
 float getFloatFromConstant(Value val) {
   auto constOp = val.getDefiningOp<ONNXConstantOp>();
   if (!constOp)
