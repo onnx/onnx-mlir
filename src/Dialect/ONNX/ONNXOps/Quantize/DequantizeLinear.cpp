@@ -92,7 +92,7 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
 
 LogicalResult ONNXDequantizeLinearOp::verify() {
   // Is tensor known to be a scalar (rank 0 or rank 1 with 1 element)?
-  auto isScalar = [](RankedTensorType t) -> bool {
+  auto isScalar = [](ShapedType t) -> bool {
     return t.getRank() == 0 || (t.getRank() == 1 && t.getDimSize(0) == 1);
   };
 
@@ -108,7 +108,8 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   Value zero = getXZeroPoint();
   if (!isNoneValue(zero)) {
     const auto zeroTy = mlir::cast<ShapedType>(zero.getType());
-    if (zeroTy.hasRank() && scaleTy.hasRank() &&
+    if (zeroTy.hasRank() && scaleTy.hasRank() && !isScalar(zeroTy) &&
+        !isScalar(scaleTy) &&
         (zeroTy.getRank() != scaleTy.getRank() ||
             zeroTy.getShape() != scaleTy.getShape())) {
       return emitOpError("x_zero_point must have the same shape as x_scale");

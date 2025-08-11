@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+if (NOT ONNX_MLIR_ENABLE_PYBIND)
+  return()
+endif()
+
 add_onnx_mlir_library(ModelLib
   CategoryMapperModel.cpp
   ConvModel.cpp

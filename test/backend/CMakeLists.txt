@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Disabled when pybind unavailable.
+if (NOT ONNX_MLIR_ENABLE_PYBIND)
+  return()
+endif()
+
 file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conftest.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/conftest.py

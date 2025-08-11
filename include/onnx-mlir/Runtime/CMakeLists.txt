@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if(ONNX_MLIR_INSTALL_HEADERS)
+if(ONNX_MLIR_INSTALL_HEADERS AND ONNX_MLIR_ENABLE_PYBIND)
   install(FILES OMEntryPoint.h DESTINATION include/onnx-mlir/Runtime)
   install(FILES OMInstrument.h DESTINATION include/onnx-mlir/Runtime)
   install(FILES OMSignature.h DESTINATION include/onnx-mlir/Runtime)
