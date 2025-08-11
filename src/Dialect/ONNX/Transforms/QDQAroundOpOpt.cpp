@@ -130,12 +130,12 @@ public:
 
         auto dequantTy = dqOp.getX().getType();
         auto newOp = rewriter.create<T>(op.getLoc(),
-            TypeRange{op.getType().clone(dequantTy)}, ValueRange{dqOp.getX()},
+            TypeRange{dequantTy}, ValueRange{dqOp.getX()},
             op->getAttrs());
         rewriter.replaceOp(op, newOp);
 
         rewriter.replaceOp(dqOp, dqOp.getX());
-        // rewriter.replaceOp(qOp, newOp);
+        rewriter.replaceOp(qOp, newOp);
         return success();
       }
     };
