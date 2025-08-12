@@ -65,7 +65,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
 
 # Install protobuf
 ARG PROTOBUF_VERSION=25.1
-ARG INSTALL_PROTOBUF_PATH=/workdir/protobuf_install
+ARG INSTALL_PROTOBUF_PATH=/usr/local
 ARG BUILD_TYPE=Release
 ARG CORE_NUMBER=2
 ARG ORIGINAL_PATH=${pwd}
