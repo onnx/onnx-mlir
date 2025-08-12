@@ -148,7 +148,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Then, recompose again layout and data conversion if they are not optimized.
   if (nnpaEnableZHighDecomposeStickUnstick) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
+        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass()); // hi alex
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass());
