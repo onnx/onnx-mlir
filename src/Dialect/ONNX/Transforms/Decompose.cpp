@@ -1713,9 +1713,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
           startOnnxConstant, endOnnxConstant, axisOnnxConstant,
           stepOnnxConstant);
     }
-
-    // The four convOutputs are adjusted to add an extra dimension at the
-    // innermost level.
+    // Four conv outputs are merged in channel dim
     SmallVector<int64_t> outputShapeOfConcat = {
         1, convOutputShape[1] * 4, convOutputShape[2], convOutputShape[3]};
     auto concatOutputType =
@@ -1725,7 +1723,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     // This is observed by looking at the phased conv outputs with respect to
     // convtranspose output.
     bool reverseConcatOrder = (needWeightsPadding || (kernelShape[0] == 4));
-    // Below concats result will have the innermost dim as 2.
+    // The concat output will have 4 times the channels of a single conv.
     auto firstConcat =
         (reverseConcatOrder)
             ? rewriter.create<ONNXConcatOp>(loc, concatOutputType,
