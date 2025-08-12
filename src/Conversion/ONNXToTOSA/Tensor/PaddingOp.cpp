@@ -22,8 +22,8 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Casting.h"
 
 using namespace mlir;
 
@@ -106,36 +106,12 @@ public:
           padsList1,
           rewriter.create<mlir::tosa::ConstOp>(
               op->getLoc(), constType, constAttr));
-    } else if (!constValue.getDefiningOp<mlir::tosa::ConstOp>()) {
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1, constValue);
     } else {
-      auto valueAttr = tosa::getValueFromTosaConst<ElementsAttr>(constValue);
       TosaBuilder tosaBuilder(rewriter, loc);
-
-      Value constTosaTensor;
-      if (isa<FloatType>(valueAttr.getElementType())) {
-        auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-        const float valueFloat = cast<FloatAttr>(*valueIt).getValueAsDouble();
-        constTosaTensor = tosaBuilder.getSplattedConst(
-            valueFloat, valueAttr.getElementType(), 0);
-      } else {
-        assert(isTOSAInt(elementDtype) && "Already validated");
-        auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
-        auto valueAsAPInt = cast<IntegerAttr>(*valueIt).getValue();
-        auto asIntegerTy = cast<IntegerType>(valueAttr.getElementType());
-        if (asIntegerTy.isUnsigned()) {
-          constTosaTensor = tosaBuilder.getSplattedConst(
-              valueAsAPInt.getZExtValue(), asIntegerTy, 0);
-        } else {
-          constTosaTensor = tosaBuilder.getSplattedConst(
-              valueAsAPInt.getSExtValue(), asIntegerTy, 0);
-        }
-      }
+      Value reshapeToSplattedConst = tosaBuilder.reshape(constValue, {});
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1, constTosaTensor);
+          op, resultType, data, padsList1, reshapeToSplattedConst);
     }
-
     return success();
   }
 };
