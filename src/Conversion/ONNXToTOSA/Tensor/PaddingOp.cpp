@@ -61,11 +61,9 @@ public:
           op, "only 'constant' mode is supported");
     }
 
-    if (!pads.getDefiningOp<mlir::tosa::ConstOp>() ||
-        !(constValue.getDefiningOp<mlir::tosa::ConstOp>() ||
-            constValue.getDefiningOp<ONNXNoneOp>())) {
+    if (!pads.getDefiningOp<mlir::tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
-          op, "only tosa.const operands are supported");
+          op, "only tosa.const 'padding' values are supported");
     }
     // creating the DenseElementsAttr using pads values.
     auto denseAttr = tosa::getValueFromTosaConst<ElementsAttr>(pads);
@@ -90,7 +88,28 @@ public:
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
-    if (!isa<NoneType>(constValue.getType())) {
+    if (isa<NoneType>(constValue.getType())) {
+      auto constType = RankedTensorType::get({}, elementDtype);
+
+      DenseElementsAttr constAttr;
+      if (auto floatType = dyn_cast<FloatType>(elementDtype)) {
+        constAttr = DenseElementsAttr::get(
+            constType, APFloat::getZero(floatType.getFloatSemantics()));
+      } else {
+        assert(isTOSAInt(elementDtype) && "Already validated");
+        auto tyAsInt = cast<IntegerType>(elementDtype);
+        constAttr = DenseElementsAttr::get(constType,
+            llvm::APInt(tyAsInt.getWidth(), 0, tyAsInt.getSignedness()));
+      }
+
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(op, resultType, data,
+          padsList1,
+          rewriter.create<mlir::tosa::ConstOp>(
+              op->getLoc(), constType, constAttr));
+    } else if (!constValue.getDefiningOp<mlir::tosa::ConstOp>()) {
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+          op, resultType, data, padsList1, constValue);
+    } else {
       auto valueAttr = tosa::getValueFromTosaConst<ElementsAttr>(constValue);
       TosaBuilder tosaBuilder(rewriter, loc);
 
@@ -115,25 +134,6 @@ public:
       }
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
-
-    } else {
-      auto constType = RankedTensorType::get({}, elementDtype);
-
-      DenseElementsAttr constAttr;
-      if (auto floatType = dyn_cast<FloatType>(elementDtype)) {
-        constAttr = DenseElementsAttr::get(
-            constType, APFloat::getZero(floatType.getFloatSemantics()));
-      } else {
-        assert(isTOSAInt(elementDtype) && "Already validated");
-        auto tyAsInt = cast<IntegerType>(elementDtype);
-        constAttr = DenseElementsAttr::get(constType,
-            llvm::APInt(tyAsInt.getWidth(), 0, tyAsInt.getSignedness()));
-      }
-
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(op, resultType, data,
-          padsList1,
-          rewriter.create<mlir::tosa::ConstOp>(
-              op->getLoc(), constType, constAttr));
     }
 
     return success();
