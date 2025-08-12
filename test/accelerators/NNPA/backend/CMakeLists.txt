@@ -427,17 +427,17 @@ set(NNPA_TEST_LIST_ARCH_15
     # ==OP== MatMulInteger
     # ==LEVEL== z17
     # ==MIN== 10
-    test_matmulinteger_cpu,zdnn_quantized_matmul_op
+    test_matmulinteger_cpu,zdnnx_quantized_matmul_op
 
     # ==OP== QLinearMatMul
     # ==LEVEL== z17
     # ==MIN== 10 
     # ==LIM== Only support i8 and ui8 for zeropoint, and f32 for scale.
-    test_qlinearmatmul_2D_uint8_float32_cpu,zdnn_quantized_matmul_op
-    test_qlinearmatmul_3D_uint8_float32_cpu,zdnn_quantized_matmul_op
+    test_qlinearmatmul_2D_uint8_float32_cpu,zdnnx_quantized_matmul_op
+    test_qlinearmatmul_3D_uint8_float32_cpu,zdnnx_quantized_matmul_op
     # Error: at (1, 0) mismatch 0 (actual) vs 1 (reference)
-    # test_qlinearmatmul_2D_int8_float32_cpu,zdnn_quantized_matmul_op
-    # test_qlinearmatmul_3D_int8_float32_cpu,zdnn_quantized_matmul_op
+    # test_qlinearmatmul_2D_int8_float32_cpu,zdnnx_quantized_matmul_op
+    # test_qlinearmatmul_3D_int8_float32_cpu,zdnnx_quantized_matmul_op
 
     # ==OP== ReduceMax
     # ==LEVEL== z17
