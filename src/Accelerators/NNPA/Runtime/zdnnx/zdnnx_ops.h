@@ -66,6 +66,11 @@ zdnn_status zdnnx_sqrt(const zdnn_ztensor *input, zdnn_ztensor *output);
 zdnn_status zdnnx_matmul_transpose_op(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int transpose_a,
     int transpose_b, int opType, zdnn_ztensor *output);
+zdnn_status zdnnx_quantized_matmul_op(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c,
+    zdnn_matmul_ops op_type, const int8_t clip_min, const int8_t clip_max,
+    const bool disable_clipping, const bool dequantize, const bool pre_computed,
+    void *work_area, zdnn_ztensor *output);
 zdnn_status zdnnx_reduce(const zdnn_ztensor *input, void *save_area,
     int op_type, zdnn_ztensor *output);
 
