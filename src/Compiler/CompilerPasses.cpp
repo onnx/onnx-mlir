@@ -165,9 +165,20 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (!donotScrubDisposableElementsAttr)
     pm.addPass(createScrubDisposablePass());
 
-  // Pass for remove
-  if (opts.enableRemoveQDQ)
-    pm.addPass(createQDQOptONNXToONNXPass());
+  // Passes for removing redundant QDQ Ops
+  if (opts.enableRemoveQdqConcatCastOp) {
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(createQDQOptONNXToONNXPass(opts.maxUlpScaleComparisonVal));
+  }
+
+  if (opts.enableRemoveQdqSliceOp) {
+    pm.addPass(onnx_mlir::createShapeInferencePass());
+    pm.addPass(createQDQOptONNXToONNXPass(opts.maxUlpScaleComparisonVal));
+  }
+
+  if (opts.enableRemoveDqQChainOP) {
+    pm.addPass(createQDQOptONNXToONNXPass(opts.maxUlpScaleComparisonVal));
+  }
 
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.

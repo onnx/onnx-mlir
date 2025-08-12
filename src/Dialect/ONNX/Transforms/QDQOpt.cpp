@@ -35,38 +35,53 @@ static ElementsAttr getElementAttributeFromConstant(Value val) {
   return nullptr;
 }
 
-static bool scaleParamsMatch(
-    Value scale1, Value scale2, double tolerance = 1e-20) {
+template <typename T>
+static bool areNearlyEqualULP(T a, T b, int maxUlps) {
+  if (a == b) {
+    return true;
+  }
+  using IntType =
+      typename std::conditional<sizeof(T) == 4, int32_t, int64_t>::type;
+  IntType intA;
+  IntType intB;
+  std::memcpy(&intA, &a, sizeof(T));
+  std::memcpy(&intB, &b, sizeof(T));
+
+  // - The ULP count is only meaningful for numbers of the same sign.
+  if ((intA < 0) != (intB < 0)) {
+    return false;
+  }
+  IntType ulpDiff = std::abs(intA - intB);
+  return ulpDiff <= maxUlps;
+}
+
+static bool scaleParamsMatch(Value scale1, Value scale2, int maxUlps = 1) {
   auto scaleAttr1 = getElementAttributeFromConstant(scale1);
   auto scaleAttr2 = getElementAttributeFromConstant(scale2);
-
   if (!scaleAttr1 || !scaleAttr2)
     return false;
-
-  // Shapes and element types must match.
   if (scaleAttr1.getType() != scaleAttr2.getType())
     return false;
-
-  // Get the tensors of floating-point values from the attributes.
-  auto scaleVals1 = scaleAttr1.getValues<APFloat>();
-  auto scaleVals2 = scaleAttr2.getValues<APFloat>();
-
-  // Check if the tensors have the same size. If not, they don't match.
-  if (scaleVals1.size() != scaleVals2.size()) {
+  mlir::Type elementType = scaleAttr1.getElementType();
+  if (elementType.isF32()) {
+    auto vals1 = scaleAttr1.getValues<float>();
+    auto vals2 = scaleAttr2.getValues<float>();
+    for (auto [v1, v2] : llvm::zip(vals1, vals2)) {
+      if (!areNearlyEqualULP(v1, v2, maxUlps)) {
+        return false;
+      }
+    }
+  } else if (elementType.isF64()) {
+    auto vals1 = scaleAttr1.getValues<double>();
+    auto vals2 = scaleAttr2.getValues<double>();
+    for (auto [v1, v2] : llvm::zip(vals1, vals2)) {
+      if (!areNearlyEqualULP(v1, v2, maxUlps)) {
+        return false;
+      }
+    }
+  } else {
     return false;
   }
-
-  // Iterate through the tensors and find the difference between corresponding
-  // elements. The code will return false as soon as it finds a difference that
-  // is greater than or equal to the tolerance.
-  for (auto [v1, v2] : llvm::zip(scaleVals1, scaleVals2)) {
-    double diff = std::fabs(v1.convertToDouble() - v2.convertToDouble());
-    if (diff >= tolerance) {
-      return false;
-    }
-  }
-  // If the loop completes without finding any significant differences, the
-  // tensors match.
   return true;
 }
 
@@ -84,21 +99,17 @@ static mlir::LogicalResult equalsDefaultIntElements(
   auto st = mlir::dyn_cast<mlir::ShapedType>(ea.getType());
   if (!st)
     return mlir::failure();
-
   mlir::Type et = st.getElementType();
   if (!et.isIntOrIndex())
     return mlir::failure();
-
   const bool isUnsigned = et.isa<mlir::IntegerType>() &&
                           et.cast<mlir::IntegerType>().isUnsignedInteger();
-
   if (ea.isSplat()) {
     llvm::APInt api = ea.getSplatValue<llvm::APInt>();
     int64_t got = isUnsigned ? static_cast<int64_t>(api.getZExtValue())
                              : api.getSExtValue();
     return (got == defaultValue) ? mlir::success() : mlir::failure();
   }
-
   for (const llvm::APInt &api : ea.getValues<llvm::APInt>()) {
     int64_t got = isUnsigned ? static_cast<int64_t>(api.getZExtValue())
                              : api.getSExtValue();
@@ -119,28 +130,21 @@ static mlir::LogicalResult checkAttrAgainstDefault(
   return mlir::failure();
 }
 
-// --- main checker ---
-
 static mlir::LogicalResult checkIntegerAttributeEquals(mlir::Operation *op1,
     mlir::Operation *op2, mlir::StringRef attrName, int64_t defaultValue) {
-
   mlir::Attribute attr1 = op1->getAttr(attrName);
   mlir::Attribute attr2 = op2->getAttr(attrName);
-
   // Case 0: both missing => both implicitly default
   if (!attr1 && !attr2)
     return mlir::success();
-
   // Case 1: both present and identical
   if (attr1 && attr2 && attr1 == attr2)
     return mlir::success();
-
   // Case 2: one side missing => present side must equal default
   if (!attr1)
     return checkAttrAgainstDefault(attr2, defaultValue);
   if (!attr2)
     return checkAttrAgainstDefault(attr1, defaultValue);
-
   // Case 3: both present but not identical
   return mlir::failure();
 }
@@ -151,6 +155,11 @@ static mlir::LogicalResult checkIntegerAttributeEquals(mlir::Operation *op1,
 
 struct RemoveQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
+  int maxUlpScaleComparisonVal;
+
+  RemoveQDQPattern(MLIRContext *context, int maxUlpScaleComparisonVal = 1)
+      : OpRewritePattern(context),
+        maxUlpScaleComparisonVal(maxUlpScaleComparisonVal) {}
 
   LogicalResult matchAndRewrite(
       ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
@@ -178,8 +187,9 @@ struct RemoveQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
     if (zpAttr1 != zpAttr2)
       return failure();
 
-    // 3. Check Scales with a tolerance
-    if (!scaleParamsMatch(dqOp.getXScale(), qOp.getYScale()))
+    // 3. Check Scales. Default maxUlp=1
+    if (!scaleParamsMatch(
+            dqOp.getXScale(), qOp.getYScale(), maxUlpScaleComparisonVal))
       return failure();
 
     // 3. Check data types for consistency.
@@ -230,6 +240,12 @@ struct RemoveQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
 
 struct QDQOptONNXToONNXPass
     : public PassWrapper<QDQOptONNXToONNXPass, OperationPass<func::FuncOp>> {
+
+  int maxUlpScaleComparisonVal;
+
+  QDQOptONNXToONNXPass(int maxUlpScaleComparisonVal = 1)
+      : maxUlpScaleComparisonVal(maxUlpScaleComparisonVal) {}
+
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(QDQOptONNXToONNXPass)
   StringRef getArgument() const override { return "qdq-opt-onnx-to-onnx"; }
   StringRef getDescription() const override {
@@ -239,16 +255,17 @@ struct QDQOptONNXToONNXPass
   void runOnOperation() override {
     auto function = getOperation();
     RewritePatternSet patterns(&getContext());
-    patterns.add<RemoveQDQPattern>(&getContext());
+    patterns.add<RemoveQDQPattern>(&getContext(), maxUlpScaleComparisonVal);
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
 };
-
 } // namespace
 
 namespace onnx_mlir {
-std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass() {
-  return std::make_unique<QDQOptONNXToONNXPass>();
+std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass(
+    int maxUlpScaleComparisonVal) {
+
+  return std::make_unique<QDQOptONNXToONNXPass>(maxUlpScaleComparisonVal);
 }
 } // namespace onnx_mlir
