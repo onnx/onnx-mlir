@@ -65,21 +65,31 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
 
 # Install protobuf
 ARG PROTOBUF_VERSION=25.1
-RUN git clone --recursive https://github.com/protocolbuffers/protobuf.git \
-    && cd protobuf \
-    && git checkout v${PROTOBUF_VERSION} \
-    && git submodule update --init --recursive \
-    && mkdir build_source && cd build_source \
-    && cmake -G Ninja ../ \
-             -Dprotobuf_BUILD_SHARED_LIBS=OFF \
-             -DCMAKE_INSTALL_PREFIX=/usr \
-             -Dprotobuf_BUILD_TESTS=OFF \
-             -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-    && cmake --build . --target install && ldconfig \
-    && cd ../python && python3 setup.py install --cpp_implementation \
-    && protoc --version \
-    && echo "protobuf installed"
+ARG INSTALL_PROTOBUF_PATH=/workdir/protobuf_install
+ARG BUILD_TYPE=Release
+ARG CORE_NUMBER=2
+ARG ORIGINAL_PATH=${pwd}
+RUN cd .. && \
+    wget https://github.com/abseil/abseil-cpp/releases/download/20230802.2/abseil-cpp-20230802.2.tar.gz && \
+    tar -xvf abseil-cpp-20230802.2.tar.gz && \
+    wget https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protobuf-25.1.tar.gz && \
+    tar -xvf protobuf-25.1.tar.gz
+RUN cd /protobuf-25.1 && \
+    mkdir build_source && cd build_source && \
+    cmake -G Ninja ../ \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DCMAKE_INSTALL_PREFIX=$INSTALL_PROTOBUF_PATH \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+          -Dprotobuf_BUILD_TESTS=OFF \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DABSL_ROOT_DIR="${ORIGINAL_PATH}/abseil-cpp-20230802.2"\
+          -DCMAKE_CXX_STANDARD=17 \
+          -DABSL_PROPAGATE_CXX_STD=on \
+    && cmake --build . --target install --parallel $CORE_NUMBER
+
+RUN export PATH=$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$INSTALL_PROTOBUF_PATH/bin:$PATH && \
+    export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" && \
+    export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include"
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
