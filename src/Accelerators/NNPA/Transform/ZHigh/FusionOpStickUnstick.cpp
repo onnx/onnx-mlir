@@ -160,13 +160,22 @@ Operation *getSingleUseOperationOf(Value val) {
   return singleOp;
 }
 
-static void explanation(Operation *computeOp, Operation *stickUnstickOp,
-    std::string pattern, std::string message) {
-  llvm::dbgs() << pattern << " (" << computeOp->getName() << ") fusion "
+static void explanation(
+    Operation *computeOp, ZHighUnstickOp unstickOp, std::string message) {
+  llvm::dbgs() << "Unstick->compute (" << computeOp->getName() << ") fusion "
                << message << ":\n  ";
-  stickUnstickOp->dump();
+  unstickOp.dump();
   llvm::dbgs() << "  ";
   computeOp->dump();
+}
+
+static void explanation(
+    Operation *computeOp, ZHighStickOp stickOp, std::string message) {
+  llvm::dbgs() << "Compute->stick (" << computeOp->getName() << ") fusion "
+               << message << ":\n  ";
+  computeOp->dump();
+  llvm::dbgs() << "  ";
+  stickOp.dump();
 }
 
 // Return compute operation when fusion of unstick -> compute can be fused,
@@ -183,27 +192,26 @@ Operation *patternForFusionFromUnstick(
     return nullptr;
   // We must support this layout.
   if (!supportedLayoutForCompilerGeneratedStickUnstick(unstickInVal)) {
-    LLVM_DEBUG(explanation(computeOp, unstickOp.getOperation(),
-        "Unstick->compute", "FAILURE due to unstick shape"));
+    LLVM_DEBUG(
+        explanation(computeOp, unstickOp, "FAILURE due to unstick shape"));
     return nullptr;
   }
   // Suitable shapes?
   if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, unstickOutVal)) {
-    LLVM_DEBUG(explanation(computeOp, unstickOp.getOperation(),
-        "Unstick->compute", "FAILURE due to input shapes"));
+    LLVM_DEBUG(
+        explanation(computeOp, unstickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
   // Suitable layout?
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
   if (!suitableLayout(computeOp, unstickLayout)) {
-    LLVM_DEBUG(explanation(computeOp, unstickOp.getOperation(),
-        "Unstick->compute", "FAILURE due to input zTensor layouts"));
+    LLVM_DEBUG(explanation(
+        computeOp, unstickOp, "FAILURE due to input zTensor layouts"));
     return nullptr;
   }
   // Success.
-  LLVM_DEBUG(
-      explanation(computeOp, unstickOp.getOperation(), "Unstick->compute", ""));
+  LLVM_DEBUG(explanation(computeOp, unstickOp, ""));
   return computeOp;
 }
 
@@ -221,20 +229,18 @@ Operation *patternForFusionFromStick(
     return nullptr;
   // We must support this layout.
   if (!supportedLayoutForCompilerGeneratedStickUnstick(stickOutVal)) {
-    LLVM_DEBUG(explanation(computeOp, stickOp.getOperation(), "Compute->stick",
-        "FAILURE due to stick layout"));
+    LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());
   if (!suitableLayout(computeOp, stickLayout)) {
-    LLVM_DEBUG(explanation(computeOp, stickOp.getOperation(), "Compute->stick",
-        "FAILURE due to input zTensor layouts"));
+    LLVM_DEBUG(explanation(
+        computeOp, stickOp, "FAILURE due to input zTensor layouts"));
     return nullptr;
   }
   // ZHighUnstickOp unstickOp = computeOp
-  LLVM_DEBUG(
-      explanation(computeOp, stickOp.getOperation(), "Compute->stick", ""));
+  LLVM_DEBUG(explanation(computeOp, stickOp, ""));
   return computeOp;
 }
 
