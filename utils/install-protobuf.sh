@@ -1,7 +1,7 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-export INSTALL_PROTOBUF_PATH=~/work/protobuf_install # Changed to a dedicated install directory
+export INSTALL_PROTOBUF_PATH=/usr/local # Changed to a dedicated install directory
 export BUILD_TYPE=Release
 export CORE_NUMBER=1
 
