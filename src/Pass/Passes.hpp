@@ -55,8 +55,7 @@ void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
-std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass(
-    int maxUlpScaleComparisonVal);
+std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass();
 
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();

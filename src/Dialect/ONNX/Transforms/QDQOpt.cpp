@@ -35,56 +35,6 @@ static ElementsAttr getElementAttributeFromConstant(Value val) {
   return nullptr;
 }
 
-template <typename T>
-static bool areNearlyEqualULP(T a, T b, int maxUlps) {
-  if (a == b) {
-    return true;
-  }
-  using IntType =
-      typename std::conditional<sizeof(T) == 4, int32_t, int64_t>::type;
-  IntType intA;
-  IntType intB;
-  std::memcpy(&intA, &a, sizeof(T));
-  std::memcpy(&intB, &b, sizeof(T));
-
-  // - The ULP count is only meaningful for numbers of the same sign.
-  if ((intA < 0) != (intB < 0)) {
-    return false;
-  }
-  IntType ulpDiff = std::abs(intA - intB);
-  return ulpDiff <= maxUlps;
-}
-
-static bool scaleParamsMatch(Value scale1, Value scale2, int maxUlps = 1) {
-  auto scaleAttr1 = getElementAttributeFromConstant(scale1);
-  auto scaleAttr2 = getElementAttributeFromConstant(scale2);
-  if (!scaleAttr1 || !scaleAttr2)
-    return false;
-  if (scaleAttr1.getType() != scaleAttr2.getType())
-    return false;
-  mlir::Type elementType = scaleAttr1.getElementType();
-  if (elementType.isF32()) {
-    auto vals1 = scaleAttr1.getValues<float>();
-    auto vals2 = scaleAttr2.getValues<float>();
-    for (auto [v1, v2] : llvm::zip(vals1, vals2)) {
-      if (!areNearlyEqualULP(v1, v2, maxUlps)) {
-        return false;
-      }
-    }
-  } else if (elementType.isF64()) {
-    auto vals1 = scaleAttr1.getValues<double>();
-    auto vals2 = scaleAttr2.getValues<double>();
-    for (auto [v1, v2] : llvm::zip(vals1, vals2)) {
-      if (!areNearlyEqualULP(v1, v2, maxUlps)) {
-        return false;
-      }
-    }
-  } else {
-    return false;
-  }
-  return true;
-}
-
 static mlir::LogicalResult equalsDefaultIntegerAttr(
     mlir::IntegerAttr ia, int64_t defaultValue) {
   auto it = mlir::cast<mlir::IntegerType>(ia.getType());
@@ -153,14 +103,8 @@ static mlir::LogicalResult checkIntegerAttributeEquals(mlir::Operation *op1,
 // Pattern to remove QDQ pairs
 //===----------------------------------------------------------------------===//
 
-struct RemoveQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
+struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
-  int maxUlpScaleComparisonVal;
-
-  RemoveQDQPattern(MLIRContext *context, int maxUlpScaleComparisonVal = 1)
-      : OpRewritePattern(context),
-        maxUlpScaleComparisonVal(maxUlpScaleComparisonVal) {}
-
   LogicalResult matchAndRewrite(
       ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
     auto dqOp = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
@@ -187,9 +131,10 @@ struct RemoveQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
     if (zpAttr1 != zpAttr2)
       return failure();
 
-    // 3. Check Scales. Default maxUlp=1
-    if (!scaleParamsMatch(
-            dqOp.getXScale(), qOp.getYScale(), maxUlpScaleComparisonVal))
+    // 3. Check Scales.
+    auto scaleAttr1 = getElementAttributeFromConstant(dqOp.getXScale());
+    auto scaleAttr2 = getElementAttributeFromConstant(qOp.getYScale());
+    if (scaleAttr1 != scaleAttr2)
       return failure();
 
     // 3. Check data types for consistency.
@@ -241,11 +186,6 @@ struct RemoveQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
 struct QDQOptONNXToONNXPass
     : public PassWrapper<QDQOptONNXToONNXPass, OperationPass<func::FuncOp>> {
 
-  int maxUlpScaleComparisonVal;
-
-  QDQOptONNXToONNXPass(int maxUlpScaleComparisonVal = 1)
-      : maxUlpScaleComparisonVal(maxUlpScaleComparisonVal) {}
-
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(QDQOptONNXToONNXPass)
   StringRef getArgument() const override { return "qdq-opt-onnx-to-onnx"; }
   StringRef getDescription() const override {
@@ -255,7 +195,7 @@ struct QDQOptONNXToONNXPass
   void runOnOperation() override {
     auto function = getOperation();
     RewritePatternSet patterns(&getContext());
-    patterns.add<RemoveQDQPattern>(&getContext(), maxUlpScaleComparisonVal);
+    patterns.add<FoldQDQPattern>(&getContext());
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
@@ -263,9 +203,7 @@ struct QDQOptONNXToONNXPass
 } // namespace
 
 namespace onnx_mlir {
-std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass(
-    int maxUlpScaleComparisonVal) {
-
-  return std::make_unique<QDQOptONNXToONNXPass>(maxUlpScaleComparisonVal);
+std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass() {
+  return std::make_unique<QDQOptONNXToONNXPass>();
 }
 } // namespace onnx_mlir

@@ -68,7 +68,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createQDQOptONNXToONNXPass(/*maxUlpScaleComparisonVal*/ 1);
+    return createQDQOptONNXToONNXPass();
   });
 
   mlir::registerPass(
