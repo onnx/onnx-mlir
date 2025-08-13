@@ -271,8 +271,6 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return reportFailure("RMS norm mul has too many uses");
     if (isdRecipOp && !isdRecipOp->hasOneUse())
       return reportFailure("RMS norm recip has too many uses");
-    if (!nsMulOp->hasOneUse())
-      return reportFailure("RMS norm scale mul has too many uses");
     // Now check values epsilon.
     if (!isScalarTensor(epsilon))
       return reportFailure("RMS epsilon is expected to be scalar");
