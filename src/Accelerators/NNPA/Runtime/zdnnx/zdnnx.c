@@ -86,6 +86,8 @@ static inline void copy_data_for_tile(
 
   const zdnn_ztensor *full_tensor = split_info->full_ztensor;
   const zdnn_ztensor *tile_tensor = &(tile->data);
+  assert(full_tensor->transformed_desc->type != ZDNN_BINARY_INT8 &&
+         "Does not support copying int8 data");
 
   // Get pointers to the full and tile buffers.
   void *src = full_tensor->buffer;
@@ -320,8 +322,19 @@ static void prepare_tile_desc(uint64_t *bufferSize,
   }
 
   // Generate a transformed desc.
-  zdnn_status status =
-      zdnn_generate_transformed_desc(pre_transformed_desc, transformed_desc);
+  zdnn_status status;
+  if (full_ztensor->transformed_desc->type == ZDNN_BINARY_INT8) {
+    zdnn_quantized_transform_types transform_type;
+    if (full_ztensor->transformed_desc->format == ZDNN_FORMAT_4DFEATURE)
+      transform_type = QUANTIZED_INT8;
+    else
+      transform_type = QUANTIZED_WEIGHTS_INT8;
+    status = zdnn_generate_quantized_transformed_desc(
+        pre_transformed_desc, transform_type, transformed_desc);
+  } else {
+    status =
+        zdnn_generate_transformed_desc(pre_transformed_desc, transformed_desc);
+  }
   assert((status == ZDNN_OK) && "Failed to generate a transformed desc.");
   (void)status; // Prevent unused warning when assert is disabled.
 
@@ -456,7 +469,11 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
                       (layout == ZDNN_4DS);
   // d2 and d1 in the mapped shape are 32 and 64. Make sure that each
   // element is 2 bytes, so that can do 4K-block copying if tiling.
-  if (full_ztensor->transformed_desc->type != ZDNN_DLFLOAT16)
+  //
+  // At this moment, ZDNN_BINARY_INT8 is supported only when reusing the full
+  // buffer. Will check this at the end of this function.
+  if ((full_ztensor->transformed_desc->type != ZDNN_DLFLOAT16) &&
+      (full_ztensor->transformed_desc->type != ZDNN_BINARY_INT8))
     notSupported = true;
 
   // Set full_ztensor.
@@ -602,6 +619,24 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
 
   if (reuse_full_buffer)
     split_info->flags |= REUSE_FULL_BUFFER;
+
+  // No split since copying int8 is not supported yet.
+  if (full_ztensor->transformed_desc->type != ZDNN_BINARY_INT8 &&
+      !reuse_full_buffer) {
+    // Prepare to quit now.
+    num_tiles[E4] = 1;
+    num_tiles[E3] = 1;
+    num_tiles[E2] = 1;
+    num_tiles[E1] = 1;
+    split_info->flags |= NO_SPLIT;
+    // No splitting is also considered as reusing the full buffer but not vice
+    // versa.
+    split_info->flags |= REUSE_FULL_BUFFER;
+#ifdef ZDNNX_DEBUG
+    zdnnx_print_split_info(split_info, debug_msg);
+#endif
+    return true;
+  }
 
 #ifdef ZDNNX_DEBUG
   zdnnx_print_split_info(split_info, debug_msg);
@@ -750,6 +785,10 @@ void zdnnx_set_tile(zdnnx_split_info *split_info, zdnnx_tile *tile,
 
   // Set reserved.
   memset(&tile_ztensor->reserved, 0, sizeof(tile_ztensor->reserved));
+
+  // Set rec_scale and offset.
+  tile_ztensor->rec_scale = full_ztensor->rec_scale;
+  tile_ztensor->offset = full_ztensor->offset;
 }
 
 void zdnnx_free_tile_buffer(zdnnx_tile *tile) {

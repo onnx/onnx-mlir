@@ -74,6 +74,19 @@ zdnn_status zdnnx_matmul_transpose_op(const zdnn_ztensor *input_a,
   return status;
 }
 
+zdnn_status zdnnx_quantized_matmul_op(const zdnn_ztensor *input_a,
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c,
+    zdnn_matmul_ops op_type, const int8_t clip_min, const int8_t clip_max,
+    const bool disable_clipping, const bool dequantize, const bool pre_computed,
+    void *work_area, zdnn_ztensor *output) {
+  zdnn_status status;
+  ZDNNX_CALL_FUNC("Quantized MatMul", zdnn_quantized_matmul_op,
+      zdnnx_omp_quantized_matmul, input_a, input_b, input_c, op_type, clip_min,
+      clip_max, disable_clipping, dequantize, pre_computed, work_area, output);
+  ZDNNX_CHECK_STATUS(status, "zdnn_quantized_matmul_op");
+  return status;
+}
+
 zdnn_status zdnnx_add(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
