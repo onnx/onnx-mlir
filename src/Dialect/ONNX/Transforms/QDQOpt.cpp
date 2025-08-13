@@ -128,18 +128,22 @@ struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
     // 2. Check zero-points
     auto zpAttr1 = getElementAttributeFromConstant(dqOp.getXZeroPoint());
     auto zpAttr2 = getElementAttributeFromConstant(qOp.getYZeroPoint());
+    if (!zpAttr1 && !zpAttr2)
+      return failure();
     if (zpAttr1 != zpAttr2)
       return failure();
 
     // 3. Check Scales.
     auto scaleAttr1 = getElementAttributeFromConstant(dqOp.getXScale());
     auto scaleAttr2 = getElementAttributeFromConstant(qOp.getYScale());
+    if (!scaleAttr1 && !scaleAttr2)
+      return failure();
     if (scaleAttr1 != scaleAttr2)
       return failure();
 
     // 3. Check data types for consistency.
-    // The output of DQ must be a float tensor, and the input of Q must be the
-    // same float type.
+    // The output of DQ must be a float tensor, and the input of Q must
+    // be the same float type.
     auto dqOutTypeOp = dqOp.getResult().getType();
     auto qInTypeOp = qOp.getX().getType();
 
@@ -157,8 +161,8 @@ struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
     }
 
     // 4. Check data type consistency of the entire DQ->Q chain.
-    // The original quantized type before DQ must match the final quantized type
-    // after Q.
+    // The original quantized type before DQ must match the final quantized
+    // type after Q.
     auto dqInTypeOp = dqOp.getX().getType();
     auto qOutTypeOp = qOp.getResult().getType();
 
