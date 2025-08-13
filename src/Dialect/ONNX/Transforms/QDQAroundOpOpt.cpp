@@ -4,14 +4,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include <cmath>
+#include <mlir/IR/IRMapping.h>
 #include <mlir/IR/Operation.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/Pass/Pass.h>
 #include <src/Dialect/ONNX/ONNXOps.hpp>
-#include <mlir/IR/IRMapping.h>
-#include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include <cmath>
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -107,33 +107,24 @@ public:
     if (output.hasOneUse()) {
       Operation *firstOp = *(output.getUsers().begin());
       if (mlir::isa<ONNXQuantizeLinearOp>(firstOp)) {
-        // auto *op2 = (*castedOp1.getODSOperands(1).begin()).getDefiningOp();
-        // if (!(op2)){
-        // }
         auto qOp = ::llvm::dyn_cast<ONNXQuantizeLinearOp>(firstOp);
-        // if (!(castedOp2)){
         if (!quantizationParamsMatch(dqOp.getXScale(), dqOp.getXZeroPoint(),
                 qOp.getYScale(), qOp.getYZeroPoint())) {
           return failure();
         }
-
         // Map dqOp inputs to dqOp's inputs
         IRMapping irMapping;
-        // irMapping.map(dqOp, dqOp.getX());
-        // for_each(opDataInputs, [&](Value val) {
-        //   auto dqOp = cast<DequantizeOp>(val.getDefiningOp());
-        // });
+        irMapping.map(dqOp, dqOp.getX());
 
-        // SmallVector<Value> newInputs;
-        // transform(op->getOperands(), std::back_inserter(newInputs),
-            // [&](Value operand) { return irMapping.lookupOrDefault(operand); });
+        SmallVector<Value> newInputs;
+        transform(op->getOperands(), std::back_inserter(newInputs),
+            [&](Value operand) { return irMapping.lookupOrDefault(operand); });
 
         auto dequantTy = dqOp.getX().getType();
-        auto newOp = rewriter.create<T>(op.getLoc(),
-            TypeRange{dequantTy}, ValueRange{dqOp.getX()},
-            op->getAttrs());
+        auto newOp = rewriter.create<T>(op.getLoc(), TypeRange{dequantTy},
+            ValueRange{newInputs}, op->getAttrs());
+        
         rewriter.replaceOp(op, newOp);
-
         rewriter.replaceOp(dqOp, dqOp.getX());
         rewriter.replaceOp(qOp, newOp);
         return success();
@@ -156,16 +147,16 @@ struct QDQAroundOpOptONNXToONNXPass
     auto function = getOperation();
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXReshapeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXGatherOp>,
-    //     RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
-    //     RemoveQDQAroundOpPattern<ONNXSliceOp>,
-    //     RemoveQDQAroundOpPattern<ONNXResizeOp>,
-    //     RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
-    patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>>(ctx);
+    patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
+        RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
+        RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
+        RemoveQDQAroundOpPattern<ONNXReshapeOp>,
+        RemoveQDQAroundOpPattern<ONNXGatherOp>,
+        RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
+        RemoveQDQAroundOpPattern<ONNXSliceOp>,
+        RemoveQDQAroundOpPattern<ONNXResizeOp>,
+        RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
+    // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>>(ctx);
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
