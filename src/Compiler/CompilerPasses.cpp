@@ -167,15 +167,19 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     instrumentActions |= (1 << 3) - 1;
     // Also enable instrumentation of signatures.
     instrumentSignatures = "onnx.*";
+    if (profileAllOps) {
+      instrumentOps += ",krnl.global";
+      instrumentSignatures += ",krnl.global";
+    }
   }
   // Add createInstrument (timing) second so that it will guarantee not to
   // include timing of the signature printing.
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
-        instrumentSignatures, instrumentOnnxNode));
+        instrumentSignatures, instrumentOnnxNode, !profileAllOps));
   if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentActions, !profileAllOps));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -276,7 +280,7 @@ void addKrnlToLLVMPasses(
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
 
-  if (profileIR)
+  if (profileIR && !profileAllOps)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
 
   if (enableBoundCheck)
