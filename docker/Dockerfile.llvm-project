@@ -113,7 +113,7 @@ ENV CPATH=${INSTALL_PROTOBUF_PATH}/include:$CPATH
 ENV LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LIBRARY_PATH
 
 # Build and install Python protobuf bindings with cpp implementation support
-RUN cd /protobuf-${PROTOBUF_VERSION}/python && \
+RUN cd /workdir/protobuf-${PROTOBUF_VERSION}/python && \
     python3 setup.py build --cpp_implementation && \
     python3 setup.py install && \
     python3 -m pip install --upgrade pip setuptools wheel && \
