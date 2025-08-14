@@ -142,7 +142,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
       opts.enableQuarkQuantizedLegalization));
 
   // Passes for removing redundant concat, slice and cast QDQ Ops
-  pm.addPass(createQDQOptONNXToONNXPass());
+  if (opts.enableRemoveDqQOp)
+    pm.addPass(createQDQOptONNXToONNXPass());
 
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.

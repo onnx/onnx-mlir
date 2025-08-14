@@ -35,70 +35,6 @@ static ElementsAttr getElementAttributeFromConstant(Value val) {
   return nullptr;
 }
 
-static mlir::LogicalResult equalsDefaultIntegerAttr(
-    mlir::IntegerAttr ia, int64_t defaultValue) {
-  auto it = mlir::cast<mlir::IntegerType>(ia.getType());
-  int64_t got = it.isUnsignedInteger()
-                    ? static_cast<int64_t>(ia.getValue().getZExtValue())
-                    : ia.getValue().getSExtValue();
-  return (got == defaultValue) ? mlir::success() : mlir::failure();
-}
-
-static mlir::LogicalResult equalsDefaultIntElements(
-    mlir::ElementsAttr ea, int64_t defaultValue) {
-  auto st = mlir::dyn_cast<mlir::ShapedType>(ea.getType());
-  if (!st)
-    return mlir::failure();
-  mlir::Type et = st.getElementType();
-  if (!et.isIntOrIndex())
-    return mlir::failure();
-  const bool isUnsigned = et.isa<mlir::IntegerType>() &&
-                          et.cast<mlir::IntegerType>().isUnsignedInteger();
-  if (ea.isSplat()) {
-    llvm::APInt api = ea.getSplatValue<llvm::APInt>();
-    int64_t got = isUnsigned ? static_cast<int64_t>(api.getZExtValue())
-                             : api.getSExtValue();
-    return (got == defaultValue) ? mlir::success() : mlir::failure();
-  }
-  for (const llvm::APInt &api : ea.getValues<llvm::APInt>()) {
-    int64_t got = isUnsigned ? static_cast<int64_t>(api.getZExtValue())
-                             : api.getSExtValue();
-    if (got != defaultValue)
-      return mlir::failure();
-  }
-  return mlir::success();
-}
-
-static mlir::LogicalResult checkAttrAgainstDefault(
-    mlir::Attribute attr, int64_t defaultValue) {
-  if (!attr)
-    return mlir::failure();
-  if (auto ia = mlir::dyn_cast<mlir::IntegerAttr>(attr))
-    return equalsDefaultIntegerAttr(ia, defaultValue);
-  if (auto ea = mlir::dyn_cast<mlir::ElementsAttr>(attr))
-    return equalsDefaultIntElements(ea, defaultValue);
-  return mlir::failure();
-}
-
-static mlir::LogicalResult checkIntegerAttributeEquals(mlir::Operation *op1,
-    mlir::Operation *op2, mlir::StringRef attrName, int64_t defaultValue) {
-  mlir::Attribute attr1 = op1->getAttr(attrName);
-  mlir::Attribute attr2 = op2->getAttr(attrName);
-  // Case 0: both missing => both implicitly default
-  if (!attr1 && !attr2)
-    return mlir::success();
-  // Case 1: both present and identical
-  if (attr1 && attr2 && attr1 == attr2)
-    return mlir::success();
-  // Case 2: one side missing => present side must equal default
-  if (!attr1)
-    return checkAttrAgainstDefault(attr2, defaultValue);
-  if (!attr2)
-    return checkAttrAgainstDefault(attr1, defaultValue);
-  // Case 3: both present but not identical
-  return mlir::failure();
-}
-
 //===----------------------------------------------------------------------===//
 // Pattern to remove QDQ pairs
 //===----------------------------------------------------------------------===//
@@ -107,23 +43,16 @@ struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
+
     auto dqOp = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dqOp)
       return failure();
 
-    // 1. Check attributes with defaults (axis=1, block_size=0,
-    // saturate=1)
-    Operation *dqOperation = dqOp.getOperation();
-    Operation *qOperation = qOp.getOperation();
-
-    if (failed(
-            checkIntegerAttributeEquals(dqOperation, qOperation, "axis", 1)) ||
-        failed(checkIntegerAttributeEquals(
-            dqOperation, qOperation, "block_size", 0)) ||
-        failed(checkIntegerAttributeEquals(
-            dqOperation, qOperation, "saturate", 1))) {
+    // 1. Check Attributes
+    if (qOp.getAxis() != dqOp.getAxis())
       return failure();
-    }
+    if (qOp.getBlockSize() != dqOp.getBlockSize())
+      return failure();
 
     // 2. Check zero-points
     auto zpAttr1 = getElementAttributeFromConstant(dqOp.getXZeroPoint());
@@ -172,9 +101,9 @@ struct QDQOptONNXToONNXPass
     : public PassWrapper<QDQOptONNXToONNXPass, OperationPass<func::FuncOp>> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(QDQOptONNXToONNXPass)
-  StringRef getArgument() const override { return "qdq-opt-onnx-to-onnx"; }
+  StringRef getArgument() const override { return "dqq-opt-onnx-to-onnx"; }
   StringRef getDescription() const override {
-    return "Remove QDQ ops and surrounding QDQ if safe.";
+    return "Remove DqQ ops and surrounding DqQ if safe.";
   }
 
   void runOnOperation() override {
