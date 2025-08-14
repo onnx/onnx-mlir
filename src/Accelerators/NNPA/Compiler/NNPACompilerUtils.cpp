@@ -190,6 +190,10 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     instrumentActions |= (1 << 3) - 1;
     // Also enable instrumentation of signatures.
     instrumentSignatures = "onnx.*,zhigh.*";
+    if (enableConstantOpProfiling) {
+      instrumentOps += ",krnl.global";
+      instrumentSignatures += ",krnl.global";
+    }
   }
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling /
