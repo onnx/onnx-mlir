@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
   // Add the short inputFilename to the first compile phase printout so that we
   // may better determine which compilation we are dealing with.
   std::filesystem::path p(inputFilename);
-  std::string modelShortName = p.filename();
+  std::string modelShortName = p.filename().string();
   // Configure compile phase information.
   SET_TOTAL_COMPILE_PHASE(emissionTarget);
   std::string msg =
