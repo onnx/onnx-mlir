@@ -78,7 +78,7 @@ ARG CORE_NUMBER=2
 # ARG ORIGINAL_PATH=${pwd}
 
 # Install dependencies
-RUN yum install -y wget git gcc-c++ make ninja-build python3 python3-pip cmake python3-devel
+#RUN yum install -y wget git gcc-c++ make ninja-build python3 python3-pip cmake python3-devel
 
 # Download and extract Abseil and Protobuf sources
 RUN git clone --recurse-submodules -b v25.1 https://github.com/protocolbuffers/protobuf.git protobuf-25.1
