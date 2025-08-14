@@ -141,6 +141,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
       opts.enableQuarkQuantizedLegalization));
 
+  // Passes for removing redundant concat, slice and cast QDQ Ops
+  pm.addPass(createQDQOptONNXToONNXPass());
+
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.
   if (enableONNXHybridPass) {
@@ -164,11 +167,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   if (!donotScrubDisposableElementsAttr)
     pm.addPass(createScrubDisposablePass());
-
-  // Passes for removing redundant concat, slice and cast QDQ Ops
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(onnx_mlir::createShapeInferencePass());
-  pm.addPass(createQDQOptONNXToONNXPass());
 
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.

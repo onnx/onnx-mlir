@@ -141,25 +141,6 @@ struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
     if (scaleAttr1 != scaleAttr2)
       return failure();
 
-    // 3. Check data types for consistency.
-    // The output of DQ must be a float tensor, and the input of Q must
-    // be the same float type.
-    auto dqOutTypeOp = dqOp.getResult().getType();
-    auto qInTypeOp = qOp.getX().getType();
-
-    if (auto dqOutTensorType = dqOutTypeOp.dyn_cast<TensorType>()) {
-      if (auto qInTensorType = qInTypeOp.dyn_cast<TensorType>()) {
-        if (dqOutTensorType.getElementType() !=
-            qInTensorType.getElementType()) {
-          return failure();
-        }
-      } else {
-        return failure();
-      }
-    } else {
-      return failure();
-    }
-
     // 4. Check data type consistency of the entire DQ->Q chain.
     // The original quantized type before DQ must match the final quantized
     // type after Q.
