@@ -69,7 +69,6 @@ int64_t getIntFromConstant(Value val) {
   auto attr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
   if (!attr || attr.getNumElements() != 1)
     return 0;
-  auto elementType = attr.getType().getElementType();
   auto it = attr.getValues<APInt>().begin();
   if (it == attr.getValues<APInt>().end())
     return 0;
@@ -120,13 +119,12 @@ public:
         transform(op->getOperands(), std::back_inserter(newInputs),
             [&](Value operand) { return irMapping.lookupOrDefault(operand); });
 
-        auto dequantTy = dqOp.getX().getType();
-        auto newOp = rewriter.create<T>(op.getLoc(), TypeRange{dequantTy},
-            ValueRange{newInputs}, op->getAttrs());
-        
-        rewriter.replaceOp(op, newOp);
         rewriter.replaceOp(dqOp, dqOp.getX());
-        rewriter.replaceOp(qOp, newOp);
+        auto newOp =
+            rewriter.create<T>(op.getLoc(), TypeRange{qOp.getResult().getType()},
+                ValueRange{newInputs}, op->getAttrs());
+        rewriter.replaceOp(op, newOp);
+        rewriter.replaceOp(qOp, newOp.getResult());
         return success();
       }
     };
