@@ -63,18 +63,33 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
     && ln -sf /usr/bin/python3 /usr/bin/python \
     && pip3 install --upgrade pip
 
-# Install protobuf
+# # --- Install Bazelisk (Bazel version manager) --- doesn't work on s390x and ppc64le
+# RUN curl -L -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.18.0/bazelisk-linux-amd64 && \
+#     chmod +x /usr/local/bin/bazel && \
+#     echo "7.0.0" > ~/.bazelversion && \
+#     bazel --version
+
+
+# --- Build and install protobuf using Bazel with Bzlmod ---
 ARG PROTOBUF_VERSION=25.1
 ARG INSTALL_PROTOBUF_PATH=/usr/local
 ARG BUILD_TYPE=Release
 ARG CORE_NUMBER=2
-ARG ORIGINAL_PATH=${pwd}
-RUN cd .. && \
-    wget https://github.com/abseil/abseil-cpp/releases/download/20230802.2/abseil-cpp-20230802.2.tar.gz && \
-    tar -xvf abseil-cpp-20230802.2.tar.gz && \
-    wget https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protobuf-25.1.tar.gz && \
-    tar -xvf protobuf-25.1.tar.gz
-RUN cd /protobuf-25.1 && \
+# ARG ORIGINAL_PATH=${pwd}
+
+# Install dependencies
+RUN yum install -y wget git gcc-c++ make ninja-build python3 python3-pip cmake python3-devel
+
+# Download and extract Abseil and Protobuf sources
+RUN git clone --recurse-submodules -b v25.1 https://github.com/protocolbuffers/protobuf.git protobuf-25.1
+#RUN cd / && \
+   # wget https://github.com/abseil/abseil-cpp/releases/download/20230802.2/abseil-cpp-20230802.2.tar.gz && \
+   # tar -xvf abseil-cpp-20230802.2.tar.gz && \
+   # wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz && \
+   # tar -xvf protobuf-${PROTOBUF_VERSION}.tar.gz
+
+# Build and install Protobuf (static libs, no tests)
+RUN cd /protobuf-${PROTOBUF_VERSION} && \
     mkdir build_source && cd build_source && \
     cmake -G Ninja ../ \
           -DBUILD_SHARED_LIBS=OFF \
@@ -82,14 +97,35 @@ RUN cd /protobuf-25.1 && \
           -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
           -Dprotobuf_BUILD_TESTS=OFF \
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          -DABSL_ROOT_DIR="${ORIGINAL_PATH}/abseil-cpp-20230802.2"\
+          # -DABSL_ROOT_DIR="${ORIGINAL_PATH}/abseil-cpp-20230802.2"\
           -DCMAKE_CXX_STANDARD=17 \
           -DABSL_PROPAGATE_CXX_STD=on \
     && cmake --build . --target install --parallel $CORE_NUMBER
 
-RUN export PATH=$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$INSTALL_PROTOBUF_PATH/bin:$PATH && \
-    export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" && \
-    export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include"
+# RUN export PATH=$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$INSTALL_PROTOBUF_PATH/bin:$PATH && \
+#     export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" && \
+#     export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include"
+
+# Set environment variables for protobuf
+ENV PATH=${INSTALL_PROTOBUF_PATH}/bin:$PATH
+ENV LD_LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LD_LIBRARY_PATH
+ENV CPATH=${INSTALL_PROTOBUF_PATH}/include:$CPATH
+ENV LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LIBRARY_PATH
+
+# Build and install Python protobuf bindings with cpp implementation support
+RUN cd /protobuf-${PROTOBUF_VERSION}/python && \
+    python3 setup.py build --cpp_implementation && \
+    python3 setup.py install && \
+    python3 -m pip install --upgrade pip setuptools wheel && \
+    PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp python3 setup.py bdist_wheel && \
+    pip3 install dist/*.whl
+
+# Verify versions
+#RUN protoc --version && python3 -c "import google.protobuf; print(google.protobuf.__version__)"
+RUN protoc --version && \
+    python3 -c "from google.protobuf.internal import api_implementation; \
+    print('protobuf version:', api_implementation.Version()); \
+    print('cpp_implementation:', api_implementation.Type())
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
