@@ -147,7 +147,7 @@ public:
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXSignaturePass(
     const std::string pattern, const std::string nodePattern,
-    bool skipConstants) {
+    bool profileConstantOps) {
   return std::make_unique<InstrumentONNXSignaturePass>(
-      pattern, nodePattern, skipConstants);
+      pattern, nodePattern, !profileConstantOps);
 }

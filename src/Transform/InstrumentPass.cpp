@@ -192,6 +192,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    const std::string &ops, unsigned actions, bool skipConstants) {
-  return std::make_unique<InstrumentPass>(ops, actions, skipConstants);
+    const std::string &ops, unsigned actions, bool profileConstantOps) {
+  return std::make_unique<InstrumentPass>(ops, actions, !profileConstantOps);
 }

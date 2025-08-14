@@ -93,7 +93,7 @@ bool disableConstantProp;                              // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
-bool profileConstOps;                                  // onnx-mlir only
+bool enableConstantOpProfiling;                        // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
@@ -701,11 +701,12 @@ static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
             APPLY_TO_ACCELERATORS(ACCEL_PROFILEIR_CL_ENUM)),
     llvm::cl::init(ProfileIRs::None), llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> profileConstOpOpt("profile-constant-ops",
+static llvm::cl::opt<bool, true> enableConstantOpProfilingOpt(
+    "enable-constant-op-profiling",
     llvm::cl::desc("Normally we disable generating profiling information for\n"
                    "constant-generating operations.\nUse this option to force"
                    " profiling for all ops (default is false)."),
-    llvm::cl::location(profileConstOps), llvm::cl::init(false),
+    llvm::cl::location(enableConstantOpProfiling), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
