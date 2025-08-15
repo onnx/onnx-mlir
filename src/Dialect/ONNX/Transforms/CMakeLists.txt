@@ -44,11 +44,8 @@ add_onnx_mlir_library(OMInstrumentONNX
 
 add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
-<<<<<<< HEAD
   QDQAroundOpOpt.cpp    
-=======
   QDQOpt.cpp    
->>>>>>> origin/feature/onnx-to-tosa
   ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp
