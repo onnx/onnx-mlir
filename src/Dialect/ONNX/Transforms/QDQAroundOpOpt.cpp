@@ -154,7 +154,6 @@ struct QDQAroundOpOptONNXToONNXPass
         RemoveQDQAroundOpPattern<ONNXSliceOp>,
         RemoveQDQAroundOpPattern<ONNXResizeOp>,
         RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
-    // patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>>(ctx);
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
