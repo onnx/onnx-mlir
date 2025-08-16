@@ -397,6 +397,7 @@ bool isIdentityReshape(
 bool isIdentityReshape(mlir::Value input, mlir::Value output,
     const DimAnalysis *dimAnalysis = nullptr);
 
+bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,mlir::ONNXQuantizeLinearOp qOp);
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//

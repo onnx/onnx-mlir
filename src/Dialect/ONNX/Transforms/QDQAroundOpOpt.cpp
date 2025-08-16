@@ -12,6 +12,7 @@
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/Pass/Pass.h>
 #include <src/Dialect/ONNX/ONNXOps.hpp>
+#include <src/Dialect/ONNX/ONNXOps/OpHelper.hpp>
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -35,10 +36,10 @@ std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
     ONNXGatherOp gatherOp) {
   return {gatherOp.getData(), gatherOp.getOutput()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
-    ONNXReduceSumOp reduceOp) {
-  return {reduceOp.getData(), reduceOp.getReduced()};
-}
+// std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+//     ONNXReduceSumOp reduceOp) {
+//   return {reduceOp.getData(), reduceOp.getReduced()};
+// }
 std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
     ONNXSliceOp sliceOp) {
   return {sliceOp.getData(), sliceOp.getOutput()};
@@ -51,43 +52,6 @@ std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
     ONNXFlattenOp flattenOp) {
   return {flattenOp.getInput(), flattenOp.getOutput()};
 }
-float getFloatFromConstant(Value val) {
-  auto constOp = val.getDefiningOp<ONNXConstantOp>();
-  if (!constOp)
-    return 0.0f;
-  auto attr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
-  if (!attr || attr.getNumElements() != 1)
-    return 0.0f;
-  auto floatAttr = (*attr.getValues<FloatAttr>().begin());
-  return floatAttr.getValueAsDouble();
-}
-
-int64_t getIntFromConstant(Value val) {
-  auto constOp = val.getDefiningOp<ONNXConstantOp>();
-  if (!constOp)
-    return 0;
-  auto attr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
-  if (!attr || attr.getNumElements() != 1)
-    return 0;
-  auto it = attr.getValues<APInt>().begin();
-  if (it == attr.getValues<APInt>().end())
-    return 0;
-  APInt apInt = *it;
-  return apInt.getSExtValue();
-}
-
-bool quantizationParamsMatch(
-    Value scale1, Value zp1, Value scale2, Value zp2, float tolerance = 1e-5f) {
-  float s1 = getFloatFromConstant(scale1);
-  float s2 = getFloatFromConstant(scale2);
-  int64_t z1 = getIntFromConstant(zp1);
-  int64_t z2 = getIntFromConstant(zp2);
-  llvm::outs() << z1 << z2 << "\n";
-  bool zeroPointMatch = (z1 == z2);
-  bool scaleClose = std::fabs(s1 - s2) < tolerance;
-  return zeroPointMatch && scaleClose;
-}
-
 namespace {
 template <typename T>
 class RemoveQDQAroundOpPattern : public OpRewritePattern<T> {
@@ -107,10 +71,11 @@ public:
       Operation *firstOp = *(output.getUsers().begin());
       if (mlir::isa<ONNXQuantizeLinearOp>(firstOp)) {
         auto qOp = ::llvm::dyn_cast<ONNXQuantizeLinearOp>(firstOp);
-        if (!quantizationParamsMatch(dqOp.getXScale(), dqOp.getXZeroPoint(),
-                qOp.getYScale(), qOp.getYZeroPoint())) {
+        if (!qOp)
           return failure();
-        }
+        if (!isDequantQuantSame(dqOp, qOp))
+          return failure();
+
         // Map dqOp inputs to dqOp's inputs
         IRMapping irMapping;
         irMapping.map(dqOp, dqOp.getX());
@@ -120,9 +85,9 @@ public:
             [&](Value operand) { return irMapping.lookupOrDefault(operand); });
 
         rewriter.replaceOp(dqOp, dqOp.getX());
-        auto newOp =
-            rewriter.create<T>(op.getLoc(), TypeRange{qOp.getResult().getType()},
-                ValueRange{newInputs}, op->getAttrs());
+        auto newOp = rewriter.create<T>(op.getLoc(),
+            TypeRange{qOp.getResult().getType()}, ValueRange{newInputs},
+            op->getAttrs());
         rewriter.replaceOp(op, newOp);
         rewriter.replaceOp(qOp, newOp.getResult());
         return success();
@@ -150,7 +115,7 @@ struct QDQAroundOpOptONNXToONNXPass
         RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
         RemoveQDQAroundOpPattern<ONNXReshapeOp>,
         RemoveQDQAroundOpPattern<ONNXGatherOp>,
-        RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
+        // RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
         RemoveQDQAroundOpPattern<ONNXSliceOp>,
         RemoveQDQAroundOpPattern<ONNXResizeOp>,
         RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
@@ -165,3 +130,7 @@ std::unique_ptr<mlir::Pass> createQDQAroundOpOptONNXToONNXPass() {
   return std::make_unique<QDQAroundOpOptONNXToONNXPass>();
 }
 } // namespace onnx_mlir
+
+// detect all noops in onnx-mlir,
+//  once it's a noop, disable __mlir_ods_local_type_constraint_ONNX37 check in
+//  build/tools/onnx-mlir/src/Dialect/ONNX/ONNXOps.cpp.inc

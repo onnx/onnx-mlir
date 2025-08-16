@@ -854,6 +854,49 @@ bool isIdentityReshape(
   return isIdentityReshape(inputTensor, outputTensor, dimAnalysis);
 }
 
+bool isDequantQuantSame(
+    mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp) {
+
+  // 1. Check Attributes
+  if (qOp.getAxis() != dqOp.getAxis())
+    return false;
+  if (qOp.getBlockSize() != dqOp.getBlockSize())
+    return false;
+
+  // 2. Check zero-points
+  auto zpAttr1 = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
+  auto zpAttr2 = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
+  if (!zpAttr1 && !zpAttr2)
+    return false;
+  if (zpAttr1 != zpAttr2)
+    return false;
+
+  // 3. Check Scales.
+  auto scaleAttr1 = getElementAttributeFromONNXValue(dqOp.getXScale());
+  auto scaleAttr2 = getElementAttributeFromONNXValue(qOp.getYScale());
+  if (!scaleAttr1 && !scaleAttr2)
+    return false;
+  if (scaleAttr1 != scaleAttr2)
+    return false;
+
+  // 4. Check data type consistency of the entire DQ->Q chain.
+  // The original quantized type before DQ must match the final quantized
+  // type after Q.
+  auto dqInTypeOp = dqOp.getX().getType();
+  auto qOutTypeOp = qOp.getResult().getType();
+
+  if (auto dqInTensorType = dqInTypeOp.dyn_cast<TensorType>()) {
+    if (auto qOutTensorType = qOutTypeOp.dyn_cast<TensorType>()) {
+      if (qOutTensorType.getElementType() != dqInTensorType.getElementType()) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else {
+    return false;
+  }
+}
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//
