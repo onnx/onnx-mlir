@@ -112,7 +112,8 @@ parser.add_argument(
     metavar="PATH",
     type=str,
     help="File to the configuration, a .yaml file. This file allows user to"
-    "define their own default value for arguments",
+    "define their own default value for arguments."
+    "An example can be found at utils/example-cfg.yaml",
 )
 parser.add_argument(
     "-c",
