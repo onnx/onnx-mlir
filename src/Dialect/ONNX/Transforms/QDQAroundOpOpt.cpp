@@ -130,7 +130,3 @@ std::unique_ptr<mlir::Pass> createQDQAroundOpOptONNXToONNXPass() {
   return std::make_unique<QDQAroundOpOptONNXToONNXPass>();
 }
 } // namespace onnx_mlir
-
-// detect all noops in onnx-mlir,
-//  once it's a noop, disable __mlir_ods_local_type_constraint_ONNX37 check in
-//  build/tools/onnx-mlir/src/Dialect/ONNX/ONNXOps.cpp.inc
