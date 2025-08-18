@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --canonicalize --qdq-around-op-opt-onnx-to-onnx %s -split-input-file | FileCheck %s
 
-func.func @main_graph(%arg0: tensor<1x4xui8> {onnx.name = "input_quant"})-> (tensor<1x2xui8> {onnx.name = "output_quant"}) {
+func.func @slice_op(%arg0: tensor<1x4xui8> {onnx.name = "input_quant"})-> (tensor<1x2xui8> {onnx.name = "output_quant"}) {
     %0 = onnx.Constant dense<1.000000e-01> : tensor<f32>
     %1 = onnx.Constant dense<128> : tensor<ui8>
     %2 = onnx.Constant dense<1> : tensor<1xi64>
@@ -22,3 +22,11 @@ func.func @main_graph(%arg0: tensor<1x4xui8> {onnx.name = "input_quant"})-> (ten
       saturate = 1 : si64} : (tensor<1x2xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x2xui8>
     return %10 : tensor<1x2xui8>
   }
+
+// CHECK-LABEL:  func.func @slice_op
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xui8> {onnx.name = "input_quant"}) -> (tensor<1x2xui8> {onnx.name = "output_quant"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Slice"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_0_]], [[VAR_0_]]) {onnx_node_name = "onnx.Slice_1"} : (tensor<1x4xui8>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x2xui8>
+// CHECK:           return [[VAR_2_]] : tensor<1x2xui8>
+// CHECK:         }
