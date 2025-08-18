@@ -851,6 +851,10 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
   bool fourPhaseDecomposition = (stridesShape[0] == 2);
   bool ninePhaseDecomposition = (stridesShape[0] == 3);
   if (fourPhaseDecomposition) {
+    if (outputShape[0] != 1) {
+      // Currently support batch=1
+      return false;
+    }
     if (kernelShape[0] == 6 && padsShape[0] == 2 &&
         llvm::all_equal(padsShape)) {
       // Currently support only with pads [2, 2, 2, 2]
