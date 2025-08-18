@@ -9,7 +9,8 @@
     return %4 : tensor<*xui16>
   }
 
-  // CHECK-LABEL: func.func @transpose_op(%arg0: tensor<*xui16>) -> tensor<*xui16>
-  // CHECK-NOT: onnx.DequantizeLinear
-  // CHECK: onnx.Transpose
-  // CHECK-NOT: onnx.QuantizeLinear
+// CHECK-LABEL:  func.func @transpose_op
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xui16>) -> tensor<*xui16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {saturate = 1 : si64, to = f32} : (tensor<*xui16>) -> tensor<*xui16>
+// CHECK:           return [[VAR_0_]] : tensor<*xui16>
+// CHECK:         }
