@@ -4,9 +4,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -14,8 +11,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallSet.h"
 #include <cmath>
 
 using namespace mlir;

@@ -17,6 +17,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
 
+#include "mlir/IR/BuiltinTypes.h"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
@@ -885,8 +886,8 @@ bool isDequantQuantSame(
   auto dqInTypeOp = dqOp.getX().getType();
   auto qOutTypeOp = qOp.getResult().getType();
 
-  if (auto dqInTensorType = dqInTypeOp.dyn_cast<TensorType>()) {
-    if (auto qOutTensorType = qOutTypeOp.dyn_cast<TensorType>()) {
+  if (auto dqInTensorType = mlir::dyn_cast<TensorType>(dqInTypeOp)) {
+    if (auto qOutTensorType = mlir::dyn_cast<TensorType>(qOutTypeOp)) {
       if (qOutTensorType.getElementType() != dqInTensorType.getElementType()) {
         return false;
       }
@@ -896,7 +897,9 @@ bool isDequantQuantSame(
   } else {
     return false;
   }
+  return true;
 }
+
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//
