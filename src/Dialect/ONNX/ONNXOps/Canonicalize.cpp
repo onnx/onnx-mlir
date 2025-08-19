@@ -1746,8 +1746,16 @@ struct PropagateBiasIntoLayerNormRewritePattern
     if (!yLayerNormOp->hasOneUse())
       return reportFailure("y/layer norm has too many uses");
     auto lnOp = mlir::cast<OP_TYPE>(yLayerNormOp);
-    if (!onnx_mlir::isNoneValue(lnOp.getB()))
+    if (!isValueNoneOrConstZero(lnOp.getB()))
       return reportFailure("layer norm already has a bias");
+
+    // Norms only support unidirectional broadcating from bias to y
+    const auto yType = dyn_cast<ShapedType>(y.getType());
+    const auto addType = dyn_cast<ShapedType>(addOp.getType());
+    if (!yType || !addType || !yType.hasStaticShape() ||
+        !addType.hasStaticShape() || yType.getShape() != addType.getShape()) {
+      return rewriter.notifyMatchFailure(addOp, "incompatible shapes");
+    }
     // We are fine.
     Value x = lnOp.getX();
     Value scale = lnOp.getScale();
