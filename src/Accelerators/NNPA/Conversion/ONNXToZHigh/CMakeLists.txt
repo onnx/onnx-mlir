@@ -76,3 +76,15 @@ add_onnx_mlir_library(OMDevicePlacement
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
+
+add_onnx_mlir_library(OMNNPAQuantOpSelection
+  QuantOpSelection.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXToZHigh
+  OMLayoutHelper
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )
