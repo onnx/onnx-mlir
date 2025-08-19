@@ -111,7 +111,9 @@ struct QDQAroundOpOptONNXToONNXPass
     auto function = getOperation();
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    // ONNXReduceSumOp is expecting high precision value, it failed to compile during applying this pass, so for now there is no dq, q removal around ReduceSum
+    // ONNXReduceSumOp is expecting high precision value, it failed to compile 
+    // during applying this pass, so for now there is no dq, q removal around 
+    // ReduceSum
     patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
         RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
         RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
