@@ -1633,6 +1633,89 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 // =============================================================================
 // Rewrite pattern LayerNormalization
 // =============================================================================
+namespace {
+bool isValueNoneOrConstZero(Value value) {
+  if (!value) {
+    return false;
+  }
+  if (isNoneValue(value)) {
+    return true;
+  }
+  auto elementsAttr = getElementAttributeFromONNXValue(value);
+  if (!elementsAttr) {
+    return false;
+  }
+  if (!elementsAttr.isSplat()) {
+    return false;
+  }
+  if (!elementsAttr.template getSplatValue<APFloat>().isZero()) {
+    return false;
+  }
+  return true;
+}
+} // namespace
+
+template <typename OP_TYPE>
+struct PropagateScaleIntoLayerNormPattern : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Value y;
+    Value mulScale;
+    Operation *yLayerNormOp;
+    // Match
+    // %neutral = "onnx.Constant" {1.0}
+    // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %neutral, %noBias)
+    // %yScale = "onnx.Mul"(%y, %mulScale)
+    if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
+            yLayerNormOp, mulOp, y, mulScale, 0) &&
+        !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
+            yLayerNormOp, mulOp, mulScale, y, 1)) {
+      return rewriter.notifyMatchFailure(mulOp, "missing y, layer norm op");
+    }
+    if (!yLayerNormOp->hasOneUse()) {
+      return rewriter.notifyMatchFailure(
+          mulOp, "y/layer norm has too many uses");
+    }
+    OP_TYPE normOp = cast<OP_TYPE>(yLayerNormOp);
+    // Bias needs to be zero
+    if (!isValueNoneOrConstZero(normOp.getB())) {
+      return rewriter.notifyMatchFailure(
+          mulOp, "layer norm already has a bias");
+    }
+
+    auto existingScale = normOp.getScale();
+    auto elementsAttr = getElementAttributeFromONNXValue(existingScale);
+    if (!elementsAttr) {
+      return rewriter.notifyMatchFailure(
+          mulOp, "missing elements attribute or scale is not const");
+    }
+    if (!elementsAttr.isSplat()) {
+      return rewriter.notifyMatchFailure(mulOp, "scale is not a splat value");
+    }
+    if (!elementsAttr.template getSplatValue<APFloat>().isExactlyValue(1.0)) {
+      return rewriter.notifyMatchFailure(mulOp, "scale is not 1.0");
+    }
+    // Norms only support unidirectional broadcating from scale to y
+    const auto yType = dyn_cast<ShapedType>(y.getType());
+    const auto mulType = dyn_cast<ShapedType>(mulOp.getType());
+    if (!yType || !mulType || !yType.hasStaticShape() ||
+        !mulType.hasStaticShape() || yType.getShape() != mulType.getShape()) {
+      return rewriter.notifyMatchFailure(mulOp, "incompatible shapes");
+    }
+
+    rewriter.moveOpAfter(
+        normOp, mulOp); // Make sure we can use the const of the mul
+    rewriter.modifyOpInPlace(normOp, [&] {
+      normOp.setOperand(/*scale*/ 1, mulScale);
+      normOp->setLoc(rewriter.getFusedLoc({normOp.getLoc(), mulOp->getLoc()}));
+    });
+    rewriter.replaceOp(mulOp, normOp.getY());
+    return success();
+  }
+};
 
 template <typename OP_TYPE>
 struct PropagateBiasIntoLayerNormRewritePattern
@@ -2189,6 +2272,11 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
+  results.insert<PropagateScaleIntoLayerNormPattern<ONNXLayerNormalizationOp>>(
+      context);
+  results
+      .insert<PropagateScaleIntoLayerNormPattern<ONNXRMSLayerNormalizationOp>>(
+          context);
   results.insert<
       PropagateBiasIntoLayerNormRewritePattern<ONNXLayerNormalizationOp>>(
       context);

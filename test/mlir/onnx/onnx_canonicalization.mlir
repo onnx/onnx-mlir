@@ -2405,4 +2405,92 @@ func.func @rmslayernorm_without_bias(%arg0: tensor<1x384x768xf32>, %arg1: tensor
 // CHECK:         }
 }
 
+// -----
+
+// Recognize the scale and fold into LayerNorm.
+func.func @layernorm_with_neutral_scale(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %mulVal: tensor<768xf32>) -> tensor<1x384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Y = "onnx.Mul"(%mulVal, %NormScaled) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  return %Y : tensor<1x384x768xf32>
+// CHECK-LABEL:  func.func @layernorm_with_neutral_scale
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_2_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           return [[VAR_Y_]] : tensor<1x384x768xf32>
+// CHECK:         }
+}
+
+
+// -----
+
+func.func @layernorm_scale_not_one(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %mulVal: tensor<768xf32>) -> tensor<1x384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = onnx.Constant dense<1.100000e+00> : tensor<768xf32>
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Y = "onnx.Mul"(%mulVal, %NormScaled) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  return %Y : tensor<1x384x768xf32>
+// CHECK-LABEL:  func.func @layernorm_scale_not_one
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.100000e+00> : tensor<768xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_2_]], [[VAR_Y_]]) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           return [[VAR_2_]] : tensor<1x384x768xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @layernorm_bias_not_zero(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %mulVal: tensor<768xf32>) -> tensor<1x384x768xf32> {
+  %0 = onnx.Constant dense<2.000000e+00> : tensor<768xf32>
+  %1 = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x384x768xf32>, none, none)
+  %Y = "onnx.Mul"(%mulVal, %NormScaled) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  return %Y : tensor<1x384x768xf32>
+// CHECK-LABEL:  func.func @layernorm_bias_not_zero
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<768xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_2_]], [[VAR_Y_]]) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+// CHECK:           return [[VAR_2_]] : tensor<1x384x768xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @layernorm_broadcast(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %mulVal: tensor<10x384x768xf32>) -> tensor<10x384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Y = "onnx.Mul"(%mulVal, %NormScaled) : (tensor<10x384x768xf32>, tensor<1x384x768xf32>) -> tensor<10x384x768xf32>
+  return %Y : tensor<10x384x768xf32>
+// CHECK-LABEL:  func.func @layernorm_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<10x384x768xf32>) -> tensor<10x384x768xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_2_]], [[VAR_Y_]]) : (tensor<10x384x768xf32>, tensor<1x384x768xf32>) -> tensor<10x384x768xf32>
+// CHECK:           return [[VAR_2_]] : tensor<10x384x768xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Recognize the scale and fold into the RMSNorm.
+func.func @rmslayernorm_with_neutral_scale(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %mulVal: tensor<768xf32>) -> tensor<1x384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+  %NormScaled, %InvStdDev = "onnx.RMSLayerNormalization"(%arg0, %1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none)
+  %Y = "onnx.Mul"(%mulVal, %NormScaled) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  return %Y : tensor<1x384x768xf32>
+// CHECK-LABEL:  func.func @rmslayernorm_with_neutral_scale
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_2_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none)
+// CHECK:           return [[VAR_Y_]] : tensor<1x384x768xf32>
+// CHECK:         }
+}
 
