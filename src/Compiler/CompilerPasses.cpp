@@ -141,7 +141,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
       opts.enableQuarkQuantizedLegalization));
 
-  // add pass directly before PR408, add comments , no pass shouuld be added in between
   if (opts.enableRemoveDqQAroundOp)
     pm.addPass(createQDQAroundOpOptONNXToONNXPass());
 

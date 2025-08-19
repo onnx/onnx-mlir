@@ -1,54 +1,56 @@
-//===- QDQOpt.cpp - Remove QDQ operations --------*- C++ -*-===//
+//===- QDQAroundOpOpt.cpp - Remove DQ, Q operations around data movement ops
+//--------*- C++ -*-===//
 //
 // (c) Copyright 2022 - 2025 Advanced Micro Devices, Inc. All Rights Reserved.
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include <cmath>
 #include <mlir/IR/IRMapping.h>
 #include <mlir/IR/Operation.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/Pass/Pass.h>
+#include <mlir/Transforms/DialectConversion.h>
+#include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 #include <src/Dialect/ONNX/ONNXOps.hpp>
 #include <src/Dialect/ONNX/ONNXOps/OpHelper.hpp>
 
 using namespace mlir;
 using namespace onnx_mlir;
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+struct InputAndOutput {
+  Value input;
+  Value output;
+};
+
+InputAndOutput getDataInputOutput(
     ONNXTransposeOp transposeOp) {
   return {transposeOp.getData(), transposeOp.getTransposed()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXUnsqueezeOp unsqueezeOp) {
   return {unsqueezeOp.getData(), unsqueezeOp.getExpanded()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXSqueezeOp squeezeOp) {
   return {squeezeOp.getData(), squeezeOp.getSqueezed()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXReshapeOp reshapeOp) {
   return {reshapeOp.getData(), reshapeOp.getReshaped()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXGatherOp gatherOp) {
   return {gatherOp.getData(), gatherOp.getOutput()};
 }
-// std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
-//     ONNXReduceSumOp reduceOp) {
-//   return {reduceOp.getData(), reduceOp.getReduced()};
-// }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXSliceOp sliceOp) {
   return {sliceOp.getData(), sliceOp.getOutput()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXResizeOp resizeOp) {
   return {resizeOp.getX(), resizeOp.getY()};
 }
-std::tuple<Value /*input*/, Value /*output*/> getDataInputOutput(
+InputAndOutput getDataInputOutput(
     ONNXFlattenOp flattenOp) {
   return {flattenOp.getInput(), flattenOp.getOutput()};
 }
@@ -60,19 +62,19 @@ public:
 
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
-    Value input, output;
-    std::tie(input, output) = getDataInputOutput(op);
+    InputAndOutput opIO = getDataInputOutput(op);
 
-    auto dqOp = input.getDefiningOp<ONNXDequantizeLinearOp>();
+    auto dqOp = opIO.input.getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dqOp) {
       return failure();
     }
-    if (output.hasOneUse()) {
-      Operation *firstOp = *(output.getUsers().begin());
-      if (mlir::isa<ONNXQuantizeLinearOp>(firstOp)) {
-        auto qOp = ::llvm::dyn_cast<ONNXQuantizeLinearOp>(firstOp);
-        if (!qOp)
-          return failure();
+    if (!opIO.output.hasOneUse()) {
+      return failure();
+    }
+
+    Operation *firstOp = *(opIO.output.getUsers().begin());
+    if (mlir::isa<ONNXQuantizeLinearOp>(firstOp)) {
+      if (auto qOp = dyn_cast<ONNXQuantizeLinearOp>(firstOp)) {
         if (!isDequantQuantSame(dqOp, qOp))
           return failure();
 
@@ -88,12 +90,11 @@ public:
         auto newOp = rewriter.create<T>(op.getLoc(),
             TypeRange{qOp.getResult().getType()}, ValueRange{newInputs},
             op->getAttrs());
-        rewriter.replaceOp(op, newOp);
         rewriter.replaceOp(qOp, newOp.getResult());
         return success();
       }
-    };
-  }
+    }
+  };
 };
 struct QDQAroundOpOptONNXToONNXPass
     : public PassWrapper<QDQAroundOpOptONNXToONNXPass,
@@ -110,12 +111,12 @@ struct QDQAroundOpOptONNXToONNXPass
     auto function = getOperation();
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
+    // ONNXReduceSumOp is expecting high precision value, it failed to compile during applying this pass, so for now there is no dq, q removal around ReduceSum
     patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
         RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
         RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
         RemoveQDQAroundOpPattern<ONNXReshapeOp>,
         RemoveQDQAroundOpPattern<ONNXGatherOp>,
-        // RemoveQDQAroundOpPattern<ONNXReduceSumOp>,
         RemoveQDQAroundOpPattern<ONNXSliceOp>,
         RemoveQDQAroundOpPattern<ONNXResizeOp>,
         RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
