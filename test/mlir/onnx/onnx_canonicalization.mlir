@@ -2375,4 +2375,20 @@ func.func @test_batchnormv9_f32_no_var_mean_use(%arg0: tensor<100x3x10x10xf32>) 
 // CHECK:           [[VAR_14_:%.+]] = "onnx.Add"([[VAR_10_]], [[VAR_13_]]) : (tensor<100x3x10x10xf32>, tensor<3x1x1xf32>) -> tensor<100x3x10x10xf32>
 // CHECK:           return [[VAR_14_]] : tensor<100x3x10x10xf32>
 
+// -----
+
+// Recognize the bias and fold into LayerNorm.
+func.func @layernorm_without_bias(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %bias: tensor<768xf32>) -> tensor<1x384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Y = "onnx.Add"(%bias, %NormScaled) : (tensor<768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
+  return %Y : tensor<1x384x768xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @layernorm_without_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
+// CHECK:           [[Y_:%.+]], [[Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           return [[Y_]] : tensor<1x384x768xf32>
+// CHECK:         }
+}
+
 
