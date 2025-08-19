@@ -22,36 +22,28 @@ struct InputAndOutput {
   Value output;
 };
 
-InputAndOutput getDataInputOutput(
-    ONNXTransposeOp transposeOp) {
+InputAndOutput getDataInputOutput(ONNXTransposeOp transposeOp) {
   return {transposeOp.getData(), transposeOp.getTransposed()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXUnsqueezeOp unsqueezeOp) {
+InputAndOutput getDataInputOutput(ONNXUnsqueezeOp unsqueezeOp) {
   return {unsqueezeOp.getData(), unsqueezeOp.getExpanded()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXSqueezeOp squeezeOp) {
+InputAndOutput getDataInputOutput(ONNXSqueezeOp squeezeOp) {
   return {squeezeOp.getData(), squeezeOp.getSqueezed()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXReshapeOp reshapeOp) {
+InputAndOutput getDataInputOutput(ONNXReshapeOp reshapeOp) {
   return {reshapeOp.getData(), reshapeOp.getReshaped()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXGatherOp gatherOp) {
+InputAndOutput getDataInputOutput(ONNXGatherOp gatherOp) {
   return {gatherOp.getData(), gatherOp.getOutput()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXSliceOp sliceOp) {
+InputAndOutput getDataInputOutput(ONNXSliceOp sliceOp) {
   return {sliceOp.getData(), sliceOp.getOutput()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXResizeOp resizeOp) {
+InputAndOutput getDataInputOutput(ONNXResizeOp resizeOp) {
   return {resizeOp.getX(), resizeOp.getY()};
 }
-InputAndOutput getDataInputOutput(
-    ONNXFlattenOp flattenOp) {
+InputAndOutput getDataInputOutput(ONNXFlattenOp flattenOp) {
   return {flattenOp.getInput(), flattenOp.getOutput()};
 }
 namespace {
@@ -111,8 +103,8 @@ struct QDQAroundOpOptONNXToONNXPass
     auto function = getOperation();
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    // ONNXReduceSumOp is expecting high precision value, it failed to compile 
-    // during applying this pass, so for now there is no dq, q removal around 
+    // ONNXReduceSumOp is expecting high precision value, it failed to compile
+    // during applying this pass, so for now there is no dq, q removal around
     // ReduceSum
     patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
         RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
