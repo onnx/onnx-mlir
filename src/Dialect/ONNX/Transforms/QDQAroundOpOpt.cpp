@@ -40,6 +40,9 @@ InputAndOutput getDataInputOutput(ONNXGatherOp gatherOp) {
 InputAndOutput getDataInputOutput(ONNXSliceOp sliceOp) {
   return {sliceOp.getData(), sliceOp.getOutput()};
 }
+InputAndOutput getDataInputOutput(ONNXResizeOp resizeOp) {
+  return {resizeOp.getX(), resizeOp.getY()};
+}
 InputAndOutput getDataInputOutput(ONNXFlattenOp flattenOp) {
   return {flattenOp.getInput(), flattenOp.getOutput()};
 }
@@ -51,6 +54,13 @@ public:
 
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
+    if (llvm::isa<ONNXResizeOp>(op)) {
+      auto &resizeOp = llvm::cast<ONNXResizeOp>(
+          op);
+           if (resizeOp.getMode() != "nearest") {
+        return failure();
+      }
+    }
     InputAndOutput opIO = getDataInputOutput(op);
 
     auto dqOp = opIO.input.getDefiningOp<ONNXDequantizeLinearOp>();
@@ -104,6 +114,7 @@ struct QDQAroundOpOptONNXToONNXPass
         RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
         RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
         RemoveQDQAroundOpPattern<ONNXReshapeOp>,
+        RemoveQDQAroundOpPattern<ONNXResizeOp>,
         RemoveQDQAroundOpPattern<ONNXGatherOp>,
         RemoveQDQAroundOpPattern<ONNXSliceOp>,
         RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());

@@ -315,7 +315,16 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
     return mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   return nullptr;
 }
+bool compareValueFromElementAttribute(
+    ElementsAttr &attr1, ElementsAttr &attr2) {
+  auto values1 = attr1.getValues<mlir::Attribute>();
+  auto values2 = attr2.getValues<mlir::Attribute>();
 
+  if (values1.size() != values2.size()) {
+    return false;
+  }
+  return std::equal(values1.begin(), values1.end(), values2.begin());
+}
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value) {
   return mlir::dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
@@ -867,18 +876,21 @@ bool isDequantQuantSame(
   // 2. Check zero-points
   auto zpAttr1 = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
   auto zpAttr2 = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
-  if (!zpAttr1 && !zpAttr2)
-    return false;
-  if (zpAttr1 != zpAttr2)
+  if (!zpAttr1 || !zpAttr2)
     return false;
 
+  if (!compareValueFromElementAttribute(zpAttr1, zpAttr2)) {
+    return false;
+  }
   // 3. Check Scales.
   auto scaleAttr1 = getElementAttributeFromONNXValue(dqOp.getXScale());
   auto scaleAttr2 = getElementAttributeFromONNXValue(qOp.getYScale());
-  if (!scaleAttr1 && !scaleAttr2)
+  if (!scaleAttr1 || !scaleAttr2)
     return false;
-  if (scaleAttr1 != scaleAttr2)
+
+  if (!compareValueFromElementAttribute(scaleAttr1, scaleAttr2)) {
     return false;
+  }
 
   // 4. Check data type consistency of the entire DQ->Q chain.
   // The original quantized type before DQ must match the final quantized
