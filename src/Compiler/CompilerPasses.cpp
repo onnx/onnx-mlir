@@ -141,10 +141,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
       opts.enableQuarkQuantizedLegalization));
 
+  // Pass for removing Dq and Q around data movement in Dq->op->Q Ops chain
   if (opts.enableRemoveDqQAroundOp)
     pm.addPass(createQDQAroundOpOptONNXToONNXPass());
 
-  // Passes for removing redundant concat, slice and cast QDQ Ops
+  // Pass for removing redundant Dq->Q Ops chain
   if (opts.enableRemoveDqQOp)
     pm.addPass(createQDQOptONNXToONNXPass());
 

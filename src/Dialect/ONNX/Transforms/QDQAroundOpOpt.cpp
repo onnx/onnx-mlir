@@ -40,9 +40,6 @@ InputAndOutput getDataInputOutput(ONNXGatherOp gatherOp) {
 InputAndOutput getDataInputOutput(ONNXSliceOp sliceOp) {
   return {sliceOp.getData(), sliceOp.getOutput()};
 }
-InputAndOutput getDataInputOutput(ONNXResizeOp resizeOp) {
-  return {resizeOp.getX(), resizeOp.getY()};
-}
 InputAndOutput getDataInputOutput(ONNXFlattenOp flattenOp) {
   return {flattenOp.getInput(), flattenOp.getOutput()};
 }
@@ -109,7 +106,6 @@ struct QDQAroundOpOptONNXToONNXPass
         RemoveQDQAroundOpPattern<ONNXReshapeOp>,
         RemoveQDQAroundOpPattern<ONNXGatherOp>,
         RemoveQDQAroundOpPattern<ONNXSliceOp>,
-        RemoveQDQAroundOpPattern<ONNXResizeOp>,
         RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
