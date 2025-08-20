@@ -1673,99 +1673,131 @@ namespace {
   }
   return true;
 }
-} // namespace
 
-template <typename OP_TYPE>
-struct PropagateScaleIntoLayerNormPattern : public OpRewritePattern<ONNXMulOp> {
-  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+template <typename LN_TYPE, typename MATCH_OP_TYPE,
+    size_t OPERAND_TO_MODIFY_INDEX>
+struct PropagateBiasOrScaleIntoLayerNormRewritePatternBase
+    : public OpRewritePattern<MATCH_OP_TYPE> {
+  using OpRewritePattern<MATCH_OP_TYPE>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(
-      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
-    using namespace onnx_mlir;
-    Value y;
-    Value mulScale;
-    Operation *yLayerNormOp;
-    // Match
-    // %neutral = "onnx.Constant" {1.0}
-    // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %neutral, %noBias)
-    // %yScale = "onnx.Mul"(%y, %mulScale)
-    if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
-            yLayerNormOp, mulOp, y, mulScale, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
-            yLayerNormOp, mulOp, mulScale, y, 1)) {
-      return rewriter.notifyMatchFailure(mulOp, "missing y, layer norm op");
-    }
-    if (!yLayerNormOp->hasOneUse()) {
+  static_assert(std::is_same_v<MATCH_OP_TYPE, ONNXAddOp> ||
+                    std::is_same_v<MATCH_OP_TYPE, ONNXMulOp>,
+      "MATCH_OP_TYPE must be ONNXAddOp or ONNXMulOp");
+
+  [[nodiscard]] virtual bool doExisitingScaleAndBiasAllowFusion(
+      LN_TYPE lnOp) const = 0;
+
+  LogicalResult verifyAndCalculateNewReshapeShapes(Operation *reshapeOp,
+      MATCH_OP_TYPE matchOp, PatternRewriter &rewriter, Value scaleOrBias,
+      SmallVectorImpl<int64_t> &newScaleOrBiasShape) const {
+    // if we have a reshape, check that the add/mul is not changing the shape
+    // by broadcasting
+    auto reshapeResultType =
+        dyn_cast<ShapedType>(reshapeOp->getResult(0).getType());
+    auto addOrMulResultType =
+        dyn_cast<ShapedType>(matchOp->getResult(0).getType());
+    if (!reshapeResultType || !addOrMulResultType ||
+        !reshapeResultType.hasStaticShape() ||
+        !addOrMulResultType.hasStaticShape() ||
+        reshapeResultType.getShape() != addOrMulResultType.getShape()) {
       return rewriter.notifyMatchFailure(
-          mulOp, "y/layer norm has too many uses");
+          matchOp, "incompatible shapes, add is broadcasting");
     }
-    OP_TYPE normOp = cast<OP_TYPE>(yLayerNormOp);
-    // Bias needs to be zero
-    if (!isValueNoneOrConstZero(normOp.getB())) {
+    // Check that the bias/scale is only on a single dimension, that is not
+    // affected by the reshape. The bias/scale could be multi-dimentional, but
+    // this increases the complexity and was not seen in models
+    auto scaleOrBiasType = dyn_cast<ShapedType>(scaleOrBias.getType());
+    if (!scaleOrBiasType || !scaleOrBiasType.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
-          mulOp, "layer norm already has a bias");
+          matchOp, "bias/scale has not a static shape");
     }
 
-    auto existingScale = normOp.getScale();
-    auto elementsAttr = getElementAttributeFromONNXValue(existingScale);
-    if (!elementsAttr) {
+    SmallVector<int64_t> biasOrScaleRankFixedShape;
+    biasOrScaleRankFixedShape.append(
+        addOrMulResultType.getRank() - scaleOrBiasType.getRank(), 1);
+    biasOrScaleRankFixedShape.append(
+        scaleOrBiasType.getShape().begin(), scaleOrBiasType.getShape().end());
+
+    // biasOrScaleRankFixedShape should have exactly one dimension that is not
+    // one
+    std::optional<int64_t> afterReshapeComputationDim;
+    for (auto [idx, dimSize] : enumerate(biasOrScaleRankFixedShape)) {
+      if (dimSize != 1) {
+        if (afterReshapeComputationDim) {
+          return rewriter.notifyMatchFailure(
+              matchOp, "scale/bias has more than one non-one dimension");
+        }
+        afterReshapeComputationDim = idx;
+      }
+    }
+    if (!afterReshapeComputationDim) {
       return rewriter.notifyMatchFailure(
-          mulOp, "missing elements attribute or scale is not const");
-    }
-    if (!elementsAttr.isSplat()) {
-      return rewriter.notifyMatchFailure(mulOp, "scale is not a splat value");
-    }
-    if (!elementsAttr.template getSplatValue<APFloat>().isExactlyValue(1.0)) {
-      return rewriter.notifyMatchFailure(mulOp, "scale is not 1.0");
-    }
-    // Norms only support unidirectional broadcating from scale to y
-    const auto yType = dyn_cast<ShapedType>(y.getType());
-    const auto mulType = dyn_cast<ShapedType>(mulOp.getType());
-    if (!yType || !mulType || !yType.hasStaticShape() ||
-        !mulType.hasStaticShape() || yType.getShape() != mulType.getShape()) {
-      return rewriter.notifyMatchFailure(mulOp, "incompatible shapes");
+          matchOp, "scale/bias has no non-one dimension");
     }
 
-    rewriter.moveOpAfter(
-        normOp, mulOp); // Make sure we can use the const of the mul
-    rewriter.modifyOpInPlace(normOp, [&] {
-      normOp.setOperand(/*scale*/ 1, mulScale);
-      normOp->setLoc(rewriter.getFusedLoc({normOp.getLoc(), mulOp->getLoc()}));
-    });
-    rewriter.replaceOp(mulOp, normOp.getY());
+    const auto shapeIncludingComputationDim =
+        ArrayRef<int64_t>(reshapeResultType.getShape())
+            .slice(0, *afterReshapeComputationDim + 1);
+    const uint64_t computationRelevantSize =
+        std::accumulate(shapeIncludingComputationDim.begin(),
+            shapeIncludingComputationDim.end(), 1, std::multiplies<uint64_t>());
+
+    // The bias/scale dim should be not affected by the reshape. We need to
+    // map it back through it.
+    size_t reshapeInComputationDim;
+    auto reshapeInType =
+        dyn_cast<ShapedType>(reshapeOp->getOperand(0).getType());
+    if (!reshapeInType || !reshapeInType.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(
+          matchOp, "reshape input has not a static shape");
+    }
+    const auto reshapeInShape = reshapeInType.getShape();
+
+    // trace the dim through the reshape
+    uint64_t acc = 1;
+    for (auto [idx, dimSize] : enumerate(reshapeInShape)) {
+      acc *= dimSize;
+      if (acc == computationRelevantSize) {
+        if (dimSize != biasOrScaleRankFixedShape[*afterReshapeComputationDim]) {
+          return rewriter.notifyMatchFailure(
+              matchOp, "bias/scale shape is not compatible with reshape input");
+        }
+        reshapeInComputationDim = idx;
+        break;
+      }
+      if (acc > computationRelevantSize) {
+        return rewriter.notifyMatchFailure(
+            matchOp, "bias/scale shape is not compatible with reshape input");
+      }
+    }
+
+    newScaleOrBiasShape.push_back(reshapeInShape[reshapeInComputationDim]);
+    newScaleOrBiasShape.append(
+        reshapeInShape.size() - reshapeInComputationDim - 1, 1);
     return success();
   }
-};
-
-template <typename OP_TYPE>
-struct PropagateBiasIntoLayerNormRewritePattern
-    : public OpRewritePattern<ONNXAddOp> {
-  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
-
-  PropagateBiasIntoLayerNormRewritePattern(MLIRContext *context)
-      : OpRewritePattern(context) {}
 
   LogicalResult matchAndRewrite(
-      ONNXAddOp addOp, PatternRewriter &rewriter) const final {
+      MATCH_OP_TYPE matchOp, PatternRewriter &rewriter) const final {
     PatternRewriter::InsertionGuard guard(rewriter);
     using namespace onnx_mlir;
-    Value y, bias;
+    Value y, scaleOrBias;
     Operation *yLayerNormOp = nullptr;
     Operation *reshapeOp = nullptr;
-    SmallVector<int64_t> newBiasShape; // only used if there is a reshape
+    SmallVector<int64_t> newScaleOrBiasShape; // only used if there is a reshape
 
     // Match
     // %noBias = "onnx.NoValue"()
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
     // optional reshape between norm and add
-    // %yBias = "onnx.Add"(%y, %bias)
+    // %yBias = "onnx.Add/onnx.Mul"(%y, %scaleOrBias)
 
     if (onnx_mlir::operandOfOpDefinedBy<ONNXReshapeOp>(
-            reshapeOp, addOp, y, bias, 0) ||
+            reshapeOp, matchOp, y, scaleOrBias, 0) ||
         onnx_mlir::operandOfOpDefinedBy<ONNXReshapeOp>(
-            reshapeOp, addOp, bias, y, 1)) {
-      yLayerNormOp = reshapeOp->getOperand(0).getDefiningOp<OP_TYPE>();
+            reshapeOp, matchOp, scaleOrBias, y, 1)) {
+      yLayerNormOp = reshapeOp->getOperand(0).getDefiningOp<LN_TYPE>();
       if (!yLayerNormOp) {
         return rewriter.notifyMatchFailure(
             reshapeOp, "reshape op does not have a layer norm as input");
@@ -1775,11 +1807,11 @@ struct PropagateBiasIntoLayerNormRewritePattern
             reshapeOp, "reshape op does not have a single use");
       }
     } else {
-      if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
-              yLayerNormOp, addOp, y, bias, 0) &&
-          !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
-              yLayerNormOp, addOp, bias, y, 1))
-        return rewriter.notifyMatchFailure(addOp, "missing y, layer norm op");
+      if (!onnx_mlir::operandOfOpDefinedBy<LN_TYPE>(
+              yLayerNormOp, matchOp, y, scaleOrBias, 0) &&
+          !onnx_mlir::operandOfOpDefinedBy<LN_TYPE>(
+              yLayerNormOp, matchOp, scaleOrBias, y, 1))
+        return rewriter.notifyMatchFailure(matchOp, "missing y, layer norm op");
     }
 
     // Study layer norm op; make sure its used only one and that bias is not
@@ -1789,124 +1821,89 @@ struct PropagateBiasIntoLayerNormRewritePattern
       return rewriter.notifyMatchFailure(
           yLayerNormOp, "y/layer norm has too many uses");
     }
-    auto lnOp = mlir::cast<OP_TYPE>(yLayerNormOp);
-    if (!isValueNoneOrConstZero(lnOp.getB()))
-      return rewriter.notifyMatchFailure(lnOp, "layer norm already has a bias");
+    auto lnOp = mlir::cast<LN_TYPE>(yLayerNormOp);
+    if (!doExisitingScaleAndBiasAllowFusion(lnOp))
+      return rewriter.notifyMatchFailure(
+          lnOp, "existing scale and bias do not allow fusion");
 
     if (reshapeOp) {
-      // if we have a reshape, check that the add is not changing the shape by
-      // broadcasting
-      auto reshapeResultType =
-          dyn_cast<ShapedType>(reshapeOp->getResult(0).getType());
-      auto addResultType = dyn_cast<ShapedType>(addOp->getResult(0).getType());
-      if (!reshapeResultType || !addResultType ||
-          !reshapeResultType.hasStaticShape() ||
-          !addResultType.hasStaticShape() ||
-          reshapeResultType.getShape() != addResultType.getShape()) {
-        return rewriter.notifyMatchFailure(
-            addOp, "incompatible shapes, add is broadcasting");
+      if (failed(verifyAndCalculateNewReshapeShapes(reshapeOp, matchOp,
+              rewriter, scaleOrBias, newScaleOrBiasShape))) {
+        return failure();
       }
-      // Check that the bias is only on a single dimension, that is not affected
-      // by the reshape. The bias could be multi-dimentional, but this increases
-      // the complexity and was not seen in models
-      auto biasType = dyn_cast<ShapedType>(bias.getType());
-      if (!biasType || !biasType.hasStaticShape()) {
-        return rewriter.notifyMatchFailure(
-            addOp, "bias has not a static shape");
-      }
-
-      SmallVector<int64_t> biasRankFixedShape;
-      biasRankFixedShape.append(
-          addResultType.getRank() - biasType.getRank(), 1);
-      biasRankFixedShape.append(
-          biasType.getShape().begin(), biasType.getShape().end());
-
-      // biasRankFixedShape should have exactly one dimension that is not one
-      std::optional<int64_t> biasDim;
-      for (auto [idx, dimSize] : enumerate(biasRankFixedShape)) {
-        if (dimSize != 1) {
-          if (biasDim) {
-            return rewriter.notifyMatchFailure(
-                addOp, "bias has more than one non-one dimension");
-          }
-          biasDim = idx;
-        }
-      }
-      if (!biasDim) {
-        return rewriter.notifyMatchFailure(
-            addOp, "bias has no non-one dimension");
-      }
-
-      const auto biasShapeUntilDim =
-          ArrayRef<int64_t>(reshapeResultType.getShape())
-              .slice(0, *biasDim + 1);
-      const uint64_t biasShapeRelevantSize =
-          std::accumulate(biasShapeUntilDim.begin(), biasShapeUntilDim.end(), 1,
-              std::multiplies<uint64_t>());
-
-      // The bias dim should be not affected by the reshape. We need to map it
-      // back through it.
-      size_t reshapeInBiasDim;
-      auto reshapeInType =
-          dyn_cast<ShapedType>(reshapeOp->getOperand(0).getType());
-      if (!reshapeInType || !reshapeInType.hasStaticShape()) {
-        return rewriter.notifyMatchFailure(
-            addOp, "reshape input has not a static shape");
-      }
-      const auto reshapeInShape = reshapeInType.getShape();
-
-      // trace the dim through the reshape
-      uint64_t acc = 1;
-      for (auto [idx, dimSize] : enumerate(reshapeInShape)) {
-        acc *= dimSize;
-        if (acc == biasShapeRelevantSize) {
-          if (dimSize != biasRankFixedShape[*biasDim]) {
-            return rewriter.notifyMatchFailure(
-                addOp, "bias shape is not compatible with reshape input");
-          }
-          reshapeInBiasDim = idx;
-          break;
-        }
-        if (acc > biasShapeRelevantSize) {
-          return rewriter.notifyMatchFailure(
-              addOp, "bias shape is not compatible with reshape input");
-        }
-      }
-
-      newBiasShape.push_back(reshapeInShape[reshapeInBiasDim]);
-      newBiasShape.append(reshapeInShape.size() - reshapeInBiasDim - 1, 1);
     }
 
-    // Norms only support unidirectional broadcating from bias to y
+    // Norms only support unidirectional broadcasting to x
     if (!reshapeOp && !areUnidirectionalBroadcastCompatible(
-                          lnOp.getX().getType(), bias.getType())) {
-      return rewriter.notifyMatchFailure(addOp,
-          "layer norm and bias are not unidirectional broadcast compatible");
+                          lnOp.getX().getType(), scaleOrBias.getType())) {
+      return rewriter.notifyMatchFailure(matchOp,
+          "layer norm and bias/scale are not unidirectional broadcast "
+          "compatible");
     }
 
     rewriter.moveOpAfter(
-        lnOp, addOp); // Make sure we can use the const of the mul
-    rewriter.setInsertionPoint(addOp);
+        lnOp, matchOp); // Make sure we can use the const of the mul
+    rewriter.setInsertionPoint(matchOp);
     if (reshapeOp) {
       onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
           rewriter, reshapeOp->getLoc());
-      const auto newShapeConst = create.onnx.constantInt64(newBiasShape);
-      bias = create.onnx.reshape(
-          RankedTensorType::get(
-              newBiasShape, cast<ShapedType>(bias.getType()).getElementType()),
-          bias, newShapeConst);
+      const auto newShapeConst = create.onnx.constantInt64(newScaleOrBiasShape);
+      scaleOrBias = create.onnx.reshape(
+          RankedTensorType::get(newScaleOrBiasShape,
+              cast<ShapedType>(scaleOrBias.getType()).getElementType()),
+          scaleOrBias, newShapeConst);
     }
     rewriter.modifyOpInPlace(lnOp, [&] {
-      lnOp.setOperand(/*bias*/ 2, bias);
-      lnOp->setLoc(rewriter.getFusedLoc({lnOp.getLoc(), addOp->getLoc()}));
+      lnOp.setOperand(OPERAND_TO_MODIFY_INDEX, scaleOrBias);
+      lnOp->setLoc(rewriter.getFusedLoc({lnOp.getLoc(), matchOp->getLoc()}));
     });
     if (reshapeOp) {
       rewriter.moveOpAfter(reshapeOp, lnOp);
-      rewriter.replaceOp(addOp, reshapeOp->getResult(0));
+      rewriter.replaceOp(matchOp, reshapeOp->getResult(0));
     } else {
-      rewriter.replaceOp(addOp, lnOp.getY());
+      rewriter.replaceOp(matchOp, lnOp.getY());
     }
     return success();
+  }
+};
+
+} // namespace
+
+template <typename LN_TYPE>
+struct PropagateScaleIntoLayerNormPattern
+    : public PropagateBiasOrScaleIntoLayerNormRewritePatternBase<LN_TYPE,
+          ONNXMulOp, /*scale*/ 1> {
+  using PropagateBiasOrScaleIntoLayerNormRewritePatternBase<LN_TYPE, ONNXMulOp,
+      /*scale*/ 1>::PropagateBiasOrScaleIntoLayerNormRewritePatternBase;
+
+  bool doExisitingScaleAndBiasAllowFusion(LN_TYPE lnOp) const override {
+    if (!isValueNoneOrConstZero(lnOp.getB())) {
+      return false;
+    }
+
+    const auto elementsAttr = getElementAttributeFromONNXValue(lnOp.getScale());
+    if (!elementsAttr) {
+      return false;
+    }
+    if (!elementsAttr.isSplat()) {
+      return false;
+    }
+    if (!elementsAttr.template getSplatValue<APFloat>().isExactlyValue(1.0)) {
+      return false;
+    }
+    return true;
+  }
+};
+
+template <typename LN_TYPE>
+struct PropagateBiasIntoLayerNormRewritePattern
+    : public PropagateBiasOrScaleIntoLayerNormRewritePatternBase<LN_TYPE,
+          ONNXAddOp, /*bias*/ 2> {
+  using PropagateBiasOrScaleIntoLayerNormRewritePatternBase<LN_TYPE, ONNXAddOp,
+      /*bias*/ 2>::PropagateBiasOrScaleIntoLayerNormRewritePatternBase;
+
+  bool doExisitingScaleAndBiasAllowFusion(LN_TYPE lnOp) const override {
+    return isValueNoneOrConstZero(lnOp.getB());
   }
 };
 
