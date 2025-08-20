@@ -886,6 +886,7 @@ class InferenceSession:
                         self.model_dir, f"{self.default_model_name}.onnx"
                     )
                     import onnx
+
                     onnx.save(model, input_model_path)
                 else:
                     input_model_path = args.model
