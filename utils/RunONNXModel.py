@@ -879,13 +879,13 @@ class InferenceSession:
         else:
             # Compile the ONNX model.
             # Prepare input and output paths.
-            import onnx
 
             if args.model.endswith(".onnx"):
                 if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
                     input_model_path = os.path.join(
                         self.model_dir, f"{self.default_model_name}.onnx"
                     )
+                    import onnx
                     onnx.save(model, input_model_path)
                 else:
                     input_model_path = args.model
