@@ -2,6 +2,7 @@
 
 // Temporary disabled
 // XFAIL: *
+
 func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x64x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
   %1 = onnx.Constant dense<0.00999999977> : tensor<32xf32>
@@ -12,7 +13,7 @@ func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x6
   %6 = "onnx.Concat"(%4, %5) {axis = 1 : si64, onnx_node_name = "onnx.Concat_2"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x64x512x512xf32>
   return %6 : tensor<1x64x512x512xf32>
 
-  // XFAIL-CHECK-LABEL: func @test_conv_concat_simple
+  // CHECK-LABEL: func @test_conv_concat_simple
   // XFAIL-CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x512x512xf32>) -> tensor<1x64x512x512xf32> {
   // XFAIL-CHECK:      [[VAR_0_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<64x1x3x3xf32>
   
