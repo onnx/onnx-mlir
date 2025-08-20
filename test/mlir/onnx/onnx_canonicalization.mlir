@@ -2508,3 +2508,80 @@ func.func @rmslayernorm_with_neutral_scale(%arg0: tensor<1x384x768xf32>, %arg1: 
 // CHECK:         }
 }
 
+// -----
+
+func.func @layernorm_with_reshape_without_bias_simple_reshape(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %bias: tensor<768xf32>) -> tensor<384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Shape = "onnx.Constant"() {value = dense<[384, 768]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %Reshaped = "onnx.Reshape"(%NormScaled, %Shape) : (tensor<1x384x768xf32>, tensor<2xi64>) -> tensor<384x768xf32>
+  %Y = "onnx.Add"(%bias, %Reshaped) : (tensor<768xf32>, tensor<384x768xf32>) -> tensor<384x768xf32>
+  return %Y : tensor<384x768xf32>
+// CHECK-LABEL:  func.func @layernorm_with_reshape_without_bias_simple_reshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<384x768xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[384, 768]> : tensor<2xi64>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<1x384x768xf32>, tensor<2xi64>) -> tensor<384x768xf32>
+// CHECK:           return [[VAR_1_]] : tensor<384x768xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @layernorm_with_reshape_without_bias(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %bias: tensor<384x1x1xf32>) -> tensor<1x384x2x384xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Shape = "onnx.Constant"() {value = dense<[1, 384, 2, 384]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %Reshaped = "onnx.Reshape"(%NormScaled, %Shape) : (tensor<1x384x768xf32>, tensor<4xi64>) -> tensor<1x384x2x384xf32>
+  %Y = "onnx.Add"(%bias, %Reshaped) : (tensor<384x1x1xf32>, tensor<1x384x2x384xf32>) -> tensor<1x384x2x384xf32>
+  return %Y : tensor<1x384x2x384xf32>
+// CHECK-LABEL:  func.func @layernorm_with_reshape_without_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<384x1x1xf32>) -> tensor<1x384x2x384xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1, 384, 2, 384]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[384, 1]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Reshape"([[PARAM_2_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<384x1x1xf32>, tensor<2xi64>) -> tensor<384x1xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_2_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, tensor<384x1xf32>) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<1x384x768xf32>, tensor<4xi64>) -> tensor<1x384x2x384xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x384x2x384xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @layernorm_with_reshape_multi_use(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>) -> tensor<384x768xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Shape = "onnx.Constant"() {value = dense<[384, 768]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %Reshaped = "onnx.Reshape"(%NormScaled, %Shape) : (tensor<1x384x768xf32>, tensor<2xi64>) -> tensor<384x768xf32>
+  %Y = "onnx.Add"(%Reshaped, %Reshaped) : (tensor<384x768xf32>, tensor<384x768xf32>) -> tensor<384x768xf32>
+  return %Y : tensor<384x768xf32>
+// CHECK-LABEL:  func.func @layernorm_with_reshape_multi_use
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>) -> tensor<384x768xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[384, 768]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<1x384x768xf32>, tensor<2xi64>) -> tensor<384x768xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_2_]]) : (tensor<384x768xf32>, tensor<384x768xf32>) -> tensor<384x768xf32>
+// CHECK:           return [[VAR_3_]] : tensor<384x768xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @layernorm_with_reshape_split_dim(%arg0: tensor<1x384x768xf32>, %arg1: tensor<768xf32>, %bias: tensor<384xf32>) -> tensor<1x384x2x384xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %NormScaled, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %0) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+  %Shape = "onnx.Constant"() {value = dense<[1, 384, 2, 384]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %Reshaped = "onnx.Reshape"(%NormScaled, %Shape) : (tensor<1x384x768xf32>, tensor<4xi64>) -> tensor<1x384x2x384xf32>
+  %Y = "onnx.Add"(%bias, %Reshaped) : (tensor<384xf32>, tensor<1x384x2x384xf32>) -> tensor<1x384x2x384xf32>
+  return %Y : tensor<1x384x2x384xf32>
+// CHECK-LABEL:  func.func @layernorm_with_reshape_split_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<384xf32>) -> tensor<1x384x2x384xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1, 384, 2, 384]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<1x384x768xf32>, tensor<4xi64>) -> tensor<1x384x2x384xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[PARAM_2_]], [[VAR_2_]]) : (tensor<384xf32>, tensor<1x384x2x384xf32>) -> tensor<1x384x2x384xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x384x2x384xf32>
+// CHECK:         }
+}

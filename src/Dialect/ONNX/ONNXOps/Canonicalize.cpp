@@ -17,7 +17,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <math.h>
+#include <numeric>
 
+#include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -1634,7 +1636,25 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 // Rewrite pattern LayerNormalization
 // =============================================================================
 namespace {
-bool isValueNoneOrConstZero(Value value) {
+
+// Checks if B is unidiretional broadcastable to A. Requires static shapes
+[[nodiscard]] bool areUnidirectionalBroadcastCompatible(Type a, Type b) {
+  auto aShaped = dyn_cast<ShapedType>(a);
+  auto bShaped = dyn_cast<ShapedType>(b);
+  if (!aShaped || !bShaped || !aShaped.hasStaticShape() ||
+      !bShaped.hasStaticShape()) {
+    return false;
+  }
+  SmallVector<int64_t> broadcastedShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          aShaped.getShape(), bShaped.getShape(), broadcastedShape)) {
+    return false;
+  }
+  // For unidirectional broadcasting, a and the resulting shape need to match
+  return aShaped.getShape() == ArrayRef<int64_t>(broadcastedShape);
+}
+
+[[nodiscard]] bool isValueNoneOrConstZero(Value value) {
   if (!value) {
     return false;
   }
@@ -1727,63 +1747,166 @@ struct PropagateBiasIntoLayerNormRewritePattern
 
   LogicalResult matchAndRewrite(
       ONNXAddOp addOp, PatternRewriter &rewriter) const final {
+    PatternRewriter::InsertionGuard guard(rewriter);
     using namespace onnx_mlir;
     Value y, bias;
-    Operation *yLayerNormOp;
-    Operation *ywbAddOp = addOp.getOperation();
+    Operation *yLayerNormOp = nullptr;
+    Operation *reshapeOp = nullptr;
+    SmallVector<int64_t> newBiasShape; // only used if there is a reshape
+
     // Match
     // %noBias = "onnx.NoValue"()
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
+    // optional reshape between norm and add
     // %yBias = "onnx.Add"(%y, %bias)
-    if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
-            yLayerNormOp, ywbAddOp, y, bias, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
-            yLayerNormOp, ywbAddOp, bias, y, 1))
-      return reportFailure("missing y, layer norm op");
+
+    if (onnx_mlir::operandOfOpDefinedBy<ONNXReshapeOp>(
+            reshapeOp, addOp, y, bias, 0) ||
+        onnx_mlir::operandOfOpDefinedBy<ONNXReshapeOp>(
+            reshapeOp, addOp, bias, y, 1)) {
+      yLayerNormOp = reshapeOp->getOperand(0).getDefiningOp<OP_TYPE>();
+      if (!yLayerNormOp) {
+        return rewriter.notifyMatchFailure(
+            reshapeOp, "reshape op does not have a layer norm as input");
+      }
+      if (!reshapeOp->hasOneUse()) {
+        return rewriter.notifyMatchFailure(
+            reshapeOp, "reshape op does not have a single use");
+      }
+    } else {
+      if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
+              yLayerNormOp, addOp, y, bias, 0) &&
+          !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
+              yLayerNormOp, addOp, bias, y, 1))
+        return rewriter.notifyMatchFailure(addOp, "missing y, layer norm op");
+    }
+
     // Study layer norm op; make sure its used only one and that bias is not
     // used.
-    if (!yLayerNormOp->hasOneUse())
-      return reportFailure("y/layer norm has too many uses");
+    assert(yLayerNormOp && "yLayerNormOp should not be null");
+    if (!yLayerNormOp->hasOneUse()) {
+      return rewriter.notifyMatchFailure(
+          yLayerNormOp, "y/layer norm has too many uses");
+    }
     auto lnOp = mlir::cast<OP_TYPE>(yLayerNormOp);
     if (!isValueNoneOrConstZero(lnOp.getB()))
-      return reportFailure("layer norm already has a bias");
+      return rewriter.notifyMatchFailure(lnOp, "layer norm already has a bias");
+
+    if (reshapeOp) {
+      // if we have a reshape, check that the add is not changing the shape by
+      // broadcasting
+      auto reshapeResultType =
+          dyn_cast<ShapedType>(reshapeOp->getResult(0).getType());
+      auto addResultType = dyn_cast<ShapedType>(addOp->getResult(0).getType());
+      if (!reshapeResultType || !addResultType ||
+          !reshapeResultType.hasStaticShape() ||
+          !addResultType.hasStaticShape() ||
+          reshapeResultType.getShape() != addResultType.getShape()) {
+        return rewriter.notifyMatchFailure(
+            addOp, "incompatible shapes, add is broadcasting");
+      }
+      // Check that the bias is only on a single dimension, that is not affected
+      // by the reshape. The bias could be multi-dimentional, but this increases
+      // the complexity and was not seen in models
+      auto biasType = dyn_cast<ShapedType>(bias.getType());
+      if (!biasType || !biasType.hasStaticShape()) {
+        return rewriter.notifyMatchFailure(
+            addOp, "bias has not a static shape");
+      }
+
+      SmallVector<int64_t> biasRankFixedShape;
+      biasRankFixedShape.append(
+          addResultType.getRank() - biasType.getRank(), 1);
+      biasRankFixedShape.append(
+          biasType.getShape().begin(), biasType.getShape().end());
+
+      // biasRankFixedShape should have exactly one dimension that is not one
+      std::optional<int64_t> biasDim;
+      for (auto [idx, dimSize] : enumerate(biasRankFixedShape)) {
+        if (dimSize != 1) {
+          if (biasDim) {
+            return rewriter.notifyMatchFailure(
+                addOp, "bias has more than one non-one dimension");
+          }
+          biasDim = idx;
+        }
+      }
+      if (!biasDim) {
+        return rewriter.notifyMatchFailure(
+            addOp, "bias has no non-one dimension");
+      }
+
+      const auto biasShapeUntilDim =
+          ArrayRef<int64_t>(reshapeResultType.getShape())
+              .slice(0, *biasDim + 1);
+      const uint64_t biasShapeRelevantSize =
+          std::accumulate(biasShapeUntilDim.begin(), biasShapeUntilDim.end(), 1,
+              std::multiplies<uint64_t>());
+
+      // The bias dim should be not affected by the reshape. We need to map it
+      // back through it.
+      size_t reshapeInBiasDim;
+      auto reshapeInType =
+          dyn_cast<ShapedType>(reshapeOp->getOperand(0).getType());
+      if (!reshapeInType || !reshapeInType.hasStaticShape()) {
+        return rewriter.notifyMatchFailure(
+            addOp, "reshape input has not a static shape");
+      }
+      const auto reshapeInShape = reshapeInType.getShape();
+
+      // trace the dim through the reshape
+      uint64_t acc = 1;
+      for (auto [idx, dimSize] : enumerate(reshapeInShape)) {
+        acc *= dimSize;
+        if (acc == biasShapeRelevantSize) {
+          if (dimSize != biasRankFixedShape[*biasDim]) {
+            return rewriter.notifyMatchFailure(
+                addOp, "bias shape is not compatible with reshape input");
+          }
+          reshapeInBiasDim = idx;
+          break;
+        }
+        if (acc > biasShapeRelevantSize) {
+          return rewriter.notifyMatchFailure(
+              addOp, "bias shape is not compatible with reshape input");
+        }
+      }
+
+      newBiasShape.push_back(reshapeInShape[reshapeInBiasDim]);
+      newBiasShape.append(reshapeInShape.size() - reshapeInBiasDim - 1, 1);
+    }
 
     // Norms only support unidirectional broadcating from bias to y
-    const auto yType = dyn_cast<ShapedType>(y.getType());
-    const auto addType = dyn_cast<ShapedType>(addOp.getType());
-    if (!yType || !addType || !yType.hasStaticShape() ||
-        !addType.hasStaticShape() || yType.getShape() != addType.getShape()) {
-      return rewriter.notifyMatchFailure(addOp, "incompatible shapes");
+    if (!reshapeOp && !areUnidirectionalBroadcastCompatible(
+                          lnOp.getX().getType(), bias.getType())) {
+      return rewriter.notifyMatchFailure(addOp,
+          "layer norm and bias are not unidirectional broadcast compatible");
     }
-    // We are fine.
-    Value x = lnOp.getX();
-    Value scale = lnOp.getScale();
-    FloatAttr epsilon = lnOp.getEpsilonAttr();
-    int64_t axis = lnOp.getAxis();
-    LLVM_DEBUG(llvm::dbgs() << "LayerNorm from add, axis : " << axis << "\n");
 
-    // Replace
-    MultiDialectBuilder<OnnxBuilder> create(
-        rewriter, rewriter.getFusedLoc({lnOp.getLoc(), addOp->getLoc()}));
-    Type xType = x.getType();
-    Value res;
-    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
-      res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
-    else if constexpr (std::is_same<OP_TYPE,
-                           ONNXRMSLayerNormalizationOp>::value)
-      res = create.onnx.RMSLayerNorm(xType, x, scale, bias, axis, epsilon);
-    else
-      llvm_unreachable("unsupported op");
-    rewriter.replaceOp(addOp, res);
+    rewriter.moveOpAfter(
+        lnOp, addOp); // Make sure we can use the const of the mul
+    rewriter.setInsertionPoint(addOp);
+    if (reshapeOp) {
+      onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+          rewriter, reshapeOp->getLoc());
+      const auto newShapeConst = create.onnx.constantInt64(newBiasShape);
+      bias = create.onnx.reshape(
+          RankedTensorType::get(
+              newBiasShape, cast<ShapedType>(bias.getType()).getElementType()),
+          bias, newShapeConst);
+    }
+    rewriter.modifyOpInPlace(lnOp, [&] {
+      lnOp.setOperand(/*bias*/ 2, bias);
+      lnOp->setLoc(rewriter.getFusedLoc({lnOp.getLoc(), addOp->getLoc()}));
+    });
+    if (reshapeOp) {
+      rewriter.moveOpAfter(reshapeOp, lnOp);
+      rewriter.replaceOp(addOp, reshapeOp->getResult(0));
+    } else {
+      rewriter.replaceOp(addOp, lnOp.getY());
+    }
     return success();
-  }
-
-private:
-  LogicalResult reportFailure(std::string msg) const {
-    // Can disable line below if not needed.
-    LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
-    return failure();
   }
 };
 
@@ -1930,7 +2053,8 @@ struct RemoveInstanceNormPattern
         rewriter, instanceNormOp.getLoc());
     int64_t axis = nonSpacialRank;
     int64_t numInNorm = inputRank - axis;
-    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm 1s.
+    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm
+    // 1s.
     llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
     biasScaleShape.emplace_back(C);
     for (int64_t i = 1; i <= numInNorm; ++i) {
