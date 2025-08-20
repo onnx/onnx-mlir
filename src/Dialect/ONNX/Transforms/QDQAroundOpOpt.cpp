@@ -65,26 +65,23 @@ public:
     }
 
     Operation *firstOp = *(opIO.output.getUsers().begin());
-    if (mlir::isa<ONNXQuantizeLinearOp>(firstOp)) {
-      if (auto qOp = dyn_cast<ONNXQuantizeLinearOp>(firstOp)) {
-        if (!isDequantQuantSame(dqOp, qOp))
-          return failure();
+    if (auto qOp = dyn_cast<ONNXQuantizeLinearOp>(firstOp)) {
+      if (!isDequantQuantSame(dqOp, qOp))
+        return failure();
 
-        // Map dqOp inputs to dqOp's inputs
-        IRMapping irMapping;
-        irMapping.map(dqOp, dqOp.getX());
+      // Map dqOp inputs to dqOp's inputs
+      IRMapping irMapping;
+      irMapping.map(dqOp, dqOp.getX());
 
-        SmallVector<Value> newInputs;
-        transform(op->getOperands(), std::back_inserter(newInputs),
-            [&](Value operand) { return irMapping.lookupOrDefault(operand); });
+      SmallVector<Value> newInputs;
+      transform(op->getOperands(), std::back_inserter(newInputs),
+          [&](Value operand) { return irMapping.lookupOrDefault(operand); });
 
-        rewriter.replaceOp(dqOp, dqOp.getX());
-        auto newOp = rewriter.create<T>(op.getLoc(),
-            TypeRange{qOp.getResult().getType()}, ValueRange{newInputs},
-            op->getAttrs());
-        rewriter.replaceOp(qOp, newOp.getResult());
-        return success();
-      }
+      auto newOp =
+          rewriter.create<T>(op.getLoc(), TypeRange{qOp.getResult().getType()},
+              ValueRange{newInputs}, op->getAttrs());
+      rewriter.replaceOp(qOp, newOp.getResult());
+      return success();
     }
   };
 };
