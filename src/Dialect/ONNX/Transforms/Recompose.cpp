@@ -1086,8 +1086,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
 
-    llvm::MapVector<ONNXConvOp, Value>
-        weightValues; // MapVector to keep the iteration order stable
+    SmallVector<Value> weightValues;
     int64_t totalOutputChannels = 0;
     for (auto conv : parallelConvs) {
       auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
@@ -1097,7 +1096,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       if (!cast<ShapedType>(conv.getType()).hasStaticShape())
         return rewriter.notifyMatchFailure(
             conv, "output type must be a ranked tensor with static shape");
-      weightValues[conv] = conv.getW();
+      weightValues.push_back(conv.getW());
       totalOutputChannels += weightType.getShape()[0];
     }
 
@@ -1149,38 +1148,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointAfter(*latestConv);
 
-    ONNXConcatOp commonConcatOp = nullptr;
-    bool allOutputsUsedInCommonConcat = true;
-
-    std::map<size_t, ONNXConvOp>
-        convOrder; // Key: Operand index in the common concat
-
-    for (auto conv : parallelConvs) {
-      if (!conv.getResult().hasOneUse()) {
-        allOutputsUsedInCommonConcat = false;
-        break;
-      }
-      for (auto &use : conv.getResult().getUses()) {
-        if (auto concatOp = dyn_cast<ONNXConcatOp>(use.getOwner())) {
-          if (!commonConcatOp) {
-            commonConcatOp = concatOp;
-          }
-          if (concatOp != commonConcatOp) {
-            allOutputsUsedInCommonConcat = false;
-            break;
-          }
-          convOrder[use.getOperandNumber()] = conv;
-        } else {
-          allOutputsUsedInCommonConcat = false;
-          break;
-        }
-      }
-      if (!allOutputsUsedInCommonConcat) {
-        break;
-      }
-    }
-
-    const int64_t concatAxis = 1;
+    int64_t concatAxis = 1;
 
     auto firstWeightType =
         mlir::cast<ShapedType>(parallelConvs[0].getW().getType());
@@ -1189,37 +1157,17 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
     newWeightShape[0] = totalOutputChannels;
     Type newWeightType =
         RankedTensorType::get(newWeightShape, firstWeightType.getElementType());
-    SmallVector<Value> orderedWeightValues;
-    if (allOutputsUsedInCommonConcat) {
-      for (auto [_, v] : convOrder) {
-        orderedWeightValues.push_back(weightValues[v]);
-      }
-    } else {
-      for (auto [_, v] : weightValues) {
-        orderedWeightValues.push_back(v);
-      }
-    }
-    Value newWeight = create.onnx.concat(newWeightType, orderedWeightValues, 0);
+    Value newWeight = create.onnx.concat(newWeightType, weightValues, 0);
 
     Value newBias;
     if (allHaveBias) {
-      llvm::MapVector<ONNXConvOp, Value> biasValues;
+      SmallVector<Value> biasValues;
       for (auto conv : parallelConvs) {
-        biasValues[conv] = conv.getB();
+        biasValues.push_back(conv.getB());
       }
       SmallVector<int64_t> newBiasShape = {totalOutputChannels};
       Type newBiasType = RankedTensorType::get(newBiasShape, elementType);
-      SmallVector<Value> orderedBiasValues;
-      if (allOutputsUsedInCommonConcat) {
-        for (auto [_, v] : convOrder) {
-          orderedBiasValues.push_back(biasValues[v]);
-        }
-      } else {
-        for (auto [_, v] : biasValues) {
-          orderedBiasValues.push_back(v);
-        }
-      }
-      newBias = create.onnx.concat(newBiasType, orderedBiasValues, 0);
+      newBias = create.onnx.concat(newBiasType, biasValues, 0);
     } else {
       newBias = parallelConvs[0].getB();
     }
@@ -1237,6 +1185,32 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
             newBias, convOp1.getAutoPadAttr(), convOp1.getDilationsAttr(),
             convOp1.getGroupAttr(), convOp1.getKernelShapeAttr(),
             convOp1.getPadsAttr(), convOp1.getStridesAttr());
+
+    ONNXConcatOp commonConcatOp = nullptr;
+    bool allOutputsUsedInCommonConcat = true;
+
+    for (auto conv : parallelConvs) {
+      bool usedInCommonConcat = false;
+      for (auto user : conv.getResult().getUsers()) {
+        if (auto concatOp = dyn_cast<ONNXConcatOp>(user)) {
+          if (!commonConcatOp) {
+            commonConcatOp = concatOp;
+          }
+          if (concatOp != commonConcatOp) {
+            allOutputsUsedInCommonConcat = false;
+            break;
+          }
+          usedInCommonConcat = true;
+        } else {
+          allOutputsUsedInCommonConcat = false;
+          break;
+        }
+      }
+      if (!usedInCommonConcat || !allOutputsUsedInCommonConcat) {
+        allOutputsUsedInCommonConcat = false;
+        break;
+      }
+    }
 
     if (allOutputsUsedInCommonConcat && commonConcatOp &&
         commonConcatOp.getAxis() == 1) {
@@ -1341,7 +1315,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
-  patterns.insert<CombineParallelConv2DPattern>(context);
+  // patterns.insert<CombineParallelConv2DPattern>(context);
 }
 
 /*!
