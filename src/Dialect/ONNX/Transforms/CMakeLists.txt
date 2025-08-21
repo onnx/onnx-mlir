@@ -7,7 +7,6 @@ add_onnx_mlir_rewriter(DecomposeConvTranspose1dPhased)
 
 add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_rewriter(ConvOpt)
-add_onnx_mlir_rewriter(QDQOpt)
 
 add_onnx_mlir_library(OMShapeInference
   ShapeInference.cpp
