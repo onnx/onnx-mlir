@@ -78,6 +78,38 @@ After installation, an `onnx-mlir` executable should appear in the `build/Debug/
 If you have difficulties building, rebuilding, or testing `onnx-mlir`, check this [page](docs/TestingHighLevel.md) for helpful hints.
 
 
+### Minimal build for ONNX dialect only
+
+For consumers that only need the ONNX dialect (without lowering passes, runtime, or non-essential dialects), configure with:
+
+```
+cmake -S . -B build -G Ninja \
+  -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir \
+  -DONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT=ON \
+  -DCMAKE_BUILD_TYPE=Release
+
+cmake --build build --target test-onnx-to-mlir -j$(nproc)
+```
+
+This builds only the following components:
+- `include/`
+- `src/Interface/` (only interfaces required by ONNX)
+- `src/Support/`
+- `src/Builder/`
+- `src/Dialect/Mlir/`
+- `src/Dialect/ONNX/`
+
+And provides a small test executable `test-onnx-to-mlir` that loads an ONNX model and prints ONNX dialect IR:
+
+```
+build/Release/bin/test-onnx-to-mlir model.onnx > model.mlir
+```
+
+Notes:
+- Release builds are recommended to reduce memory usage during compilation.
+- SpecializedKernel and Krnl dependencies are excluded in this mode.
+
+
 ## Using ONNX-MLIR
 
 The usage of `onnx-mlir` is as such:
