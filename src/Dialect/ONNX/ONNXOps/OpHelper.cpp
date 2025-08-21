@@ -315,16 +315,26 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
     return mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   return nullptr;
 }
+
+// compare two ElementsAttr, except for their internal buffer size
 bool compareValueFromElementAttribute(
     ElementsAttr &attr1, ElementsAttr &attr2) {
-  auto values1 = attr1.getValues<mlir::Attribute>();
-  auto values2 = attr2.getValues<mlir::Attribute>();
-
-  if (values1.size() != values2.size()) {
+  if (attr1.getType() != attr2.getType()) {
     return false;
   }
-  return std::equal(values1.begin(), values1.end(), values2.begin());
+  if (attr1.getNumElements() != attr2.getNumElements()) {
+    return false;
+  }
+  auto it1 = attr1.getValues<mlir::Attribute>().begin();
+  auto it2 = attr2.getValues<mlir::Attribute>().begin();
+  for (; it1 != attr1.getValues<mlir::Attribute>().end(); ++it1, ++it2) {
+    if (*it1 != *it2) {
+      return false;
+    }
+  }
+  return true;
 }
+
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value) {
   return mlir::dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());

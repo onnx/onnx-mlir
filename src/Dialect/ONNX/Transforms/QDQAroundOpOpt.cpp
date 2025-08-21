@@ -54,9 +54,8 @@ public:
 
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
-    // if (llvm::isa<ONNXResizeOp>(op)) {
-    if (auto resizeOp = dyn_cast<ONNXResizeOp>(op)) {
-      // auto &resizeOp = llvm::cast<ONNXResizeOp>(op);
+    if (llvm::isa<ONNXResizeOp>(op)) {
+      auto &resizeOp = llvm::cast<ONNXResizeOp>(op);
       if (resizeOp.getMode() != "nearest") {
         return failure();
       }
@@ -64,7 +63,9 @@ public:
     InputAndOutput opIO = getDataInputOutput(op);
 
     auto dqOp = opIO.input.getDefiningOp<ONNXDequantizeLinearOp>();
-    if (!dqOp) {
+    // Only run this pass if Quantizelization is on tensor
+    if (!dqOp || !isScalarConstantTensor(dqOp.getXScale()) ||
+        !isScalarConstantTensor(dqOp.getXZeroPoint())) {
       return failure();
     }
     if (!opIO.output.hasOneUse()) {
@@ -73,6 +74,10 @@ public:
 
     Operation *firstOp = *(opIO.output.getUsers().begin());
     if (auto qOp = dyn_cast<ONNXQuantizeLinearOp>(firstOp)) {
+      if (!isScalarConstantTensor(qOp.getYScale()) ||
+          !isScalarConstantTensor(qOp.getYZeroPoint())) {
+        return failure();
+      }
       if (!isDequantQuantSame(dqOp, qOp))
         return failure();
 
