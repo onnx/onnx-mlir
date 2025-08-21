@@ -54,8 +54,9 @@ public:
 
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
-    if (llvm::isa<ONNXResizeOp>(op)) {
-      auto &resizeOp = llvm::cast<ONNXResizeOp>(op);
+    // if (llvm::isa<ONNXResizeOp>(op)) {
+    if (auto resizeOp = dyn_cast<ONNXResizeOp>(op)) {
+      // auto &resizeOp = llvm::cast<ONNXResizeOp>(op);
       if (resizeOp.getMode() != "nearest") {
         return failure();
       }
