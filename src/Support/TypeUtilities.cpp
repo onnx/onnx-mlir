@@ -43,6 +43,15 @@ ArrayRef<int64_t> getShape(Type ty) {
   return mlir::cast<ShapedType>(ty).getShape();
 }
 
+/// Get specific shape value.
+int64_t getShape(mlir::Type ty, int64_t index) {
+  int64_t rank = getRank(ty);
+  if (index < 0)
+    index += rank;
+  assert(index >= 0 && index < rank && "out of range index [-rank...rank-1]");
+  return getShape(ty)[index];
+}
+
 /// Get rank.
 int64_t getRank(Type ty) {
   assert(isRankedShapedType(ty) && "Type must be ranked");

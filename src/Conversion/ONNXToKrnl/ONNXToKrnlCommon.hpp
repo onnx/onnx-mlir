@@ -167,6 +167,12 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input, int64_t axis,
     bool ascending = false);
 
+/// Allocate memref (as before) if no input buffer can be reused.
+/// Default VL=0 is used for non SIMD allocation
+mlir::Value allocOrReuse(MemRefBuilder &create, mlir::Operation *op,
+    mlir::ValueRange generatedOperands, mlir::MemRefType outputMemRefType,
+    DimsExprRef dims, int64_t alignment, int64_t VL = 0);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -248,6 +254,8 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       create.math.splatToMatch(scalarsSplatted);
       return rewriter.create<ScalarFOp<Op>>(loc, elementType, scalarsSplatted);
     }
+    fprintf(stderr, "hi alex, not supported float type\n. ");
+    op->dump();
     llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");

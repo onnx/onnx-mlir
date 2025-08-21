@@ -31,6 +31,32 @@ void ZLowBuilder::stick(
   b().create<zlow::ZLowStickOp>(loc(), x, out, layout, noSaturation);
 }
 
+void ZLowBuilder::convertDLF16ToF32(
+    Value dlf16, Value &highF32, Value &lowF32) {
+  assert(mlir::dyn_cast<VectorType>(dlf16.getType()) && "expect vector");
+  auto op = b().create<zlow::ZLowConvertDLF16ToF32VectorOp>(loc(), dlf16);
+  highF32 = op.getResult(0);
+  lowF32 = op.getResult(1);
+}
+
+Value ZLowBuilder::convertDLF16ToF32(Value dlf16) {
+  assert(!mlir::dyn_cast<VectorType>(dlf16.getType()) && "expect scalar");
+  auto op = b().create<zlow::ZLowConvertDLF16ToF32Op>(loc(), dlf16);
+  return op.getResult();
+}
+
+Value ZLowBuilder::convertF32ToDLF16(Value highF32, Value lowF32) {
+  assert(mlir::dyn_cast<VectorType>(highF32.getType()) && "expect vector");
+  assert(mlir::dyn_cast<VectorType>(lowF32.getType()) && "expect vector");
+  return b().create<zlow::ZLowConvertF32ToDLF16VectorOp>(
+      loc(), highF32, lowF32);
+}
+
+Value ZLowBuilder::convertF32ToDLF16(Value f32) {
+  assert(!mlir::dyn_cast<VectorType>(f32.getType()) && "expect scalar");
+  return b().create<zlow::ZLowConvertF32ToDLF16Op>(loc(), f32);
+}
+
 void ZLowBuilder::quantizedStick(Value x, Value recScale, Value offset,
     Value out, StringAttr layout, StringAttr qType) const {
   b().create<zlow::ZLowQuantizedStickOp>(

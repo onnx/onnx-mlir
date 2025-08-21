@@ -281,6 +281,7 @@ struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
 };
+
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXBitShiftOp
 //===----------------------------------------------------------------------===//

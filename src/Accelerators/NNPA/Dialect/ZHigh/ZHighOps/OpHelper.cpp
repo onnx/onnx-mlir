@@ -639,13 +639,9 @@ IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
 // Because multiple places need to know if a given layout is supported by the
 // compiler generated stick/unstick, this function was added so that the
 // conditions are in a single location.
-bool supportedLayoutForCompilerGeneratedStickUnstick(
-    mlir::Value val, bool undefinedIsSupported) {
+bool supportedLayoutForCompilerGeneratedStickUnstick(mlir::Value val) {
   ZTensorEncodingAttr::DataLayout layout =
       onnx_mlir::zhigh::getZTensorLayout(val.getType());
-  if (layout == ZTensorEncodingAttr::DataLayout::UNDEFINED)
-    return undefinedIsSupported;
-
   return layout == ZTensorEncodingAttr::DataLayout::_4D ||
          layout == ZTensorEncodingAttr::DataLayout::_3D ||
          layout == ZTensorEncodingAttr::DataLayout::_3DS ||
@@ -653,10 +649,9 @@ bool supportedLayoutForCompilerGeneratedStickUnstick(
          layout == ZTensorEncodingAttr::DataLayout::NHWC;
 }
 
-bool supportedLayoutForCompilerGeneratedStickUnstick(
-    mlir::StringAttr layout, bool undefinedIsSupported) {
+bool supportedLayoutForCompilerGeneratedStickUnstick(mlir::StringAttr layout) {
   if (!layout)
-    return undefinedIsSupported;
+    return false;
   return layout.getValue().equals_insensitive("4D") ||
          layout.getValue().equals_insensitive("3D") ||
          layout.getValue().equals_insensitive("3DS") ||

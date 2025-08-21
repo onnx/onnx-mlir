@@ -51,6 +51,14 @@ struct ZLowBuilder : public DialectBuilder {
   void stick(mlir::Value x, mlir::Value out, mlir::StringAttr layout,
       mlir::IntegerAttr noSaturation) const;
 
+  // Conversion to/from DLF16.
+  mlir::Value convertDLF16ToF32(mlir::Value dlf16);
+  void convertDLF16ToF32( // SIMD version.
+      mlir::Value dlf16, mlir::Value &highF32, mlir::Value &lowF32);
+  mlir::Value convertF32ToDLF16(mlir::Value f32);
+  mlir::Value convertF32ToDLF16( // SIMD version.
+      mlir::Value highF32, mlir::Value lowF32);
+
   void quantizedStick(mlir::Value x, mlir::Value xRecScale, mlir::Value xOffset,
       mlir::Value out, mlir::StringAttr layout, mlir::StringAttr qType) const;
 

@@ -112,10 +112,8 @@ mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
 
 // Return true if layout is supported by compiler code that generate custom
 // stick/unstick code.
-bool supportedLayoutForCompilerGeneratedStickUnstick(
-    mlir::Value val, bool undefinedIsSupported = false);
-bool supportedLayoutForCompilerGeneratedStickUnstick(
-    mlir::StringAttr layout, bool undefinedIsSupported = false);
+bool supportedLayoutForCompilerGeneratedStickUnstick(mlir::Value val);
+bool supportedLayoutForCompilerGeneratedStickUnstick(mlir::StringAttr layout);
 
 } // namespace zhigh
 } // namespace onnx_mlir

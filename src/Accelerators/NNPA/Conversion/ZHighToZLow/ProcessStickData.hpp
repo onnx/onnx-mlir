@@ -19,7 +19,6 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 namespace onnx_mlir {
-
 // By definition of the conversion from dlf16 to f32, vecOfF32Vals should always
 // contain pairs of vectors.
 using ContiguousVectorOfF32IterateBodyFn = std::function<void(

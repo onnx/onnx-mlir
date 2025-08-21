@@ -102,6 +102,23 @@ bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 bool sameRank(mlir::Value tensorOrMemref1, mlir::Value tensorOrMemref2);
 
 //===----------------------------------------------------------------------===//
+// Support for shapes
+
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
+
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v);
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(mlir::Value val);
+bool hasShapeAndRank(mlir::Operation *op);
+
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(mlir::Value val);
+
+//===----------------------------------------------------------------------===//
 // Identity map
 
 // Identity affine map:
@@ -198,20 +215,6 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
-
-/// Test if the value has the specified constant shape
-bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
-
-/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
-/// tensor<1xdtype>.
-bool isScalarConstantTensor(mlir::Value v);
-
-/// Test if 'val' has shape and rank or not.
-bool hasShapeAndRank(mlir::Value val);
-bool hasShapeAndRank(mlir::Operation *op);
-
-/// Test if a value has only one use except ONNXDimOp.
-bool hasOneUseExceptDimOp(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.

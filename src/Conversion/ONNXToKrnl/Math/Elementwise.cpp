@@ -76,10 +76,6 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 // Default VL=0 is used for non SIMD allocation
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment, int64_t VL = 0);
-
-Value allocOrReuse(MemRefBuilder &create, Operation *op,
-    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
     int64_t alignment, int64_t VL) {
 
   int indexToReuse = -1;
@@ -811,8 +807,8 @@ struct ONNXElementwiseUnaryOpLowering
             // Load the remaining (scalar) values.
             for (uint64_t i = 1; i < operands.size(); i++) {
               if (isNoneValue(operands[i])) {
-                args.emplace_back(operands[i]);
                 continue;
+                args.emplace_back(operands[i]);
               }
               assert(isScalarValue(operands[i]) &&
                      "unary expected scalar additional values");
@@ -1203,7 +1199,7 @@ struct ONNXElementwiseVariadicOpLowering
     opFusionHelper.replaceOrEraseONNXOps(alloc);
     return success();
   }
-}; // namespace onnx_mlir
+};
 
 //===----------------------------------------------------------------------===//
 // where op lowering to Krnl dialect.
@@ -1325,10 +1321,16 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableSIMD, bool enableParallel) {
-  patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
+  patterns.insert< // Patterns listed in alphabetical order by operation names.
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXBinarizerOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitShiftOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseAndOp>,
@@ -1344,11 +1346,6 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,

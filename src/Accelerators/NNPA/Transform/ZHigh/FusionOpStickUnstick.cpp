@@ -123,8 +123,7 @@ bool sameLastDimOrStaticBroadcast(
   ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
   if (!refType)
     return false;
-  int64_t innermostShapeOfRef =
-      refType.getShape()[refType.getShape().size() - 1];
+  int64_t innermostShapeOfRef = getShape(refType, -1);
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
     // Same dimension, we are fine.
@@ -135,7 +134,7 @@ bool sameLastDimOrStaticBroadcast(
     ShapedType vType = mlir::dyn_cast<ShapedType>(v.getType());
     if (!vType)
       return false;
-    int64_t innermostShapeOfV = vType.getShape()[vType.getShape().size() - 1];
+    int64_t innermostShapeOfV = getShape(vType, -1);
     if (!ShapedType::isDynamic(innermostShapeOfRef) && innermostShapeOfV == 1)
       continue;
     if (!ShapedType::isDynamic(innermostShapeOfV) && innermostShapeOfRef == 1)
@@ -191,7 +190,8 @@ Operation *patternForFusionFromUnstick(
   if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
     return nullptr;
   // We must support this layout.
-  if (!supportedLayoutForCompilerGeneratedStickUnstick(unstickInVal)) {
+  if (isZTensor(unstickInVal.getType()) &&
+      !supportedLayoutForCompilerGeneratedStickUnstick(unstickInVal)) {
     LLVM_DEBUG(
         explanation(computeOp, unstickOp, "FAILURE due to unstick shape"));
     return nullptr;
@@ -228,7 +228,8 @@ Operation *patternForFusionFromStick(
   if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
     return nullptr;
   // We must support this layout.
-  if (!supportedLayoutForCompilerGeneratedStickUnstick(stickOutVal)) {
+  if (isZTensor(stickOutVal.getType()) &&
+      !supportedLayoutForCompilerGeneratedStickUnstick(stickOutVal)) {
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
