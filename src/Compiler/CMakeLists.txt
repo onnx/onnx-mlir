@@ -74,11 +74,44 @@ add_onnx_mlir_library(OMCompilerDialects
   MLIRIR
   MLIROpenMPToLLVMIRTranslation
   ${dialect_libs}
-  )
+)
+
+add_onnx_mlir_library(OMDisposableGarbageCollector
+ DisposableGarbageCollector.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+)
+
+add_onnx_mlir_library(OMOnnxToMlirPasses
+  OnnxToMlirPasses.cpp
+  
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMHybridTransform
+  OMONNXStandardFuncReturnPass
+  OMONNXSimplifyShapeRelatedOps
+  OMDisposableGarbageCollector
+  MLIRFuncDialect
+)
 
 add_onnx_mlir_library(OMCompilerPasses
   CompilerPasses.cpp
-  DisposableGarbageCollector.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -90,6 +123,7 @@ add_onnx_mlir_library(OMCompilerPasses
 
   LINK_LIBS PUBLIC
   ${OMLibs}
+  OMOnnxToMlirPasses
   OMCompilerOptions
   MLIRAffineTransforms
   MLIRBufferizationPipelines
