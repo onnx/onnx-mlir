@@ -175,7 +175,7 @@ void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 bool compareValueFromElementAttribute(
-    mlir::ElementsAttr& attr1, mlir::ElementsAttr& attr2);
+    mlir::ElementsAttr &attr1, mlir::ElementsAttr &attr2);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 

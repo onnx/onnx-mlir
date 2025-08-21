@@ -316,7 +316,7 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
   return nullptr;
 }
 bool compareValueFromElementAttribute(
-ElementsAttr &attr1, ElementsAttr &attr2) {
+    ElementsAttr &attr1, ElementsAttr &attr2) {
   auto values1 = attr1.getValues<mlir::Attribute>();
   auto values2 = attr2.getValues<mlir::Attribute>();
 
