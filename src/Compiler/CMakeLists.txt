@@ -102,7 +102,7 @@ add_onnx_mlir_library(OMOnnxToMlirPasses
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
-  LINK_LIBS PUBLIC
+  LINK_LIBS PRIVATE
   OMHybridTransform
   OMONNXStandardFuncReturnPass
   OMONNXSimplifyShapeRelatedOps
