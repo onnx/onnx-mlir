@@ -32,6 +32,8 @@
 
 using namespace mlir;
 
+// hi alex: to do, normalization.
+
 // All code specific to generate a specific operation goes here.
 #if 1 // hi alex
 namespace onnx_mlir {
