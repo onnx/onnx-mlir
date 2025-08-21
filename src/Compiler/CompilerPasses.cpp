@@ -33,7 +33,7 @@
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
-#include "src/Compiler/DisposableGarbageCollector.hpp"
+#include "src/Compiler/OnnxToMlirPasses.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
@@ -64,141 +64,6 @@ void configurePasses() {
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, parallelizeOps, optReport == OptReport::Simd,
       !disableSimdOption);
-}
-
-void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
-    bool donotScrubDisposableElementsAttr, OnnxToMlirOptions opts) {
-  // This is a transition from previous static passes to full dynamic passes
-  // Static passes are kept and the dynamic pass is added as IF-THEN
-  // with the static iteration.
-  // The reasons are
-  // 1. The debug flag, --print-ir-after/befor-all, can display IR for each
-  //    static pass, but the dynamic pipeline will be viewed as one. MLIR
-  //    may have solution that I am not aware of yet.
-  // 2. Easy to compare two approaches.
-  // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
-  // this function.
-
-  if (!donotScrubDisposableElementsAttr)
-    pm.addInstrumentation(
-        std::make_unique<DisposableGarbageCollector>(pm.getContext()));
-
-  // Decompose first. Eliminates some unsupported ops without shape inference.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass(
-      /*target=*/"", opts.enableConvTransposeDecompose,
-      opts.enableConvTransposeDecomposeToPhasedConv,
-      opts.enableConvTranspose1dDecomposeToPhasedConv));
-  if (!disableRecomposeOption)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
-  if (enableONNXHybridPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
-        opts.enableConvTransposeDecompose,
-        opts.enableConvTransposeDecomposeToPhasedConv,
-        opts.enableConvTranspose1dDecomposeToPhasedConv));
-    // Convolution Optimization for CPU: enable when there are no accelerators.
-    if (targetCPU && enableConvOptPass) {
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
-          enableSimdDataLayout && !disableSimdOption));
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
-              /*enableQuarkQuantizedOpsLegalization=*/false,
-              opts.enableConvTransposeDecompose,
-              opts.enableConvTransposeDecomposeToPhasedConv,
-              opts.enableConvTranspose1dDecomposeToPhasedConv));
-    }
-  } else {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    // Convolution Optimization for CPU: enable when there are no accelerators.
-    if (targetCPU && enableConvOptPass) {
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
-          enableSimdDataLayout && !disableSimdOption));
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    }
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-    if (onnxOpTransformThreshold > 0) {
-      // Dynamic iterate in ONNXOpTransformPass
-      pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
-          onnxOpTransformReport, targetCPU,
-          enableSimdDataLayout && !disableSimdOption, enableConvOptPass,
-          !disableRecomposeOption));
-    } else {
-      // Statically add extra passes
-      for (int i = 0; i < repeatOnnxTransform; i++) {
-        pm.addPass(mlir::createCanonicalizerPass());
-        pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-        pm.addNestedPass<func::FuncOp>(
-            onnx_mlir::createConstPropONNXToONNXPass());
-      }
-    }
-  }
-
-  // Simplify shape-related ops.
-  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
-      opts.enableQuarkQuantizedLegalization));
-
-  // Pass for removing Dq and Q around data movement in Dq->op->Q Ops chain
-  if (opts.enableRemoveDqQAroundOp)
-    pm.addPass(createQDQAroundOpOptONNXToONNXPass());
-
-  // Pass for removing redundant Dq->Q Ops chain
-  if (opts.enableRemoveDqQOp)
-    pm.addPass(createQDQOptONNXToONNXPass());
-
-  // One more call to ONNX shape inference/canonicalization/... to update
-  // shape if possible.
-  if (enableONNXHybridPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
-        opts.enableConvTransposeDecompose,
-        opts.enableConvTransposeDecomposeToPhasedConv,
-        opts.enableConvTranspose1dDecomposeToPhasedConv));
-  } else {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
-
-  // Replace ONNXReturnOp with func::ReturnOp.
-  pm.addPass(onnx_mlir::createStandardFuncReturnPass());
-
-  // Clean dead code.
-  pm.addPass(mlir::createSymbolDCEPass());
-
-  // Replace every DisposableElementsAttr with DenseElementsAttr.
-  if (!donotScrubDisposableElementsAttr)
-    pm.addPass(createScrubDisposablePass());
-
-  // Set onnx_node_name if it is missing. Keep this pass at the end of this
-  // function and just before instrumentation.
-  pm.addPass(createSetONNXNodeNamePass());
-
-  // Add instrumentation for Onnx Ops
-  // Keep this pass at the end of this function.
-  unsigned instrumentActions = instrumentControlBits;
-  if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
-    instrumentStage = onnx_mlir::InstrumentStages::Onnx;
-    instrumentOps = "onnx.*";
-    // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp
-    // and InstrumentReportTime. Disable the last bit for
-    // InstrumentReportMemory because of its big overhead. Users can
-    // optionally enable the last bit by using
-    // --InstrumentReportMemory option.
-    instrumentActions |= (1 << 3) - 1;
-  }
-  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
-  // Print Signatures of each op at runtime if enabled. Should not run
-  // signature and instrument passes at the same time as time may include printf
-  // overheads.
-  if (instrumentSignatures != "NONE" || instrumentOnnxNode != "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
-        instrumentSignatures, instrumentOnnxNode));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -363,6 +228,21 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
         enableConvTransposeDecomposeToPhasedConv;
     opts.enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
+    opts.disableRecomposeOption = disableRecomposeOption;
+    opts.enableONNXHybridPass = enableONNXHybridPass;
+    opts.enableConvOptPass = enableConvOptPass;
+    opts.enableSimdDataLayout = enableSimdDataLayout;
+    opts.disableSimdOption = disableSimdOption;
+    opts.onnxOpTransformThreshold = onnxOpTransformThreshold;
+    opts.onnxOpTransformReport = onnxOpTransformReport;
+    opts.repeatOnnxTransform = repeatOnnxTransform;
+    opts.instrumentControlBits = instrumentControlBits;
+    opts.instrumentOps = instrumentOps;
+    opts.instrumentSignatures = instrumentSignatures;
+    opts.instrumentOnnxNode = instrumentOnnxNode;
+    opts.profileIR = profileIR;
+    opts.instrumentStage = instrumentStage;
+
     addONNXToMLIRPasses(pm, /*target CPU*/ false,
         /*donotScrubDisposableElementsAttr=*/false, opts);
   }
