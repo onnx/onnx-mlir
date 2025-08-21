@@ -16,6 +16,7 @@
 #define ONNX_MLIR_COMPILER_OPTIONS_H
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerOptionEnums.hpp"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -33,16 +34,6 @@
 extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {
-
-typedef enum {
-  // clang-format off
-  None,
-  Onnx
-  APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_ENUM)
-  // clang-format on
-} InstrumentStages;
-
-using ProfileIRs = InstrumentStages;
 
 typedef enum {
   // clang-format off
