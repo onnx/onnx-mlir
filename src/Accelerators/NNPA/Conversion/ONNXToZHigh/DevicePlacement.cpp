@@ -250,10 +250,11 @@ void DevicePlacementPass::loadConfigFromJSONFile() {
     llvm::json::Object *vobj = v.getAsObject();
     StringRef device = vobj->getString(DEVICE_KEY).value();
     StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
-    StringRef nodeName = vobj->getString(ONNX_NODE_NAME_KEY).value();
+    std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
     LLVM_DEBUG(llvm::dbgs()
                << "device: " << device.str() << ", nodeType: " << nodeType.str()
-               << ", nodeName: " << nodeName.str() << "\n");
+               << ", nodeName: "
+               << (nodeName.has_value() ? nodeName.value().str() : "") << "\n");
     OpSetType updatedOps;
     for (Operation *op : workingOps) {
       StringRef opNodeType = op->getName().getStringRef();
@@ -262,7 +263,8 @@ void DevicePlacementPass::loadConfigFromJSONFile() {
       // Match operation.
       if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
         continue;
-      if (!std::regex_match(opNodeName.str(), std::regex(nodeName.str())))
+      if (nodeName.has_value() && !std::regex_match(opNodeName.str(),
+                                      std::regex(nodeName.value().str())))
         continue;
       // Set device.
       op->setAttr(

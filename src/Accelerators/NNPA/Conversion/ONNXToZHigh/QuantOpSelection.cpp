@@ -80,7 +80,8 @@ private:
   SmallVector<Operation *, 32> ops;
 
   // JSON keys.
-  std::string QUANTIZATION_KEY = "quantization_ops";
+  std::string QUANTIZATION_KEY = "quantization";
+  std::string QUANTIZE_KEY = "quantize";
   std::string NODE_TYPE_KEY = "node_type";
   std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
 
@@ -100,10 +101,12 @@ private:
   // {
   //   "quantization_ops": [
   //     {
+  //       "quantize": true
   //       "node_type": "onnx.Relu",
   //       "onnx_node_name": "Relu_[1,2]"
   //     },
   //     {
+  //       "quantize": false
   //       "node_type": "onnx.Sigmoid",
   //       "onnx_node_name": ".*"
   //     }
@@ -157,8 +160,13 @@ void QuantOpSelectionPass::loadConfigFromJSONFile() {
   // Go over operations in the JSON and find matched operation in the IR.
   for (llvm::json::Value v : *jsonArr) {
     llvm::json::Object *vobj = v.getAsObject();
+    bool quantize = vobj->getBoolean(QUANTIZE_KEY).value();
     StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
     std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
+    LLVM_DEBUG(llvm::dbgs()
+               << "quantize: " << quantize << ", nodeType: " << nodeType.str()
+               << ", nodeName: "
+               << (nodeName.has_value() ? nodeName.value().str() : "") << "\n");
     OpSetType updatedOps;
     for (Operation *op : workingOps) {
       StringRef opNodeType = op->getName().getStringRef();
@@ -171,7 +179,8 @@ void QuantOpSelectionPass::loadConfigFromJSONFile() {
                                       std::regex(nodeName.value().str())))
         continue;
       // Set quantization.
-      op->setAttr(QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), true));
+      op->setAttr(
+          QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), quantize));
       updatedOps.insert(op);
     }
     // To reduce complexity, once an operation is assigned the quantize
@@ -185,8 +194,7 @@ void QuantOpSelectionPass::saveConfigToJSONFile() {
   llvm::json::Array jsonArr;
   for (Operation *op : ops) {
     BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
-    bool shouldQuant = attr ? attr.getValue() : false;
-    if (!shouldQuant)
+    if (!attr)
       continue;
     // Create a JSON object for this operation.
     std::string nodeTypeStr = op->getName().getStringRef().str();
@@ -197,6 +205,7 @@ void QuantOpSelectionPass::saveConfigToJSONFile() {
                   .str()
             : "";
     llvm::json::Value jsonObj = llvm::json::Object{
+        {QUANTIZE_KEY, attr.getValue()},
         {NODE_TYPE_KEY, nodeTypeStr},
         {ONNX_NODE_NAME_KEY, nodeNameStr},
     };
