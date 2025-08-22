@@ -245,13 +245,12 @@ void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
 
 void storeVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
     IndexExpr stickOffset, IndexExpr l, int64_t u, bool isStick, Value high,
-    Value low, Value saturationMin, Value saturationMax) {
+    Value low, bool disableSaturation) {
   // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
   int64_t archVL = 8;
   IndexExpr offset = l + (archVL * u);
   if (isStick) {
-    Value dlf16 =
-        create.zlow.convertF32ToDLF16(high, low, saturationMin, saturationMax);
+    Value dlf16 = create.zlow.convertF32ToDLF16(high, low, disableSaturation);
     DimsExpr accessFct = {DimIE(stickOffset), offset};
     create.vec.storeIE(dlf16, memref, accessFct);
   } else {
@@ -267,8 +266,7 @@ void loadComputeStoreSimd(MDBuilder &create,
     DimsExpr &ioStickOffsets, IndexExpr l, int64_t u, BitVector &ioIsBroadcast,
     BitVector &ioIsStick, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
     mlir::SmallVector<Value, 4> &inputHigh,
-    mlir::SmallVector<Value, 4> &inputLow, Value saturationMin,
-    Value saturationMax) {
+    mlir::SmallVector<Value, 4> &inputLow, bool disableSaturation) {
   // Load inputs to instantiate inputHigh and inputLow (except for broadcast).
   int64_t i, ioNum = ioMemRef.size();
   for (i = 0; i < ioNum - 1; ++i) {
@@ -281,7 +279,7 @@ void loadComputeStoreSimd(MDBuilder &create,
   Value outputLow = processVectorOfF32Vals(create.krnl, inputLow);
   // Store results (i now point to the result in the io lists).
   storeVector(create, ioMemRef[i], loopIndices, ioStickOffsets[i], l, u,
-      ioIsStick[i], outputHigh, outputLow, saturationMin, saturationMax);
+      ioIsStick[i], outputHigh, outputLow, disableSaturation);
 }
 
 void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
@@ -385,10 +383,6 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   int64_t ioOutputId = inputNum;
   assert(!ioIsBroadcast[ioOutputId] && "expect no broadcasted output");
 
-  Value saturationMin, saturationMax;
-  if (!disableSaturation)
-    create.zlow.initializeDLF16MinMax(saturationMin, saturationMax);
-
   // Iterates over sticks.
   llvm::SmallVector<int64_t, 4> steps(rank, 1);
   llvm::SmallVector<bool, 4> useParallel(rank, false);
@@ -484,7 +478,7 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                       loadComputeStoreSimd(create, ioMemRef, innerIndices,
                           ioStickOffsets, l, u, ioIsBroadcast, ioIsStick,
                           processVectorOfF32Vals, inputHigh, inputLow,
-                          saturationMin, saturationMax);
+                          disableSaturation);
                     }
                   });
             },
@@ -513,7 +507,7 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                       loadComputeStoreSimd(create, ioMemRef, innerIndices,
                           ioStickOffsets, l, 0, ioIsBroadcast, ioIsStick,
                           processVectorOfF32Vals, inputHigh, inputLow,
-                          saturationMin, saturationMax);
+                          disableSaturation);
                     });
               }
               if (!hasOnly8) {

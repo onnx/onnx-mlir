@@ -52,18 +52,12 @@ struct ZLowBuilder : public DialectBuilder {
       mlir::IntegerAttr noSaturation) const;
 
   // Conversion to/from DLF16.
-  // Initialize the min/max dlf16 values as f32 for saturation control.
-  // Conversion from f32 to dlf16 will use saturation when the provided min/max
-  // are not nullptrs.
-  void initializeDLF16MinMax(
-      mlir::Value &minInF32, mlir::Value &maxInF32, int64_t VL = 4);
   mlir::Value convertDLF16ToF32(mlir::Value dlf16); // Scalar version.
   void convertDLF16ToF32(                           // SIMD version.
       mlir::Value dlf16, mlir::Value &highF32, mlir::Value &lowF32);
   mlir::Value convertF32ToDLF16(mlir::Value f32); // Scalar version.
   mlir::Value convertF32ToDLF16(                  // SIMD version.
-      mlir::Value highF32, mlir::Value lowF32, mlir::Value minInF32 = nullptr,
-      mlir::Value maxInF32 = nullptr);
+      mlir::Value highF32, mlir::Value lowF32, bool disableSaturation = false);
 
   void quantizedStick(mlir::Value x, mlir::Value xRecScale, mlir::Value xOffset,
       mlir::Value out, mlir::StringAttr layout, mlir::StringAttr qType) const;

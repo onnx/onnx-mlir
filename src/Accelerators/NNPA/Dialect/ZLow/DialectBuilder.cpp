@@ -32,20 +32,6 @@ void ZLowBuilder::stick(
   b().create<zlow::ZLowStickOp>(loc(), x, out, layout, noSaturation);
 }
 
-// Init separate from saturation, so that it may be defined out of loops.
-void ZLowBuilder::initializeDLF16MinMax(
-    Value &minInF32, Value &maxInF32, int64_t VL) {
-  MultiDialectBuilder<MathBuilder, VectorBuilder> create(*this);
-  Type f32Type = b().getF32Type();
-  minInF32 = create.math.constant(f32Type, DLF16_MIN);
-  maxInF32 = create.math.constant(f32Type, DLF16_MAX);
-  if (VL > 1) {
-    VectorType vecF32Type = VectorType::get({VL}, f32Type);
-    minInF32 = create.vec.splat(vecF32Type, minInF32);
-    maxInF32 = create.vec.splat(vecF32Type, maxInF32);
-  }
-}
-
 void ZLowBuilder::convertDLF16ToF32(
     Value dlf16, Value &highF32, Value &lowF32) {
   assert(mlir::dyn_cast<VectorType>(dlf16.getType()) && "expect vector");
@@ -61,18 +47,19 @@ Value ZLowBuilder::convertDLF16ToF32(Value dlf16) {
 }
 
 Value ZLowBuilder::convertF32ToDLF16(
-    Value highF32, Value lowF32, Value minInF32, Value maxInF32) {
+    Value highF32, Value lowF32, bool disableSaturation) {
   assert(mlir::dyn_cast<VectorType>(highF32.getType()) && "expect vector");
   assert(mlir::dyn_cast<VectorType>(lowF32.getType()) && "expect vector");
-  if (minInF32 && maxInF32) {
+  if (!disableSaturation) {
     // Saturation is requested
     MultiDialectBuilder<MathBuilder> create(*this);
+    Type f32Type = b().getF32Type();
+    Value minInF32 = create.math.constant(f32Type, DLF16_MIN);
+    Value maxInF32 = create.math.constant(f32Type, DLF16_MAX);
     highF32 = create.math.min(highF32, maxInF32);
     lowF32 = create.math.min(lowF32, maxInF32);
     highF32 = create.math.max(highF32, minInF32);
     lowF32 = create.math.max(lowF32, minInF32);
-  } else {
-    assert(!minInF32 && !maxInF32 && "expected both defined or undefined");
   }
   return b().create<zlow::ZLowConvertF32ToDLF16VectorOp>(
       loc(), highF32, lowF32);
