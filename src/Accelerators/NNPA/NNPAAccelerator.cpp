@@ -196,7 +196,7 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
       enableParallel);
   onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
-      patterns, typeConverter, ctx, enableParallel);
+      patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(

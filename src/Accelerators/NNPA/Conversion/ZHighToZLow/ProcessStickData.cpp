@@ -245,12 +245,13 @@ void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
 
 void storeVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
     IndexExpr stickOffset, IndexExpr l, int64_t u, bool isStick, Value high,
-    Value low) {
+    Value low, Value saturationMin, Value saturationMax) {
   // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
   int64_t archVL = 8;
   IndexExpr offset = l + (archVL * u);
   if (isStick) {
-    Value dlf16 = create.zlow.convertF32ToDLF16(high, low);
+    Value dlf16 =
+        create.zlow.convertF32ToDLF16(high, low, saturationMin, saturationMax);
     DimsExpr accessFct = {DimIE(stickOffset), offset};
     create.vec.storeIE(dlf16, memref, accessFct);
   } else {
@@ -266,7 +267,8 @@ void loadComputeStoreSimd(MDBuilder &create,
     DimsExpr &ioStickOffsets, IndexExpr l, int64_t u, BitVector &ioIsBroadcast,
     BitVector &ioIsStick, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
     mlir::SmallVector<Value, 4> &inputHigh,
-    mlir::SmallVector<Value, 4> &inputLow) {
+    mlir::SmallVector<Value, 4> &inputLow, Value saturationMin,
+    Value saturationMax) {
   // Load inputs to instantiate inputHigh and inputLow (except for broadcast).
   int64_t i, ioNum = ioMemRef.size();
   for (i = 0; i < ioNum - 1; ++i) {
@@ -279,13 +281,13 @@ void loadComputeStoreSimd(MDBuilder &create,
   Value outputLow = processVectorOfF32Vals(create.krnl, inputLow);
   // Store results (i now point to the result in the io lists).
   storeVector(create, ioMemRef[i], loopIndices, ioStickOffsets[i], l, u,
-      ioIsStick[i], outputHigh, outputLow);
+      ioIsStick[i], outputHigh, outputLow, saturationMin, saturationMax);
 }
 
 void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
-    int64_t unrollVL, bool enableParallel, bool enablePrefetch,
-    MultiValuesOfF32IterateBodyFn processVectorOfF32Vals) {
+    int64_t unrollVL, bool enableParallel, bool disableSaturation,
+    bool enablePrefetch, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals) {
   // Init builder and scopes.
   MDBuilder create(b);
   // IndexExprScope initialScope(b);
@@ -383,6 +385,10 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   int64_t ioOutputId = inputNum;
   assert(!ioIsBroadcast[ioOutputId] && "expect no broadcasted output");
 
+  Value saturationMin, saturationMax;
+  if (!disableSaturation)
+    create.zlow.initializeDLF16MinMax(saturationMin, saturationMax);
+
   // Iterates over sticks.
   llvm::SmallVector<int64_t, 4> steps(rank, 1);
   llvm::SmallVector<bool, 4> useParallel(rank, false);
@@ -477,7 +483,8 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                     for (int64_t u = 0; u < unrollVL; ++u) {
                       loadComputeStoreSimd(create, ioMemRef, innerIndices,
                           ioStickOffsets, l, u, ioIsBroadcast, ioIsStick,
-                          processVectorOfF32Vals, inputHigh, inputLow);
+                          processVectorOfF32Vals, inputHigh, inputLow,
+                          saturationMin, saturationMax);
                     }
                   });
             },
@@ -505,7 +512,8 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                       DimsExpr innerIndices = DimListIE(outerIndices);
                       loadComputeStoreSimd(create, ioMemRef, innerIndices,
                           ioStickOffsets, l, 0, ioIsBroadcast, ioIsStick,
-                          processVectorOfF32Vals, inputHigh, inputLow);
+                          processVectorOfF32Vals, inputHigh, inputLow,
+                          saturationMin, saturationMax);
                     });
               }
               if (!hasOnly8) {
@@ -580,11 +588,13 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     : public OpConversionPattern<ElementwiseOp> {
   using OpAdaptor = typename ElementwiseOp::Adaptor;
   bool enableParallel = false;
+  bool disableSaturation = false;
 
-  ONNXElementwiseOpLoweringWithNNPALayout(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXElementwiseOpLoweringWithNNPALayout(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
       : OpConversionPattern<ElementwiseOp>(
-            typeConverter, ctx, PatternBenefit(10)) {
+            typeConverter, ctx, PatternBenefit(10)),
+        disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -649,7 +659,8 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
               inputOfF32Vals[0].getType(), inputOfF32Vals);
         };
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
-        shapeHelper.getOutputDims(), 2, enableParallel, true /*prefetch*/, fct);
+        shapeHelper.getOutputDims(), 2, enableParallel, disableSaturation,
+        true /*prefetch*/, fct);
 
     // replace op.
     rewriter.replaceOp(op, alloc);
@@ -661,11 +672,11 @@ namespace zhigh {
 
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    bool enableParallel) {
+    bool enableParallel, bool disableSaturation) {
   patterns.insert< // Pattern listed in alphabetical oder by operation name.
       ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXAddOp>,
       ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXMulOp>>(
-      typeConverter, ctx, enableParallel);
+      typeConverter, ctx, enableParallel, disableSaturation);
 }
 
 } // namespace zhigh

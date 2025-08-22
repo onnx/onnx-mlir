@@ -62,7 +62,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
 /// Populate conversions for elementwise with NNPA layout patterns.
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
-    mlir::MLIRContext *ctx, bool enableParallel);
+    mlir::MLIRContext *ctx, bool enableParallel, bool disableSaturation);
 
 } // namespace zhigh
 } // namespace onnx_mlir
