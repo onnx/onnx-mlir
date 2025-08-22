@@ -356,18 +356,22 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   }
   ioOriginalOper.emplace_back(op->getResult(0));
   ioMemRef.emplace_back(alloc);
+  int64_t innermostOutputShape = getShape(op->getResult(0).getType(), -1);
   // Iterate over all inputs and the one output.
   for (int io = 0; io < ioNum; ++io) {
     Value originalVal = ioOriginalOper[io];
     Value val = ioMemRef[io];
     Type originalType = originalVal.getType();
     int64_t innermostShape = getShape(originalType, -1);
-    int64_t innermostOutputShape = getShape(originalType, -1);
     ioIsBroadcast[io] = (innermostShape == 1 && innermostOutputShape != 1);
     ioIsStick[io] = zhigh::isZTensor(originalType);
-    fprintf(stderr, "hi alex oper %d: is broadcast %d, is io stick %d\n  ",
-        (int)io, (int)ioIsBroadcast[io], (int)ioIsStick[io]);
+    fprintf(stderr,
+        "hi alex oper %d: is broadcast %d, is io stick %d, inner shape %d, "
+        "output inner shape %d\n  ",
+        (int)io, (int)ioIsBroadcast[io], (int)ioIsStick[io],
+        (int)innermostShape, (int)innermostOutputShape);
     originalVal.dump();
+    fprintf(stderr, "  ");
     val.dump();
     if (ioIsStick[io] && !ioIsBroadcast[io]) {
       // Replace the ioMemRef with the flattened [2, 64] view.
