@@ -1668,10 +1668,7 @@ namespace {
   if (!elementsAttr.isSplat()) {
     return false;
   }
-  if (!elementsAttr.template getSplatValue<APFloat>().isZero()) {
-    return false;
-  }
-  return true;
+  return elementsAttr.template getSplatValue<APFloat>().isZero();
 }
 
 template <typename LN_TYPE, typename MATCH_OP_TYPE,
@@ -1687,9 +1684,9 @@ struct PropagateBiasOrScaleIntoLayerNormRewritePatternBase
   [[nodiscard]] virtual bool doExisitingScaleAndBiasAllowFusion(
       LN_TYPE lnOp) const = 0;
 
-  LogicalResult verifyAndCalculateNewReshapeShapes(Operation *reshapeOp,
-      MATCH_OP_TYPE matchOp, PatternRewriter &rewriter, Value scaleOrBias,
-      SmallVectorImpl<int64_t> &newScaleOrBiasShape) const {
+  FailureOr<SmallVector<int64_t>> verifyAndCalculateNewReshapeShapes(
+      Operation *reshapeOp, MATCH_OP_TYPE matchOp, PatternRewriter &rewriter,
+      Value scaleOrBias) const {
     // if we have a reshape, check that the add/mul is not changing the shape
     // by broadcasting
     auto reshapeResultType =
@@ -1770,11 +1767,11 @@ struct PropagateBiasOrScaleIntoLayerNormRewritePatternBase
             matchOp, "bias/scale shape is not compatible with reshape input");
       }
     }
-
+    SmallVector<int64_t> newScaleOrBiasShape;
     newScaleOrBiasShape.push_back(reshapeInShape[reshapeInComputationDim]);
     newScaleOrBiasShape.append(
         reshapeInShape.size() - reshapeInComputationDim - 1, 1);
-    return success();
+    return newScaleOrBiasShape;
   }
 
   LogicalResult matchAndRewrite(
@@ -1827,10 +1824,12 @@ struct PropagateBiasOrScaleIntoLayerNormRewritePatternBase
           lnOp, "existing scale and bias do not allow fusion");
 
     if (reshapeOp) {
-      if (failed(verifyAndCalculateNewReshapeShapes(reshapeOp, matchOp,
-              rewriter, scaleOrBias, newScaleOrBiasShape))) {
+      auto newShape = verifyAndCalculateNewReshapeShapes(
+          reshapeOp, matchOp, rewriter, scaleOrBias);
+      if (failed(newShape)) {
         return failure();
       }
+      newScaleOrBiasShape = std::move(*newShape);
     }
 
     // Norms only support unidirectional broadcasting to x
@@ -1888,10 +1887,7 @@ struct PropagateScaleIntoLayerNormPattern
     if (!elementsAttr.isSplat()) {
       return false;
     }
-    if (!elementsAttr.template getSplatValue<APFloat>().isExactlyValue(1.0)) {
-      return false;
-    }
-    return true;
+    return elementsAttr.template getSplatValue<APFloat>().isExactlyValue(1.0);
   }
 };
 
