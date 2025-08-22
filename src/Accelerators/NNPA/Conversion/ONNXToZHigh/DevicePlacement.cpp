@@ -298,17 +298,8 @@ void DevicePlacementPass::saveConfigToJSONFile() {
     };
     jsonArr.emplace_back(jsonObj);
   }
-  llvm::json::Object jsonContent{
-      {DEVICE_PLACEMENT_KEY, llvm::json::Value(std::move(jsonArr))}};
-
-  // Exporting the JSON object to a file.
-  std::error_code EC;
-  llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
-  if (EC)
-    report_fatal_error(
-        "Error saving device placement json file : " + StringRef(EC.message()));
-  jsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
-  jsonOS.close();
+  addOrAppendJSonObjectToFile(DEVICE_PLACEMENT_KEY,
+      llvm::json::Value(std::move(jsonArr)), saveConfigFile);
 }
 
 } // namespace

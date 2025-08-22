@@ -109,14 +109,12 @@ private:
   // JSON file example:
   // ```json
   // {
-  //   "device_placement": [
+  //   "quantization_ops": [
   //     {
-  //       "device": "cpu",
   //       "node_type": "onnx.Relu",
   //       "onnx_node_name": "Relu_[1,2]"
   //     },
   //     {
-  //       "device": "nnpa",
   //       "node_type": "onnx.Sigmoid",
   //       "onnx_node_name": ".*"
   //     }
@@ -166,9 +164,7 @@ void QuantOpSelectionPass::loadConfigFromJSONFile() {
   for (llvm::json::Value v : *jsonArr) {
     llvm::json::Object *vobj = v.getAsObject();
     StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
-    StringRef nodeName = vobj->getString(ONNX_NODE_NAME_KEY).value();
-    LLVM_DEBUG(llvm::dbgs() << "[Quantization] nodeType: " << nodeType.str()
-                            << ", nodeName: " << nodeName.str() << "\n");
+    std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
     OpSetType updatedOps;
     for (Operation *op : workingOps) {
       StringRef opNodeType = op->getName().getStringRef();
@@ -177,7 +173,8 @@ void QuantOpSelectionPass::loadConfigFromJSONFile() {
       // Match operation.
       if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
         continue;
-      if (!std::regex_match(opNodeName.str(), std::regex(nodeName.str())))
+      if (nodeName.has_value() && !std::regex_match(opNodeName.str(),
+                                      std::regex(nodeName.value().str())))
         continue;
       // Set quantization.
       op->setAttr(QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), true));
@@ -193,10 +190,8 @@ void QuantOpSelectionPass::saveConfigToJSONFile() {
   // Parsing the module to JSON object.
   llvm::json::Array jsonArr;
   for (Operation *op : ops) {
-    bool shouldQuant =
-        op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE)
-            ? op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE).getValue()
-            : false;
+    BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+    bool shouldQuant = attr ? attr.getValue() : false;
     if (!shouldQuant)
       continue;
     // Create a JSON object for this operation.
@@ -213,18 +208,8 @@ void QuantOpSelectionPass::saveConfigToJSONFile() {
     };
     jsonArr.emplace_back(jsonObj);
   }
-  llvm::json::Object jsonContent{
-      {QUANTIZATION_KEY, llvm::json::Value(std::move(jsonArr))}};
-
-  // Exporting the JSON object to a file.
-  std::error_code EC;
-  llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
-  if (EC)
-    report_fatal_error(
-        "Error saving quantization op selection to a json file : " +
-        StringRef(EC.message()));
-  jsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
-  jsonOS.close();
+  addOrAppendJSonObjectToFile(
+      QUANTIZATION_KEY, llvm::json::Value(std::move(jsonArr)), saveConfigFile);
 }
 
 } // namespace
