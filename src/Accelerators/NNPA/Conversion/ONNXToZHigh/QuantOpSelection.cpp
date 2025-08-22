@@ -8,19 +8,8 @@
 //
 // =============================================================================
 //
-// This pass is to set device (CPU, or NNPA) for each operation in ONNX level.
-// Device placement can be decided by:
-// - user configuration file if given
-// - a cost model
-//
-// Device placement is done via setting `device` attribute for each operation.
-// Values for `device` attribute is one of the following strings:
-// - "": an empty string means the compiler decides whether the operation is on
-// CPU or NNPA.
-// - "nnpa": the operation may run on NNPA or CPU, and the final decision is
-// made by the compiler. If `device=nnpa` is the result of this device-placement
-// pass, then it means the compiler thinks it is suitable for NNPA.
-// - "cpu": the operation is guaranteed to run on CPU.
+// This pass is to add a boolean attribute, namely `quantize`, to onnx
+// operations based on a json configuration file.
 //
 //===----------------------------------------------------------------------===//
 
@@ -95,7 +84,7 @@ private:
   std::string NODE_TYPE_KEY = "node_type";
   std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
 
-  // Exclude these operations from device placement.
+  // Exclude these operations from quantization.
   bool isExcludedOp(Operation *op) {
     if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
       return true;
@@ -140,8 +129,13 @@ void QuantOpSelectionPass::runOnOperation() {
   if (!loadConfigFile.empty())
     loadConfigFromJSONFile();
 
-  // TODO: Before saving the configuration, we need to know which ops are
-  // quantized by using applyAnalysisConversion. How to do that?
+  // TODO: Before saving the configuration, we need to know all ops that are
+  // quantized by the compiler (for example, there is no quantization info in
+  // the loading config file, but the compiler decides to quantize some ops).
+  // How to obtain such info from the compiler's decision?
+  //
+  // Currently, only quantization info for ops in the loading config file are
+  // saved.
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty())
@@ -180,8 +174,8 @@ void QuantOpSelectionPass::loadConfigFromJSONFile() {
       op->setAttr(QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), true));
       updatedOps.insert(op);
     }
-    // To reduce complexity, once an operation is assigned a device, we remove
-    // it from the set workingOps.
+    // To reduce complexity, once an operation is assigned the quantize
+    // attribute, we remove it from the set workingOps.
     workingOps = llvm::set_difference(workingOps, updatedOps);
   }
 }
