@@ -302,8 +302,11 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   int64_t totVL = archVL * unrollVL;
   int64_t stickLen = 64;
   assert(stickLen % totVL == 0 && "bad unrollVL factor");
-  mlir::Type f32Type = b.getBuilder().getF32Type();
-  mlir::MemRefType bufferF32Type = mlir::MemRefType::get({archVL}, f32Type);
+  Type f16Type = b.getBuilder().getF16Type();
+  VectorType f16VecType = VectorType::get({archVL}, f16Type);
+  Type f32Type = b.getBuilder().getF32Type();
+  VectorType f32VecType = VectorType::get({archVLHalf}, f32Type);
+  MemRefType bufferF32Type = mlir::MemRefType::get({archVL}, f32Type);
 
   // Useful constants.
   IndexExpr litZero = LitIE(0);
@@ -347,20 +350,22 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   //   o otherwise: just the original operand memref.
   int64_t ioNum = inputNum + 1;
   mlir::BitVector ioIsStick(ioNum, false), ioIsBroadcast(ioNum, false);
-  mlir::SmallVector<Value, 4> ioOriginalOper; // Before type conversions.
-  mlir::SmallVector<Value, 4> ioMemRef;       // Modified by conversion.
+  mlir::SmallVector<Value, 4> ioOriginalOper;   // Before type conversions.
+  mlir::SmallVector<Value, 4> ioOriginalMemRef; // Modified by conversion.
+  mlir::SmallVector<Value, 4> ioMemRef; // Modified & possibly reinterpreted.
   // Fill in ioMemRef with default values (original operands/result)
   for (int io = 0; io < inputNum; ++io) {
     ioOriginalOper.emplace_back(op->getOperand(io));
-    ioMemRef.emplace_back(operands[io]);
+    ioOriginalMemRef.emplace_back(operands[io]);
   }
   ioOriginalOper.emplace_back(op->getResult(0));
-  ioMemRef.emplace_back(alloc);
+  ioOriginalMemRef.emplace_back(alloc);
   int64_t innermostOutputShape = getShape(op->getResult(0).getType(), -1);
   // Iterate over all inputs and the one output.
+  ioMemRef = ioOriginalMemRef; // Initially the two are the same.
   for (int io = 0; io < ioNum; ++io) {
     Value originalVal = ioOriginalOper[io];
-    Value val = ioMemRef[io];
+    Value originalMemRef = ioOriginalMemRef[io];
     Type originalType = originalVal.getType();
     int64_t innermostShape = getShape(originalType, -1);
     ioIsBroadcast[io] = (innermostShape == 1 && innermostOutputShape != 1);
@@ -372,15 +377,17 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
         (int)innermostShape, (int)innermostOutputShape);
     originalVal.dump();
     fprintf(stderr, "  ");
-    val.dump();
+    originalMemRef.dump();
     if (ioIsStick[io] && !ioIsBroadcast[io]) {
-      // Replace the ioMemRef with the flattened [2, 64] view.
+      // Set in ioMemRef the flattened [2, 64] view.
       assert(
           zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal) &&
           "unsupported layout");
       DimsExpr castShape = {lit2, litStickLen};
-      ioMemRef[io] = create.mem.reinterpretCast(val, castShape);
-      fprintf(stderr, "  hi alex: remapped\n.  ");
+      ioMemRef[io] = create.mem.reinterpretCast(originalMemRef, castShape);
+      fprintf(stderr, "  hi alex: original and remapped\n  ");
+      originalMemRef.dump();
+      fprintf(stderr, "  ");
       ioMemRef[io].dump();
     }
   }
@@ -421,26 +428,35 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
         SmallVector<Value, 4> inputLow(inputNum, nullptr);
         // Iterate over all input and the output.
         for (int64_t io = 0; io < ioNum; io++) {
-          Value memref = ioMemRef[io];
           if (ioIsBroadcast[io]) {
             // Broadcast of stick/scalar: load scalar value. No need to splat.
             // Note that while the innermost dim e1 maybe large, to broadcast,
             // we must have the innermost shape being 1, and thus
             // computeAccessFct will force that innermost access function to 0.
+            Value memref = ioMemRef[io];
             DimsExpr accessFct =
                 computeAccessFct(memref, outerIndices, litZero);
             Value scalar = create.krnl.loadIE(memref, accessFct);
-            if (ioIsStick[io])
-              scalar = create.zlow.convertDLF16ToF32(scalar);
-            inputHigh[io] = inputLow[io] = scalar;
+            // Better to splat now; and if stick, conversion is more efficient,
+            Value vector; // Vector of ArchVLHalf f32. 
+            if (ioIsStick[io]) {
+              Value vecF16 = create.vec.splat(f16VecType, scalar);
+              Value vecHigh, vecLow;
+              create.zlow.convertDLF16ToF32(vecF16, vecHigh, vecLow);
+              vector = vecHigh; // Since splatted, low and high are the same.
+            } else {
+              vector = create.vec.splat(f32VecType, scalar);
+            }
+            inputHigh[io] = inputLow[io] = vector;
           } else if (ioIsStick[io]) {
             // Stick data that is not broadcasted: need SIMD support.
             // Translate the tile index to the stick offset. Have to
             // give the actual indices, not the tiled ones.
+            Value originalMemRef = ioOriginalMemRef[io];
             DimsExpr accessFct =
-                computeAccessFct(memref, outerIndices, litZero);
+                computeAccessFct(originalMemRef, outerIndices, litZero);
             Value offset =
-                create.krnl.getLinearOffsetIndexIE(memref, accessFct);
+                create.krnl.getLinearOffsetIndexIE(originalMemRef, accessFct);
             ioStickOffsets[io] = DimIE(offset).floorDiv(litStickLen);
             // Buffer for small leftovers to store SIMD values (8).
             if (!hasOnly8) {
