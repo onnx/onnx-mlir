@@ -17,6 +17,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
 
+#include "mlir/IR/BuiltinTypes.h"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
@@ -313,6 +314,25 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
   if (constantOp && constantOp.getValueAttr())
     return mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   return nullptr;
+}
+
+// compare two ElementsAttr, except for their internal buffer size
+bool compareValueFromElementAttribute(
+    ElementsAttr &attr1, ElementsAttr &attr2) {
+  if (attr1.getType() != attr2.getType()) {
+    return false;
+  }
+  if (attr1.getNumElements() != attr2.getNumElements()) {
+    return false;
+  }
+  auto it1 = attr1.getValues<mlir::Attribute>().begin();
+  auto it2 = attr2.getValues<mlir::Attribute>().begin();
+  for (; it1 != attr1.getValues<mlir::Attribute>().end(); ++it1, ++it2) {
+    if (*it1 != *it2) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Returns the ConstantOp which defines an MLIR Value or null.
@@ -852,6 +872,54 @@ bool isIdentityReshape(
   Value inputTensor = reshapeOp.getData();
   Value outputTensor = reshapeOp.getReshaped();
   return isIdentityReshape(inputTensor, outputTensor, dimAnalysis);
+}
+
+bool isDequantQuantSame(
+    mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp) {
+
+  // 1. Check Attributes
+  if (qOp.getAxis() != dqOp.getAxis())
+    return false;
+  if (qOp.getBlockSize() != dqOp.getBlockSize())
+    return false;
+
+  // 2. Check zero-points
+  auto zpAttr1 = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
+  auto zpAttr2 = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
+  if (!zpAttr1 || !zpAttr2)
+    return false;
+
+  if (!compareValueFromElementAttribute(zpAttr1, zpAttr2)) {
+    return false;
+  }
+  // 3. Check Scales.
+  auto scaleAttr1 = getElementAttributeFromONNXValue(dqOp.getXScale());
+  auto scaleAttr2 = getElementAttributeFromONNXValue(qOp.getYScale());
+  if (!scaleAttr1 || !scaleAttr2)
+    return false;
+
+  if (!compareValueFromElementAttribute(scaleAttr1, scaleAttr2)) {
+    return false;
+  }
+
+  // 4. Check data type consistency of the entire DQ->Q chain.
+  // The original quantized type before DQ must match the final quantized
+  // type after Q.
+  auto dqInTypeOp = dqOp.getX().getType();
+  auto qOutTypeOp = qOp.getResult().getType();
+
+  if (auto dqInTensorType = mlir::dyn_cast<TensorType>(dqInTypeOp)) {
+    if (auto qOutTensorType = mlir::dyn_cast<TensorType>(qOutTypeOp)) {
+      if (qOutTensorType.getElementType() != dqInTensorType.getElementType()) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//

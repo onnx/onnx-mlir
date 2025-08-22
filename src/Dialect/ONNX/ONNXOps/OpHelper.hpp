@@ -174,6 +174,9 @@ void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
+bool compareValueFromElementAttribute(
+    mlir::ElementsAttr &attr1, mlir::ElementsAttr &attr2);
+
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 
 // Obtain an array of int64_t values stored in ONNXConstantOp and append it to
@@ -397,6 +400,8 @@ bool isIdentityReshape(
 bool isIdentityReshape(mlir::Value input, mlir::Value output,
     const DimAnalysis *dimAnalysis = nullptr);
 
+bool isDequantQuantSame(
+    mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp);
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//
