@@ -149,7 +149,7 @@ private:
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
       StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
-      if (argAttrs) {
+      if (resAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
         if (dictAttrs && dictAttrs.contains("onnx.name"))
           outputName = mlir::cast<StringAttr>(
