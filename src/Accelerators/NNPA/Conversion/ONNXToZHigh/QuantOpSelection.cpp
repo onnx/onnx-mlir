@@ -92,27 +92,6 @@ private:
       return true;
     return false;
   }
-
-  // Functions to load/save quantization settings from/to a JSON file.
-  // JSON file example:
-  // ```json
-  // {
-  //   "quantization_ops": [
-  //     {
-  //       "quantize": true
-  //       "node_type": "onnx.Relu",
-  //       "onnx_node_name": "Relu_[1,2]"
-  //     },
-  //     {
-  //       "quantize": false
-  //       "node_type": "onnx.Sigmoid",
-  //       "onnx_node_name": ".*"
-  //     }
-  //   ]
-  // }
-  // ```
-  void loadConfigFromJSONFile();
-  void saveConfigToJSONFile();
 };
 
 void QuantOpSelectionPass::runOnOperation() {
@@ -157,7 +136,8 @@ void QuantOpSelectionPass::runOnOperation() {
     cfg.saveConfigToFile(ops, QUANTIZATION_KEY, saveConfigFile,
         [&](llvm::json::Object *jsonObj, Operation *op) {
           BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
-          jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
+          if (attr)
+            jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
         });
   }
 }

@@ -68,18 +68,23 @@ void NNPAJsonConfig::saveConfigToFile(llvm::ArrayRef<Operation *> ops,
   llvm::json::Array jsonArr;
   for (Operation *op : ops) {
     // Create a JSON object for this operation.
+    llvm::json::Object jsonObj;
+    // Insert user's attribute.
+    updateFn(&jsonObj, op);
+    if (jsonObj.empty())
+      continue;
+    // Insert node type.
     std::string nodeTypeStr = op->getName().getStringRef().str();
+    jsonObj.insert({NODE_TYPE_KEY, nodeTypeStr});
     std::string nodeNameStr =
         op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_KEY)
             ? op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_KEY)
                   .getValue()
                   .str()
             : "";
-    llvm::json::Object jsonObj = llvm::json::Object{
-        {NODE_TYPE_KEY, nodeTypeStr},
-        {ONNX_NODE_NAME_KEY, nodeNameStr},
-    };
-    updateFn(&jsonObj, op);
+    // Insert node name.
+    jsonObj.insert({ONNX_NODE_NAME_KEY, nodeNameStr});
+
     jsonArr.emplace_back(llvm::json::Value(std::move(jsonObj)));
   }
   llvm::json::Value featureValue = llvm::json::Value(std::move(jsonArr));
