@@ -153,6 +153,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
+  // Add a CSE pass to delete unreachable ops.
+  // This is useful when a model, especially manually modified one, is dumped
+  // with --EmitONNXIR
+  // This pass is inserted before the instrumentation pass which adds instrumentation ops
+  // with external sideeffect.
+  pm.addPass(mlir::createCSEPass());
+
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.
   unsigned instrumentActions = instrumentControlBits;
