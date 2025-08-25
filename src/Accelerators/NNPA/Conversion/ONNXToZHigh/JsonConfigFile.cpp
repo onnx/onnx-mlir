@@ -16,14 +16,15 @@ namespace onnx_mlir {
 // application with a meaningful message.
 static llvm::ExitOnError ExitOnErr;
 
-NNPAJsonConfig::NNPAJsonConfig(std::string configFile) : cfgFile(configFile) {}
+NNPAJsonConfig::NNPAJsonConfig(std::string featureKey)
+    : featureKey(featureKey) {}
 
-void NNPAJsonConfig::matchAndUpdateOperations(llvm::ArrayRef<Operation *> ops,
-    std::string featureKey,
+void NNPAJsonConfig::loadConfigFromFile(llvm::ArrayRef<Operation *> ops,
+    std::string file,
     function_ref<void(llvm::json::Object *jsonObj, Operation *op)>
         updateAttrFn) {
-  auto Buf = ExitOnErr(errorOrToExpected(
-      llvm::MemoryBuffer::getFile(this->cfgFile, /*bool IsText=*/true,
+  auto Buf = ExitOnErr(
+      errorOrToExpected(llvm::MemoryBuffer::getFile(file, /*bool IsText=*/true,
           /*RequiresNullTerminator=*/false)));
   auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
   llvm::json::Object *jsonContent = jsonFile.getAsObject();
@@ -62,7 +63,7 @@ void NNPAJsonConfig::matchAndUpdateOperations(llvm::ArrayRef<Operation *> ops,
 }
 
 void NNPAJsonConfig::saveConfigToFile(llvm::ArrayRef<Operation *> ops,
-    std::string featureKey, std::string file,
+    std::string file,
     function_ref<void(llvm::json::Object *jsonObj, Operation *op)> updateFn) {
   // Parsing the module to JSON object.
   llvm::json::Array jsonArr;

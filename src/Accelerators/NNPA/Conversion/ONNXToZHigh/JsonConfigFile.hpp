@@ -10,7 +10,7 @@ class NNPAJsonConfig {
   using OpSetType = DenseSet<Operation *>;
 
 public:
-  NNPAJsonConfig(std::string configFile);
+  NNPAJsonConfig(std::string featureKey);
 
   /// Check if the json file is empty or not.
   // bool empty();
@@ -35,18 +35,17 @@ public:
   ///   ]
   /// }
   /// ```
-  void matchAndUpdateOperations(llvm::ArrayRef<mlir::Operation *> ops,
-      std::string featureKey,
+  void loadConfigFromFile(llvm::ArrayRef<mlir::Operation *> ops,
+      std::string file,
       function_ref<void(llvm::json::Object *jsonObj, mlir::Operation *op)>
           updateAttrFn);
 
-  void saveConfigToFile(llvm::ArrayRef<mlir::Operation *> ops,
-      std::string featureKey, std::string file,
+  void saveConfigToFile(llvm::ArrayRef<mlir::Operation *> ops, std::string file,
       function_ref<void(llvm::json::Object *jsonObj, mlir::Operation *op)>
           updateFn);
 
 private:
-  std::string cfgFile;
+  std::string featureKey;
   std::string NODE_TYPE_KEY = "node_type";
   std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
 };

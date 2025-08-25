@@ -153,13 +153,13 @@ void DevicePlacementPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
-  NNPAJsonConfig cfg(loadConfigFile);
+  NNPAJsonConfig cfg(DEVICE_PLACEMENT_KEY);
   if (!loadConfigFile.empty()) {
     // Match and update operations using the json object of key
     // DEVICE_PLACEMENT_KEY in the json file by setting attribute
     // DEVICE_ATTRIBUTE for the operations. The value of DEVICE_ATTRIBUTE is
     // from the json file.
-    cfg.matchAndUpdateOperations(ops, DEVICE_PLACEMENT_KEY,
+    cfg.loadConfigFromFile(ops, loadConfigFile,
         [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
           StringRef device = jsonObj->getString(DEVICE_ATTRIBUTE).value();
           op->setAttr(
@@ -222,8 +222,8 @@ void DevicePlacementPass::runOnOperation() {
     // json file an json object of key DEVICE_PLACEMENT_KEY.
     // Each value in the object is added a pair (DEVICE_ATTRIBUTE, value) that
     // denotes the value of DEVICE_ATTRIBUTE in the operation.
-    cfg.saveConfigToFile(ops, DEVICE_PLACEMENT_KEY, saveConfigFile,
-        [&](llvm::json::Object *jsonObj, Operation *op) {
+    cfg.saveConfigToFile(
+        ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
           std::string deviceStr =
               op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
                   ? op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)

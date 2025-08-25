@@ -106,12 +106,12 @@ void QuantOpSelectionPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
-  NNPAJsonConfig cfg(loadConfigFile);
+  NNPAJsonConfig cfg(QUANTIZATION_KEY);
   if (!loadConfigFile.empty()) {
     // Match and update operations using the json object of key QUANTIZATION_KEY
     // in the json file by setting attribute QUANT_ATTRIBUTE for the operations.
     // The value of QUANT_ATTRIBUTE is from the json file.
-    cfg.matchAndUpdateOperations(ops, QUANTIZATION_KEY,
+    cfg.loadConfigFromFile(ops, loadConfigFile,
         [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
           bool quantize = jsonObj->getBoolean(QUANT_ATTRIBUTE).value();
           op->setAttr(
@@ -133,8 +133,8 @@ void QuantOpSelectionPass::runOnOperation() {
     // json file an json object of key QUANTIZATION_KEY.
     // Each value in the object is added a pair (QUANT_ATTRIBUTE, value) that
     // denotes the value of QUANT_ATTRIBUTE in the operation.
-    cfg.saveConfigToFile(ops, QUANTIZATION_KEY, saveConfigFile,
-        [&](llvm::json::Object *jsonObj, Operation *op) {
+    cfg.saveConfigToFile(
+        ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
           BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
           if (attr)
             jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
