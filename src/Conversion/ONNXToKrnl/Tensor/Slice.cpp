@@ -20,8 +20,14 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
-  ONNXSliceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXSliceOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXSliceOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ONNXSliceOp sliceOp, ONNXSliceOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -48,7 +54,13 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
-    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
+    DimsExpr ubs = shapeHelper.getOutputDims();
+
+    // Enable parallelism if required.
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "slice", loopDef, lbs, ubs, 0, 2);
+
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope loopScope(createKrnl);
 
@@ -72,11 +84,14 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
     onnxToKrnlSimdReport(op);
     return success();
   }
+
+private:
+  bool enableParallel = false;
 };
 
 void populateLoweringONNXSliceOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

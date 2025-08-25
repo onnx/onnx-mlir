@@ -234,8 +234,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarIOp<Op>>(
-          loc, elementType, scalarsSplatted, std::nullopt);
+      return rewriter.create<ScalarIOp<Op>>(loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
@@ -247,8 +246,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarFOp<Op>>(
-          loc, elementType, scalarsSplatted, std::nullopt);
+      return rewriter.create<ScalarFOp<Op>>(loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported float operation");
   } else {
@@ -462,8 +460,8 @@ void populateLoweringONNXScatterNDOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXSliceOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXSqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(
@@ -484,8 +482,8 @@ void populateLoweringONNXNonZeroOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXReverseSequenceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXExpandOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXExpandOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXOneHotOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXCompressOpPattern(
@@ -626,6 +624,23 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
     mlir::ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
     int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
+
+// Try to find a suitable loop index for parallelism (parId), where
+// parId >= firstInclusiveDim && parId < exlusiveDim && parId is not in
+// exclusiveDim && tripCount(parId) >= minSize when tripCount can be determined
+// at compile time.
+//
+// If found, emit krnl.parallel op for parId and return parId.
+// Otherwise, do nothing and return -1.
+//
+// When `createKrnlParallel` is set to false, only parID is returned without
+// creating krnl.parallel.
+int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
+    mlir::Operation *op, std::string msg, const mlir::ValueRange &loopDef,
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    int64_t firstInclusiveDim = 0, int64_t lastExclusiveDim = 2,
+    mlir::ArrayRef<int64_t> exclusiveDims = {}, int64_t minSize = 4,
+    bool createKrnlParallel = true);
 
 //===----------------------------------------------------------------------===//
 // Support functions for determining simd unrolling.

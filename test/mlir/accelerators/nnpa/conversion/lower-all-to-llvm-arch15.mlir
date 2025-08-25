@@ -132,7 +132,7 @@ func.func @test_call_zdnn_quantized_matmul_op(%arg0: memref<1x1x1x1x32x64xf16>, 
   return %alloc : memref<1x1x1x1x32x64xf16>
 
   // CHECK-LABEL: test_call_zdnn_quantized_matmul_op
-  // CHECK: {{.*}} = llvm.call @zdnn_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -144,5 +144,5 @@ func.func @test_call_zdnn_quantized_matmul_dequantized_op(%arg0: memref<1x1x1x1x
   return %alloc : memref<1x1x1x1x32x64xf16>
 
   // CHECK-LABEL: test_call_zdnn_quantized_matmul_dequantized_op
-  // CHECK: {{.*}} = llvm.call @zdnn_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
 }
