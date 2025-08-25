@@ -813,7 +813,10 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     auto zeroPoint =
         getScalarValue<double>(zeroPointAttr, zeroPointAttr.getElementType());
 
-    // Calculate dequantized value for exponent
+    // Calculate dequantized value for exponent (This is an approximation and
+    // isn't expected to match the actual calculation done by the
+    // DequantizeLinear op. However, it should be good enough for checking that
+    // the exponent is an integer)
     double dequantizedExponent = (x - zeroPoint) * scale;
 
     if (dequantizedExponent == ceil(dequantizedExponent)) {
