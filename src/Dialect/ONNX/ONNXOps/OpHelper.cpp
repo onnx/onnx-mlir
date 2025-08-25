@@ -596,8 +596,8 @@ bool isDenseONNXConstant(Value result) {
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   Type elementaryType = getElementTypeOrSelf(type);
-  if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
-      elementaryType.isInteger(64)) {
+  if (elementaryType.isInteger(8) || elementaryType.isInteger(16) ||
+      elementaryType.isInteger(32) || elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
     return static_cast<RESULT_TYPE>(mlir::cast<IntegerAttr>(*valueIt).getInt());
   } else if (mlir::isa<FloatType>(elementaryType)) {
@@ -794,6 +794,38 @@ IgnoreDiagnostic::~IgnoreDiagnostic() {
 
 bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   Value exponent = op->getY();
+  // In case of QDQ quantized models: If exponent is from a DequantizeLinear op,
+  // we want to check the dequantized value of the exponent
+  if (auto dequantizeOp = mlir::dyn_cast_or_null<ONNXDequantizeLinearOp>(
+          exponent.getDefiningOp())) {
+    ElementsAttr xAttr = getElementAttributeFromONNXValue(dequantizeOp.getX());
+    ElementsAttr scaleAttr =
+        getElementAttributeFromONNXValue(dequantizeOp.getXScale());
+    ElementsAttr zeroPointAttr =
+        getElementAttributeFromONNXValue(dequantizeOp.getXZeroPoint());
+
+    if (!(isScalarConstantTensor(dequantizeOp.getXScale()) &&
+            isScalarConstantTensor(dequantizeOp.getXZeroPoint())))
+      return false;
+
+    auto x = getScalarValue<double>(xAttr, xAttr.getElementType());
+    auto scale = getScalarValue<double>(scaleAttr, scaleAttr.getElementType());
+    auto zeroPoint =
+        getScalarValue<double>(zeroPointAttr, zeroPointAttr.getElementType());
+
+    // Calculate dequantized value for exponent (This is an approximation and
+    // isn't expected to match the actual calculation done by the
+    // DequantizeLinear op. However, it should be good enough for checking that
+    // the exponent is an integer)
+    double dequantizedExponent = (x - zeroPoint) * scale;
+
+    if (dequantizedExponent == ceil(dequantizedExponent)) {
+      exponentValue = static_cast<int64_t>(dequantizedExponent);
+      return true;
+    }
+    return false;
+  }
+
   ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
   if (!elementAttr)
     return false;
