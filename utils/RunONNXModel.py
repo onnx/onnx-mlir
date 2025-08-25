@@ -14,7 +14,8 @@
 import os
 import sys
 import argparse
-import onnx
+
+# import onnx
 import time
 import signal
 import subprocess
@@ -25,41 +26,47 @@ import importlib.util
 import shlex
 import shutil
 
-from onnx import numpy_helper
-from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+# from onnx import numpy_helper
+# from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
 
 ################################################################################
 # Test environment and set global environment variables.
-
-if not os.environ.get("ONNX_MLIR_HOME", None):
-    raise RuntimeError(
-        "Environment variable ONNX_MLIR_HOME is not set, please set it to the"
-        " path to the HOME directory for onnx-mlir. The HOME directory for"
-        " onnx-mlir refers to the parent folder containing the bin, lib, etc"
-        " sub-folders in which ONNX-MLIR executables and libraries can be found,"
-        " typically `onnx-mlir/build/Debug`."
-    )
-ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
-ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
-# Include runtime directory in python paths, so PyRuntime can be imported.
-RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
-sys.path.append(RUNTIME_DIR)
-
 VERBOSE = os.environ.get("VERBOSE", False)
 
-################################################################################
-# Check and import Onnx Mlir Execution session / python interface.
 
-try:
-    from PyRuntime import OMExecutionSession
-except ImportError:
-    raise ImportError(
-        "Looks like you did not build the PyRuntimeC target, build it by running"
-        " `make PyRuntimeC`. You may need to set ONNX_MLIR_HOME to"
-        " `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to"
-        " `build/Debug` by default."
-    )
+def import_driver():
+    global ONNX_MLIR, args
+    try:
+        from onnxmlir import InferenceSession as SessionWrapper
+
+        args.use_onnxmlir = True
+    except ImportError:
+        args.use_onnxmlir = False
+        if not os.environ.get("ONNX_MLIR_HOME", None):
+            raise RuntimeError(
+                "To use native compiler, set environment variable ONNX_MLIR_HOME to the path to onnx-mlir."
+                " Typical example is `path-to-onnx-mlir/build/Debug, which is the parent folder containing the bin, lib, and etc for the compiler."
+            )
+        ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
+        ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
+        # Include runtime directory in python paths, so PyRuntime can be imported.
+        RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
+        sys.path.append(RUNTIME_DIR)
+
+        # Check and import Onnx Mlir Execution session / python interface.
+
+        try:
+            from PyRuntime import OMExecutionSession as SessionWrapper
+        except ImportError:
+            raise ImportError(
+                " To compile a model, you can either\n 1) install the onnxmlir package to use the compiler container,"
+                " or\n 2) set environment variable ONNX_MLIR_HOME to use the native compiler.\n"
+                " The execution of the two approaches just failed in your environment."
+                " For trouble shooting, please refer to docs/DebuggingNumericalError.md for details"
+            )
+    return SessionWrapper
+
 
 ################################################################################
 # Support functions for parsing environment.
@@ -99,6 +106,14 @@ parser.add_argument(
     "--model",
     type=lambda s: valid_onnx_input(s),
     help="Path to an ONNX model (.onnx or .mlir).",
+)
+parser.add_argument(
+    "--config-file",
+    metavar="PATH",
+    type=str,
+    help="File to the configuration, a .yaml file. This file allows user to"
+    "define their own default value for arguments."
+    "An example can be found at utils/example-cfg.yaml",
 )
 parser.add_argument(
     "-c",
@@ -160,27 +175,37 @@ parser.add_argument(
 parser.add_argument(
     "--atol", type=str, default="0.01", help="Absolute tolerance for verification."
 )
+parser.add_argument(
+    "-onnxmlir-args",
+    type=str,
+    default="",
+    help="Options passed to onnxmlir. Used with --use-onnxmlir",
+)
+
 
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
     "--save-model",
     metavar="PATH",
     type=str,
-    help="Path to a folder to save the compiled model.",
+    help="Path to a folder to save the compiled model."
+    "The file name for the model is determined by --default-model-name",
 )
 lib_group.add_argument(
     "--load-model",
     metavar="PATH",
     type=str,
-    help="Path to a folder to load a compiled model for "
-    "inference, and the ONNX model will not be re-compiled.",
+    help="Path to a folder to load a compiled model (.so) for "
+    "inference, and the ONNX model will not be re-compiled."
+    "The file name for the model is determined by --default-model-name",
 )
 lib_group.add_argument(
     "--cache-model",
     metavar="PATH",
     type=str,
-    help="When finding a compiled model in given path, reuse it. "
-    "Otherwise, compile model and save it into the given path.",
+    help="Path to a folder to save the load a compiled model if the compiled model exists."
+    "Otherwise, compile model and save it into this folder."
+    "This argument is the combination of --load-model and --save-model",
 )
 
 parser.add_argument(
@@ -390,6 +415,8 @@ def execute_commands(cmds):
 def extend_model_output(model, intermediate_outputs):
     # Run shape inference to make sure we have valid tensor value infos for all
     # intermediate tensors available
+    import onnx
+
     model = onnx.shape_inference.infer_shapes(model)
     value_infos = {vi.name: vi for vi in model.graph.value_info}
     graph_inputs = {vi.name: vi for vi in model.graph.input}
@@ -429,6 +456,9 @@ def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
     inputs = []
 
     if is_load_ref:
+        import onnx
+        from onnx import numpy_helper
+
         for i in range(num_inputs):
             input_file = load_ref_filename + "/input_{}.pb".format(i)
             input_ts = onnx.TensorProto()
@@ -461,6 +491,9 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
     reference_output = []
 
     if is_load_ref:
+        import onnx
+        from onnx import numpy_helper
+
         for i in range(num_outputs):
             output_file = load_ref_filename + "/output_{}.pb".format(i)
             output_ts = onnx.TensorProto()
@@ -699,9 +732,10 @@ class InferenceSession:
     #  input_names, output_names
     #  temp_dir
 
-    def __init__(self, model_file=None, **kwargs):
+    def __init__(self, session_wrapper, model_file=None, **kwargs):
         global args
 
+        self.session_wrapper = session_wrapper
         # Get options passes, if any.
         options = kwargs["options"] if "options" in kwargs.keys() else ""
         # Add model file to options, if given.
@@ -713,8 +747,23 @@ class InferenceSession:
         # Parse options
         if options:
             args = parser.parse_args(shlex.split(options))
+
         # Default model name that will be used for the compiled model.
         # e.g. model.so, model.constants.bin, ...
+        # If the default value of default_model_name is changed to "",
+        # the original model name from --model can be used as the
+        # default model name. It's my preference.
+        # No impact if "--cache-model" and "--model" are used together
+        """ 
+        if args.default_model_name == "":
+            if args.model:
+                # Use the model name without the suffix .onnx or .mlir
+                self.default_model_name = os.path.basename(os.path.abspath(args.model)[:-5]) 
+            else:
+                self.default_model_name = "model"
+        else:
+            self.default_model_name = "model"
+        """
         self.default_model_name = args.default_model_name
 
         # Handle cache_model.
@@ -736,8 +785,17 @@ class InferenceSession:
                 args.load_model = args.cache_model
             args.cache_model = None
 
-        # Load the onnx model.
-        if args.model and args.model.endswith(".onnx"):
+        # Prepare onnx model for verifying output with onnxruntime
+        if (
+            not args.use_onnxmlir
+            and args.model
+            and args.model.endswith(".onnx")
+            and args.verify
+            and args.verify == "onnxruntime"
+            and args.verify_all_ops
+        ):
+            import onnx
+
             model = onnx.load(args.model)
             # Get names of all intermediate tensors and modify model such that each of
             # them will be an output of the model. If using onnxruntime for
@@ -758,9 +816,45 @@ class InferenceSession:
                     print("Saving modified onnx model to ", args.save_onnx, "\n")
                     onnx.save(model, args.save_onnx)
 
+        self.temp_dir = tempfile.TemporaryDirectory()
+        print("Temporary directory has been created at {}\n".format(self.temp_dir))
+        print("Compiling the model ...")
+        start = time.perf_counter()
+        self.model_dir = self.temp_dir.name
+        output_path = os.path.join(self.model_dir, self.default_model_name)
+        # When use onnxmlir package, use different wrapper class no matter the
+        # model is compiled or not.
+        if args.use_onnxmlir:
+            import ast
+
+            args_dict = {}
+            # Parse the additional options to onnxmlir
+            if args.onnxmlir_args:
+                for pair in args.onnxmlir_args.split():
+                    key, value_str = pair.split("=", 1)
+                    try:
+                        args_dict[key] = ast.literal_eval(value_str)
+                    except (ValueError, SyntaxError):
+                        args_dict[key] = value_str
+
+            if args.load_model:
+                model = shared_lib_path = (
+                    args.load_model + f"/{self.default_model_name}.so"
+                )
+            else:
+                # Inherit compiler option from RunONNXModel.py
+                model = args.model
+                args_dict["compile_options"] = args.compile_args + " -o " + output_path
+            session = self.session_wrapper(model, **args_dict)
+            self.session = session
+            # The compile log is needed to save the model.
+            # ToFix: the compilation message returned from container run
+            # is not passed back. Put a dummy message for now
+            msg = "Compiled with onnxmlir package"
+
         # If a shared library is given, use it without compiling the ONNX model.
         # Otherwise, compile the ONNX model.
-        if args.load_model:
+        elif args.load_model:
             self.model_dir = args.load_model
             compiler_option_file = os.path.join(self.model_dir, "compiler_option.txt")
             # Verify that we have the same options:
@@ -784,17 +878,15 @@ class InferenceSession:
                         print('  Cached model options: "' + options_from_file + '"')
         else:
             # Compile the ONNX model.
-            self.temp_dir = tempfile.TemporaryDirectory()
-            print("Temporary directory has been created at {}\n".format(self.temp_dir))
-            print("Compiling the model ...")
-            self.model_dir = self.temp_dir.name
             # Prepare input and output paths.
-            output_path = os.path.join(self.model_dir, self.default_model_name)
+
             if args.model.endswith(".onnx"):
                 if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
                     input_model_path = os.path.join(
                         self.model_dir, f"{self.default_model_name}.onnx"
                     )
+                    import onnx
+
                     onnx.save(model, input_model_path)
                 else:
                     input_model_path = args.model
@@ -829,62 +921,67 @@ class InferenceSession:
             if not ok:
                 print(msg)
                 exit(1)
-            end = time.perf_counter()
-            print("  took ", end - start, " seconds.\n")
-
-            # Save the following information:
-            # - .so file,
-            # - .constants.bin file, and
-            # - compilation.log containing the compilation output.
-            if args.save_model:
-                if not os.path.exists(args.save_model):
-                    os.makedirs(args.save_model)
-                if not os.path.isdir(args.save_model):
-                    print("Path to --save-model is not a folder")
-                    exit(0)
-                # .so file.
-                shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
-                if os.path.exists(shared_lib_path):
-                    print("Saving the shared library to", args.save_model)
-                    shutil.copy2(shared_lib_path, args.save_model)
-                # .constants.bin file.
-                constants_file_path = os.path.join(
-                    self.model_dir, f"{self.default_model_name}.constants.bin"
-                )
-                if os.path.exists(constants_file_path):
-                    print("Saving the constants file to", args.save_model, "\n")
-                    shutil.copy2(constants_file_path, args.save_model)
-                # Compilation log.
-                log_file_path = os.path.join(args.save_model, "compile.log")
-                with open(log_file_path, "w") as f:
-                    print("Saving the compilation log to", args.save_model, "\n")
-                    f.write(msg)
-                compiler_option_file_path = os.path.join(
-                    args.save_model, "compiler_option.txt"
-                )
-                expected_string = cache_string(args.model, args.compile_args)
-                with open(compiler_option_file_path, "w") as ff:
-                    print("Saving the compilation options to", args.save_model, "\n")
-                    ff.write(expected_string)
-
-            # Exit if only compiling the model.
-            if args.compile_only:
-                exit(0)
-
-        # Use the generated shared library to create an execution session.
-        start = time.perf_counter()
-        shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
-        if not os.path.exists(shared_lib_path):
-            print(f"Input model {shared_lib_path} does not exist")
-            exit(0)
-        print("Loading the compiled model ...")
-        if args.load_model:
-            session = OMExecutionSession(shared_lib_path, tag="None")
-        else:
-            session = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
-        self.session = session
+
+        # Save the following information:
+        # - .so file,
+        # - .constants.bin file, and
+        # - compilation.log containing the compilation output.
+        if args.save_model:
+            if not os.path.exists(args.save_model):
+                os.makedirs(args.save_model)
+            if not os.path.isdir(args.save_model):
+                print("Path to --save-model is not a folder")
+                exit(0)
+            # .so file.
+            shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
+            print(shared_lib_path, args.save_model)
+            if os.path.exists(shared_lib_path):
+                print("Saving the shared library to", args.save_model)
+                shutil.copy2(shared_lib_path, args.save_model)
+            else:
+                print("file to save does not exist")
+                exit(-1)
+            # .constants.bin file.
+            constants_file_path = os.path.join(
+                self.model_dir, f"{self.default_model_name}.constants.bin"
+            )
+            if os.path.exists(constants_file_path):
+                print("Saving the constants file to", args.save_model, "\n")
+                shutil.copy2(constants_file_path, args.save_model)
+            # Compilation log.
+            log_file_path = os.path.join(args.save_model, "compile.log")
+            with open(log_file_path, "w") as f:
+                print("Saving the compilation log to", args.save_model, "\n")
+                f.write(msg)
+            compiler_option_file_path = os.path.join(
+                args.save_model, "compiler_option.txt"
+            )
+            expected_string = cache_string(args.model, args.compile_args)
+            with open(compiler_option_file_path, "w") as ff:
+                print("Saving the compilation options to", args.save_model, "\n")
+                ff.write(expected_string)
+
+        # Exit if only compiling the model.
+        if args.compile_only:
+            exit(0)
+
+        if not args.use_onnxmlir:
+            # Use the generated shared library to create an execution session.
+            start = time.perf_counter()
+            shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
+            if not os.path.exists(shared_lib_path):
+                print(f"Input model {shared_lib_path} does not exist")
+                exit(0)
+            print("Loading the compiled model ...")
+            if args.load_model:
+                session = self.session_wrapper(shared_lib_path, tag="None")
+            else:
+                session = self.session_wrapper(shared_lib_path)
+            end = time.perf_counter()
+            print("  took ", end - start, " seconds.\n")
+            self.session = session
 
         # Additional model info.
         self.inputs = []
@@ -985,6 +1082,8 @@ class InferenceSession:
 
         # Store the input and output if required.
         if args.save_ref:
+            from onnx import numpy_helper
+
             load_ref = args.save_ref
             if not os.path.exists(load_ref):
                 os.mkdir(load_ref)
@@ -1138,12 +1237,28 @@ class InferenceSession:
             return outs
 
 
-################################################################################
-# Standalone driver
+def load_user_config(config_file):
+    config_path = os.path.expanduser(config_file)
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            try:
+                import yaml
+
+                config = yaml.safe_load(f)
+            except ImportError:
+                config = {}
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):  # empty or comment
+                        key, value = line.split(":", 1)
+                        config[key.strip()] = value.strip()
+        return config
+    else:
+        print(f"Configure file, {config_path}, does not exists")
+        exit(-1)
 
 
-def main():
-    # In main mode, parse the args here.
+def handle_args():
     global args
     args = parser.parse_args()
     if not (args.model or args.load_model):
@@ -1151,9 +1266,26 @@ def main():
         print(parser.format_usage())
         exit(1)
 
+    if args.config_file:
+        user_config = load_user_config(args.config_file)
+        parser.set_defaults(**user_config)
+        args = parser.parse_args()
+
+    # print(args)
+
+
+################################################################################
+# Standalone driver
+
+
+def main():
+    # In main mode, parse the args here.
+    handle_args()
+
+    session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
-    session = InferenceSession()
+    session = InferenceSession(session_wrapper=session_wrapper)
     return session.run_performance_test()
 
 
