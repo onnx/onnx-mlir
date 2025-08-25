@@ -32,7 +32,10 @@
 
 using namespace mlir;
 
-// hi alex: to do, normalization.
+// True: optimize with write of 8 values for the last iter of a stick,
+// regardless if we need each of the results. False, conservatively only write
+// the "allowed" values in the output.
+#define STICK_OUTPUT_WRITE_PAST_BOUNDS true
 
 // All code specific to generate a specific operation goes here.
 #if 1 // hi alex
@@ -331,12 +334,6 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   DimsExpr tiledUbs = outputDims;
   tiledUbs[d1] = E1.ceilDiv(litStickLen);
 
-  // Predicates used to avoid creating code that is never used.
-  bool neverHas64 = E1.isLiteralAndSmallerThan(stickLen);
-  bool neverHas8 = E1.isLiteralAndSmallerThan(archVL);
-  bool hasOnly64 = E1.isLiteral() && (E1.getLiteral() % stickLen == 0);
-  bool hasOnly8 = E1.isLiteral() && (E1.getLiteral() % archVL == 0);
-
   // Parallel... Should not be turned on when parallelized in the outside.
   int64_t parId = 0;
   if (enableParallel) {
@@ -373,7 +370,6 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   Type outputElementType = getElementType(originalOutput.getType());
   ioOriginalOper.emplace_back(originalOutput);
   ioOriginalMemRef.emplace_back(alloc);
-  int64_t ioOfOutput = inputNum;
   int64_t innermostOutputShape = getShape(originalOutput.getType(), -1);
   // Iterate over all inputs and the one output.
   ioMemRef = ioOriginalMemRef; // Initially the two are the same.
@@ -407,6 +403,21 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   }
   int64_t ioOutputId = inputNum;
   assert(!ioIsBroadcast[ioOutputId] && "expect no broadcasted output");
+
+  // Predicates used to avoid creating code that is never used.
+  bool neverHas64 = E1.isLiteralAndSmallerThan(stickLen);
+  bool neverHas8 = E1.isLiteralAndSmallerThan(archVL);
+  bool hasOnly64 = E1.isLiteral() && (E1.getLiteral() % stickLen == 0);
+  bool hasOnly8 = E1.isLiteral() && (E1.getLiteral() % archVL == 0);
+
+  if (STICK_OUTPUT_WRITE_PAST_BOUNDS && ioIsStick[ioOutputId]) {
+    // Output is stickified, we can write 8 values for the last iteration no
+    // mater what, possibly over-writing values that we are not supposed to
+    // write, but we know the memory exists as we always allocate a stick of 64
+    // values.
+    neverHas8 = false; // Force at least one iteration into the 8-way simd loop.
+    hasOnly8 = true;   // Skip the scalar loop with the custom buffer.
+  }
 
   // Iterates over sticks.
   llvm::SmallVector<int64_t, 4> steps(rank, 1);
@@ -530,14 +541,21 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
               if (!neverHas8) {
                 // Not full 64, process all sub-tiles of 8 values here.
                 // Note: if we only have multiple of VL, loop below will
-                // handle all as we subtract (VL-1). Aka if VL=8 and tripCount
-                // = 16, tripCountWithoutPartialLastVL is 16 - 7 = 9. Thus we
-                // iterate over i=0 & i=8 as both are < 9.
-                IndexExpr tripCountWithoutPartialLastVL =
-                    tripCount - (archVL - 1);
-                create.scf.forLoopIE(litZero, tripCountWithoutPartialLastVL,
-                    archVL, /*par*/ false,
-                    [&](SCFBuilder b, mlir::ValueRange loopInd) {
+                // handle all VL-full as we subtract (VL-1). Aka if VL=8 and
+                // tripCount = 16, tripCountSimdByVL is 16 - 7 = 9.
+                // Thus we iterate over i=0 & i=8 as both are < 9.
+                int64_t correction = archVL - 1;
+                if (STICK_OUTPUT_WRITE_PAST_BOUNDS && ioIsStick[ioOutputId]) {
+                  // Overwrite is allowed, so if VL=8 and trip count = 16: will
+                  // execute i=0 and i=8 (both full). But if trip count = 17,
+                  // then will execute i=0 & 8 (full), and i=16 (to compute/save
+                  // the stick[x,16] single value, but overriding
+                  // stick[x, 17..23] with garbage values).
+                  correction = 0;
+                }
+                IndexExpr tripCountSimdByVL = tripCount - correction;
+                create.scf.forLoopIE(litZero, tripCountSimdByVL, archVL,
+                    /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
                       IndexExprScope innerScope(b, &middleScope);
                       MDBuilder create(b);
                       IndexExpr l = DimIE(loopInd[0]);
@@ -582,7 +600,7 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                       DimsExpr innerIndices = DimListIE(outerIndices);
                       innerIndices[d1] = DimIE(innerIndexPlusLastL) + l;
                       create.krnl.storeIE(bufferVal,
-                          ioOriginalMemRef[ioOfOutput], innerIndices);
+                          ioOriginalMemRef[ioOutputId], innerIndices);
                     });
               }
             });
