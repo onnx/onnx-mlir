@@ -16,7 +16,6 @@
 #define ONNX_MLIR_ZHIGH_COMMON_H
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/JSON.h"
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
@@ -124,9 +123,5 @@ mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
 mlir::Value getDynShape(
     mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
 
-// Add or apppend a json object at the top level of the json file.
-// If the json file is empty, add the object. Otherwise, append the object.
-void addOrAppendJSonObjectToFile(
-    std::string key, llvm::json::Value value, std::string file);
 } // namespace onnx_mlir
 #endif

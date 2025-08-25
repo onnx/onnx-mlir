@@ -13,20 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
-
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
 namespace onnx_mlir {
-
-// Global object to ease error reporting, it consumes errors and crash the
-// application with a meaningful message.
-static llvm::ExitOnError ExitOnErr;
 
 bool isEnableScalarBcastBinary() { return nnpaEnableScalarBcastBinary; }
 
@@ -109,37 +101,6 @@ Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
   }
   return create.concat(
       RankedTensorType::get({r}, rewriter.getI64Type()), dims, 0);
-}
-
-void addOrAppendJSonObjectToFile(
-    std::string key, llvm::json::Value value, std::string file) {
-  // Open the config file:
-  // - If it already exists, open the file with the offset set to 0.
-  // - If it does not already exist, create a new file.
-  std::error_code EC;
-  llvm::raw_fd_ostream fileOS(
-      file, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
-  if (EC)
-    report_fatal_error(
-        "Error saving device placement json file : " + StringRef(EC.message()));
-  llvm::json::OStream jsonOS(fileOS, /*IndentSize=*/2);
-
-  // Read the config file to check if it has content or not.
-  auto Buf = ExitOnErr(
-      errorOrToExpected(llvm::MemoryBuffer::getFile(file, /*bool IsText=*/true,
-          /*RequiresNullTerminator=*/false)));
-
-  // Exporting the JSON object to a file.
-  if (Buf->getBuffer().empty()) {
-    llvm::json::Object jsonContent{{key, value}};
-    jsonOS.value(llvm::json::Value(std::move(jsonContent)));
-  } else {
-    auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
-    llvm::json::Object *jsonExistingContent = jsonFile.getAsObject();
-    jsonExistingContent->insert({key, value});
-    jsonOS.value(llvm::json::Value(std::move(*jsonExistingContent)));
-  }
-  jsonOS.flush();
 }
 
 int ONNXToZHighLoweringConfiguration::optReportNNPAUnsupportedOps =

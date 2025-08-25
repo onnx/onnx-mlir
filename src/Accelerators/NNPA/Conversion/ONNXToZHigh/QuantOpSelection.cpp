@@ -24,6 +24,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -81,9 +82,6 @@ private:
 
   // JSON keys.
   std::string QUANTIZATION_KEY = "quantization";
-  std::string QUANTIZE_KEY = "quantize";
-  std::string NODE_TYPE_KEY = "node_type";
-  std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
 
   // Exclude these operations from quantization.
   bool isExcludedOp(Operation *op) {
@@ -129,8 +127,18 @@ void QuantOpSelectionPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
-  if (!loadConfigFile.empty())
-    loadConfigFromJSONFile();
+  NNPAJsonConfig cfg(loadConfigFile);
+  if (!loadConfigFile.empty()) {
+    // Match and update operations using the json object of key QUANTIZATION_KEY
+    // in the json file by setting attribute QUANT_ATTRIBUTE for the operations.
+    // The value of QUANT_ATTRIBUTE is from the json file.
+    cfg.matchAndUpdateOperations(ops, QUANTIZATION_KEY,
+        [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
+          bool quantize = jsonObj->getBoolean(QUANT_ATTRIBUTE).value();
+          op->setAttr(
+              QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), quantize));
+        });
+  }
 
   // TODO: Before saving the configuration, we need to know all ops that are
   // quantized by the compiler (for example, there is no quantization info in
@@ -141,78 +149,17 @@ void QuantOpSelectionPass::runOnOperation() {
   // saved.
 
   // Create a JSON configuration file if required.
-  if (!saveConfigFile.empty())
-    saveConfigToJSONFile();
-}
-
-void QuantOpSelectionPass::loadConfigFromJSONFile() {
-  auto Buf = ExitOnErr(errorOrToExpected(
-      llvm::MemoryBuffer::getFile(loadConfigFile, /*bool IsText=*/true,
-          /*RequiresNullTerminator=*/false)));
-  auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
-  llvm::json::Object *jsonContent = jsonFile.getAsObject();
-  llvm::json::Array *jsonArr = jsonContent->getArray(QUANTIZATION_KEY);
-  if (!jsonArr || jsonArr->empty())
-    return;
-
-  // Collect operations to work on.
-  OpSetType workingOps(ops.begin(), ops.end());
-  // Go over operations in the JSON and find matched operation in the IR.
-  for (llvm::json::Value v : *jsonArr) {
-    llvm::json::Object *vobj = v.getAsObject();
-    bool quantize = vobj->getBoolean(QUANTIZE_KEY).value();
-    StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
-    std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
-    LLVM_DEBUG(llvm::dbgs()
-               << "quantize: " << quantize << ", nodeType: " << nodeType.str()
-               << ", nodeName: "
-               << (nodeName.has_value() ? nodeName.value().str() : "") << "\n");
-    OpSetType updatedOps;
-    for (Operation *op : workingOps) {
-      StringRef opNodeType = op->getName().getStringRef();
-      StringRef opNodeName =
-          op->getAttrOfType<mlir::StringAttr>("onnx_node_name").getValue();
-      // Match operation.
-      if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
-        continue;
-      if (nodeName.has_value() && !std::regex_match(opNodeName.str(),
-                                      std::regex(nodeName.value().str())))
-        continue;
-      // Set quantization.
-      op->setAttr(
-          QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), quantize));
-      updatedOps.insert(op);
-    }
-    // To reduce complexity, once an operation is assigned the quantize
-    // attribute, we remove it from the set workingOps.
-    workingOps = llvm::set_difference(workingOps, updatedOps);
+  if (!saveConfigFile.empty()) {
+    // Save quantization information to a json file by adding to the existing
+    // json file an json object of key QUANTIZATION_KEY.
+    // Each value in the object is added a pair (QUANT_ATTRIBUTE, value) that
+    // denotes the value of QUANT_ATTRIBUTE in the operation.
+    cfg.saveConfigToFile(ops, QUANTIZATION_KEY, saveConfigFile,
+        [&](llvm::json::Object *jsonObj, Operation *op) {
+          BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+          jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
+        });
   }
-}
-
-void QuantOpSelectionPass::saveConfigToJSONFile() {
-  // Parsing the module to JSON object.
-  llvm::json::Array jsonArr;
-  for (Operation *op : ops) {
-    BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
-    if (!attr)
-      continue;
-    // Create a JSON object for this operation.
-    std::string nodeTypeStr = op->getName().getStringRef().str();
-    std::string nodeNameStr =
-        op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
-            ? op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
-                  .getValue()
-                  .str()
-            : "";
-    llvm::json::Value jsonObj = llvm::json::Object{
-        {QUANTIZE_KEY, attr.getValue()},
-        {NODE_TYPE_KEY, nodeTypeStr},
-        {ONNX_NODE_NAME_KEY, nodeNameStr},
-    };
-    jsonArr.emplace_back(jsonObj);
-  }
-  addOrAppendJSonObjectToFile(
-      QUANTIZATION_KEY, llvm::json::Value(std::move(jsonArr)), saveConfigFile);
 }
 
 } // namespace
