@@ -803,6 +803,11 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
         getElementAttributeFromONNXValue(dequantizeOp.getXScale());
     ElementsAttr zeroPointAttr =
         getElementAttributeFromONNXValue(dequantizeOp.getXZeroPoint());
+
+    if (!(isScalarConstantTensor(dequantizeOp.getXScale()) &&
+            isScalarConstantTensor(dequantizeOp.getXZeroPoint())))
+      return false;
+
     auto x = getScalarValue<double>(xAttr, xAttr.getElementType());
     auto scale = getScalarValue<double>(scaleAttr, scaleAttr.getElementType());
     auto zeroPoint =
