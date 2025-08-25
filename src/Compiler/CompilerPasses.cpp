@@ -155,9 +155,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Add a CSE pass to delete unreachable ops.
   // This is useful when a model, especially manually modified one, is dumped
-  // with --EmitONNXIR
-  // This pass is inserted before the instrumentation pass which adds instrumentation ops
-  // with external sideeffect.
+  // with --EmitONNXIR.
+  // This pass is inserted before the instrumentation pass, which may add
+  // instrumentation ops with external sideeffect.
   pm.addPass(mlir::createCSEPass());
 
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
