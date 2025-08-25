@@ -1387,6 +1387,30 @@ func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf3
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4x5xf32>
 // CHECK:         }
 }
+// -----
+
+func.func @test_pow_into_mul_with_qdq(%arg0: tensor<1x3x80x80x2xi8>) -> tensor<1x3x80x80x2xi8> {
+    %0 = onnx.Constant dense<2.500000e-01> : tensor<f32>
+    %1 = onnx.Constant dense<3.125000e-02> : tensor<f32>
+    %2 = onnx.Constant dense<64> : tensor<i8>
+    %3 = onnx.Constant dense<0> : tensor<i8>
+    %6 = "onnx.DequantizeLinear"(%arg0, %0, %3) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x80x80x2xi8>, tensor<f32>, tensor<i8>) -> tensor<1x3x80x80x2xf32>
+    %7 = "onnx.DequantizeLinear"(%2, %1, %3) {axis = 1 : si64, block_size = 0 : si64} : (tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<f32>
+    %8 = "onnx.Pow"(%6, %7) : (tensor<1x3x80x80x2xf32>, tensor<f32>) -> tensor<1x3x80x80x2xf32>
+    %9 = "onnx.QuantizeLinear"(%8, %1, %3) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x3x80x80x2xf32>, tensor<f32>, tensor<i8>) -> tensor<1x3x80x80x2xi8>
+    return %9 : tensor<1x3x80x80x2xi8>
+
+// CHECK-LABEL: func.func @test_pow_into_mul_with_qdq
+// CHECK-SAME: ([[PARAM_0_:%.+]]: tensor<1x3x80x80x2xi8>) -> tensor<1x3x80x80x2xi8> {
+// CHECK: [[VAR_0_:%.+]] = onnx.Constant dense<2.500000e-01> : tensor<f32>
+// CHECK: [[VAR_1_:%.+]] = onnx.Constant dense<3.125000e-02> : tensor<f32>
+// CHECK: [[VAR_2_:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK: [[VAR_3_:%.+]] = "onnx.DequantizeLinear"([[PARAM_0_]], [[VAR_0_]], [[VAR_2_]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x80x80x2xi8>, tensor<f32>, tensor<i8>) -> tensor<1x3x80x80x2xf32>
+// CHECK: [[VAR_4_:%.+]] = "onnx.Mul"([[VAR_3_]], [[VAR_3_]]) : (tensor<1x3x80x80x2xf32>, tensor<1x3x80x80x2xf32>) -> tensor<1x3x80x80x2xf32>
+// CHECK: [[VAR_5_:%.+]] = "onnx.QuantizeLinear"([[VAR_4_]], [[VAR_1_]], [[VAR_2_]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x3x80x80x2xf32>, tensor<f32>, tensor<i8>) -> tensor<1x3x80x80x2xi8>
+// CHECK: return [[VAR_5_]] : tensor<1x3x80x80x2xi8>
+// CHECK: }
+}
 
 // -----
 
