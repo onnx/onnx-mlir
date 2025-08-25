@@ -146,6 +146,7 @@ private:
     dString.push_back('\0'); // null terminate the input signature string
     dstream << "@[";
     comma = std::string("");
+    // Handle outputs
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
       StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
