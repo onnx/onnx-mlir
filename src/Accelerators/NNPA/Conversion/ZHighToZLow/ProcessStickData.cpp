@@ -695,7 +695,7 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
               inputOfF32Vals[0].getType(), inputOfF32Vals);
         };
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
-    int64_t unrollFactor = 2; // hi alex, change to 8
+    int64_t unrollFactor = 8;
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
         shapeHelper.getOutputDims(), unrollFactor, enableParallel,
         disableSaturation, true /*prefetch*/, fct);
