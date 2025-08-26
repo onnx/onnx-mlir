@@ -49,6 +49,10 @@ namespace {
 bool canOpFuseWithStickUnstick(Operation *op) {
   if (!op)
     return false;
+  // Exceptions:
+  // o no cast as they may have different input sizes/output sizes.
+  if (isa<ONNXCastOp>(op))
+    return false;
     // Return true for all of the elementwise operations.
 #define ELEMENTWISE_ALL(_OP_TYPE)                                              \
   if (isa<_OP_TYPE>(op))                                                       \
@@ -70,6 +74,22 @@ bool suitableLayout(Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
       continue;
     // We have a Z layout and its not the same, abort
     return false;
+  }
+  return true;
+}
+
+// Make sure that all inputs and outputs have the right element type. Currently
+// only support f32.
+bool suitableType(Operation *op) {
+  for (Value v : op->getOperands()) {
+    Type elementType = getElementTypeOrSelf(v.getType());
+    if (!elementType.isF32())
+      return false;
+  }
+  for (Value v : op->getResults()) {
+    Type elementType = getElementTypeOrSelf(v.getType());
+    if (!elementType.isF32())
+      return false;
   }
   return true;
 }
@@ -149,6 +169,11 @@ Operation *patternForFusionFromUnstick(
   // Supported compute op?
   if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
     return nullptr;
+  if (suitableType(computeOp)) {
+    LLVM_DEBUG(explanation(
+        computeOp, unstickOp, "FAILURE due to non f32 element type"));
+    return nullptr;
+  }
   // We must support this layout.
   if (isZTensor(unstickInVal.getType()) &&
       !supportedLayoutForCompilerGeneratedStickUnstick(unstickInVal)) {
@@ -187,6 +212,11 @@ Operation *patternForFusionFromStick(
   Operation *computeOp = stickInVal.getDefiningOp();
   if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
     return nullptr;
+  if (suitableType(computeOp)) {
+    LLVM_DEBUG(explanation(
+        computeOp, stickOp, "FAILURE due to non f32 element type"));
+    return nullptr;
+  }
   // We must support this layout.
   if (isZTensor(stickOutVal.getType()) &&
       !supportedLayoutForCompilerGeneratedStickUnstick(stickOutVal)) {
