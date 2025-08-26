@@ -84,6 +84,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
       opts.enableQuarkQuantizedLegalization));
 
+  // Pass for removing binary ops if one of the inputs is fed by a Constant
+  if (opts.enableRemoveBinary)
+    pm.addPass(createFoldDQBinaryQPass());
+
   // Pass for removing Dq and Q around data movement in Dq->op->Q Ops chain
   if (opts.enableRemoveDqQAroundOp)
     pm.addPass(createQDQAroundOpOptONNXToONNXPass());
