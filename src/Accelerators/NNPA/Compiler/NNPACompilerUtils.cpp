@@ -148,7 +148,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Then, recompose again layout and data conversion if they are not optimized.
   if (nnpaEnableZHighDecomposeStickUnstick) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass()); // hi alex
+        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass());
@@ -181,7 +181,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
 
-  // hi alex
   if (nnpaUseFusionOpStickUnstick)
     pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
 

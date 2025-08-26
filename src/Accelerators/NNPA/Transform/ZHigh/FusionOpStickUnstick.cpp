@@ -45,56 +45,16 @@ using OperationSet = std::set<Operation *>;
 // then the new fusion is compatible, aka use the same format.
 namespace {
 
-// Check a node with type T is fusible or not.
-template <typename T>
-bool enqueueFusibleOpImpl(Operation *op) {
-  return isa<T>(op);
-}
-
-// Variadic template to iterate all the Elementwise Ops.
-// 1) Termination (void type): do nothing.
-template <typename T = void, class... Ts>
-bool enqueueFusibleOp(Operation *op);
-// 2) Recursion: test first type, and if not successful, recurse.
-template <typename T, class... Ts>
-bool enqueueFusibleOp(Operation *op) {
-  if (enqueueFusibleOpImpl<T>(op))
-    return true;
-  return enqueueFusibleOp<Ts...>(op);
-}
-// 3) By default, return false.
-template <>
-bool enqueueFusibleOp(Operation *op) {
-  return false;
-}
-
 // TODO: maybe unify the list from Elementwise.cpp and this one.
 bool canOpFuseWithStickUnstick(Operation *op) {
   if (!op)
     return false;
-  return enqueueFusibleOp<
-      // Unary Op
-      mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXBinarizerOp,
-      mlir::ONNXCastOp, mlir::ONNXCeilOp, mlir::ONNXCosOp, mlir::ONNXCoshOp,
-      mlir::ONNXDequantizeLinearOp, mlir::ONNXCeluOp, mlir::ONNXEluOp,
-      mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp, mlir::ONNXAsinOp,
-      mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp, mlir::ONNXFloorOp,
-      mlir::ONNXGeluOp, mlir::ONNXBitwiseNotOp, mlir::ONNXHardSigmoidOp,
-      mlir::ONNXHardSwishOp, mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp,
-      mlir::ONNXLeakyReluOp, mlir::ONNXLogOp, mlir::ONNXMishOp, mlir::ONNXNegOp,
-      mlir::ONNXNotOp, mlir::ONNXReciprocalOp, mlir::ONNXReluOp,
-      mlir::ONNXRoundOp, mlir::ONNXSeluOp, mlir::ONNXShrinkOp,
-      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
-      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
-      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXThresholdedReluOp,
-      // Binary Op
-      mlir::ONNXBitShiftOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
-      mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp,
-      mlir::ONNXModOp, mlir::ONNXPowOp,
-      // Variadic Op
-      mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
-      mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
-      mlir::ONNXSubOp, mlir::ONNXSumOp, mlir::ONNXXorOp>(op);
+    // Return true for all of the elementwise operations.
+#define ELEMENTWISE_ALL(_OP_TYPE)                                              \
+  if (isa<_OP_TYPE>(op))                                                       \
+    return true;
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+  return false;
 }
 
 // Make sure that all inputs have either an undefined layout or the same as

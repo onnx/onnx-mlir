@@ -37,26 +37,9 @@ using namespace mlir;
 // the "allowed" values in the output.
 #define STICK_OUTPUT_WRITE_PAST_BOUNDS true
 
-// All code specific to generate a specific operation goes here.
-#if 1 // hi alex
-namespace onnx_mlir {
+// Include necessary info from elementwise so as to gen code here.
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 
-template <>
-struct ScalarOp<ONNXAddOp> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
-};
-
-template <>
-struct ScalarOp<ONNXHardSigmoidOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-} // namespace onnx_mlir
-#else
-#include "src/Conversion/ONNXToKrnl/Math/Elementwise.cpp.inc"
-#endif
 namespace onnx_mlir {
 // Implementation of quantize helper function.
 void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
@@ -308,6 +291,7 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
     bool enablePrefetch, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals) {
+
   // Init builder and scopes.
   MDBuilder create(b);
   // IndexExprScope initialScope(b);
@@ -718,10 +702,12 @@ namespace zhigh {
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
     bool enableParallel, bool disableSaturation) {
-  patterns.insert< // Pattern listed in alphabetical oder by operation name.
-      ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXAddOp>,
-      ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXHardSigmoidOp>>(
+// Add the insert patterns for all elementwise types regardless of unary, binary
+// or variadic.
+#define ELEMENTWISE_ALL(_OP_TYPE)                                              \
+  patterns.insert<ONNXElementwiseOpLoweringWithNNPALayout<_OP_TYPE>>(          \
       typeConverter, ctx, enableParallel, disableSaturation);
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 }
 
 } // namespace zhigh

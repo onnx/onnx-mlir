@@ -254,12 +254,19 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       create.math.splatToMatch(scalarsSplatted);
       return rewriter.create<ScalarFOp<Op>>(loc, elementType, scalarsSplatted);
     }
-    fprintf(stderr, "hi alex, not supported float type\n. ");
-    op->dump();
     llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
+}
+
+// =============================================================================
+/// Emit post-processing for variadic element-wise ops.
+template <typename Op>
+mlir::Value emitPostProcessingFor(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
+    mlir::Value scalarResult) {
+  return scalarResult;
 }
 
 // =============================================================================
