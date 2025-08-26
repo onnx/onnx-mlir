@@ -1,0 +1,4 @@
+# Flags for compilation
+compile_args : -O3 --march=z16 --maccel=NNPA
+# If a native compile is use (not a container image)
+onnxmlir_args : compiler_image_name=None compiler_path=/path/to/compiler
