@@ -169,7 +169,7 @@ Operation *patternForFusionFromUnstick(
   // Supported compute op?
   if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
     return nullptr;
-  if (suitableType(computeOp)) {
+  if (!suitableType(computeOp)) {
     LLVM_DEBUG(explanation(
         computeOp, unstickOp, "FAILURE due to non f32 element type"));
     return nullptr;
@@ -212,7 +212,7 @@ Operation *patternForFusionFromStick(
   Operation *computeOp = stickInVal.getDefiningOp();
   if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
     return nullptr;
-  if (suitableType(computeOp)) {
+  if (!suitableType(computeOp)) {
     LLVM_DEBUG(explanation(
         computeOp, stickOp, "FAILURE due to non f32 element type"));
     return nullptr;
