@@ -46,6 +46,13 @@ struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
 };
+
+template <>
+struct ScalarOp<ONNXHardSigmoidOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+};
+
 } // namespace onnx_mlir
 #else
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.cpp.inc"
@@ -642,7 +649,7 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     Operation *op = elmsOp.getOperation();
     Location loc = ONNXLoc<ElementwiseOp>(op);
     ValueRange operands = adaptor.getOperands();
-    unsigned numArgs = elmsOp.getNumOperands();
+    unsigned numArgs = elmsOp.getNumberOfOperands();
 
     // Test if operation is suitable
     if (!isZTensor(op))
@@ -695,7 +702,7 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
               inputOfF32Vals[0].getType(), inputOfF32Vals);
         };
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
-    int64_t unrollFactor = 8;
+    int64_t unrollFactor = 2; // hi alex, set to 8
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
         shapeHelper.getOutputDims(), unrollFactor, enableParallel,
         disableSaturation, true /*prefetch*/, fct);
@@ -713,7 +720,7 @@ void populateONNXWithNNPALayoutToKrnlConversionPattern(
     bool enableParallel, bool disableSaturation) {
   patterns.insert< // Pattern listed in alphabetical oder by operation name.
       ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXAddOp>,
-      ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXMulOp>>(
+      ONNXElementwiseOpLoweringWithNNPALayout<mlir::ONNXHardSigmoidOp>>(
       typeConverter, ctx, enableParallel, disableSaturation);
 }
 
