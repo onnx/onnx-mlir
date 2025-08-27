@@ -83,7 +83,7 @@ return %10 : tensor<1x1x1x128xf32>
 //-----
 // 5) dq1-const-add-q-dq. remove->add, q-dq.
 // CHECK-LABEL: func.func @test_removebinary_pattern2a
-// CHECK: %[[ZP:.*]] = onnx.Constant dense<100> : tensor<ui16>
+// CHECK: %[[ZP:.*]] = onnx.Constant dense<99> : tensor<ui16>
 // CHECK-NOT: onnx.Add
 // CHECK-NOT: onnx.QuantizeLinear
 // CHECK: return
