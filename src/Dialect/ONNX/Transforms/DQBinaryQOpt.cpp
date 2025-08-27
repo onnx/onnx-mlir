@@ -437,7 +437,6 @@ private:
     return success();
   }
 
-  template <typename BinOp>
   static bool compute_new_scale_and_zp_values(MatchState &state) {
     double newScale = state.dstScale;
     double newZpFloat = static_cast<double>(state.dstZeroPoint);
@@ -514,7 +513,7 @@ public:
     }
 
     // STEP 4 -Modify
-    if (!compute_new_scale_and_zp_values<BinOp>(state)) {
+    if (!compute_new_scale_and_zp_values(state)) {
       return failure();
     }
 
