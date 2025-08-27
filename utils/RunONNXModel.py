@@ -415,6 +415,8 @@ def execute_commands(cmds):
 def extend_model_output(model, intermediate_outputs):
     # Run shape inference to make sure we have valid tensor value infos for all
     # intermediate tensors available
+    import onnx
+
     model = onnx.shape_inference.infer_shapes(model)
     value_infos = {vi.name: vi for vi in model.graph.value_info}
     graph_inputs = {vi.name: vi for vi in model.graph.input}
@@ -454,6 +456,7 @@ def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
     inputs = []
 
     if is_load_ref:
+        import onnx
         from onnx import numpy_helper
 
         for i in range(num_inputs):
@@ -488,6 +491,7 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
     reference_output = []
 
     if is_load_ref:
+        import onnx
         from onnx import numpy_helper
 
         for i in range(num_outputs):
@@ -875,13 +879,14 @@ class InferenceSession:
         else:
             # Compile the ONNX model.
             # Prepare input and output paths.
-            import onnx
 
             if args.model.endswith(".onnx"):
                 if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
                     input_model_path = os.path.join(
                         self.model_dir, f"{self.default_model_name}.onnx"
                     )
+                    import onnx
+
                     onnx.save(model, input_model_path)
                 else:
                     input_model_path = args.model
