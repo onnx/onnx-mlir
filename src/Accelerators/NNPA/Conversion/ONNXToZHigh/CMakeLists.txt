@@ -84,7 +84,6 @@ add_onnx_mlir_library(OMNNPAQuantOpSelection
   LINK_LIBS PUBLIC
   OMONNXOps
   OMONNXToZHigh
-  OMLayoutHelper
   OMNNPAJSONConfig
 
   ACCEL_INCLUDE_DIRS PRIVATE
