@@ -18,7 +18,7 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "llvm/ADT/STLExtras.h"
-#include <cmath> // For std::llround
+#include <cmath>
 #include <optional>
 #include <variant>
 
@@ -93,8 +93,7 @@ std::optional<T> getScalarTensorValue(ONNXConstantOp constOp) {
         return static_cast<T>(*flattenedInt.begin());
     }
   }
-
-  return std::nullopt; // mismatch or more than one unique value
+  return std::nullopt;
 }
 
 template <typename T>
@@ -151,7 +150,6 @@ static mlir::DenseElementsAttr makeScalarDEA(
         isSigned ? ((int64_t(1) << (bw - 1)) - 1) : ((int64_t(1) << bw) - 1);
     iv = std::min<int64_t>(std::max<int64_t>(iv, minV), maxV);
 
-    // Now re-materialize as the *output* ET (which may differ in width/sign).
     // This guarantees the result type matches `likeTy`.
     if (auto outSigned = outIT.isSigned()) {
       // For signed out type, encode iv as signed.
@@ -459,7 +457,6 @@ private:
       return false;
     }
 
-    // The rounding and state update logic remains the same.
     int64_t newZp = (newZpFloat >= 0.0) ? (int64_t)std::floor(newZpFloat)
                                         : (int64_t)std::ceil(newZpFloat);
     state.newScale = newScale;
