@@ -43,7 +43,8 @@ add_onnx_mlir_library(OMInstrumentONNX
 add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
   QDQAroundOpOpt.cpp    
-  QDQOpt.cpp    
+  QDQOpt.cpp
+  DQBinaryQOpt.cpp  
   ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp

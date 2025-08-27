@@ -18,6 +18,7 @@ struct OnnxToMlirOptions {
   bool enableConvTranspose1dDecomposeToPhasedConv = false;
   bool enableRemoveDqQOp = true;
   bool enableRemoveDqQAroundOp = true;
+  bool enableRemoveBinary = false;
 
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;
