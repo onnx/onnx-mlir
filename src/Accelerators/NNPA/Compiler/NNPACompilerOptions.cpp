@@ -69,7 +69,7 @@ llvm::cl::opt<std::string> nnpaLoadConfigFile{"nnpa-load-config-file",
         "use "
         "--nnpa-save-config-file=cfg.json.\nNote that we can use regex for "
         "string values in the JSON file to match operations.\nThe compiler "
-        "uses C++ std::regex_match function for matching."),
+        "uses ECMAScript regular expressions for matching."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
 llvm::cl::opt<std::string> nnpaSaveConfigFile{"nnpa-save-config-file",
