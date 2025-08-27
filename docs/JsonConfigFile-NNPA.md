@@ -197,7 +197,9 @@ Below are JSON files for different situations.
 }
 ```
 
-## A example JSON file for IBM granite-3 models to quantized four MatMul operators in the self-attention layer and two MatMul operators in the linear layer.
+## A example JSON file for transformers models
+
+This JSON configuration file is to quantize four MatMul operators in the self-attention layer, two MatMul operators in the linear layer and the MatMul operators in the LM head.
 ```json
 {
   "quantization": [
