@@ -13,19 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <regex>
-
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/ADT/SetOperations.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
 
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -37,14 +30,8 @@ using namespace onnx_mlir;
 
 namespace {
 
-// Global object to ease error reporting, it consumes errors and crash the
-// application with a meaningful message.
-static llvm::ExitOnError ExitOnErr;
-
 struct QuantOpSelectionPass
     : public PassWrapper<QuantOpSelectionPass, OperationPass<ModuleOp>> {
-  using OpSetType = DenseSet<Operation *>;
-
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(QuantOpSelectionPass)
 
   QuantOpSelectionPass() = default;

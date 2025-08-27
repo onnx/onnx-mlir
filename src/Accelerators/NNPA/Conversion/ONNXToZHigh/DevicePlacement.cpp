@@ -24,17 +24,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <regex>
-
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
 
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
@@ -49,10 +45,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace {
-
-// Global object to ease error reporting, it consumes errors and crash the
-// application with a meaningful message.
-static llvm::ExitOnError ExitOnErr;
 
 struct DevicePlacementPass
     : public PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>> {
