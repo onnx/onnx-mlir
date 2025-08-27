@@ -291,6 +291,13 @@ static LogicalResult tryRemoveQThenDQChain(
   return success();
 }
 
+static bool isValuePreservingOp(mlir::Operation *op) {
+  if (!op)
+    return false;
+  return isa<mlir::ONNXIdentityOp, mlir::ONNXReshapeOp, mlir::ONNXSqueezeOp,
+      mlir::ONNXUnsqueezeOp, mlir::ONNXTransposeOp>(op);
+}
+
 template <typename BinOp>
 struct FoldBinaryThroughQDQ : public OpRewritePattern<BinOp> {
   using OpRewritePattern<BinOp>::OpRewritePattern;
@@ -326,8 +333,7 @@ private:
     // Case 2: The input to the DQ op comes from a chain whose input is a
     // constant.
     else if (auto intermediateOp = dq1.getX().getDefiningOp()) {
-      if (isa<mlir::ONNXIdentityOp, mlir::ONNXReshapeOp, mlir::ONNXSqueezeOp,
-              mlir::ONNXUnsqueezeOp>(intermediateOp)) {
+      if (isValuePreservingOp(intermediateOp)) {
         if (auto constOp =
                 intermediateOp->getOperand(0).getDefiningOp<ONNXConstantOp>()) {
           constantDqOp = dq1;
@@ -336,8 +342,7 @@ private:
         }
       }
     } else if (auto intermediateOp = dq2.getX().getDefiningOp()) {
-      if (isa<mlir::ONNXIdentityOp, mlir::ONNXReshapeOp, mlir::ONNXSqueezeOp,
-              mlir::ONNXUnsqueezeOp>(intermediateOp)) {
+      if (isValuePreservingOp(intermediateOp)) {
         if (auto constOp =
                 intermediateOp->getOperand(0).getDefiningOp<ONNXConstantOp>()) {
           constantDqOp = dq2;
