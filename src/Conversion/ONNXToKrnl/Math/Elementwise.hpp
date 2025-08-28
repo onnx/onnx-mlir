@@ -16,6 +16,8 @@
 //
 // 2) Add the "struct ScalarOp<mlir::ONNX OP>" for each op so that the
 // code gen pattern knows how to process each ONNX elementwise operation.
+// Operations that use CustomScalarOp must also define a emitScalarOpFor<> which
+// can be done using the DECL_EMIT_SCALAR_OP_FOR macro.
 //
 // 3) Add custom code generation (and simd cost) in the Elementwise.cpp file.
 //
@@ -148,6 +150,14 @@ namespace onnx_mlir {
 
 // =============================================================================
 // Scalar ops handling
+// add a DECL_EMIT_SCALAR_OP_FOR(_XXX) for any type that uses CustomScalarOp.
+
+#define DECL_EMIT_SCALAR_OP_FOR(_OP_TYPE)                                      \
+  template <>                                                                  \
+  mlir::Value emitScalarOpFor<_OP_TYPE>(                                       \
+      mlir::ConversionPatternRewriter & rewriter, mlir::Location loc,          \
+      mlir::Operation * op, mlir::Type elementType,                            \
+      mlir::ArrayRef<mlir::Value> scalarOperands);
 
 // A
 template <>
@@ -210,12 +220,14 @@ struct ScalarOp<mlir::ONNXBinarizerOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXBinarizerOp)
 
 template <>
 struct ScalarOp<mlir::ONNXBitShiftOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXBitShiftOp)
 
 template <>
 struct ScalarOp<mlir::ONNXBitwiseAndOp> {
@@ -228,6 +240,7 @@ struct ScalarOp<mlir::ONNXBitwiseNotOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXBitwiseNotOp)
 
 template <>
 struct ScalarOp<mlir::ONNXBitwiseOrOp> {
@@ -247,6 +260,7 @@ struct ScalarOp<mlir::ONNXCastOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXCastOp)
 
 template <>
 struct ScalarOp<mlir::ONNXCeilOp> {
@@ -259,12 +273,14 @@ struct ScalarOp<mlir::ONNXCeluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXCeluOp)
 
 template <>
 struct ScalarOp<mlir::ONNXClipOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXClipOp)
 
 template <>
 struct ScalarOp<mlir::ONNXCosOp> {
@@ -277,6 +293,7 @@ struct ScalarOp<mlir::ONNXCoshOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXCoshOp)
 
 // D
 template <>
@@ -284,6 +301,7 @@ struct ScalarOp<mlir::ONNXDequantizeLinearOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXDequantizeLinearOp)
 
 template <>
 struct ScalarOp<mlir::ONNXDivOp> {
@@ -297,12 +315,14 @@ struct ScalarOp<mlir::ONNXEluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXEluOp)
 
 template <>
 struct ScalarOp<mlir::ONNXEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXEqualOp)
 
 template <>
 struct ScalarOp<mlir::ONNXErfOp> {
@@ -329,18 +349,21 @@ struct ScalarOp<mlir::ONNXGeluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXGeluOp)
 
 template <>
 struct ScalarOp<mlir::ONNXGreaterOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXGreaterOp)
 
 template <>
 struct ScalarOp<mlir::ONNXGreaterOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXGreaterOrEqualOp)
 
 // H
 template <>
@@ -348,12 +371,14 @@ struct ScalarOp<mlir::ONNXHardSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXHardSigmoidOp)
 
 template <>
 struct ScalarOp<mlir::ONNXHardSwishOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXHardSwishOp)
 
 // I
 template <>
@@ -361,6 +386,7 @@ struct ScalarOp<mlir::ONNXIsInfOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXIsInfOp)
 
 template <>
 struct ScalarOp<mlir::ONNXIsNaNOp> {
@@ -374,18 +400,21 @@ struct ScalarOp<mlir::ONNXLeakyReluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXLeakyReluOp)
 
 template <>
 struct ScalarOp<mlir::ONNXLessOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXLessOp)
 
 template <>
 struct ScalarOp<mlir::ONNXLessOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXLessOrEqualOp)
 
 template <>
 struct ScalarOp<mlir::ONNXLogOp> {
@@ -399,6 +428,7 @@ struct ScalarOp<mlir::ONNXMaxOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXMaxOp)
 
 template <>
 struct ScalarOp<mlir::ONNXMeanOp> {
@@ -411,18 +441,21 @@ struct ScalarOp<mlir::ONNXMinOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXMinOp)
 
 template <>
 struct ScalarOp<mlir::ONNXMishOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXMishOp)
 
 template <>
 struct ScalarOp<mlir::ONNXModOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXModOp)
 
 template <>
 struct ScalarOp<mlir::ONNXMulOp> {
@@ -436,12 +469,14 @@ struct ScalarOp<mlir::ONNXNegOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXNegOp)
 
 template <>
 struct ScalarOp<mlir::ONNXNotOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXNotOp)
 
 // O
 template <>
@@ -456,12 +491,14 @@ struct ScalarOp<mlir::ONNXPowOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXPowOp)
 
 template <>
 struct ScalarOp<mlir::ONNXPReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXPReluOp)
 
 // R
 template <>
@@ -469,30 +506,36 @@ struct ScalarOp<mlir::ONNXReciprocalOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXReciprocalOp)
 
 template <>
 struct ScalarOp<mlir::ONNXReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXReluOp)
 
 template <>
 struct ScalarOp<mlir::ONNXRoundOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXRoundOp)
+
 // S
 template <>
 struct ScalarOp<mlir::ONNXSeluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXSeluOp)
 
 template <>
 struct ScalarOp<mlir::ONNXShrinkOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXShrinkOp)
 
 template <>
 struct ScalarOp<mlir::ONNXSqrtOp> {
@@ -505,12 +548,14 @@ struct ScalarOp<mlir::ONNXSignOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXSignOp)
 
 template <>
 struct ScalarOp<mlir::ONNXSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXSigmoidOp)
 
 template <>
 struct ScalarOp<mlir::ONNXSinOp> {
@@ -523,18 +568,21 @@ struct ScalarOp<mlir::ONNXSinhOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXSinhOp)
 
 template <>
 struct ScalarOp<mlir::ONNXSoftplusOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXSoftplusOp)
 
 template <>
 struct ScalarOp<mlir::ONNXSoftsignOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXSoftsignOp)
 
 template <>
 struct ScalarOp<mlir::ONNXSubOp> {
@@ -566,6 +614,7 @@ struct ScalarOp<mlir::ONNXThresholdedReluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
 };
+DECL_EMIT_SCALAR_OP_FOR(mlir::ONNXThresholdedReluOp)
 
 // X
 template <>
