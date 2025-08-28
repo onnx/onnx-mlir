@@ -34,7 +34,7 @@ using namespace mlir;
 
 // True: optimize with write of 8 values for the last iter of a stick,
 // regardless if we need each of the results. False, conservatively only write
-// the "allowed" values in the output.
+// the "allowed" values in the output for the last couple of values.
 #define STICK_OUTPUT_WRITE_PAST_BOUNDS true
 
 // Include necessary info from elementwise so as to gen code here.
@@ -180,8 +180,6 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   inputMax = create.vec.reduction(VectorBuilder::MAX, finalVecMax);
 }
 
-// hi alex, new stuff
-
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
     MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
 
@@ -193,7 +191,7 @@ using MultiValuesOfF32IterateBodyFn = std::function<mlir::Value(
 // regardless of the values of loopIndices to facilitate broadcast (compile
 // time). Also add inner offset the the innermost dimension of the resulting
 // access function.
-DimsExpr computeAccessFct(
+static DimsExpr computeAccessFct(
     Value val, DimsExpr &loopIndices, IndexExpr innerOffset) {
   DimsExpr accessFct;
   int64_t valRank = getRank(val.getType());
@@ -214,7 +212,7 @@ DimsExpr computeAccessFct(
   return accessFct;
 }
 
-void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
+static void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
     IndexExpr stickOffset, IndexExpr l, int64_t u, bool isStick, Value &high,
     Value &low) {
   // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
@@ -236,7 +234,7 @@ void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
   }
 }
 
-void storeVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
+static void storeVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
     IndexExpr stickOffset, IndexExpr l, int64_t u, bool isStick, Value high,
     Value low, bool disableSaturation) {
   // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
@@ -254,7 +252,7 @@ void storeVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
   }
 }
 
-void loadComputeStoreSimd(MDBuilder &create,
+static void loadComputeStoreSimd(MDBuilder &create,
     mlir::SmallVector<Value, 4> &ioMemRef, DimsExpr &loopIndices,
     DimsExpr &ioStickOffsets, IndexExpr l, int64_t u, BitVector &ioIsBroadcast,
     BitVector &ioIsStick, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
@@ -287,7 +285,7 @@ void loadComputeStoreSimd(MDBuilder &create,
   }
 }
 
-void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
+static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
     bool enablePrefetch, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals) {
@@ -371,14 +369,6 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     int64_t innermostShape = getShape(originalType, -1);
     ioIsBroadcast[io] = (innermostShape == 1 && innermostOutputShape != 1);
     ioIsStick[io] = zhigh::isZTensor(originalType);
-    fprintf(stderr,
-        "hi alex oper %d: is broadcast %d, is io stick %d, inner shape %d, "
-        "output inner shape %d\n  ",
-        (int)io, (int)ioIsBroadcast[io], (int)ioIsStick[io],
-        (int)innermostShape, (int)innermostOutputShape);
-    originalVal.dump();
-    fprintf(stderr, "  ");
-    originalMemRef.dump();
     if (ioIsStick[io] && !ioIsBroadcast[io]) {
       // Set in ioMemRef the flattened [2, 64] view.
       assert(
@@ -386,11 +376,10 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
           "unsupported layout");
       DimsExpr castShape = {lit2, litStickLen};
       ioMemRef[io] = create.mem.reinterpretCast(originalMemRef, castShape);
-      fprintf(stderr, "  hi alex: original and remapped\n  ");
-      originalMemRef.dump();
-      fprintf(stderr, "  ");
-      ioMemRef[io].dump();
     }
+    LLVM_DEBUG(llvm::dbgs()
+               << "  " << io << ": " << (ioIsStick[io] ? "is stick " : "")
+               << (ioIsBroadcast[io] ? "is broadcast " : "") << "operand\n");
   }
   int64_t ioOutputId = inputNum;
   assert(!ioIsBroadcast[ioOutputId] && "expect no broadcasted output");
@@ -409,6 +398,11 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     neverHas8 = false; // Force at least one iteration into the 8-way simd loop.
     hasOnly8 = true;   // Skip the scalar loop with the custom buffer.
   }
+  LLVM_DEBUG(
+      llvm::dbgs() << "  Predicates: " << (neverHas64 ? "never-has-64 " : "")
+                   << (neverHas8 ? "never-has-8 " : "")
+                   << (hasOnly64 ? "has-only-64 " : "")
+                   << (hasOnly8 ? "has-only-8\n" : "\n"));
 
   // Iterates over sticks.
   llvm::SmallVector<int64_t, 4> steps(rank, 1);
@@ -470,18 +464,6 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                 create.krnl.getLinearOffsetIndexIE(originalMemRef, accessFct);
             ioStickOffsets[io] = DimIE(offset).floorDiv(litStickLen);
           }
-        }
-        // Need a buffer to store partial results (less than 8) for last
-        // iterations? If so, allocate a small buffer here.
-        // TODO: migrate out if not parallel.
-        Value outputBuffer;
-        if (!hasOnly8) {
-          // Use a type of [1][8] so that it can contain up to 7 partial
-          // results. Use a unit first dim to match the rank of the
-          // reinterpreted casts.
-          MemRefType bufferType =
-              mlir::MemRefType::get({1, archVL}, outputElementType);
-          outputBuffer = create.mem.alignedAlloc(bufferType);
         }
         if (enablePrefetch) {
           // TODO: enable prefetch
@@ -560,14 +542,20 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
               }
               if (!hasOnly8) {
                 // Deal with the last <8 values: compute f32 using simd.
-                IndexExpr remainingScalarValues = tripCount % archVL;
+                // IndexExpr remainingScalarValues = tripCount % archVL;
+
+                // Can use E1 instead of trip count as trip count substract
+                // multiple of 64 to E1, and 64 % (archVal=8) = 0.
+                IndexExpr remainingScalarValues = DimIE(E1) % archVL;
                 IndexExpr lastL = tripCount - remainingScalarValues;
                 IndexExpr innerIndexPlusLastL = DimIE(e1) + lastL;
-
-                // TODO: right now we only overwrite values that we are allowed
-                // to. But when targeting Stick, we can override data that is
-                // beyond the bounds. Best to just avoid coming here and iterate
-                // one more iteration above.
+                // Need a buffer to store partial results (less than 8) for last
+                // iterations. Use a type of [1][8] so that it can contain up to
+                // 7 partial results. Use a unit first dim to match the rank of
+                // the reinterpreted casts.
+                MemRefType bufferType =
+                    mlir::MemRefType::get({1, archVL}, outputElementType);
+                Value outputBuffer = create.mem.alignedAlloc(bufferType);
 
                 // Compute results and store into output buffer.
                 // Buffer holds original or stickified (normalized) results
@@ -598,16 +586,33 @@ void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
       });
 }
 
-static bool isZTensor(Operation *op) {
+// Check that all the input/outputs are float32 without ztensor, or dlf16 with
+// tensor. Must have at least one dlf16 to return true.
+static bool isZTensorOfF32AndDLF16(Operation *op) {
+  bool hasDLF16 = false;
   for (Value val : op->getOperands()) {
-    if (zhigh::isZTensor(val.getType()))
-      return true;
+    Type elementType = getElementType(val.getType());
+    if (zhigh::isZTensor(val.getType())) {
+      if (!elementType.isF16())
+        return false;
+      hasDLF16 = true;
+    } else {
+      if (!elementType.isF32())
+        return false;
+    }
   }
   for (Value val : op->getResults()) {
-    if (zhigh::isZTensor(val.getType()))
-      return true;
+    Type elementType = getElementType(val.getType());
+    if (zhigh::isZTensor(val.getType())) {
+      if (!elementType.isF16())
+        return false;
+      hasDLF16 = true;
+    } else {
+      if (!elementType.isF32())
+        return false;
+    }
   }
-  return false;
+  return hasDLF16;
 }
 
 template <typename ElementwiseOp>
@@ -619,8 +624,9 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
 
   ONNXElementwiseOpLoweringWithNNPALayout(TypeConverter &typeConverter,
       MLIRContext *ctx, bool enableParallel, bool disableSaturation)
-      : OpConversionPattern<ElementwiseOp>(
-            typeConverter, ctx, PatternBenefit(10)),
+      : OpConversionPattern<ElementwiseOp>(typeConverter, ctx,
+            PatternBenefit(
+                10)), // Benefit must be high so that we come here first.
         disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
@@ -633,23 +639,23 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     Operation *op = elmsOp.getOperation();
     Location loc = ONNXLoc<ElementwiseOp>(op);
     ValueRange operands = adaptor.getOperands();
-    unsigned numArgs = elmsOp.getNumberOfOperands();
+    int64_t numArgs = operands.size();
 
     // Test if operation is suitable
-    if (!isZTensor(op))
+    if (!isZTensorOfF32AndDLF16(op))
       return failure();
-    assert(numArgs <= 2 && op->getNumResults() == 1 &&
+    LLVM_DEBUG({
+      llvm::dbgs() << "Process elementwise op " << op->getName()
+                   << " with NNPA layout:\n  ";
+      op->dump();
+    });
+    assert(numArgs >= 0 && numArgs <= 2 && op->getNumResults() == 1 &&
            "expect at most 2 inputs, exactly 1 output");
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    LLVM_DEBUG({
-      llvm::dbgs() << "Look at elementwise op with NNPA layout: "
-                   << op->getName() << "\n";
-      op->dump();
-    });
 
     Value alloc;
     Value outputTensor = elmsOp.getResult();
@@ -677,16 +683,11 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     MultiValuesOfF32IterateBodyFn fct =
         [&](const KrnlBuilder &b,
             mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals) {
-          fprintf(stderr, "hi alex from fct, list of inputs\n");
-          for (Value val : inputOfF32Vals) {
-            val.dump();
-          }
-          fprintf(stderr, "done\n");
           return emitScalarOpFor<ElementwiseOp>(rewriter, b.getLoc(), op,
               inputOfF32Vals[0].getType(), inputOfF32Vals);
         };
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
-    int64_t unrollFactor = 2; // hi alex, set to 8
+    int64_t unrollFactor = 8;
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
         shapeHelper.getOutputDims(), unrollFactor, enableParallel,
         disableSaturation, true /*prefetch*/, fct);

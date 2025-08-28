@@ -1,5 +1,7 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --printIR --EmitZHighIR --profile-ir=ZHigh %s  | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --printIR --EmitZHighIR --profile-ir=ZHigh  -nnpa-disable-fusion-op-stick-unstick %s  | FileCheck %s
 
+// Note: disable fusion so as to keep the old code pattern below, 
+// makes no changes to the effectiveness of the test with our without it.
 // -----
 
 func.func @test_instrument_add_onnx_zhigh(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x1xf32>) -> tensor<*xf32> {
@@ -31,4 +33,3 @@ func.func @test_instrument_add_onnx_zhigh(%arg0 : tensor<10x10xf32>, %arg1 : ten
 // CHECK:           return
 // CHECK:         }
 
-// -----

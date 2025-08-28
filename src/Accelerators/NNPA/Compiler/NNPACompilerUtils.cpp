@@ -181,7 +181,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
 
-  if (nnpaUseFusionOpStickUnstick)
+  if (!nnpaDisableFusionOpStickUnstick)
     pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
 
   // Profiling ZHighIR.

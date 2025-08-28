@@ -102,7 +102,9 @@ bool sameLastDimOrStaticBroadcast(
   // Get innermost shape of reference input val.
   ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
   if (!refType)
-    return false;
+    return false; // Expected shaped type, abort.
+  if (refType.getRank() == 1)
+    return true; // Unary ops never have broadcasts.
   int64_t innermostShapeOfRef = getShape(refType, -1);
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
@@ -167,8 +169,13 @@ Operation *patternForFusionFromUnstick(
   // For merge, unstick value can only be used only once.
   Operation *computeOp = getSingleUseOperationOf(unstickOutVal);
   // Supported compute op?
-  if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
+  if (!computeOp)
     return nullptr;
+  if (!canOpFuseWithStickUnstick(computeOp)) {
+    LLVM_DEBUG(
+        explanation(computeOp, unstickOp, "FAILURE compute op cannot fuse"));
+    return nullptr;
+  }
   if (!suitableType(computeOp)) {
     LLVM_DEBUG(explanation(
         computeOp, unstickOp, "FAILURE due to non f32 element type"));
@@ -210,11 +217,16 @@ Operation *patternForFusionFromStick(
     return nullptr;
   // Get use operation and ensure it can be used.
   Operation *computeOp = stickInVal.getDefiningOp();
-  if (!computeOp || !canOpFuseWithStickUnstick(computeOp))
+  if (!computeOp)
     return nullptr;
+  if (!canOpFuseWithStickUnstick(computeOp)) {
+    LLVM_DEBUG(
+        explanation(computeOp, stickOp, "FAILURE compute op cannot fuse"));
+    return nullptr;
+  }
   if (!suitableType(computeOp)) {
-    LLVM_DEBUG(explanation(
-        computeOp, stickOp, "FAILURE due to non f32 element type"));
+    LLVM_DEBUG(
+        explanation(computeOp, stickOp, "FAILURE due to non f32 element type"));
     return nullptr;
   }
   // We must support this layout.
