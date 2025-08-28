@@ -46,7 +46,7 @@ using OperationSet = std::set<Operation *>;
 namespace {
 
 // TODO: maybe unify the list from Elementwise.cpp and this one.
-bool canOpFuseWithStickUnstick(Operation *op) {
+static bool canOpFuseWithStickUnstick(Operation *op) {
   if (!op)
     return false;
   // Exceptions:
@@ -63,7 +63,7 @@ bool canOpFuseWithStickUnstick(Operation *op) {
 
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout,
-bool suitableLayout(Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
+static bool suitableLayout(Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
     // Check if we have a layout and if it is compatible.
@@ -79,16 +79,21 @@ bool suitableLayout(Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
 }
 
 // Make sure that all inputs and outputs have the right element type. Currently
-// only support f32.
-bool suitableType(Operation *op) {
+// only support f32 or d.
+static bool suitableComputeType(Type type) {
+      Type elementType = getElementTypeOrSelf(type);
+      if (elementType.isF32()) return true;
+      if (elementType.isF16() && isZTensor(type)) return true;
+      return false;
+}
+
+static bool suitableComputeType(Operation *op) {
   for (Value v : op->getOperands()) {
-    Type elementType = getElementTypeOrSelf(v.getType());
-    if (!elementType.isF32())
+    if (!suitableComputeType(v.getType()))
       return false;
   }
   for (Value v : op->getResults()) {
-    Type elementType = getElementTypeOrSelf(v.getType());
-    if (!elementType.isF32())
+    if (!suitableComputeType(v.getType()))
       return false;
   }
   return true;
@@ -172,13 +177,13 @@ Operation *patternForFusionFromUnstick(
   if (!computeOp)
     return nullptr;
   if (!canOpFuseWithStickUnstick(computeOp)) {
-    LLVM_DEBUG(
+    LLVM_DEBUG(/* usefull to find new opportunities not supported yet*/
         explanation(computeOp, unstickOp, "FAILURE compute op cannot fuse"));
     return nullptr;
   }
-  if (!suitableType(computeOp)) {
+  if (!suitableComputeType(computeOp)) {
     LLVM_DEBUG(explanation(
-        computeOp, unstickOp, "FAILURE due to non f32 element type"));
+        computeOp, unstickOp, "FAILURE due to non f32/dlf16 element type"));
     return nullptr;
   }
   // We must support this layout.
@@ -220,13 +225,13 @@ Operation *patternForFusionFromStick(
   if (!computeOp)
     return nullptr;
   if (!canOpFuseWithStickUnstick(computeOp)) {
-    LLVM_DEBUG(
+    LLVM_DEBUG(/* usefull to find new opportunities not supported yet*/
         explanation(computeOp, stickOp, "FAILURE compute op cannot fuse"));
     return nullptr;
   }
-  if (!suitableType(computeOp)) {
-    LLVM_DEBUG(
-        explanation(computeOp, stickOp, "FAILURE due to non f32 element type"));
+  if (!suitableComputeType(computeOp)) {
+    LLVM_DEBUG(explanation(
+        computeOp, stickOp, "FAILURE due to non f32/dlf16 element type"));
     return nullptr;
   }
   // We must support this layout.
