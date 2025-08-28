@@ -63,7 +63,8 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
 
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout,
-static bool suitableLayout(Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
+static bool suitableLayout(
+    Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
     // Check if we have a layout and if it is compatible.
@@ -81,10 +82,12 @@ static bool suitableLayout(Operation *op, ZTensorEncodingAttr::DataLayout refLay
 // Make sure that all inputs and outputs have the right element type. Currently
 // only support f32 or d.
 static bool suitableComputeType(Type type) {
-      Type elementType = getElementTypeOrSelf(type);
-      if (elementType.isF32()) return true;
-      if (elementType.isF16() && isZTensor(type)) return true;
-      return false;
+  Type elementType = getElementTypeOrSelf(type);
+  if (elementType.isF32())
+    return true;
+  if (elementType.isF16() && isZTensor(type))
+    return true;
+  return false;
 }
 
 static bool suitableComputeType(Operation *op) {
