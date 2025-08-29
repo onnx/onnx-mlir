@@ -1649,7 +1649,6 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
     Value conv;
     if (needWeightsPadding) {
-      // Combining the 4 phased weights into single weight.
       Value conv1 = getActivationAppliedToConv(
           addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
               convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[3]),
@@ -1737,6 +1736,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
                  : rewriter.create<ONNXConcatOp>(loc, concatOutputType,
                        ValueRange{conv1, conv3, conv4, conv2}, 1);
     } else {
+      // Combining the 4 phased weights into single weight.
       bool reverseOrder = (kernelShape[0] == 4);
       auto combinedConvWeightsShapedType =
           weightsType.get({weightsShape[0] * 4, weightsShape[1], convKernelSize,
