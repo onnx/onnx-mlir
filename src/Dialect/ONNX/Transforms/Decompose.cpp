@@ -1768,13 +1768,8 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
       }
 
       auto combinedConvOutputType = RankedTensorType::get(
-          (needWeightsPadding)
-              ? SmallVector<int64_t>(
-                    {convOutputShape[0], convOutputShape[1] * 4,
-                        convOutputShape[2] + 1, convOutputShape[3] + 1})
-              : SmallVector<int64_t>(
-                    {convOutputShape[0], convOutputShape[1] * 4,
-                        convOutputShape[2], convOutputShape[3]}),
+          SmallVector<int64_t>({convOutputShape[0], convOutputShape[1] * 4,
+              convOutputShape[2], convOutputShape[3]}),
           convTransposeOutputType.getElementType());
       conv = getActivationAppliedToConv(
           addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
