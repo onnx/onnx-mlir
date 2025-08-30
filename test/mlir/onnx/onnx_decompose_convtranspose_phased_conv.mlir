@@ -31,15 +31,13 @@ func.func @test_convtrans_4phase_kernel_shape_66(%arg0: tensor<1x512x10x16xf32>,
 // CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_9]], %[[VAL_8]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_7]], %[[VAL_6]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_5]], %[[VAL_4]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Concat"(%[[VAL_25]], %[[VAL_27]], %[[VAL_28]], %[[VAL_26]]) {axis = 1 : si64} : (tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>) -> tensor<1x1024x10x16xf32>
-// CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_29]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
-// CHECK:           %[[VAL_31:.*]] = "onnx.Transpose"(%[[VAL_30]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
-// CHECK:           %[[VAL_32:.*]] = "onnx.Reshape"(%[[VAL_31]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
-// CHECK:           onnx.Return %[[VAL_32]] : tensor<1x256x20x32xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Concat"(%[[VAL_24]], %[[VAL_22]], %[[VAL_23]], %[[VAL_21]]) {axis = 0 : si64} : (tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>) -> tensor<1024x512x3x3xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Concat"(%[[VAL_15]], %[[VAL_15]], %[[VAL_15]], %[[VAL_15]]) {axis = 0 : si64} : (tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> tensor<1024xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_26]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<1024x512x3x3xf32>, tensor<1024xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.Reshape"(%[[VAL_27]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Transpose"(%[[VAL_28]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
+// CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_29]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
+// CHECK:           onnx.Return %[[VAL_30]] : tensor<1x256x20x32xf32>
 // CHECK:         }
 }
 
@@ -76,15 +74,12 @@ func.func @test_convtrans_4phase_kernel_shape_66_nobias(%arg0: tensor<1x512x10x1
 // CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_9]], %[[VAL_8]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_7]], %[[VAL_6]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_5]], %[[VAL_4]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, none) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Concat"(%[[VAL_25]], %[[VAL_27]], %[[VAL_28]], %[[VAL_26]]) {axis = 1 : si64} : (tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>) -> tensor<1x1024x10x16xf32>
-// CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_29]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
-// CHECK:           %[[VAL_31:.*]] = "onnx.Transpose"(%[[VAL_30]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
-// CHECK:           %[[VAL_32:.*]] = "onnx.Reshape"(%[[VAL_31]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
-// CHECK:           onnx.Return %[[VAL_32]] : tensor<1x256x20x32xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Concat"(%[[VAL_24]], %[[VAL_22]], %[[VAL_23]], %[[VAL_21]]) {axis = 0 : si64} : (tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>) -> tensor<1024x512x3x3xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<1024x512x3x3xf32>, none) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Reshape"(%[[VAL_26]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.Transpose"(%[[VAL_27]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
+// CHECK:           onnx.Return %[[VAL_29]] : tensor<1x256x20x32xf32>
 // CHECK:         }
 }
 
@@ -464,15 +459,13 @@ func.func @test_convtrans_4phase_kernel_shape_22(%arg0: tensor<1x288x8x96xf32>, 
 // CHECK:           %[[VAL_19:.*]] = "onnx.Slice"(%[[VAL_17]], %[[VAL_8]], %[[VAL_7]], %[[VAL_10]], %[[VAL_11]]) : (tensor<240x288x2x2xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<240x288x1x1xf32>
 // CHECK:           %[[VAL_20:.*]] = "onnx.Slice"(%[[VAL_17]], %[[VAL_6]], %[[VAL_10]], %[[VAL_10]], %[[VAL_11]]) : (tensor<240x288x2x2xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<240x288x1x1xf32>
 // CHECK:           %[[VAL_21:.*]] = "onnx.Slice"(%[[VAL_17]], %[[VAL_5]], %[[VAL_4]], %[[VAL_10]], %[[VAL_11]]) : (tensor<240x288x2x2xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<240x288x1x1xf32>
-// CHECK:           %[[VAL_22:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_12]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x288x8x96xf32>, tensor<240x288x1x1xf32>, tensor<240xf32>) -> tensor<1x240x8x96xf32>
-// CHECK:           %[[VAL_23:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_18]], %[[VAL_12]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x288x8x96xf32>, tensor<240x288x1x1xf32>, tensor<240xf32>) -> tensor<1x240x8x96xf32>
-// CHECK:           %[[VAL_24:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_19]], %[[VAL_12]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x288x8x96xf32>, tensor<240x288x1x1xf32>, tensor<240xf32>) -> tensor<1x240x8x96xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_20]], %[[VAL_12]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x288x8x96xf32>, tensor<240x288x1x1xf32>, tensor<240xf32>) -> tensor<1x240x8x96xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.Concat"(%[[VAL_22]], %[[VAL_24]], %[[VAL_25]], %[[VAL_23]]) {axis = 1 : si64} : (tensor<1x240x8x96xf32>, tensor<1x240x8x96xf32>, tensor<1x240x8x96xf32>, tensor<1x240x8x96xf32>) -> tensor<1x960x8x96xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Reshape"(%[[VAL_26]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x960x8x96xf32>, tensor<5xi64>) -> tensor<2x2x240x8x96xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.Transpose"(%[[VAL_27]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x240x8x96xf32>) -> tensor<240x8x2x96x2xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<240x8x2x96x2xf32>, tensor<4xi64>) -> tensor<1x240x16x192xf32>
-// CHECK:           onnx.Return %[[VAL_29]] : tensor<1x240x16x192xf32>
+// CHECK:           %[[VAL_22:.*]] = "onnx.Concat"(%[[VAL_21]], %[[VAL_19]], %[[VAL_20]], %[[VAL_18]]) {axis = 0 : si64} : (tensor<240x288x1x1xf32>, tensor<240x288x1x1xf32>, tensor<240x288x1x1xf32>, tensor<240x288x1x1xf32>) -> tensor<960x288x1x1xf32>
+// CHECK:           %[[VAL_23:.*]] = "onnx.Concat"(%[[VAL_12]], %[[VAL_12]], %[[VAL_12]], %[[VAL_12]]) {axis = 0 : si64} : (tensor<240xf32>, tensor<240xf32>, tensor<240xf32>, tensor<240xf32>) -> tensor<960xf32>
+// CHECK:           %[[VAL_24:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_23]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x288x8x96xf32>, tensor<960x288x1x1xf32>, tensor<960xf32>) -> tensor<1x960x8x96xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Reshape"(%[[VAL_24]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x960x8x96xf32>, tensor<5xi64>) -> tensor<2x2x240x8x96xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Transpose"(%[[VAL_25]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x240x8x96xf32>) -> tensor<240x8x2x96x2xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Reshape"(%[[VAL_26]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<240x8x2x96x2xf32>, tensor<4xi64>) -> tensor<1x240x16x192xf32>
+// CHECK:           onnx.Return %[[VAL_27]] : tensor<1x240x16x192xf32>
 // CHECK:         }
 }
 
@@ -509,15 +502,13 @@ func.func @test_convtrans_4phase_kernel_shape_44(%arg0: tensor<1x512x8x8xf32>, %
 // CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_9]], %[[VAL_8]], %[[VAL_13]], %[[VAL_12]]) : (tensor<512x512x4x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<512x512x2x2xf32>
 // CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_7]], %[[VAL_6]], %[[VAL_13]], %[[VAL_12]]) : (tensor<512x512x4x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<512x512x2x2xf32>
 // CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_5]], %[[VAL_4]], %[[VAL_13]], %[[VAL_12]]) : (tensor<512x512x4x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<512x512x2x2xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 1, 1], strides = [1, 1]} : (tensor<1x512x8x8xf32>, tensor<512x512x2x2xf32>, tensor<512xf32>) -> tensor<1x512x8x8xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [1, 1, 0, 0], strides = [1, 1]} : (tensor<1x512x8x8xf32>, tensor<512x512x2x2xf32>, tensor<512xf32>) -> tensor<1x512x8x8xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 1, 1, 0], strides = [1, 1]} : (tensor<1x512x8x8xf32>, tensor<512x512x2x2xf32>, tensor<512xf32>) -> tensor<1x512x8x8xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [1, 0, 0, 1], strides = [1, 1]} : (tensor<1x512x8x8xf32>, tensor<512x512x2x2xf32>, tensor<512xf32>) -> tensor<1x512x8x8xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Concat"(%[[VAL_26]], %[[VAL_28]], %[[VAL_27]], %[[VAL_25]]) {axis = 1 : si64} : (tensor<1x512x8x8xf32>, tensor<1x512x8x8xf32>, tensor<1x512x8x8xf32>, tensor<1x512x8x8xf32>) -> tensor<1x2048x8x8xf32>
-// CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_29]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x2048x8x8xf32>, tensor<5xi64>) -> tensor<2x2x512x8x8xf32>
-// CHECK:           %[[VAL_31:.*]] = "onnx.Transpose"(%[[VAL_30]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x512x8x8xf32>) -> tensor<512x8x2x8x2xf32>
-// CHECK:           %[[VAL_32:.*]] = "onnx.Reshape"(%[[VAL_31]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<512x8x2x8x2xf32>, tensor<4xi64>) -> tensor<1x512x16x16xf32>
-// CHECK:           onnx.Return %[[VAL_32]] : tensor<1x512x16x16xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Concat"(%[[VAL_21]], %[[VAL_23]], %[[VAL_22]], %[[VAL_24]]) {axis = 0 : si64} : (tensor<512x512x2x2xf32>, tensor<512x512x2x2xf32>, tensor<512x512x2x2xf32>, tensor<512x512x2x2xf32>) -> tensor<2048x512x2x2xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Concat"(%[[VAL_15]], %[[VAL_15]], %[[VAL_15]], %[[VAL_15]]) {axis = 0 : si64} : (tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>) -> tensor<2048xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_26]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 1, 1], strides = [1, 1]} : (tensor<1x512x8x8xf32>, tensor<2048x512x2x2xf32>, tensor<2048xf32>) -> tensor<1x2048x8x8xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.Reshape"(%[[VAL_27]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x2048x8x8xf32>, tensor<5xi64>) -> tensor<2x2x512x8x8xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Transpose"(%[[VAL_28]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x512x8x8xf32>) -> tensor<512x8x2x8x2xf32>
+// CHECK:           %[[VAL_30:.*]] = "onnx.Reshape"(%[[VAL_29]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<512x8x2x8x2xf32>, tensor<4xi64>) -> tensor<1x512x16x16xf32>
+// CHECK:           onnx.Return %[[VAL_30]] : tensor<1x512x16x16xf32>
 // CHECK:         }
 }
 
@@ -555,19 +546,14 @@ func.func @test_convtrans_4phase_kernel_shape_66_lrelu(%arg0: tensor<1x512x10x16
 // CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_9]], %[[VAL_8]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_7]], %[[VAL_6]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_5]], %[[VAL_4]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.LeakyRelu"(%[[VAL_25]]) {alpha = 1.000000e-01 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.LeakyRelu"(%[[VAL_27]]) {alpha = 1.000000e-01 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_30:.*]] = "onnx.LeakyRelu"(%[[VAL_29]]) {alpha = 1.000000e-01 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_31:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_32:.*]] = "onnx.LeakyRelu"(%[[VAL_31]]) {alpha = 1.000000e-01 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_33:.*]] = "onnx.Concat"(%[[VAL_26]], %[[VAL_30]], %[[VAL_32]], %[[VAL_28]]) {axis = 1 : si64} : (tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>) -> tensor<1x1024x10x16xf32>
-// CHECK:           %[[VAL_34:.*]] = "onnx.Reshape"(%[[VAL_33]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
-// CHECK:           %[[VAL_35:.*]] = "onnx.Transpose"(%[[VAL_34]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
-// CHECK:           %[[VAL_36:.*]] = "onnx.Reshape"(%[[VAL_35]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
-// CHECK:           onnx.Return %[[VAL_36]] : tensor<1x256x20x32xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Concat"(%[[VAL_24]], %[[VAL_22]], %[[VAL_23]], %[[VAL_21]]) {axis = 0 : si64} : (tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>) -> tensor<1024x512x3x3xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Concat"(%[[VAL_15]], %[[VAL_15]], %[[VAL_15]], %[[VAL_15]]) {axis = 0 : si64} : (tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> tensor<1024xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_26]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<1024x512x3x3xf32>, tensor<1024xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.LeakyRelu"(%[[VAL_27]]) {alpha = 1.000000e-01 : f32} : (tensor<1x1024x10x16xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
+// CHECK:           %[[VAL_30:.*]] = "onnx.Transpose"(%[[VAL_29]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
+// CHECK:           %[[VAL_31:.*]] = "onnx.Reshape"(%[[VAL_30]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
+// CHECK:           onnx.Return %[[VAL_31]] : tensor<1x256x20x32xf32>
 // CHECK:         }
 }
 
@@ -605,19 +591,14 @@ func.func @test_convtrans_4phase_kernel_shape_66_relu(%arg0: tensor<1x512x10x16x
 // CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_9]], %[[VAL_8]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_7]], %[[VAL_6]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_5]], %[[VAL_4]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.Relu"(%[[VAL_25]]) : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.Relu"(%[[VAL_27]]) : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_30:.*]] = "onnx.Relu"(%[[VAL_29]]) : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_31:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_32:.*]] = "onnx.Relu"(%[[VAL_31]]) : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_33:.*]] = "onnx.Concat"(%[[VAL_26]], %[[VAL_30]], %[[VAL_32]], %[[VAL_28]]) {axis = 1 : si64} : (tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>) -> tensor<1x1024x10x16xf32>
-// CHECK:           %[[VAL_34:.*]] = "onnx.Reshape"(%[[VAL_33]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
-// CHECK:           %[[VAL_35:.*]] = "onnx.Transpose"(%[[VAL_34]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
-// CHECK:           %[[VAL_36:.*]] = "onnx.Reshape"(%[[VAL_35]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
-// CHECK:           onnx.Return %[[VAL_36]] : tensor<1x256x20x32xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Concat"(%[[VAL_24]], %[[VAL_22]], %[[VAL_23]], %[[VAL_21]]) {axis = 0 : si64} : (tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>) -> tensor<1024x512x3x3xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Concat"(%[[VAL_15]], %[[VAL_15]], %[[VAL_15]], %[[VAL_15]]) {axis = 0 : si64} : (tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> tensor<1024xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_26]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<1024x512x3x3xf32>, tensor<1024xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.Relu"(%[[VAL_27]]) : (tensor<1x1024x10x16xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
+// CHECK:           %[[VAL_30:.*]] = "onnx.Transpose"(%[[VAL_29]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
+// CHECK:           %[[VAL_31:.*]] = "onnx.Reshape"(%[[VAL_30]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
+// CHECK:           onnx.Return %[[VAL_31]] : tensor<1x256x20x32xf32>
 // CHECK:         }
 }
 
@@ -793,18 +774,13 @@ func.func @test_convtrans_4phase_kernel_shape_66_lrelu_default_alpha(%arg0: tens
 // CHECK:           %[[VAL_22:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_9]], %[[VAL_8]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_23:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_7]], %[[VAL_6]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
 // CHECK:           %[[VAL_24:.*]] = "onnx.Slice"(%[[VAL_20]], %[[VAL_5]], %[[VAL_4]], %[[VAL_13]], %[[VAL_12]]) : (tensor<256x512x6x6xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<256x512x3x3xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_24]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.LeakyRelu"(%[[VAL_25]]) {alpha = 0.00999999977 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_21]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_28:.*]] = "onnx.LeakyRelu"(%[[VAL_27]]) {alpha = 0.00999999977 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_22]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_30:.*]] = "onnx.LeakyRelu"(%[[VAL_29]]) {alpha = 0.00999999977 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_31:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_23]], %[[VAL_15]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<256x512x3x3xf32>, tensor<256xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_32:.*]] = "onnx.LeakyRelu"(%[[VAL_31]]) {alpha = 0.00999999977 : f32} : (tensor<1x256x10x16xf32>) -> tensor<1x256x10x16xf32>
-// CHECK:           %[[VAL_33:.*]] = "onnx.Concat"(%[[VAL_26]], %[[VAL_30]], %[[VAL_32]], %[[VAL_28]]) {axis = 1 : si64} : (tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>, tensor<1x256x10x16xf32>) -> tensor<1x1024x10x16xf32>
-// CHECK:           %[[VAL_34:.*]] = "onnx.Reshape"(%[[VAL_33]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
-// CHECK:           %[[VAL_35:.*]] = "onnx.Transpose"(%[[VAL_34]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
-// CHECK:           %[[VAL_36:.*]] = "onnx.Reshape"(%[[VAL_35]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
-// CHECK:           onnx.Return %[[VAL_36]] : tensor<1x256x20x32xf32>
+// CHECK:           %[[VAL_25:.*]] = "onnx.Concat"(%[[VAL_24]], %[[VAL_22]], %[[VAL_23]], %[[VAL_21]]) {axis = 0 : si64} : (tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>, tensor<256x512x3x3xf32>) -> tensor<1024x512x3x3xf32>
+// CHECK:           %[[VAL_26:.*]] = "onnx.Concat"(%[[VAL_15]], %[[VAL_15]], %[[VAL_15]], %[[VAL_15]]) {axis = 0 : si64} : (tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> tensor<1024xf32>
+// CHECK:           %[[VAL_27:.*]] = "onnx.Conv"(%[[VAL_0]], %[[VAL_25]], %[[VAL_26]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x512x10x16xf32>, tensor<1024x512x3x3xf32>, tensor<1024xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_28:.*]] = "onnx.LeakyRelu"(%[[VAL_27]]) {alpha = 0.00999999977 : f32} : (tensor<1x1024x10x16xf32>) -> tensor<1x1024x10x16xf32>
+// CHECK:           %[[VAL_29:.*]] = "onnx.Reshape"(%[[VAL_28]], %[[VAL_3]]) {allowzero = 0 : si64} : (tensor<1x1024x10x16xf32>, tensor<5xi64>) -> tensor<2x2x256x10x16xf32>
+// CHECK:           %[[VAL_30:.*]] = "onnx.Transpose"(%[[VAL_29]]) {perm = [2, 3, 0, 4, 1]} : (tensor<2x2x256x10x16xf32>) -> tensor<256x10x2x16x2xf32>
+// CHECK:           %[[VAL_31:.*]] = "onnx.Reshape"(%[[VAL_30]], %[[VAL_2]]) {allowzero = 0 : si64} : (tensor<256x10x2x16x2xf32>, tensor<4xi64>) -> tensor<1x256x20x32xf32>
+// CHECK:           onnx.Return %[[VAL_31]] : tensor<1x256x20x32xf32>
 // CHECK:         }
 }
