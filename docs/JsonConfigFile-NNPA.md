@@ -20,11 +20,11 @@ By using a JSON file, users can currenlty control two following features:
 
 ## device_placement[] object fields
 
-| Field          | Type              | Description                                               |
-| -------------- | ----------------- | --------------------------------------------------------- |
-| device         | string            | Target device for execution: "cpu", "nnpa", or ""         |
-| node_type      | string            | ONNX operator type (e.g., "onnx.Relu", "onnx.*").         |
-| onnx_node_name | string (optional) | Specific ONNX node name to apply the device placement to. |
+| Field          | Type              | Description                                                             |
+| -------------- | ----------------- | ---------------------------------------------------------               |
+| device         | string            | Target device for execution: "cpu", "nnpa", or ""                       |
+| node_type      | string            | ONNX operator type (e.g., "onnx.Relu", "onnx.*").                       |
+| onnx_node_name | string (optional) | Specific ONNX node name (via a regex) to apply the device placement to. |
 
 - Fields have the same names as ONNX operator's attributes.
 - Strings for `node _type` and `onnx_node_name` can be any [ECMAScript regular expressions](https://cplusplus.com/reference/regex/ECMAScript/).
@@ -40,11 +40,11 @@ By using a JSON file, users can currenlty control two following features:
 
 ## quantization[] object fields
 
-| Field          | Type              | Description                                                    |
-| -------------  | -------------     | -------------------------------------------------------------- |
-| quantize       | boolean           | Whether to apply quantization (true or false).                 |
-| node_type      | string            | ONNX operator type (e.g., "onnx.Relu", "onnx.*").              |
-| onnx_node_name | string (optional) | Specific ONNX node name to apply quantization to.              |
+| Field          | Type              | Description                                                     |
+| -------------  | -------------     | --------------------------------------------------------------  |
+| quantize       | boolean           | Whether to apply quantization (true or false).                  |
+| node_type      | string            | ONNX operator type (e.g., "onnx.Relu", "onnx.*").               |
+| onnx_node_name | string (optional) | Specific ONNX node name (via a regex) to apply quantization to. |
 
 - Fields have the same names as ONNX operator's attributes.
 - Strings for `node _type` and `onnx_node_name` can be any [ECMAScript regular expressions](https://cplusplus.com/reference/regex/ECMAScript/).
