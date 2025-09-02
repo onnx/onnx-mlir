@@ -222,12 +222,8 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
       onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
 }
 
-void addKrnlToLLVMPasses(
-    mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE) {
-  if (enableCSE)
-    // Eliminate common sub-expressions before lowering to Krnl.
-    // TODO: enable this by default when we make sure it works flawlessly.
-    pm.addPass(mlir::createCSEPass());
+void addKrnlToLLVMPasses( mlir::OpPassManager &pm, std::string outputNameNoExt) {
+  pm.addPass(mlir::createSymbolDCEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
@@ -334,7 +330,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   }
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+    addKrnlToLLVMPasses(pm, outputNameNoExt);
 }
 
 } // namespace onnx_mlir

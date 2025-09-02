@@ -168,7 +168,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addPass(onnx_mlir::zhigh::createZHighConstPropagationPass());
 
   // Remove common sub-expressions.
-  pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createSymbolDCEPass());
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
@@ -265,7 +265,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
       // Lower ONNX to Krnl, ZHigh to ZLow.
-      addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
+      addONNXToKrnlPasses(pm, optLevel, ONNXOpStats);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
@@ -304,7 +304,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   if (emissionTarget >= EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
-    addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+    addKrnlToLLVMPasses(pm, outputNameNoExt);
 }
 
 } // namespace onnx_mlir

@@ -22,11 +22,10 @@ void configurePasses();
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr = false);
-void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    std::string ONNXOpsStatFilename);
+void addONNXToKrnlPasses(
+    mlir::PassManager &pm, int optLevel, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
-void addKrnlToLLVMPasses(
-    mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE);
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm, std::string outputNameNoExt);
 InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,
