@@ -222,7 +222,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
       onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
 }
 
-void addKrnlToLLVMPasses( mlir::OpPassManager &pm, std::string outputNameNoExt) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm, std::string outputNameNoExt) {
   pm.addPass(mlir::createSymbolDCEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
