@@ -560,7 +560,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                 // Compute results and store into output buffer.
                 // Buffer holds original or stickified (normalized) results
                 // depending on the output type.
-                loadComputeStoreSimd(create, ioMemRef, outerIndices,
+                DimsExpr innerIndices = DimListIE(outerIndices);
+                loadComputeStoreSimd(create, ioMemRef, innerIndices,
                     ioStickOffsets, lastL, 0, ioIsBroadcast, ioIsStick,
                     processVectorOfF32Vals, inputHigh, inputLow,
                     outputBuffer /*store output in outBuffer */,
