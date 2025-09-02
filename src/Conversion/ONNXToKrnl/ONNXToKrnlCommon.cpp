@@ -959,7 +959,6 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
   DimsExpr dataDims, indicesDims;
   create.krnlIE.getShapeAsDims(data, dataDims);
   create.krnlIE.getShapeAsDims(indices, indicesDims);
-  SymbolIndexExpr axisDim(dataDims[axisLit]);
   int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
   ValueRange loopDef = create.krnl.defineLoops(indicesRank);
   LiteralIndexExpr zeroIE(0);
@@ -979,6 +978,7 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
         // data[axis].
         // Assume that the index is loaded from tensor with negative value
         // correction.
+        DimIndexExpr axisDim(dataDims[axisLit]);
         Value errorCondition =
             ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
         rewriter.create<scf::IfOp>(
