@@ -153,12 +153,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
-  // Add a CSE pass to delete unreachable ops.
+  // Add a Symbol-DCE pass to delete unreachable ops and symbols.
   // This is useful when a model, especially manually modified one, is dumped
   // with --EmitONNXIR.
   // This pass is inserted before the instrumentation pass, which may add
   // instrumentation ops with external sideeffect.
-  pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createSymbolDCEPass());
 
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.
@@ -185,12 +185,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
-void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    std::string ONNXOpsStatFormat) {
-  if (enableCSE)
-    // Eliminate common sub-expressions before lowering to Krnl.
-    // TODO: enable this by default when we make sure it works flawlessly.
-    pm.addPass(mlir::createCSEPass());
+void addONNXToKrnlPasses(
+    mlir::PassManager &pm, int optLevel, std::string ONNXOpsStatFormat) {
+  pm.addPass(mlir::createSymbolDCEPass());
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Print statistics about ONNX ops if enabled.
@@ -331,8 +328,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(
-          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
+      addONNXToKrnlPasses(pm, OptimizationLevel, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
