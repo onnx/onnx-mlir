@@ -941,7 +941,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
 // Implementation comments vs. createGenerateRuntimeVerificationPass
 // This check is according to onnx op semantics, not general bound
 // check for memref. Implementation of RuntimeVerification could be
-// borrowed. Slightly difference is that onnx semenatics check is for
+// borrowed. Slightly difference is that onnx semantics check is for
 // each dimension independently, not the final address is within
 // the memref bound.
 void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
