@@ -36,7 +36,8 @@
 #define DEBUG_TYPE "fusion-op-stick-unstick"
 
 // If set to 1, enable multiple distinct layouts to elementwise compute
-// operations.
+// operations; 0 otherwise. We can support the "compiler supported" layouts
+// because we only care about SIMD gen of the E1 (innermost) dimension.
 #define HANDLE_MULTIPLE_LAYOUT 1
 
 using namespace mlir;
@@ -65,9 +66,9 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
   return false;
 }
 
+#if !HANDLE_MULTIPLE_LAYOUT
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout.
-#if !HANDLE_MULTIPLE_LAYOUT
 static bool suitableLayout(
     Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
   // Now iterate over each of the inputs to op.
@@ -223,8 +224,8 @@ Operation *patternForFusionFromUnstick(
         explanation(computeOp, unstickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
-  // Suitable layout?
 #if !HANDLE_MULTIPLE_LAYOUT
+  // Suitable layout?
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
   if (!suitableLayout(computeOp, unstickLayout)) {
