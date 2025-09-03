@@ -139,14 +139,28 @@ bool sameLastDimOrStaticBroadcast(
 // null.
 Operation *getSingleUseOperationOf(Value val) {
   Operation *singleOp = nullptr;
+  int multipleComputeOpNum = 0;
   for (OpOperand &use : val.getUses()) {
     Operation *useOp = use.getOwner();
     if (singleOp == nullptr)
       singleOp = useOp;
-    else if (singleOp != useOp)
-      return nullptr;
+    else if (singleOp != useOp) {
+      multipleComputeOpNum++;
+      LLVM_DEBUG({
+        if (multipleComputeOpNum == 1) {
+          llvm::dbgs() << "Unstick -> multiple compute ops fusion FAILURE:\n  ";
+          val.dump();
+          llvm::dbgs() << "  ";
+          singleOp->dump();
+        }
+        llvm::dbgs() << "  ";
+        useOp->dump();
+      });
+      // return nullptr;
+    }
   }
-  return singleOp;
+  // return singleOp;
+  return multipleComputeOpNum ? nullptr : singleOp;
 }
 
 static void explanation(
