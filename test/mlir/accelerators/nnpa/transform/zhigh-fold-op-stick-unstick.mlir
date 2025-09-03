@@ -103,7 +103,7 @@ func.func @test_add_smn(%arg0: tensor<4x256x256xf32>, %arg1: tensor<4x256x1xf32>
 
 // input normal, output stick
 
-func.func @main_graph(%arg0: tensor<4x256x256xf32>, %arg1: tensor<4x256x1xf32>) -> tensor<4x256x256xf32> {
+func.func @test_add_normal_stick(%arg0: tensor<4x256x256xf32>, %arg1: tensor<4x256x1xf32>) -> tensor<4x256x256xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) {onnx_node_name = "onnx.Add_0"} : (tensor<4x256x256xf32>, tensor<4x256x1xf32>) -> tensor<4x256x256xf32>
   %1 = "zhigh.Stick"(%0) {layout = "3DS"} : (tensor<4x256x256xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   %2 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<4x256x256xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
@@ -112,7 +112,7 @@ func.func @main_graph(%arg0: tensor<4x256x256xf32>, %arg1: tensor<4x256x1xf32>) 
   return %4 : tensor<4x256x256xf32>
 
 // mlir2FileCheck.py
-// CHECK-LABEL:  func.func @main_graph
+// CHECK-LABEL:  func.func @test_add_normal_stick
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x256x256xf32>, [[PARAM_1_:%.+]]: tensor<4x256x1xf32>) -> tensor<4x256x256xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx_node_name = "onnx.Add_0"} : (tensor<4x256x256xf32>, tensor<4x256x1xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<4x256x256xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
@@ -122,3 +122,45 @@ func.func @main_graph(%arg0: tensor<4x256x256xf32>, %arg1: tensor<4x256x1xf32>) 
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_add_multiple_layout_v1(%arg0: tensor<8x256x64xf32>, %arg1: tensor<256x64xf32>) -> tensor<8x256x64xf32> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<8x256x64xf32>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Add"(%0, %0) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %2 = "zhigh.Unstick"(%1) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf32>
+  %3 = "zhigh.Stick"(%arg1) {layout = "2D"} : (tensor<256x64xf32>) -> tensor<256x64xf16, #zhigh.layout<{dataLayout = "2D"}>>
+  %4 = "zhigh.Add"(%3, %3) : (tensor<256x64xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<256x64xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<256x64xf16, #zhigh.layout<{dataLayout = "2D"}>>
+  %5 = "zhigh.Unstick"(%4) : (tensor<256x64xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<256x64xf32>
+  %6 = "onnx.Add"(%2, %5) {onnx_node_name = "onnx.Add_2"} : (tensor<8x256x64xf32>, tensor<256x64xf32>) -> tensor<8x256x64xf32>
+  %7 = "zhigh.Stick"(%6) {layout = "3DS"} : (tensor<8x256x64xf32>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %8 = "zhigh.Div"(%7, %1) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %9 = "zhigh.Unstick"(%8) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf32>
+  return %9 : tensor<8x256x64xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_add_multiple_layout_v1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x256x256xf32>, [[PARAM_1_:%.+]]: tensor<4x256x1xf32>) -> tensor<4x256x256xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx_node_name = "onnx.Add_0"} : (tensor<4x256x256xf32>, tensor<4x256x1xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<4x256x256xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Add"([[VAR_0_]], [[VAR_1_]]) : (tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+}
+
+// -----
+
+// same but with broadcast in the inner dim as well.
+func.func @test_add_multiple_layout_v2(%arg0: tensor<8x256x64xf32>, %arg1: tensor<256x1xf32>) -> tensor<8x256x64xf32> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<8x256x64xf32>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Add"(%0, %0) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %2 = "zhigh.Unstick"(%1) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf32>
+  %3 = "zhigh.Stick"(%arg1) {layout = "2D"} : (tensor<256x1xf32>) -> tensor<256x1xf16, #zhigh.layout<{dataLayout = "2D"}>>
+  %4 = "zhigh.Add"(%3, %3) : (tensor<256x1xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<256x1xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<256x1xf16, #zhigh.layout<{dataLayout = "2D"}>>
+  %5 = "onnx.Add"(%2, %4) {onnx_node_name = "onnx.Add_2"} : (tensor<8x256x64xf32>, tensor<256x1xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %6 = "zhigh.Div"(%5, %1) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %7 = "zhigh.Unstick"(%6) : (tensor<8x256x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<8x256x64xf32>
+  return %7 : tensor<8x256x64xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_add_multiple_layout_v2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x256x256xf32>, [[PARAM_1_:%.+]]: tensor<4x256x1xf32>) -> tensor<4x256x256xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx_node_name = "onnx.Add_0"} : (tensor<4x256x256xf32>, tensor<4x256x1xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<4x256x256xf32>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Add"([[VAR_0_]], [[VAR_1_]]) : (tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x256x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+}

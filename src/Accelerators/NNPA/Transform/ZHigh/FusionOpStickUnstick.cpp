@@ -35,6 +35,10 @@
 
 #define DEBUG_TYPE "fusion-op-stick-unstick"
 
+// If set to 1, enable multiple distinct layouts to elementwise compute
+// operations.
+#define HANDLE_MULTIPLE_LAYOUT 1
+
 using namespace mlir;
 using namespace onnx_mlir;
 using namespace zhigh;
@@ -63,10 +67,9 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
 
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout.
+#if !HANDLE_MULTIPLE_LAYOUT
 static bool suitableLayout(
     Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
-  // hi alex
-  return true;
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
     // Check if we have a layout and if it is compatible.
@@ -80,6 +83,7 @@ static bool suitableLayout(
   }
   return true;
 }
+#endif
 
 // Make sure that all inputs and outputs have the right element type. Currently
 // only support f32 or d.
@@ -220,7 +224,7 @@ Operation *patternForFusionFromUnstick(
     return nullptr;
   }
   // Suitable layout?
-  // TODO: should tolerate different formats, say 2D and 3D
+#if !HANDLE_MULTIPLE_LAYOUT
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
   if (!suitableLayout(computeOp, unstickLayout)) {
@@ -228,6 +232,7 @@ Operation *patternForFusionFromUnstick(
         computeOp, unstickOp, "FAILURE due to input zTensor layouts"));
     return nullptr;
   }
+#endif
   // Success.
   LLVM_DEBUG(explanation(computeOp, unstickOp, ""));
   return computeOp;
@@ -261,6 +266,7 @@ Operation *patternForFusionFromStick(
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
+#if !HANDLE_MULTIPLE_LAYOUT
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());
   if (!suitableLayout(computeOp, stickLayout)) {
@@ -268,6 +274,7 @@ Operation *patternForFusionFromStick(
         computeOp, stickOp, "FAILURE due to input zTensor layouts"));
     return nullptr;
   }
+#endif
   // ZHighUnstickOp unstickOp = computeOp
   LLVM_DEBUG(explanation(computeOp, stickOp, ""));
   return computeOp;
