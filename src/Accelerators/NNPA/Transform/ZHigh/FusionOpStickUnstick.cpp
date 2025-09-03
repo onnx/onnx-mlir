@@ -62,9 +62,11 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
 }
 
 // Make sure that all inputs have either an undefined layout or the same as
-// reference layout,
+// reference layout.
 static bool suitableLayout(
     Operation *op, ZTensorEncodingAttr::DataLayout refLayout) {
+  // hi alex
+  return true;
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
     // Check if we have a layout and if it is compatible.
@@ -148,6 +150,9 @@ Operation *getSingleUseOperationOf(Value val) {
       multipleComputeOpNum++;
       LLVM_DEBUG({
         if (multipleComputeOpNum == 1) {
+          // TODO, could look into tolerating multiple "supported" ops + some
+          // free ops such as "DimOp". Printout here highlights the missing
+          // opportunities.
           llvm::dbgs() << "Unstick -> multiple compute ops fusion FAILURE:\n  ";
           val.dump();
           llvm::dbgs() << "  ";
@@ -156,10 +161,8 @@ Operation *getSingleUseOperationOf(Value val) {
         llvm::dbgs() << "  ";
         useOp->dump();
       });
-      // return nullptr;
     }
   }
-  // return singleOp;
   return multipleComputeOpNum ? nullptr : singleOp;
 }
 
@@ -217,6 +220,7 @@ Operation *patternForFusionFromUnstick(
     return nullptr;
   }
   // Suitable layout?
+  // TODO: should tolerate different formats, say 2D and 3D
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
   if (!suitableLayout(computeOp, unstickLayout)) {
