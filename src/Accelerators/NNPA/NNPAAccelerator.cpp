@@ -152,9 +152,6 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
     return onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass();
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::zhigh::createFusionOpStickUnstick();
-  });
 }
 
 void NNPAAccelerator::configurePasses() const {

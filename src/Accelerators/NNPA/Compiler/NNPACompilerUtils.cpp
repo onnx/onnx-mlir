@@ -125,8 +125,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 
   // Layout propagation at ZHighIR.
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::zhigh::createZHighLayoutPropagationPass());
+  pm.addPass(onnx_mlir::zhigh::createZHighLayoutPropagationPass(
+      nnpaDisableFusionOpStickUnstick));
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
 
@@ -180,9 +180,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
-
-  if (!nnpaDisableFusionOpStickUnstick)
-    pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;

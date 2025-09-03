@@ -28,9 +28,6 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
     std::string loadConfigFile, std::string saveConfigFile,
     NNPAPlacementHeuristic placementHeuristic);
 
-// Add pass for fusion of unstick -> op -> stick (or subset).
-std::unique_ptr<mlir::Pass> createFusionOpStickUnstick();
-
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 void configureONNXToZHighLoweringPass(bool reportOnNNPAUnsupportedOps,
@@ -49,7 +46,8 @@ std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
 namespace zhigh {
 
 /// Pass for layout propagation at ZHighIR.
-std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
+std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass(
+    bool disableElementwiseLayoutProp = false);
 
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
@@ -63,9 +61,6 @@ std::unique_ptr<mlir::Pass> createZHighDecomposeStickUnstickPass();
 
 /// Pass for recomposing ops back to stick/unstick at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighRecomposeToStickUnstickPass();
-
-// Pass to fuse unstick -> suitable op -> stick (or subset of that).
-std::unique_ptr<mlir::Pass> createFusionOpStickUnstick();
 
 } // end namespace zhigh
 

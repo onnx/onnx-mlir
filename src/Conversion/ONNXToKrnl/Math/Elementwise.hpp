@@ -23,8 +23,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-
 // Usage: to reuse the list of all op type that are handled by Elementwise code,
 // define either the generic ELEMENTWISE_ALL(OP_TYPE) macro (targeting all ops),
 // or the 3 specific macros (ELEMENTWISE_BINARY, _UNARY, or _VARIADIC) to

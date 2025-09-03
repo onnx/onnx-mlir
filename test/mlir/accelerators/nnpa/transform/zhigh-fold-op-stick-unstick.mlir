@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --march=z16 --maccel=NNPA --fusion-op-stick-unstick %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --march=z16 --maccel=NNPA --zhigh-layout-prop %s -split-input-file | FileCheck %s
 
 // -----
 
