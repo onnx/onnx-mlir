@@ -2844,6 +2844,32 @@ func.func @test_range_int_constant() -> tensor<*xi32> {
 
 // -----
 
+func.func @test_range_add_scalar_int(%start: tensor<i64>) -> tensor<*xi64> {
+  %range = onnx.Constant dense<10> : tensor<i64>
+  %delta = onnx.Constant dense<1> : tensor<i64>
+  %limit = "onnx.Add"(%start, %range) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<*xi64>
+  onnx.Return %0 : tensor<*xi64>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_int
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<10xi64>
+}
+
+// -----
+
+func.func @test_range_add_scalar_float(%start: tensor<f32>) -> tensor<*xf32> {
+  %range = onnx.Constant dense<5.0> : tensor<f32>
+  %delta = onnx.Constant dense<1.0> : tensor<f32>
+  %limit = "onnx.Add"(%start, %range) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_float
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<5xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the upsample op inference.
 //===----------------------------------------------------------------------===//
