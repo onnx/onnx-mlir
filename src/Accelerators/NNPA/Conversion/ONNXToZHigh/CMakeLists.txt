@@ -76,4 +76,3 @@ add_onnx_mlir_library(OMDevicePlacement
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
-

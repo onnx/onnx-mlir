@@ -4,7 +4,7 @@
 
 //===-------- ZHighHelper.hpp - ZHigh Helper Functions --------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //

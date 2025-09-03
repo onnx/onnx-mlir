@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// TODO; there are missing getGenOpMix for many ops.
+
 #define _USE_MATH_DEFINES
 #include <cmath>
 

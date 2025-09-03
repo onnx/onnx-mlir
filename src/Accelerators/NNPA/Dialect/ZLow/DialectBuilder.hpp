@@ -4,7 +4,7 @@
 
 //====--------- DialectBuilder.hpp - ZLow Dialect Builder -----------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -55,8 +55,9 @@ struct ZLowBuilder : public DialectBuilder {
   mlir::Value convertDLF16ToF32(mlir::Value dlf16); // Scalar version.
   void convertDLF16ToF32(                           // SIMD version.
       mlir::Value dlf16, mlir::Value &highF32, mlir::Value &lowF32);
-  mlir::Value convertF32ToDLF16(mlir::Value f32); // Scalar version.
-  mlir::Value convertF32ToDLF16(                  // SIMD version.
+  mlir::Value convertF32ToDLF16( // Scalar version, without saturation.
+      mlir::Value f32);
+  mlir::Value convertF32ToDLF16( // SIMD version, with/without saturation.
       mlir::Value highF32, mlir::Value lowF32, bool disableSaturation = false);
 
   void quantizedStick(mlir::Value x, mlir::Value xRecScale, mlir::Value xOffset,
