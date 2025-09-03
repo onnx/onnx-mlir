@@ -26,6 +26,7 @@
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <map>
 
@@ -170,6 +171,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
+    Location loc = stickOp.getLoc();
     Value stickInput = stickOp.getX();
 
     // Do not handle NCHW layout stickification that transposes data
@@ -183,8 +185,8 @@ public:
       return failure();
 
     // Input must have no affine layout. In other words, it has been normalized.
-    if (hasNonIdentityLayout(stickInput.getType()))
-      return failure();
+    // if (hasNonIdentityLayout(stickInput.getType()))
+    //   return failure();
 
     // Input is a view.
     ViewLikeOpInterface viewOp =
@@ -220,16 +222,47 @@ public:
     // Match shapes.
     Value stickRes = stickOp.getOut();
     Value unstickInput = unstickOp.getX();
-    MemRefType stickResType = mlir::dyn_cast<MemRefType>(stickRes.getType());
-    MemRefType unstickInputType =
-        mlir::dyn_cast<MemRefType>(unstickInput.getType());
-    if (!stickResType.hasStaticShape() ||
-        (stickResType.getShape() != unstickInputType.getShape()))
-      return failure();
+    bool hasAffineMap = hasNonIdentityLayout(unstickInput.getType());
+    if (hasAffineMap) {
+      // Input has affine layout. Support only 3DS at this moment.
+      // Both unstick and stick use 3DS layout.
+      std::string unstickLayout = unstickOp.getLayout().value().str();
+      std::string stickLayout = stickOp.getLayout().value().str();
+      if (unstickLayout != LAYOUT_3DS || stickLayout != LAYOUT_3DS)
+        return failure();
+      auto stickResType = dyn_cast<MemRefType>(stickRes.getType());
+      auto unstickInputType = dyn_cast<MemRefType>(unstickInput.getType());
+      // Both ztensors have static shape.
+      if (!stickResType.hasStaticShape() || !unstickInputType.hasStaticShape())
+        return failure();
+
+      // Memory access: (e4, e2, e1) -> (e4, e1/64, 0, e2/32, e2%32, e1%64).
+      // Check that the shape's changed from S1(e4, e2, e1) to S2(e4', e2, e1'),
+      // where e2 is unchanged and e1%64=0, which makes sure that values are at
+      // the same offset.
+      ArrayRef<int64_t> S1 = stickResType.getShape();
+      ArrayRef<int64_t> S2 = unstickInputType.getShape();
+      if (S1[1] != S2[1] || S1[2] % 64 != 0)
+        return failure();
+    } else {
+      // Input has no affine layout, meaning it has been normalized.
+      auto stickResType = dyn_cast<MemRefType>(stickRes.getType());
+      auto unstickInputType = dyn_cast<MemRefType>(unstickInput.getType());
+      // Both ztensors have the same static shape.
+      if (!stickResType.hasStaticShape() ||
+          (stickResType.getShape() != unstickInputType.getShape()))
+        return failure();
+    }
 
     // Rewrite
     rewriter.eraseOp(stickOp);
-    stickRes.replaceAllUsesWith(unstickInput);
+    if (hasAffineMap) {
+      rewriter.setInsertionPointAfter(stickRes.getDefiningOp());
+      rewriter.create<ZLowReshapeOp>(
+          loc, unstickInput, stickRes, unstickOp.getLayoutAttr());
+    } else {
+      stickRes.replaceAllUsesWith(unstickInput);
+    }
     // Remove the view op if there is no use.
     if (viewOp.getOperation()->getResults()[0].use_empty())
       rewriter.eraseOp(viewOp);
