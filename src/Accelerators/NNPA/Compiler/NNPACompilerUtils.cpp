@@ -168,7 +168,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addPass(onnx_mlir::zhigh::createZHighConstPropagationPass());
 
   // Remove common sub-expressions.
-  pm.addPass(mlir::createSymbolDCEPass());
+  pm.addPass(mlir::createCSEPass());
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());

@@ -143,6 +143,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());
 
   // Clean dead code.
+  pm.addPass(mlir::createCSEPass());
   pm.addPass(mlir::createSymbolDCEPass());
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
@@ -152,13 +153,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
-
-  // Add a Symbol-DCE pass to delete unreachable ops and symbols.
-  // This is useful when a model, especially manually modified one, is dumped
-  // with --EmitONNXIR.
-  // This pass is inserted before the instrumentation pass, which may add
-  // instrumentation ops with external sideeffect.
-  pm.addPass(mlir::createSymbolDCEPass());
 
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.
@@ -187,6 +181,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
 void addONNXToKrnlPasses(
     mlir::PassManager &pm, int optLevel, std::string ONNXOpsStatFormat) {
+  pm.addPass(mlir::createCSEPass());
   pm.addPass(mlir::createSymbolDCEPass());
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
@@ -223,6 +218,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm, std::string outputNameNoExt) {
+  pm.addPass(mlir::createCSEPass());
   pm.addPass(mlir::createSymbolDCEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
