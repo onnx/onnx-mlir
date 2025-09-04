@@ -565,7 +565,7 @@ struct ZHighLayoutPropagationPass
 
     // Elementwise operations driven from stick/unstick.
     DimAnalysis *dimAnalysis = nullptr;
-    OperationSet processedStickUnstick;
+    OperationSet processedStickUnstick; // hi alex, look if we can remove.
 
     if (!disableElementwiseLayoutProp) {
       dimAnalysis = new DimAnalysis(module);

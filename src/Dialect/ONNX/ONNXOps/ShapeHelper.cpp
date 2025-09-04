@@ -846,14 +846,43 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
           shape[i] != -1 ? shape[i] : ShapedType::kDynamic);
   }
 
+#if 0 // hi alex
+  // If the current value as an element type, reuse type and encoding.
+  if (val.getType()) {
+    Type currElementType = getElementType(val.getType());
+    if (currElementType) {
+      // Result already has a type, reuse it.
+      elementType = currElementType;
+      RankedTensorType valRankedType =
+          mlir::dyn_cast<RankedTensorType>(val.getType());
+      if (valRankedType)
+        // result already has an encoding, reuse it.
+        encoding = valRankedType.getEncoding();
+    }
+  }
+#else
   // Get element type.
   if (!elementType)
     elementType = getElementType(val.getType());
 
   // Get encoding.
-  if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType()))
+  if (auto valRankedType = mlir::dyn_cast<RankedTensorType>(val.getType()))
     if (!encoding)
-      encoding = valType.getEncoding();
+      encoding = valRankedType.getEncoding();
+
+#if 0 // hi alex
+  Type origType = getElementType(val.getType());
+  if (origType != elementType) {
+    fprintf(
+        stderr, "hi alex: WARNING: different original/dest element types\n  ");
+    val.dump();
+    fprintf(stderr, "  ");
+    origType.dump();
+    fprintf(stderr, "  ");
+    elementType.dump();
+  }
+#endif
+#endif
 
   // Build result type.
   RankedTensorType resType;
