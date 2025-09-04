@@ -166,7 +166,7 @@ func.func @test_reshape_unstick_view_stick_2DS(%arg0: memref<32x64xf16, #map>) -
 // CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_2DS
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x64xf16, #map>) -> memref<1x2048xf16, #map> {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x2048xf16, #map>
-// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "2DS"} : (memref<32x64xf16, #map>, memref<1x2048xf16, #map>) -> ()
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {out_layout = "2DS", x_layout = "2DS"} : (memref<32x64xf16, #map>, memref<1x2048xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x2048xf16, #map>
 // CHECK:         }
 }
@@ -186,7 +186,7 @@ func.func @test_reshape_unstick_view_stick_3DS(%arg0: memref<32x1x64xf16, #map>)
 // CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_3DS
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x1x64xf16, #map>) -> memref<1x1x2048xf16, #map> {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2048xf16, #map>
-// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<32x1x64xf16, #map>, memref<1x1x2048xf16, #map>) -> ()
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {out_layout = "3DS", x_layout = "3DS"} : (memref<32x1x64xf16, #map>, memref<1x1x2048xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x1x2048xf16, #map>
 // CHECK:         }
 }
@@ -206,8 +206,30 @@ func.func @test_reshape_unstick_view_stick_4D(%arg0: memref<32x1x1x64xf16, #map>
 // CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_4D
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x1x1x64xf16, #map>) -> memref<1x1x1x2048xf16, #map> {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x2048xf16, #map>
-// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "4D"} : (memref<32x1x1x64xf16, #map>, memref<1x1x1x2048xf16, #map>) -> ()
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {out_layout = "4D", x_layout = "4D"} : (memref<32x1x1x64xf16, #map>, memref<1x1x1x2048xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x1x1x2048xf16, #map>
+// CHECK:         }
+}
+
+// -----
+
+#map_3ds = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+#map_4d = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+func.func @test_reshape_unstick_view_stick_4D_to_3DS(%arg0: memref<32x1x1x64xf16, #map_4d>) -> memref<1x1x2048xf16, #map_3ds> {
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<32x1x1x64xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "4D"} : (memref<32x1x1x64xf16, #map_4d>, memref<32x1x1x64xf32>) -> ()
+  %reinterpret_cast = memref.reinterpret_cast %alloc to offset: [0], sizes: [1, 1, 2048], strides: [2048, 2048, 1] : memref<32x1x1x64xf32> to memref<1x1x2048xf32>
+  %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<1x1x2048xf16, #map_3ds>
+  "zlow.stick"(%reinterpret_cast, %alloc_0) {layout = "3DS"} : (memref<1x1x2048xf32>, memref<1x1x2048xf16, #map_3ds>) -> ()
+  return %alloc_0 : memref<1x1x2048xf16, #map_3ds>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_4D_to_3DS
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x1x1x64xf16, #map>) -> memref<1x1x2048xf16, #map1> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2048xf16, #map1>
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {out_layout = "3DS", x_layout = "4D"} : (memref<32x1x1x64xf16, #map>, memref<1x1x2048xf16, #map1>) -> ()
+// CHECK:           return [[RES_]] : memref<1x1x2048xf16, #map1>
 // CHECK:         }
 }
 
@@ -810,7 +832,7 @@ func.func @handle_zlow_reshape_fail(%arg0: memref<8x384x768xf16, #map>, %arg1: m
     %c1 = arith.constant 1 : index
     // Reshape of input.
     %alloc = memref.alloc() {alignment = 4096 : i64} : memref<96x384x64xf16, #map>
-    "zlow.reshape"(%arg0, %alloc) {layout = "3DS"} : (memref<8x384x768xf16, #map>, memref<96x384x64xf16, #map>) -> ()
+    "zlow.reshape"(%arg0, %alloc) {x_layout = "3DS", out_layout = "3DS"} : (memref<8x384x768xf16, #map>, memref<96x384x64xf16, #map>) -> ()
     // Use of reshape.
     %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<96x384x384xf16, #map>
     %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<4xi64>
@@ -828,7 +850,7 @@ func.func @handle_zlow_reshape_fail(%arg0: memref<8x384x768xf16, #map>, %arg1: m
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<8x384x768xf16, #map>, [[PARAM_1_:%.+]]: memref<96x64x384xf16, #map>) -> memref<96x384x384xf16, #map> {
 
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<96x384x64xf16, #map>
-// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<8x384x768xf16, #map>, memref<96x384x64xf16, #map>) -> ()
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {out_layout = "3DS", x_layout = "3DS"} : (memref<8x384x768xf16, #map>, memref<96x384x64xf16, #map>) -> ()
 
 // CHECK:         }
 }
@@ -846,7 +868,7 @@ func.func @handle_zlow_reshape_success(%arg0: memref<8x12x1x12x32x64xf16>, %arg1
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %alloc = memref.alloc() {alignment = 4096 : i64} : memref<96x1x1x12x32x64xf16>
-  "zlow.reshape"(%arg0, %alloc) {layout = "3DS"} : (memref<8x12x1x12x32x64xf16>, memref<96x1x1x12x32x64xf16>) -> ()
+  "zlow.reshape"(%arg0, %alloc) {x_layout = "3DS", out_layout = "3DS"} : (memref<8x12x1x12x32x64xf16>, memref<96x1x1x12x32x64xf16>) -> ()
   %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<96x6x1x12x32x64xf16>
   %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<4xi64>
   krnl.store %c96_i64, %alloc_1[%c0] : memref<4xi64>

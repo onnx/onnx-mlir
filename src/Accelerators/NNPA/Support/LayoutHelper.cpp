@@ -97,12 +97,14 @@ mlir::StringAttr getNCHWLayoutAttr(PatternRewriter &rewriter) {
 
 bool isNoopReshape(ShapedType srcType, std::string srcLayout,
     ShapedType tgtType, std::string tgtLayout) {
-  if (srcLayout != tgtLayout)
-    return false;
-
-  // Supported layout: 3DS, 4D.
-  if (llvm::none_of(SmallVector<std::string>{LAYOUT_2DS, LAYOUT_3DS, LAYOUT_4D},
+  // Supported layouts: 2DS, 3DS, 4D.
+  SmallVector<std::string> supportedLayouts = {
+      LAYOUT_2DS, LAYOUT_3DS, LAYOUT_4D};
+  if (llvm::none_of(supportedLayouts,
           [&srcLayout](std::string v) { return srcLayout == v; }))
+    return false;
+  if (llvm::none_of(supportedLayouts,
+          [&tgtLayout](std::string v) { return tgtLayout == v; }))
     return false;
 
   // Both ztensors have static shape.
@@ -113,33 +115,37 @@ bool isNoopReshape(ShapedType srcType, std::string srcLayout,
   SmallVector<int64_t, 4> srcShape, tgtShape;
   ArrayRef<int64_t> S1 = srcType.getShape();
   ArrayRef<int64_t> S2 = tgtType.getShape();
+  // source.
   if (srcLayout == LAYOUT_2DS) {
-    // source.
     srcShape.emplace_back(S1[0]);
     srcShape.emplace_back(1);
     srcShape.emplace_back(1);
     srcShape.emplace_back(S1[1]);
-    // target.
-    tgtShape.emplace_back(S2[0]);
-    tgtShape.emplace_back(1);
-    tgtShape.emplace_back(1);
-    tgtShape.emplace_back(S2[1]);
   } else if (srcLayout == LAYOUT_3DS) {
-    // source.
     srcShape.emplace_back(S1[0]);
     srcShape.emplace_back(1);
     srcShape.emplace_back(S1[1]);
     srcShape.emplace_back(S1[2]);
-    // target.
+  } else if (srcLayout == LAYOUT_4D) {
+    for (int64_t v : S1)
+      srcShape.emplace_back(v);
+  } else {
+    return false;
+  }
+  // target.
+  if (tgtLayout == LAYOUT_2DS) {
+    tgtShape.emplace_back(S2[0]);
+    tgtShape.emplace_back(1);
+    tgtShape.emplace_back(1);
+    tgtShape.emplace_back(S2[1]);
+  } else if (tgtLayout == LAYOUT_3DS) {
     tgtShape.emplace_back(S2[0]);
     tgtShape.emplace_back(1);
     tgtShape.emplace_back(S2[1]);
     tgtShape.emplace_back(S2[2]);
-  } else if (srcLayout == LAYOUT_4D) {
-    for (uint64_t i = 0; i < S1.size(); ++i) {
-      srcShape.emplace_back(S1[i]);
-      tgtShape.emplace_back(S2[i]);
-    }
+  } else if (tgtLayout == LAYOUT_4D) {
+    for (int64_t v : S2)
+      tgtShape.emplace_back(v);
   } else {
     return false;
   }

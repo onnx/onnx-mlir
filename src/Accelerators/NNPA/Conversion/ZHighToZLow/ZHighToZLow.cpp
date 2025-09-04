@@ -1124,7 +1124,7 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
 
     // Emit a ZLow operation.
     rewriter.create<ZLowReshapeOp>(
-        loc, input, /* shape,*/ alloc, zMemRefType.layout);
+        loc, input, /* shape,*/ alloc, zMemRefType.layout, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
