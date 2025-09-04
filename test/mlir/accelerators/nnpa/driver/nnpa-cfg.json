@@ -1,0 +1,19 @@
+{
+  "device_placement": [
+    {
+      "device": "cpu",
+      "node_type":"onnx.Sigmoid"
+    }
+  ],
+  "quantization": [
+    {
+      "quantize": true,
+      "node_type":"onnx.MatMul",
+      "onnx_node_name":"MatMul_1"
+    },
+    {
+      "quantize": false,
+      "node_type":"onnx.MatMul"
+    }
+  ]
+}

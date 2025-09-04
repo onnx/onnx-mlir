@@ -8,6 +8,29 @@ func.func @test_save_config_file(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> 
   onnx.Return %3 : tensor<?x?x?xf32>
 
 // CHECK-LABEL test_save_config_file
-// CHECK: {"device_placement":[{"device":"nnpa","node_type":"onnx.Relu","onnx_node_name":"Relu_0"},{"device":"cpu","node_type":"onnx.Relu","onnx_node_name":"Relu_1"},{"device":"nnpa","node_type":"onnx.Relu","onnx_node_name":"Relu_2"},{"device":"nnpa","node_type":"onnx.Sigmoid","onnx_node_name":"Sigmoid_0"}]}
+// CHECK: {
+// CHECK:   "device_placement": [
+// CHECK:     {
+// CHECK:       "device": "nnpa",
+// CHECK:       "node_type": "onnx.Relu",
+// CHECK:       "onnx_node_name": "Relu_0"
+// CHECK:     },
+// CHECK:     {
+// CHECK:       "device": "cpu",
+// CHECK:       "node_type": "onnx.Relu",
+// CHECK:       "onnx_node_name": "Relu_1"
+// CHECK:     },
+// CHECK:     {
+// CHECK:       "device": "nnpa",
+// CHECK:       "node_type": "onnx.Relu",
+// CHECK:       "onnx_node_name": "Relu_2"
+// CHECK:     },
+// CHECK:     {
+// CHECK:       "device": "nnpa",
+// CHECK:       "node_type": "onnx.Sigmoid",
+// CHECK:       "onnx_node_name": "Sigmoid_0"
+// CHECK:     }
+// CHECK:   ]
+// CHECK: }
 }
 

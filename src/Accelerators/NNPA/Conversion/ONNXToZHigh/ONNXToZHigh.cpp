@@ -397,6 +397,14 @@ public:
   // Check the inputs A, B, C of `A*B+C` to see if they are suitable for doing
   // dynamic quantization on NNPA.
   LogicalResult match() {
+    // Check if the attribute `quantize` is given or not.
+    BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+    if (attr && !attr.getValue()) {
+      // The op is explicitly marked as non-quantization.
+      return rewriter.notifyMatchFailure(
+          op, "The op is explictly marked as non-quantization.");
+    }
+
     // A is of f32.
     if (!mlir::isa<Float32Type>(getElementType(A.getType())))
       return rewriter.notifyMatchFailure(op, "MatMul's A is not of f32.");

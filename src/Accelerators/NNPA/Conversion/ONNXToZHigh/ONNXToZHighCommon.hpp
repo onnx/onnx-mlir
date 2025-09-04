@@ -27,6 +27,7 @@ namespace onnx_mlir {
 const std::string DEVICE_ATTRIBUTE = "device";
 const std::string CPU_DEVICE = "cpu";
 const std::string NNPA_DEVICE = "nnpa";
+const std::string QUANT_ATTRIBUTE = "quantize";
 
 bool isEnableScalarBcastBinary();
 
