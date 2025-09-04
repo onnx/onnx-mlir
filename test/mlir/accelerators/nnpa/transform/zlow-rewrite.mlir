@@ -153,6 +153,89 @@ func.func @test_should_not_remove_unstick_view_stick_nchw(%arg0: memref<1x1x1x1x
 
 // -----
 
+#map = affine_map<(d0, d1) -> (d0, d1 floordiv 64, 0, 0, 0, 31, d1 mod 64)>
+func.func @test_reshape_unstick_view_stick_2DS(%arg0: memref<32x64xf16, #map>) -> memref<1x2048xf16, #map> {
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<32x64xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "2DS"} : (memref<32x64xf16, #map>, memref<32x64xf32>) -> ()
+  %reinterpret_cast = memref.reinterpret_cast %alloc to offset: [0], sizes: [1, 2048], strides: [2048, 1] : memref<32x64xf32> to memref<1x2048xf32>
+  %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<1x2048xf16, #map>
+  "zlow.stick"(%reinterpret_cast, %alloc_0) {layout = "2DS"} : (memref<1x2048xf32>, memref<1x2048xf16, #map>) -> ()
+  return %alloc_0 : memref<1x2048xf16, #map>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d0, d1 floordiv 64, 0, 0, 0, 31, d1 mod 64)>
+// CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_2DS
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x64xf16, #map>) -> memref<1x2048xf16, #map> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x2048xf16, #map>
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "2DS"} : (memref<32x64xf16, #map>, memref<1x2048xf16, #map>) -> ()
+// CHECK:           return [[RES_]] : memref<1x2048xf16, #map>
+// CHECK:         }
+}
+
+// -----
+
+#map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+func.func @test_reshape_unstick_view_stick_3DS(%arg0: memref<32x1x64xf16, #map>) -> memref<1x1x2048xf16, #map> {
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<32x1x64xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "3DS"} : (memref<32x1x64xf16, #map>, memref<32x1x64xf32>) -> ()
+  %reinterpret_cast = memref.reinterpret_cast %alloc to offset: [0], sizes: [1, 1, 2048], strides: [2048, 2048, 1] : memref<32x1x64xf32> to memref<1x1x2048xf32>
+  %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<1x1x2048xf16, #map>
+  "zlow.stick"(%reinterpret_cast, %alloc_0) {layout = "3DS"} : (memref<1x1x2048xf32>, memref<1x1x2048xf16, #map>) -> ()
+  return %alloc_0 : memref<1x1x2048xf16, #map>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_3DS
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x1x64xf16, #map>) -> memref<1x1x2048xf16, #map> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2048xf16, #map>
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<32x1x64xf16, #map>, memref<1x1x2048xf16, #map>) -> ()
+// CHECK:           return [[RES_]] : memref<1x1x2048xf16, #map>
+// CHECK:         }
+}
+
+// -----
+
+#map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+func.func @test_reshape_unstick_view_stick_4D(%arg0: memref<32x1x1x64xf16, #map>) -> memref<1x1x1x2048xf16, #map> {
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<32x1x1x64xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "4D"} : (memref<32x1x1x64xf16, #map>, memref<32x1x1x64xf32>) -> ()
+  %reinterpret_cast = memref.reinterpret_cast %alloc to offset: [0], sizes: [1, 1, 1, 2048], strides: [2048, 2048, 2048, 1] : memref<32x1x1x64xf32> to memref<1x1x1x2048xf32>
+  %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<1x1x1x2048xf16, #map>
+  "zlow.stick"(%reinterpret_cast, %alloc_0) {layout = "4D"} : (memref<1x1x1x2048xf32>, memref<1x1x1x2048xf16, #map>) -> ()
+  return %alloc_0 : memref<1x1x1x2048xf16, #map>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-LABEL:  func.func @test_reshape_unstick_view_stick_4D
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x1x1x64xf16, #map>) -> memref<1x1x1x2048xf16, #map> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x2048xf16, #map>
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {layout = "4D"} : (memref<32x1x1x64xf16, #map>, memref<1x1x1x2048xf16, #map>) -> ()
+// CHECK:           return [[RES_]] : memref<1x1x1x2048xf16, #map>
+// CHECK:         }
+}
+
+// -----
+
+#map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+func.func @test_donot_reshape_unstick_view_stick(%arg0: memref<32x5x64xf16, #map>) -> memref<1x5x2048xf16, #map> {
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<32x5x64xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "3DS"} : (memref<32x5x64xf16, #map>, memref<32x5x64xf32>) -> ()
+  %reinterpret_cast = memref.reinterpret_cast %alloc to offset: [0], sizes: [1, 5, 2048], strides: [10240, 2048, 1] : memref<32x5x64xf32> to memref<1x5x2048xf32>
+  %alloc_0 = memref.alloc() {alignment = 4096 : i64} : memref<1x5x2048xf16, #map>
+  "zlow.stick"(%reinterpret_cast, %alloc_0) {layout = "3DS"} : (memref<1x5x2048xf32>, memref<1x5x2048xf16, #map>) -> ()
+  return %alloc_0 : memref<1x5x2048xf16, #map>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-LABEL:  func.func @test_donot_reshape_unstick_view_stick
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<32x5x64xf16, #map>) -> memref<1x5x2048xf16, #map> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<32x5x64xf32>
+// CHECK:           "zlow.unstick"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<32x5x64xf16, #map>, memref<32x5x64xf32>) -> ()
+// CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[RES_]] to offset: [0], sizes: [1, 5, 2048], strides: [10240, 2048, 1] : memref<32x5x64xf32> to memref<1x5x2048xf32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x5x2048xf16, #map>
+// CHECK:           "zlow.stick"([[VAR_reinterpret_cast_]], [[RES_1_]]) {layout = "3DS"} : (memref<1x5x2048xf32>, memref<1x5x2048xf16, #map>) -> ()
+// CHECK:           return [[RES_1_]] : memref<1x5x2048xf16, #map>
+// CHECK:         }
+}
+
+// -----
+
 // Remove zlow.stick and zlow.unstick in pattern: unstick -> transpose -> stick.
 // Test a simple transpose.
 

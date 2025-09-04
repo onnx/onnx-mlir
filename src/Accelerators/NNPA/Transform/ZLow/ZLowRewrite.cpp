@@ -220,48 +220,38 @@ public:
       return failure();
 
     // Match shapes.
-    Value stickRes = stickOp.getOut();
-    Value unstickInput = unstickOp.getX();
-    bool hasAffineMap = hasNonIdentityLayout(unstickInput.getType());
-    if (hasAffineMap) {
-      // Input has affine layout. Support only 3DS at this moment.
-      // Both unstick and stick use 3DS layout.
-      std::string unstickLayout = unstickOp.getLayout().value().str();
-      std::string stickLayout = stickOp.getLayout().value().str();
-      if (unstickLayout != LAYOUT_3DS || stickLayout != LAYOUT_3DS)
-        return failure();
-      auto stickResType = dyn_cast<MemRefType>(stickRes.getType());
-      auto unstickInputType = dyn_cast<MemRefType>(unstickInput.getType());
-      // Both ztensors have static shape.
-      if (!stickResType.hasStaticShape() || !unstickInputType.hasStaticShape())
-        return failure();
+    Value srcZTensor = unstickOp.getX();
+    Value tgtZTensor = stickOp.getOut();
+    auto srcType = dyn_cast<ShapedType>(srcZTensor.getType());
+    auto tgtType = dyn_cast<ShapedType>(tgtZTensor.getType());
 
-      // Memory access: (e4, e2, e1) -> (e4, e1/64, 0, e2/32, e2%32, e1%64).
-      // Check that the shape's changed from S1(e4, e2, e1) to S2(e4', e2, e1'),
-      // where e2 is unchanged and e1%64=0, which makes sure that values are at
-      // the same offset.
-      ArrayRef<int64_t> S1 = stickResType.getShape();
-      ArrayRef<int64_t> S2 = unstickInputType.getShape();
-      if (S1[1] != S2[1] || S1[2] % 64 != 0)
+    bool isNormalizedMemref = !hasNonIdentityLayout(srcZTensor.getType());
+
+    if (isNormalizedMemref) {
+      // MemRefs are already normalized, there is no affine layout.
+      // Check that both ztensors have the same static shape.
+      if (!tgtType.hasStaticShape() ||
+          (tgtType.getShape() != srcType.getShape()))
         return failure();
     } else {
-      // Input has no affine layout, meaning it has been normalized.
-      auto stickResType = dyn_cast<MemRefType>(stickRes.getType());
-      auto unstickInputType = dyn_cast<MemRefType>(unstickInput.getType());
-      // Both ztensors have the same static shape.
-      if (!stickResType.hasStaticShape() ||
-          (stickResType.getShape() != unstickInputType.getShape()))
+      // MemRefs have not yet normalized, so they have affine layouts to
+      // represent ztensor layouts.
+      std::string srcLayout = unstickOp.getLayout().value().str();
+      std::string tgtLayout = stickOp.getLayout().value().str();
+      if (!isNoopReshape(srcType, srcLayout, tgtType, tgtLayout))
         return failure();
     }
 
     // Rewrite
     rewriter.eraseOp(stickOp);
-    if (hasAffineMap) {
-      rewriter.setInsertionPointAfter(stickRes.getDefiningOp());
-      rewriter.create<ZLowReshapeOp>(
-          loc, unstickInput, stickRes, unstickOp.getLayoutAttr());
+    if (isNormalizedMemref) {
+      tgtZTensor.replaceAllUsesWith(srcZTensor);
     } else {
-      stickRes.replaceAllUsesWith(unstickInput);
+      // Insert a zlow.reshape to reshape the input ztensor.
+      // This zlow.reshape will be no-op once it is lowered to lower IR.
+      rewriter.setInsertionPointAfter(tgtZTensor.getDefiningOp());
+      rewriter.create<ZLowReshapeOp>(
+          loc, srcZTensor, tgtZTensor, unstickOp.getLayoutAttr());
     }
     // Remove the view op if there is no use.
     if (viewOp.getOperation()->getResults()[0].use_empty())

@@ -52,5 +52,12 @@ bool isNHWCLayout(mlir::StringAttr layout);
 
 mlir::StringAttr getNCHWLayoutAttr(mlir::PatternRewriter &rewriter);
 
+// A function to check if reshaping a ztensor to a new ztensor of different
+// shape is "no-op" or not.
+// "no-op" means that logically elements in the reshaped ztensor are in the same
+// order and offset as the ones in the original ztensor.
+bool isNoopReshape(mlir::ShapedType srcType, std::string srcLayout,
+    mlir::ShapedType tgtType, std::string tgtLayout);
+
 } // namespace onnx_mlir
 #endif

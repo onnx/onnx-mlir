@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <numeric>
+
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
 using namespace mlir;
@@ -91,6 +93,84 @@ bool isNHWCLayout(StringAttr layout) {
 
 mlir::StringAttr getNCHWLayoutAttr(PatternRewriter &rewriter) {
   return rewriter.getStringAttr(LAYOUT_NCHW);
+}
+
+bool isNoopReshape(ShapedType srcType, std::string srcLayout,
+    ShapedType tgtType, std::string tgtLayout) {
+  if (srcLayout != tgtLayout)
+    return false;
+
+  // Supported layout: 3DS, 4D.
+  if (llvm::none_of(SmallVector<std::string>{LAYOUT_2DS, LAYOUT_3DS, LAYOUT_4D},
+          [&srcLayout](std::string v) { return srcLayout == v; }))
+    return false;
+
+  // Both ztensors have static shape.
+  if (!srcType.hasStaticShape() || !tgtType.hasStaticShape())
+    return false;
+
+  // Normalize to 4D shape.
+  SmallVector<int64_t, 4> srcShape, tgtShape;
+  ArrayRef<int64_t> S1 = srcType.getShape();
+  ArrayRef<int64_t> S2 = tgtType.getShape();
+  if (srcLayout == LAYOUT_2DS) {
+    // source.
+    srcShape.emplace_back(S1[0]);
+    srcShape.emplace_back(1);
+    srcShape.emplace_back(1);
+    srcShape.emplace_back(S1[1]);
+    // target.
+    tgtShape.emplace_back(S2[0]);
+    tgtShape.emplace_back(1);
+    tgtShape.emplace_back(1);
+    tgtShape.emplace_back(S2[1]);
+  } else if (srcLayout == LAYOUT_3DS) {
+    // source.
+    srcShape.emplace_back(S1[0]);
+    srcShape.emplace_back(1);
+    srcShape.emplace_back(S1[1]);
+    srcShape.emplace_back(S1[2]);
+    // target.
+    tgtShape.emplace_back(S2[0]);
+    tgtShape.emplace_back(1);
+    tgtShape.emplace_back(S2[1]);
+    tgtShape.emplace_back(S2[2]);
+  } else if (srcLayout == LAYOUT_4D) {
+    for (uint64_t i = 0; i < S1.size(); ++i) {
+      srcShape.emplace_back(S1[i]);
+      tgtShape.emplace_back(S2[i]);
+    }
+  } else {
+    return false;
+  }
+
+  // Check total sizes.
+  if (std::accumulate(
+          srcShape.begin(), srcShape.end(), 1, std::multiplies<>{}) !=
+      std::accumulate(tgtShape.begin(), tgtShape.end(), 1, std::multiplies<>{}))
+    return false;
+
+  // Memory access:
+  // - (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, e2%32, e1%64).
+  //
+  // Check that the shape's changed from
+  // - S1(e4, e3, e2, e1)
+  // to
+  // - S2(e4', e3, e2, e1'),
+  //
+  // where
+  // - e2 = e3 = 1
+  // - e1 % 64 = 0 and e1' % 64 = 0
+  //
+  // which makes sure that values are at the same offset.
+  if ((srcShape[1] != tgtShape[1]) || (srcShape[1] != 1))
+    return false;
+  if ((srcShape[2] != tgtShape[2]) || (srcShape[2] != 1))
+    return false;
+  if ((srcShape[3] % 64 != 0) || (tgtShape[3] % 64 != 0))
+    return false;
+
+  return true;
 }
 
 } // namespace onnx_mlir
