@@ -95,16 +95,17 @@ public:
       rewriter.replaceOp(qOp, newOp.getResult());
       return success();
     }
+    return failure();
   };
 };
 struct QDQAroundOpOptONNXToONNXPass
     : public PassWrapper<QDQAroundOpOptONNXToONNXPass,
           OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(QDQAroundOpOptONNXToONNXPass)
-  StringRef getArgument() const override {
+  [[nodiscard]] StringRef getArgument() const override {
     return "qdq-around-op-opt-onnx-to-onnx";
   }
-  StringRef getDescription() const override {
+  [[nodiscard]] StringRef getDescription() const override {
     return "Remove QDQ around ops if safe.";
   }
 
