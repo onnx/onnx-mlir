@@ -4,7 +4,7 @@
 
 //===--- ZLowStickExpansion.cpp - ZLow Stick/Unstick Expansion Patterns ---===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-2025 The IBM Research Authors.
 //
 // =============================================================================
 //

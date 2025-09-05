@@ -4,7 +4,7 @@
 
 //===-------- FusionOpStickUnstick.cpp - Fuse compute op  -----------------===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -43,8 +43,6 @@
 using namespace mlir;
 using namespace onnx_mlir;
 using namespace zhigh;
-
-using OperationSet = std::set<Operation *>;
 
 // TODO: ensure that if there is already a stickified format in the compute,
 // then the new fusion is compatible, aka use the same format.
@@ -284,23 +282,14 @@ Operation *patternForFusionFromStick(
 class PatternsStartingFromUnstick : public OpRewritePattern<ZHighUnstickOp> {
 public:
   DimAnalysis *dimAnalysis;
-  OperationSet *processedUnstick;
 
-  PatternsStartingFromUnstick(MLIRContext *context, DimAnalysis *dimAnalysis,
-      OperationSet *processedUnstick)
-      : OpRewritePattern<ZHighUnstickOp>(context, 1), dimAnalysis(dimAnalysis),
-        processedUnstick(processedUnstick) {}
+  PatternsStartingFromUnstick(MLIRContext *context, DimAnalysis *dimAnalysis)
+      : OpRewritePattern<ZHighUnstickOp>(context, 1), dimAnalysis(dimAnalysis) {
+  }
 
   using OpRewritePattern<ZHighUnstickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ZHighUnstickOp unstickOp, PatternRewriter &rewriter) const override {
-
-#if 0 // hi alex
-    // Process each stick/unstick only once.
-    if (processedUnstick->find(unstickOp.getOperation()) !=
-        processedUnstick->end())
-      return failure();
-#endif
 
     Operation *computeOp = patternForFusionFromUnstick(unstickOp, dimAnalysis);
     if (computeOp) {
@@ -311,7 +300,6 @@ public:
             // Have to replace this operand by input of unstick.
             computeOp->setOperand(i, unstickOp.getIn());
       });
-      processedUnstick->insert(unstickOp.getOperation());
       return success();
     }
     return failure();
@@ -321,22 +309,13 @@ public:
 class PatternsEndingWithStick : public OpRewritePattern<ZHighStickOp> {
 public:
   DimAnalysis *dimAnalysis;
-  OperationSet *processedStick;
 
-  PatternsEndingWithStick(MLIRContext *context, DimAnalysis *dimAnalysis,
-      OperationSet *processedStick)
-      : OpRewritePattern<ZHighStickOp>(context, 1), dimAnalysis(dimAnalysis),
-        processedStick(processedStick) {}
+  PatternsEndingWithStick(MLIRContext *context, DimAnalysis *dimAnalysis)
+      : OpRewritePattern<ZHighStickOp>(context, 1), dimAnalysis(dimAnalysis) {}
 
   using OpRewritePattern<ZHighStickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ZHighStickOp stickOp, PatternRewriter &rewriter) const override {
-
-#if 0 // hi alex
-    // Process each stick/unstick only once.
-    if (processedStick->find(stickOp.getOperation()) != processedStick->end())
-      return failure();
-#endif
 
     Operation *computeOp = patternForFusionFromStick(stickOp, dimAnalysis);
     if (computeOp) {
@@ -357,8 +336,6 @@ public:
       // Where ever stick outputs were used, now it should be the new
       // compute's result.
       rewriter.replaceOp(stickOp.getOperation(), newComputeOp->getResult(0));
-      // Keep track of the removed ops.
-      processedStick->insert(stickOp.getOperation());
       return success();
     }
     return failure();
@@ -393,14 +370,11 @@ struct FusionOpStickUnstick
 
     DimAnalysis *dimAnalysis = new DimAnalysis(module);
     dimAnalysis->analyze();
-    OperationSet processedStickUnstick;
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<PatternsStartingFromUnstick>(
-        &getContext(), dimAnalysis, &processedStickUnstick);
-    patterns.insert<PatternsEndingWithStick>(
-        &getContext(), dimAnalysis, &processedStickUnstick);
+    patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
+    patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
 
     if (failed(applyPatternsGreedily(module, std::move(patterns))))
       return signalPassFailure();

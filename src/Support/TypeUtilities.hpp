@@ -4,7 +4,7 @@
 
 //====---------- TypeUtilities.hpp - functions related to MLIR Type -------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //

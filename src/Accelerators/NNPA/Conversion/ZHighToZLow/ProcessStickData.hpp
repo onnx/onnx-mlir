@@ -4,7 +4,7 @@
 
 //====---------- ProcessStickData.cpp - Process Stick data ----------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-25 The IBM Research Authors.
 //
 // =============================================================================
 //

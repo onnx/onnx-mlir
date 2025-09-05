@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //

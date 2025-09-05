@@ -4,7 +4,7 @@
 
 //===---------- ZHighLayoutPropagation.cpp - ZHigh High Level Optimizer ---===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
