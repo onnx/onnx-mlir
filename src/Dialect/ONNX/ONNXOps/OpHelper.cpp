@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -148,6 +148,77 @@ Type convertTensorTypeToTensorTypeWithEncoding(
         resShape, rankedType.getElementType(), encodingAttr);
   }
   return resType;
+}
+
+//===----------------------------------------------------------------------===//
+// Support for shape.
+
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(Value value, Value shape) {
+  if (!hasShapeAndRank(value) || !hasShapeAndRank(shape))
+    return false;
+
+  ArrayRef<int64_t> valueShape =
+      mlir::cast<ShapedType>(value.getType()).getShape();
+  ElementsAttr shapeAttr = getElementAttributeFromONNXValue(shape);
+  if (shapeAttr == nullptr)
+    return false;
+
+  int64_t dimensionsOfShape = shapeAttr.getShapedType().getShape()[0];
+  if (static_cast<int64_t>(valueShape.size()) != dimensionsOfShape)
+    return false;
+
+  auto valueIt = shapeAttr.getValues<APInt>().begin();
+  for (int64_t i = 0; i < dimensionsOfShape; i++) {
+    int64_t value = (*valueIt++).getSExtValue();
+    if (valueShape[i] != value)
+      return false;
+  }
+  return true;
+}
+
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(Value v) {
+  if (!hasShapeAndRank(v))
+    return false;
+
+  auto t = mlir::dyn_cast<ShapedType>(v.getType());
+  int64_t r = t.getRank();
+  return isDenseONNXConstant(v) &&
+         ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
+}
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(Value val) {
+  Type valType = val.getType();
+  ShapedType shapedType;
+  if (SeqType seqType = mlir::dyn_cast<SeqType>(valType))
+    shapedType = mlir::dyn_cast<ShapedType>(seqType.getElementType());
+  else if (OptType optType = mlir::dyn_cast<OptType>(valType))
+    shapedType = mlir::dyn_cast<ShapedType>(optType.getElementType());
+  else
+    shapedType = mlir::dyn_cast<ShapedType>(valType);
+  return shapedType && shapedType.hasRank();
+}
+
+bool hasShapeAndRank(Operation *op) {
+  int num = op->getNumOperands();
+  for (int i = 0; i < num; ++i)
+    if (!hasShapeAndRank(op->getOperand(i)))
+      return false;
+  return true;
+}
+
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(Value val) {
+  int64_t numOfUsersExceptDim = 0;
+  for (auto user : val.getUsers()) {
+    if (isa<ONNXDimOp>(user))
+      continue;
+    numOfUsersExceptDim++;
+  }
+  return (numOfUsersExceptDim == 1);
 }
 
 //===----------------------------------------------------------------------===//
@@ -365,74 +436,6 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
     if (mlir::cast<IntegerAttr>(permVal).getInt() != currentIndex++)
       return false;
   return true;
-}
-
-/// Test if the value has the specified constant shape
-bool HasSpecifiedConstantShape(Value value, Value shape) {
-  if (!hasShapeAndRank(value) || !hasShapeAndRank(shape))
-    return false;
-
-  ArrayRef<int64_t> valueShape =
-      mlir::cast<ShapedType>(value.getType()).getShape();
-  ElementsAttr shapeAttr = getElementAttributeFromONNXValue(shape);
-  if (shapeAttr == nullptr)
-    return false;
-
-  int64_t dimensionsOfShape = shapeAttr.getShapedType().getShape()[0];
-  if (static_cast<int64_t>(valueShape.size()) != dimensionsOfShape)
-    return false;
-
-  auto valueIt = shapeAttr.getValues<APInt>().begin();
-  for (int64_t i = 0; i < dimensionsOfShape; i++) {
-    int64_t value = (*valueIt++).getSExtValue();
-    if (valueShape[i] != value)
-      return false;
-  }
-  return true;
-}
-
-/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
-/// tensor<1xdtype>.
-bool isScalarConstantTensor(Value v) {
-  if (!hasShapeAndRank(v))
-    return false;
-
-  auto t = mlir::dyn_cast<ShapedType>(v.getType());
-  int64_t r = t.getRank();
-  return isDenseONNXConstant(v) &&
-         ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
-}
-
-/// Test if 'val' has shape and rank or not.
-bool hasShapeAndRank(Value val) {
-  Type valType = val.getType();
-  ShapedType shapedType;
-  if (SeqType seqType = mlir::dyn_cast<SeqType>(valType))
-    shapedType = mlir::dyn_cast<ShapedType>(seqType.getElementType());
-  else if (OptType optType = mlir::dyn_cast<OptType>(valType))
-    shapedType = mlir::dyn_cast<ShapedType>(optType.getElementType());
-  else
-    shapedType = mlir::dyn_cast<ShapedType>(valType);
-  return shapedType && shapedType.hasRank();
-}
-
-bool hasShapeAndRank(Operation *op) {
-  int num = op->getNumOperands();
-  for (int i = 0; i < num; ++i)
-    if (!hasShapeAndRank(op->getOperand(i)))
-      return false;
-  return true;
-}
-
-/// Test if a value has only one use except ONNXDimOp.
-bool hasOneUseExceptDimOp(Value val) {
-  int64_t numOfUsersExceptDim = 0;
-  for (auto user : val.getUsers()) {
-    if (isa<ONNXDimOp>(user))
-      continue;
-    numOfUsersExceptDim++;
-  }
-  return (numOfUsersExceptDim == 1);
 }
 
 //===----------------------------------------------------------------------===//

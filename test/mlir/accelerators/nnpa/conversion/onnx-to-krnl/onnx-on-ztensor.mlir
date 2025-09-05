@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // Test doing unary element-wise computation directly on zTensor.
 // Taking ONNXSqrtOp as the example.
 // Need to check that the buffer is correctly aligned to 4K.

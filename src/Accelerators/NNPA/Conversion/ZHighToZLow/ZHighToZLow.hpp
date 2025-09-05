@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.hpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -46,18 +46,23 @@ mlir::Value insertShapeMemRefI64(mlir::PatternRewriter &rewriter,
 mlir::Value insertAllocForZMemRefByDim(mlir::ArrayRef<IndexExpr> dims,
     ZTensorEncodingAttr::DataLayout layout,
     ZTensorEncodingAttr::QuantizedType qtype, mlir::Operation *op,
-    mlir::PatternRewriter &rewriter, int64_t alignment);
+    mlir::PatternRewriter &rewriter, int64_t alignment = gAlignment);
 
 /// Insert an allocation for the given ZMemRefType.
 /// By default, set alignment to 4K.
 mlir::Value insertAllocForZMemRef(ZMemRefType zType,
     mlir::ArrayRef<IndexExpr> dims, mlir::Operation *op,
-    mlir::PatternRewriter &rewriter, int64_t alignment);
+    mlir::PatternRewriter &rewriter, int64_t alignment = gAlignment);
 
 /// Populate all conversion patterns for ZHigh Ops.
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
     bool enableParallel);
+
+/// Populate conversions for elementwise with NNPA layout patterns.
+void populateONNXWithNNPALayoutToKrnlConversionPattern(
+    mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
+    mlir::MLIRContext *ctx, bool enableParallel, bool disableSaturation);
 
 } // namespace zhigh
 } // namespace onnx_mlir

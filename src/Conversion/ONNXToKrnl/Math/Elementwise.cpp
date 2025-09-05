@@ -4,7 +4,7 @@
 
 //===---------------- Elementwise.cpp - Elementwise Ops -------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,6 +18,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -27,6 +28,10 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// Utilities
+//===----------------------------------------------------------------------===//
 
 // Check the input, x, can be reused as the output buffer
 bool isBufferReusable(Value x, MemRefType outputType) {
@@ -73,7 +78,7 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 // Default VL=0 is used for non SIMD allocation
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment, int64_t VL = 0);
+    int64_t alignment, int64_t VL);
 
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
@@ -105,15 +110,6 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
 }
 
 // =============================================================================
-
-/// Emit post-processing for variadic element-wise ops.
-template <typename Op>
-Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Type elementType, Value scalarResult) {
-  return scalarResult;
-}
-
-// =============================================================================
 // Template for functions that can be used as is
 
 template <typename Op>
@@ -134,238 +130,81 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 
 // =============================================================================
 // Scalar ops handling
+// =============================================================================
 
-template <>
-struct ScalarOp<ONNXTanhOp> {
-  using FOp = math::TanhOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
-GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
-  return {{GenericOps::TrigHyperbolicGop, 1}};
-}
-
-template <>
-struct ScalarOp<ONNXAddOp> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXAbsOp> {
-  using FOp = math::AbsFOp;
-  using IOp = math::AbsIOp;
-};
-template <>
 GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
   return {{GenericOps::AbsGop, 1}};
 }
 
-template <>
-struct ScalarOp<ONNXMulOp> {
-  using FOp = arith::MulFOp;
-  using IOp = arith::MulIOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
   return {{GenericOps::MulGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXDivOp> {
-  using FOp = arith::DivFOp;
-  using IOp = arith::DivSIOp;
-};
-template <>
 GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
   return {{GenericOps::DivGop, 1}};
 }
 
-template <>
-struct ScalarOp<ONNXSubOp> {
-  using FOp = arith::SubFOp;
-  using IOp = arith::SubIOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXAndOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = arith::AndIOp;
-};
-
-template <>
-struct ScalarOp<ONNXOrOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = arith::OrIOp;
-};
-
-template <>
-struct ScalarOp<ONNXXorOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = arith::XOrIOp;
-};
-
-template <>
-struct ScalarOp<ONNXBitwiseAndOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = arith::AndIOp;
-};
-
-template <>
-struct ScalarOp<ONNXBitwiseOrOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = arith::OrIOp;
-};
-
-template <>
-struct ScalarOp<ONNXBitwiseXorOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = arith::XOrIOp;
-};
-
-template <>
-struct ScalarOp<ONNXExpOp> {
-  using FOp = math::ExpOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
 GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
   return {{GenericOps::ExpGop, 1}};
 }
 
-template <>
-struct ScalarOp<ONNXSumOp> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXCosOp> {
-  using FOp = math::CosOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
 GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
   return {{GenericOps::TrigGop, 1}};
 }
 
-template <>
-struct ScalarOp<ONNXLogOp> {
-  using FOp = math::LogOp;
-  using IOp = NotSuportedScalarOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
   return {{GenericOps::LogGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXSqrtOp> {
-  using FOp = math::SqrtOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
 GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
   return {{GenericOps::SqrtGop, 1}};
 }
 
-template <>
-struct ScalarOp<ONNXAtanOp> {
-  using FOp = KrnlAtanOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
-struct ScalarOp<ONNXCeilOp> {
-  using FOp = math::CeilOp;
-  using IOp = NotSuportedScalarOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
   return {{GenericOps::CeilGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXFloorOp> {
-  using FOp = math::FloorOp;
-  using IOp = NotSuportedScalarOp;
-};
-template <>
 GenOpMix getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
   return {{GenericOps::FloorGop, 1}};
 }
 
-template <>
-struct ScalarOp<ONNXSinOp> {
-  using FOp = math::SinOp;
-  using IOp = NotSuportedScalarOp;
-};
 template <>
 GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
   return {{GenericOps::TrigGop, 1}};
 }
 
 template <>
-struct ScalarOp<ONNXIsNaNOp> {
-  using FOp = KrnlIsNaNOp;
-  using IOp = NotSuportedScalarOp;
-};
+GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
 
-template <>
-struct ScalarOp<ONNXAcosOp> {
-  using FOp = KrnlAcosOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
-struct ScalarOp<ONNXAcoshOp> {
-  using FOp = KrnlAcoshOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
-struct ScalarOp<ONNXAsinOp> {
-  using FOp = KrnlAsinOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
-struct ScalarOp<ONNXAsinhOp> {
-  using FOp = KrnlAsinhOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
-struct ScalarOp<ONNXAtanhOp> {
-  using FOp = KrnlAtanhOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
-struct ScalarOp<ONNXTanOp> {
-  using FOp = KrnlTanOp;
-  using IOp = NotSuportedScalarOp;
-};
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXBitShiftOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXBitShiftOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXBitShiftOp>(Type t, Operation *op) {
@@ -402,11 +241,6 @@ Value emitScalarOpFor<ONNXBitShiftOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXGeluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXGeluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXGeluOp>(Type t, Operation *op) {
@@ -470,11 +304,6 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXIsInfOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXIsInfOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 // Currently, SIMD code gen does not support handling operations where the data
 // size of the inputs is different than the data size of the outputs. As the
@@ -520,11 +349,6 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXCastOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
@@ -540,11 +364,6 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXBinarizerOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXBinarizerOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXBinarizerOp>(Type t, Operation *op) {
@@ -569,11 +388,6 @@ Value emitScalarOpFor<ONNXBinarizerOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXSinhOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXSinhOp>(Type t, Operation *op) {
@@ -601,11 +415,6 @@ Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCoshOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXCoshOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXCoshOp>(Type t, Operation *op) {
@@ -633,11 +442,6 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSigmoidOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXSigmoidOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXSigmoidOp>(Type t, Operation *op) {
@@ -664,11 +468,6 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXShrinkOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXShrinkOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXShrinkOp>(Type t, Operation *op) {
@@ -703,11 +502,6 @@ Value emitScalarOpFor<ONNXShrinkOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXHardSigmoidOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXHardSigmoidOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXHardSigmoidOp>(Type t, Operation *op) {
@@ -747,11 +541,6 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXHardSwishOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXHardSwishOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXHardSwishOp>(Type t, Operation *op) {
@@ -792,11 +581,6 @@ Value emitScalarOpFor<ONNXHardSwishOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXEluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXEluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXEluOp>(Type t, Operation *op) {
@@ -828,11 +612,6 @@ Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXReluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXReluOp>(Type t, Operation *op) {
@@ -853,12 +632,6 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCeLUOp
 //===----------------------------------------------------------------------===//
-
-template <>
-struct ScalarOp<ONNXCeluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXCeluOp>(Type t, Operation *op) {
@@ -905,12 +678,6 @@ Value emitScalarOpFor<ONNXCeluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 template <>
-struct ScalarOp<ONNXBitwiseNotOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = CustomScalarOp;
-};
-
-template <>
 GenOpMix getGenOpMix<ONNXBitwiseNotOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
@@ -931,11 +698,6 @@ Value emitScalarOpFor<ONNXBitwiseNotOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXLeakyReluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXLeakyReluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
@@ -964,11 +726,6 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXPReluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXPReluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXPReluOp>(Type t, Operation *op) {
@@ -994,11 +751,6 @@ Value emitScalarOpFor<ONNXPReluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXThresholdedReluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXThresholdedReluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXThresholdedReluOp>(Type t, Operation *op) {
@@ -1024,11 +776,6 @@ Value emitScalarOpFor<ONNXThresholdedReluOp>(
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSeluOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXSeluOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXSeluOp>(Type t, Operation *op) {
@@ -1064,11 +811,6 @@ Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReciprocalOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXReciprocalOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXReciprocalOp>(Type t, Operation *op) {
@@ -1090,11 +832,6 @@ Value emitScalarOpFor<ONNXReciprocalOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSoftplusOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXSoftplusOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXSoftplusOp>(Type t, Operation *op) {
@@ -1119,11 +856,6 @@ Value emitScalarOpFor<ONNXSoftplusOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSoftsignOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXSoftsignOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXSoftsignOp>(Type t, Operation *op) {
@@ -1148,11 +880,6 @@ Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSignOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXSignOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXSignOp>(Type t, Operation *op) {
@@ -1190,11 +917,6 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXErfOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXErfOp> {
-  using FOp = math::ErfOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXErfOp>(Type t, Operation *op) {
@@ -1204,11 +926,6 @@ GenOpMix getGenOpMix<ONNXErfOp>(Type t, Operation *op) {
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMaxOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXMaxOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXMaxOp>(Type t, Operation *op) {
@@ -1232,11 +949,6 @@ Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMinOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXMinOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXMinOp>(Type t, Operation *op) {
@@ -1261,11 +973,6 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMishOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXMishOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXMishOp>(Type t, Operation *op) {
@@ -1292,11 +999,6 @@ Value emitScalarOpFor<ONNXMishOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXNegOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXNegOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXNegOp>(Type t, Operation *op) {
@@ -1318,12 +1020,6 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 template <>
-struct ScalarOp<ONNXPowOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
-
-template <>
 GenOpMix getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
   return {{GenericOps::PowGop, 1}};
 }
@@ -1343,11 +1039,6 @@ Value emitScalarOpFor<ONNXPowOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXLessOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXLessOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
@@ -1363,11 +1054,6 @@ Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXLessOrEqualOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXLessOrEqualOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXLessOrEqualOp>(ConversionPatternRewriter &rewriter,
@@ -1383,11 +1069,6 @@ Value emitScalarOpFor<ONNXLessOrEqualOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXGreaterOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXGreaterOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXGreaterOp>(ConversionPatternRewriter &rewriter,
@@ -1403,11 +1084,6 @@ Value emitScalarOpFor<ONNXGreaterOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXGreaterOrEqualOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXGreaterOrEqualOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXGreaterOrEqualOp>(ConversionPatternRewriter &rewriter,
@@ -1423,11 +1099,6 @@ Value emitScalarOpFor<ONNXGreaterOrEqualOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXEqualOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXEqualOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
@@ -1461,11 +1132,6 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXNotOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXNotOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXNotOp>(ConversionPatternRewriter &rewriter,
@@ -1481,11 +1147,6 @@ Value emitScalarOpFor<ONNXNotOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar binary ops for lowering ONNXModOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXModOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXModOp>(Type t, Operation *op) {
@@ -1564,11 +1225,6 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMeanOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXMeanOp> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXMeanOp>(Type t, Operation *op) {
@@ -1587,11 +1243,6 @@ Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXRoundOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXRoundOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 // Keep in sync with with KrnlBuilder::roundEven algorithm.
 template <>
@@ -1629,11 +1280,6 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXClipOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXClipOp> {
-  using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXClipOp>(Type t, Operation *op) {
@@ -1658,11 +1304,6 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXDequantizeLinearOp
 //===----------------------------------------------------------------------===//
-template <>
-struct ScalarOp<ONNXDequantizeLinearOp> {
-  using FOp = NotSuportedScalarOp;
-  using IOp = CustomScalarOp;
-};
 
 template <>
 GenOpMix getGenOpMix<ONNXDequantizeLinearOp>(Type t, Operation *op) {
@@ -1998,6 +1639,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
 
   // Notice: Though ClipOp is classified as unary element op in this file,
   // ClipOp requires one required input and two optional input
+
+  //  TODO: are all of the ops candidate here? If so, can we reuse the
+  //  ELEMENTWISE_ALL macro?
 
   return enqueueFusibleOp<
       // Unary Op
@@ -2459,14 +2103,18 @@ struct ONNXElementwiseBinaryOpLowering
 
   ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
-      bool isUniBroadcasting = false, bool enableParallel = false)
+      bool enableParallel)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        isUniBroadcasting(isUniBroadcasting) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ElementwiseBinaryOp::getOperationName());
+    // Specialize unibroadcasting here for the operations that needs it.
+    isUniBroadcasting = false;
+    if constexpr (std::is_same_v<ElementwiseBinaryOp, mlir::ONNXPReluOp>) {
+      isUniBroadcasting = true;
+    }
   }
 
   LogicalResult matchAndRewrite(ElementwiseBinaryOp elmsOp, OpAdaptor adaptor,
@@ -2913,77 +2561,22 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableSIMD, bool enableParallel) {
-  patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXBinarizerOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitShiftOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseAndOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXBitwiseNotOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeluOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXEqualOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXGeluOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSwishOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXIsInfOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXIsNaNOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOrEqualOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXMeanOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXMishOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXModOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXNotOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXShrinkOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXThresholdedReluOp>,
-      ONNXWhereOpLowering, ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(
+// Insert pattern for all the binary, unary, and variadic operations supported
+// here. List comes from Elementwise.hpp.
+#define ELEMENTWISE_BINARY(_OP_TYPE)                                           \
+  patterns.insert<ONNXElementwiseBinaryOpLowering<_OP_TYPE>>(                  \
       typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
-  patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
-      typeConverter, ctx, dimAnalysis, enableSIMD, /*isUniBroadcasting=*/true,
-      enableParallel);
+#define ELEMENTWISE_UNARY(_OP_TYPE)                                            \
+  patterns.insert<ONNXElementwiseUnaryOpLowering<_OP_TYPE>>(                   \
+      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+#define ELEMENTWISE_VARIADIC(_OP_TYPE)                                         \
+  patterns.insert<ONNXElementwiseVariadicOpLowering<_OP_TYPE>>(                \
+      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+
+  // Insert non standard pattern here.
+  patterns.insert<ONNXWhereOpLowering>(
+      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir
