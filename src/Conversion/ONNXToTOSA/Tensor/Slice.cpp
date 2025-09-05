@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
-#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
@@ -30,6 +29,11 @@ class ONNXSliceLoweringToTOSA : public OpConversionPattern<ONNXSliceOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
   using OpAdaptor = typename ONNXSliceOp::Adaptor;
+
+  ONNXSliceLoweringToTOSA(MLIRContext *ctx, bool convertSliceOnlyWhenStepOne)
+      : OpConversionPattern(ctx),
+        convertSliceOnlyWhenStepOne(convertSliceOnlyWhenStepOne) {}
+
   LogicalResult matchAndRewrite(ONNXSliceOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
@@ -73,6 +77,17 @@ public:
     IndexExpr::getLiteral(shapeHelper.ends, ends);
     llvm::SmallVector<int64_t, 4> steps;
     IndexExpr::getLiteral(shapeHelper.steps, steps);
+
+    size_t nbSlicedDims = 0;
+    for (auto [in, out] : llvm::zip(inShape, outShape)) {
+      if (out != in)
+        nbSlicedDims++;
+    }
+    // TODO: remove the check nbSlicedDims == 1 when possible
+    if (convertSliceOnlyWhenStepOne && nbSlicedDims == 1 &&
+        llvm::any_of(steps, [](int64_t step) { return step > 1; })) {
+      return rewriter.notifyMatchFailure(op, "step > 1 are not supported.");
+    }
 
     if (llvm::any_of(steps, [](int64_t step) { return step < 0; })) {
       return rewriter.notifyMatchFailure(op, "negative step not supported.");
@@ -161,14 +176,17 @@ public:
     rewriter.replaceOp(op, val);
     return success();
   }
+
+private:
+  bool convertSliceOnlyWhenStepOne;
 };
 
 } // namespace
 
-void populateLoweringONNXSliceOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
-  patterns.insert<ONNXSliceLoweringToTOSA>(ctx);
+void populateLoweringONNXSliceOpToTOSAPattern(ConversionTarget & /*target*/,
+    RewritePatternSet &patterns, TypeConverter & /*typeConverter*/,
+    MLIRContext *ctx, bool convertSliceOnlyWhenStepOne) {
+  patterns.insert<ONNXSliceLoweringToTOSA>(ctx, convertSliceOnlyWhenStepOne);
 }
 
 } // namespace onnx_mlir

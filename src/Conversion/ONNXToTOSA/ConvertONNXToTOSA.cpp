@@ -26,7 +26,7 @@ namespace onnx_mlir {
 
 void populateONNXToTOSAConversionPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    int64_t groupedConvThreshold) {
+    int64_t groupedConvThreshold, bool convertSliceOnlyWhenStepOne) {
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
@@ -56,7 +56,7 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   populateLoweringONNXFlattenOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpToTOSAPattern(
-      target, patterns, typeConverter, ctx);
+      target, patterns, typeConverter, ctx, convertSliceOnlyWhenStepOne);
   populateLoweringONNXSplitOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXSqueezeOpToTOSAPattern(
@@ -114,6 +114,10 @@ public:
                      "into a concatenation of tosa.conv2d operations"),
       llvm::cl::ZeroOrMore,
       llvm::cl::init(std::numeric_limits<int64_t>::max())};
+  Option<bool> convertSliceOnlyWhenStepOne{*this,
+      "convert-slice-only-when-step-one",
+      llvm::cl::desc("If enabled, convert onnx.slice only if all steps are 1"),
+      llvm::cl::ZeroOrMore, llvm::cl::init(false)};
 };
 
 void FrontendToTosaLoweringPass::runOnOperation() {
@@ -144,8 +148,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
       mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
 
   // Define patterns
-  populateONNXToTOSAConversionPattern(
-      target, patterns, typeConverter, context, groupedConvThreshold);
+  populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context,
+      groupedConvThreshold, convertSliceOnlyWhenStepOne);
 
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();

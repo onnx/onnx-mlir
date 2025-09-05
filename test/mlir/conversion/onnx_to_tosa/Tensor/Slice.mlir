@@ -1,4 +1,5 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa="convert-slice-only-when-step-one=true" -cse %s -split-input-file | FileCheck %s --check-prefix=ONLY-STEP1
 
 
 func.func @test_slice_constant_default_steps(%arg0 : tensor<2x4xf32>) -> tensor<1x3xf32> {
@@ -74,6 +75,9 @@ func.func @slice_just_steps(%arg0: tensor<100x200xf32>) -> tensor<20x20xf32> {
 // CHECK: %2 = tosa.reshape %1 {new_shape = array<i64: 20, 20>} : (tensor<20x1x20x1xf32>) -> tensor<20x20xf32>
 // CHECK: return %2 : tensor<20x20xf32>
 
+// ONLY-STEP1-LABEL: func @slice_just_steps
+// ONLY-STEP1: tosa.slice
+
 // -----
 
 func.func @slice_steps_and_edges(%arg0: tensor<100x200xf32>) -> tensor<16x17xf32> {
@@ -90,6 +94,9 @@ func.func @slice_steps_and_edges(%arg0: tensor<100x200xf32>) -> tensor<16x17xf32
 // CHECK: %2 = tosa.slice %1 {size = array<i64: 16, 1, 17, 1>, start = array<i64: 0, 0, 0, 0>} : (tensor<16x5x17x10xf32>) -> tensor<16x1x17x1xf32>
 // CHECK: %3 = tosa.reshape %2 {new_shape = array<i64: 16, 17>} : (tensor<16x1x17x1xf32>) -> tensor<16x17xf32>
 // CHECK: return %3 : tensor<16x17xf32>
+
+// ONLY-STEP1-LABEL: func @slice_steps_and_edges
+// ONLY-STEP1: tosa.slice
 
 // -----
 
@@ -111,6 +118,9 @@ func.func @slice_steps_and_edges_with_padding(%arg0: tensor<99x195xf32>) -> tens
 // CHECK: %6 = tosa.reshape %5 {new_shape = array<i64: 19, 19>} : (tensor<19x1x19x1xf32>) -> tensor<19x19xf32>
 // CHECK: return %6 : tensor<19x19xf32>
 
+// ONLY-STEP1-LABEL: func @slice_steps_and_edges_with_padding
+// ONLY-STEP1: tosa.slice
+
 // -----
 
 func.func @slice_just_steps_with_padding(%arg0: tensor<99x195xf32>) -> tensor<20x20xf32> {
@@ -129,6 +139,9 @@ func.func @slice_just_steps_with_padding(%arg0: tensor<99x195xf32>) -> tensor<20
 // CHECK: %4 = tosa.slice %3 {size = array<i64: 20, 1, 20, 1>, start = array<i64: 0, 0, 0, 0>} : (tensor<20x5x20x10xf32>) -> tensor<20x1x20x1xf32>
 // CHECK: %5 = tosa.reshape %4 {new_shape = array<i64: 20, 20>} : (tensor<20x1x20x1xf32>) -> tensor<20x20xf32>
 // CHECK: return %5 : tensor<20x20xf32>
+
+// ONLY-STEP1-LABEL: func @slice_just_steps_with_padding
+// ONLY-STEP1: tosa.slice
 
 // -----
 
@@ -195,3 +208,25 @@ func.func @slice_4d(%arg0: tensor<1x56x56x92xf32>) -> tensor<1x28x28x92xf32> {
 // CHECK: %5 = tosa.slice %4 {size = array<i64: 1, 28, 1, 28, 1, 92>, start = array<i64: 0, 0, 0, 0, 0, 0>} : (tensor<1x28x2x28x2x92xf32>) -> tensor<1x28x1x28x1x92xf32>
 // CHECK: %6 = tosa.reshape %5 {new_shape = array<i64: 1, 28, 28, 92>} : (tensor<1x28x1x28x1x92xf32>) -> tensor<1x28x28x92xf32>
 // CHECK: return %6 : tensor<1x28x28x92xf32>
+
+// ONLY-STEP1-LABEL: func @slice_4d
+// ONLY-STEP1: tosa.slice
+
+// -----
+
+func.func @slice_4d_step2_1sliced_dim(%arg0: tensor<1x3x640x640xbf16>) -> tensor<1x3x320x640xbf16> {
+  %starts = "tosa.const"() <{value = dense<0> : tensor<1xi64>}> : () -> tensor<1xi64>
+  %ends = "tosa.const"() <{value = dense<9223372036854775807> : tensor<1xi64>}> : () -> tensor<1xi64>
+  %axes_steps = "tosa.const"() <{value = dense<2> : tensor<1xi64>}> : () -> tensor<1xi64>
+  %3 = "onnx.Slice"(%arg0, %starts, %ends, %axes_steps, %axes_steps) : (tensor<1x3x640x640xbf16>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x3x320x640xbf16>
+  return %3 : tensor<1x3x320x640xbf16>
+}
+// CHECK-LABEL: func @slice_4d_step2_1sliced_dim
+// CHECK-SAME:                (%[[ARG_0:.*]]: tensor<1x3x640x640xbf16>) -> tensor<1x3x320x640xbf16>
+// CHECK: %[[VAL_0:.*]] = tosa.reshape %[[ARG_0]] {new_shape = array<i64: 1, 3, 320, 2, 640>} : (tensor<1x3x640x640xbf16>) -> tensor<1x3x320x2x640xbf16>
+// CHECK: %[[VAL_1:.*]] = tosa.slice %[[VAL_0]] {size = array<i64: 1, 3, 320, 1, 640>, start = array<i64: 0, 0, 0, 0, 0>} : (tensor<1x3x320x2x640xbf16>) -> tensor<1x3x320x1x640xbf16>
+// CHECK: %[[VAL_2:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1, 3, 320, 640>} : (tensor<1x3x320x1x640xbf16>) -> tensor<1x3x320x640xbf16>
+// CHECK: return %[[VAL_2]] : tensor<1x3x320x640xbf16>
+
+// ONLY-STEP1-LABEL: func @slice_4d_step2_1sliced_dim
+// ONLY-STEP1-NOT: tosa.slice
