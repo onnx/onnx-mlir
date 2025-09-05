@@ -38,7 +38,7 @@
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
 // because we only care about SIMD gen of the E1 (innermost) dimension.
-#define HANDLE_MULTIPLE_LAYOUT 1
+#define ELEMENTWISE_WITH_MULTIPLE_LAYOUTS 1
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -66,7 +66,7 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
   return false;
 }
 
-#if !HANDLE_MULTIPLE_LAYOUT
+#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout.
 static bool suitableLayout(
@@ -224,7 +224,7 @@ Operation *patternForFusionFromUnstick(
         explanation(computeOp, unstickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
-#if !HANDLE_MULTIPLE_LAYOUT
+#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   // Suitable layout?
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
@@ -267,7 +267,7 @@ Operation *patternForFusionFromStick(
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
-#if !HANDLE_MULTIPLE_LAYOUT
+#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());
   if (!suitableLayout(computeOp, stickLayout)) {
@@ -295,10 +295,12 @@ public:
   LogicalResult matchAndRewrite(
       ZHighUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
+#if 0 // hi alex
     // Process each stick/unstick only once.
     if (processedUnstick->find(unstickOp.getOperation()) !=
         processedUnstick->end())
       return failure();
+#endif
 
     Operation *computeOp = patternForFusionFromUnstick(unstickOp, dimAnalysis);
     if (computeOp) {
@@ -330,9 +332,11 @@ public:
   LogicalResult matchAndRewrite(
       ZHighStickOp stickOp, PatternRewriter &rewriter) const override {
 
+#if 0 // hi alex
     // Process each stick/unstick only once.
     if (processedStick->find(stickOp.getOperation()) != processedStick->end())
       return failure();
+#endif
 
     Operation *computeOp = patternForFusionFromStick(stickOp, dimAnalysis);
     if (computeOp) {

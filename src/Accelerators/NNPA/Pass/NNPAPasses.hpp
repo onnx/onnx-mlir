@@ -28,9 +28,6 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
     std::string loadConfigFile, std::string saveConfigFile,
     NNPAPlacementHeuristic placementHeuristic);
 
-// Add pass for fusion of unstick -> op -> stick (or subset).
-std::unique_ptr<mlir::Pass> createFusionOpStickUnstick();
-
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 void configureONNXToZHighLoweringPass(bool reportOnNNPAUnsupportedOps,
