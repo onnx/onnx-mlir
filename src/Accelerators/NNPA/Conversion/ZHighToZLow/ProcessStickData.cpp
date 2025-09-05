@@ -4,7 +4,7 @@
 
 //====---------- ProcessStickData.cpp - Process Stick data ----------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -39,6 +39,10 @@ using namespace mlir;
 
 // Include necessary info from elementwise so as to gen code here.
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+
+//===----------------------------------------------------------------------===//
+// Handle quantization on stickified inputs
+//===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
 // Implementation of quantize helper function.
@@ -179,6 +183,10 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   inputMin = create.vec.reduction(VectorBuilder::MIN, finalVecMin);
   inputMax = create.vec.reduction(VectorBuilder::MAX, finalVecMax);
 }
+
+//===----------------------------------------------------------------------===//
+// Handle elementwise operations with stickified inputs/outputs
+//===----------------------------------------------------------------------===//
 
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
     MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
@@ -534,7 +542,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                       IndexExpr l = DimIE(loopInd[0]);
                       DimsExpr innerIndices = DimListIE(outerIndices);
                       loadComputeStoreSimd(create, ioMemRef, innerIndices,
-                          ioStickOffsets, l, 0, ioIsBroadcast, ioIsStick,
+                          ioStickOffsets, l, /*u*/ 0, ioIsBroadcast, ioIsStick,
                           processVectorOfF32Vals, inputHigh, inputLow,
                           nullptr /*store in ioMemRef, not outputBuffer */,
                           disableSaturation);
@@ -562,7 +570,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                 // depending on the output type.
                 DimsExpr innerIndices = DimListIE(outerIndices);
                 loadComputeStoreSimd(create, ioMemRef, innerIndices,
-                    ioStickOffsets, lastL, 0, ioIsBroadcast, ioIsStick,
+                    ioStickOffsets, lastL, /*u*/ 0, ioIsBroadcast, ioIsStick,
                     processVectorOfF32Vals, inputHigh, inputLow,
                     outputBuffer /*store output in outBuffer */,
                     disableSaturation);
@@ -594,23 +602,27 @@ static bool isZTensorOfF32AndDLF16(Operation *op) {
   for (Value val : op->getOperands()) {
     Type elementType = getElementType(val.getType());
     if (zhigh::isZTensor(val.getType())) {
-      if (!elementType.isF16())
+      if (!elementType.isF16()) {
         return false;
+      }
       hasDLF16 = true;
     } else {
-      if (!elementType.isF32())
+      if (!elementType.isF32()) {
         return false;
+      }
     }
   }
   for (Value val : op->getResults()) {
     Type elementType = getElementType(val.getType());
     if (zhigh::isZTensor(val.getType())) {
-      if (!elementType.isF16())
+      if (!elementType.isF16()) {
         return false;
+      }
       hasDLF16 = true;
     } else {
-      if (!elementType.isF32())
+      if (!elementType.isF32()) {
         return false;
+      }
     }
   }
   return hasDLF16;
@@ -642,9 +654,13 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     ValueRange operands = adaptor.getOperands();
     int64_t numArgs = operands.size();
 
+    LLVM_DEBUG(llvm::dbgs() << "Investigate elementwise op (" << op->getName()
+                            << ") with possible NNPA layout\n");
+
     // Test if operation is suitable
-    if (!isZTensorOfF32AndDLF16(op))
+    if (!isZTensorOfF32AndDLF16(op)) {
       return failure();
+    }
     LLVM_DEBUG({
       llvm::dbgs() << "Process elementwise op " << op->getName()
                    << " with NNPA layout:\n  ";
