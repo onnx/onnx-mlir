@@ -41,9 +41,6 @@ cd ..
 # small patch.
 CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel
 CARGO_BAZEL_REPIN=true
-bazel fetch //python/dist:binary_wheel
-sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
-    ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl
 bazel build //python/dist:binary_wheel
 pip3 install bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl
 cd ..
