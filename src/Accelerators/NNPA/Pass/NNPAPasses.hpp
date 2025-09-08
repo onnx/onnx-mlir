@@ -4,7 +4,7 @@
 
 //===---------- NNPAPasses.hpp - NNPA Passes Definition ------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -60,6 +60,10 @@ std::unique_ptr<mlir::Pass> createZHighDecomposeStickUnstickPass();
 
 /// Pass for recomposing ops back to stick/unstick at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighRecomposeToStickUnstickPass();
+
+// Pass to fuse unstick -> suitable op -> stick (or subset of that).
+std::unique_ptr<mlir::Pass> createFusionOpStickUnstick();
+
 } // end namespace zhigh
 
 namespace zlow {
