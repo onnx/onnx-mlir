@@ -4,7 +4,11 @@ The compiler provides two options to allow users control how ONNX operators run 
 - `--nnpa-load-config-file` to load configuration settings for NNPA from a JSON file.
 - `--nnpa-save-config-file` to save configuration settings for NNPA to a JSON file.
 
-It is often the case that ONNX node name is used to match ONNX operators. If one does not know ONNX node names in a model, let use `--nnpa-save-config-file` to get a configuration file to start with.
+It is common to use ONNX node names to match ONNX operators. If you're unsure about the node names in your model, you can use the `--nnpa-save-config-file` option to generate a configuration file as a starting point.
+
+Alternatively, you can open the ONNX model using a visualizer like Netron to inspect the node names. Note that the actual node names used by the compiler may differ slightly from those shown in Netron due to compiler optimizations, though they are usually the same.
+
+That said, using `--nnpa-save-config-file` is the recommended approach.
 
 By using a JSON file, users can currenlty control two following features:
 - device placement: to decide which ONNX operators run on CPU or NNPA.
