@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --march=z16 --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @qlinearmatmul_i8_f32(%arg0: tensor<16x32xi8>, %arg1: tensor<1xf32>, %arg2: tensor<1xi8>, %arg3: tensor<32x64xi8>, %arg4: tensor<1xf32>, %arg5: tensor<1xi8>, %arg6: tensor<1xf32>, %arg7: tensor<1xi8>) -> (tensor<16x64xi8>) {
     %0 = "onnx.QLinearMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7) : (tensor<16x32xi8>, tensor<1xf32>, tensor<1xi8>, tensor<32x64xi8>, tensor<1xf32>, tensor<1xi8>, tensor<1xf32>, tensor<1xi8>) -> tensor<16x64xi8>
     return %0 : tensor<16x64xi8>
@@ -498,3 +500,4 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:         }
 }
 
+// -----

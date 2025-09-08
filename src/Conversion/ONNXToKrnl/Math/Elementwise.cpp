@@ -129,13 +129,8 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 }
 
 // =============================================================================
-// Scalar ops handling
+// Scalar ops handling (IN ALPHABETICAL ORDER)
 // =============================================================================
-
-template <>
-GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1}};
-}
 
 template <>
 GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
@@ -143,43 +138,63 @@ GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
-  return {{GenericOps::MulGop, 1}};
-}
-
-template <>
-GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
-  return {{GenericOps::DivGop, 1}};
-}
-
-template <>
-GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
-  return {{GenericOps::ExpGop, 1}};
+GenOpMix getGenOpMix<ONNXAndOp>(Type t, Operation *op) {
+  return {{GenericOps::LogicalGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXAcosOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigArcGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAcoshOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAsinOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigArcGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAsinhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAtanOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigArcGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAtanhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXBitwiseAndOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
-  return {{GenericOps::TrigGop, 1}};
+GenOpMix getGenOpMix<ONNXBitwiseOrOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
-  return {{GenericOps::LogGop, 1}};
+GenOpMix getGenOpMix<ONNXBitwiseXorOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
-  return {{GenericOps::SqrtGop, 1}};
+GenOpMix getGenOpMix<ONNXCastOp>(Type t, Operation *op) {
+  return {{GenericOps::ConversionGop, 1}};
 }
 
 template <>
@@ -188,8 +203,78 @@ GenOpMix getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
 }
 
 template <>
+GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
+  return {{GenericOps::DivGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXEqualOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}};
+}
+
+template <>
 GenOpMix getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
   return {{GenericOps::FloorGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXGreaterOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXGreaterOrEqualOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXIsNaNOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXLessOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXLessOrEqualOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
+  return {{GenericOps::LogGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
+  return {{GenericOps::MulGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXNotOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXOrOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
+  return {{GenericOps::SqrtGop, 1}};
 }
 
 template <>
@@ -198,8 +283,28 @@ GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
 }
 
 template <>
+GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXTanOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
+}
+
+template <>
 GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
   return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXXorOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 //===----------------------------------------------------------------------===//
@@ -309,6 +414,29 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
 // size of the inputs is different than the data size of the outputs. As the
 // output of isInf is a bit, and the input is a float, there is size reduction;
 // thus this operation cannot be simdized at this time.
+
+template <>
+GenOpMix getGenOpMix<ONNXIsInfOp>(Type t, Operation *op) {
+  // Three different cases: Infinity, Negative Infinity and Positive Infinity
+  double detectNegAttribute =
+      mlir::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  double detectPosAttribute =
+      mlir::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+  bool detectInf = detectPosAttribute == 1 && detectNegAttribute == 1;
+  bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
+  bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+
+  if (detectInf)
+    // If infinity return true for both positive and negative infinity
+    return {{GenericOps::ArithmeticGop, 1}, {GenericOps::CompareGop, 2}};
+  if (detectPos)
+    // If positive infinity return true else false
+    return {{GenericOps::CompareGop, 1}};
+  if (detectNeg)
+    // If negative infinity return true else false
+    return {{GenericOps::CompareGop, 1}};
+  llvm_unreachable("unsupported case for this particular op.");
+}
 
 template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
