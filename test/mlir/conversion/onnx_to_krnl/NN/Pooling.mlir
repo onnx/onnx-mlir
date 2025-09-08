@@ -112,12 +112,12 @@ func.func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>)
 // CHECK-DAG:   [[MAP_8_:#.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
 // CHECK-DAG:   [[MAP_9_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
 // CHECK-DAG:   [[MAP_10_:#.+]] = affine_map<(d0, d1, d2) -> (d0)>
-// CHECK-DAG:   [[MAP_11_:#.+]] = affine_map<(d0, d1, d2) -> (d2 + d0)>
-// CHECK-DAG:   [[MAP_12_:#.+]] = affine_map<(d0, d1, d2) -> (d2, d2 + d0)>
+// CHECK-DAG:   [[MAP_11_:#.+]] = affine_map<(d0, d1, d2) -> (d0 + d2)>
+// CHECK-DAG:   [[MAP_12_:#.+]] = affine_map<(d0, d1, d2) -> (d2, d0 + d2)>
 // CHECK-DAG:   [[MAP_13_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3)>
 // CHECK-DAG:   [[MAP_14_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d1)>
-// CHECK-DAG:   [[MAP_15_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3 + d1)>
-// CHECK-DAG:   [[MAP_16_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3, d3 + d1)>
+// CHECK-DAG:   [[MAP_15_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d1 + d3)>
+// CHECK-DAG:   [[MAP_16_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d3, d1 + d3)>
 // CHECK-LABEL:  func.func private @test_maxpool_pooling_operation
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x3x32x32xf32>) -> memref<1x3x31x31xf32> {
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index

@@ -49,7 +49,7 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 // CHECK:               [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_11_1_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[LOAD_PARAM_0_MEM_1_]]{{.}} : memref<512xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_12_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
-// CHECK:               [[VAR_13_:%.+]] = vector.splat [[VAR_12_1_]] : vector<32xi32>
+// CHECK:               [[VAR_13_:%.+]] = vector.broadcast [[VAR_12_1_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_14_:%.+]] = arith.subi [[VAR_11_1_]], [[VAR_13_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_14_]], [[VAR_reshape_4_]]{{.}}[[LOAD_PARAM_0_MEM_1_]]{{.}} : memref<512xi32>, vector<32xi32>
 // CHECK:             }
@@ -82,7 +82,7 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 // CHECK:               [[LOAD_PARAM_0_MEM_1_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_11_2_:%.+]] = vector.load [[VAR_reshape_9_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_12_2_:%.+]] = krnl.load [[RES_6_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
-// CHECK:               [[VAR_13_1_:%.+]] = vector.splat [[VAR_12_2_]] : vector<32xi32>
+// CHECK:               [[VAR_13_1_:%.+]] = vector.broadcast [[VAR_12_2_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_14_1_:%.+]] = arith.subi [[VAR_11_2_]], [[VAR_13_1_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_14_1_]], [[VAR_reshape_11_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK:             }
@@ -147,7 +147,7 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:               [[VAR_10_2_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_11_1_:%.+]] = vector.load [[RES_]]{{.}}[[VAR_8_2_]], [[VAR_10_2_]]{{.}} : memref<16x32xi32>, vector<32xi32>
 // CHECK-DAG:           [[LOAD_VAR_reinterpret_cast_MEM_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_8_2_]], [[CST_0_1_]]{{.}} : memref<16x1xi32>
-// CHECK:               [[VAR_13_:%.+]] = vector.splat [[LOAD_VAR_reinterpret_cast_MEM_]] : vector<32xi32>
+// CHECK:               [[VAR_13_:%.+]] = vector.broadcast [[LOAD_VAR_reinterpret_cast_MEM_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_14_:%.+]] = arith.subi [[VAR_11_1_]], [[VAR_13_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_14_]], [[RES_2_]]{{.}}[[VAR_8_2_]], [[VAR_10_2_]]{{.}} : memref<16x32xi32>, vector<32xi32>
 // CHECK:             }
@@ -180,7 +180,7 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:               [[LOOP_3_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_10_3_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[LOOP_3_1_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_11_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
-// CHECK:               [[LOAD_VAR_reinterpret_cast_MEM_1_:%.+]] = vector.splat [[VAR_11_2_]] : vector<32xi32>
+// CHECK:               [[LOAD_VAR_reinterpret_cast_MEM_1_:%.+]] = vector.broadcast [[VAR_11_2_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_13_1_:%.+]] = arith.subi [[VAR_10_3_]], [[LOAD_VAR_reinterpret_cast_MEM_1_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_13_1_]], [[VAR_reshape_7_]]{{.}}[[LOOP_3_1_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK:             }

@@ -19,6 +19,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/TargetParser/Triple.h"
+#include "llvm/IR/LLVMContext.h"
 
 #include "onnx/onnx_pb.h"
 
