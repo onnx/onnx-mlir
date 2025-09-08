@@ -84,7 +84,6 @@ void storeIE(const BUILDER &b, mlir::Value val, mlir::Value memref,
   store<BUILDER, STORE_OP>(b, val, memref, indexValues, offsets);
 }
 
-
 //===----------------------------------------------------------------------===//
 // Templates for multi-dimensional loop iterator.
 //===----------------------------------------------------------------------===//
@@ -220,7 +219,9 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
   assert((int64_t)fnNum == outputNum && "expect 1 loop function per output");
 
   if (VL > 1) {
+    ///////////////////////////////////////////////////////////////////////
     // Want SIMD, execute full SIMD loops blocked by VL.
+    ///////////////////////////////////////////////////////////////////////
 
     // If we are not guaranteed that every iterations are SIMD iterations,
     // then we need to reduce the trip count by a bit so as to not over
@@ -275,14 +276,47 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
       }
     };
 
+    ///////////////////////////////////////////////////////////////////////
     // Invocation of the (possibly parallel) SIMD loop.
+    ///////////////////////////////////////////////////////////////////////
+
     if constexpr (std::is_same<BUILDER, KrnlBuilder>::value ||
                   std::is_same<BUILDER, AffineBuilder>::value ||
-                  std::is_same<BUILDER, SCFBuilder>::value)
-      builder.forLoopIE(lb, simdUb, VL, useParallel, simdLoopBody);
-    else
+                  std::is_same<BUILDER, SCFBuilder>::value) {
+      int64_t loopUnroll = 1;
+      if (fullySimd && lb.isLiteral() && simdUb.isLiteral()) {
+        int64_t trip = simdUb.getLiteral() - lb.getLiteral();
+        assert(trip % VL == 0 && "only come here with fully Simd");
+        for (loopUnroll = 4; loopUnroll > 0; --loopUnroll) {
+          if (trip % (loopUnroll * VL) == 0)
+            break;
+        }
+        fprintf(stderr, "hi alex, additional unroll in simd loop is %d\n",
+            (int)loopUnroll);
+      }
+      if (loopUnroll > 1) {
+        // Create a new function that simply call loopUnroll times the
+        // simd loop body, adjusting loop index accordingly.
+        auto uSimdLoopBody = [&](const BUILDER b, mlir::ValueRange loopInd) {
+          IndexExprScope scope(b);
+          MEM_BUILDER create(b);
+          IndexExpr ind = DimIE(loopInd[0]);
+          for (int64_t u = 0; u < loopUnroll; ++u) {
+            IndexExpr currInd = ind + (u * VL);
+            mlir::SmallVector<mlir::Value, 1> currLoopInd(
+                1, currInd.getValue());
+            simdLoopBody(create, currLoopInd);
+          }
+        };
+        // Create the loop with loopUnroll * VL stride.
+        builder.forLoopIE(
+            lb, simdUb, loopUnroll * VL, useParallel, uSimdLoopBody);
+      } else {
+        builder.forLoopIE(lb, simdUb, VL, useParallel, simdLoopBody);
+      }
+    } else {
       llvm_unreachable("BUILDER type not supported\n");
-
+    }
     if (fullySimd)
       // Asserted that we only have SIMD iterations, we are done.
       return;
@@ -298,7 +332,11 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     // completed iterations.
     lb = lb + completedIters;
   }
+
+  ///////////////////////////////////////////////////////////////////////
   // Handle remaining scalar values (from lb to ub without unrolling).
+  ///////////////////////////////////////////////////////////////////////
+
   auto scalarLoopBody = [&](const BUILDER b, mlir::ValueRange loopInd) {
     IndexExprScope scope(b);
     MEM_BUILDER createMem(b);
@@ -341,7 +379,10 @@ void simdIterateIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     }
   };
 
+  ///////////////////////////////////////////////////////////////////////
   // Invocation of the scalar loop.
+  ///////////////////////////////////////////////////////////////////////
+
   if constexpr (std::is_same<BUILDER, KrnlBuilder>::value ||
                 std::is_same<BUILDER, AffineBuilder>::value ||
                 std::is_same<BUILDER, SCFBuilder>::value)
