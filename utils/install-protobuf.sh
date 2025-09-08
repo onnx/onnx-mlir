@@ -2,7 +2,7 @@
 RUST_VERSION=1.88
 CARGO_BAZEL_VERSION=0.16.0
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-     sh -s -- -y --default-toolchain none \
+     sh -s -- -y --default-toolchain none
 . "${HOME}/.cargo/env"
 rustup install ${RUST_VERSION}
 cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
