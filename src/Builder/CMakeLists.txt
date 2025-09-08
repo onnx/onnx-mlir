@@ -16,6 +16,9 @@ add_onnx_mlir_library(OMBuilder
   OMResultTypeInferenceOpInterface
   MLIRFuncDialect
   onnx
+  absl::log_internal_check_op
+  absl::log_internal_message
+  absl::status
   )
 
 configure_file(OpBuildTable.inc.dc.in
