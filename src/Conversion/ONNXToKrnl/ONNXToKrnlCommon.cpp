@@ -941,7 +941,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
 // Implementation comments vs. createGenerateRuntimeVerificationPass
 // This check is according to onnx op semantics, not general bound
 // check for memref. Implementation of RuntimeVerification could be
-// borrowed. Slightly difference is that onnx semenatics check is for
+// borrowed. Slightly difference is that onnx semantics check is for
 // each dimension independently, not the final address is within
 // the memref bound.
 void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
@@ -959,7 +959,6 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
   DimsExpr dataDims, indicesDims;
   create.krnlIE.getShapeAsDims(data, dataDims);
   create.krnlIE.getShapeAsDims(indices, indicesDims);
-  SymbolIndexExpr axisDim(dataDims[axisLit]);
   int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
   ValueRange loopDef = create.krnl.defineLoops(indicesRank);
   LiteralIndexExpr zeroIE(0);
@@ -979,6 +978,7 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
         // data[axis].
         // Assume that the index is loaded from tensor with negative value
         // correction.
+        DimIndexExpr axisDim(dataDims[axisLit]);
         Value errorCondition =
             ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
         rewriter.create<scf::IfOp>(
