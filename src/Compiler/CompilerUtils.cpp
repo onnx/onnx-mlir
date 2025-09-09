@@ -34,6 +34,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
@@ -41,7 +42,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include "src/Accelerators/Accelerator.hpp"
@@ -52,7 +52,6 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Version/Version.hpp"
-
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -668,10 +667,10 @@ static int compileModuleToJniJar(
 
 #if defined(__APPLE__) && defined(__clang__)
 #define NOEXECSTACK                                                            \
-  {}
+  {                                                                            \
+  }
 #else
-#define NOEXECSTACK                                                            \
-  { "-z", "noexecstack" }
+#define NOEXECSTACK {"-z", "noexecstack"}
 #endif
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
