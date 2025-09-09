@@ -52,6 +52,11 @@ bool isNHWCLayout(mlir::StringAttr layout);
 
 mlir::StringAttr getNCHWLayoutAttr(mlir::PatternRewriter &rewriter);
 
+// A function to normalize a shape of a specific layout to a shape of 4D layout.
+// This is useful because the 4D layout is used for stickification.
+mlir::SmallVector<int64_t, 4> convertTo4DShape(
+    mlir::ArrayRef<int64_t> origShape, std::string layout);
+
 // A function to check if reshaping a ztensor to a new ztensor of different
 // shape is "no-op" or not.
 // "no-op" means that logically elements in the reshaped ztensor are in the same

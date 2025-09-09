@@ -95,6 +95,55 @@ mlir::StringAttr getNCHWLayoutAttr(PatternRewriter &rewriter) {
   return rewriter.getStringAttr(LAYOUT_NCHW);
 }
 
+SmallVector<int64_t, 4> convertTo4DShape(
+    ArrayRef<int64_t> origShape, std::string layout) {
+  SmallVector<int64_t, 4> shape4D;
+  if (layout == LAYOUT_1D) {
+    // (e1) -> (1, 1, 1, e1)
+    assert(origShape.size() == 1 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[0]);
+  } else if (layout == LAYOUT_2D) {
+    // (e2, e1) -> (1, 1, e2, e1)
+    assert(origShape.size() == 2 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(origShape[1]);
+  } else if (layout == LAYOUT_2DS) {
+    // (e4, e1) -> (e4, 1, 1, e1)
+    assert(origShape.size() == 2 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[1]);
+  } else if (layout == LAYOUT_3D) {
+    // (e3, e2, e1) -> (1, e3, e2, e1)
+    assert(origShape.size() == 3 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(origShape[1]);
+    shape4D.emplace_back(origShape[2]);
+  } else if (layout == LAYOUT_3DS) {
+    // (e4, e2, e1) -> (e4, 1, e2, e1)
+    assert(origShape.size() == 3 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[1]);
+    shape4D.emplace_back(origShape[2]);
+  } else if (layout == LAYOUT_4D || layout == LAYOUT_4DS) {
+    // (e4, e3, e2, e1) -> (e4, e3, e2, e1)
+    assert(origShape.size() == 4 && "Shape and layout are inconsistent");
+    for (int64_t v : origShape)
+      shape4D.emplace_back(v);
+  } else {
+    llvm_unreachable("Unsupported data layout");
+  }
+  return shape4D;
+}
+
 bool isNoopReshape(ShapedType srcType, std::string srcLayout,
     ShapedType tgtType, std::string tgtLayout) {
   // Supported layouts: 2DS, 3DS, 4D.
@@ -112,48 +161,14 @@ bool isNoopReshape(ShapedType srcType, std::string srcLayout,
     return false;
 
   // Normalize to 4D shape.
-  SmallVector<int64_t, 4> srcShape, tgtShape;
-  ArrayRef<int64_t> S1 = srcType.getShape();
-  ArrayRef<int64_t> S2 = tgtType.getShape();
-  // source.
-  if (srcLayout == LAYOUT_2DS) {
-    srcShape.emplace_back(S1[0]);
-    srcShape.emplace_back(1);
-    srcShape.emplace_back(1);
-    srcShape.emplace_back(S1[1]);
-  } else if (srcLayout == LAYOUT_3DS) {
-    srcShape.emplace_back(S1[0]);
-    srcShape.emplace_back(1);
-    srcShape.emplace_back(S1[1]);
-    srcShape.emplace_back(S1[2]);
-  } else if (srcLayout == LAYOUT_4D) {
-    for (int64_t v : S1)
-      srcShape.emplace_back(v);
-  } else {
-    return false;
-  }
-  // target.
-  if (tgtLayout == LAYOUT_2DS) {
-    tgtShape.emplace_back(S2[0]);
-    tgtShape.emplace_back(1);
-    tgtShape.emplace_back(1);
-    tgtShape.emplace_back(S2[1]);
-  } else if (tgtLayout == LAYOUT_3DS) {
-    tgtShape.emplace_back(S2[0]);
-    tgtShape.emplace_back(1);
-    tgtShape.emplace_back(S2[1]);
-    tgtShape.emplace_back(S2[2]);
-  } else if (tgtLayout == LAYOUT_4D) {
-    for (int64_t v : S2)
-      tgtShape.emplace_back(v);
-  } else {
-    return false;
-  }
+  SmallVector<int64_t, 4> src4D =
+      convertTo4DShape(srcType.getShape(), srcLayout);
+  SmallVector<int64_t, 4> tgt4D =
+      convertTo4DShape(tgtType.getShape(), tgtLayout);
 
   // Check total sizes.
-  if (std::accumulate(
-          srcShape.begin(), srcShape.end(), 1, std::multiplies<>{}) !=
-      std::accumulate(tgtShape.begin(), tgtShape.end(), 1, std::multiplies<>{}))
+  if (std::accumulate(src4D.begin(), src4D.end(), 1, std::multiplies<>{}) !=
+      std::accumulate(tgt4D.begin(), tgt4D.end(), 1, std::multiplies<>{}))
     return false;
 
   // Memory access:
@@ -169,11 +184,11 @@ bool isNoopReshape(ShapedType srcType, std::string srcLayout,
   // - e1 % 64 = 0 and e1' % 64 = 0
   //
   // which makes sure that values are at the same offset.
-  if ((srcShape[1] != tgtShape[1]) || (srcShape[1] != 1))
+  if ((src4D[1] != tgt4D[1]) || (src4D[1] != 1))
     return false;
-  if ((srcShape[2] != tgtShape[2]) || (srcShape[2] != 1))
+  if ((src4D[2] != tgt4D[2]) || (src4D[2] != 1))
     return false;
-  if ((srcShape[3] % 64 != 0) || (tgtShape[3] % 64 != 0))
+  if ((src4D[3] % 64 != 0) || (tgt4D[3] % 64 != 0))
     return false;
 
   return true;
