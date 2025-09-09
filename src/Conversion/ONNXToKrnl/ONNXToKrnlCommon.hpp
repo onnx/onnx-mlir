@@ -268,6 +268,10 @@ GenOpMix getGenOpMix(mlir::Type elementType, mlir::Operation *op) {
   return {{GenericOps::ScalarOnlyGop, 1}};
 }
 
+template <>
+GenOpMix getGenOpMix<mlir::ONNXRoundOp>(
+    mlir::Type elementType, mlir::Operation *op);
+
 //===----------------------------------------------------------------------===//
 // Type conversion from Onnx types to Krnl types:
 //   - from Tensor type to the Standard dialect MemRef type
