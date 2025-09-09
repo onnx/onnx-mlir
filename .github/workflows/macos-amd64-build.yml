@@ -20,6 +20,8 @@ jobs:
         brew uninstall bazelisk
         brew install automake ninja protobuf pybind11
         python3 -m pip install protobuf==6.32.0
+        ls -l /Users/runner/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/google/protobuf
+        cat /Users/runner/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/google/protobuf/__init__.py
     - name: get protobuf version
       id: get-protobuf-version
       run: |
