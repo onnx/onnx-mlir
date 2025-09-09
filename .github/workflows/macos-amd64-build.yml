@@ -20,6 +20,7 @@ jobs:
         brew install automake ninja protobuf@32 pybind11
         python3 -m pip install protobuf==6.32.0
   build_mlir:
+    runs-on: macos-13
     needs: env_setup
     steps:
     - name: get protobuf version
@@ -39,6 +40,7 @@ jobs:
         sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
         sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
   build_onnx_mlir:
+    runs-on: macos-13
     needs: build_mlir
     steps:
     - name: install python requirements
