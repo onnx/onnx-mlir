@@ -5,5 +5,5 @@ sed -i -e '/absl::log_initialize/a \
           absl::log_internal_message\
           absl::log_internal_nullguard\
 ' CMakeLists.txt
-python3 -m pip install -v .
+python3 -m pip install .
 rm -rf ${HOME}/.cache

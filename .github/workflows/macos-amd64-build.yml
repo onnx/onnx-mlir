@@ -3,7 +3,7 @@ name: GitHub Action MacOS amd64
 on: [push, pull_request]
 
 jobs:
-  build:
+  env_setup:
     runs-on: macos-13
     steps:
     - uses: actions/checkout@v3
@@ -17,11 +17,11 @@ jobs:
         sudo rm -rf /Library/Frameworks/Python.framework/Versions/3* /usr/local/Frameworks/Python.framework/Versions/3* /usr/local/bin/python3* || true
     - name: install tools that are needed for compilation
       run: |
-        brew uninstall bazelisk
-        brew install automake ninja protobuf pybind11
+        brew install automake ninja protobuf@32 pybind11
         python3 -m pip install protobuf==6.32.0
-        ls -l /Users/runner/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/google/protobuf
-        cat /Users/runner/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/google/protobuf/__init__.py
+  build_mlir:
+    needs: env_setup
+    steps:
     - name: get protobuf version
       id: get-protobuf-version
       run: |
@@ -38,6 +38,9 @@ jobs:
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
         sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
+  build_onnx_mlir:
+    needs: build_mlir
+    steps:
     - name: install python requirements
       run: |
         cd ~/work/onnx-mlir/onnx-mlir
