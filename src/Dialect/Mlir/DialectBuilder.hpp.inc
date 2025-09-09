@@ -84,7 +84,6 @@ void storeIE(const BUILDER &b, mlir::Value val, mlir::Value memref,
   store<BUILDER, STORE_OP>(b, val, memref, indexValues, offsets);
 }
 
-
 //===----------------------------------------------------------------------===//
 // Templates for multi-dimensional loop iterator.
 //===----------------------------------------------------------------------===//
