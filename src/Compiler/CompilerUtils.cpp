@@ -41,6 +41,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include "src/Accelerators/Accelerator.hpp"
@@ -51,6 +52,7 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Version/Version.hpp"
+
 
 using namespace mlir;
 using namespace onnx_mlir;
