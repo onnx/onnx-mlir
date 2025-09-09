@@ -100,3 +100,4 @@ add_onnx_mlir_library(OMNNPAJSONConfig
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
+

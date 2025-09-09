@@ -4,7 +4,7 @@
 
 //===------------------------- NNPACompilerOptions.cpp --------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -138,6 +138,12 @@ llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset(
     "nnpa-cpu-dql-scale",
     llvm::cl::desc("Use dynamic quantized linear computation of "
                    " scale and offset on CPU. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick(
+    "nnpa-disable-fusion-op-stick-unstick",
+    llvm::cl::desc("Disable fusion of eligible operations with "
+                   " surrounding stick and unstick ops. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 } // namespace onnx_mlir

@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPAAccelerator.cpp -----------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -156,6 +156,10 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass();
   });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createFusionOpStickUnstick();
+  });
 }
 
 void NNPAAccelerator::configurePasses() const {
@@ -196,6 +200,8 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
       typeConverter, ctx,
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
       enableParallel);
+  onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
+      patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(

@@ -4,7 +4,7 @@
 
 //===--- ZLowStickExpansion.cpp - ZLow Stick/Unstick Expansion Patterns ---===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -75,11 +75,7 @@ public:
     // preserve the high level constant propagation of constant values into the
     // Convolution filters.
     StringAttr layout = unstickOp.getLayoutAttr();
-    if (layout.getValue().equals_insensitive("4D") ||
-        layout.getValue().equals_insensitive("3D") ||
-        layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS") ||
-        layout.getValue().equals_insensitive("NHWC")) {
+    if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
@@ -148,11 +144,7 @@ public:
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
     // Convolution filters.
-    if (layout.getValue().equals_insensitive("4D") ||
-        layout.getValue().equals_insensitive("3D") ||
-        layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS") ||
-        layout.getValue().equals_insensitive("NHWC")) {
+    if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
