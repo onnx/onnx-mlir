@@ -20,12 +20,16 @@ jobs:
         brew uninstall bazelisk
         brew install automake ninja protobuf pybind11
         python3 -m pip install protobuf==6.32.0
+    - name: get protobuf version
+      id: get-protobuf-version
+      run: |
+        echo "protobuf_version=$(protoc --version)" >> $GITHUB_OUTPUT
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v3
       with:
         path: ~/work/onnx-mlir/llvm-project
-        key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+        key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}-${{ steps.get-protobuf-version.outputs.protobuf_version }}
     - name: clone & build MLIR
       if: steps.cache-mlir.outputs.cache-hit != 'true'
       run: |
