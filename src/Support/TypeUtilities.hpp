@@ -4,7 +4,7 @@
 
 //====---------- TypeUtilities.hpp - functions related to MLIR Type -------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,6 +27,8 @@ bool isRankedShapedType(mlir::Type ty);
 bool hasStaticShape(mlir::Type ty);
 /// Get shape.
 llvm::ArrayRef<int64_t> getShape(mlir::Type ty);
+/// Get specific shape (-rank...rank-1), negative are from the back.
+int64_t getShape(mlir::Type ty, int64_t index);
 /// Get rank.
 int64_t getRank(mlir::Type ty);
 /// Get the number of elements.
