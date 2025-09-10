@@ -1572,7 +1572,7 @@ private:
       } else if (opName == "QuantizeLinear") {
         outElementType =
             cast<ShapedType>(inputs.at(2).getType()).getElementType();
-      } else if (opName == "Gelu") {
+      } else if (opName == "Gelu" || opName == "QuickGelu") {
         outElementType =
             cast<ShapedType>(inputs.at(0).getType()).getElementType();
       }
