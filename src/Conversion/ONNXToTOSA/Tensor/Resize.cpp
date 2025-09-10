@@ -203,6 +203,16 @@ public:
           resizeOp, "Only static sized tensors are supported.");
     }
 
+    Value sizesValue = resizeOp.getSizes();
+    if (!isNoneValue(sizesValue)) {
+      mlir::ElementsAttr sizesAttr =
+          getElementAttributeFromONNXValue(sizesValue);
+      if (!sizesAttr) {
+        return rewriter.notifyMatchFailure(
+            resizeOp, "Sizes must be a constant tensor for static inputs.");
+      }
+    }
+
     auto elementType = inputType.getElementType();
     if (!(isa<FloatType>(elementType) || isTOSAInt(elementType))) {
       return rewriter.notifyMatchFailure(
