@@ -1490,7 +1490,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // If fully collapse the loop, then we can allocate more data and we don't
   // care if we compute a few more values... set simdOnly to true then
   // regardless of whether the dims allow us to do so or not.
-  if (collapsedInnermostLoops == (int64_t)outputMemRefType.getRank()) {
+  if ((collapsedInnermostLoops == (int64_t)outputMemRefType.getRank()) &&
+      isOverComputeSafe(op)) {
     LLVM_DEBUG(llvm::dbgs() << "  fully flattened, set simdOnly to true\n");
     simdOnly = true;
   }
@@ -2122,7 +2123,8 @@ struct ONNXElementwiseUnaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
-      bool simdOnly, canOverCompute = true;
+      bool simdOnly;
+      bool canOverCompute = isOverComputeSafe(op);
       GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
       int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
           collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
@@ -2296,7 +2298,9 @@ struct ONNXElementwiseBinaryOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
-      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      bool simdOnly;
+      bool canOverCompute =
+          (collapsedInnermostLoops == outputRank) && isOverComputeSafe(op);
       GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
       int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
           collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
@@ -2463,7 +2467,10 @@ struct ONNXElementwiseVariadicOpLowering
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdLoopStaticTripCount;
-      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      bool simdOnly;
+      bool canOverCompute =
+          (collapsedInnermostLoops == outputRank) && isOverComputeSafe(op);
+
       GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
       int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
           collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
