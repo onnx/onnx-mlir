@@ -457,7 +457,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   }
 
   // Write unoptimized bitcode to a file.
-  llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
+  llvm::WriteBitcodeToFile(
+      *llvmModule, moduleBitcodeStream, /*ShouldPreserveUseListOrder=*/false);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
