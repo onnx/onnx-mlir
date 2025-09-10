@@ -50,16 +50,16 @@ jobs:
         path: ~/work/onnx-mlir/llvm-project
         key: ${{ steps.restore-mlir-cache.outputs.cache-primary-key }}
 
+    - name: install third_party/onnx
+      run: |
+        cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx.sh
+
     - name: install python requirements
       run: |
         cd ~/work/onnx-mlir/onnx-mlir
         python3 -m pip install --upgrade wheel
         python3 -m pip install -r requirements.txt
-
-    - name: install third_party/onnx
-      run: |
-        cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
-        sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx.sh
 
     - name: build onnx-mlir
       run: |
