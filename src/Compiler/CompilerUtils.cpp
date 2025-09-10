@@ -721,6 +721,8 @@ std::string dirName(StringRef inputFilename) {
     ImportOptions options;
     options.verboseOutput = VerboseOutput;
     options.useOnnxModelTypes = useOnnxModelTypes;
+    options.runOnnxShapeInference = runOnnxShapeInference;
+    options.useOnnxModelTypesForCustomOps = useOnnxModelTypesForCustomOps;
     options.useOutputNameAsLocation = useOutputNameAsLocation;
     options.allowMissingOutputTypes = allowMissingOutputTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;

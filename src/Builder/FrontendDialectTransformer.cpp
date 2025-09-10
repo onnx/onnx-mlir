@@ -414,15 +414,13 @@ private:
 
   std::optional<ErrorOr<Type>> ConvertOnnxType(
       const std::string &onnx_name, std::string &errorMessage) {
-    if (options_.useOnnxModelTypes) {
-      if (const onnx::TypeProto *onnxTypePtr =
-              onnx_type_map.GetByOnnxName(onnx_name)) {
-        ErrorOr<Type> importedType = ImportType(*onnxTypePtr, errorMessage);
-        if (auto ec = importedType.getError()) {
-          return ec;
-        }
-        return *importedType;
+    if (const onnx::TypeProto *onnxTypePtr =
+            onnx_type_map.GetByOnnxName(onnx_name)) {
+      ErrorOr<Type> importedType = ImportType(*onnxTypePtr, errorMessage);
+      if (auto ec = importedType.getError()) {
+        return ec;
       }
+      return *importedType;
     }
     return std::nullopt;
   }
@@ -827,7 +825,8 @@ private:
       const onnx::NodeProto &node, std::vector<Value> inputs,
       int expectedNumOperands, int expectedNumResults,
       const std::vector<NamedAttribute> &attributes, std::string &errorMessage,
-      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
+      std::vector<Type> givenOutputTypes = std::vector<Type>(),
+      bool isCustomOp = false) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -854,20 +853,24 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else {
-        auto onnxModelType = ConvertOnnxType(node.output(i), errorMessage);
-        if (onnxModelType) {
-          const auto ec = onnxModelType->getError();
-          if (!ec) {
-            outputTypes.emplace_back(*onnxModelType.value());
-            continue;
+        if (options_.useOnnxModelTypes ||
+            (isCustomOp && options_.useOnnxModelTypesForCustomOps)) {
+          auto onnxModelType = ConvertOnnxType(node.output(i), errorMessage);
+          if (onnxModelType) {
+            const auto ec = onnxModelType->getError();
+            if (!ec) {
+              outputTypes.emplace_back(*onnxModelType.value());
+              continue;
+            }
+            if (!options_.allowMissingOutputTypes || ec != InvalidOnnxFormat) {
+              errorMessage +=
+                  "Failed to get type for '" + node.output(i) + "\n";
+              return ec;
+            }
+            llvm::errs() << "Warning: "
+                         << "Failed to get type type for '" << node.output(i)
+                         << "', falling back to onnx-mlir based mapping.\n";
           }
-          if (!options_.allowMissingOutputTypes || ec != InvalidOnnxFormat) {
-            errorMessage += "Failed to get type for '" + node.output(i) + "\n";
-            return ec;
-          }
-          llvm::errs() << "Warning: "
-                       << "Failed to get type type for '" << node.output(i)
-                       << "', falling back to onnx-mlir based mapping.\n";
         }
         unsigned int j = i;
         // Variadic output is a single ODS result.
@@ -931,6 +934,8 @@ private:
         }
       }
     }
+    // Note: ResultTypeInferenceOpInterface only infers the type of the result,
+    // not the shape
     if (auto opWithTypeInference =
             mlir::dyn_cast<ResultTypeInferenceOpInterface>(op.getOperation())) {
       auto outTypes = opWithTypeInference.resultTypeInference();
@@ -1456,7 +1461,8 @@ private:
           onnx::OpSchemaRegistry::Instance(),
           /*options=*/{}, in_model_functions_);
     } catch (const std::exception &e) {
-      llvm::errs() << "Warning: Caught exception running onnx shape inference: "
+      llvm::errs() << "Warning: Caught exception running onnx shape inference "
+                      "to populate graph.value_info: "
                    << e.what() << "\n";
     }
 
@@ -1584,8 +1590,8 @@ private:
 
     // ToFix: The type inference may go wrong if the element type of the output
     // of CustomOp is not the same as the first input.
-    return buildOutputAndOperation<ONNXCustomOp>(
-        node, inputs, nIn, nOut, attributes, errorMessage, givenOutputTypes);
+    return buildOutputAndOperation<ONNXCustomOp>(node, inputs, nIn, nOut,
+        attributes, errorMessage, givenOutputTypes, /*isCustomOp*/ true);
   }
 
   [[nodiscard]] std::error_code ImportNode(
@@ -1806,7 +1812,7 @@ private:
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
-    if (options.useOnnxModelTypes) {
+    if (options.runOnnxShapeInference) {
       try {
         onnx::shape_inference::InferShapes(convertModel);
       } catch (const std::exception &e) {
@@ -1818,7 +1824,7 @@ private:
     return ImportFrontendModel(
         convertModel, context, module, errorMessage, options);
   } else {
-    if (options.useOnnxModelTypes) {
+    if (options.runOnnxShapeInference) {
       try {
         onnx::shape_inference::InferShapes(model);
       } catch (const std::exception &e) {

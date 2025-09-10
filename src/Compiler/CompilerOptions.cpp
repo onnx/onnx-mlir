@@ -64,6 +64,8 @@ bool preserveBitcode;                      // onnx-mlir only
 bool preserveLLVMIR;                       // onnx-mlir only
 bool preserveMLIR;                         // onnx-mlir only
 bool useOnnxModelTypes;                    // onnx-mlir only
+bool runOnnxShapeInference;                // onnx-mlir only
+bool useOnnxModelTypesForCustomOps;        // onnx-mlir only
 int repeatOnnxTransform;                   // onnx-mlir only
 std::string shapeInformation;              // onnx-mlir only
 std::string dimParams;                     // onnx-mlir only
@@ -387,6 +389,20 @@ static llvm::cl::opt<bool, true> preserveMLIROpt("preserveMLIR",
 static llvm::cl::opt<bool, true> useOnnxModelTypesOpt("useOnnxModelTypes",
     llvm::cl::desc("Use types and shapes from ONNX model."),
     llvm::cl::location(useOnnxModelTypes), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> runOnnxShapeInferenceOpt(
+    "runOnnxShapeInference",
+    llvm::cl::desc("Run ONNX shape inference when importing a model. This is "
+                   "indepenendent of the shape inference in ONNX-MLIR"),
+    llvm::cl::location(runOnnxShapeInference), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> useOnnxModelTypesForCustomOpsOpt(
+    "useOnnxModelTypesForCustomOps",
+    llvm::cl::desc("Use types and shapes from ONNX model for custom ops, even "
+                   "if `useOnnxModelTypes` is disabled."),
+    llvm::cl::location(useOnnxModelTypesForCustomOps), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> useOutputNameAsLocationOpt(

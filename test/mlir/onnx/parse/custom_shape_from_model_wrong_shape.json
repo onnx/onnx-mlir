@@ -1,0 +1,110 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --useOnnxModelTypesForCustomOps=true --printIR %s 2>&1 | FileCheck %s
+// Json generated with utils/testing/custom_shape_from_model_wrong_shape.py
+
+// CHECK: Warning for operation onnx.Gelu: [Shape inference, dim 0] the inferred dim (4) is different from the existing dim (5). Use the existing dim instead.
+
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x5xf32> {onnx.name = "X"}) -> (tensor<5x6xf32> {onnx.name = "Z"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) {approximate = "none", onnx_node_name = "onnx.Gelu_0"} : (tensor<4x5xf32>) -> tensor<5x6xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) {onnx_node_name = "onnx.Relu_1"} : (tensor<5x6xf32>) -> tensor<5x6xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x6xf32>
+// CHECK:         }
+{
+  "irVersion": "10",
+  "producerName": "onnx-mlir",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "X"
+        ],
+        "output": [
+          "Y"
+        ],
+        "opType": "Gelu",
+        "domain": "com.microsoft"
+      },
+      {
+        "input": [
+          "Y"
+        ],
+        "output": [
+          "Z"
+        ],
+        "opType": "Relu"
+      }
+    ],
+    "name": "test-custom",
+    "input": [
+      {
+        "name": "X",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "4"
+                },
+                {
+                  "dimValue": "5"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "Z",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "5"
+                },
+                {
+                  "dimValue": "6"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "valueInfo": [
+      {
+        "name": "Y",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "5"
+                },
+                {
+                  "dimValue": "6"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "domain": "",
+      "version": "22"
+    },
+    {
+      "domain": "com.microsoft",
+      "version": "1"
+    }
+  ]
+}
