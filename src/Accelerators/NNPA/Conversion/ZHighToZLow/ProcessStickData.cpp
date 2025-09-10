@@ -220,6 +220,8 @@ static DimsExpr computeAccessFct(
   return accessFct;
 }
 
+// If stick: load memref[stickOffset, l+u*archVL];
+// If not stick, load memref[loop indices augmented by l+u*archVL in last dim].
 static void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
     IndexExpr stickOffset, IndexExpr l, int64_t u, bool isStick, Value &high,
     Value &low) {
@@ -242,6 +244,8 @@ static void loadVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
   }
 }
 
+// If stick: store into memref[stickOffset, l+u*archVL];
+// If not, store into memref[loop indices augmented by l+u*archVL in last dim].
 static void storeVector(MDBuilder &create, Value memref, DimsExpr &loopIndices,
     IndexExpr stickOffset, IndexExpr l, int64_t u, bool isStick, Value high,
     Value low, bool disableSaturation) {
@@ -293,6 +297,7 @@ static void loadComputeStoreSimd(MDBuilder &create,
   }
 }
 
+// void StickTool_classify(mlir::SmallVectorImpl<Value> )
 static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
@@ -356,7 +361,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   int64_t ioNum = inputNum + 1;
   mlir::BitVector ioIsStick(ioNum, false), ioIsBroadcast(ioNum, false);
   mlir::SmallVector<Value, 4> ioOriginalOper;   // Before type conversions.
-  mlir::SmallVector<Value, 4> ioOriginalMemRef; // Modified by conversion.
+  mlir::SmallVector<Value, 4> ioOriginalMemRef; // After type conversion.
   mlir::SmallVector<Value, 4> ioMemRef; // Modified & possibly reinterpreted.
   // Fill in ioMemRef with default values (original operands/result)
   for (int io = 0; io < inputNum; ++io) {
