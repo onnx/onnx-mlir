@@ -394,7 +394,7 @@ static llvm::cl::opt<bool, true> useOnnxModelTypesOpt("useOnnxModelTypes",
 static llvm::cl::opt<bool, true> runOnnxShapeInferenceOpt(
     "runOnnxShapeInference",
     llvm::cl::desc("Run ONNX shape inference when importing a model. This is "
-                   "indepenendent of the shape inference in ONNX-MLIR"),
+                   "independent of the shape inference in ONNX-MLIR"),
     llvm::cl::location(runOnnxShapeInference), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
