@@ -22,11 +22,16 @@
 
 namespace onnx_mlir {
 
-// Add pass for device placement.
+/// Add pass for device placement.
 std::unique_ptr<mlir::Pass> createDevicePlacementPass();
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
     std::string loadConfigFile, std::string saveConfigFile,
     NNPAPlacementHeuristic placementHeuristic);
+
+/// Add pass for quantization op selection.
+std::unique_ptr<mlir::Pass> createQuantOpSelectionPass();
+std::unique_ptr<mlir::Pass> createQuantOpSelectionPass(
+    std::string loadConfigFile, std::string saveConfigFile);
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();

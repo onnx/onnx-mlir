@@ -253,8 +253,10 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
             pm.getContext()));
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
-    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,
-        nnpaSaveDevicePlacementFile, nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createDevicePlacementPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createQuantOpSelectionPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile));
   }
 
   if (emissionTarget >= EmitMLIR) {
