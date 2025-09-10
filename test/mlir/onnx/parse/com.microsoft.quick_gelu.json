@@ -1,0 +1,123 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s | FileCheck %s
+// Semi hand-written model.
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x1x1xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<1x3x1x3xf32> {onnx.name = "add_in"}) -> (tensor<1x3x1x3xf32> {onnx.name = "add_out"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]]) {domain_name = "com.microsoft", function_name = "QuickGelu", onnx_node_name = "onnx.Custom_0", output_element_type = f32, shape_infer_pattern = "SameAs"} : (tensor<1x3x1x1xf32>) -> tensor<1x3x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_1_]]) {onnx_node_name = "onnx.Add_1"} : (tensor<1x3x1x1xf32>, tensor<1x3x1x3xf32>) -> tensor<1x3x1x3xf32>
+// CHECK:           return [[VAR_1_]] : tensor<1x3x1x3xf32>
+// CHECK:         }
+{
+  "irVersion": "10",
+  "producerName": "onnx-custom-op-example",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "x"
+        ],
+        "output": [
+          "y"
+        ],
+        "opType": "QuickGelu",
+        "domain": "com.microsoft"
+      },
+      {
+        "input": [
+          "y",
+          "add_in"
+        ],
+        "output": [
+          "add_out"
+        ],
+        "opType": "Add"
+      }
+    ],
+    "name": "CustomQuantizeLinearGraph",
+    "input": [
+      {
+        "name": "x",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "1"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "add_in",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "add_out",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "domain": "",
+      "version": "17"
+    },
+    {
+      "domain": "com.microsoft",
+      "version": "1"
+    }
+  ]
+}
