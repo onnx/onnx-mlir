@@ -172,6 +172,7 @@ add_onnx_mlir_library(OMCompilerUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion
+  LLVMBitcodeWriter
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.
