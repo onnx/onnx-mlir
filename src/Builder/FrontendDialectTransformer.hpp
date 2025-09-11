@@ -43,7 +43,9 @@ struct ImportOptions {
   bool verboseOutput = false;
   // Use types/shapes in the input-model for translation (for intermediate
   // variables)
-  bool useOnnxModelTypes = false;
+  bool useOnnxModelTypes = true;
+  bool runOnnxShapeInference = true;
+  bool useOnnxModelTypesForCustomOps = true;
   bool invokeOnnxVersionConverter = false;
   bool allowSorting = true;
   bool useOutputNameAsLocation = false;
