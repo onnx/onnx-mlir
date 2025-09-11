@@ -202,7 +202,7 @@ int64_t ZArch14VectorMachineSupport::computeArchVectorLength(
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
-  case GenericOps::LogicalGop:
+  // case GenericOps::LogicalGop: /* difficult to gen 1 bit simd ops */
     return archVL;
 
     // 1 - 8 byte operations.
@@ -285,7 +285,7 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
-  case GenericOps::LogicalGop:
+  // case GenericOps::LogicalGop: /* difficult to gen 1 bit simd ops */
   case GenericOps::MinMaxGop:
   case GenericOps::CompareGop:
   case GenericOps::AbsGop:
@@ -377,7 +377,7 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
-  case GenericOps::LogicalGop:
+  // case GenericOps::LogicalGop: /* difficult to gen 1 bit simd ops */
   case GenericOps::MinMaxGop:
   case GenericOps::CompareGop:
   case GenericOps::AbsGop:

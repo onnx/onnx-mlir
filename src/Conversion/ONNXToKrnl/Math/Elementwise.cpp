@@ -264,12 +264,12 @@ GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
 
 template <>
 GenOpMix getGenOpMix<ONNXNotOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1}};
+  return {{GenericOps::LogicalGop, 1}};
 }
 
 template <>
 GenOpMix getGenOpMix<ONNXOrOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1}};
+  return {{GenericOps::LogicalGop, 1}};
 }
 
 template <>
@@ -304,7 +304,7 @@ GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
 
 template <>
 GenOpMix getGenOpMix<ONNXXorOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1}};
+  return {{GenericOps::LogicalGop, 1}};
 }
 
 //===----------------------------------------------------------------------===//
