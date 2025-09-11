@@ -715,7 +715,7 @@ int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
                           << estimatedMaxVectorRegisterPressure << "\n");
 
   // Define a target max unroll as a function of register pressure.
-  int64_t unrollVL;
+  int64_t unrollVL = 1;
   int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
   if (estimatedMaxVectorRegisterPressure >= vrNum)
     unrollVL = 1;
