@@ -661,6 +661,10 @@ int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
 // Support functions for determining simd unrolling.
 //===----------------------------------------------------------------------===//
 
+// Over computing is only safe if none of the inputs are function parameters.
+// Otherwise, we always allocate a bit more memory.
+bool isOverComputeSafe(mlir::Operation *op);
+
 // Compute a suitable SIMD Vector length (which may be a multiple of the
 // hardware vector length, up to maxUnrollVL times). If the dims are too
 // small, return 1 (no suitable simd). The collapsedInnermostLoops parameter
