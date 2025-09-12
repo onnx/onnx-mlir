@@ -197,7 +197,11 @@ int64_t ZArch14VectorMachineSupport::computeArchVectorLength(
       return UNSUPPORTED;
     }
   }
-  // Support for integer (we consider bit-wide ops as byte wide ops).
+  // Support for integer.
+  // Bit width operations not supported for SIMD.
+  if (bitWidth == 1)
+    return UNSUPPORTED;
+
   switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
@@ -280,7 +284,11 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
       return UNSUPPORTED;
     }
   }
-  // Support for integer (we consider bit-wide ops as byte wide ops).
+  // Support for integer.
+  // Bit width operations not supported for SIMD.
+  if (bitWidth == 1)
+    return UNSUPPORTED;
+
   switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
@@ -372,7 +380,11 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
       return UNSUPPORTED;
     }
   }
-  // Support for integer (we consider bit-wide ops as byte wide ops).
+  // Support for integer
+  // Bit width operations not supported for SIMD.
+  if (bitWidth == 1)
+    return UNSUPPORTED;
+
   switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
