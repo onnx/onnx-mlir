@@ -175,6 +175,8 @@ add_onnx_mlir_library(OMCompilerUtils
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.
+  # BitWriter is needed for llvm::WriteBitcodeToFile (called in OMCompilerUtils.cpp,
+  # implemented in BitcodeWriter.cpp).
   LINK_COMPONENTS PRIVATE
   AllTargetsAsmParsers
   AllTargetsCodeGens
