@@ -297,7 +297,79 @@ static void loadComputeStoreSimd(MDBuilder &create,
   }
 }
 
-// void StickTool_classify(mlir::SmallVectorImpl<Value> )
+//===----------------------------------------------------------------------===//
+// High level support.
+struct StickComputeSupport {
+  StickComputeSupport(MDBuilder &create, Operation *op,
+      ValueRange originalInputMemRef, Value originalOutputMemRef);
+
+  // Inputs.
+  mlir::SmallVector<Value, 4> ioOriginalOper;   // Untransformed opers.
+  mlir::SmallVector<Value, 4> ioOriginalMemRef; // Memref opers.
+  // Computed values.
+  mlir::SmallVector<Value, 4> ioMemRef; // Memrefs possibly reinterpreted.
+  mlir::BitVector ioIsStick;     // True if the operand has a stick data layout.
+  mlir::BitVector ioIsBroadcast; // True if the last dimension is a broadcast
+  mlir::BitVector ioIsBuffer;    // True if oper has <1, 8> static shapes.
+  int64_t inputNum, ioNum;
+
+  const int64_t archVL = 8;
+  const int64_t stickLen = 64;
+};
+
+StickComputeSupport::StickComputeSupport(MDBuilder &create, Operation *op,
+    ValueRange originalInputMemRef, Value originalOutputMemRef) {
+  // Add input operands into the io lists.
+  inputNum = op->getNumOperands();
+  ioNum = inputNum + 1;
+  for (int64_t io = 0; io < inputNum; ++io) {
+    ioOriginalOper.emplace_back(op->getOperand(io));
+    ioOriginalMemRef.emplace_back(originalInputMemRef[io]);
+  }
+  // Add single output (last entry) in io lists.
+  Value originalOutput = op->getResult(0);
+  Type outputElementType = getElementType(originalOutput.getType());
+  ioOriginalOper.emplace_back(originalOutput);
+  ioOriginalMemRef.emplace_back(originalOutputMemRef);
+  int64_t innermostOutputShape = getShape(originalOutput.getType(), -1);
+  // Initialize the computed io values.
+  ioMemRef = ioOriginalMemRef; // Initially the two are the same.
+  ioIsStick = mlir::BitVector(ioNum, false);
+  ioIsBroadcast = mlir::BitVector(ioNum, false);
+  ioIsBuffer = mlir::BitVector(ioNum, false);
+  // Iterate over all inputs & output to assign the computed io values.
+  IndexExpr lit2 = LitIE(2);
+  IndexExpr litStickLen = LitIE(stickLen);
+  for (int io = 0; io < ioNum; ++io) {
+    Value originalVal = ioOriginalOper[io];
+    Value originalMemRef = ioOriginalMemRef[io];
+    Type originalType = originalVal.getType();
+    int64_t innermostShape = getShape(originalType, -1);
+    auto originalShape = getShape(originalType);
+    ioIsBroadcast[io] = (innermostShape == 1 && innermostOutputShape != 1);
+    ioIsStick[io] = zhigh::isZTensor(originalType);
+    ioIsBuffer[io] = originalShape.size() == 2 && originalShape[0] == 1 &&
+                     originalShape[1] == archVL;
+    if (ioIsStick[io] && !ioIsBroadcast[io]) {
+      // Set in ioMemRef the flattened [2, 64] view.
+      assert(
+          zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal) &&
+          "unsupported layout");
+      DimsExpr castShape = {lit2, litStickLen};
+      ioMemRef[io] = create.mem.reinterpretCast(originalMemRef, castShape);
+    }
+    LLVM_DEBUG(llvm::dbgs()
+               << "  " << io << ": " << (ioIsStick[io] ? "is stick " : "")
+               << (ioIsBroadcast[io] ? "is broadcast " : "")
+               << (ioIsBuffer[io] ? "is buffer " : "") << "operand\n");
+  }
+  int64_t ioOutputId = inputNum;
+  assert(!ioIsBroadcast[ioOutputId] && "expect no broadcasted output");
+}
+
+//===----------------------------------------------------------------------===//
+// Process operation with stick inputs/output.
+
 static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
