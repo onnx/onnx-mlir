@@ -218,9 +218,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateSCFToControlFlowConversionPatterns(patterns);
 
   populateShapeToStandardConversionPatterns(patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   memref::populateExpandOpsPatterns(patterns);
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.

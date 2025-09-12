@@ -18,7 +18,8 @@ if(TARGET omp)
     # into model.so
     CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
                              cmake -G Ninja ${LLVM_BUILD_MAIN_SRC_DIR} \
-                                   -DLLVM_ENABLE_PROJECTS=\"clang$<SEMICOLON>openmp\" \
+                                   -DLLVM_ENABLE_PROJECTS=\"clang\" \
+                                   -DLLVM_ENABLE_RUNTIMES=\"openmp\" \
                                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
                                    -DLIBOMP_ENABLE_SHARED=OFF"
     BUILD_COMMAND sh -c "cmake --build . --target omp -- ${MAKEFLAGS}"

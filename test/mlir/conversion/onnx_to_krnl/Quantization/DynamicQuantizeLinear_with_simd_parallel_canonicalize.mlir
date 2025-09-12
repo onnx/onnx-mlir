@@ -135,7 +135,7 @@ func.func @test_dynamic_quantize_linear_simd_only(%arg0: tensor<256x16xf32>) -> 
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_2_]] -> [[I_4_:%.+]] = 0 to 4096){
 // CHECK:             [[VAR_21_2_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[VAR_22_1_:%.+]] = vector.load [[VAR_reshape_17_]]{{.}}[[VAR_21_2_]]{{.}} : memref<4096xf32>, vector<16xf32>
-// CHECK-DAG:         [[VAR_23_2_:%.+]] = vector.splat [[VAR_11_]] : vector<16xf32>
+// CHECK-DAG:         [[VAR_23_2_:%.+]] = vector.broadcast [[VAR_11_]] : f32 to vector<16xf32>
 // CHECK:             [[VAR_24_1_:%.+]] = arith.divf [[VAR_22_1_]], [[VAR_23_2_]] : vector<16xf32>
 // CHECK:             [[VAR_25_1_:%.+]] = vector.shape_cast [[VAR_24_1_]] : vector<16xf32> to vector<4x4xf32>
 // CHECK:             [[VAR_26_2_:%.+]] = vector.extract [[VAR_25_1_]][0] : vector<4xf32> from vector<4x4xf32>
@@ -151,7 +151,7 @@ func.func @test_dynamic_quantize_linear_simd_only(%arg0: tensor<256x16xf32>) -> 
 // CHECK:             [[VAR_36_2_:%.+]] = "krnl.round_even"([[VAR_35_2_]]) : (vector<4xf32>) -> vector<4xf32>
 // CHECK:             [[VAR_37_:%.+]] = vector.insert [[VAR_36_2_]], [[LOAD_RES_6_MEM_1_]] [3] : vector<4xf32> into vector<4x4xf32>
 // CHECK-DAG:         [[VAR_38_:%.+]] = vector.shape_cast [[VAR_37_]] : vector<4x4xf32> to vector<16xf32>
-// CHECK-DAG:         [[VAR_39_:%.+]] = vector.splat [[VAR_16_]] : vector<16xf32>
+// CHECK-DAG:         [[VAR_39_:%.+]] = vector.broadcast [[VAR_16_]] : f32 to vector<16xf32>
 // CHECK:             [[VAR_40_:%.+]] = arith.addf [[VAR_38_]], [[VAR_39_]] : vector<16xf32>
 // CHECK:             [[VAR_41_:%.+]] = arith.maxnumf [[VAR_40_]], [[VAR_cst_0_]] : vector<16xf32>
 // CHECK:             [[VAR_42_:%.+]] = arith.minnumf [[VAR_41_]], [[VAR_cst_]] : vector<16xf32>
@@ -295,7 +295,7 @@ func.func @test_dynamic_quantize_linear_simd_and_scalar(%arg0: tensor<255x17xf32
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_2_]] -> [[I_4_:%.+]] = 0 to 4320){
 // CHECK:             [[VAR_22_2_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[VAR_23_1_:%.+]] = vector.load [[VAR_reshape_17_]]{{.}}[[VAR_22_2_]]{{.}} : memref<4335xf32>, vector<16xf32>
-// CHECK-DAG:         [[VAR_24_2_:%.+]] = vector.splat [[VAR_11_]] : vector<16xf32>
+// CHECK-DAG:         [[VAR_24_2_:%.+]] = vector.broadcast [[VAR_11_]] : f32 to vector<16xf32>
 // CHECK:             [[VAR_25_1_:%.+]] = arith.divf [[VAR_23_1_]], [[VAR_24_2_]] : vector<16xf32>
 // CHECK:             [[VAR_26_1_:%.+]] = vector.shape_cast [[VAR_25_1_]] : vector<16xf32> to vector<4x4xf32>
 // CHECK:             [[VAR_27_2_:%.+]] = vector.extract [[VAR_26_1_]][0] : vector<4xf32> from vector<4x4xf32>
@@ -311,7 +311,7 @@ func.func @test_dynamic_quantize_linear_simd_and_scalar(%arg0: tensor<255x17xf32
 // CHECK:             [[VAR_37_2_:%.+]] = "krnl.round_even"([[VAR_36_2_]]) : (vector<4xf32>) -> vector<4xf32>
 // CHECK:             [[VAR_38_:%.+]] = vector.insert [[VAR_37_2_]], [[LOAD_RES_6_MEM_1_]] [3] : vector<4xf32> into vector<4x4xf32>
 // CHECK-DAG:         [[VAR_39_:%.+]] = vector.shape_cast [[VAR_38_]] : vector<4x4xf32> to vector<16xf32>
-// CHECK-DAG:         [[VAR_40_:%.+]] = vector.splat [[VAR_16_]] : vector<16xf32>
+// CHECK-DAG:         [[VAR_40_:%.+]] = vector.broadcast [[VAR_16_]] : f32 to vector<16xf32>
 // CHECK:             [[VAR_41_:%.+]] = arith.addf [[VAR_39_]], [[VAR_40_]] : vector<16xf32>
 // CHECK:             [[VAR_42_:%.+]] = arith.maxnumf [[VAR_41_]], [[VAR_cst_0_]] : vector<16xf32>
 // CHECK:             [[VAR_43_:%.+]] = arith.minnumf [[VAR_42_]], [[VAR_cst_]] : vector<16xf32>
@@ -352,9 +352,9 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant dense<0.000000e+00> : vector<8xf32>
 // CHECK-DAG:       [[VAR_cst_1_:%.+]] = arith.constant dense<0xFF800000> : vector<8xf32>
 // CHECK-DAG:       [[VAR_cst_2_:%.+]] = arith.constant dense<0x7F800000> : vector<8xf32>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_2_dot_550000_:%.+]] = arith.constant 2.550000e+02 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_8_:%.+]] = arith.constant 8 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x8xui8>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() : memref<f32>
@@ -414,11 +414,10 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK-DAG:       [[VAR_reshape_15_:%.+]] = memref.reshape [[RES_]]([[RES_]]_14) : (memref<1x8xui8>, memref<1xindex>) -> memref<8xui8>
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           [[BLOCK_TILE__1_:%.+]], [[BLOCK_IN__1_:%.+]] = krnl.block [[LOOP_1_]] 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           krnl.parallel([[BLOCK_TILE__1_]]) : !krnl.loop
 // CHECK:           krnl.iterate([[BLOCK_TILE__1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 8){
 // CHECK:             [[VAR_20_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[LOAD_VAR_reshape_MEM_2_:%.+]] = vector.load [[VAR_reshape_13_]]{{.}}[[VAR_20_1_]]{{.}} : memref<8xf32>, vector<8xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_1_:%.+]] = vector.splat [[VAR_10_]] : vector<8xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_1_:%.+]] = vector.broadcast [[VAR_10_]] : f32 to vector<8xf32>
 // CHECK:             [[LOAD_RES_4_MEM_2_:%.+]] = arith.divf [[LOAD_VAR_reshape_MEM_2_]], [[LOAD_VAR_reshape_MEM_1_]] : vector<8xf32>
 // CHECK:             [[LOAD_RES_6_MEM_2_:%.+]] = vector.shape_cast [[LOAD_RES_4_MEM_2_]] : vector<8xf32> to vector<2x4xf32>
 // CHECK:             [[VAR_25_1_:%.+]] = vector.extract [[LOAD_RES_6_MEM_2_]][0] : vector<4xf32> from vector<2x4xf32>
@@ -428,7 +427,7 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK:             [[VAR_29_:%.+]] = "krnl.round_even"([[VAR_28_]]) : (vector<4xf32>) -> vector<4xf32>
 // CHECK:             [[VAR_30_:%.+]] = vector.insert [[VAR_29_]], [[VAR_27_]] [1] : vector<4xf32> into vector<2x4xf32>
 // CHECK-DAG:         [[VAR_31_:%.+]] = vector.shape_cast [[VAR_30_]] : vector<2x4xf32> to vector<8xf32>
-// CHECK-DAG:         [[VAR_32_:%.+]] = vector.splat [[VAR_15_]] : vector<8xf32>
+// CHECK-DAG:         [[VAR_32_:%.+]] = vector.broadcast [[VAR_15_]] : f32 to vector<8xf32>
 // CHECK:             [[VAR_33_:%.+]] = arith.addf [[VAR_31_]], [[VAR_32_]] : vector<8xf32>
 // CHECK:             [[VAR_34_:%.+]] = arith.maxnumf [[VAR_33_]], [[VAR_cst_0_]] : vector<8xf32>
 // CHECK:             [[VAR_35_:%.+]] = arith.minnumf [[VAR_34_]], [[VAR_cst_]] : vector<8xf32>
@@ -440,4 +439,3 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK:           return [[RES_]], [[RES_]]_5, [[RES_]]_6 : memref<1x8xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
 }
-

@@ -18,6 +18,7 @@
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/TargetParser/Triple.h"
 
 #include "onnx/onnx_pb.h"
