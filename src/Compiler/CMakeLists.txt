@@ -181,6 +181,7 @@ add_onnx_mlir_library(OMCompilerUtils
   AllTargetsDescs
   AllTargetsInfos
   MC
+  BitWriter
   )
 
   add_onnx_mlir_library(OMOptionUtils
