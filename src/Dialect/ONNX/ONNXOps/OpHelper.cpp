@@ -602,9 +602,12 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
     if (type.isSignedInteger()) {
       return static_cast<RESULT_TYPE>(
           mlir::cast<IntegerAttr>(*valueIt).getSInt());
-    } else {
+    } else if (type.isUnsignedInteger()) {
       return static_cast<RESULT_TYPE>(
           mlir::cast<IntegerAttr>(*valueIt).getUInt());
+    } else {
+      return static_cast<RESULT_TYPE>(
+          mlir::cast<IntegerAttr>(*valueIt).getInt());
     }
   } else if (mlir::isa<FloatType>(elementaryType)) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
