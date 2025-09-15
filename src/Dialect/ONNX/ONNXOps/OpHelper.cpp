@@ -599,7 +599,16 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   if (elementaryType.isInteger(8) || elementaryType.isInteger(16) ||
       elementaryType.isInteger(32) || elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
-    return static_cast<RESULT_TYPE>(mlir::cast<IntegerAttr>(*valueIt).getInt());
+    if (type.isSignedInteger()) {
+      return static_cast<RESULT_TYPE>(
+          mlir::cast<IntegerAttr>(*valueIt).getSInt());
+    } else if (type.isUnsignedInteger()) {
+      return static_cast<RESULT_TYPE>(
+          mlir::cast<IntegerAttr>(*valueIt).getUInt());
+    } else {
+      return static_cast<RESULT_TYPE>(
+          mlir::cast<IntegerAttr>(*valueIt).getInt());
+    }
   } else if (mlir::isa<FloatType>(elementaryType)) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return static_cast<RESULT_TYPE>((*valueIt).convertToDouble());
