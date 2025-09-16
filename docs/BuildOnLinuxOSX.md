@@ -23,6 +23,8 @@ cd llvm-project && git checkout fc44a4fcd3c54be927c15ddd9211aca1501633e7 && cd .
 mkdir llvm-project/build
 cd llvm-project/build
 
+# Note: LLVM_ENABLE_PROJECTS is being phased out for runtimes; use LLVM_ENABLE_RUNTIMES instead (e.g. for OpenMP).  
+# Going forward, all LLVM/MLIR-dependent runtimes should be built with LLVM_ENABLE_RUNTIMES, not LLVM_ENABLE_PROJECTS. 
 cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS="mlir;clang" \
    -DLLVM_ENABLE_RUNTIMES="openmp" \
