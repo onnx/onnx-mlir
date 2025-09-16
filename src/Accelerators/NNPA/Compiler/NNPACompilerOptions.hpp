@@ -4,7 +4,7 @@
 
 //===------------------------ NNPACompilerOptions.hpp ---------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -73,11 +73,12 @@ extern llvm::cl::opt<bool> nnpaDisableCompilerStickUnstick;
 extern llvm::cl::opt<bool> nnpaEnableScalarBcastBinary;
 extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
-extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
-extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
+extern llvm::cl::opt<std::string> nnpaLoadConfigFile;
+extern llvm::cl::opt<std::string> nnpaSaveConfigFile;
 extern llvm::cl::opt<bool> nnpaDisableSaturation;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
+extern llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick;
 extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;
 extern std::vector<std::string> nnpaQuantOpTypes;
 

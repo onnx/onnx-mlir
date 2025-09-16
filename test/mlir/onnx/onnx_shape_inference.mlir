@@ -996,8 +996,6 @@ func.func @test_reshape_dim_not_bijection(%arg0: tensor<?x?x2048xf32>) -> tensor
 // CHECK:         }
 }
 
-// -----
-
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
 //===----------------------------------------------------------------------===//
@@ -2844,6 +2842,32 @@ func.func @test_range_int_constant() -> tensor<*xi32> {
 
 // -----
 
+func.func @test_range_add_scalar_int(%start: tensor<i64>) -> tensor<*xi64> {
+  %range = onnx.Constant dense<10> : tensor<i64>
+  %delta = onnx.Constant dense<1> : tensor<i64>
+  %limit = "onnx.Add"(%start, %range) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<*xi64>
+  onnx.Return %0 : tensor<*xi64>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_int
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<10xi64>
+}
+
+// -----
+
+func.func @test_range_add_scalar_float(%start: tensor<f32>) -> tensor<*xf32> {
+  %range = onnx.Constant dense<5.0> : tensor<f32>
+  %delta = onnx.Constant dense<1.0> : tensor<f32>
+  %limit = "onnx.Add"(%start, %range) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_float
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<5xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the upsample op inference.
 //===----------------------------------------------------------------------===//
@@ -3953,6 +3977,8 @@ func.func @test_grid_sample_same_dims(%arg0: tensor<1x3x1152x1344xf32>, %arg1: t
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<1x6x6x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -3964,6 +3990,8 @@ func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<
 // CHECK:           return [[GRID]] : tensor<1x1x6x6xf32>
 // CHECK:         }
 }
+
+// -----
 
 func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x2x4x4x4x4xf32>, tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32>
@@ -3977,6 +4005,8 @@ func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x2xf32>) -> tensor<*xf32>
 // mlir2FileCheck.py
@@ -3988,6 +4018,8 @@ func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<
   return %0 : tensor<*xf32>
 }
 
+// -----
+
 func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<*xf32>
 // mlir2FileCheck.py
@@ -3998,6 +4030,8 @@ func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
 // CHECK:         }
   return %0 : tensor<*xf32>
 }
+
+// -----
 
 func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x10x20x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x10x20x2xf32>) -> tensor<*xf32>
@@ -4025,6 +4059,8 @@ func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK:         }
 }
 
+// -----
+
 func.func private @test_hammingwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
   %0 = "onnx.HammingWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
   "func.return"(%0) : (tensor<?xf32>) -> ()
@@ -4034,6 +4070,8 @@ func.func private @test_hammingwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf
 // CHECK:           return [[VAR_0_]] : tensor<?xf32>
 // CHECK:         }
 }
+
+// -----
 
 func.func private @test_hannwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
   %0 = "onnx.HannWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
@@ -4046,6 +4084,8 @@ func.func private @test_hannwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32>
 // CHECK:         }
 }
 
+// -----
+
 func.func private @test_blackamanwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
   %0 = "onnx.BlackmanWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
   "func.return"(%0) : (tensor<?xf32>) -> ()
@@ -4055,8 +4095,6 @@ func.func private @test_blackamanwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?
 // CHECK:           return [[VAR_0_]] : tensor<?xf32>
 // CHECK:         }
 }
-
-
 
 // -----
 
