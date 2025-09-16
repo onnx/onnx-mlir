@@ -16,6 +16,7 @@
 #ifndef ONNX_MLIR_PROCESS_STICK_DATA_H
 #define ONNX_MLIR_PROCESS_STICK_DATA_H
 
+#include "src/Accelerators/NNPA/Dialect/ZLow/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 namespace onnx_mlir {
@@ -51,6 +52,62 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     mlir::Operation *op, mlir::Value input, mlir::StringAttr inputLayout,
     mlir::Value &inputMin, mlir::Value &inputMax, bool enableSIMD,
     bool enableParallel);
+
+class StickComputeSupport {
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
+
+  using MultiValuesOfF32IterateBodyFn =
+      std::function<mlir::Value(const KrnlBuilder &b,
+          mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
+
+public:
+  StickComputeSupport(MDBuilder &create, mlir::Operation *op,
+      mlir::ValueRange originalInputMemRef, mlir::Value originalOutputMemRef,
+      MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
+      bool disableSaturation = false);
+
+  bool isStickifiedOutput() { return ioIsStick[inputNum]; }
+  void prepareInsideTiledLoop(
+      MDBuilder &create, DimsExpr &tiledOuterIndices, IndexExpr E1);
+
+  void loadComputeStore(MDBuilder &create, IndexExpr l, int64_t u,
+      mlir::Value tempBufferMemRef = nullptr);
+
+  static const int64_t archVL = 8;
+  static const int64_t stickLen = 64;
+
+private:
+  DimsExpr computeAccessFct(
+      mlir::Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset);
+  void loadVector(MDBuilder &create, DimsExpr &localOuterIndices, IndexExpr l,
+      int64_t u, int64_t i);
+  void storeVector(MDBuilder &create, DimsExpr &localOuterIndices, IndexExpr l,
+      int64_t u, int64_t o, mlir::Value tempBufferMemRef,
+      mlir::Value outputHigh, mlir::Value outputLow);
+
+  // Inputs.
+  mlir::SmallVector<mlir::Value, 4> ioOriginalOper;   // Untransformed opers.
+  mlir::SmallVector<mlir::Value, 4> ioOriginalMemRef; // Memref opers.
+  MultiValuesOfF32IterateBodyFn processVectorOfF32Vals;
+  bool disableSaturation;
+
+  // Computed values outside the loop.
+  mlir::SmallVector<mlir::Value, 4> ioMemRef; // Memrefs possibly reinterpreted.
+  mlir::BitVector ioIsStick;     // True if the operand has a stick data layout.
+  mlir::BitVector ioIsBroadcast; // True if the last dimension is a broadcast
+  mlir::BitVector ioIsBuffer;    // True if oper has <1, 8> static shapes.
+  int64_t inputNum, ioNum;
+
+  // Computed value inside the tiled loop, preparing for a stick loop.
+  DimsExpr ioStickOffsets; // Offset pointing to current stick.
+  mlir::SmallVector<mlir::Value, 4> inputHigh, inputLow; // High/low values.
+  DimsExpr outerIndices; // Indices of the outer loop (orig, not tiles)
+
+  // Helper values.
+  IndexExpr litZero, lit2, litStickLen;
+  mlir::VectorType vecF16Type, vecF32Type;
+};
 
 } // namespace onnx_mlir
 
