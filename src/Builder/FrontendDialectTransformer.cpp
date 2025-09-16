@@ -1296,7 +1296,7 @@ private:
     // To determine the opset version for a node/op:
     // 1: Determine the latest valid opset version. This is the newest version
     // in this opset-version-map that is older or equal to the current graph
-    // opset. 2:_ Select the newest version from the versions supported by
+    // opset. 2: Select the newest version from the versions supported by
     // onnx-mlir that is equal or newer to the latest valid opset version. This
     // allows it to skip over opset versions, that have a newer backwards
     // compatible version.
@@ -1312,9 +1312,15 @@ private:
     // Get the newest opset version for the op that is older or equal to the
     // model opset version. Use the oldest version as fallback
     int newestValidOpsetVersion = opset_list_it->second.back();
-    for (int opset : opset_list_it->second) {
-      if (opset <= current_opset) {
-        newestValidOpsetVersion = opset;
+    int upperRangeOfNewestValidOpsetVersion = current_opset;
+    for (auto opsetIter = opset_list_it->second.begin();
+         opsetIter != opset_list_it->second.end(); ++opsetIter) {
+      if (*opsetIter <= current_opset) {
+        if (opsetIter != opset_list_it->second.begin()) {
+          upperRangeOfNewestValidOpsetVersion = std::max(
+              upperRangeOfNewestValidOpsetVersion, *(opsetIter - 1) - 1);
+        }
+        newestValidOpsetVersion = *opsetIter;
         break;
       }
     }
@@ -1324,11 +1330,11 @@ private:
     // A new opset is added to onnx-mlir when it becomes incompatible.
     // All opset newest than the last opset should use the last opset(version)
     if (isDefaultDomain(node.domain()) &&
-        newestValidOpsetVersion < supported_opset_list.back() &&
-        newestValidOpsetVersion < MINIMUM_SUPPORTED_OPSET)
+        upperRangeOfNewestValidOpsetVersion < supported_opset_list.back() &&
+        upperRangeOfNewestValidOpsetVersion < MINIMUM_SUPPORTED_OPSET)
       llvm::errs() << "\nWarning: ONNX " << node.op_type()
                    << " in your model is using Opset "
-                   << newestValidOpsetVersion
+                   << upperRangeOfNewestValidOpsetVersion
                    << ", which is quite old. Please consider regenerating your "
                       "model with a newer Opset.\n\n";
 

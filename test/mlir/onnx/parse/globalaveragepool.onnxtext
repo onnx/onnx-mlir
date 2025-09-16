@@ -1,0 +1,14 @@
+
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s 2>&1 | FileCheck %s
+
+// COM: GlobalAveragePool was introduced in opset 1 and updated in opset 22. Make sure we do not print a warning for old versions in opsets in between.
+<
+   ir_version: 4,
+   opset_import: ["" : 14]
+>
+main (float[1,192,35,35] in0) => (float[1,192,1,1] out0) {
+   out0 = GlobalAveragePool(in0)
+}
+
+// CHECK-NOT: Warning
+// CHECK-NOT: which is quite old
