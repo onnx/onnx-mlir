@@ -78,14 +78,18 @@ static void explanation(Operation *computeOp, std::string message) {
 // Specific code for ops of the family of Layer Normalization.
 template <typename LAYER_NORM_OP>
 bool isLayerNormCompatible(LAYER_NORM_OP layerNorm) {
-  int64_t axis = layerNorm.getAxis();
   Value X = layerNorm.getX();
   int64_t xRank = getRank(X.getType());
   Operation *op = layerNorm.getOperation();
+  int64_t axis = layerNorm.getAxis();
+  axis = (axis < 0) ? axis + xRank : axis;
+  assert(axis >= 0 && axis < xRank && "out of bound layer norm axis");
   if (axis != xRank - 1) {
     LLVM_DEBUG(explanation(op, "FAILURE: LayerNorm with axis != last dim"));
     return false;
   }
+  // At this time, restrict cases with innermost dim that is static and multiple
+  // of 64.
   int64_t lastDimShape = getShape(X.getType(), -1);
   if (lastDimShape == ShapedType::kDynamic) {
     LLVM_DEBUG(
@@ -93,11 +97,19 @@ bool isLayerNormCompatible(LAYER_NORM_OP layerNorm) {
     return false;
   }
   if (lastDimShape % 64 != 0) {
-    // To simplify code gen; we can tolerate arbitrary length, just easier to
-    // assume multiple of sticks.
+    // Could handle non-multiple of 64, not needed at this time.
     LLVM_DEBUG(
         explanation(op, "FAILURE: LayerNorm last dim not multiple of 64"));
     return false;
+  }
+  // At this time, restrict cases with only one output (others should be none).
+  int64_t resNum = op->getNumResults();
+  for (int64_t r = 1; r < resNum; ++r) {
+    if (!mlir::isa<NoneType>(op->getResult(r).getType())) {
+      LLVM_DEBUG(explanation(
+          op, "FAILURE: LayerNorm additional outputs not supported"));
+      return false;
+    }
   }
   return true;
 }
@@ -111,19 +123,18 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
     return false;
   }
 
-  // Elementwise operations are supported.
+  // Elementwise operations are supported (they have a single output).
 #define ELEMENTWISE_ALL(_OP_TYPE)                                              \
   if (mlir::isa<_OP_TYPE>(op))                                                 \
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 
-#if 0
   // Layer normalization type of operations are conditionally accepted.
-  if (auto layerNorm = mlir::cast<ONNXLayerNormalizationOp>(op))
-    return isLayerNormCompatible(layerNorm);
-  if (auto RMSLayerNorm = mlir::cast<ONNXRMSLayerNormalizationOp>(op))
-    return isLayerNormCompatible(RMSLayerNorm);
-#endif
+  // Additional outputs should be NoneType.
+  if (auto layerNormOp = mlir::dyn_cast<ONNXLayerNormalizationOp>(op))
+    return isLayerNormCompatible(layerNormOp);
+  if (auto RMSLayerNormOp = mlir::dyn_cast<ONNXRMSLayerNormalizationOp>(op))
+    return isLayerNormCompatible(RMSLayerNormOp);
 
   // Not supported, fail.
   return false;
@@ -150,12 +161,14 @@ static bool suitableLayout(
 #endif
 
 // Make sure that all inputs and outputs have the right element type. Currently
-// only support f32 or d.
+// only support f32 or dlf16 in stickified format. None type is also tolerated.
 static bool suitableComputeType(Type type) {
   Type elementType = getElementTypeOrSelf(type);
   if (elementType.isF32())
     return true;
   if (elementType.isF16() && isZTensor(type))
+    return true;
+  if (mlir::isa<NoneType>(elementType))
     return true;
   return false;
 }
@@ -186,6 +199,9 @@ bool sameLastDimOrStaticBroadcast(
   int64_t innermostShapeOfRef = getShape(refType, -1);
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
+    // Ignore none types
+    if (mlir::isa<NoneType>(v.getType()))
+      continue;
     // Same dimension, we are fine.
     if (v == referenceInputVal ||
         dimAnalysis->sameDim(v, -1, referenceInputVal, -1))
@@ -385,9 +401,10 @@ public:
       mlir::SmallVector<Type> newResultTypes;
       newResultTypes.emplace_back(
           llvm::dyn_cast<RankedTensorType>(stickOp.getOut().getType()));
-      for (int64_t r = 1; r < resultNum; ++r)
-        newResultTypes.emplace_back(llvm::dyn_cast<RankedTensorType>(
-            computeOp->getResult(r).getType()));
+      for (int64_t r = 1; r < resultNum; ++r) {
+        // Additional output should only be NoneType at this time.
+        newResultTypes.emplace_back(computeOp->getResult(r).getType());
+      }
       // Clone compute state, insert in regions, and create.
       OperationState state(computeOp->getLoc(),
           computeOp->getName().getStringRef(), computeOp->getOperands(),
