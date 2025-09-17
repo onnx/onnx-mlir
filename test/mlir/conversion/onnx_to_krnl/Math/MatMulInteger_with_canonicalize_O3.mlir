@@ -58,7 +58,7 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 // CHECK:               [[VAR_8_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_:%.+]] = vector.load [[VAR_reshape_6_]]{{.}}[[VAR_8_1_]]{{.}} : memref<512xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_10_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
-// CHECK:               [[VAR_11_1_:%.+]] = vector.splat [[VAR_10_1_]] : vector<32xi32>
+// CHECK:               [[VAR_11_1_:%.+]] = vector.broadcast [[VAR_10_1_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_12_:%.+]] = arith.subi [[LOAD_VAR_reshape_MEM_1_]], [[VAR_11_1_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_12_]], [[VAR_reshape_8_]]{{.}}[[VAR_8_1_]]{{.}} : memref<512xi32>, vector<32xi32>
 // CHECK:             }
@@ -100,7 +100,7 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 // CHECK:               [[VAR_8_3_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__3_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_1_:%.+]] = vector.load [[VAR_reshape_17_]]{{.}}[[VAR_8_3_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_10_2_:%.+]] = krnl.load [[RES_10_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
-// CHECK:               [[VAR_11_3_:%.+]] = vector.splat [[VAR_10_2_]] : vector<32xi32>
+// CHECK:               [[VAR_11_3_:%.+]] = vector.broadcast [[VAR_10_2_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_12_1_:%.+]] = arith.subi [[LOAD_VAR_reshape_MEM_1_1_]], [[VAR_11_3_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_12_1_]], [[VAR_reshape_19_]]{{.}}[[VAR_8_3_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK:             }
@@ -121,6 +121,7 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 }
 
 // -----
+
 
 func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<32x64xui8>, %arg2: tensor<16xui8>, %arg3: tensor<1xui8>) -> tensor<16x64xi32> {
   %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<16x32xui8>, tensor<32x64xui8>, tensor<16xui8>, tensor<1xui8>) -> tensor<16x64xi32>
@@ -177,7 +178,7 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:               [[LOAD_VAR_reshape_MEM_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__2_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_8_1_:%.+]] = vector.load [[RES_]]{{.}}[[LOOP_1_]], [[LOAD_VAR_reshape_MEM_1_]]{{.}} : memref<16x32xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_9_1_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[LOOP_1_]], [[CST_0_1_]]{{.}} : memref<16x1xi32>
-// CHECK:               [[VAR_10_:%.+]] = vector.splat [[VAR_9_1_]] : vector<32xi32>
+// CHECK:               [[VAR_10_:%.+]] = vector.broadcast [[VAR_9_1_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_11_:%.+]] = arith.subi [[VAR_8_1_]], [[VAR_10_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_11_]], [[RES_4_]]{{.}}[[LOOP_1_]], [[LOAD_VAR_reshape_MEM_1_]]{{.}} : memref<16x32xi32>, vector<32xi32>
 // CHECK:             }
@@ -219,7 +220,7 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:               [[VAR_6_3_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__4_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_1_:%.+]] = vector.load [[VAR_reshape_13_]]{{.}}[[VAR_6_3_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK-DAG:           [[VAR_8_2_:%.+]] = krnl.load [[RES_8_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
-// CHECK:               [[VAR_9_3_:%.+]] = vector.splat [[VAR_8_2_]] : vector<32xi32>
+// CHECK:               [[VAR_9_3_:%.+]] = vector.broadcast [[VAR_8_2_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_10_1_:%.+]] = arith.subi [[LOAD_VAR_reshape_MEM_1_1_]], [[VAR_9_3_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_10_1_]], [[VAR_reshape_15_]]{{.}}[[VAR_6_3_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK:             }
@@ -238,4 +239,3 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:           return [[RES_12_]] : memref<16x64xi32>
 // CHECK:         }
 }
-

@@ -420,7 +420,7 @@ func.func private @gpt2_original(%arg0 : tensor<?x?x768xf32>) -> tensor<?x?x1xf3
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[VAR_reshape_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -531,7 +531,7 @@ func.func private @gpt2_no_keepdims(%arg0 : tensor<?x?x768xf32>) -> tensor<*xf32
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[RES_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -653,7 +653,7 @@ func.func private @gpt2_reduce2(%arg0 : tensor<?x?x96x8xf32>) -> tensor<*xf32> {
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[VAR_reshape_7_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -777,7 +777,7 @@ func.func private @gpt2_one_not_multiple(%arg0 : tensor<?x?x97x8xf32>) -> tensor
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[VAR_reshape_7_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -927,7 +927,7 @@ func.func private @gpt2_no_simd_as_not_mult_of_VL(%arg0 : tensor<?x?x97x9xf32>) 
 // CHECK-DAG:           [[VAR_36_:%.+]] = vector.shuffle [[VAR_31_]], [[VAR_34_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_37_:%.+]] = arith.addf [[VAR_36_]], [[VAR_35_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_38_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_38_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_39_:%.+]] = arith.divf [[VAR_37_]], [[VAR_38_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_39_]], [[VAR_reshape_7_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -1220,7 +1220,7 @@ func.func private @bertsquad10_same_pattern(%arg0 : tensor<?x256x768xf32>) -> te
 // CHECK-DAG:         [[VAR_21_:%.+]] = vector.shuffle [[VAR_16_]], [[VAR_19_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_22_:%.+]] = arith.addf [[VAR_21_]], [[VAR_20_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_23_:%.+]] = vector.splat [[VAR_4_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_23_:%.+]] = vector.broadcast [[VAR_4_]] : f32 to vector<4xf32>
 // CHECK:             [[VAR_24_:%.+]] = arith.divf [[VAR_22_]], [[VAR_23_]] : vector<4xf32>
 // CHECK:             vector.store [[VAR_24_]], [[VAR_reshape_]]{{.}}[[VAR_6_]]#0, [[VAR_6_]]#1] : memref<?x256xf32>, vector<4xf32>
 // CHECK:           }
