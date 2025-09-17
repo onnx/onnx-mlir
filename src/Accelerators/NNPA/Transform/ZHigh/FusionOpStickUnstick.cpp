@@ -44,23 +44,88 @@ using namespace mlir;
 using namespace onnx_mlir;
 using namespace zhigh;
 
-// TODO: ensure that if there is already a stickified format in the compute,
-// then the new fusion is compatible, aka use the same format.
 namespace {
 
-// TODO: maybe unify the list from Elementwise.cpp and this one.
+//===----------------------------------------------------------------------===//
+// Utilities to report info.
+static void explanation(
+    Operation *computeOp, ZHighUnstickOp unstickOp, std::string message) {
+  llvm::dbgs() << "Unstick->compute (" << computeOp->getName() << ") fusion "
+               << message << ":\n  ";
+  unstickOp.dump();
+  llvm::dbgs() << "  ";
+  computeOp->dump();
+}
+
+static void explanation(
+    Operation *computeOp, ZHighStickOp stickOp, std::string message) {
+  llvm::dbgs() << "Compute->stick (" << computeOp->getName() << ") fusion "
+               << message << ":\n  ";
+  computeOp->dump();
+  llvm::dbgs() << "  ";
+  stickOp.dump();
+}
+
+static void explanation(Operation *computeOp, std::string message) {
+  llvm::dbgs() << "[Unstick->] compute [->Stick] (" << computeOp->getName()
+               << ") fusion " << message << ":\n  ";
+  computeOp->dump();
+}
+
+//===----------------------------------------------------------------------===//
+// Check if operation is compatible
+
+// Specific code for ops of the family of Layer Normalization.
+template <typename LAYER_NORM_OP>
+bool isLayerNormCompatible(LAYER_NORM_OP layerNorm) {
+  int64_t axis = layerNorm.getAxis();
+  Value X = layerNorm.getX();
+  int64_t xRank = getRank(X.getType());
+  Operation *op = layerNorm.getOperation();
+  if (axis != xRank - 1) {
+    LLVM_DEBUG(explanation(op, "FAILURE: LayerNorm with axis != last dim"));
+    return false;
+  }
+  int64_t lastDimShape = getShape(X.getType(), -1);
+  if (lastDimShape == ShapedType::kDynamic) {
+    LLVM_DEBUG(
+        explanation(op, "FAILURE: LayerNorm last dim not static-shaped"));
+    return false;
+  }
+  if (lastDimShape % 64 != 0) {
+    // To simplify code gen; we can tolerate arbitrary length, just easier to
+    // assume multiple of sticks.
+    LLVM_DEBUG(
+        explanation(op, "FAILURE: LayerNorm last dim not multiple of 64"));
+    return false;
+  }
+  return true;
+}
+
 static bool canOpFuseWithStickUnstick(Operation *op) {
   if (!op)
     return false;
-  // Exceptions:
+  // Operations not handled:
   // o no cast as they may have different input sizes/output sizes.
-  if (isa<ONNXCastOp>(op))
+  if (mlir::isa<ONNXCastOp>(op)) {
     return false;
-    // Return true for all of the elementwise operations.
+  }
+
+  // Elementwise operations are supported.
 #define ELEMENTWISE_ALL(_OP_TYPE)                                              \
-  if (isa<_OP_TYPE>(op))                                                       \
+  if (mlir::isa<_OP_TYPE>(op))                                                 \
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+
+#if 0
+  // Layer normalization type of operations are conditionally accepted.
+  if (auto layerNorm = mlir::cast<ONNXLayerNormalizationOp>(op))
+    return isLayerNormCompatible(layerNorm);
+  if (auto RMSLayerNorm = mlir::cast<ONNXRMSLayerNormalizationOp>(op))
+    return isLayerNormCompatible(RMSLayerNorm);
+#endif
+
+  // Not supported, fail.
   return false;
 }
 
@@ -169,23 +234,8 @@ Operation *getSingleUseOperationOf(Value val) {
   return multipleComputeOpNum ? nullptr : singleOp;
 }
 
-static void explanation(
-    Operation *computeOp, ZHighUnstickOp unstickOp, std::string message) {
-  llvm::dbgs() << "Unstick->compute (" << computeOp->getName() << ") fusion "
-               << message << ":\n  ";
-  unstickOp.dump();
-  llvm::dbgs() << "  ";
-  computeOp->dump();
-}
-
-static void explanation(
-    Operation *computeOp, ZHighStickOp stickOp, std::string message) {
-  llvm::dbgs() << "Compute->stick (" << computeOp->getName() << ") fusion "
-               << message << ":\n  ";
-  computeOp->dump();
-  llvm::dbgs() << "  ";
-  stickOp.dump();
-}
+//===----------------------------------------------------------------------===//
+// Check pattern starting at Unstick Op.
 
 // Return compute operation when fusion of unstick -> compute can be fused,
 // Nullptr is returned when not feasible. If unstick -> compute -> stick is
@@ -237,6 +287,9 @@ Operation *patternForFusionFromUnstick(
   return computeOp;
 }
 
+//===----------------------------------------------------------------------===//
+// Check pattern starting at Stick Op
+
 // Return compute operation when compute -> stick can be fused.
 Operation *patternForFusionFromStick(
     ZHighStickOp stickOp, DimAnalysis *dimAnalysis) {
@@ -279,6 +332,8 @@ Operation *patternForFusionFromStick(
   return computeOp;
 }
 
+//===----------------------------------------------------------------------===//
+// Patterns for stick / unstick.
 class PatternsStartingFromUnstick : public OpRewritePattern<ZHighUnstickOp> {
 public:
   DimAnalysis *dimAnalysis;
@@ -319,17 +374,24 @@ public:
 
     Operation *computeOp = patternForFusionFromStick(stickOp, dimAnalysis);
     if (computeOp) {
-      int64_t resultNum = computeOp->getNumResults();
-      assert(resultNum == 1 && "expect only one result for any fused ops");
-      assert(computeOp->getResult(0) == stickOp.getIn() &&
-             "expected ouput to be stick input");
+      // Fuse only first result of an op (ok for LayerNorm and elementwise ops).
+      if (computeOp->getResult(0) != stickOp.getIn()) {
+        LLVM_DEBUG(explanation(computeOp, stickOp,
+            "FAILURE fuse only first result of compute op"));
+        return failure();
+      }
       // New compute op: has type of the stick output.
-      auto newResultType =
-          llvm::dyn_cast<RankedTensorType>(stickOp.getOut().getType());
+      int64_t resultNum = computeOp->getNumResults();
+      mlir::SmallVector<Type> newResultTypes;
+      newResultTypes.emplace_back(
+          llvm::dyn_cast<RankedTensorType>(stickOp.getOut().getType()));
+      for (int64_t r = 1; r < resultNum; ++r)
+        newResultTypes.emplace_back(llvm::dyn_cast<RankedTensorType>(
+            computeOp->getResult(r).getType()));
       // Clone compute state, insert in regions, and create.
       OperationState state(computeOp->getLoc(),
           computeOp->getName().getStringRef(), computeOp->getOperands(),
-          {newResultType}, computeOp->getAttrs());
+          newResultTypes, computeOp->getAttrs());
       for (unsigned i = 0, e = computeOp->getNumRegions(); i < e; ++i)
         state.addRegion();
       Operation *newComputeOp = rewriter.create(state);
