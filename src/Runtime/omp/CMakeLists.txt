@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Only if LLVM is built with openmp enabled
-if(TARGET omp)
+if((TARGET omp) AND (ONNX_MLIR_ENABLE_OMP))
   set(OMP_TOPDIR ${CMAKE_CURRENT_BINARY_DIR})
   set_directory_properties(PROPERTIES EP_BASE ${OMP_TOPDIR})
 

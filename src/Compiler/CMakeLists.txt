@@ -210,7 +210,7 @@ add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
 endif()
-if (TARGET omp)
+if ((TARGET omp) AND (ONNX_MLIR_ENABLE_OMP))
   add_dependencies(OMCompilerUtils ompruntime)
 endif()
 
