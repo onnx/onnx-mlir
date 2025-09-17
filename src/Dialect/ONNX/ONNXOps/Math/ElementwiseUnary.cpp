@@ -150,6 +150,12 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 // Cast
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXCastOp::verify() {
+  return getElementTypeOrSelf(this->getResult().getType()) == getTo()
+             ? success()
+             : emitOpError("element type does not match the 'to' attribute");
+}
+
 std::vector<Type> ONNXCastOp::resultTypeInference() {
   return {UnrankedTensorType::get(getTo())};
 }
@@ -162,6 +168,23 @@ LogicalResult ONNXCastOp::inferShapes(
   Type elementType = mlir::cast<::TypeAttr>((*this)->getAttr("to")).getValue();
   ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
+// CastLike (not really unary, but similar)
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXCastLikeOp::verify() {
+  return getElementTypeOrSelf(this->getResult().getType()) ==
+                 getElementTypeOrSelf(this->getTargetType().getType())
+             ? success()
+             : emitOpError("element type does not match the 'target types' "
+                           "operands element type");
+}
+
+std::vector<Type> ONNXCastLikeOp::resultTypeInference() {
+  return {UnrankedTensorType::get(
+      getElementTypeOrSelf(this->getTargetType().getType()))};
 }
 
 //===----------------------------------------------------------------------===//
@@ -272,8 +295,8 @@ LogicalResult ONNXGeluOp::verify() {
 
 LogicalResult ONNXGeluOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation(),
-      mlir::cast<ShapedType>(this->getResult().getType()).getElementType());
+  return inferShapeForUnaryOps(
+      this->getOperation(), getElementTypeOrSelf(this->getResult().getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -315,8 +338,8 @@ LogicalResult ONNXIsInfOp::verify() {
   int64_t detectPosAttribute = getDetectPositive();
   int64_t detectNegAttribute = getDetectNegative();
 
-  // One of the values for detectPosAttribute and detectNegAttribute must be 1.
-  // If not, then this will result in an error.
+  // One of the values for detectPosAttribute and detectNegAttribute must
+  // be 1. If not, then this will result in an error.
   if (detectPosAttribute == 0 && detectNegAttribute == 0)
     return emitOpError(
         "This variation is currently unsupported. One or both of the "
@@ -327,8 +350,8 @@ LogicalResult ONNXIsInfOp::verify() {
 
 LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation(),
-      mlir::cast<ShapedType>(this->getResult().getType()).getElementType());
+  return inferShapeForUnaryOps(
+      this->getOperation(), getElementTypeOrSelf(this->getResult().getType()));
 }
 
 //===----------------------------------------------------------------------===//
