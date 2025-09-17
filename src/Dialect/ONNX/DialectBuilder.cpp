@@ -555,13 +555,13 @@ TensorType OnnxBuilder::toTensor(Type input) const {
   return RankedTensorType::get(aTy.getShape(), elementTy);
 }
 
-TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
+llvm::SmallVector<Type> OnnxBuilder::toTensors(TypeRange inputs) const {
   if (llvm::all_of(inputs, [](Type t) { return (mlir::isa<TensorType>(t)); }))
     return inputs;
   assert(llvm::all_of(inputs, [](Type t) {
     return (mlir::isa<MemRefType>(t));
   }) && "All inputs expect RankedMemref type when not a TensorType");
-  llvm::SmallVector<Type, 4> resultTypes;
+  llvm::SmallVector<Type> resultTypes;
   for (uint64_t i = 0; i < inputs.size(); ++i) {
     ShapedType aTy = mlir::cast<ShapedType>(inputs[i]);
     Type elementTy = aTy.getElementType();
