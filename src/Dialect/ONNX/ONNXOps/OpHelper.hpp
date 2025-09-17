@@ -269,6 +269,61 @@ bool isConstOf(mlir::Value constValue, double n);
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
+template <typename OP>
+mlir::Type getResultElementTypeFromDtypeWithFallBackToInputType(OP op) {
+  assert(op->getNumOperands() == 1 && "Expecting one input operand");
+  const auto dtype = op.getDtype();
+  if (dtype) {
+    auto builder = mlir::OpBuilder(op->getContext());
+    return convertONNXTypeToMLIRType(
+        builder, static_cast<onnx::TensorProto_DataType>(*dtype));
+  }
+  return mlir::cast<mlir::ShapedType>(op->getOperand(0).getType())
+      .getElementType();
+}
+
+template <typename OP>
+mlir::LogicalResult verifyElementTypeFromDtypeWithFallBackToInputType(OP op) {
+  const auto elementType =
+      getResultElementTypeFromDtypeWithFallBackToInputType(op);
+  const auto resultType = mlir::cast<mlir::ShapedType>(op.getType());
+  if (resultType.getElementType() != elementType) {
+    return op->emitOpError(llvm::formatv(
+        "result element type {0} does not match the expected type {1}",
+        resultType.getElementType(), elementType));
+  }
+  return mlir::success();
+}
+
+template <typename OP>
+mlir::Type getResultElementTypeFromDtype(OP op) {
+  auto builder = mlir::OpBuilder(op->getContext());
+  return convertONNXTypeToMLIRType(
+      builder, static_cast<onnx::TensorProto_DataType>(op.getDtype()));
+}
+
+template <typename OP>
+mlir::LogicalResult verifyElementTypeFromDtype(OP op) {
+  const auto elementType = getResultElementTypeFromDtype(op);
+  const auto resultType = mlir::cast<mlir::ShapedType>(op.getType());
+  if (resultType.getElementType() != elementType) {
+    return op->emitOpError(
+        llvm::formatv("result element type {0} does not match the dtype {1}",
+            resultType.getElementType(), elementType));
+  }
+  return mlir::success();
+}
+
+template <typename OP>
+mlir::Type getResultElementTypeFromDtypeDefaultingToF32(OP op) {
+  auto builder = mlir::OpBuilder(op->getContext());
+  auto dtype = op.getDtype();
+  if (!dtype)
+    return builder.getF32Type();
+  return convertONNXTypeToMLIRType(
+      builder, static_cast<onnx::TensorProto_DataType>(*dtype));
+}
+
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 

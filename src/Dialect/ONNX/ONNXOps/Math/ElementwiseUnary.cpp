@@ -141,6 +141,13 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 // Cast
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXCastOp::verify() {
+  return cast<ShapedType>(this->getResult().getType()).getElementType() ==
+                 getTo()
+             ? success()
+             : emitOpError("element type does not match the 'to' attribute");
+}
+
 std::vector<Type> ONNXCastOp::resultTypeInference() {
   return {UnrankedTensorType::get(getTo())};
 }
@@ -153,6 +160,24 @@ LogicalResult ONNXCastOp::inferShapes(
   Type elementType = mlir::cast<::TypeAttr>((*this)->getAttr("to")).getValue();
   ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
+// CastLike (not really unary, but similar)
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXCastLikeOp::verify() {
+  return cast<ShapedType>(this->getResult().getType()).getElementType() ==
+                 cast<ShapedType>(this->getTargetType().getType())
+                     .getElementType()
+             ? success()
+             : emitOpError("element type does not match the 'target types' "
+                           "operands element type");
+}
+
+std::vector<Type> ONNXCastLikeOp::resultTypeInference() {
+  return {UnrankedTensorType::get(
+      cast<ShapedType>(this->getTargetType().getType()).getElementType())};
 }
 
 //===----------------------------------------------------------------------===//
@@ -306,8 +331,8 @@ LogicalResult ONNXIsInfOp::verify() {
   int64_t detectPosAttribute = getDetectPositive();
   int64_t detectNegAttribute = getDetectNegative();
 
-  // One of the values for detectPosAttribute and detectNegAttribute must be 1.
-  // If not, then this will result in an error.
+  // One of the values for detectPosAttribute and detectNegAttribute must
+  // be 1. If not, then this will result in an error.
   if (detectPosAttribute == 0 && detectNegAttribute == 0)
     return emitOpError(
         "This variation is currently unsupported. One or both of the "

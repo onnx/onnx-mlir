@@ -106,15 +106,7 @@ LogicalResult ONNXSequenceConstructOp::inferShapes(
 
 LogicalResult ONNXSequenceEmptyOp::verify() {
   // For the Optional dtypeAttr, the default type is F32
-  auto builder = OpBuilder(getContext());
-  Type elementType;
-  if (getDtypeAttr()) {
-    elementType = convertONNXTypeToMLIRType(
-        builder, static_cast<onnx::TensorProto_DataType>(
-                     getDtypeAttr().getValue().getSExtValue()));
-  } else {
-    elementType = builder.getF32Type();
-  }
+  Type elementType = getResultElementTypeFromDtypeDefaultingToF32(*this);
 
   // Get element type for seq from the output
   auto outputSeqElementType = mlir::cast<ShapedType>(
@@ -131,6 +123,11 @@ LogicalResult ONNXSequenceEmptyOp::inferShapes(
   auto returnTy = SeqType::get(elementTy, 0);
   getResult().setType(returnTy);
   return success();
+}
+
+std::vector<Type> ONNXSequenceEmptyOp::resultTypeInference() {
+  return {cast<ShapedType>(
+      SeqType::get(getResultElementTypeFromDtypeDefaultingToF32(*this), 0))};
 }
 
 //===----------------------------------------------------------------------===//
