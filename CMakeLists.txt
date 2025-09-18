@@ -89,6 +89,7 @@ if (WIN32)
 endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+find_package(absl REQUIRED)
 
 if(ONNX_MLIR_ENABLE_JAVA)
   # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
