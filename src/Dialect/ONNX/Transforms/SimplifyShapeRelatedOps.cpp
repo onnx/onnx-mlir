@@ -65,7 +65,6 @@ Now, it's straightforward to update the output shape of Reshape from
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "simplify_shape_related_ops"
 
