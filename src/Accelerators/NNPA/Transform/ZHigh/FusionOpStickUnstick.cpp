@@ -334,6 +334,12 @@ Operation *patternForFusionFromStick(
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
+  // Suitable shapes? Has to do it here too as we need to be able to generate
+  // code for the computeOp (including the handling of all its inputs).
+  if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, stickOutVal)) {
+    LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to input shapes"));
+    return nullptr;
+  }
 #if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());

@@ -29,6 +29,9 @@ using ContiguousVectorOfF32IterateBodyFn = std::function<void(
 using ScalarF32IterateBodyFn = std::function<void(
     const KrnlBuilder &b, mlir::Value scalarF32Val, DimsExpr &loopIndices)>;
 
+// TODO: eventually this method can be replaced by the one used by elementwise
+// operations.
+
 // Iterate over each values in the input's sticks, processing vectors (of 4 F32)
 // with processVectorOfF32Vals, and scalars (1 F32) with processScalarF32Val, By
 // definition, processVectorOfF32Vals contains either 2 or 2*unrollVL vectors.
