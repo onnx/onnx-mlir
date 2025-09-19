@@ -1648,7 +1648,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     };
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
     Value conv;
-    if (needWeightsPadding) {
+    if (needWeightsPadding || (kernelShape[0] == 4)) {
       Value conv1 = getActivationAppliedToConv(
           addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
               convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[3]),
@@ -1683,91 +1683,44 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
           convOutputType);
       // Need to remove excess the ofm  when weights are padded.
 
-      auto startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1, 1});
-      auto endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
-          {convOutputShape[convOutputShape.size() - 2] + 2,
-              convOutputShape[convOutputShape.size() - 1] + 2});
-      auto axisOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {2, 3});
-      auto stepOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1, 1});
-      auto convSliceOutputType = RankedTensorType::get(
-          convOutputShape, convTransposeOutputType.getElementType());
-      conv1 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv1,
-          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
-          stepOnnxConstant);
+      if (needWeightsPadding) {
+        auto startOnnxConstant =
+            getONNXConstOpFromVector(rewriter, loc, {1, 1});
+        auto endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
+            {convOutputShape[convOutputShape.size() - 2] + 2,
+                convOutputShape[convOutputShape.size() - 1] + 2});
+        auto axisOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {2, 3});
+        auto stepOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1, 1});
+        auto convSliceOutputType = RankedTensorType::get(
+            convOutputShape, convTransposeOutputType.getElementType());
+        conv1 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv1,
+            startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+            stepOnnxConstant);
 
-      startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {0, 0});
-      endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
-          {convOutputShape[convOutputShape.size() - 2],
-              convOutputShape[convOutputShape.size() - 1]});
-      conv2 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv2,
-          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
-          stepOnnxConstant);
+        startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {0, 0});
+        endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
+            {convOutputShape[convOutputShape.size() - 2],
+                convOutputShape[convOutputShape.size() - 1]});
+        conv2 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv2,
+            startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+            stepOnnxConstant);
 
-      startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1, 0});
-      endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
-          {convOutputShape[convOutputShape.size() - 2] + 2,
-              convOutputShape[convOutputShape.size() - 1]});
-      conv3 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv3,
-          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
-          stepOnnxConstant);
+        startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {1, 0});
+        endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
+            {convOutputShape[convOutputShape.size() - 2] + 2,
+                convOutputShape[convOutputShape.size() - 1]});
+        conv3 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv3,
+            startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+            stepOnnxConstant);
 
-      startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {0, 1});
-      endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
-          {convOutputShape[convOutputShape.size() - 2],
-              convOutputShape[convOutputShape.size() - 1] + 2});
-      conv4 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv4,
-          startOnnxConstant, endOnnxConstant, axisOnnxConstant,
-          stepOnnxConstant);
-
-      // Four conv outputs are merged in channel dim
-      SmallVector<int64_t> outputShapeOfConcat = {
-          1, convOutputShape[1] * 4, convOutputShape[2], convOutputShape[3]};
-      auto concatOutputType =
-          RankedTensorType::get(outputShapeOfConcat, elementType);
-      // for the case where convtranspose kernel is [4, 4] and with pads [1, 1,
-      // 1, 1] The phased convs output are to be concatenated in the reverse
-      // order. This is observed by looking at the phased conv outputs with
-      // respect to convtranspose output.
-      bool reverseConcatOrder = (needWeightsPadding || (kernelShape[0] == 4));
-      // The concat output will have 4 times the channels of a single conv.
-      conv = (reverseConcatOrder)
-                 ? rewriter.create<ONNXConcatOp>(loc, concatOutputType,
-                       ValueRange{conv2, conv4, conv3, conv1}, 1)
-                 : rewriter.create<ONNXConcatOp>(loc, concatOutputType,
-                       ValueRange{conv1, conv3, conv4, conv2}, 1);
-    } else if (kernelShape[0] == 4) {
-      Value conv1 = getActivationAppliedToConv(
-          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
-              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[3]),
-              bias, mlir::StringAttr(), dilations, group,
-              convKernelShapeArrayAttr,
-              getPadsArrayAttr(kernelShape[0], 1, needWeightsPadding),
-              stridesArrayAttr)),
-          convOutputType);
-      Value conv2 = getActivationAppliedToConv(
-          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
-              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[0]),
-              bias, mlir::StringAttr(), dilations, group,
-              convKernelShapeArrayAttr,
-              getPadsArrayAttr(kernelShape[0], 2, needWeightsPadding),
-              stridesArrayAttr)),
-          convOutputType);
-      Value conv3 = getActivationAppliedToConv(
-          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
-              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[1]),
-              bias, mlir::StringAttr(), dilations, group,
-              convKernelShapeArrayAttr,
-              getPadsArrayAttr(kernelShape[0], 3, needWeightsPadding),
-              stridesArrayAttr)),
-          convOutputType);
-      Value conv4 = getActivationAppliedToConv(
-          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
-              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[2]),
-              bias, mlir::StringAttr(), dilations, group,
-              convKernelShapeArrayAttr,
-              getPadsArrayAttr(kernelShape[0], 4, needWeightsPadding),
-              stridesArrayAttr)),
-          convOutputType);
+        startOnnxConstant = getONNXConstOpFromVector(rewriter, loc, {0, 1});
+        endOnnxConstant = getONNXConstOpFromVector(rewriter, loc,
+            {convOutputShape[convOutputShape.size() - 2],
+                convOutputShape[convOutputShape.size() - 1] + 2});
+        conv4 = rewriter.create<ONNXSliceOp>(loc, convSliceOutputType, conv4,
+            startOnnxConstant, endOnnxConstant, axisOnnxConstant,
+            stepOnnxConstant);
+      }
       // Four conv outputs are merged in channel dim
       SmallVector<int64_t> outputShapeOfConcat = {
           1, convOutputShape[1] * 4, convOutputShape[2], convOutputShape[3]};
