@@ -7,12 +7,7 @@ add_onnx_mlir_library(OMMlirDialects
   DialectBuilder.cpp
   VectorMachineSupport.cpp
 
-  DEPENDS
-  OMKrnlIncGen
-  OMSpecializedKernelOpInterface
-
   LINK_LIBS PUBLIC
-  OMCompilerOptions
   MLIRMathDialect
   MLIRAffineDialect
   MLIRSCFDialect
