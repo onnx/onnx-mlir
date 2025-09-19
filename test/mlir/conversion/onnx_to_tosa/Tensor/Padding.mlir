@@ -170,8 +170,8 @@ func.func @test_pad_f32_non_constant_padval(%arg0: tensor<20x16x44x32xf32>, %arg
     return %2 :   tensor<24x22x52x42xf32> 
 // CHECK-LABEL:  func.func @test_pad_f32_non_constant_padval
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xf32>, [[PARAM_1_:%.+]]: tensor<f32>) -> tensor<24x22x52x42xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
-// CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<24x22x52x42xf32>
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape {value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xindex>} : () -> !tosa.shape<8>
+// CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xf32>, !tosa.shape<8>, tensor<f32>) -> tensor<24x22x52x42xf32>
 // CHECK:           return [[VAR_1_]] : tensor<24x22x52x42xf32>
 }
 
@@ -184,9 +184,9 @@ func.func @test_pad_f32_non_constant_1Dpadval(%arg0: tensor<20x16x44x32xf32>, %a
     return %2 :   tensor<24x22x52x42xf32> 
 // CHECK-LABEL:  func.func @test_pad_f32_non_constant_1Dpadval
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<24x22x52x42xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.const_shape {value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xindex>} : () -> !tosa.shape<8>
 // CHECK-DAG:       [[VAL_1_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64>} : (tensor<1xf32>) -> tensor<f32>
-// CHECK:           [[VAR_2_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[VAL_1_]] : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<24x22x52x42xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[VAL_1_]] : (tensor<20x16x44x32xf32>, !tosa.shape<8>, tensor<f32>) -> tensor<24x22x52x42xf32>
 // CHECK:           return [[VAR_2_]] : tensor<24x22x52x42xf32>
 }
 
@@ -199,8 +199,8 @@ func.func @test_pad_i64_non_constant_padval(%arg0: tensor<20x16x44x32xi64>, %arg
     return %2 :   tensor<24x22x52x42xi64> 
 // CHECK-LABEL:  func.func @test_pad_i64_non_constant_padval
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xi64>, [[PARAM_1_:%.+]]: tensor<i64>) -> tensor<24x22x52x42xi64> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
-// CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xi64>, tensor<8xi64>, tensor<i64>) -> tensor<24x22x52x42xi64>
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape {value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xindex>} : () -> !tosa.shape<8>
+// CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xi64>, !tosa.shape<8>, tensor<i64>) -> tensor<24x22x52x42xi64>
 // CHECK:           return [[VAR_1_]] : tensor<24x22x52x42xi64>
 }
 
@@ -212,7 +212,7 @@ func.func @test_pad_f16_non_constant_padval(%arg0: tensor<20x16x44x32xf16>, %arg
     return %2 :   tensor<24x22x52x42xf16> 
 // CHECK-LABEL:  func.func @test_pad_f16_non_constant_padval
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x16x44x32xf16>, [[PARAM_1_:%.+]]: tensor<f16>) -> tensor<24x22x52x42xf16> {
-// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xi64>}> : () -> tensor<8xi64>
-// CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xf16>, tensor<8xi64>, tensor<f16>) -> tensor<24x22x52x42xf16>
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape {value = dense<[0, 4, 1, 5, 2, 6, 3, 7]> : tensor<8xindex>} : () -> !tosa.shape<8>
+// CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xf16>, !tosa.shape<8>, tensor<f16>) -> tensor<24x22x52x42xf16>
 // CHECK:           return [[VAR_1_]] : tensor<24x22x52x42xf16>
 }
