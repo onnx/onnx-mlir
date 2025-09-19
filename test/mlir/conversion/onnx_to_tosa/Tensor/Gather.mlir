@@ -184,3 +184,12 @@ func.func @test_gather_dynamic_input_static_output(%arg0 : tensor<?x2xf32>, %ind
 // CHECK-LABEL: test_gather_dynamic_input_static_output
 // CHECK: onnx.Gather
 }
+
+// -----
+
+func.func @test_gather_dynamic_indices(%arg0 : tensor<1x2xf32>, %indices: tensor<?xi64>) -> tensor<1x2xf32> {
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64, onnx_node_name = "/Gather_16"} : (tensor<1x2xf32>, tensor<?xi64>) -> tensor<1x2xf32>
+  "func.return"(%0) : (tensor<1x2xf32>) -> ()
+// CHECK-LABEL: test_gather_dynamic_indices
+// CHECK: onnx.Gather
+}
