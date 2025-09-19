@@ -1735,6 +1735,55 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
                        ValueRange{conv2, conv4, conv3, conv1}, 1)
                  : rewriter.create<ONNXConcatOp>(loc, concatOutputType,
                        ValueRange{conv1, conv3, conv4, conv2}, 1);
+    } else if (kernelShape[0] == 4) {
+      Value conv1 = getActivationAppliedToConv(
+          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
+              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[3]),
+              bias, mlir::StringAttr(), dilations, group,
+              convKernelShapeArrayAttr,
+              getPadsArrayAttr(kernelShape[0], 1, needWeightsPadding),
+              stridesArrayAttr)),
+          convOutputType);
+      Value conv2 = getActivationAppliedToConv(
+          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
+              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[0]),
+              bias, mlir::StringAttr(), dilations, group,
+              convKernelShapeArrayAttr,
+              getPadsArrayAttr(kernelShape[0], 2, needWeightsPadding),
+              stridesArrayAttr)),
+          convOutputType);
+      Value conv3 = getActivationAppliedToConv(
+          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
+              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[1]),
+              bias, mlir::StringAttr(), dilations, group,
+              convKernelShapeArrayAttr,
+              getPadsArrayAttr(kernelShape[0], 3, needWeightsPadding),
+              stridesArrayAttr)),
+          convOutputType);
+      Value conv4 = getActivationAppliedToConv(
+          addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
+              convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[2]),
+              bias, mlir::StringAttr(), dilations, group,
+              convKernelShapeArrayAttr,
+              getPadsArrayAttr(kernelShape[0], 4, needWeightsPadding),
+              stridesArrayAttr)),
+          convOutputType);
+      // Four conv outputs are merged in channel dim
+      SmallVector<int64_t> outputShapeOfConcat = {
+          1, convOutputShape[1] * 4, convOutputShape[2], convOutputShape[3]};
+      auto concatOutputType =
+          RankedTensorType::get(outputShapeOfConcat, elementType);
+      // for the case where convtranspose kernel is [4, 4] and with pads [1, 1,
+      // 1, 1] The phased convs output are to be concatenated in the reverse
+      // order. This is observed by looking at the phased conv outputs with
+      // respect to convtranspose output.
+      bool reverseConcatOrder = (needWeightsPadding || (kernelShape[0] == 4));
+      // The concat output will have 4 times the channels of a single conv.
+      conv = (reverseConcatOrder)
+                 ? rewriter.create<ONNXConcatOp>(loc, concatOutputType,
+                       ValueRange{conv2, conv4, conv3, conv1}, 1)
+                 : rewriter.create<ONNXConcatOp>(loc, concatOutputType,
+                       ValueRange{conv1, conv3, conv4, conv2}, 1);
     } else {
       // Combining the 4 phased weights into single weight.
       bool reverseOrder = (kernelShape[0] == 4);
