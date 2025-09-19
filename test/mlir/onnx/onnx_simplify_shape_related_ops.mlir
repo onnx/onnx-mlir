@@ -103,7 +103,7 @@ func.func @test_pass_dims_through_concat(%arg0: tensor<?x256xi64>) -> (tensor<4x
 
 // -----
 
-func.func @test_pass_dims_through_cast_2(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
+func.func @test_pass_dims_through_gather(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
   %0 = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
   %2 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
@@ -113,7 +113,28 @@ func.func @test_pass_dims_through_cast_2(%arg0: tensor<?x?x200xf32>) -> tensor<2
   onnx.Return %5 : tensor<2xi64>
 
 // mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_pass_dims_through_cast_2
+// CHECK-LABEL:  func.func @test_pass_dims_through_gather
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x200xf32>) -> tensor<2xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<2xi64>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_pass_dims_through_gather_2(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
+  %0 = onnx.Constant dense<[-3, -2]> : tensor<2xi64>
+  %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
+  %2 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
+  %3 = onnx.Constant dense<200> : tensor<1xi64>
+  %4 = "onnx.Concat"(%1, %2, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %5 = "onnx.Gather"(%4, %0) {axis = 0 : si64} : (tensor<3xi64>, tensor<2xi64>) -> tensor<2xi64>
+  onnx.Return %5 : tensor<2xi64>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_pass_dims_through_gather_2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x200xf32>) -> tensor<2xi64> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
