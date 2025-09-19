@@ -65,7 +65,6 @@ Now, it's straightforward to update the output shape of Reshape from
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "simplify_shape_related_ops"
 
@@ -247,14 +246,16 @@ public:
 
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    int64_t inputRank = getRank(input.getType());
+    ShapedType inputType = llvm::dyn_cast<ShapedType>(input.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return failure();
 
     // Compute integer indices.
     SmallVector<int64_t, 4> indicesI64;
     for (auto element : indicesAttr.getValues<IntegerAttr>()) {
-      int64_t axis = element.getInt();
-      axis = (axis < 0) ? (axis + inputRank) : axis;
-      indicesI64.emplace_back(axis);
+      int64_t index = element.getInt();
+      index = (index < 0) ? (index + inputType.getShape()[axis]) : index;
+      indicesI64.emplace_back(index);
     }
 
     // Replace GatherOp by ConcatOp of specific dimensions.
