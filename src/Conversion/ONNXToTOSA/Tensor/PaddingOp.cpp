@@ -22,8 +22,8 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Casting.h"
 
 using namespace mlir;
 
@@ -61,11 +61,9 @@ public:
           op, "only 'constant' mode is supported");
     }
 
-    if (!pads.getDefiningOp<mlir::tosa::ConstOp>() ||
-        !(constValue.getDefiningOp<mlir::tosa::ConstOp>() ||
-            constValue.getDefiningOp<ONNXNoneOp>())) {
+    if (!pads.getDefiningOp<mlir::tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
-          op, "only tosa.const operands are supported");
+          op, "only tosa.const 'padding' values are supported");
     }
     // creating the DenseElementsAttr using pads values.
     auto denseAttr = tosa::getValueFromTosaConst<ElementsAttr>(pads);
@@ -90,33 +88,7 @@ public:
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
-    if (!isa<NoneType>(constValue.getType())) {
-      auto valueAttr = tosa::getValueFromTosaConst<ElementsAttr>(constValue);
-      TosaBuilder tosaBuilder(rewriter, loc);
-
-      Value constTosaTensor;
-      if (isa<FloatType>(valueAttr.getElementType())) {
-        auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-        const float valueFloat = cast<FloatAttr>(*valueIt).getValueAsDouble();
-        constTosaTensor = tosaBuilder.getSplattedConst(
-            valueFloat, valueAttr.getElementType(), 0);
-      } else {
-        assert(isTOSAInt(elementDtype) && "Already validated");
-        auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
-        auto valueAsAPInt = cast<IntegerAttr>(*valueIt).getValue();
-        auto asIntegerTy = cast<IntegerType>(valueAttr.getElementType());
-        if (asIntegerTy.isUnsigned()) {
-          constTosaTensor = tosaBuilder.getSplattedConst(
-              valueAsAPInt.getZExtValue(), asIntegerTy, 0);
-        } else {
-          constTosaTensor = tosaBuilder.getSplattedConst(
-              valueAsAPInt.getSExtValue(), asIntegerTy, 0);
-        }
-      }
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1, constTosaTensor);
-
-    } else {
+    if (isa<NoneType>(constValue.getType())) {
       auto constType = RankedTensorType::get({}, elementDtype);
 
       DenseElementsAttr constAttr;
@@ -134,8 +106,12 @@ public:
           padsList1,
           rewriter.create<mlir::tosa::ConstOp>(
               op->getLoc(), constType, constAttr));
+    } else {
+      TosaBuilder tosaBuilder(rewriter, loc);
+      Value reshapeToSplattedConst = tosaBuilder.reshape(constValue, {});
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+          op, resultType, data, padsList1, reshapeToSplattedConst);
     }
-
     return success();
   }
 };
