@@ -65,16 +65,18 @@ class StickComputeSupport {
           mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
 
 public:
-  StickComputeSupport(MDBuilder &create, mlir::Operation *op,
-      mlir::ValueRange originalInputMemRef, mlir::Value originalOutputMemRef,
+  StickComputeSupport(KrnlBuilder &kb,
+      /* op inputs */ mlir::ValueRange originalInput,
+      /* op inputs */ mlir::ValueRange originalInputMemRef,
+      /* op output */ mlir::Value originalOutput, mlir::Value originalOutputMemRef,
       MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
       bool disableSaturation = false);
 
   bool isStickifiedOutput() { return ioIsStick[inputNum]; }
   void prepareInsideTiledLoop(
-      MDBuilder &create, DimsExpr &tiledOuterIndices, IndexExpr E1);
+      KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
 
-  void loadComputeStore(MDBuilder &create, IndexExpr l, int64_t u,
+  void loadComputeStore(KrnlBuilder &kb, IndexExpr l, int64_t u,
       mlir::Value tempBufferMemRef = nullptr);
 
   static const int64_t archVL = 8;

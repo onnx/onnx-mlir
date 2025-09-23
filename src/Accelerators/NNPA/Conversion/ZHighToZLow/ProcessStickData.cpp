@@ -188,6 +188,8 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 // Handle elementwise operations with stickified inputs/outputs
 //===----------------------------------------------------------------------===//
 
+// hi alex
+// Todo: should avoid this in the interface
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
     MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
 
@@ -196,13 +198,21 @@ using MultiValuesOfF32IterateBodyFn = std::function<mlir::Value(
 
 //===----------------------------------------------------------------------===//
 // High level support with StickComputeSupport.
+// Operation operands that are of NoneValues are simply ignored and skipped
+// here. This means that:
+// * originalInputMemRef skip the NoneValue entries
+// * The processVectorOfF32Vals function must be able to know
+//   which operands where of NoneType when processing its list of memory that
+//   were read for it.
 
-StickComputeSupport::StickComputeSupport(MDBuilder &create, Operation *op,
-    ValueRange originalInputMemRef, Value originalOutputMemRef,
+StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
+    ValueRange originalInput, ValueRange originalInputMemRef,
+    Value originalOutput, Value originalOutputMemRef,
     MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
     bool disableSaturation)
     : processVectorOfF32Vals(processVectorOfF32Vals),
       disableSaturation(disableSaturation) {
+  MDBuilder create(kb);
   // Init global constants.
   litZero = LitIE(0);
   lit2 = LitIE(2);
@@ -214,14 +224,16 @@ StickComputeSupport::StickComputeSupport(MDBuilder &create, Operation *op,
 
   // Register inputs.
   // 1) Add input operands into the io lists.
-  inputNum = op->getNumOperands();
+  assert(originalInput.size() == originalInputMemRef.size() &&
+         "expected same size");
+  inputNum = originalInput.size();
   ioNum = inputNum + 1;
-  for (int64_t io = 0; io < inputNum; ++io) {
-    ioOriginalOper.emplace_back(op->getOperand(io));
-    ioOriginalMemRef.emplace_back(originalInputMemRef[io]);
+  for (int64_t i = 0; i < inputNum; ++i) {
+    ioOriginalOper.emplace_back(originalInput[i]);
+    ioOriginalMemRef.emplace_back(originalInputMemRef[i]);
   }
+
   // 2) Add single output (last entry) in io lists.
-  Value originalOutput = op->getResult(0);
   ioOriginalOper.emplace_back(originalOutput);
   ioOriginalMemRef.emplace_back(originalOutputMemRef);
   int64_t innermostOutputShape = getShape(originalOutput.getType(), -1);
@@ -291,7 +303,8 @@ DimsExpr StickComputeSupport::computeAccessFct(
 }
 
 void StickComputeSupport::prepareInsideTiledLoop(
-    MDBuilder &create, DimsExpr &tiledOuterIndices, IndexExpr E1) {
+    KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1) {
+  MDBuilder create(kb);
   int64_t rank = tiledOuterIndices.size();
   int64_t d1 = rank - 1;
 
@@ -299,6 +312,7 @@ void StickComputeSupport::prepareInsideTiledLoop(
   ioStickOffsets = DimsExpr(ioNum, nullptr);
   inputHigh = SmallVector<Value, 4>(inputNum, nullptr);
   inputLow = SmallVector<Value, 4>(inputNum, nullptr);
+
   // Tiled outer indices: innermost iterates through sticks (multiple of 64
   // values). Generate here the original (untiled) indices as well.
   outerIndices = tiledOuterIndices;
@@ -406,7 +420,8 @@ void StickComputeSupport::storeVector(MDBuilder &create,
 }
 
 void StickComputeSupport::loadComputeStore(
-    MDBuilder &create, IndexExpr l, int64_t u, Value tempBufferMemRef) {
+    KrnlBuilder &kb, IndexExpr l, int64_t u, Value tempBufferMemRef) {
+  MDBuilder create(kb);
   DimsExpr localOuterIndices = DimListIE(outerIndices);
   // Load inputs (all but for broadcast, done in prepareInsideTiledLoop).
   for (int64_t i = 0; i < inputNum; ++i) {
@@ -425,13 +440,13 @@ void StickComputeSupport::loadComputeStore(
 //===----------------------------------------------------------------------===//
 // Process operation with stick inputs/output.
 
-static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
+static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
     bool enablePrefetch, MultiValuesOfF32IterateBodyFn processVectorOfF32Vals) {
 
   // Init builder and scopes.
-  MDBuilder create(b);
+  MDBuilder create(kb);
   // IndexExprScope initialScope(b);
   //  Get info and check some inputs.
   int64_t rank = outputDims.size();
@@ -465,8 +480,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
       enableParallel = false;
   }
 
-  StickComputeSupport stickCS(
-      create, op, operands, alloc, processVectorOfF32Vals, disableSaturation);
+  StickComputeSupport stickCS(create.krnl, op->getOperands(), operands,
+      op->getResult(0), alloc, processVectorOfF32Vals, disableSaturation);
 
   // Predicates used to avoid creating code that is never used.
   bool neverHas64 = E1.isLiteralAndSmallerThan(stickLen);
@@ -493,7 +508,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
   llvm::SmallVector<bool, 4> useParallel(rank, false);
   if (enableParallel)
     useParallel[parId] = true;
-  b.forLoopsIE(tiledLbs, tiledUbs, steps, useParallel,
+  create.krnl.forLoopsIE(tiledLbs, tiledUbs, steps, useParallel,
       [&](const KrnlBuilder &b, mlir::ValueRange tiledLoopInd) {
         IndexExprScope outerScope(b);
         MDBuilder create(b);
@@ -503,7 +518,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
         IndexExpr E1 = DimIE(outputDims[d1]); // Original upper bound in d1.
         IndexExpr e1 = outerIndices[d1] = tiledOuterIndices[d1] * litStickLen;
 
-        stickCS.prepareInsideTiledLoop(create, tiledOuterIndices, E1);
+        stickCS.prepareInsideTiledLoop(create.krnl, tiledOuterIndices, E1);
 
         if (enablePrefetch) {
           // TODO: enable prefetch
@@ -536,7 +551,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                     IndexExpr l = DimIE(loopInd[0]);
                     DimsExpr innerIndices = DimListIE(outerIndices);
                     for (int64_t u = 0; u < unrollVL; ++u)
-                      stickCS.loadComputeStore(create, l, u);
+                      stickCS.loadComputeStore(create.krnl, l, u);
                   });
             },
             // Else, we don't have a full (64 e1) tile.
@@ -569,7 +584,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                       MDBuilder create(b);
                       IndexExpr l = DimIE(loopInd[0]);
                       DimsExpr innerIndices = DimListIE(outerIndices);
-                      stickCS.loadComputeStore(create, l, 0);
+                      stickCS.loadComputeStore(create.krnl, l, 0);
                     });
               }
               if (!hasOnly8) {
@@ -595,7 +610,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &b, Operation *op,
                 // Buffer holds original or stickified (normalized) results
                 // depending on the output type.
                 DimsExpr innerIndices = DimListIE(outerIndices);
-                stickCS.loadComputeStore(create, litZero, 0, outputBuffer);
+                stickCS.loadComputeStore(create.krnl, litZero, 0, outputBuffer);
                 // Scalar store of buffer values.
                 create.scf.forLoopIE(litZero, remainingScalarValues, 1,
                     /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
@@ -743,15 +758,173 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
 // Generate code for (well behaving) Layer Norm, namely axis = -1, inner dim of
 // static size and multiple of 64.
 
-template <typename OP_TYPE>
-void generateLayerNormOptimizedCode(MDBuilder &create, OP_TYPE lnOp,
-    /* inputs */ Value XMemRef, Value scaleMemRef, Value biasMemRef,
-    /* outputs */ Value YMemRef,
-    /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
-    /* index expr param */ IndexExpr redDim,
-    /* value params */ Value i, Value epsilon,
-    /* int params */ int64_t B, int64_t totVL,
-    IndexExpr scaleModFactor, IndexExpr biasModFactor) {}
+template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
+struct FuzedStickUnstickGenericLayerNormaOpLowering
+    : public OpConversionPattern<OP_TYPE> {
+  FuzedStickUnstickGenericLayerNormaOpLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool disableSaturation,
+      bool enableParallel)
+      : OpConversionPattern<OP_TYPE>(typeConverter, ctx),
+        dimAnalysis(dimAnalysis), disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            OP_TYPE::getOperationName());
+  }
+
+  DimAnalysis *dimAnalysis;
+  bool disableSaturation, enableParallel;
+
+  using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
+
+  LogicalResult matchAndRewrite(OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
+      ConversionPatternRewriter &rewriter) const final {
+    // Blocking. VL is for number of dlf16 in vector (8). B is for number of
+    // parallel reductions.
+    const int64_t VL = 8;
+    const int64_t B = 1; // hi alex, initial implementation.
+
+    // Get generic info.
+    Operation *op = lnOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<OP_TYPE>(op);
+    Value XMemRef = adaptor.getX();
+    MemRefType XMemRefType = mlir::cast<MemRefType>(XMemRef.getType());
+    Type elementType = XMemRefType.getElementType();
+    int64_t XRank = XMemRefType.getRank();
+    int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+    assert(XRank >= 2 && "expected 2+ X/Y rank");
+    assert(axis == XRank - 1 && "fused Stick/Unstick/LN only with axis = -1");
+
+    // Create builder and shape helper
+    MDBuilder create(rewriter, loc);
+    SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    // Get other info.
+    // Get epsilon as a scalar.
+    Value epsilon =
+        create.math.constant(elementType, lnOp.getEpsilon().convertToDouble());
+    Value scale = adaptor.getScale();
+    Value bias = nullptr;
+    // TODO: current additional ONNX op ONNXRMSLayerNormalizationOp has bias;
+    // but in opset 24, RMSNormalization is introduced without biased. We should
+    // remove the additional version and remove it below too.
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value ||
+                  std::is_same<OP_TYPE, ONNXRMSLayerNormalizationOp>::value) {
+      // Handle optional bias.
+      if (!isNoneValue(lnOp.getB())) {
+        bias = adaptor.getB();
+      }
+    }
+    // Allocate output: convert and allocate
+    Type convertedYType =
+        this->typeConverter->convertType(lnOp.getY().getType());
+    assert(convertedYType && mlir::isa<MemRefType>(convertedYType) &&
+           "Failed to convert type to MemRefType");
+    MemRefType YMemRefType = mlir::cast<MemRefType>(convertedYType);
+    Value YMemRef =
+        create.mem.alignedAlloc(YMemRefType, shapeHelper.getOutputDims(0));
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      assert(isNoneValue(lnOp.getMean()) &&
+             "Mean not supported in fused Stick/Unstick/LN");
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value ||
+                  std::is_same<OP_TYPE, ONNXRMSLayerNormalizationOp>::value)
+      assert(isNoneValue(lnOp.getInvStdDev()) &&
+             "InvStdDev not supported in fused Stick/Unstick/LN");
+
+    // Blocked outer loops ( blocked by Bx64 in innermost).
+    DimsExpr ubs(shapeHelper.getOutputDims(0));
+    DimsExpr lbs(XRank, LitIE(0));
+    ValueRange loopDefs = create.krnl.defineLoops(XRank);
+    SmallVector<Value, 4> outerOptLoops, innerOptLoops;
+    create.krnl.blockAndPermute(
+        loopDefs, {B, 64}, outerOptLoops, innerOptLoops);
+    // Handle Parallel
+    bool useParallel = false;
+
+    // Temp reduction buffers
+    MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
+    Value tmpRedMemRef, tmpRedMemRef2;
+    if (!useParallel) {
+      // Sequential, alloc before loop.
+      tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+      tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+    }
+
+    create.krnl.iterate(loopDefs, outerOptLoops, lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange blockedLoopIndices) {
+          MDBuilder create(ck);
+          IndexExprScope innerScope(ck);
+          if (useParallel) {
+            // Parallel, alloc inside parallel loop.
+            tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+            tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+          }
+          // First function
+          mlir::SmallVector<Value, 4> inputFirst = {XMemRef};
+          // StickComputeSupport(create, lnOp.getOperation(), )
+
+          // Determine full tile.
+          IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[XRank - 2]);
+          IndexExpr blockedUB = DimIE(ubs[XRank - 2]);
+          IndexExpr isFull =
+              create.krnlIE.isTileFull(blockedCurrIndex, LitIE(B), blockedUB);
+          Value zero = create.math.constantIndex(0);
+          Value isFullVal = create.math.ge(isFull.getValue(), zero);
+          create.scf.ifThenElse(
+              isFullVal,
+              [&](const SCFBuilder &scf) {
+                MDBuilder create(scf);
+                create.krnl.printf("full tile\n");
+              },
+              [&](const SCFBuilder &scf) {
+                MDBuilder create(scf);
+                create.krnl.printf("partial tile\n");
+                llvm_unreachable("hi alex, initial B=1");
+              });
+        }); // Blocked outer loop
+
+    // Replace the op.
+    // hi alex
+    return success();
+  }
+
+  void generateIter(MDBuilder &create, OP_TYPE lnOp,
+      /* inputs */ Value XMemRef, Value scaleMemRef, Value biasMemRef,
+      /* output */ Value YMemRef,
+      /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
+      /* index expr param */ DimsExpr outerLoopIndices,
+      /* value params */ Value i, Value epsilon,
+      /* int params */ int64_t B, int64_t VL) {
+    // Bool isTraditionalLayerNorm is true when computing traditional layer
+    // norm, not the faster RMS version.
+    bool isTraditionalLayerNorm = false;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      isTraditionalLayerNorm = true;
+    // Init the two reductions.
+    Type elementType =
+        mlir::cast<ShapedType>(YMemRef.getType()).getElementType();
+    VectorType vecType = VectorType::get({VL}, elementType);
+
+    Value init = create.math.constant(elementType, 0.0);
+    Value initVec = create.vec.splat(vecType, init);
+    Value zero = create.math.constantIndex(0);
+    inlineFor(create, B, [&](int64_t d, Value o) {
+      if (isTraditionalLayerNorm)
+        create.vec.store(initVec, redMemRef, {o, zero});
+      create.vec.store(initVec, redMemRef2, {o, zero});
+    });
+  }
+
+  using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
+  void inlineFor(MDBuilder &create, int64_t B, F1 genCode) const {
+    for (int64_t offsetInt = 0; offsetInt < B; ++offsetInt) {
+      Value offsetVal = create.math.constantIndex(offsetInt);
+      genCode(offsetInt, offsetVal);
+    }
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Pass
