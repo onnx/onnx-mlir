@@ -236,7 +236,6 @@ public:
     }
 
     // Rewrite
-    rewriter.eraseOp(stickOp);
     if (isNormalizedMemref) {
       tgtZMemRef.replaceAllUsesWith(srcZMemRef);
     } else {
@@ -246,6 +245,7 @@ public:
       rewriter.create<ZLowReshapeOp>(loc, srcZMemRef, tgtZMemRef,
           unstickOp.getLayoutAttr(), stickOp.getLayoutAttr());
     }
+    rewriter.eraseOp(stickOp);
     // Remove the view op if there is no use.
     if (viewOp.getOperation()->getResults()[0].use_empty())
       rewriter.eraseOp(viewOp);
