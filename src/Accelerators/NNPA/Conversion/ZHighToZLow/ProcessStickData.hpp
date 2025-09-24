@@ -57,32 +57,37 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     bool enableParallel);
 
 class StickComputeSupport {
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
-
+public:
   using MultiValuesOfF32IterateBodyFn =
       std::function<mlir::Value(const KrnlBuilder &b,
           mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
 
-public:
+  // Used to compute ahead of time the re-interpreted memref for stick data.
+  static mlir::Value getMemRefForStick(
+      KrnlBuilder &kb, mlir ::Value originalVal, mlir ::Value originalMemRef);
+
   StickComputeSupport(KrnlBuilder &kb,
       /* op inputs */ mlir::ValueRange originalInput,
       /* op inputs */ mlir::ValueRange originalInputMemRef,
-      /* op output */ mlir::Value originalOutput, mlir::Value originalOutputMemRef,
-      MultiValuesOfF32IterateBodyFn processVectorOfF32Vals,
-      bool disableSaturation = false);
+      /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
+      /* op output */ mlir::Value originalOutput,
+      mlir::Value originalOutputMemRef, bool disableSaturation = false);
 
   bool isStickifiedOutput() { return ioIsStick[inputNum]; }
   void prepareInsideTiledLoop(
       KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
 
-  void loadComputeStore(KrnlBuilder &kb, IndexExpr l, int64_t u,
-      mlir::Value tempBufferMemRef = nullptr);
+  void loadComputeStore(KrnlBuilder &kb,
+      MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
+      int64_t u, mlir::Value tempBufferMemRef = nullptr);
 
   static const int64_t archVL = 8;
   static const int64_t stickLen = 64;
 
 private:
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
+
   DimsExpr computeAccessFct(
       mlir::Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset);
   void loadVector(MDBuilder &create, DimsExpr &localOuterIndices, IndexExpr l,
@@ -94,7 +99,6 @@ private:
   // Inputs.
   mlir::SmallVector<mlir::Value, 4> ioOriginalOper;   // Untransformed opers.
   mlir::SmallVector<mlir::Value, 4> ioOriginalMemRef; // Memref opers.
-  MultiValuesOfF32IterateBodyFn processVectorOfF32Vals;
   bool disableSaturation;
 
   // Computed values outside the loop.
