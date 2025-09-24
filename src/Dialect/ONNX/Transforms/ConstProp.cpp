@@ -1099,8 +1099,18 @@ Value ConstPropNonZero(
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(                                                               \
+    disable : 4927) // Disable warning: illegal conversion; more than one
+                    // user-defined conversion has been implicitly applied
+#endif
 
 #include "src/Dialect/ONNX/Transforms/ONNXConstProp.inc"
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for split.
