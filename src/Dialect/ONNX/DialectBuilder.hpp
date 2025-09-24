@@ -112,6 +112,9 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value scale, mlir::Value bias, int64_t axis,
       mlir::FloatAttr epsilon, mlir::IntegerAttr stashType) const;
 
+  // ONNXPowOp
+  mlir::Value pow(mlir::Value input, mlir::Value exp) const;
+
   // ONNXQLinearMatMulOp
   mlir::Value qlinearMatMul(mlir::Type outputType, mlir::Value a,
       mlir::Value aScale, mlir::Value aZeroPoint, mlir::Value b,
@@ -237,7 +240,7 @@ struct OnnxBuilder : DialectBuilder {
   // Convert a Type to TensorType if it is of MemRefType.
   mlir::TensorType toTensor(mlir::Type input) const;
   // Convert Type to TypeRange of TensorType if it is of MemRefType.
-  mlir::TypeRange toTensors(mlir::TypeRange inputs) const;
+  mlir::SmallVector<mlir::Type, 4> toTensors(mlir::TypeRange inputs) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
 

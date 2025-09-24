@@ -62,7 +62,7 @@ void ZHighToONNXLoweringPass::runOnOperation() {
   zhigh::ZHighStickOp::getCanonicalizationPatterns(patterns, &getContext());
   zhigh::ZHighUnstickOp::getCanonicalizationPatterns(patterns, &getContext());
 
-  (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
+  (void)applyPatternsGreedily(function, std::move(patterns));
 }
 
 std::unique_ptr<Pass> createZHighToONNXPass() {

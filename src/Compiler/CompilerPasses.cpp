@@ -153,8 +153,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
-  // Add instrumentation for Onnx Ops
-  // Keep this pass at the end of this function.
+  // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
+  // at the end of this function.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
@@ -165,16 +165,17 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // optionally enable the last bit by using
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
+    // Also enable instrumentation of signatures.
+    instrumentSignatures = "onnx.*";
   }
-  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
-  // Print Signatures of each op at runtime if enabled. Should not run
-  // signature and instrument passes at the same time as time may include printf
-  // overheads.
-  if (instrumentSignatures != "NONE" || instrumentOnnxNode != "NONE")
+  // Add createInstrument (timing) second so that it will guarantee not to
+  // include timing of the signature printing.
+  if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -251,18 +252,16 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  if (useOldBufferization) {
-    pm.addNestedPass<func::FuncOp>(
-        mlir::bufferization::createBufferDeallocationPass());
-  } else {
-    bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
-    mlir::bufferization::buildBufferDeallocationPipeline(
-        pm, bufferDeallocOptions);
-    pm.addPass(mlir::createBufferizationToMemRefPass());
-  }
+  bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      pm, bufferDeallocOptions);
+  // This pass is necessary to move deallocation after the last user.
+  pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+  pm.addPass(mlir::createConvertBufferizationToMemRefPass());
 
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
+    // Cannot have canonicalization before OpenMP... have seen loop disappear.
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
     //  The alloca_scope ops are somewhat fragile; canonicalize remove them when
     //  redundant, which helps reliability of the compilation of these ops.

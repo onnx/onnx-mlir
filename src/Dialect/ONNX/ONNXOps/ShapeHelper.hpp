@@ -357,6 +357,7 @@ using ONNXAsinhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXAtanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXAtanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBernoulliOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXBinarizerOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBitwiseNotOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCastOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeilOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -382,9 +383,11 @@ using ONNXLogOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLogSoftmaxOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLpNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXMeanVarianceNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXMishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNegOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNotOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRandomNormalLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXRandomUniformLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReciprocalOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRoundOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -882,6 +885,7 @@ using ONNXNonZeroOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonZeroO
 using ONNXOneHotEncoderOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXOneHotEncoderOp>;
 using ONNXQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXQuantizeLinearOp>;
 using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomNormalOp>;
+using ONNXRandomUniformOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomUniformOp>;
 using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
@@ -894,6 +898,24 @@ using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransp
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
 
+//===----------------------------------------------------------------------===//
+// WindowsOp Shape Helper.
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE>
+struct ONNXWindowsOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXWindowsOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXWindowsOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+// clang-format off
+using ONNXHammingWindowOpShapeHelper = ONNXWindowsOpShapeHelper<mlir::ONNXHammingWindowOp>;
+using ONNXHannWindowOpShapeHelper = ONNXWindowsOpShapeHelper<mlir::ONNXHannWindowOp>;
+using ONNXBlackmanWindowOpShapeHelper = ONNXWindowsOpShapeHelper<mlir::ONNXBlackmanWindowOp>;
+// clang-format on
 //===----------------------------------------------------------------------===//
 // CustomOp Shape Helper.
 //===----------------------------------------------------------------------===//

@@ -37,7 +37,7 @@ func.func @test_call_zdnn_gelu() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_gelu
-  // CHECK: {{.*}} = llvm.call @zdnn_gelu_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_gelu({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -51,7 +51,7 @@ func.func @test_call_zdnn_leaky_relu() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_leaky_relu
-  // CHECK: {{.*}} = llvm.call @zdnn_leaky_relu_ext({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, f32, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_leaky_relu({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, f32, !llvm.ptr) -> i32
 }
 
 // -----
@@ -65,7 +65,7 @@ func.func @test_call_zdnn_invsqrt() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_invsqrt
-  // CHECK: {{.*}} = llvm.call @zdnn_invsqrt_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, f32, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_invsqrt({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, f32, !llvm.ptr) -> i32
 }
 
 // -----
@@ -80,7 +80,7 @@ func.func @test_call_zdnn_reducemax() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_reducemax
-  // CHECK: {{.*}} = llvm.call @zdnn_reduce_ext({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_reduce({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -95,7 +95,7 @@ func.func @test_call_zdnn_reducemin() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_reducemin
-  // CHECK: {{.*}} = llvm.call @zdnn_reduce_ext({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_reduce({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -109,7 +109,7 @@ func.func @test_call_zdnn_sqrt() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sqrt
-  // CHECK: {{.*}} = llvm.call @zdnn_sqrt_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_sqrt({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -120,7 +120,7 @@ func.func @test_matmul_bcast1(%x: memref<2048xf16>,%y: memref<2048xf16>,%bias: m
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast1 = -1 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_bcast1
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnnx_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -132,7 +132,7 @@ func.func @test_call_zdnn_quantized_matmul_op(%arg0: memref<1x1x1x1x32x64xf16>, 
   return %alloc : memref<1x1x1x1x32x64xf16>
 
   // CHECK-LABEL: test_call_zdnn_quantized_matmul_op
-  // CHECK: {{.*}} = llvm.call @zdnn_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -144,5 +144,5 @@ func.func @test_call_zdnn_quantized_matmul_dequantized_op(%arg0: memref<1x1x1x1x
   return %alloc : memref<1x1x1x1x32x64xf16>
 
   // CHECK-LABEL: test_call_zdnn_quantized_matmul_dequantized_op
-  // CHECK: {{.*}} = llvm.call @zdnn_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_quantized_matmul_op({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32
 }

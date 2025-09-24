@@ -113,7 +113,7 @@ set(NNPA_TEST_LIST_z16
     # ==MIN== 6
     # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     # Scalar tensor not supported.
-    test_add_cpu,zdnn_add_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
+    test_add_cpu,zdnnx_add,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
@@ -138,8 +138,8 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # ==LIM== Input and output tensor must be 4D(N x C x H x W).
-    test_batchnorm_epsilon_cpu,zdnn_mul_ext,"0:0=a,1=b,2=c,3=d|1:0=b|2:0=b|3:0=b|4:0=b"
-    test_batchnorm_example_cpu,zdnn_mul_ext,"0:0=a,1=b,2=c,3=d|1:0=b|2:0=b|3:0=b|4:0=b"
+    test_batchnorm_epsilon_cpu,zdnnx_mul,"0:0=a,1=b,2=c,3=d|1:0=b|2:0=b|3:0=b|4:0=b"
+    test_batchnorm_example_cpu,zdnnx_mul,"0:0=a,1=b,2=c,3=d|1:0=b|2:0=b|3:0=b|4:0=b"
     
     # ==OP== Conv
     # ==LEVEL== z16,z17
@@ -171,16 +171,16 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
-    test_div_cpu,zdnn_div_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
+    test_div_cpu,zdnnx_div,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_div_bcast_cpu
-    test_div_example_cpu,zdnn_div_ext,"0:0=a|1:0=a"
+    test_div_example_cpu,zdnnx_div,"0:0=a|1:0=a"
 
     # ==OP== Exp
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # ==LIM== Input tensor must have 4 dimensions.
-    test_exp_cpu,zdnn_exp_ext
-    test_exp_example_cpu,zdnn_exp_ext
+    test_exp_cpu,zdnnx_exp
+    test_exp_example_cpu,zdnnx_exp
 
     # ==OP== Gemm
     # ==LEVEL== z16,z17
@@ -193,14 +193,14 @@ set(NNPA_TEST_LIST_z16
     # test_gemm_all_attributes_cpu
     # test_gemm_alpha_cpu
     # test_gemm_beta_cpu
-    test_gemm_default_matrix_bias_cpu,zdnn_matmul_op_ext
-    test_gemm_default_no_bias_cpu,zdnn_matmul_op_ext
+    test_gemm_default_matrix_bias_cpu,zdnnx_matmul_op
+    test_gemm_default_no_bias_cpu,zdnnx_matmul_op
     # test_gemm_default_scalar_bias_cpu
     # test_gemm_default_single_elem_vector_bias_cpu
-    test_gemm_default_vector_bias_cpu,zdnn_matmul_op_ext
-    test_gemm_default_zero_bias_cpu,zdnn_matmul_op_ext
-    test_gemm_transposeA_cpu,zdnn_matmul_op_ext
-    test_gemm_transposeB_cpu,zdnn_matmul_op_ext
+    test_gemm_default_vector_bias_cpu,zdnnx_matmul_op
+    test_gemm_default_zero_bias_cpu,zdnnx_matmul_op
+    test_gemm_transposeA_cpu,zdnnx_matmul_op
+    test_gemm_transposeB_cpu,zdnnx_matmul_op
 
     # ==OP== GlobalAveragePool
     # ==LEVEL== z16,z17
@@ -224,18 +224,18 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,arch15
     # ==MIN== 6
     # ==LIM== Input tensor must have 4 dimensions.
-    test_log_example_cpu,zdnn_log_ext
-    test_log_cpu,zdnn_log_ext
+    test_log_example_cpu,zdnnx_log
+    test_log_cpu,zdnnx_log
 
     # ==OP== LogSoftmax
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
-    # test_logsoftmax_axis_2_cpu,zdnn_log_ext
-    test_logsoftmax_example_1_cpu,zdnn_softmax_ext
+    # test_logsoftmax_axis_2_cpu,zdnnx_log
+    test_logsoftmax_example_1_cpu,zdnnx_softmax
     # test_logsoftmax_default_axis_cpu
-    # test_logsoftmax_negative_axis_cpu,zdnn_log_ext
+    # test_logsoftmax_negative_axis_cpu,zdnnx_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
 
     # ==OP== LSTM
@@ -250,9 +250,9 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,z17
     # ==MIN== 1
     # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2.
-    test_matmul_2d_cpu,zdnn_matmul_op_ext
-    test_matmul_3d_cpu,zdnn_matmul_op_ext
-    test_matmul_4d_cpu,zdnn_matmul_op_ext,"0:0=a,1=b,2=c,3=d|1:0=a,1=b,2=d,3=c"
+    test_matmul_2d_cpu,zdnnx_matmul_op
+    test_matmul_3d_cpu,zdnnx_matmul_op
+    test_matmul_4d_cpu,zdnnx_matmul_op,"0:0=a,1=b,2=c,3=d|1:0=a,1=b,2=d,3=c"
 
     # ==OP== Max
     # ==LEVEL== z16,z17
@@ -260,9 +260,9 @@ set(NNPA_TEST_LIST_z16
     # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     # test_max_example_cpu
     #test_max_one_input_cpu
-    test_max_two_inputs_cpu,zdnn_max_ext,"0:0=a|1:0=a"
+    test_max_two_inputs_cpu,zdnnx_max,"0:0=a|1:0=a"
     # test_max_float16_cpu
-    test_max_float32_cpu,zdnn_max_ext,"0:0=a|1:0=a"
+    test_max_float32_cpu,zdnnx_max,"0:0=a|1:0=a"
     # test_max_float64_cpu
     # test_max_int8_cpu
     # test_max_int16_cpu
@@ -296,9 +296,9 @@ set(NNPA_TEST_LIST_z16
     # ==LIM== Shape of input tensors must be the same since broadcasting is not supported.
     # test_min_example_cpu
     # test_min_one_input_cpu
-    test_min_two_inputs_cpu,zdnn_min_ext,"0:0=a|1:0=a"
+    test_min_two_inputs_cpu,zdnnx_min,"0:0=a|1:0=a"
     # test_min_float16_cpu
-    test_min_float32_cpu,zdnn_min_ext,"0:0=a|1:0=a"
+    test_min_float32_cpu,zdnnx_min,"0:0=a|1:0=a"
     # test_min_float64_cpu
     # test_min_int8_cpu
     # test_min_int16_cpu
@@ -313,9 +313,9 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # ==LIM== Shape of input tensors should be the same since broadcasting is not supported.
-    test_mul_cpu,zdnn_mul_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
+    test_mul_cpu,zdnnx_mul,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_mul_bcast_cpu
-    test_mul_example_cpu,zdnn_mul_ext,"0:0=a|1:0=a"
+    test_mul_example_cpu,zdnnx_mul,"0:0=a|1:0=a"
 
     # ==OP== Pow
     # ==LEVEL== z16,z17
@@ -340,7 +340,7 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
-    test_relu_cpu,zdnn_relu_ext
+    test_relu_cpu,zdnnx_relu
 
     # ==OP== Softmax
     # ==LEVEL== z16,z17
@@ -350,7 +350,7 @@ set(NNPA_TEST_LIST_z16
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
     # test_softmax_default_axis_cpu
-    test_softmax_example_cpu,zdnn_softmax_ext
+    test_softmax_example_cpu,zdnnx_softmax
     # test_softmax_large_number_cpu #  accuracy error
 
     # ==OP== Softplus
@@ -365,9 +365,9 @@ set(NNPA_TEST_LIST_z16
     # ==LEVEL== z16,z17
     # ==MIN== 6
     # ==LIM== Shape of input tensors should be the same since broadcasting is not supported.
-    test_sub_cpu,zdnn_sub_ext,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
+    test_sub_cpu,zdnnx_sub,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
     # test_sub_bcast_cpu
-    test_sub_example_cpu,zdnn_sub_ext,"0:0=a|1:0=a"
+    test_sub_example_cpu,zdnnx_sub,"0:0=a|1:0=a"
 
     # ==OP== Sum
     # ==LEVEL== z16,z17
@@ -393,7 +393,7 @@ set(NNPA_TEST_LIST_z16
     # test_inception_v1_cpu,zdnn_conv2d
     # test_resnet50_cpu,zdnn_conv2d
 
-    # test_shufflenet_cpu,zdnn_matmul_op_ext # got NaN results in check-onnx-backend-dynamic-jni-nnpa.
+    # test_shufflenet_cpu,zdnnx_matmul_op # got NaN results in check-onnx-backend-dynamic-jni-nnpa.
     # Got NaN results because the last Conv running on NNPA produces dlfloat16 out-of-range values that are represented as NaN.
     # test_squeezenet_cpu,zdnn_conv
     # TODO re-enable below test
@@ -407,37 +407,37 @@ set(NNPA_TEST_LIST_ARCH_15
     # ==LEVEL== z17
     # ==MIN== 20
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
-    test_gelu_default_1_cpu,zdnn_gelu_ext
-    test_gelu_default_2_cpu,zdnn_gelu_ext
-    test_gelu_tanh_1_cpu,zdnn_gelu_ext
-    test_gelu_tanh_2_cpu,zdnn_gelu_ext
+    test_gelu_default_1_cpu,zdnnx_gelu
+    test_gelu_default_2_cpu,zdnnx_gelu
+    test_gelu_tanh_1_cpu,zdnnx_gelu
+    test_gelu_tanh_2_cpu,zdnnx_gelu
 
     # Gemm Transpose
-    test_gemm_transposeA_cpu,zdnn_matmul_transpose_op_ext
-    test_gemm_transposeB_cpu,zdnn_matmul_transpose_op_ext
+    test_gemm_transposeA_cpu,zdnnx_matmul_transpose_op
+    test_gemm_transposeB_cpu,zdnnx_matmul_transpose_op
 
     # ==OP== LeakyRelu
     # ==LEVEL== z17
     # ==MIN== 6
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
-    test_leakyrelu_cpu,zdnn_leaky_relu_ext
-    test_leakyrelu_default_cpu,zdnn_leaky_relu_ext
-    test_leakyrelu_example_cpu,zdnn_leaky_relu_ext
+    test_leakyrelu_cpu,zdnnx_leaky_relu
+    test_leakyrelu_default_cpu,zdnnx_leaky_relu
+    test_leakyrelu_example_cpu,zdnnx_leaky_relu
 
     # ==OP== MatMulInteger
     # ==LEVEL== z17
     # ==MIN== 10
-    test_matmulinteger_cpu,zdnn_quantized_matmul_op
+    test_matmulinteger_cpu,zdnnx_quantized_matmul_op
 
     # ==OP== QLinearMatMul
     # ==LEVEL== z17
     # ==MIN== 10 
     # ==LIM== Only support i8 and ui8 for zeropoint, and f32 for scale.
-    test_qlinearmatmul_2D_uint8_float32_cpu,zdnn_quantized_matmul_op
-    test_qlinearmatmul_3D_uint8_float32_cpu,zdnn_quantized_matmul_op
+    test_qlinearmatmul_2D_uint8_float32_cpu,zdnnx_quantized_matmul_op
+    test_qlinearmatmul_3D_uint8_float32_cpu,zdnnx_quantized_matmul_op
     # Error: at (1, 0) mismatch 0 (actual) vs 1 (reference)
-    # test_qlinearmatmul_2D_int8_float32_cpu,zdnn_quantized_matmul_op
-    # test_qlinearmatmul_3D_int8_float32_cpu,zdnn_quantized_matmul_op
+    # test_qlinearmatmul_2D_int8_float32_cpu,zdnnx_quantized_matmul_op
+    # test_qlinearmatmul_3D_int8_float32_cpu,zdnnx_quantized_matmul_op
 
     # ==OP== ReduceMax
     # ==LEVEL== z17
@@ -455,8 +455,8 @@ set(NNPA_TEST_LIST_ARCH_15
     # ==LEVEL== z17
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
     # ==MIN== 6
-    test_sqrt_cpu,zdnn_sqrt_ext,zdnn_invsqrt_ext
-    test_sqrt_example_cpu,zdnn_sqrt_ext,zdnn_invsqrt_ext
+    test_sqrt_cpu,zdnnx_sqrt,zdnnx_invsqrt
+    test_sqrt_example_cpu,zdnnx_sqrt,zdnnx_invsqrt
 )
 
 set(ENV_TEST_CASE_BY_USER_z16 "")

@@ -4,7 +4,7 @@
 
 //===---------- OpHelper.hpp - Helper functions for ONNX dialects ---------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -100,6 +100,23 @@ bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 
 /// Return true if two tensors or memrefs have the same rank.
 bool sameRank(mlir::Value tensorOrMemref1, mlir::Value tensorOrMemref2);
+
+//===----------------------------------------------------------------------===//
+// Support for shapes
+
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
+
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v);
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(mlir::Value val);
+bool hasShapeAndRank(mlir::Operation *op);
+
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Identity map
@@ -198,20 +215,6 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
-
-/// Test if the value has the specified constant shape
-bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
-
-/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
-/// tensor<1xdtype>.
-bool isScalarConstantTensor(mlir::Value v);
-
-/// Test if 'val' has shape and rank or not.
-bool hasShapeAndRank(mlir::Value val);
-bool hasShapeAndRank(mlir::Operation *op);
-
-/// Test if a value has only one use except ONNXDimOp.
-bool hasOneUseExceptDimOp(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -332,7 +335,7 @@ bool matchConstAndOp(mlir::Value A, mlir::Value B, double cst, OP &op);
 
 // This is to recognize a binary op, e.g. A*B where one of A and B is the given
 // value and the other one is defined by OP.
-// Note: this function can handle the communitive property of the binary op.
+// Note: this function can handle the commutative property of the binary op.
 //
 // For example, to recognize this pattern where %z is one of the inputs of *,
 // and the other input of * is defined by onnx.Tanh:

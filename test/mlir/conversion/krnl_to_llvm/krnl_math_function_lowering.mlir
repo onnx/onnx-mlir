@@ -17,7 +17,7 @@ func.func @test_krnl_erf_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32>
 // CHECK-LABEL: test_krnl_erf_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ERF_RES:%.+]] = llvm.call @erff([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -40,7 +40,7 @@ func.func @test_krnl_acos_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32
 // CHECK-LABEL: test_krnl_acos_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @acosf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -63,7 +63,7 @@ func.func @test_krnl_acosh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf3
 // CHECK-LABEL: test_krnl_acosh_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @acoshf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -86,7 +86,7 @@ func.func @test_krnl_asin_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32
 // CHECK-LABEL: test_krnl_asin_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @asinf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -109,7 +109,7 @@ func.func @test_krnl_asinh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf3
 // CHECK-LABEL: test_krnl_asinh_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @asinhf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -132,7 +132,7 @@ func.func @test_krnl_atan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32
 // CHECK-LABEL: test_krnl_atan_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @atanf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -154,7 +154,7 @@ func.func @test_krnl_atanh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf3
 // CHECK-LABEL: test_krnl_atanh_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @atanhf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -176,7 +176,7 @@ func.func @test_krnl_tan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32>
 // CHECK-LABEL: test_krnl_tan_lowering
 // CHECK: [[MEMREF_IN:%.+]] = llvm.insertvalue %arg6, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 // CHECK: [[DATA:%.+]] = llvm.extractvalue [[MEMREF_IN]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr [[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
+// CHECK: [[DATA_IN:%.+]] = llvm.getelementptr {{.*}}[[DATA]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32
 // CHECK: [[SCALAR_IN:%.+]] = llvm.load [[DATA_IN]] : !llvm.ptr
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @tanf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr, i64) -> !llvm.ptr, f32

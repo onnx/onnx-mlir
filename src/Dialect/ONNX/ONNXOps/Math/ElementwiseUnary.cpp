@@ -129,6 +129,15 @@ LogicalResult ONNXAtanhOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Binarizer
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBinarizerOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // BitwiseNot
 //===----------------------------------------------------------------------===//
 
@@ -396,6 +405,15 @@ LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// MishOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXMishOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // NegOp
 //===----------------------------------------------------------------------===//
 
@@ -452,7 +470,7 @@ LogicalResult ONNXScalerOp::inferShapes(
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
   RankedTensorType xType = mlir::dyn_cast<RankedTensorType>(getX().getType());
   return shapeHelper.computeShapeAndUpdateType(
-      FloatType::getF32(getContext()), xType.getEncoding());
+      Float32Type::get(getContext()), xType.getEncoding());
 }
 
 //===----------------------------------------------------------------------===//

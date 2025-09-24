@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPAAccelerator.cpp -----------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -58,7 +58,26 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
 
   acceleratorTargets.push_back(this);
   // Order is important! libRuntimeNNPA depends on libzdnn
-  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"RuntimeNNPA", "zdnn"}, true);
+  std::vector<std::string> libs;
+  libs.push_back("RuntimeNNPA");
+  libs.push_back("zdnn");
+  // Add OMP library if needed.
+#ifdef ZDNNX_WITH_OMP
+  // Use LLVM's OpenMP if LLVM is built with OpenMP enabled.
+  std::string ompLib = "ompruntime";
+#ifndef ZDNNX_WITH_OMP_LLVM
+  // Use GCC's OpenMP if LLVM is not built with OpenMP enabled.
+  ompLib = "gomp";
+#endif
+  // ompruntime migh be added in advance if --parallel is used.
+  // Check if ompruntime exists or not.
+  std::vector<std::string> existingLibs =
+      getCompilerConfig(CCM_SHARED_LIB_DEPS);
+  if (!llvm::any_of(
+          existingLibs, [&ompLib](std::string s) { return s == ompLib; }))
+    libs.push_back(ompLib);
+#endif
+  addCompilerConfig(CCM_SHARED_LIB_DEPS, libs, true);
 };
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
@@ -86,8 +105,13 @@ void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
 void NNPAAccelerator::registerPasses(int optLevel) const {
   LLVM_DEBUG(llvm::dbgs() << "Registering passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,
-        nnpaSaveDevicePlacementFile, nnpaPlacementHeuristic);
+    return onnx_mlir::createDevicePlacementPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic);
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createQuantOpSelectionPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -132,6 +156,10 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass();
   });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createFusionOpStickUnstick();
+  });
 }
 
 void NNPAAccelerator::configurePasses() const {
@@ -172,6 +200,8 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
       typeConverter, ctx,
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
       enableParallel);
+  onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
+      patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(

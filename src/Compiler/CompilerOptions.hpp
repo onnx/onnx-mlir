@@ -139,7 +139,6 @@ extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
 extern std::vector<std::string> extraLibs;                    // onnx-mlir only
 extern ProfileIRs profileIR;                                  // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
-extern bool useOldBufferization;                              // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
@@ -230,6 +229,13 @@ std::string getToolPath(const std::string &tool, bool flag = false);
 void removeUnrelatedOptions(
     const std::vector<llvm::cl::OptionCategory *> Categories);
 void initCompilerConfig();
+
+// Return true when we are instrumenting one or more ops at the target stage.
+bool hasInstrumentation(InstrumentStages targetInstrumentationStage);
+// Return true when we are instrumenting the operation signatures, which
+// includes the type/shape of the inputs/ouput tensors as well as possibly the
+// data values of the tensors
+bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage);
 
 } // namespace onnx_mlir
 #endif

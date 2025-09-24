@@ -59,7 +59,8 @@ Additional help.
 
 Parameters on inputs:
   -c/--compile <file_log>: File name containing the compile-time statistics
-                           or runtime signature statistics.
+                           or runtime signature statistics. Default is same
+                           as runtime file.
   -r/--runtime <file_log>: File name containing the runtime time statistics.
 
 Parameters to focus analysis:
@@ -506,7 +507,7 @@ def make_report(stat_message):
                     count_time_str += ", {:.7f}".format(det_time * time_unit)
                     count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
 
-                det_output = "\n    " + count_time_str + ": " + det_key
+                det_output = "\n    " + count_time_str + ", " + det_key
                 det_output_key = get_sorting_key(det_count, det_key, det_time)
                 if det_output_key in sorted_det_output:
                     sorted_det_output[det_output_key] += det_output
@@ -550,9 +551,9 @@ def make_report(stat_message):
     if report_level < 2:
         print("  op-name:", num_desc)
     elif report_level == 2:
-        print("   " + num_desc + ":", stat_message, "\n")
+        print("   " + num_desc + ",", stat_message, "\n")
     elif report_level == 3:
-        print("   " + num_desc + ": node-name, ", stat_message, "\n")
+        print("   " + num_desc + ", node-name, ", stat_message, "\n")
     print("")
     stat_details = ""
     if supported_only:
@@ -685,7 +686,7 @@ def main(argv):
                 make_stats = "SIMD"
                 make_legend = simd_legend
             else:
-                print_usage("statistics options are 'par', 'signature', or 'simd'")
+                print_usage("statistics options are 'par', 'perf', 'sig', or 'simd'")
         elif opt in ("--supported"):
             supported_only = True
         elif opt in ("--sort"):
@@ -722,6 +723,9 @@ def main(argv):
             make_stats = "PERF"
             make_legend = perf_legend
     print("Analyse", make_stats)
+    # Default compile file for sig
+    if make_stats != "PERF" and not compile_file_name:
+        compile_file_name = runtime_file_name
     # Default sorting preference.
     if not sorting_preference:
         if runtime_file_name:

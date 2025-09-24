@@ -175,12 +175,15 @@ add_onnx_mlir_library(OMCompilerUtils
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.
+  # BitWriter is needed for llvm::WriteBitcodeToFile (called in OMCompilerUtils.cpp,
+  # implemented in BitcodeWriter.cpp).
   LINK_COMPONENTS PRIVATE
   AllTargetsAsmParsers
   AllTargetsCodeGens
   AllTargetsDescs
   AllTargetsInfos
   MC
+  BitWriter
   )
 
   add_onnx_mlir_library(OMOptionUtils
@@ -234,7 +237,7 @@ if (NOT BUILD_SHARED_LIBS)
 endif()
 
 pybind11_add_module(PyCompile PyOMCompileSession.cpp)
-add_dependencies(PyCompile onnx_proto)
+add_dependencies(PyCompile onnx)
 target_compile_options(PyCompile
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>

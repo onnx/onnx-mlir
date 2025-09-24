@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // Test doing unary element-wise computation directly on zTensor.
 // Taking ONNXSqrtOp as the example.
 // Need to check that the buffer is correctly aligned to 4K.
@@ -113,7 +115,7 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 * 64)>
 // CHECK-LABEL:  func.func @test_onnx_layout_transform_on_ztensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map>) -> memref<3x5x7xf16, #map1> {
 // CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
@@ -121,7 +123,7 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 1){
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK:             [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_1_]]#2]
+// CHECK:             [[VAR_2_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#2)
 // CHECK-DAG:         [[VAR_3_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<3x5x7xf16, #map1>
 // CHECK-DAG:         [[VAR_4_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<3x5x7xf16, #map>
 // CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_3_]], [[VAR_4_]]) : (memref<3x5x7xf16, #map1>, memref<3x5x7xf16, #map>, i64, index, index) -> ()
@@ -144,9 +146,9 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d1)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1, d2) -> (d0 ceildiv 64)>
-// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
-// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<()[s0, s1] -> (s0 * -64 + s1 - 64)>
-// CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<()[s0, s1] -> (s0 - s1 * 64)>
+// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<(d0) -> (d0 * 64)>
+// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<(d0)[s0] -> (d0 * -64 + s0 - 64)>
+// CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<(d0)[s0] -> (d0 * -64 + s0)>
 // CHECK-LABEL:  func.func @layout_transform_to_from_3DS
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x?xf16>) -> memref<?x?x?xf16> {
 // CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
@@ -162,7 +164,7 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_1_]], [[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_1_]], [[VAR_dim_]], [[VAR_dim_]]_0), [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_3_]]([[VAR_dim_1_]], [[VAR_dim_]], [[VAR_dim_]]_0)){
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK:             [[VAR_3_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_2_]]#2]
+// CHECK:             [[VAR_3_:%.+]] = affine.apply [[MAP_4_]]([[VAR_2_]]#2)
 // CHECK-DAG:         [[VAR_4_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_3_]]{{.}} : memref<?x?x?xf16, #map>
 // CHECK-DAG:         [[VAR_5_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_3_]]{{.}} : memref<?x?x?xf16>
 // CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_4_]], [[VAR_5_]]) : (memref<?x?x?xf16, #map>, memref<?x?x?xf16>, i64, index, index) -> ()
@@ -171,15 +173,15 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK-DAG:       [[LOOP_1_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_1_]], [[VAR_dim_]]), [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_1_]], [[VAR_dim_]], [[VAR_dim_]]_0), [[LOOP_1_]]#2 -> [[I_5_:%.+]] = 0 to [[MAP_3_]]([[VAR_dim_1_]], [[VAR_dim_]], [[VAR_dim_]]_0)){
 // CHECK:             [[VAR_2_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK:             [[VAR_3_1_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_2_1_]]#2]
+// CHECK:             [[VAR_3_1_:%.+]] = affine.apply [[MAP_4_]]([[VAR_2_1_]]#2)
 // CHECK-DAG:         [[VAR_4_1_:%.+]] = krnl.get_linear_offset_index [[RES_1_]] at {{.}}[[VAR_2_1_]]#0, [[VAR_2_1_]]#1, [[VAR_3_1_]]{{.}} : memref<?x?x?xf16>
 // CHECK-DAG:         [[VAR_5_1_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_1_]]#0, [[VAR_2_1_]]#1, [[VAR_3_1_]]{{.}} : memref<?x?x?xf16, #map>
-// CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_2_1_]]#2, [[VAR_dim_1_]]{{.}}
+// CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply [[MAP_5_]]([[VAR_2_1_]]#2){{.}}[[VAR_dim_1_]]{{.}}
 // CHECK:             [[VAR_7_:%.+]] = arith.cmpi sge, [[VAR_6_]], [[CST_0_]] : index
 // CHECK:             scf.if [[VAR_7_]] {
 // CHECK:               "krnl.memcpy"([[RES_1_]], [[RES_]], [[CST_64_]], [[VAR_4_1_]], [[VAR_5_1_]]) : (memref<?x?x?xf16>, memref<?x?x?xf16, #map>, i64, index, index) -> ()
 // CHECK:             } else {
-// CHECK:               [[VAR_8_:%.+]] = affine.apply [[MAP_6_]](){{.}}[[VAR_dim_1_]], [[VAR_2_1_]]#2]
+// CHECK:               [[VAR_8_:%.+]] = affine.apply [[MAP_6_]]([[VAR_2_1_]]#2){{.}}[[VAR_dim_1_]]{{.}}
 // CHECK:               [[VAR_9_:%.+]] = arith.index_cast [[VAR_8_]] : index to i64
 // CHECK:               "krnl.memcpy"([[RES_1_]], [[RES_]], [[VAR_9_]], [[VAR_4_1_]], [[VAR_5_1_]]) : (memref<?x?x?xf16>, memref<?x?x?xf16, #map>, i64, index, index) -> ()
 // CHECK:             }

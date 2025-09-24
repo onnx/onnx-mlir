@@ -6222,7 +6222,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution. The shape
@@ -6260,7 +6260,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniformLike operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution.
@@ -6296,6 +6296,7 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
@@ -9107,6 +9108,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
 
 def ONNXSplitOp:ONNX_Op<"Split",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified 'axis'.
@@ -9799,6 +9801,7 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXTriluOp:ONNX_Op<"Trilu",

@@ -298,6 +298,10 @@ Value OnnxBuilder::padZero(Value input, Value pads) const {
   return pad(input, pads, b().create<ONNXNoneOp>(loc()), "constant");
 }
 
+Value OnnxBuilder::pow(Value input, Value exp) const {
+  return createOpAndInferShapes<ONNXPowOp>(toTensor(input), toTensor(exp));
+}
+
 Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true
@@ -562,7 +566,7 @@ TensorType OnnxBuilder::toTensor(Type input) const {
   return RankedTensorType::get(aTy.getShape(), elementTy);
 }
 
-TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
+SmallVector<Type, 4> OnnxBuilder::toTensors(TypeRange inputs) const {
   if (llvm::all_of(inputs, [](Type t) { return (mlir::isa<TensorType>(t)); }))
     return inputs;
   assert(llvm::all_of(inputs, [](Type t) {
@@ -577,7 +581,7 @@ TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
     }
     resultTypes.emplace_back(RankedTensorType::get(aTy.getShape(), elementTy));
   }
-  return TypeRange(resultTypes);
+  return resultTypes;
 }
 
 Value OnnxBuilder::toMemref(Value input) const {
@@ -645,25 +649,49 @@ Value OnnxBuilder::reshapeToNDim(
   int64_t end = collapseMostSignificant ? rank : N - 1;      // Exclusive.
   Value keepVals =
       slice(keepShapeType, inputShapeVals, start, end, /*steps*/ 1);
-  // Concat -1 and keep vals
+  // Compute the new collapsed dim if the old dims are static.
+  // Otherwise, concat -1 and keep vals
   Value newShapeVals;
-  if (collapseMostSignificant)
+  bool isStatic = true;
+  int64_t collapsedDim = 1;
+  if (collapseMostSignificant) {
     // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
+    for (int64_t i = 0; i < start; ++i) {
+      if (ShapedType::isDynamic(inputShape[i])) {
+        isStatic = false;
+        break;
+      }
+      collapsedDim *= inputShape[i];
+    }
+    Value collapsedVal = minusOneVal;
+    if (isStatic)
+      collapsedVal = constantInt64({collapsedDim});
     newShapeVals =
-        concat(outputShapeType, ValueRange({minusOneVal, keepVals}), 0);
-  else
+        concat(outputShapeType, ValueRange({collapsedVal, keepVals}), 0);
+  } else {
     // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
+    for (int64_t i = end; i < rank; ++i) {
+      if (ShapedType::isDynamic(inputShape[i])) {
+        isStatic = false;
+        break;
+      }
+      collapsedDim *= inputShape[i];
+    }
+    Value collapsedVal = minusOneVal;
+    if (isStatic)
+      collapsedVal = constantInt64({collapsedDim});
     newShapeVals =
-        concat(outputShapeType, ValueRange({keepVals, minusOneVal}), 0);
+        concat(outputShapeType, ValueRange({keepVals, collapsedVal}), 0);
+  }
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
   llvm::SmallVector<int64_t, 4> outputDims;
   if (collapseMostSignificant)
-    outputDims.emplace_back(ShapedType::kDynamic);
+    outputDims.emplace_back(isStatic ? collapsedDim : ShapedType::kDynamic);
   for (int i = start; i < end; ++i)
     outputDims.emplace_back(inputShape[i]);
   if (!collapseMostSignificant)
-    outputDims.emplace_back(ShapedType::kDynamic);
+    outputDims.emplace_back(isStatic ? collapsedDim : ShapedType::kDynamic);
   Type outputType = RankedTensorType::get(outputDims, elementType);
   return reshape(outputType, val, newShapeVals);
 }

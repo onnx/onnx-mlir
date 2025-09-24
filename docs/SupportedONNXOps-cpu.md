@@ -29,13 +29,13 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
-| **Binarizer** |none | | | |
-| **BitShift** |none | | | |
+| **Binarizer** |1 - * | | | |
+| **BitShift** |11 - * | | | |
 | **BitwiseAnd** |18 - * | | |
-| **BitwiseNot** |none | | | |
+| **BitwiseNot** |18 - * | Only supports signed integers | | 
 | **BitwiseOr** |18 - * | | |
 | **BitwiseXor** |18 - * | | |
-| **BlackmanWindow** |none | | | |
+| **BlackmanWindow** |17 - * | | | 
 | **Cast** |6 - * |Cast only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4. | |
 | **CastLike** |19 - * |CastLike only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4. | |
 | **CastMap** |none | | | |
@@ -89,8 +89,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **GreaterOrEqual** |12 - * | | |
 | **GridSample** |none | | | |
 | **GroupNormalization** |18 - * | | |
-| **HammingWindow** |none | | | |
-| **HannWindow** |none | | | |
+| **HammingWindow** |17 - * | | | 
+| **HannWindow** |17 - * | | | |
 | **HardSigmoid** |6 - * | | |
 | **HardSwish** |14 - * | | | |
 | **Hardmax** |6 - * | | |
@@ -112,7 +112,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Log** |6 - * | | |
 | **LogSoftmax** |13 - * |Axis 0, 1, and default currently disabled due to changes in ONNX 1.8.1/Opset 13. |Temporally removed due to changes in onnx 1.8.1. |
 | **Loop** |6 - * |Input must have static shape. Does not support int4 and uint4. | |
-| **LpNormalization** |none | | | |
+| **LpNormalization** |1 - * | | | |
 | **LpPool** |none | | | |
 | **MatMul** |6 - * | | |
 | **MatMulInteger** |10 - * | | |
@@ -121,10 +121,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **MaxRoiPool** |none | | | |
 | **MaxUnpool** |none | | | |
 | **Mean** |6 - * | | |
-| **MeanVarianceNormalization** |none | | | |
+| **MeanVarianceNormalization** |9 - * | | | |
 | **MelWeightMatrix** |none | | | |
 | **Min** |6 - * |Does not support unsigned numbers. Only ppc64le and MacOS platforms support float16. | |
-| **Mish** |none | | | |
+| **Mish** |18 - * | | | |
 | **Mod** |10 - * |Support float and double only. Only ppc64le and MacOS platforms support float16. | |
 | **Momentum** |none | | | |
 | **Mul** |6 - * |Does not support short integers. | |
@@ -150,8 +150,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **RNN** |7 - * |W, B and R must be constants. | |
 | **RandomNormal** |none | | | |
 | **RandomNormalLike** |none | | | |
-| **RandomUniform** |none | | | |
-| **RandomUniformLike** |none | | | |
+| **RandomUniform** |1 - * | | | |
+| **RandomUniformLike** |1 - * | | | |
 | **Range** |11 - * | | |
 | **Reciprocal** |6 - * | | |
 | **ReduceL1** |13 - * |do_not_keep_dim not supported. | |
@@ -187,7 +187,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **SequenceLength** |none | | | |
 | **SequenceMap** |none | | | |
 | **Shape** |15 - * |Does not support start and end attributes. Does not support int4 and uint4. | |
-| **Shrink** |none | | | |
+| **Shrink** |9 - * | | | |
 | **Sigmoid** |6 - * | | |
 | **Sign** |9 - * | | |
 | **Sin** |7 - * | | |
@@ -209,7 +209,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Tan** |7 - * | | |
 | **Tanh** |6 - * | | |
 | **TfIdfVectorizer** |none | | | |
-| **ThresholdedRelu** |none | | | |
+| **ThresholdedRelu** |10 - * | | | |
 | **Tile** |6 - * | | |
 | **TopK** |10 - * |`K`, the number of top elements to retrieve, must have static shape. | |
 | **Transpose** |6 - * |Does not support int4 and uint4. | |

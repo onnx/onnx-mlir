@@ -179,7 +179,7 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK-LABEL: @test_category_mapper_int64_to_string(%arg0: !llvm.ptr, %arg1: !llvm.ptr, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)> 
   // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32
   // CHECK:       [[MALLOC:%.+]] = llvm.call @malloc({{.*}}) : (i64) -> !llvm.ptr
-  // CHECK:       [[UNDEF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64)>
+  // CHECK:       [[UNDEF:%.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64)>
   // CHECK:       [[EV_1:%.+]] = llvm.insertvalue {{.*}}, [[UNDEF]][0]
   // CHECK:       [[EV_2:%.+]] = llvm.insertvalue {{.*}}, [[EV_1]][1]
   // CHECK:       [[C0:%.+]] = llvm.mlir.constant(0 : index) : i64
@@ -193,7 +193,7 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
 
   /// Determine whether the index is valid:
   // CHECK:       [[EV1:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-  // CHECK-DAG:   [[GEP1:%.+]] = llvm.getelementptr [[EV1]]{{.*}}[[INDEX]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr
+  // CHECK-DAG:   [[GEP1:%.+]] = llvm.getelementptr {{.*}}[[EV1]]{{.*}}[[INDEX]]{{.*}} : (!llvm.ptr, i64) -> !llvm.ptr
   // CHECK-DAG:   [[INDEX1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr
 
   /// Store the index if valid, otherwise store the default value:
@@ -222,7 +222,7 @@ func.func private @test_krnl_global_with_129_elements() -> memref<129x!krnl.stri
   // CHECK:         llvm.func @test_krnl_global_with_129_elements() -> !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface, sym_visibility = "private"} {
   // CHECK:           [[VAR_0_1_:%.+]] = llvm.mlir.addressof @cats_strings : !llvm.ptr
   // CHECK-DAG:       [[VAR_1_1_:%.+]] = llvm.bitcast [[VAR_0_1_]] : !llvm.ptr to !llvm.ptr
-  // CHECK-DAG:       [[VAR_2_1_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:       [[VAR_2_1_:%.+]] = llvm.mlir.poison : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
   // CHECK:           [[VAR_3_1_:%.+]] = llvm.insertvalue [[VAR_1_1_]], [[VAR_2_1_]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
   // CHECK-DAG:       [[VAR_4_1_:%.+]] = llvm.insertvalue [[VAR_1_1_]], [[VAR_3_1_]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
   // CHECK-DAG:       [[VAR_5_1_:%.+]] = llvm.mlir.constant(0 : index) : i64

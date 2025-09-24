@@ -50,21 +50,21 @@ Type getRandomNormalElementType(ONNXRandomNormalOp op) {
         static_cast<onnx::TensorProto_DataType>(op.getDtype());
     if (elementTypeID ==
         onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16) {
-      return FloatType::getF16(op.getContext());
+      return Float16Type::get(op.getContext());
     } else if (elementTypeID ==
                onnx::TensorProto_DataType::TensorProto_DataType_FLOAT) {
-      return FloatType::getF32(op.getContext());
+      return Float32Type::get(op.getContext());
     } else if (elementTypeID ==
                onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE) {
-      return FloatType::getF64(op.getContext());
+      return Float64Type::get(op.getContext());
     } else if (elementTypeID ==
                onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16) {
-      return FloatType::getBF16(op.getContext());
+      return BFloat16Type::get(op.getContext());
     } else {
       llvm_unreachable("dtype not supported for RandomNormal");
     }
   }
-  return FloatType::getF32(op.getContext());
+  return Float32Type::get(op.getContext());
 }
 } // namespace
 
