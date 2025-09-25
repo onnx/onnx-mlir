@@ -2130,6 +2130,8 @@ func.func @test_remove_where_equal_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
 
 // -----
 
+// COM: Canonicalize ConcatOp.
+
 func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf32> ) -> tensor<1x12x4xf32> {
 %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_0"} : (tensor<1x3x4xf32>, tensor<1x3x4xf32>) -> tensor<1x6x4xf32>
 %1 = "onnx.Concat"(%0, %arg0) {axis = 1 : si64, onnx_node_name = "onnx.Concat_1"} : (tensor<1x6x4xf32>, tensor<1x3x4xf32>) -> tensor<1x9x4xf32>
@@ -2145,6 +2147,45 @@ return %2 : tensor<1x12x4xf32>
 }
 
 // -----
+
+func.func @test_concat_remove_dim_0_operand_2_args(%arg0: tensor<?x?x512xf32>, %arg1: tensor<?x0x512xf32>) -> tensor<?x?x512xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64 }: (tensor<?x?x512xf32>, tensor<?x0x512xf32>) -> tensor<?x?x512xf32>
+  onnx.Return %0 : tensor<?x?x512xf32>
+
+// CHECK-LABEL:  func.func @test_concat_remove_dim_0_operand_2_args
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x512xf32>, [[PARAM_1_:%.+]]: tensor<?x0x512xf32>) -> tensor<?x?x512xf32> {
+// CHECK:           onnx.Return [[PARAM_0_]] : tensor<?x?x512xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_concat_remove_dim_0_operand_3_args(%arg0: tensor<?x?x512xf32>, %arg1: tensor<?x0x512xf32>, %arg2: tensor<?x?x512xf32>) -> tensor<?x?x512xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 1 : si64 }: (tensor<?x?x512xf32>, tensor<?x0x512xf32>, tensor<?x?x512xf32>) -> tensor<?x?x512xf32>
+  onnx.Return %0 : tensor<?x?x512xf32>
+
+// CHECK-LABEL:  func.func @test_concat_remove_dim_0_operand_3_args
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x512xf32>, [[PARAM_1_:%.+]]: tensor<?x0x512xf32>, [[PARAM_2_:%.+]]: tensor<?x?x512xf32>) -> tensor<?x?x512xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_2_]]) {axis = 1 : si64} : (tensor<?x?x512xf32>, tensor<?x?x512xf32>) -> tensor<?x?x512xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?x512xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_concat_donot_remove_operand(%arg0: tensor<?x?x512xf32>, %arg1: tensor<?x1x512xf32>, %arg2: tensor<?x?x512xf32>) -> tensor<?x?x512xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 1 : si64 }: (tensor<?x?x512xf32>, tensor<?x1x512xf32>, tensor<?x?x512xf32>) -> tensor<?x?x512xf32>
+  onnx.Return %0 : tensor<?x?x512xf32>
+
+// CHECK-LABEL:  func.func @test_concat_donot_remove_operand
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x512xf32>, [[PARAM_1_:%.+]]: tensor<?x1x512xf32>, [[PARAM_2_:%.+]]: tensor<?x?x512xf32>) -> tensor<?x?x512xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64} : (tensor<?x?x512xf32>, tensor<?x1x512xf32>, tensor<?x?x512xf32>) -> tensor<?x?x512xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?x512xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_split_relu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
   %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
   %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
@@ -2162,6 +2203,7 @@ func.func @test_split_relu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf
 // CHECK:         }
 
 // -----
+
 func.func @test_split_relu_movement_not_all_equal(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
   %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
   %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
@@ -2181,6 +2223,9 @@ func.func @test_split_relu_movement_not_all_equal(%arg0: tensor<1x8x2xf32>) -> (
 // CHECK:         }
 
 // -----
+
+// -----
+
 func.func @test_split_leakyrelu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
   %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
   %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
@@ -2198,6 +2243,7 @@ func.func @test_split_leakyrelu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x
 // CHECK:         }
 
 // -----
+
 func.func @test_split_leakyrelu_movement_different_alpha(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
   %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
   %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)

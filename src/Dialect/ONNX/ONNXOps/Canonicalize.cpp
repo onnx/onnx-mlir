@@ -1630,6 +1630,41 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   }
 };
 
+struct RemoveDimZeroInputInConcatPattern
+    : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    ValueRange inputs = concatOp.getOperands();
+    int64_t axis = concatOp.getAxis();
+
+    // Collect indices of inputs whose dim size at axis is zero.
+    SmallVector<int64_t> indices;
+    for (unsigned int i = 0; i < inputs.size(); ++i) {
+      Value inp = inputs[i];
+      if (!hasShapeAndRank(inp))
+        continue;
+      ArrayRef<int64_t> shape = getShape(inp.getType());
+      // Scalar with rank 0. Dim size is one (not zero).
+      if (shape.size() == 0)
+        continue;
+      if (shape[axis] == 0)
+        indices.emplace_back(i);
+    }
+    if (indices.empty())
+      return rewriter.notifyMatchFailure(
+          concatOp, "No operand whose dim at axis is zero");
+
+    // Rewrite: remove operands whose dim at axis is zero.
+    rewriter.modifyOpInPlace(concatOp, [&]() {
+      for (int64_t idx : indices)
+        concatOp.getOperation()->eraseOperand(idx);
+    });
+    return success();
+  }
+};
+
 // =============================================================================
 // Rewrite pattern LayerNormalization
 // =============================================================================
@@ -2193,6 +2228,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 void ONNXConcatOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RecomposeConcatPattern>(context);
+  results.insert<RemoveDimZeroInputInConcatPattern>(context);
 }
 
 /// on the ONNXClipOp.
