@@ -190,20 +190,26 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 
 //===----------------------------------------------------------------------===//
 // High level support with StickComputeSupport.
-// Operation operands that are of NoneValues are simply ignored and skipped
-// here. This means that:
-// * originalInputMemRef skip the NoneValue entries
-// * The processVectorOfF32Vals function must be able to know
-//   which operands where of NoneType when processing its list of memory that
-//   were read for it.
+//
+// Ok to put memref in originalInput if input is not stickified.
 
 StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
     ValueRange originalInput, ValueRange originalInputMemRef,
     ValueRange optionalMemRefForStick, Value originalOutput,
-    Value originalOutputMemRef, bool disableSaturation)
-    : disableSaturation(disableSaturation) {
+    Value originalOutputMemRef, Value optionalOutputMemRefForStick,
+    bool disableSat) {
+  init(kb, originalInput, originalInputMemRef, optionalMemRefForStick,
+      originalOutput, originalOutputMemRef, optionalOutputMemRefForStick,
+      disableSat);
+}
+
+void StickComputeSupport::init(KrnlBuilder &kb, ValueRange originalInput,
+    ValueRange originalInputMemRef, ValueRange optionalMemRefForStick,
+    Value originalOutput, Value originalOutputMemRef,
+    Value optionalOutputMemRefForStick, bool disableSat) {
   MDBuilder create(kb);
   // Init global constants.
+  disableSaturation = disableSat;
   litZero = LitIE(0);
   lit2 = LitIE(2);
   litStickLen = LitIE(stickLen);
@@ -218,14 +224,19 @@ StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
          "expected same size");
   inputNum = originalInput.size();
   ioNum = inputNum + 1;
+  mlir::SmallVector<Value, 4> ioMemRefForStick(ioNum, nullptr);
+  int64_t optionalSize = optionalMemRefForStick.size();
   for (int64_t i = 0; i < inputNum; ++i) {
     ioOriginalOper.emplace_back(originalInput[i]);
     ioOriginalMemRef.emplace_back(originalInputMemRef[i]);
+    if (i < optionalSize)
+      ioMemRefForStick[i] = optionalMemRefForStick[i];
   }
 
   // 2) Add single output (last entry) in io lists.
   ioOriginalOper.emplace_back(originalOutput);
   ioOriginalMemRef.emplace_back(originalOutputMemRef);
+  ioMemRefForStick[inputNum] = optionalOutputMemRefForStick;
   int64_t innermostOutputShape = getShape(originalOutput.getType(), -1);
 
   // Initialize the computed io values.
@@ -235,7 +246,6 @@ StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
   ioIsBuffer = mlir::BitVector(ioNum, false);
 
   // Iterate over all inputs & output to assign the computed io values.
-  int64_t optionalSize = optionalMemRefForStick.size();
   for (int64_t io = 0; io < ioNum; ++io) {
     Value originalVal = ioOriginalOper[io];
     Value originalMemRef = ioOriginalMemRef[io];
@@ -246,8 +256,7 @@ StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
     ioIsStick[io] = zhigh::isZTensor(originalType);
     ioIsBuffer[io] = originalShape.size() == 2 && originalShape[0] == 1 &&
                      originalShape[1] == archVL;
-    bool hasOptionalMemRefForStick =
-        io < optionalSize && optionalMemRefForStick[io];
+    bool hasOptionalMemRefForStick = ioMemRefForStick[io] != nullptr;
     if (ioIsStick[io] && !ioIsBroadcast[io]) {
       // Set in ioMemRef the flattened [2, 64] view.
       assert(
@@ -255,7 +264,7 @@ StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
           "unsupported layout");
       // When has a precomputed memref for stick, reuse it.
       if (hasOptionalMemRefForStick)
-        ioMemRef[io] = optionalMemRefForStick[io];
+        ioMemRef[io] = ioMemRefForStick[io];
       else
         ioMemRef[io] =
             getMemRefForStick(create.krnl, originalVal, originalMemRef);
@@ -267,12 +276,11 @@ StickComputeSupport::StickComputeSupport(KrnlBuilder &kb,
   }
 }
 
-Value StickComputeSupport::getMemRefForStick(
+/* static */ Value StickComputeSupport::getMemRefForStick(
     KrnlBuilder &kb, Value originalVal, Value originalMemRef) {
-  if (!zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal)) {
-    // It is not a stick, just do nothing
-    return nullptr;
-  }
+  if (!zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal))
+    return nullptr; // It is not a stick, just do nothing.
+
   MDBuilder create(kb);
   IndexExpr lit2 = LitIE(2);
   IndexExpr litStickLen = LitIE(stickLen);
@@ -446,12 +454,6 @@ void StickComputeSupport::loadComputeStore(KrnlBuilder &kb,
 //===----------------------------------------------------------------------===//
 // Process operation with stick inputs/output.
 
-// hi alex
-#if 0
-using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-    MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
-#endif
-
 static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
@@ -496,7 +498,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
   }
 
   StickComputeSupport stickCS(create.krnl, op->getOperands(), operands, {},
-      op->getResult(0), alloc, disableSaturation);
+      op->getResult(0), alloc, {}, disableSaturation);
 
   // Predicates used to avoid creating code that is never used.
   bool neverHas64 = E1.isLiteralAndSmallerThan(stickLen);
@@ -811,9 +813,9 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     Location loc = ONNXLoc<OP_TYPE>(op);
     ValueRange operands = adaptor.getOperands();
     Value XMemRef = adaptor.getX();
-    MDBuilder create(rewriter, loc); 
-    Value XMemRefForStick =
-        StickComputeSupport::getMemRefForStick(create.krnl, lnOp.getX(), XMemRef);
+    MDBuilder create(rewriter, loc);
+    Value XMemRefForStick = StickComputeSupport::getMemRefForStick(
+        create.krnl, lnOp.getX(), XMemRef);
     MemRefType XMemRefType = mlir::cast<MemRefType>(XMemRef.getType());
     Type elementType = XMemRefType.getElementType();
     int64_t XRank = XMemRefType.getRank();
@@ -854,8 +856,8 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     MemRefType YMemRefType = mlir::cast<MemRefType>(convertedYType);
     Value YMemRef =
         create.mem.alignedAlloc(YMemRefType, shapeHelper.getOutputDims(0));
-    Value YMemRefForStick =
-        StickComputeSupport::getMemRefForStick(create.krnl, lnOp.getY(), YMemRef);
+    Value YMemRefForStick = StickComputeSupport::getMemRefForStick(
+        create.krnl, lnOp.getY(), YMemRef);
     // This pass does not support mean or inv std dev.
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
       assert(isNoneValue(lnOp.getMean()) &&
@@ -895,7 +897,6 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
           }
           // First function
           mlir::SmallVector<Value, 4> inputFirst = {XMemRef};
-          // StickComputeSupport(create, lnOp.getOperation(), )
 
           // Determine full tile.
           IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[XRank - 2]);
@@ -904,6 +905,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
               create.krnlIE.isTileFull(blockedCurrIndex, LitIE(B), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isFullVal = create.math.ge(isFull.getValue(), zero);
+          IndexExpr E1 = DimIE(ubs[XRank - 1]);
           create.scf.ifThenElse(
               isFullVal,
               [&](const SCFBuilder &scf) {
@@ -923,13 +925,17 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
   }
 
 #if 0
+  template <int64_t B>
   void generateIter(MDBuilder &create, OP_TYPE lnOp,
       /* inputs */ Value XMemRef, Value scaleMemRef, Value biasMemRef,
+      /* + for stick */ Value XMemRefFS, Value scaleMemRefFS,
+      Value biasMemRefFS,
       /* output */ Value YMemRef,
-      /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
-      /* index expr param */ DimsExpr outerLoopIndices,
+      /* + for stick */ Value YMemRefFS,
+      /* temps [B][vec] */ Value redMemRef1, Value redMemRef2,
+      /* index expr param */ DimsExpr outerLoopIndices, IndexExpr E1,
       /* value params */ Value i, Value epsilon,
-      /* int params */ int64_t B, int64_t VL) {
+      /* int params */ int64_t VL) {
     // Bool isTraditionalLayerNorm is true when computing traditional layer
     // norm, not the faster RMS version.
     bool isTraditionalLayerNorm = false;
@@ -937,9 +943,8 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       isTraditionalLayerNorm = true;
     // Init the two reductions.
     Type elementType =
-        mlir::cast<ShapedType>(YMemRef.getType()).getElementType();
+        mlir::cast<ShapedType>(XMemRef.getType()).getElementType();
     VectorType vecType = VectorType::get({VL}, elementType);
-
     Value init = create.math.constant(elementType, 0.0);
     Value initVec = create.vec.splat(vecType, init);
     Value zero = create.math.constantIndex(0);
@@ -948,6 +953,36 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
         create.vec.store(initVec, redMemRef, {o, zero});
       create.vec.store(initVec, redMemRef2, {o, zero});
     });
+    // Init Stick Compute Support
+    StickComputeSupport stickCS1[B], stickCS2[B], stickCS3;
+    Value redMemRefSubview1[B];
+    Value redMemRefSubview2[B];
+    for (int64_t b = 0; b < B; ++b) {
+      // Create subviews, init stickCS, prepare inside tiled loop.
+      // stickCS1 is for sum of X into redMemRef1 (traditional LN only).
+      if (isTraditionalLayerNorm) {
+        redMemRefSubview1[b] =
+            create.mem.subview(redMemRef1, {b, 0}, {1, VL}, {1, 1});
+        stickCS1[b].init(create.kb,
+            /* in original */ {lnOp.getX(), redMemRefSubview1[b]},
+            /* in memref*/ {XMemRef, redMemRefSubview1[b]},
+            /* in for stick */ {XMemRefFS},
+            /* out */ redMemRefSubview1[b], redMemRefSubview1[b], nullptr,
+            disableSaturation);
+        stickCS1[b].prepareInsideTiledLoop(create.kb, outerLoopIndices, E1);
+      }
+      // stickCS2 is for sum of X2 into redMemRef2
+      redMemRefSubview2[b] =
+          create.mem.subview(redMemRef2, {b, 0}, {1, VL}, {1, 1});
+      stickCS2[b].init(create.kb,
+          /* in original */ {lnOp.getX(), redMemRefSubview[b]},
+          /* in memref*/ {XMemRef, redMemRefSubview2[b]},
+          /* in for stick */ {XMemRefFS},
+          /* out */ redMemRefSubview2[b], redMemRefSubview2[b], nullptr,
+          disableSaturation);
+      stickCS2[b].prepareInsideTiledLoop(create.kb, outerLoopIndices, E1);
+    }
+    
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;

@@ -63,6 +63,7 @@ public:
           mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
 
   // Used to compute ahead of time the re-interpreted memref for stick data.
+  // If not stick reference, return nullptr.
   static mlir::Value getMemRefForStick(
       KrnlBuilder &kb, mlir ::Value originalVal, mlir ::Value originalMemRef);
 
@@ -71,7 +72,17 @@ public:
       /* op inputs */ mlir::ValueRange originalInputMemRef,
       /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
       /* op output */ mlir::Value originalOutput,
-      mlir::Value originalOutputMemRef, bool disableSaturation = false);
+      /* op output */ mlir::Value originalOutputMemRef, 
+      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick, 
+      bool disableSaturation = false);
+  void init(KrnlBuilder &kb,
+      /* op inputs */ mlir::ValueRange originalInput,
+      /* op inputs */ mlir::ValueRange originalInputMemRef,
+      /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
+      /* op output */ mlir::Value originalOutput,
+      /* op output */ mlir::Value originalOutputMemRef, 
+      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick, 
+      bool disableSaturation = false);
 
   bool isStickifiedOutput() { return ioIsStick[inputNum]; }
   void prepareInsideTiledLoop(
