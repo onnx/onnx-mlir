@@ -1,10 +1,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Only if LLVM is built with openmp enabled
-if(TARGET omp)
+# ------------------------------------------------------------
+# Find OpenMP headers built by LLVM
+# ------------------------------------------------------------
+find_path(OPENMP_INCLUDE_DIR
+  NAMES omp.h
+  HINTS
+    ${LLVM_BUILD_BINARY_DIR}/lib/clang/*/include
+  NO_DEFAULT_PATH
+)
+
+if(OPENMP_INCLUDE_DIR)
+  message(STATUS "Found OpenMP headers: ${OPENMP_INCLUDE_DIR}")
+
   set(OMP_TOPDIR ${CMAKE_CURRENT_BINARY_DIR})
   set_directory_properties(PROPERTIES EP_BASE ${OMP_TOPDIR})
 
+  include(ExternalProject)
   ExternalProject_Add(OMomp
     DOWNLOAD_DIR "."
     SOURCE_DIR "."
@@ -14,25 +26,34 @@ if(TARGET omp)
     TMP_DIR "tmp"
 
     DOWNLOAD_COMMAND ""
-    # Build with LIBOMP_ENABLE_SHARED=OFF so that libomp.a can be embedded
-    # into model.so
     CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
                              cmake -G Ninja ${LLVM_BUILD_MAIN_SRC_DIR} \
                                    -DLLVM_ENABLE_PROJECTS=\"clang\" \
                                    -DLLVM_ENABLE_RUNTIMES=\"openmp\" \
                                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
                                    -DLIBOMP_ENABLE_SHARED=OFF"
-    BUILD_COMMAND sh -c "cmake --build . --target omp -- ${MAKEFLAGS}"
+    BUILD_COMMAND sh -c "cd ${LLVM_BUILD_BINARY_DIR}/runtimes/runtimes-bins/openmp/runtime/src && ninja"
     INSTALL_COMMAND ""
-    )
+  )
+
+  find_file(LIBOMP_PATH
+    NAMES libomp.a libomp.dylib libomp.so omp.lib iomp5.lib
+    PATHS ${LLVM_BUILD_BINARY_DIR}/runtimes/runtimes-bins/openmp/runtime/src
+    NO_DEFAULT_PATH
+  )
+
+  if(NOT LIBOMP_PATH)
+    message(FATAL_ERROR "Could not find built OpenMP library (libomp.a or shared)")
+  endif()
+
+  message(STATUS "Found OpenMP library: ${LIBOMP_PATH}")
 
   add_custom_target(ompruntime
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${OMP_TOPDIR}/lib/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
+            ${LIBOMP_PATH} ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
     DEPENDS OMomp
-    # BYPRODUCTS requires cmake 3.20+
-    BYPRODUCTS ${OMP_TOPDIR}/lib/libomp.a
-    )
+    BYPRODUCTS ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
+  )
 
   install(FILES ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a DESTINATION lib)
 
