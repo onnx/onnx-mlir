@@ -113,7 +113,7 @@ func.func @test_onnx_add_ztensor_sss(%arg0: tensor<?x3x5x7xf16, #zhigh.layout<{d
 // CHECK:                   [[VAR_10_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x7xf16, #map>
 // CHECK-DAG:               [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_10_]])
 // CHECK-DAG:               [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
-// CHECK:                   [[VAR_13_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<8xf16>
+// CHECK:                   [[VAR_13_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f16 to vector<8xf16>
 // CHECK:                   [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[VAR_13_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK:                   [[VAR_14_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x7xf16, #map>
 // CHECK-DAG:               [[VAR_15_:%.+]] = affine.apply [[MAP_3_]]([[VAR_14_]])
@@ -182,7 +182,7 @@ func.func @test_onnx_sub_ztensor_nss(%arg0: tensor<?x3x5x7xf32>, %arg1: tensor<?
 // CHECK:                   [[VAR_8_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
 // CHECK-DAG:               [[VAR_9_:%.+]] = affine.apply [[MAP_2_]]([[VAR_8_]])
 // CHECK-DAG:               [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
-// CHECK:                   [[VAR_11_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<8xf16>
+// CHECK:                   [[VAR_11_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f16 to vector<8xf16>
 // CHECK:                   [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[VAR_11_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK:                   [[VAR_12_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x7xf16, #map>
 // CHECK-DAG:               [[VAR_13_:%.+]] = affine.apply [[MAP_3_]]([[VAR_12_]])
@@ -257,7 +257,7 @@ func.func @test_onnx_mul_ztensor_sns(%arg0: tensor<?x3x5x7xf16, #zhigh.layout<{d
 // CHECK-DAG:               [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_10_]])
 // CHECK-DAG:               [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[CST_0_]]{{.}} : memref<?x3x5x1xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:               [[VAR_13_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<4xf32>
+// CHECK-DAG:               [[VAR_13_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f32 to vector<4xf32>
 // CHECK-DAG:               [[VAR_14_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:               [[VAR_15_:%.+]] = affine.apply [[MAP_3_]]([[VAR_14_]])
@@ -325,7 +325,7 @@ func.func @test_onnx_div_ztensor_ssn(%arg0: tensor<?x3x5x7xf16, #zhigh.layout<{d
 // CHECK:                   [[VAR_10_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x7xf16, #map>
 // CHECK-DAG:               [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_10_]])
 // CHECK-DAG:               [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
-// CHECK:                   [[VAR_13_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<8xf16>
+// CHECK:                   [[VAR_13_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f16 to vector<8xf16>
 // CHECK:                   [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[VAR_13_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK-DAG:               [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x8xf32>
 // CHECK-DAG:               [[LOAD_VAR_reinterpret_cast_MEM_:%.+]] = vector.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_11_]], [[CST_0_]]{{.}} : memref<2x64xf16>, vector<8xf16>
@@ -414,7 +414,7 @@ func.func @test_onnx_min_ztensor_sss_big(%arg0: tensor<?x3x5x137xf16, #zhigh.lay
 // CHECK:                   [[VAR_10_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x137xf16, #map>
 // CHECK-DAG:               [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_10_]])
 // CHECK-DAG:               [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
-// CHECK:                   [[VAR_13_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<8xf16>
+// CHECK:                   [[VAR_13_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f16 to vector<8xf16>
 // CHECK:                   [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[VAR_13_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK:                   [[VAR_14_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x137xf16, #map>
 // CHECK-DAG:               [[VAR_15_:%.+]] = affine.apply [[MAP_3_]]([[VAR_14_]])
@@ -599,7 +599,7 @@ func.func @test_onnx_mod_ztensor_ssn_big(%arg0: tensor<?x3x5x137xf16, #zhigh.lay
 // CHECK:                   [[VAR_10_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[VAR_9_]]{{.}} : memref<?x3x5x137xf16, #map>
 // CHECK-DAG:               [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_10_]])
 // CHECK-DAG:               [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_6_]], [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
-// CHECK:                   [[VAR_13_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<8xf16>
+// CHECK:                   [[VAR_13_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f16 to vector<8xf16>
 // CHECK:                   [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[VAR_13_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
 // CHECK:                   [[VAR_14_:%.+]] = affine.apply [[MAP_4_]]([[VAR_8_]])
 // CHECK:                   [[VAR_15_:%.+]] = arith.cmpi sge, [[VAR_14_]], [[CST_0_]] : index
@@ -726,4 +726,3 @@ func.func @test_onnx_mod_ztensor_ssn_big(%arg0: tensor<?x3x5x137xf16, #zhigh.lay
 // CHECK:           return [[RES_]] : memref<?x3x5x137xf32>
 // CHECK:         }
 }
-
