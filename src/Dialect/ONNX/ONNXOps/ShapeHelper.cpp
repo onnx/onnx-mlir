@@ -645,7 +645,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                                 << " & " << d << "; abort\n");
         return collapsedInnermostLoops > 0;
       } // End for all non-scalars,
-    } // End testing non-scalar compatibility.
+    }   // End testing non-scalar compatibility.
 
     // 4) Since we have at least one non-scalar
     //   4.1) all the scalar inputs are now marked as having a broadcast.
