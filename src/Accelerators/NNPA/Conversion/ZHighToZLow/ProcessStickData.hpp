@@ -58,20 +58,31 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 
 class UnifiedStickMemSupport {
 public:
+  // For stickified values, OriginalVal must be the tensor version (prior to
+  // MemRef conversions); otherwise it can be a MemRef. E1 is the innermost
+  // (possibly stickified) dimension. At least one of isRead or isWrite must be
+  // true. Same holds for init.
   UnifiedStickMemSupport(KrnlBuilder &kb, mlir::Value originalVal,
       mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
-      bool disableSaturation);
-
+      bool disableSaturation) {
+    init(kb, originalVal, originalMemRef, E1, isRead, isWrite,
+        disableSaturation);
+  }
   void init(KrnlBuilder &kb, mlir::Value originalVal,
       mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
       bool disableSaturation);
 
+  // Run before the stickified inner loop. This will load read values that are
+  // broadcasted. For stickified references, the stick offset will also be
+  // computed.
   void beforeStickLoop(
       KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
+  // Perform the read and the write operations as needed.
   void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
   void afterCompute(
       KrnlBuilder &kb, IndexExpr l, int64_t u, mlir::Value tempBufferMemRef);
-
+  // Get the values to perform the computation, and must set the values for the
+  // values that will be stored.
   void get4xF32Vals(mlir::Value &highVal, mlir::Value &lowVal);
   void set4xF32Vals(mlir::Value highVal, mlir::Value lowVal);
 
@@ -83,9 +94,6 @@ public:
   static const int64_t stickLen = 64;
 
 private:
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
-
   static DimsExpr computeAccessFct(
       mlir::Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset);
 
@@ -99,14 +107,15 @@ private:
   mlir::Value highVal, lowVal;
 };
 
-struct UnifiedStickSupport {
+struct UnifiedStickMemSupportForKernels {
   using MultiValuesOfF32IterateBodyFn =
       std::function<mlir::Value(const KrnlBuilder &b,
           mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
 
-  UnifiedStickSupport(KrnlBuilder &kb, mlir::ValueRange originalVals,
-      mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
-      mlir::BitVector isWrites, bool disableSaturation);
+  UnifiedStickMemSupportForKernels(KrnlBuilder &kb,
+      mlir::ValueRange originalVals, mlir::ValueRange originalMemRefs,
+      IndexExpr E1, mlir::BitVector isReads, mlir::BitVector isWrites,
+      bool disableSaturation);
   void init(KrnlBuilder &kb, mlir::ValueRange originalVals,
       mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
       mlir::BitVector isWrites, bool disableSaturation);
@@ -118,84 +127,13 @@ struct UnifiedStickSupport {
   void afterCompute(KrnlBuilder &kb, IndexExpr l, int64_t u,
       mlir::ValueRange tempBufferMemRefs);
 
+  // This function works only when initialized with originVals and originMemRefs
+  // to have only one output. Typically used for elementwise operations.
   void loadComputeStore(KrnlBuilder &kb,
       MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
       int64_t u, mlir::Value tempBufferMemRef = nullptr);
 
   mlir::SmallVector<UnifiedStickMemSupport, 4> list;
-};
-
-class StickComputeSupport {
-public:
-  using MultiValuesOfF32IterateBodyFn =
-      std::function<mlir::Value(const KrnlBuilder &b,
-          mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
-
-  // Used to compute ahead of time the re-interpreted memref for stick data.
-  // If not stick reference, return nullptr.
-  static mlir::Value getMemRefForStick(
-      KrnlBuilder &kb, mlir ::Value originalVal, mlir ::Value originalMemRef);
-
-  StickComputeSupport(KrnlBuilder &kb,
-      /* op inputs */ mlir::ValueRange originalInput,
-      /* op inputs */ mlir::ValueRange originalInputMemRef,
-      /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
-      /* op output */ mlir::Value originalOutput,
-      /* op output */ mlir::Value originalOutputMemRef,
-      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick,
-      bool disableSaturation = false);
-  void init(KrnlBuilder &kb,
-      /* op inputs */ mlir::ValueRange originalInput,
-      /* op inputs */ mlir::ValueRange originalInputMemRef,
-      /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
-      /* op output */ mlir::Value originalOutput,
-      /* op output */ mlir::Value originalOutputMemRef,
-      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick,
-      bool disableSaturation = false);
-
-  bool isStickifiedOutput() { return ioIsStick[inputNum]; }
-  void prepareInsideTiledLoop(
-      KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
-
-  void loadComputeStore(KrnlBuilder &kb,
-      MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
-      int64_t u, mlir::Value tempBufferMemRef = nullptr);
-
-  static const int64_t archVL = 8;
-  static const int64_t stickLen = 64;
-
-private:
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
-
-  DimsExpr computeAccessFct(
-      mlir::Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset);
-  void loadVector(MDBuilder &create, DimsExpr &localOuterIndices, IndexExpr l,
-      int64_t u, int64_t i);
-  void storeVector(MDBuilder &create, DimsExpr &localOuterIndices, IndexExpr l,
-      int64_t u, int64_t o, mlir::Value tempBufferMemRef,
-      mlir::Value outputHigh, mlir::Value outputLow);
-
-  // Inputs.
-  mlir::SmallVector<mlir::Value, 4> ioOriginalOper;   // Untransformed opers.
-  mlir::SmallVector<mlir::Value, 4> ioOriginalMemRef; // Memref opers.
-  bool disableSaturation;
-
-  // Computed values outside the loop.
-  mlir::SmallVector<mlir::Value, 4> ioMemRef; // Memrefs possibly reinterpreted.
-  mlir::BitVector ioIsStick;     // True if the operand has a stick data layout.
-  mlir::BitVector ioIsBroadcast; // True if the last dimension is a broadcast
-  mlir::BitVector ioIsBuffer;    // True if oper has <1, 8> static shapes.
-  int64_t inputNum, ioNum;
-
-  // Computed value inside the tiled loop, preparing for a stick loop.
-  DimsExpr ioStickOffsets; // Offset pointing to current stick.
-  mlir::SmallVector<mlir::Value, 4> inputHigh, inputLow; // High/low values.
-  DimsExpr outerIndices; // Indices of the outer loop (orig, not tiles)
-
-  // Helper values.
-  IndexExpr litZero, lit2, litStickLen;
-  mlir::VectorType vecF16Type, vecF32Type;
 };
 
 } // namespace onnx_mlir
