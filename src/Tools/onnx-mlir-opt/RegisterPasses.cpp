@@ -93,7 +93,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createInstrumentONNXSignaturePass("NONE", "NONE");
+    return createInstrumentONNXSignaturePass("NONE", "NONE", false);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
