@@ -130,6 +130,9 @@ struct ONNXOpShapeHelper {
   void setOutputDims(
       const DimsExpr &inferredDims, int n = 0, bool refineShape = true);
 
+  // Set dimension at a specific axis for an input value.
+  void updateInputDimAt(mlir::Value inputVal, uint64_t dimSize, int64_t axis);
+
   // Obtain the n-th output result as value.
   mlir::Value getOutput(int n = 0) { return op->getResult(n); }
 

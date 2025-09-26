@@ -185,6 +185,58 @@ void ONNXOpShapeHelper::setOutputDims(
   }
 }
 
+void ONNXOpShapeHelper::updateInputDimAt(
+    Value inputVal, uint64_t dimSize, int64_t axis) {
+  auto valType = mlir::dyn_cast<RankedTensorType>(inputVal.getType());
+  if (!valType)
+    return;
+
+  // Compute a new shape by updating the dim size at axis.
+  ArrayRef<int64_t> shape = getShape(valType);
+  SmallVector<int64_t> newShape =
+      SmallVector<int64_t>(shape.begin(), shape.end());
+  if (axis < 0)
+    axis += newShape.size();
+  newShape[axis] = dimSize;
+
+  // Build a new type.
+  Attribute encoding = valType.getEncoding();
+  RankedTensorType newType;
+  if (encoding)
+    newType =
+        RankedTensorType::get(newShape, valType.getElementType(), encoding);
+  else
+    newType = RankedTensorType::get(newShape, valType.getElementType());
+
+  // Update value type.
+  inputVal.setType(newType);
+
+  // Update the function signature if the value is a BlockArgument.
+  if (auto blockArg = llvm::dyn_cast<BlockArgument>(inputVal)) {
+    // Get the block that owns the argument.
+    Block *block = blockArg.getOwner();
+    // Get the region that owns the block.
+    Region *region = block->getParent();
+    // Get the operation that owns the region.
+    Operation *op = region->getParentOp();
+    // Cast to FuncOp if possible.
+    auto funcOp = dyn_cast<func::FuncOp>(op);
+    if (funcOp) {
+      // Get the current function type.
+      FunctionType oldFuncType = funcOp.getFunctionType();
+      // Create a new input type list with the updated type.
+      SmallVector<Type, 4> newInputTypes(
+          oldFuncType.getInputs().begin(), oldFuncType.getInputs().end());
+      newInputTypes[blockArg.getArgNumber()] = newType;
+      // Create the new function type.
+      FunctionType newFuncType = FunctionType::get(
+          funcOp.getContext(), newInputTypes, oldFuncType.getResults());
+      // Update the function type.
+      funcOp.setType(newFuncType);
+    }
+  }
+}
+
 LogicalResult ONNXOpShapeHelper::setOutputDimsFromOperand(
     Value operand, int n, bool refineShape) {
   // Output and operand have the same shape. Just pass the operand shape to the

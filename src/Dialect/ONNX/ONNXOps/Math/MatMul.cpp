@@ -140,11 +140,15 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
     if (aDims[aK].getLiteral() != bDims[bK].getLiteral())
       return this->op->emitError("reduction dimension must be the same");
   } else if (aDims[aK].isLiteral()) {
-    // Save aK dims into bK dims, in case bK dims was runtime
+    // Save aK dims into bK dims, in case bK dims was runtime.
     bDims[bK] = aDims[aK];
+    // Update bK dim to the literal aK.
+    this->updateInputDimAt(B, aDims[aK].getLiteral(), -2);
   } else if (bDims[bK].isLiteral()) {
-    // Save bK dims into aK dims, in case aK dims was runtime
+    // Save bK dims into aK dims, in case aK dims was runtime.
     aDims[aK] = bDims[bK];
+    // Update aK dim to the literal bK.
+    this->updateInputDimAt(A, bDims[bK].getLiteral(), -1);
   }
   // Add lower N x M dimensions if they are not padded dimensions.
   if (!aPadDims[aN])
