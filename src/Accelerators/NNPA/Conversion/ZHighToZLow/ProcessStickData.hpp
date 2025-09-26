@@ -76,7 +76,7 @@ public:
   // broadcasted. For stickified references, the stick offset will also be
   // computed.
   void beforeStickLoop(
-      KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
+      KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1);
   // Perform the read and the write operations as needed.
   void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
   void afterCompute(
@@ -121,7 +121,7 @@ struct UnifiedStickMemSupportForKernels {
       mlir::BitVector isWrites, bool disableSaturation);
 
   void beforeStickLoop(
-      KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
+      KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1);
 
   void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
   void afterCompute(KrnlBuilder &kb, IndexExpr l, int64_t u,

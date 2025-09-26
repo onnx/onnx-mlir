@@ -227,12 +227,11 @@ void UnifiedStickMemSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
 // hi alex, why do we need the tiled outer indices??? where we iterate over
 // E1/64???
 void UnifiedStickMemSupport::beforeStickLoop(
-    KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1) {
+    KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
   MultiDialectBuilder<KrnlBuilder, VectorBuilder, ZLowBuilder> create(kb);
-  int64_t rank = tiledOuterIndices.size();
+  int64_t rank = outerIndices.size();
   int64_t d1 = rank - 1;
-  outerIndices = tiledOuterIndices;
-  outerIndices[d1] = tiledOuterIndices[d1] * stickLen;
+  this->outerIndices = outerIndices;
   // Initialize data that will hold data and stick offsets.
   stickOffset = nullptr;
   highVal = lowVal = nullptr;
@@ -404,10 +403,10 @@ void UnifiedStickMemSupportForKernels::init(KrnlBuilder &kb,
 }
 
 void UnifiedStickMemSupportForKernels::beforeStickLoop(
-    KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1) {
+    KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
   int64_t size = list.size();
   for (int64_t i = 0; i < size; ++i)
-    list[i].beforeStickLoop(kb, tiledOuterIndices, E1);
+    list[i].beforeStickLoop(kb, outerIndices, E1);
 }
 
 void UnifiedStickMemSupportForKernels::beforeCompute(
@@ -550,7 +549,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
         IndexExpr E1 = DimIE(outputDims[d1]); // Original upper bound in d1.
         IndexExpr e1 = outerIndices[d1] = tiledOuterIndices[d1] * litStickLen;
 
-        stickCS.beforeStickLoop(create.krnl, tiledOuterIndices, E1);
+        stickCS.beforeStickLoop(create.krnl, outerIndices, E1);
 
         if (enablePrefetch) {
           // TODO: enable prefetch
