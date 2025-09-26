@@ -224,13 +224,10 @@ void UnifiedStickMemSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   }
 }
 
-// hi alex, why do we need the tiled outer indices??? where we iterate over
-// E1/64???
 void UnifiedStickMemSupport::beforeStickLoop(
     KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
   MultiDialectBuilder<KrnlBuilder, VectorBuilder, ZLowBuilder> create(kb);
   int64_t rank = outerIndices.size();
-  int64_t d1 = rank - 1;
   this->outerIndices = outerIndices;
   // Initialize data that will hold data and stick offsets.
   stickOffset = nullptr;
