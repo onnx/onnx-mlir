@@ -227,7 +227,6 @@ void UnifiedStickMemSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
 void UnifiedStickMemSupport::beforeStickLoop(
     KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
   MultiDialectBuilder<KrnlBuilder, VectorBuilder, ZLowBuilder> create(kb);
-  int64_t rank = outerIndices.size();
   this->outerIndices = outerIndices;
   // Initialize data that will hold data and stick offsets.
   stickOffset = nullptr;
@@ -262,7 +261,7 @@ void UnifiedStickMemSupport::beforeStickLoop(
   }
 }
 
-// For read only.
+// For read references.
 void UnifiedStickMemSupport::beforeCompute(
     KrnlBuilder &kb, IndexExpr l, int64_t u) {
   if (!isRead)
@@ -302,14 +301,16 @@ void UnifiedStickMemSupport::beforeCompute(
     Value lowOffset = create.math.constantIndex(archVL / 2);
     lowVal = create.vec.loadIE(vecF32Type, memRef, accessFct, {lowOffset});
   }
+  assert(highVal && lowVal && "expected high/low val to be defined");
 }
 
-// For write only.
+// For write references.
 void UnifiedStickMemSupport::afterCompute(
     KrnlBuilder &kb, IndexExpr l, int64_t u, Value tempBufferMemRef) {
   if (!isWrite)
     return;
   assert(!isBroadcast && "output should not be broadcast");
+  assert(highVal && lowVal && "expected high/low val to be defined");
   // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
   MultiDialectBuilder<MathBuilder, VectorBuilder, ZLowBuilder> create(kb);
   DimsExpr currIndices;
@@ -347,6 +348,7 @@ void UnifiedStickMemSupport::get4xF32Vals(Value &highVal, Value &lowVal) {
   lowVal = this->lowVal;
   assert(highVal && lowVal && "expected high/low val to be defined");
 }
+
 void UnifiedStickMemSupport::set4xF32Vals(Value highVal, Value lowVal) {
   assert(highVal && lowVal && "expected high/low val to be defined");
   this->highVal = highVal;
