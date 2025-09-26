@@ -452,8 +452,483 @@ void StickComputeSupport::loadComputeStore(KrnlBuilder &kb,
 }
 
 //===----------------------------------------------------------------------===//
+// UnifiedStickMemSupport.
+
+// hi alex
+UnifiedStickMemSupport::UnifiedStickMemSupport(KrnlBuilder &kb,
+    mlir::Value originalVal, mlir::Value originalMemRef, IndexExpr E1,
+    bool isRead, bool isWrite, bool disableSaturation) {
+  init(kb, originalVal, originalMemRef, E1, isRead, isWrite, disableSaturation);
+}
+
+void UnifiedStickMemSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
+    mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
+    bool disableSaturation) {
+  // Save values to class.
+  this->originalVal = originalVal;
+  this->originalMemRef = originalMemRef;
+  this->memRef = originalMemRef;
+  this->isRead = isRead;
+  this->isWrite = isWrite;
+  this->disableSaturation = disableSaturation;
+  assert((isRead || isWrite) && "must be at least read or write");
+  // Classify: get info and classify.
+  assert(E1.isLiteral());
+  Type originalType = originalVal.getType();
+  auto originalShape = getShape(originalType);
+  int64_t innermostShape = getShape(originalType, -1);
+  isBroadcast = (innermostShape == 1 && E1.getLiteral() != 1);
+  isStick = zhigh::isZTensor(originalType);
+  isBuffer = originalShape.size() == 2 && originalShape[0] == 1 &&
+             originalShape[1] == archVL;
+  if (isStick && !isBroadcast) {
+    // Overwrite memRefValue as a flattened [2, 64] view.
+    assert(
+        zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal) &&
+        "unsupported layout");
+    MDBuilder create(kb);
+    IndexExpr lit2 = LitIE(2);
+    IndexExpr litStickLen = LitIE(stickLen);
+    DimsExpr castShape = {lit2, litStickLen};
+    this->memRef = create.mem.reinterpretCast(originalMemRef, castShape);
+  }
+}
+
+// hi alex, why do we need the tiled outer indices??? where we iterate over
+// E1/64???
+void UnifiedStickMemSupport::beforeStickLoop(
+    KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1) {
+  MDBuilder create(kb);
+  int64_t rank = tiledOuterIndices.size();
+  int64_t d1 = rank - 1;
+  outerIndices = tiledOuterIndices;
+  outerIndices[d1] = tiledOuterIndices[d1] * stickLen;
+  // Initialize data that will hold data and stick offsets.
+  stickOffset = nullptr;
+  highVal = lowVal = nullptr;
+  // Handling for broadcast or stick
+  if (isBroadcast) {
+    assert(isRead && "broadcast val must be read");
+    IndexExpr lit0 = LitIE(0);
+    DimsExpr accessFct = computeAccessFct(memRef, outerIndices, lit0);
+    Value scalar = create.krnl.loadIE(memRef, accessFct);
+    if (isStick) {
+      Type f16Type = create.getBuilder().getF16Type();
+      VectorType vecF16Type = VectorType::get({archVL}, f16Type);
+      Value vecF16 = create.vec.splat(vecF16Type, scalar);
+      Value vecHigh, vecLow;
+      create.zlow.convertDLF16ToF32(vecF16, vecHigh, vecLow);
+      highVal = lowVal = vecHigh; // Splatted, low and high are the same.
+    } else {
+      Type f32Type = create.getBuilder().getF32Type();
+      VectorType vecF32Type = VectorType::get({archVL / 2}, f32Type);
+      highVal = lowVal = create.vec.splat(vecF32Type, scalar);
+    }
+  } else if (isStick) {
+    // Stick data that is not broadcasted: need SIMD support.
+    // Translate the tile index to the stick offset. Have to
+    // give the actual indices, not the tiled ones.
+    IndexExpr lit0 = LitIE(0);
+    DimsExpr accessFct = computeAccessFct(originalMemRef, outerIndices, lit0);
+    Value offset =
+        create.krnl.getLinearOffsetIndexIE(originalMemRef, accessFct);
+    stickOffset = DimIE(offset).floorDiv(stickLen);
+  }
+}
+
+// For read only.
+void UnifiedStickMemSupport::beforeCompute(
+    KrnlBuilder &kb, IndexExpr l, int64_t u) {
+  if (!isRead)
+    return;
+  // Broadcast loaded inside the outer loops.
+  if (isBroadcast) {
+    assert(highVal && lowVal && "should be read in beforeStickLoop");
+    return;
+  }
+  // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
+  MDBuilder create(kb);
+  DimsExpr currIndices;
+  IndexExpr currStickOffset, currOffset;
+  if (isBuffer) {
+    // For buffer, all accesses are zero.
+    IndexExpr lit0 = LitIE(0);
+    currIndices = {lit0, lit0};
+    currStickOffset = lit0;
+    currOffset = lit0;
+  } else {
+    currIndices = outerIndices;
+    currStickOffset = this->stickOffset;
+    currOffset = l + (archVL * u);
+  }
+  if (isStick) {
+    DimsExpr accessFct = {DimIE(currStickOffset), currOffset};
+    Type f16Type = create.getBuilder().getF16Type();
+    VectorType vecF16Type = VectorType::get({archVL}, f16Type);
+    Value vecOfDLF16 = create.vec.loadIE(vecF16Type, memRef, accessFct);
+    create.zlow.convertDLF16ToF32(vecOfDLF16, highVal, lowVal);
+  } else {
+    DimsExpr accessFct = computeAccessFct(memRef, currIndices, currOffset);
+    Type f32Type = create.getBuilder().getF32Type();
+    VectorType vecF32Type = VectorType::get({archVL / 2}, f32Type);
+    highVal = create.vec.loadIE(vecF32Type, memRef, accessFct);
+    Value lowOffset = create.math.constantIndex(archVL / 2);
+    lowVal = create.vec.loadIE(vecF32Type, memRef, accessFct, {lowOffset});
+  }
+}
+
+// For write only.
+void UnifiedStickMemSupport::afterCompute(
+    KrnlBuilder &kb, IndexExpr l, int64_t u, Value tempBufferMemRef) {
+  if (!isWrite)
+    return;
+  assert(!isBroadcast && "output should not be broadcast");
+  // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
+  MDBuilder create(kb);
+  DimsExpr currIndices;
+  IndexExpr currOffset, currStickOffset;
+  Value currMemref;
+  if (isBuffer || tempBufferMemRef) {
+    // For buffer, all accesses are zero.
+    IndexExpr lit0 = LitIE(0);
+    currIndices = {lit0, lit0};
+    currStickOffset = lit0;
+    currOffset = lit0;
+    currMemref = tempBufferMemRef ? tempBufferMemRef : memRef;
+  } else {
+    currIndices = outerIndices;
+    currStickOffset = this->stickOffset;
+    currOffset = l + (archVL * u);
+    currMemref = memRef;
+  }
+  if (isStick) {
+    Value dlf16 =
+        create.zlow.convertF32ToDLF16(highVal, lowVal, disableSaturation);
+    DimsExpr accessFct = {DimIE(currStickOffset), currOffset};
+    create.vec.storeIE(dlf16, currMemref, accessFct);
+  } else {
+    DimsExpr accessFct = computeAccessFct(currMemref, currIndices, currOffset);
+    create.vec.storeIE(highVal, currMemref, accessFct);
+    Value lowOffset = create.math.constantIndex(archVL / 2);
+    create.vec.storeIE(lowVal, currMemref, accessFct, {lowOffset});
+  }
+}
+
+void UnifiedStickMemSupport::get4xF32Vals(Value &highVal, Value &lowVal) {
+  highVal = this->highVal;
+  lowVal = this->lowVal;
+  assert(highVal && lowVal && "expected high/low val to be defined");
+}
+void UnifiedStickMemSupport::set4xF32Vals(Value highVal, Value lowVal) {
+  assert(highVal && lowVal && "expected high/low val to be defined");
+  this->highVal = highVal;
+  this->lowVal = lowVal;
+}
+
+/* static */ DimsExpr UnifiedStickMemSupport::computeAccessFct(
+    Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset) {
+  DimsExpr accessFct;
+  int64_t valRank = getRank(val.getType());
+  int64_t loopRank = loopIndices.size();
+  accessFct.clear();
+  for (int i = 0; i < valRank; ++i) {
+    if (getShape(val.getType(), i) == 1) {
+      // Possible broadcast situation, ignore loop index, just use 0.
+      accessFct.emplace_back(LitIE(0));
+    } else {
+      // Use innermost loop indices.
+      IndexExpr index = loopIndices[loopRank - valRank + i];
+      if (i == valRank - 1)
+        index = index + additionalInnerOffset; // Add innermost offset.
+      accessFct.emplace_back(index);
+    }
+  }
+  return accessFct;
+}
+
+UnifiedStickSupport::UnifiedStickSupport(KrnlBuilder &kb,
+    ValueRange originalVals, ValueRange originalMemRefs, IndexExpr E1,
+    mlir::BitVector isReads, mlir::BitVector isWrites, bool disableSaturation) {
+  init(kb, originalVals, originalMemRefs, E1, isReads, isWrites,
+      disableSaturation);
+}
+
+void UnifiedStickSupport::init(KrnlBuilder &kb, ValueRange originalVals,
+    ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+    mlir::BitVector isWrites, bool disableSaturation) {
+  int64_t size = originalVals.size();
+  assert((int)originalMemRefs.size() == size && "bad memref size");
+  assert((int)isReads.size() == size && "bad isRead size");
+  assert((int)isWrites.size() == size && "bad isWrite size");
+  list.clear();
+  for (int64_t i = 0; i < size; ++i)
+    list.emplace_back(UnifiedStickMemSupport(kb, originalVals[i],
+        originalMemRefs[i], E1, isReads[i], isWrites[i], disableSaturation));
+}
+
+void UnifiedStickSupport::beforeStickLoop(
+    KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1) {
+  int64_t size = list.size();
+  for (int64_t i = 0; i < size; ++i)
+    list[i].beforeStickLoop(kb, tiledOuterIndices, E1);
+}
+
+void UnifiedStickSupport::beforeCompute(
+    KrnlBuilder &kb, IndexExpr l, int64_t u) {
+  int64_t size = list.size();
+  for (int64_t i = 0; i < size; ++i)
+    list[i].beforeCompute(kb, l, u);
+}
+
+void UnifiedStickSupport::afterCompute(
+    KrnlBuilder &kb, IndexExpr l, int64_t u, ValueRange tempBufferMemRefs) {
+  int64_t size = list.size();
+  int64_t tempSize = tempBufferMemRefs.size();
+  for (int64_t i = 0; i < size; ++i) {
+    Value tempMemRef = i < tempSize ? tempBufferMemRefs[i] : nullptr;
+    list[i].afterCompute(kb, l, u, tempMemRef);
+  }
+}
+
+void UnifiedStickSupport::loadComputeStore(KrnlBuilder &kb,
+    MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
+    int64_t u, Value tempBufferMemRef) {
+  // Load values;
+  beforeCompute(kb, l, u);
+  // Gather input value, and usms that hold the store.
+  int64_t size = list.size();
+  mlir::SmallVector<Value, 4> highInputVals, lowInputVals;
+  UnifiedStickMemSupport *storeUSMS = nullptr;
+  for (int64_t i = 0; i < size; ++i) {
+    if (list[i].hasRead()) {
+      Value highVal, lowVal;
+      list[i].get4xF32Vals(highVal, lowVal);
+      highInputVals.emplace_back(highVal);
+      lowInputVals.emplace_back(lowVal);
+    }
+    if (list[i].hasWrite()) {
+      assert(storeUSMS == nullptr && "only one store allowed");
+      storeUSMS = &(list[i]);
+    }
+  }
+  // Compute output values.
+  Value highOutputVal = processVectorOfF32Vals(kb, highInputVals);
+  Value lowOutputVal = processVectorOfF32Vals(kb, lowInputVals);
+  // Store values.
+  storeUSMS->set4xF32Vals(highOutputVal, lowOutputVal);
+  storeUSMS->afterCompute(kb, l, u, tempBufferMemRef);
+}
+
+//===----------------------------------------------------------------------===//
 // Process operation with stick inputs/output.
 
+#if 1
+
+static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
+    ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
+    int64_t unrollVL, bool enableParallel, bool disableSaturation,
+    bool enablePrefetch,
+    StickComputeSupport::MultiValuesOfF32IterateBodyFn processVectorOfF32Vals) {
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
+
+  // Init builder and scopes.
+  MDBuilder create(kb);
+  // IndexExprScope initialScope(b);
+  //  Get info and check some inputs.
+  int64_t rank = outputDims.size();
+  int64_t d1 = rank - 1;
+  IndexExpr E1 = outputDims[d1];
+  assert(op->getNumResults() == 1 && "handle only 1 output ops");
+
+  int64_t archVL = StickComputeSupport::archVL;
+  int64_t stickLen = StickComputeSupport::stickLen;
+  int64_t totVL = archVL * unrollVL;
+  assert(stickLen % totVL == 0 && "bad unrollVL factor");
+  IndexExpr litZero = LitIE(0);
+  IndexExpr litStickLen = LitIE(stickLen);
+
+  // Create loop iterations. We iterate over E1 as sticks of 64 elements. Lbs
+  // and ubs reflect the iteration over the sticks (tiled data points).
+  DimsExpr tiledLbs(rank, litZero);
+  DimsExpr tiledUbs = outputDims;
+  tiledUbs[d1] = E1.ceilDiv(litStickLen);
+
+  // Parallel... Should not be turned on when parallelized in the outside.
+  int64_t parId = 0;
+  if (enableParallel) {
+    // TODO: may want to check if ub of rank makes sense here.
+    // Its ok here even to partition rank-1, included in (0..rank(, because
+    // rank-1 is tiled. So we are still dealing with multiple of sticks.
+    parId = tryCreateKrnlParallel(create.krnl, op,
+        "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
+        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
+    if (parId == -1)
+      enableParallel = false;
+  }
+
+  int64_t inputNum = op->getNumOperands();
+  mlir::SmallVector<Value, 4> originalVals = op->getOperands();
+  originalVals.emplace_back(op->getResult(0));
+  mlir::SmallVector<Value, 4> originalMemRefs = operands;
+  originalMemRefs.emplace_back(alloc);
+  mlir::BitVector isReads(inputNum + 1, true), isWrites(inputNum + 1, false);
+  isReads[inputNum] = false;
+  isWrites[inputNum] = true;
+  UnifiedStickSupport stickCS(create.krnl, originalVals, originalMemRefs, E1,
+      isReads, isWrites, disableSaturation);
+  bool isStickifiedOutput = stickCS.list[inputNum].hasStick();
+
+  // Predicates used to avoid creating code that is never used.
+  bool neverHas64 = E1.isLiteralAndSmallerThan(stickLen);
+  bool neverHas8 = E1.isLiteralAndSmallerThan(archVL);
+  bool hasOnly64 = E1.isLiteral() && (E1.getLiteral() % stickLen == 0);
+  bool hasOnly8 = E1.isLiteral() && (E1.getLiteral() % archVL == 0);
+
+  if (STICK_OUTPUT_WRITE_PAST_BOUNDS && isStickifiedOutput) {
+    // Output is stickified, we can write 8 values for the last iteration no
+    // mater what, possibly over-writing values that we are not supposed to
+    // write, but we know the memory exists as we always allocate a stick of
+    // 64 values.
+    neverHas8 = false; // Force at least one iteration into the 8-way simd loop.
+    hasOnly8 = true;   // Skip the scalar loop with the custom buffer.
+  }
+  LLVM_DEBUG(
+      llvm::dbgs() << "  Predicates: " << (neverHas64 ? "never-has-64 " : "")
+                   << (neverHas8 ? "never-has-8 " : "")
+                   << (hasOnly64 ? "has-only-64 " : "")
+                   << (hasOnly8 ? "has-only-8\n" : "\n"));
+
+  // Iterates over sticks.
+  llvm::SmallVector<int64_t, 4> steps(rank, 1);
+  llvm::SmallVector<bool, 4> useParallel(rank, false);
+  if (enableParallel)
+    useParallel[parId] = true;
+  create.krnl.forLoopsIE(tiledLbs, tiledUbs, steps, useParallel,
+      [&](const KrnlBuilder &b, mlir::ValueRange tiledLoopInd) {
+        IndexExprScope outerScope(b);
+        MDBuilder create(b);
+        DimsExpr tiledOuterIndices = DimListIE(tiledLoopInd);
+        // Computation for accessing data (not tiled, actual indices).
+        DimsExpr outerIndices = tiledOuterIndices;
+        IndexExpr E1 = DimIE(outputDims[d1]); // Original upper bound in d1.
+        IndexExpr e1 = outerIndices[d1] = tiledOuterIndices[d1] * litStickLen;
+
+        stickCS.beforeStickLoop(create.krnl, tiledOuterIndices, E1);
+
+        if (enablePrefetch) {
+          // TODO: enable prefetch
+          // Prefetch all in ioMemRefValues
+          // create.krnl.prefetchIE(input, outerIndices, /*write*/ false,
+          //    /*locality*/ 1);
+        }
+        // Check if we have a full stick (aka end of stick is not beyond UB).
+        IndexExpr hasFullStick;
+        if (hasOnly64) {
+          hasFullStick = PredIE(true); // Has only full sicks.
+        } else if (neverHas64) {
+          hasFullStick = PredIE(false); // Doesn't even has 1 stick.
+        } else {
+          IndexExpr isFull = create.krnlIE.isTileFull(e1, litStickLen, E1);
+          hasFullStick = (isFull >= 0);
+        }
+        create.scf.ifThenElse(
+            hasFullStick.getValue(),
+            // If is full, process all 64 values here.
+            [&](const SCFBuilder b) {
+              if (neverHas64)
+                return; // Nothing to do here. Avoid generating dead code.
+              MDBuilder create(b);
+              // Iterate through stick by totVL (aka 8 * unroll).
+              create.scf.forLoopIE(litZero, litStickLen, totVL, /*par*/ false,
+                  [&](const SCFBuilder b, mlir::ValueRange loopInd) {
+                    IndexExprScope innerScope(b, &outerScope);
+                    MDBuilder create(b);
+                    IndexExpr l = DimIE(loopInd[0]);
+                    DimsExpr innerIndices = DimListIE(outerIndices);
+                    for (int64_t u = 0; u < unrollVL; ++u)
+                      stickCS.loadComputeStore(
+                          create.krnl, processVectorOfF32Vals, l, u);
+                  });
+            },
+            // Else, we don't have a full (64 e1) tile.
+            [&](SCFBuilder b) {
+              if (hasOnly64)
+                return; // Do not generate dead code.
+              MDBuilder create(b);
+              IndexExprScope middleScope(b, &outerScope);
+              IndexExpr tripCount = DimIE(E1) - DimIE(e1);
+              if (!neverHas8) {
+                // Not full 64, process all sub-tiles of 8 values here.
+                // Note: if we only have multiple of VL, loop below will
+                // handle all VL-full as we subtract (VL-1). Aka if VL=8 and
+                // tripCount = 16, tripCountSimdByVL is 16 - 7 = 9.
+                // Thus we iterate over i=0 & i=8 as both are < 9.
+                int64_t correction = archVL - 1;
+                if (STICK_OUTPUT_WRITE_PAST_BOUNDS && isStickifiedOutput) {
+                  // Overwrite is allowed, so if VL=8 and trip count = 16:
+                  // will execute i=0 and i=8 (both full). But if trip count =
+                  // 17, then will execute i=0 & 8 (full), and i=16 (to
+                  // compute/save the stick[x,16] single value, but overriding
+                  // stick[x, 17..23] with garbage values).
+                  correction = 0;
+                }
+                IndexExpr tripCountSimdByVL = tripCount - correction;
+                create.scf.forLoopIE(litZero, tripCountSimdByVL, archVL,
+                    /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
+                      IndexExprScope innerScope(b, &middleScope);
+                      MDBuilder create(b);
+                      IndexExpr l = DimIE(loopInd[0]);
+                      DimsExpr innerIndices = DimListIE(outerIndices);
+                      stickCS.loadComputeStore(
+                          create.krnl, processVectorOfF32Vals, l, 0);
+                    });
+              }
+              if (!hasOnly8) {
+                // Deal with the last <8 values: compute f32 using simd.
+                // IndexExpr remainingScalarValues = tripCount % archVL;
+
+                // Can use E1 instead of trip count as trip count substract
+                // multiple of 64 to E1, and 64 % (archVal=8) = 0.
+                IndexExpr remainingScalarValues = DimIE(E1) % archVL;
+                IndexExpr lastL = tripCount - remainingScalarValues;
+                IndexExpr innerIndexPlusLastL = DimIE(e1) + lastL;
+                // Need a buffer to store partial results (less than 8) for
+                // last iterations. Use a type of [1][8] so that it can
+                // contain up to 7 partial results. Use a unit first dim to
+                // match the rank of the reinterpreted casts.
+                Type outputElementType =
+                    getElementType(op->getResult(0).getType());
+                MemRefType bufferType =
+                    mlir::MemRefType::get({1, archVL}, outputElementType);
+                Value outputBuffer = create.mem.alignedAlloc(bufferType);
+
+                // Compute results and store into output buffer.
+                // Buffer holds original or stickified (normalized) results
+                // depending on the output type.
+                DimsExpr innerIndices = DimListIE(outerIndices);
+                stickCS.loadComputeStore(create.krnl, processVectorOfF32Vals,
+                    litZero, 0, outputBuffer);
+                // Scalar store of buffer values.
+                create.scf.forLoopIE(litZero, remainingScalarValues, 1,
+                    /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
+                      IndexExprScope innerScope(b, &middleScope);
+                      MDBuilder create(b);
+                      IndexExpr l = DimIE(loopInd[0]);
+                      Value bufferVal =
+                          create.krnl.loadIE(outputBuffer, {litZero, l});
+                      // Even if stickified, we don't need simd store, and
+                      // thus we can use the memref format without the view.
+                      DimsExpr innerIndices = DimListIE(outerIndices);
+                      innerIndices[d1] = DimIE(innerIndexPlusLastL) + l;
+                      create.krnl.storeIE(bufferVal, alloc, innerIndices);
+                    });
+              }
+            });
+      });
+}
+
+#else
 static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
@@ -649,6 +1124,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
             });
       });
 }
+#endif
 
 // Check that all the input/outputs are float32 without ztensor, or dlf16 with
 // tensor. Must have at least one dlf16 to return true.

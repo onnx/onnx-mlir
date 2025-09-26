@@ -56,6 +56,75 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     mlir::Value &inputMin, mlir::Value &inputMax, bool enableSIMD,
     bool enableParallel);
 
+class UnifiedStickMemSupport {
+public:
+  UnifiedStickMemSupport(KrnlBuilder &kb, mlir::Value originalVal,
+      mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
+      bool disableSaturation);
+
+  void init(KrnlBuilder &kb, mlir::Value originalVal,
+      mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
+      bool disableSaturation);
+
+  void beforeStickLoop(
+      KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
+  void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
+  void afterCompute(
+      KrnlBuilder &kb, IndexExpr l, int64_t u, mlir::Value tempBufferMemRef);
+
+  void get4xF32Vals(mlir::Value &highVal, mlir::Value &lowVal);
+  void set4xF32Vals(mlir::Value highVal, mlir::Value lowVal);
+
+  bool hasRead() { return isRead; }
+  bool hasWrite() { return isWrite; }
+  bool hasStick() { return isStick; }
+
+  static const int64_t archVL = 8;
+  static const int64_t stickLen = 64;
+
+private:
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+      MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
+
+  static DimsExpr computeAccessFct(
+      mlir::Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset);
+
+  // Input and characterization.
+  mlir::Value originalVal, originalMemRef, memRef;
+  bool isRead, isWrite, disableSaturation;
+  bool isStick, isBroadcast, isBuffer;
+  // Computed values outside of the stick loop.
+  DimsExpr outerIndices;
+  IndexExpr stickOffset; // For stick values.
+  mlir::Value highVal, lowVal;
+};
+
+struct UnifiedStickSupport {
+  using MultiValuesOfF32IterateBodyFn =
+      std::function<mlir::Value(const KrnlBuilder &b,
+          mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
+
+  UnifiedStickSupport(KrnlBuilder &kb, mlir::ValueRange originalVals,
+      mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+      mlir::BitVector isWrites, bool disableSaturation);
+  void init(KrnlBuilder &kb, mlir::ValueRange originalVals,
+      mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+      mlir::BitVector isWrites, bool disableSaturation);
+
+  void beforeStickLoop(
+      KrnlBuilder &kb, DimsExpr &tiledOuterIndices, IndexExpr E1);
+
+  void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
+  void afterCompute(KrnlBuilder &kb, IndexExpr l, int64_t u,
+      mlir::ValueRange tempBufferMemRefs);
+
+  void loadComputeStore(KrnlBuilder &kb,
+      MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
+      int64_t u, mlir::Value tempBufferMemRef = nullptr);
+
+  mlir::SmallVector<UnifiedStickMemSupport, 4> list;
+};
+
 class StickComputeSupport {
 public:
   using MultiValuesOfF32IterateBodyFn =
@@ -72,16 +141,16 @@ public:
       /* op inputs */ mlir::ValueRange originalInputMemRef,
       /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
       /* op output */ mlir::Value originalOutput,
-      /* op output */ mlir::Value originalOutputMemRef, 
-      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick, 
+      /* op output */ mlir::Value originalOutputMemRef,
+      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick,
       bool disableSaturation = false);
   void init(KrnlBuilder &kb,
       /* op inputs */ mlir::ValueRange originalInput,
       /* op inputs */ mlir::ValueRange originalInputMemRef,
       /* optional memref for stick */ mlir::ValueRange optionalMemRefForStick,
       /* op output */ mlir::Value originalOutput,
-      /* op output */ mlir::Value originalOutputMemRef, 
-      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick, 
+      /* op output */ mlir::Value originalOutputMemRef,
+      /* optional memref for stick */ mlir::Value optionalOutputMemRefForStick,
       bool disableSaturation = false);
 
   bool isStickifiedOutput() { return ioIsStick[inputNum]; }
