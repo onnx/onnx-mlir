@@ -74,12 +74,14 @@ public:
 
   // Run before the stickified inner loop. This will load read values that are
   // broadcasted. For stickified references, the stick offset will also be
-  // computed.
+  // computed.  Outer indices should iterate over sticks (be blocked by
+  // stickLen). E.g. the innermost index goes from 0, 64, 128,...
   void beforeStickLoop(KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1);
   // Perform the read and the write operations as needed.
   void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
   void afterCompute(
       KrnlBuilder &kb, IndexExpr l, int64_t u, mlir::Value tempBufferMemRef);
+      
   // Get the values to perform the computation, and must set the values for the
   // values that will be stored.
   void get4xF32Vals(mlir::Value &highVal, mlir::Value &lowVal);
