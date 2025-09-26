@@ -210,7 +210,15 @@ add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
 endif()
-if (TARGET omp)
+
+# Find OpenMP headers built by LLVM
+find_path(OPENMP_INCLUDE_DIR
+  NAMES omp.h
+  HINTS
+    ${LLVM_BUILD_BINARY_DIR}/lib/clang/*/include
+  NO_DEFAULT_PATH
+)
+if(OPENMP_INCLUDE_DIR)
   add_dependencies(OMCompilerUtils ompruntime)
 endif()
 
