@@ -558,7 +558,7 @@ void UnifiedStickMemSupport::beforeCompute(
     currOffset = lit0;
   } else {
     currIndices = outerIndices;
-    currStickOffset = this->stickOffset;
+    currStickOffset = stickOffset;
     currOffset = l + (archVL * u);
   }
   if (isStick) {
@@ -568,7 +568,8 @@ void UnifiedStickMemSupport::beforeCompute(
     Value vecOfDLF16 = create.vec.loadIE(vecF16Type, memRef, accessFct);
     create.zlow.convertDLF16ToF32(vecOfDLF16, highVal, lowVal);
   } else {
-    DimsExpr accessFct = computeAccessFct(memRef, currIndices, currOffset);
+    DimsExpr localIndices = DimListIE(currIndices);
+    DimsExpr accessFct = computeAccessFct(memRef, localIndices, currOffset);
     Type f32Type = create.getBuilder().getF32Type();
     VectorType vecF32Type = VectorType::get({archVL / 2}, f32Type);
     highVal = create.vec.loadIE(vecF32Type, memRef, accessFct);
@@ -597,7 +598,7 @@ void UnifiedStickMemSupport::afterCompute(
     currMemref = tempBufferMemRef ? tempBufferMemRef : memRef;
   } else {
     currIndices = outerIndices;
-    currStickOffset = this->stickOffset;
+    currStickOffset = stickOffset;
     currOffset = l + (archVL * u);
     currMemref = memRef;
   }
@@ -607,7 +608,8 @@ void UnifiedStickMemSupport::afterCompute(
     DimsExpr accessFct = {DimIE(currStickOffset), currOffset};
     create.vec.storeIE(dlf16, currMemref, accessFct);
   } else {
-    DimsExpr accessFct = computeAccessFct(currMemref, currIndices, currOffset);
+    DimsExpr localIndices = DimListIE(currIndices);
+    DimsExpr accessFct = computeAccessFct(currMemref, localIndices, currOffset);
     create.vec.storeIE(highVal, currMemref, accessFct);
     Value lowOffset = create.math.constantIndex(archVL / 2);
     create.vec.storeIE(lowVal, currMemref, accessFct, {lowOffset});
