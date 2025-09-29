@@ -573,24 +573,24 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
         }
         create.scf.ifThenElse(
             hasFullStick.getValue(),
-            // If is full, process all 64 values here.
+            // If is full, process all 64 values by iterating over totVL values
+            // at a time.
             [&](const SCFBuilder b) {
               if (neverHas64)
                 return; // Nothing to do here. Avoid generating dead code.
               MDBuilder create(b);
-              // Iterate through stick by totVL (aka 8 * unroll).
+              // Iterate through stick by totVL (aka archVL==8 * unrollVL).
               create.scf.forLoopIE(litZero, litStickLen, totVL, /*par*/ false,
                   [&](const SCFBuilder b, mlir::ValueRange loopInd) {
                     IndexExprScope innerScope(b, &outerScope);
                     MDBuilder create(b);
                     IndexExpr l = DimIE(loopInd[0]);
-                    DimsExpr innerIndices = DimListIE(outerIndices);
                     for (int64_t u = 0; u < unrollVL; ++u)
                       stickCS.loadComputeStore(
                           create.krnl, processVectorOfF32Vals, l, u);
                   });
             },
-            // Else, we don't have a full (64 e1) tile.
+            // Else, we don't have a full (64 e1) tile;
             [&](SCFBuilder b) {
               if (hasOnly64)
                 return; // Do not generate dead code.
@@ -598,18 +598,19 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
               IndexExprScope middleScope(b, &outerScope);
               IndexExpr tripCount = DimIE(E1) - DimIE(e1);
               if (!neverHas8) {
-                // Not full 64, process all sub-tiles of 8 values here.
-                // Note: if we only have multiple of VL, loop below will
-                // handle all VL-full as we subtract (VL-1). Aka if VL=8 and
-                // tripCount = 16, tripCountSimdByVL is 16 - 7 = 9.
-                // Thus we iterate over i=0 & i=8 as both are < 9.
+                // Not full 64, process archVL (8) values at a time instead of
+                // TotVL. Note: if we only have multiple of archVL, loop below
+                // will handle all archVL-full as we subtract (archVL-1). Aka if
+                // VL=8 and tripCount = 16, tripCountSimdByVL is 16 - 7 = 9.
+                // Thus we iterate over i=0 (val 0..7) & i=8 (val 8..15) as both
+                // are < 9.
                 int64_t correction = archVL - 1;
                 if (STICK_OUTPUT_WRITE_PAST_BOUNDS && isStickifiedOutput) {
                   // Overwrite is allowed, so if VL=8 and trip count = 16:
                   // will execute i=0 and i=8 (both full). But if trip count =
-                  // 17, then will execute i=0 & 8 (full), and i=16 (to
-                  // compute/save the stick[x,16] single value, but overriding
-                  // stick[x, 17..23] with garbage values).
+                  // 17, then will execute i=0 (val 0..7) & 8 (val 8..15), and
+                  // i=16 (to compute/save the stick[x,16] single value, but
+                  // overriding stick[x, 17..23] with garbage values).
                   correction = 0;
                 }
                 IndexExpr tripCountSimdByVL = tripCount - correction;
@@ -618,13 +619,12 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                       IndexExprScope innerScope(b, &middleScope);
                       MDBuilder create(b);
                       IndexExpr l = DimIE(loopInd[0]);
-                      DimsExpr innerIndices = DimListIE(outerIndices);
-                      stickCS.loadComputeStore(
-                          create.krnl, processVectorOfF32Vals, l, 0);
+                      stickCS.loadComputeStore(create.krnl,
+                          processVectorOfF32Vals, l, /*no unroll here*/ 0);
                     });
               }
               if (!hasOnly8) {
-                // Deal with the last <8 values: compute f32 using simd.
+                // Deal with the last < ArchVL=8 values: compute f32 using simd.
                 // IndexExpr remainingScalarValues = tripCount % archVL;
 
                 // Can use E1 instead of trip count as trip count substract
@@ -645,9 +645,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                 // Compute results and store into output buffer.
                 // Buffer holds original or stickified (normalized) results
                 // depending on the output type.
-                DimsExpr innerIndices = DimListIE(outerIndices);
                 stickCS.loadComputeStore(create.krnl, processVectorOfF32Vals,
-                    litZero, 0, outputBuffer);
+                    lastL, 0, outputBuffer);
                 // Scalar store of buffer values.
                 create.scf.forLoopIE(litZero, remainingScalarValues, 1,
                     /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
