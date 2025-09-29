@@ -2202,7 +2202,7 @@ Value VectorBuilder::extractElement(Value vector, int64_t index) const {
   assert(type.getRank() == 1 && "expected 1D vector only");
   assert(index >= 0 && index < VL && "out of range vector index");
   Value position = create.math.constantIndex(index);
-  return b().create<vector::ExtractElementOp>(loc(), vector, position);
+  return b().create<vector::ExtractOp>(loc(), vector, position);
 }
 
 Value VectorBuilder::insertElement(
@@ -2215,7 +2215,7 @@ Value VectorBuilder::insertElement(
   Value position = create.math.constantIndex(index);
   // Unlike LLVM insert element which takes <dest, source, position>, vector
   // take <source, dest, position>
-  return b().create<vector::InsertElementOp>(loc(), element, vector, position);
+  return b().create<vector::InsertOp>(loc(), element, vector, position);
 }
 
 //===----------------------------------------------------------------------===//

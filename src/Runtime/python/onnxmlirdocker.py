@@ -24,6 +24,8 @@ class config:
         "ghcr.io/onnxmlir/onnx-mlir": "/usr/local/bin/bin/onnx-mlir",
         "ghcr.io/onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
         "onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+        # The entry point of zDLC image is the compiler
+        "icr.io/ibmz/zdlc:5.0.0": "",
     }
 
     default_compiler_image_name = "ghcr.io/onnxmlir/onnx-mlir-dev"
@@ -47,6 +49,11 @@ def find_compiler_path(image_name):
         return None
 
 
+# Class to wrap the OMExecutionSession class with the compilation with
+# container or local compiler.
+# Logically, InferenceSession can be a subclass of OMExecutionSession.
+# However, the OMExecutionSession is imported in a member function in current
+# implementation. ToFix later.
 class InferenceSession:
     def __init__(self, model_path, **kwargs):
         self.debug = False
@@ -91,12 +98,33 @@ class InferenceSession:
         else:
             self.compile_options = ""
 
-        # Temporary directory for compilation
-        if "temp_dir" in kwargs.keys():
-            self.output_tempdir = kwargs["temp_dir"]
+        # Parse the compile_options to handle the -o option.
+        # If user does not specify the output, the compilation will be done in
+        # the temporary directory.
+        options_list = self.compile_options.split()
+
+        # Logically, container_output_dirname should be used for -o
+        if "-o" in options_list:
+            # Convert the output to absolute path so that the compilation
+            # can be done with compiler image.
+            self.compiled_model = os.path.abspath(
+                options_list[options_list.index("-o") + 1]
+            )
+            options_list[options_list.index("-o") + 1] = self.compiled_model
+
+            self.compile_options = " ".join(options_list)
+            if not self.compiled_model.endswith(".so"):
+                self.compiled_model += ".so"
+            self.output_dirname = os.path.dirname(self.compiled_model)
         else:
-            self.output_tempdir = tempfile.TemporaryDirectory()
-        self.output_dirname = self.output_tempdir.name
+            self.output_dirname = tempfile.TemporaryDirectory().name
+            self.compiled_model = os.path.join(
+                self.output_dirname, self.model_basename.removesuffix(self.model_suffix)
+            )
+            self.compile_options += f" -o {self.compiled_model}"
+            # Compile will automatically append .so to the -o target
+            # Session need the suffix .so
+            self.compiled_model += ".so"
 
         if "compiler_image_name" in kwargs.keys():
             self.compiler_image_name = kwargs["compiler_image_name"]
@@ -171,20 +199,25 @@ class InferenceSession:
             # Pull the image if not already available
             try:
                 image = self.container_client.images.get(self.compiler_image_name)
-            except ct.errors.ImageNotFound:
+            except ce.errors.ImageNotFound:
                 image = self.container_client.images.pull(self.compiler_image_name)
 
-            try:
-                # Chek whether the specified compiler exists or not
-                msg = self.container_client.containers.run(
-                    self.compiler_image_name, "test -e " + self.compiler_path
-                )
-            except Exception as e:
-                print(
-                    "the compiler path does not exist in container: ",
-                    self.compiler_path,
-                )
-                exit(-1)
+            # Chek whether the specified compiler exists or not
+            if os.path.exists(self.compiler_path):
+                self.mount_compiler = True
+            else:
+                self.mount_compiler = False
+                try:
+                    msg = self.container_client.containers.run(
+                        self.compiler_image_name, self.compiler_path + " --version"
+                    )
+                    # Could check the valid version of compiler
+                except Exception as e:
+                    print(
+                        "the compiler path does not exist in container: ",
+                        self.compiler_path,
+                    )
+                    exit(-1)
 
     def Compile(self):
         # Logically use different variable for path in current env and
@@ -208,14 +241,6 @@ class InferenceSession:
             self.container_model_dirname, self.model_basename
         )
 
-        self.compiled_model = os.path.join(
-            self.output_dirname,
-            self.model_basename.removesuffix(self.model_suffix) + ".so",
-        )
-        command_str += " -o " + os.path.join(
-            self.container_output_dirname,
-            self.model_basename.removesuffix(self.model_suffix),
-        )
         # print(command_str)
 
         # Logically, the model directory could be mounted as read only.
@@ -238,10 +263,31 @@ class InferenceSession:
                             "bind": self.container_output_dirname,
                             "mode": "rw",
                         },
+                        # Mount the compiler if needed.
+                        # ToFix: compiler built with container may fail, possibly because
+                        # the directory is mounted differently when the compiler is built
+                        # with container image.
+                        # A good practice is to always mount with the original path
+                        **(
+                            {
+                                os.path.dirname(self.compiler_path): {
+                                    "bind": os.path.dirname(self.compiler_path),
+                                    "mode": "rw",
+                                }
+                            }
+                            if self.mount_compiler
+                            else {}
+                        ),
                     },
                 )
             except Exception as e:
-                print("compilation error")
+                print(
+                    f"Failed in compilation with docker image: {self.compiler_image_name}"
+                )
+                print(f"Here is the compiling command: {command_str}")
+                print(
+                    "Check whether the flags are correct, the input file exists, and the output file is writable"
+                )
                 exit(-1)
 
     def getSession(self):
@@ -303,3 +349,9 @@ class InferenceSession:
             exit(1)
 
         return self.session.run(inputs)
+
+    def input_signature(self):
+        return self.session.input_signature()
+
+    def output_signature(self):
+        return self.session.output_signature()

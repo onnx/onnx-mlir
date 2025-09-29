@@ -28,28 +28,48 @@ template <>
 LogicalResult ONNXRangeOpShapeHelper::computeShape() {
   ONNXRangeOpAdaptor operandAdaptor(operands);
 
-  bool isFloat =
-      isa<FloatType>(getElementType(operandAdaptor.getStart().getType()));
+  Value startVal = operandAdaptor.getStart();
+  Value limitVal = operandAdaptor.getLimit();
+  Value deltaVal = operandAdaptor.getDelta();
+
+  bool isFloat = isa<FloatType>(getElementType(startVal.getType()));
 
   // Calculate num = ceil((limit-start)/delta).
-  IndexExpr num;
-  if (isFloat) {
-    IndexExpr start =
-        createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getStart(), 0);
-    IndexExpr limit =
-        createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getLimit(), 0);
-    IndexExpr delta =
-        createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getDelta(), 0);
-    num = ((limit - start) / delta).ceil().convertToIndex();
+  IndexExpr num, start, limit, range, delta;
+
+  ONNXAddOp addOp = limitVal.getDefiningOp<ONNXAddOp>();
+  ONNXConstantOp cstOp;
+  if (addOp && isDenseONNXConstant(deltaVal) &&
+      matchValueAndOp<ONNXConstantOp>(
+          addOp.getA(), addOp.getB(), startVal, cstOp)) {
+    // Special case: "limit = start + range", where range and delta are scalar
+    // constants. In this case "(limit-start)/delta" becomes "range/delta" which
+    // is a constant.
+    Value rangeVal = cstOp.getOutput();
+    if (isFloat) {
+      range = createIE->getFloatFromArrayAsNonAffine(rangeVal, 0);
+      delta = createIE->getFloatFromArrayAsNonAffine(deltaVal, 0);
+      num = (range / delta).ceil().convertToIndex();
+    } else {
+      range = createIE->getIntFromArrayAsDim(rangeVal, 0);
+      delta = createIE->getIntFromArrayAsDim(deltaVal, 0);
+      num = (range).ceilDiv(delta);
+    }
   } else {
-    IndexExpr start =
-        createIE->getIntFromArrayAsDim(operandAdaptor.getStart(), 0);
-    IndexExpr limit =
-        createIE->getIntFromArrayAsDim(operandAdaptor.getLimit(), 0);
-    IndexExpr delta =
-        createIE->getIntFromArrayAsDim(operandAdaptor.getDelta(), 0);
-    num = (limit - start).ceilDiv(delta);
+    // Normal case.
+    if (isFloat) {
+      start = createIE->getFloatFromArrayAsNonAffine(startVal, 0);
+      limit = createIE->getFloatFromArrayAsNonAffine(limitVal, 0);
+      delta = createIE->getFloatFromArrayAsNonAffine(deltaVal, 0);
+      num = ((limit - start) / delta).ceil().convertToIndex();
+    } else {
+      start = createIE->getIntFromArrayAsDim(startVal, 0);
+      limit = createIE->getIntFromArrayAsDim(limitVal, 0);
+      delta = createIE->getIntFromArrayAsDim(deltaVal, 0);
+      num = (limit - start).ceilDiv(delta);
+    }
   }
+
   // Dim = max(ceil((limit-start)/delta), 0).
   IndexExpr res = IndexExpr::max(num, 0);
   DimsExpr outputDims(1, res);

@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -55,7 +55,7 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 Value insertAllocForZMemRefByDim(ArrayRef<IndexExpr> dims,
     ZTensorEncodingAttr::DataLayout layout,
     ZTensorEncodingAttr::QuantizedType qtype, Operation *op,
-    PatternRewriter &rewriter, int64_t alignment = gAlignment) {
+    PatternRewriter &rewriter, int64_t alignment) {
   // Construct a MemRefType for the given dimensions and element type.
   SmallVector<int64_t, 4> shape;
   for (IndexExpr d : dims)
@@ -79,7 +79,7 @@ Value insertAllocForZMemRefByDim(ArrayRef<IndexExpr> dims,
 //===----------------------------------------------------------------------===//
 
 Value insertAllocForZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
-    Operation *op, PatternRewriter &rewriter, int64_t alignment = gAlignment) {
+    Operation *op, PatternRewriter &rewriter, int64_t alignment) {
 
   Location loc = op->getLoc();
   MemRefType resType = zType.value;
@@ -1124,7 +1124,7 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
 
     // Emit a ZLow operation.
     rewriter.create<ZLowReshapeOp>(
-        loc, input, /* shape,*/ alloc, zMemRefType.layout);
+        loc, input, /* shape,*/ alloc, zMemRefType.layout, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
