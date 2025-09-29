@@ -56,15 +56,15 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
     mlir::Value &inputMin, mlir::Value &inputMax, bool enableSIMD,
     bool enableParallel);
 
-class UnifiedStickMemSupport {
+class UnifiedStickSupport {
 public:
   // For stickified values, OriginalVal must be the tensor version (prior to
   // MemRef conversions); otherwise it can be a MemRef. E1 is the innermost
   // (possibly stickified) dimension. At least one of isRead or isWrite must be
   // true. Same holds for init.
-  UnifiedStickMemSupport(KrnlBuilder &kb, mlir::Value originalVal,
+  UnifiedStickSupport(KrnlBuilder &kb, mlir::Value originalVal,
       mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
-      bool disableSaturation) {
+      bool disableSaturation)  {
     init(kb, originalVal, originalMemRef, E1, isRead, isWrite,
         disableSaturation);
   }
@@ -81,15 +81,19 @@ public:
   void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
   void afterCompute(
       KrnlBuilder &kb, IndexExpr l, int64_t u, mlir::Value tempBufferMemRef);
-      
+
   // Get the values to perform the computation, and must set the values for the
   // values that will be stored.
   void get4xF32Vals(mlir::Value &highVal, mlir::Value &lowVal);
   void set4xF32Vals(mlir::Value highVal, mlir::Value lowVal);
 
+  // Getters
   bool hasRead() { return isRead; }
   bool hasWrite() { return isWrite; }
   bool hasStick() { return isStick; }
+  bool isInitialized() { return isRead || isWrite; }
+  mlir::Value getOriginalVal() { return originalVal; }
+  mlir::Value getOriginalMemRef() { return originalMemRef; }
 
   static const int64_t archVL = 8;
   static const int64_t stickLen = 64;
@@ -100,7 +104,9 @@ private:
 
   // Input and characterization.
   mlir::Value originalVal, originalMemRef, memRef;
-  bool isRead, isWrite, disableSaturation;
+  bool isRead = false;  // Detect data is uninitialized if both isRead and
+  bool isWrite = false; // isWrite are false.
+  bool disableSaturation;
   bool isStick, isBroadcast, isBuffer;
   // Computed values outside of the stick loop.
   DimsExpr outerIndices;
@@ -109,9 +115,6 @@ private:
 };
 
 struct UnifiedStickMemSupportForKernels {
-  using MultiValuesOfF32IterateBodyFn =
-      std::function<mlir::Value(const KrnlBuilder &b,
-          mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
 
   UnifiedStickMemSupportForKernels(KrnlBuilder &kb,
       mlir::ValueRange originalVals, mlir::ValueRange originalMemRefs,
@@ -129,13 +132,18 @@ struct UnifiedStickMemSupportForKernels {
   void afterCompute(KrnlBuilder &kb, IndexExpr l, int64_t u,
       mlir::ValueRange tempBufferMemRefs);
 
+  // Function that receives vectors of 4xf32 values and compute one resulting
+  // 4xF32 value. Used in loadComputeStore below.
+  using IterateFctOver4xF32 = std::function<mlir::Value(const KrnlBuilder &b,
+      mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
   // This function works only when initialized with originVals and originMemRefs
-  // to have only one output. Typically used for elementwise operations.
+  // to have only one output. Typically used for elementwise operations. All
+  // UnifiedStickSupport in list are expected to be initialized.
   void loadComputeStore(KrnlBuilder &kb,
-      MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
-      int64_t u, mlir::Value tempBufferMemRef = nullptr);
+      IterateFctOver4xF32 processVectorOfF32Vals, IndexExpr l, int64_t u,
+      mlir::Value tempBufferMemRef = nullptr);
 
-  mlir::SmallVector<UnifiedStickMemSupport, 4> list;
+  mlir::SmallVector<UnifiedStickSupport, 4> list;
 };
 
 } // namespace onnx_mlir

@@ -189,11 +189,13 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-// UnifiedStickMemSupport.
+// UnifiedStickSupport.
 
-void UnifiedStickMemSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
+void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
     mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
     bool disableSaturation) {
+  // Check it was not already initialized.
+  assert(!isInitialized() && "should not initialize twice");
   // Save values to class.
   this->originalVal = originalVal;
   this->originalMemRef = originalMemRef;
@@ -224,8 +226,10 @@ void UnifiedStickMemSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   }
 }
 
-void UnifiedStickMemSupport::beforeStickLoop(
+void UnifiedStickSupport::beforeStickLoop(
     KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
+  if (!isInitialized())
+    return;
   MultiDialectBuilder<KrnlBuilder, VectorBuilder, ZLowBuilder> create(kb);
   this->outerIndices = outerIndices;
   // Initialize data that will hold data and stick offsets.
@@ -262,7 +266,7 @@ void UnifiedStickMemSupport::beforeStickLoop(
 }
 
 // For read references.
-void UnifiedStickMemSupport::beforeCompute(
+void UnifiedStickSupport::beforeCompute(
     KrnlBuilder &kb, IndexExpr l, int64_t u) {
   if (!isRead)
     return;
@@ -305,7 +309,7 @@ void UnifiedStickMemSupport::beforeCompute(
 }
 
 // For write references.
-void UnifiedStickMemSupport::afterCompute(
+void UnifiedStickSupport::afterCompute(
     KrnlBuilder &kb, IndexExpr l, int64_t u, Value tempBufferMemRef) {
   if (!isWrite)
     return;
@@ -343,19 +347,19 @@ void UnifiedStickMemSupport::afterCompute(
   }
 }
 
-void UnifiedStickMemSupport::get4xF32Vals(Value &highVal, Value &lowVal) {
+void UnifiedStickSupport::get4xF32Vals(Value &highVal, Value &lowVal) {
   highVal = this->highVal;
   lowVal = this->lowVal;
   assert(highVal && lowVal && "expected high/low val to be defined");
 }
 
-void UnifiedStickMemSupport::set4xF32Vals(Value highVal, Value lowVal) {
+void UnifiedStickSupport::set4xF32Vals(Value highVal, Value lowVal) {
   assert(highVal && lowVal && "expected high/low val to be defined");
   this->highVal = highVal;
   this->lowVal = lowVal;
 }
 
-/* static */ DimsExpr UnifiedStickMemSupport::computeAccessFct(
+/* static */ DimsExpr UnifiedStickSupport::computeAccessFct(
     Value val, DimsExpr &loopIndices, IndexExpr additionalInnerOffset) {
   DimsExpr accessFct;
   int64_t valRank = getRank(val.getType());
@@ -378,7 +382,7 @@ void UnifiedStickMemSupport::set4xF32Vals(Value highVal, Value lowVal) {
 
 //===----------------------------------------------------------------------===//
 // UnifiedStickMemSupportForKernels: higher level support for collection of
-// UnifiedStickMemSupport.
+// UnifiedStickSupport.
 
 UnifiedStickMemSupportForKernels::UnifiedStickMemSupportForKernels(
     KrnlBuilder &kb, ValueRange originalVals, ValueRange originalMemRefs,
@@ -397,7 +401,7 @@ void UnifiedStickMemSupportForKernels::init(KrnlBuilder &kb,
   assert((int)isWrites.size() == size && "bad isWrite size");
   list.clear();
   for (int64_t i = 0; i < size; ++i)
-    list.emplace_back(UnifiedStickMemSupport(kb, originalVals[i],
+    list.emplace_back(UnifiedStickSupport(kb, originalVals[i],
         originalMemRefs[i], E1, isReads[i], isWrites[i], disableSaturation));
 }
 
@@ -426,15 +430,16 @@ void UnifiedStickMemSupportForKernels::afterCompute(
 }
 
 void UnifiedStickMemSupportForKernels::loadComputeStore(KrnlBuilder &kb,
-    MultiValuesOfF32IterateBodyFn processVectorOfF32Vals, IndexExpr l,
-    int64_t u, Value tempBufferMemRef) {
+    IterateFctOver4xF32 processVectorOfF32Vals, IndexExpr l, int64_t u,
+    Value tempBufferMemRef) {
   // Load values;
   beforeCompute(kb, l, u);
   // Gather input value, and usms that hold the store.
   int64_t size = list.size();
   mlir::SmallVector<Value, 4> highInputVals, lowInputVals;
-  UnifiedStickMemSupport *storeUSMS = nullptr;
+  UnifiedStickSupport *storeUSMS = nullptr;
   for (int64_t i = 0; i < size; ++i) {
+    assert(list[i].isInitialized() && "expect all to be initialized");
     if (list[i].hasRead()) {
       Value highVal, lowVal;
       list[i].get4xF32Vals(highVal, lowVal);
@@ -461,7 +466,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
     bool enablePrefetch,
-    UnifiedStickMemSupportForKernels::MultiValuesOfF32IterateBodyFn
+    UnifiedStickMemSupportForKernels::IterateFctOver4xF32
         processVectorOfF32Vals) {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
@@ -475,8 +480,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
   IndexExpr E1 = outputDims[d1];
   assert(op->getNumResults() == 1 && "handle only 1 output ops");
 
-  int64_t archVL = UnifiedStickMemSupport::archVL;
-  int64_t stickLen = UnifiedStickMemSupport::stickLen;
+  int64_t archVL = UnifiedStickSupport::archVL;
+  int64_t stickLen = UnifiedStickSupport::stickLen;
   int64_t totVL = archVL * unrollVL;
   assert(stickLen % totVL == 0 && "bad unrollVL factor");
   IndexExpr litZero = LitIE(0);
@@ -770,7 +775,7 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
           shapeHelper.getOutputDims(), alignment);
     }
 
-    UnifiedStickMemSupportForKernels::MultiValuesOfF32IterateBodyFn fct =
+    UnifiedStickMemSupportForKernels::IterateFctOver4xF32 fct =
         [&](const KrnlBuilder &b,
             mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals) {
           return emitScalarOpFor<ElementwiseOp>(rewriter, b.getLoc(), op,
@@ -818,59 +823,63 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       ConversionPatternRewriter &rewriter) const final {
     // Blocking. VL is for number of dlf16 in vector (8). B is for number of
     // parallel reductions.
-    const int64_t VL = 8;
+    const int64_t VL = UnifiedStickSupport::archVL;
+    const int64_t stickLen = UnifiedStickSupport::stickLen;
     const int64_t B = 4;
+    bool isTraditionalLayerNorm = false;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      isTraditionalLayerNorm = true;
 
     // Get generic info.
     Operation *op = lnOp.getOperation();
     Location loc = ONNXLoc<OP_TYPE>(op);
     ValueRange operands = adaptor.getOperands();
-    Value XMemRef = adaptor.getX();
-    MDBuilder create(rewriter, loc);
-    Value XMemRefForStick = StickComputeSupport::getMemRefForStick(
-        create.krnl, lnOp.getX(), XMemRef);
-    MemRefType XMemRefType = mlir::cast<MemRefType>(XMemRef.getType());
-    Type elementType = XMemRefType.getElementType();
-    int64_t XRank = XMemRefType.getRank();
+    Value xMemRef = adaptor.getX();
+    MemRefType xMemRefType = mlir::cast<MemRefType>(xMemRef.getType());
+    Type elementType = xMemRefType.getElementType();
+    int64_t XRank = xMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
     assert(XRank >= 2 && "expected 2+ X/Y rank");
     assert(axis == XRank - 1 && "fused Stick/Unstick/LN only with axis = -1");
 
     // Create builder and shape helper
+    MDBuilder create(rewriter, loc);
     SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+    IndexExpr E1 = shapeHelper.getOutputDims(0)[XRank - 1];
 
-    // Get other info.
-    // Get epsilon as a scalar.
+    // Create Stick mem support for X.
+    UnifiedStickSupport xUSS(create.krnl, lnOp.getX(), xMemRef, E1,
+        /*read only*/ true, false, disableSaturation);
+
+    // Get other info: 1) epsilon as a scalar, 2) scale, and 3) optional bias.
     Value epsilon =
         create.math.constant(elementType, lnOp.getEpsilon().convertToDouble());
-    Value scaleMemRef = adaptor.getScale();
-    Value scaleMemRefForStick = StickComputeSupport::getMemRefForStick(
-        create.krnl, lnOp.getScale(), scaleMemRef);
-
-    Value biasMemRef = nullptr, biasMemRefForStick = nullptr;
+    UnifiedStickSupport scaleUSS(create.krnl, lnOp.getScale(),
+        adaptor.getScale(), E1, /*read only*/ true, false, disableSaturation);
+    UnifiedStickSupport biasUSS;
     // TODO: current additional ONNX op ONNXRMSLayerNormalizationOp has bias;
     // but in opset 24, RMSNormalization is introduced without biased. We
     // should remove the additional version and remove it below too.
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value ||
                   std::is_same<OP_TYPE, ONNXRMSLayerNormalizationOp>::value) {
       // Handle optional bias.
-      if (!isNoneValue(lnOp.getB())) {
-        biasMemRef = adaptor.getB();
-        biasMemRefForStick = StickComputeSupport::getMemRefForStick(
-            create.krnl, lnOp.getBias(), biasMemRef);
-      }
+      if (!isNoneValue(lnOp.getB()))
+        biasUSS.init(create.krnl, lnOp.getB(), adaptor.getB(), E1,
+            /*read only*/ true, false, disableSaturation);
     }
+
     // Allocate output: convert and allocate
     Type convertedYType =
         this->typeConverter->convertType(lnOp.getY().getType());
     assert(convertedYType && mlir::isa<MemRefType>(convertedYType) &&
            "Failed to convert type to MemRefType");
-    MemRefType YMemRefType = mlir::cast<MemRefType>(convertedYType);
-    Value YMemRef =
-        create.mem.alignedAlloc(YMemRefType, shapeHelper.getOutputDims(0));
-    Value YMemRefForStick = StickComputeSupport::getMemRefForStick(
-        create.krnl, lnOp.getY(), YMemRef);
+    MemRefType yMemRefType = mlir::cast<MemRefType>(convertedYType);
+    Value yMemRef =
+        create.mem.alignedAlloc(yMemRefType, shapeHelper.getOutputDims(0));
+    UnifiedStickSupport yUSS(create.krnl, lnOp.getY(), yMemRef, E1,
+        /*write only*/ false, true, disableSaturation);
+
     // This pass does not support mean or inv std dev.
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
       assert(isNoneValue(lnOp.getMean()) &&
@@ -886,16 +895,18 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     ValueRange loopDefs = create.krnl.defineLoops(XRank);
     SmallVector<Value, 4> outerOptLoops, innerOptLoops;
     create.krnl.blockAndPermute(
-        loopDefs, {B, 64}, outerOptLoops, innerOptLoops);
+        loopDefs, {B, stickLen}, outerOptLoops, innerOptLoops);
     // Handle Parallel
     bool useParallel = false;
 
     // Temp reduction buffers
     MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
-    Value tmpRedMemRef, tmpRedMemRef2;
+    Value tmpRedMemRef1 = nullptr, tmpRedMemRef2 = nullptr;
     if (!useParallel) {
       // Sequential, alloc before loop.
-      tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+      if (isTraditionalLayerNorm) {
+        tmpRedMemRef1 = create.mem.alignedAlloc(tmpRedType);
+      }
       tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
     }
 
@@ -905,11 +916,13 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
           IndexExprScope innerScope(ck);
           if (useParallel) {
             // Parallel, alloc inside parallel loop.
-            tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+            if (isTraditionalLayerNorm) {
+              tmpRedMemRef1 = create.mem.alignedAlloc(tmpRedType);
+            }
             tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
           }
           // First function
-          mlir::SmallVector<Value, 4> inputFirst = {XMemRef};
+          mlir::SmallVector<Value, 4> inputFirst = {xMemRef};
 
           // Determine full tile.
           IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[XRank - 2]);
@@ -941,11 +954,81 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
 #if 0
   template <int64_t B>
   void generateIter(MDBuilder &create, OP_TYPE lnOp,
-      /* inputs */ Value XMemRef, Value scaleMemRef, Value biasMemRef,
-      /* + for stick */ Value XMemRefFS, Value scaleMemRefFS,
+      bool isTraditionalLayerNorm.UnifiedStickSupport &xUSS,
+      UnifiedStickSupport &biasUSS, UnifiedStickSupport &scaleUSS,
+      Value tmpRedMemRef1, Value &tmpRedMemRef1, UnifiedStickSupport &yUSS,
+      /* index expr param */ DimsExpr outerLoopIndices, IndexExpr E1,
+      /* value params */ Value i, Value epsilon,
+      /* int params */ int64_t totVL, stickLen) {
+    // Init the two reductions, compute subviews for [1, VL] views, and init USS
+    Type elementType =
+        mlir::cast<ShapedType>(xMemRef.getType()).getElementType();
+    VectorType vecType = VectorType::get({VL}, elementType);
+    Value init = create.math.constant(elementType, 0.0);
+    Value initVec = create.vec.splat(vecType, init);
+    Value zero = create.math.constantIndex(0);
+    UnifiedStickSupport tmpRedUSS1[B],
+        tmpRedUSS2[B] inlineFor(create, B, [&](int64_t b, Value bb) {
+          if (isTraditionalLayerNorm) {
+            create.vec.store(initVec, tmpRedMemRef1, {bb, zero});
+            Value tmpRedSubview1 =
+                create.mem.subview(tmpRedMemRef1, {b, 0}, {1, VL}, {1, 1});
+            tmpRedUSS1[b].init(create.krnl, tmpRedSubview1, tmpRedSubview1, E1,
+                /*read/write*/ true, true, disableSaturation);
+            tmpRedUSS1[b].beforeStickLoop(create.krnl, outerIndices, E1);
+          }
+          create.vec.store(initVec, tmpRedMemRef2, {bb, zero});
+          Value tmpRedSubview2 =
+              create.mem.subview(tmpRedMemRef2, {b, 0}, {1, VL}, {1, 1});
+          tmpRedUSS1[b].init(create.krnl, tmpRedSubview2, tmpRedSubview2, E1,
+              /*read/write*/ true, true, disableSaturation);
+          tmpRedUSS2[b].beforeStickLoop(create.krnl, outerIndices, E1);
+        });
+    // Before first stick loop, using X and reductions only.
+    xUSS.beforeStickLoop(create.krnl, outerIndices, E1);
+    // Compute parallel reductions.
+    IndexExpr lit0 = LitIE(0);
+    IndexExpr litStickLen = LitIE(stickLen);
+    create.affineKMem.forLoopIE(litZero, litStickLen, totVL,
+        [&](const onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
+          MDBuilder create(ck);
+          Value j = loopInd[0];
+          // load X, compute X**2, sum into reductions.
+          inlineFor(create, B, [&](int64_t d, Value o) {
+            Value ii = create.math.add(i, o); // hi alex
+            // Load X, compute X2.
+            Value currX = create.vec.load(vecType, XMemRef, {ii, j});
+            Value currXSquare = create.math.mul(currX, currX);
+            // Perform reduction ov X values.
+            if (isTraditionalLayerNorm) {
+              Value currRed = create.vec.load(vecType, redMemRef, {o, zero});
+              Value newRed = create.math.add(currRed, currX);
+              create.vec.store(newRed, redMemRef, {o, zero});
+            }
+            // Perform reduction of X square values.
+            Value currRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
+            Value newRed2 = create.math.add(currRed2, currXSquare);
+            create.vec.store(newRed2, redMemRef2, {o, zero});
+          });
+        });
+  }
+
+  using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
+  void inlineFor(MDBuilder &create, int64_t B, F1 genCode) const {
+    for (int64_t offsetInt = 0; offsetInt < B; ++offsetInt) {
+      Value offsetVal = create.math.constantIndex(offsetInt);
+      genCode(offsetInt, offsetVal);
+    }
+  }
+
+#elif 0
+  template <int64_t B>
+  void generateIter(MDBuilder &create, OP_TYPE lnOp,
+      /* inputs */ Value xMemRef, Value scaleMemRef, Value biasMemRef,
+      /* + for stick */ Value xMemRefFS, Value scaleMemRefFS,
       Value biasMemRefFS,
-      /* output */ Value YMemRef,
-      /* + for stick */ Value YMemRefFS,
+      /* output */ Value yMemRef,
+      /* + for stick */ Value yMemRefFS,
       /* temps [B][vec] */ Value redMemRef1, Value redMemRef2,
       /* index expr param */ DimsExpr outerLoopIndices, IndexExpr E1,
       /* value params */ Value i, Value epsilon,
@@ -957,7 +1040,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       isTraditionalLayerNorm = true;
     // Init the two reductions.
     Type elementType =
-        mlir::cast<ShapedType>(XMemRef.getType()).getElementType();
+        mlir::cast<ShapedType>(xMemRef.getType()).getElementType();
     VectorType vecType = VectorType::get({VL}, elementType);
     Value init = create.math.constant(elementType, 0.0);
     Value initVec = create.vec.splat(vecType, init);
@@ -979,8 +1062,8 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
             create.mem.subview(redMemRef1, {b, 0}, {1, VL}, {1, 1});
         stickCS1[b].init(create.kb,
             /* in original */ {lnOp.getX(), redMemRefSubview1[b]},
-            /* in memref*/ {XMemRef, redMemRefSubview1[b]},
-            /* in for stick */ {XMemRefFS},
+            /* in memref*/ {xMemRef, redMemRefSubview1[b]},
+            /* in for stick */ {xMemRefFS},
             /* out */ redMemRefSubview1[b], redMemRefSubview1[b], nullptr,
             disableSaturation);
         stickCS1[b].prepareInsideTiledLoop(create.kb, outerLoopIndices, E1);
@@ -990,13 +1073,12 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
           create.mem.subview(redMemRef2, {b, 0}, {1, VL}, {1, 1});
       stickCS2[b].init(create.kb,
           /* in original */ {lnOp.getX(), redMemRefSubview[b]},
-          /* in memref*/ {XMemRef, redMemRefSubview2[b]},
-          /* in for stick */ {XMemRefFS},
+          /* in memref*/ {xMemRef, redMemRefSubview2[b]},
+          /* in for stick */ {xMemRefFS},
           /* out */ redMemRefSubview2[b], redMemRefSubview2[b], nullptr,
           disableSaturation);
       stickCS2[b].prepareInsideTiledLoop(create.kb, outerLoopIndices, E1);
     }
-    
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
