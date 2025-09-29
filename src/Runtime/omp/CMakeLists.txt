@@ -11,25 +11,29 @@ find_path(OPENMP_INCLUDE_DIR
 if(OPENMP_INCLUDE_DIR)
   set(OMP_TOPDIR ${CMAKE_CURRENT_BINARY_DIR})
   set_directory_properties(PROPERTIES EP_BASE ${OMP_TOPDIR})
+  set(OPENMP_SOURCE_DIR ${LLVM_BUILD_MAIN_SRC_DIR}/../openmp)
 
   include(ExternalProject)
   ExternalProject_Add(OMomp
     DOWNLOAD_DIR "."
-    SOURCE_DIR "."
-    BINARY_DIR "."
-    INSTALL_DIR "."
-    STAMP_DIR "."
-    TMP_DIR "tmp"
+    BINARY_DIR ${OMP_TOPDIR}/openmp-build
+    INSTALL_DIR ${OMP_TOPDIR}/install
+    STAMP_DIR ${OMP_TOPDIR}/stamp
+    TMP_DIR ${OMP_TOPDIR}/tmp
 
     DOWNLOAD_COMMAND ""
+    # Build with LIBOMP_ENABLE_SHARED=OFF so that libomp.a can be embedded into model.so
+    # Since OpenMP is not exposed in the LLVM build directory, it must be configured
+    # and built separately in its own build directory
     CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
-                             cmake -G Ninja ${LLVM_BUILD_MAIN_SRC_DIR} \
-                                   -DLLVM_ENABLE_PROJECTS=\"clang\" \
-                                   -DLLVM_ENABLE_RUNTIMES=\"openmp\" \
-                                   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-                                   -DLIBOMP_ENABLE_SHARED=OFF"
-    # OpenMP target is not exposed in the llvm build dir. To build OpenMP target requires a call in its build dir.
-    BUILD_COMMAND sh -c "cd ${LLVM_BUILD_BINARY_DIR}/runtimes/runtimes-bins/openmp/runtime/src && cmake --build ."
+                             cmake -G Ninja -S ${OPENMP_SOURCE_DIR} \
+                                -B ${OMP_TOPDIR}/openmp-build \
+                                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} \
+                                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} \
+                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+                                -DLIBOMP_ENABLE_SHARED=OFF"
+
+    BUILD_COMMAND sh -c "cmake --build ${OMP_TOPDIR}/openmp-build --target omp"
     INSTALL_COMMAND ""
   )
 
