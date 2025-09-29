@@ -29,7 +29,7 @@ if(OPENMP_INCLUDE_DIR)
                                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
                                    -DLIBOMP_ENABLE_SHARED=OFF"
     # OpenMP target is not exposed in the llvm build dir. To build OpenMP target requires a call in its build dir.
-    BUILD_COMMAND sh -c "cd ${LLVM_BUILD_BINARY_DIR}/runtimes/runtimes-bins/openmp/runtime/src && ninja"
+    BUILD_COMMAND sh -c "cd ${LLVM_BUILD_BINARY_DIR}/runtimes/runtimes-bins/openmp/runtime/src && cmake --build ."
     INSTALL_COMMAND ""
   )
 
