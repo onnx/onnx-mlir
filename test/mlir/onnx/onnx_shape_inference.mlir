@@ -1185,6 +1185,19 @@ func.func @test_rnn_infer_hidden_size_from_W(%arg0: tensor<4x3x2xf32>, %arg1: te
 
 // -----
 
+func.func @test_rnn_update_dynamic_input_size_from_weight(%arg0: tensor<4x3x?xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x?xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<*xf32>, tensor<*xf32>)
+  onnx.Return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: test_rnn_update_dynamic_input_size_from_weight
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.RNN"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<4x1x3x3xf32>, tensor<1x3x3xf32>)
+  // CHECK: onnx.Return [[RES]] : tensor<1x3x3xf32>
+}
+
+// -----
+
 func.func @test_rnn_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> (none) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (none, none)
