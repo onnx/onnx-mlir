@@ -62,22 +62,30 @@ public:
   // MemRef conversions); otherwise it can be a MemRef. E1 is the innermost
   // (possibly stickified) dimension. At least one of isRead or isWrite must be
   // true. Same holds for init.
+  // During init, reference is classified and if the reference is to a stick
+  // data, then we perform a reinterpret cast to facilitate stick accesses.
   UnifiedStickSupport(KrnlBuilder &kb, mlir::Value originalVal,
       mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
-      bool disableSaturation)  {
+      bool disableSaturation) {
     init(kb, originalVal, originalMemRef, E1, isRead, isWrite,
         disableSaturation);
   }
   void init(KrnlBuilder &kb, mlir::Value originalVal,
       mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
       bool disableSaturation);
+  UnifiedStickSupport() = default;
 
   // Run before the stickified inner loop. This will load read values that are
   // broadcasted. For stickified references, the stick offset will also be
-  // computed.  Outer indices should iterate over sticks (be blocked by
-  // stickLen). E.g. the innermost index goes from 0, 64, 128,...
+  // computed using the specified outer indices.  Outer indices should iterate
+  // over sticks (be blocked by stickLen). E.g. the innermost index goes from 0,
+  // 64, 128,... So this call "locks in" the outer indices for all but the
+  // innermost index which will be allow to go from 0 to up to 64 (within that
+  // stick).
   void beforeStickLoop(KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1);
-  // Perform the read and the write operations as needed.
+  // Perform the read and the write operations as needed. Index l is the TotVL
+  // offset into the current stick. Int u is the index (between 0 and UnrollVL)
+  // pointing to the current ArchVL vector being processed.
   void beforeCompute(KrnlBuilder &kb, IndexExpr l, int64_t u);
   void afterCompute(
       KrnlBuilder &kb, IndexExpr l, int64_t u, mlir::Value tempBufferMemRef);
@@ -111,18 +119,21 @@ private:
   // Computed values outside of the stick loop.
   DimsExpr outerIndices;
   IndexExpr stickOffset; // For stick values.
+  // Computed values outside of the stick loop for broadcast, inside the stick
+  // loop for non-broadcast.
   mlir::Value highVal, lowVal;
 };
 
-struct UnifiedStickMemSupportForKernels {
+struct UnifiedStickSupportList {
 
-  UnifiedStickMemSupportForKernels(KrnlBuilder &kb,
+  UnifiedStickSupportList(KrnlBuilder &kb,
       mlir::ValueRange originalVals, mlir::ValueRange originalMemRefs,
       IndexExpr E1, mlir::BitVector isReads, mlir::BitVector isWrites,
       bool disableSaturation);
   void init(KrnlBuilder &kb, mlir::ValueRange originalVals,
       mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
       mlir::BitVector isWrites, bool disableSaturation);
+  UnifiedStickSupportList() = default;
 
   // Outer indices should iterate over sticks (be blocked by stickLen). E.g. the
   // innermost index goes from 0, 64, 128,...
@@ -138,10 +149,21 @@ struct UnifiedStickMemSupportForKernels {
       mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals)>;
   // This function works only when initialized with originVals and originMemRefs
   // to have only one output. Typically used for elementwise operations. All
-  // UnifiedStickSupport in list are expected to be initialized.
+  // UnifiedStickSupport in list are expected to be initialized. 
   void loadComputeStore(KrnlBuilder &kb,
       IterateFctOver4xF32 processVectorOfF32Vals, IndexExpr l, int64_t u,
       mlir::Value tempBufferMemRef = nullptr);
+
+  // Function that receives vectors of 4xf32 values, some of which may be input
+  // values (to be used by the function), some of which may be output are are
+  // expected to be modified by the function. It is the responsibility of the
+  // function to only use values defined as read, and any modified values that
+  // were not defined as write will be lost.
+  using GenericIterateFctOver4xF32M = std::function<void(const KrnlBuilder &b,
+      mlir::SmallVectorImpl<mlir::Value> &listOfF32Vals)>;
+  void genericLoadComputeStore(KrnlBuilder &kb,
+      GenericIterateFctOver4xF32M processVectorOfF32Vals, IndexExpr l,
+      int64_t u);
 
   mlir::SmallVector<UnifiedStickSupport, 4> list;
 };

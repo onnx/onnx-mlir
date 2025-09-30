@@ -224,6 +224,9 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
     DimsExpr castShape = {lit2, litStickLen};
     this->memRef = create.mem.reinterpretCast(originalMemRef, castShape);
   }
+  LLVM_DEBUG(llvm::dbgs() << "  " << (isStick ? "is stick " : "")
+                          << (isBroadcast ? "is broadcast " : "")
+                          << (isBuffer ? "is buffer " : "") << "operand\n");
 }
 
 void UnifiedStickSupport::beforeStickLoop(
@@ -381,45 +384,46 @@ void UnifiedStickSupport::set4xF32Vals(Value highVal, Value lowVal) {
 }
 
 //===----------------------------------------------------------------------===//
-// UnifiedStickMemSupportForKernels: higher level support for collection of
+// UnifiedStickSupportList: higher level support for collection of
 // UnifiedStickSupport.
 
-UnifiedStickMemSupportForKernels::UnifiedStickMemSupportForKernels(
-    KrnlBuilder &kb, ValueRange originalVals, ValueRange originalMemRefs,
-    IndexExpr E1, mlir::BitVector isReads, mlir::BitVector isWrites,
-    bool disableSaturation) {
+UnifiedStickSupportList::UnifiedStickSupportList(KrnlBuilder &kb,
+    ValueRange originalVals, ValueRange originalMemRefs, IndexExpr E1,
+    mlir::BitVector isReads, mlir::BitVector isWrites, bool disableSaturation) {
   init(kb, originalVals, originalMemRefs, E1, isReads, isWrites,
       disableSaturation);
 }
 
-void UnifiedStickMemSupportForKernels::init(KrnlBuilder &kb,
-    ValueRange originalVals, ValueRange originalMemRefs, IndexExpr E1,
-    mlir::BitVector isReads, mlir::BitVector isWrites, bool disableSaturation) {
+void UnifiedStickSupportList::init(KrnlBuilder &kb, ValueRange originalVals,
+    ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+    mlir::BitVector isWrites, bool disableSaturation) {
   int64_t size = originalVals.size();
   assert((int)originalMemRefs.size() == size && "bad memref size");
   assert((int)isReads.size() == size && "bad isRead size");
   assert((int)isWrites.size() == size && "bad isWrite size");
   list.clear();
-  for (int64_t i = 0; i < size; ++i)
-    list.emplace_back(UnifiedStickSupport(kb, originalVals[i],
-        originalMemRefs[i], E1, isReads[i], isWrites[i], disableSaturation));
+  for (int64_t i = 0; i < size; ++i) {
+    UnifiedStickSupport uss(kb, originalVals[i], originalMemRefs[i], E1,
+        isReads[i], isWrites[i], disableSaturation);
+    list.emplace_back(uss);
+  }
 }
 
-void UnifiedStickMemSupportForKernels::beforeStickLoop(
+void UnifiedStickSupportList::beforeStickLoop(
     KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
   int64_t size = list.size();
   for (int64_t i = 0; i < size; ++i)
     list[i].beforeStickLoop(kb, outerIndices, E1);
 }
 
-void UnifiedStickMemSupportForKernels::beforeCompute(
+void UnifiedStickSupportList::beforeCompute(
     KrnlBuilder &kb, IndexExpr l, int64_t u) {
   int64_t size = list.size();
   for (int64_t i = 0; i < size; ++i)
     list[i].beforeCompute(kb, l, u);
 }
 
-void UnifiedStickMemSupportForKernels::afterCompute(
+void UnifiedStickSupportList::afterCompute(
     KrnlBuilder &kb, IndexExpr l, int64_t u, ValueRange tempBufferMemRefs) {
   int64_t size = list.size();
   int64_t tempSize = tempBufferMemRefs.size();
@@ -429,7 +433,7 @@ void UnifiedStickMemSupportForKernels::afterCompute(
   }
 }
 
-void UnifiedStickMemSupportForKernels::loadComputeStore(KrnlBuilder &kb,
+void UnifiedStickSupportList::loadComputeStore(KrnlBuilder &kb,
     IterateFctOver4xF32 processVectorOfF32Vals, IndexExpr l, int64_t u,
     Value tempBufferMemRef) {
   // Load values;
@@ -459,6 +463,30 @@ void UnifiedStickMemSupportForKernels::loadComputeStore(KrnlBuilder &kb,
   storeUSMS->afterCompute(kb, l, u, tempBufferMemRef);
 }
 
+void UnifiedStickSupportList::genericLoadComputeStore(KrnlBuilder &kb,
+    GenericIterateFctOver4xF32M processVectorOfF32Vals, IndexExpr l,
+    int64_t u) {
+  beforeCompute(kb, l, u);
+  int64_t size = list.size();
+  // Set the low/high values for all USS on the list, setting the values that
+  // should be read to the proper values.
+  mlir::SmallVector<Value, 4> highVals(size, nullptr), lowVals(size, nullptr);
+  for (int64_t i = 0; i < size; ++i) {
+    if (list[i].isInitialized() && list[i].hasRead())
+      list[i].get4xF32Vals(highVals[i], lowVals[i]);
+  }
+  // This function is responsible for updating the values that need to be
+  // stored.
+  processVectorOfF32Vals(kb, highVals);
+  processVectorOfF32Vals(kb, lowVals);
+  // Update the USS with the low/high values that were calculated above.
+  for (int64_t i = 0; i < size; ++i) {
+    if (list[i].isInitialized() && list[i].hasWrite())
+      list[i].set4xF32Vals(highVals[i], lowVals[i]);
+  }
+  afterCompute(kb, l, u, {});
+}
+
 //===----------------------------------------------------------------------===//
 // Process operation with stick inputs/output.
 
@@ -466,8 +494,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     ValueRange operands /*converted*/, Value alloc, DimsExpr &outputDims,
     int64_t unrollVL, bool enableParallel, bool disableSaturation,
     bool enablePrefetch,
-    UnifiedStickMemSupportForKernels::IterateFctOver4xF32
-        processVectorOfF32Vals) {
+    UnifiedStickSupportList::IterateFctOver4xF32 processVectorOfF32Vals) {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, VectorBuilder, SCFBuilder, MathBuilder, ZLowBuilder>;
 
@@ -514,8 +541,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
   mlir::BitVector isReads(inputNum + 1, true), isWrites(inputNum + 1, false);
   isReads[inputNum] = false; // Output is at index inputNum.
   isWrites[inputNum] = true; // Output is at index inputNum.
-  UnifiedStickMemSupportForKernels stickCS(create.krnl, originalVals,
-      originalMemRefs, E1, isReads, isWrites, disableSaturation);
+  UnifiedStickSupportList stickCS(create.krnl, originalVals, originalMemRefs,
+      E1, isReads, isWrites, disableSaturation);
   bool isStickifiedOutput = stickCS.list[inputNum].hasStick();
 
   // Predicates used to avoid creating code that is never used.
@@ -573,8 +600,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
         }
         create.scf.ifThenElse(
             hasFullStick.getValue(),
-            // If is full, process all 64 values by iterating over totVL values
-            // at a time.
+            // If is full, process all 64 values by iterating over totVL
+            // values at a time.
             [&](const SCFBuilder b) {
               if (neverHas64)
                 return; // Nothing to do here. Avoid generating dead code.
@@ -600,10 +627,10 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
               if (!neverHas8) {
                 // Not full 64, process archVL (8) values at a time instead of
                 // TotVL. Note: if we only have multiple of archVL, loop below
-                // will handle all archVL-full as we subtract (archVL-1). Aka if
-                // VL=8 and tripCount = 16, tripCountSimdByVL is 16 - 7 = 9.
-                // Thus we iterate over i=0 (val 0..7) & i=8 (val 8..15) as both
-                // are < 9.
+                // will handle all archVL-full as we subtract (archVL-1). Aka
+                // if VL=8 and tripCount = 16, tripCountSimdByVL is 16 - 7
+                // = 9. Thus we iterate over i=0 (val 0..7) & i=8 (val 8..15)
+                // as both are < 9.
                 int64_t correction = archVL - 1;
                 if (STICK_OUTPUT_WRITE_PAST_BOUNDS && isStickifiedOutput) {
                   // Overwrite is allowed, so if VL=8 and trip count = 16:
@@ -624,8 +651,8 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                     });
               }
               if (!hasOnly8) {
-                // Deal with the last < ArchVL=8 values: compute f32 using simd.
-                // IndexExpr remainingScalarValues = tripCount % archVL;
+                // Deal with the last < ArchVL=8 values: compute f32 using
+                // simd. IndexExpr remainingScalarValues = tripCount % archVL;
 
                 // Can use E1 instead of trip count as trip count substract
                 // multiple of 64 to E1, and 64 % (archVal=8) = 0.
@@ -646,7 +673,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                 // Buffer holds original or stickified (normalized) results
                 // depending on the output type.
                 stickCS.loadComputeStore(create.krnl, processVectorOfF32Vals,
-                    lastL, 0, outputBuffer);
+                    lastL, /* unroll */ 0, outputBuffer);
                 // Scalar store of buffer values.
                 create.scf.forLoopIE(litZero, remainingScalarValues, 1,
                     /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
@@ -774,7 +801,7 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
           shapeHelper.getOutputDims(), alignment);
     }
 
-    UnifiedStickMemSupportForKernels::IterateFctOver4xF32 fct =
+    UnifiedStickSupportList::IterateFctOver4xF32 fct =
         [&](const KrnlBuilder &b,
             mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals) {
           return emitScalarOpFor<ElementwiseOp>(rewriter, b.getLoc(), op,
@@ -800,31 +827,29 @@ template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
 struct FuzedStickUnstickGenericLayerNormaOpLowering
     : public OpConversionPattern<OP_TYPE> {
   FuzedStickUnstickGenericLayerNormaOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool disableSaturation,
-      bool enableParallel)
+      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
       : OpConversionPattern<OP_TYPE>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), disableSaturation(disableSaturation) {
+        disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             OP_TYPE::getOperationName());
   }
 
-  DimAnalysis *dimAnalysis;
   bool disableSaturation, enableParallel;
 
   using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MathBuilder, MemRefBuilder, SCFBuilder>;
+  using MDBuilder =
+      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+          VectorBuilder, MemRefBuilder, AffineBuilderKrnlMem, SCFBuilder>;
 
-#if 0
   LogicalResult matchAndRewrite(OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Blocking. VL is for number of dlf16 in vector (8). B is for number of
     // parallel reductions.
-    const int64_t VL = UnifiedStickSupport::archVL;
+    const int64_t archVL = UnifiedStickSupport::archVL;
     const int64_t stickLen = UnifiedStickSupport::stickLen;
-    const int64_t B = 4;
+    const int64_t B = 2; // hi alex
     bool isTraditionalLayerNorm = false;
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
       isTraditionalLayerNorm = true;
@@ -835,7 +860,10 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     ValueRange operands = adaptor.getOperands();
     Value xMemRef = adaptor.getX();
     MemRefType xMemRefType = mlir::cast<MemRefType>(xMemRef.getType());
-    Type elementType = xMemRefType.getElementType();
+    // Cannot rely on type of X or Y as they might be f16. Use here the type as
+    // the computation type.
+    Type elementType = rewriter.getF32Type();
+
     int64_t XRank = xMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
     assert(XRank >= 2 && "expected 2+ X/Y rank");
@@ -843,6 +871,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
 
     // Create builder and shape helper
     MDBuilder create(rewriter, loc);
+
     SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     IndexExpr E1 = shapeHelper.getOutputDims(0)[XRank - 1];
@@ -888,196 +917,273 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       assert(isNoneValue(lnOp.getInvStdDev()) &&
              "InvStdDev not supported in fused Stick/Unstick/LN");
 
-    // Blocked outer loops ( blocked by Bx64 in innermost).
+    // Outerloops (all but E1), with blocked E2 blocked by B. No E1 in lbs/ubs.
     DimsExpr ubs(shapeHelper.getOutputDims(0));
-    DimsExpr lbs(XRank, LitIE(0));
-    ValueRange loopDefs = create.krnl.defineLoops(XRank);
+    ubs.pop_back();
+    DimsExpr lbs(XRank - 1, LitIE(0));
+    ValueRange loopDefs = create.krnl.defineLoops(XRank - 1);
     SmallVector<Value, 4> outerOptLoops, innerOptLoops;
-    create.krnl.blockAndPermute(
-        loopDefs, {B, stickLen}, outerOptLoops, innerOptLoops);
+    create.krnl.blockAndPermute(loopDefs, {B}, outerOptLoops, innerOptLoops);
     // Handle Parallel
     bool useParallel = false;
 
     // Temp reduction buffers
-    MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
-    Value tmpRedMemRef1 = nullptr, tmpRedMemRef2 = nullptr;
+    MemRefType redType = MemRefType::get({B, archVL}, elementType);
+    Value redMemRef1 = nullptr, redMemRef2 = nullptr;
     if (!useParallel) {
       // Sequential, alloc before loop.
-      if (isTraditionalLayerNorm) {
-        tmpRedMemRef1 = create.mem.alignedAlloc(tmpRedType);
-      }
-      tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+      if (isTraditionalLayerNorm)
+        redMemRef1 = create.mem.alignedAlloc(redType);
+      redMemRef2 = create.mem.alignedAlloc(redType);
     }
 
-    create.krnl.iterate(loopDefs, outerOptLoops, lbs, ubs,
-        [&](const KrnlBuilder &ck, ValueRange blockedLoopIndices) {
+    create.krnl.iterateIE(loopDefs, outerOptLoops, lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange outerLoopInd) {
           MDBuilder create(ck);
-          IndexExprScope innerScope(ck);
+          IndexExprScope middleScope(ck);
+          DimsExpr outerIndices = DimListIE(outerLoopInd); // no e1.
+          int64_t d2 = outerIndices.size() - 1;
           if (useParallel) {
             // Parallel, alloc inside parallel loop.
-            if (isTraditionalLayerNorm) {
-              tmpRedMemRef1 = create.mem.alignedAlloc(tmpRedType);
-            }
-            tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+            if (isTraditionalLayerNorm)
+              redMemRef1 = create.mem.alignedAlloc(redType);
+            redMemRef2 = create.mem.alignedAlloc(redType);
           }
-          // First function
-          mlir::SmallVector<Value, 4> inputFirst = {xMemRef};
 
           // Determine full tile.
-          IndexExpr blockedCurrIndex = DimIE(blockedLoopIndices[XRank - 2]);
-          IndexExpr blockedUB = DimIE(ubs[XRank - 2]);
+          IndexExpr blockedCurrIndex = DimIE(outerIndices[d2]);
+          IndexExpr blockedUB = DimIE(ubs[d2]);
           IndexExpr isFull =
               create.krnlIE.isTileFull(blockedCurrIndex, LitIE(B), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isFullVal = create.math.ge(isFull.getValue(), zero);
-          IndexExpr E1 = DimIE(ubs[XRank - 1]);
           create.scf.ifThenElse(
               isFullVal,
               [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
+                IndexExprScope innerScopes(scf, &middleScope);
                 create.krnl.printf("full tile\n");
+                // Compute a full tile of B
+                generateIter<B>(create, lnOp, elementType,
+                    isTraditionalLayerNorm, xUSS, biasUSS, scaleUSS, redMemRef1,
+                    redMemRef2, yUSS, outerIndices, E1, epsilon, archVL,
+                    stickLen);
               },
               [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
+                IndexExprScope innerScope(scf, &middleScope);
                 create.krnl.printf("partial tile\n");
-                llvm_unreachable("hi alex, initial B=1");
-              });
-        }); // Blocked outer loop
+                Value startOfLastBlockVal = blockedCurrIndex.getValue();
+                Value blockedUBVal = blockedUB.getValue();
+                // Iterate over the last few values of b.
+                create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
+                    [&](const SCFBuilder &scf, ValueRange loopInd) {
+                      IndexExprScope innermostScope(scf, &innerScope);
+                      MDBuilder create(scf);
+                      // Reflect b inot current indices.
+                      DimsExpr currOuterIndices = DimListIE(outerIndices);
+                      currOuterIndices[d2] = DimIE(loopInd[0]);
+                      generateIter<1>(create, lnOp, elementType,
+                          isTraditionalLayerNorm, xUSS, biasUSS, scaleUSS,
+                          redMemRef1, redMemRef2, yUSS, currOuterIndices, E1,
+                          epsilon, archVL, stickLen);
+                    }); // Last values of b.
+              });       // If full then else.
+        });             // Blocked outer loop.
 
-    // Replace the op.
-    // hi alex
+    // Replace the op (here only if we have a single output.)
+    Value noneValue;
+    llvm::SmallVector<Value, 3> outputs;
+    if (isTraditionalLayerNorm)
+      outputs = {yMemRef, noneValue, noneValue};
+    else
+      outputs = {yMemRef, noneValue};
+    rewriter.replaceOp(lnOp, outputs);
     return success();
   }
-#endif
 
-#if 0
   template <int64_t B>
-  void generateIter(MDBuilder &create, OP_TYPE lnOp,
-      bool isTraditionalLayerNorm.UnifiedStickSupport &xUSS,
+  void generateIter(MDBuilder &create, OP_TYPE lnOp, Type elementType,
+      bool isTraditionalLayerNorm, UnifiedStickSupport &xUSS,
       UnifiedStickSupport &biasUSS, UnifiedStickSupport &scaleUSS,
-      Value tmpRedMemRef1, Value &tmpRedMemRef1, UnifiedStickSupport &yUSS,
+      Value redMemRef1, Value redMemRef2, UnifiedStickSupport &yUSS,
       /* index expr param */ DimsExpr outerLoopIndices, IndexExpr E1,
-      /* value params */ Value i, Value epsilon,
-      /* int params */ int64_t totVL, stickLen) {
-    // Init the two reductions, compute subviews for [1, VL] views, and init USS
-    Type elementType =
-        mlir::cast<ShapedType>(xMemRef.getType()).getElementType();
-    VectorType vecType = VectorType::get({VL}, elementType);
+      /* value params */ Value epsilon,
+      /* int params */ int64_t archVL, int64_t stickLen) const {
+
+    // Init the reductions, compute subviews for [1, archVL] views, init
+    // USS.
+    VectorType vecType = VectorType::get({archVL}, elementType);
     Value init = create.math.constant(elementType, 0.0);
     Value initVec = create.vec.splat(vecType, init);
     Value zero = create.math.constantIndex(0);
-    UnifiedStickSupport tmpRedUSS1[B],
-        tmpRedUSS2[B] inlineFor(create, B, [&](int64_t b, Value bb) {
-          if (isTraditionalLayerNorm) {
-            create.vec.store(initVec, tmpRedMemRef1, {bb, zero});
-            Value tmpRedSubview1 =
-                create.mem.subview(tmpRedMemRef1, {b, 0}, {1, VL}, {1, 1});
-            tmpRedUSS1[b].init(create.krnl, tmpRedSubview1, tmpRedSubview1, E1,
-                /*read/write*/ true, true, disableSaturation);
-            tmpRedUSS1[b].beforeStickLoop(create.krnl, outerIndices, E1);
-          }
-          create.vec.store(initVec, tmpRedMemRef2, {bb, zero});
-          Value tmpRedSubview2 =
-              create.mem.subview(tmpRedMemRef2, {b, 0}, {1, VL}, {1, 1});
-          tmpRedUSS1[b].init(create.krnl, tmpRedSubview2, tmpRedSubview2, E1,
-              /*read/write*/ true, true, disableSaturation);
-          tmpRedUSS2[b].beforeStickLoop(create.krnl, outerIndices, E1);
-        });
-    // Before first stick loop, using X and reductions only.
-    xUSS.beforeStickLoop(create.krnl, outerIndices, E1);
-    // Compute parallel reductions.
+    UnifiedStickSupportList blockedMeanUSSList[B];
+    int64_t xRank = getRank(xUSS.getOriginalVal().getType());
+    inlineFor(create, B, [&](int64_t b, Value bb) {
+      // Init tmpRed1 as second parameter.
+      UnifiedStickSupport redUSS1;
+      if (isTraditionalLayerNorm) {
+        create.vec.store(initVec, redMemRef1, {bb, zero});
+        Value redSubview1 =
+            create.mem.subview(redMemRef1, {b, 0}, {1, archVL}, {1, 1});
+        redUSS1.init(create.krnl, redSubview1, redSubview1, DimIE(E1),
+            /*read/write*/ true, true, disableSaturation);
+      }
+      // Init tmpRed2 as third parameter.
+      create.vec.store(initVec, redMemRef2, {bb, zero});
+      Value redSubview2 =
+          create.mem.subview(redMemRef2, {b, 0}, {1, archVL}, {1, 1});
+      UnifiedStickSupport redUSS2(create.krnl, redSubview2, redSubview2, E1,
+          /*read/write*/ true, true, disableSaturation);
+      // Set list.
+      blockedMeanUSSList[b].list = {xUSS, redUSS1, redUSS2};
+    });
+
+    // Compute parallel reductions to compute red1 and red2, iterating over
+    // each chunk of 8 values for B sticks at a time.
     IndexExpr lit0 = LitIE(0);
     IndexExpr litStickLen = LitIE(stickLen);
-    create.affineKMem.forLoopIE(litZero, litStickLen, totVL,
+
+    // Iterate over sticks.
+    create.affineKMem.forLoopIE(lit0, E1, stickLen,
         [&](const onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
           MDBuilder create(ck);
-          Value j = loopInd[0];
-          // load X, compute X**2, sum into reductions.
-          inlineFor(create, B, [&](int64_t d, Value o) {
-            Value ii = create.math.add(i, o); // hi alex
-            // Load X, compute X2.
-            Value currX = create.vec.load(vecType, XMemRef, {ii, j});
-            Value currXSquare = create.math.mul(currX, currX);
-            // Perform reduction ov X values.
-            if (isTraditionalLayerNorm) {
-              Value currRed = create.vec.load(vecType, redMemRef, {o, zero});
-              Value newRed = create.math.add(currRed, currX);
-              create.vec.store(newRed, redMemRef, {o, zero});
-            }
-            // Perform reduction of X square values.
-            Value currRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
-            Value newRed2 = create.math.add(currRed2, currXSquare);
-            create.vec.store(newRed2, redMemRef2, {o, zero});
-          });
-        });
-  }
+          IndexExprScope outerScope(ck);
 
-  using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
-  void inlineFor(MDBuilder &create, int64_t B, F1 genCode) const {
-    for (int64_t offsetInt = 0; offsetInt < B; ++offsetInt) {
-      Value offsetVal = create.math.constantIndex(offsetInt);
-      genCode(offsetInt, offsetVal);
-    }
-  }
+          IndexExpr e1 = DimIE(loopInd[0]);
 
-#elif 0
-  template <int64_t B>
-  void generateIter(MDBuilder &create, OP_TYPE lnOp,
-      /* inputs */ Value xMemRef, Value scaleMemRef, Value biasMemRef,
-      /* + for stick */ Value xMemRefFS, Value scaleMemRefFS,
-      Value biasMemRefFS,
-      /* output */ Value yMemRef,
-      /* + for stick */ Value yMemRefFS,
-      /* temps [B][vec] */ Value redMemRef1, Value redMemRef2,
-      /* index expr param */ DimsExpr outerLoopIndices, IndexExpr E1,
-      /* value params */ Value i, Value epsilon,
-      /* int params */ int64_t VL) {
-    // Bool isTraditionalLayerNorm is true when computing traditional layer
-    // norm, not the faster RMS version.
-    bool isTraditionalLayerNorm = false;
-    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
-      isTraditionalLayerNorm = true;
-    // Init the two reductions.
-    Type elementType =
-        mlir::cast<ShapedType>(xMemRef.getType()).getElementType();
-    VectorType vecType = VectorType::get({VL}, elementType);
-    Value init = create.math.constant(elementType, 0.0);
-    Value initVec = create.vec.splat(vecType, init);
-    Value zero = create.math.constantIndex(0);
-    inlineFor(create, B, [&](int64_t d, Value o) {
+          // Init before stick loop with index reflecting the b-blocking factor
+          // (2nd to last innermost dim).
+          for (int64_t b = 0; b < B; ++b) {
+            DimsExpr loopIndices = DimListIE(outerLoopIndices);
+            loopIndices.emplace_back(e1); // Add E1 dim.
+            assert(((int64_t)loopIndices.size()) == xRank && "size mismatch");
+            loopIndices[xRank - 2] = loopIndices[xRank - 2] + b; // Account for
+            blockedMeanUSSList[b].beforeStickLoop(create.krnl, loopIndices, E1);
+          }
+
+          // Iterate within the stick
+          create.affineKMem.forLoopIE(lit0, litStickLen, archVL,
+              [&](const onnx_mlir::AffineBuilderKrnlMem &ck,
+                  ValueRange loopInd) {
+                MDBuilder create(ck);
+                IndexExprScope innerScope(ck, &outerScope);
+
+                IndexExpr l = DimIE(loopInd[0]);
+                // load X, compute X**2, sum into reductions for a vector of
+                // ArchVL.
+                for (int64_t b = 0; b < B; ++b) {
+                  // Define function to apply to the inputs.
+                  UnifiedStickSupportList::GenericIterateFctOver4xF32M fct =
+                      [&](const KrnlBuilder &kb,
+                          mlir::SmallVectorImpl<mlir::Value> &listOfF32Vals) {
+                        MDBuilder create(ck);
+                        Value x = listOfF32Vals[0];     // Input.
+                        Value &red1 = listOfF32Vals[1]; // Input and output.
+                        Value &red2 = listOfF32Vals[2]; // Input and output.
+                        // Compute x^2.
+                        Value xSquare = create.math.mul(x, x);
+                        // Perform reduction on x values.
+                        if (isTraditionalLayerNorm)
+                          red1 = create.math.add(red1, x);
+                        // Perform reduction of x^2 values.
+                        red2 = create.math.add(red2, xSquare);
+                      };
+                  blockedMeanUSSList[b].genericLoadComputeStore(
+                      create.krnl, fct, l, 0);
+                } // over each b
+              }); // over one stick archVL
+        });       // over each sticks by stickLen
+
+    // Sum across, compute mean, var, standard deviation and its inverse.
+    llvm::SmallVector<Value, 4> mean(B), invStdDev(B);
+    Value redDimFloat = create.math.cast(elementType, E1.getValue());
+    Value oneFloat = create.math.constant(elementType, 1.0);
+    inlineFor(create, B, [&](int64_t b, Value bb) {
+      Value finalRed1, finalRed2, currSum1, currSum2, mean2, meanSquare, var;
+      // Load reductions.
       if (isTraditionalLayerNorm)
-        create.vec.store(initVec, redMemRef, {o, zero});
-      create.vec.store(initVec, redMemRef2, {o, zero});
-    });
-    // Init Stick Compute Support
-    StickComputeSupport stickCS1[B], stickCS2[B], stickCS3;
-    Value redMemRefSubview1[B];
-    Value redMemRefSubview2[B];
-    for (int64_t b = 0; b < B; ++b) {
-      // Create subviews, init stickCS, prepare inside tiled loop.
-      // stickCS1 is for sum of X into redMemRef1 (traditional LN only).
+        finalRed1 = create.vec.load(vecType, redMemRef1, {bb, zero});
+      finalRed2 = create.vec.load(vecType, redMemRef2, {bb, zero});
+      // Horizontal reductions.
+      if (isTraditionalLayerNorm)
+        currSum1 =
+            create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed1);
+      currSum2 =
+          create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed2);
+      // Compute means.
+      if (isTraditionalLayerNorm)
+        mean[b] = create.math.div(currSum1, redDimFloat);
+      mean2 = create.math.div(currSum2, redDimFloat);
+      // Compute standard deviation (with epsilon) and its inverse.
       if (isTraditionalLayerNorm) {
-        redMemRefSubview1[b] =
-            create.mem.subview(redMemRef1, {b, 0}, {1, VL}, {1, 1});
-        stickCS1[b].init(create.kb,
-            /* in original */ {lnOp.getX(), redMemRefSubview1[b]},
-            /* in memref*/ {xMemRef, redMemRefSubview1[b]},
-            /* in for stick */ {xMemRefFS},
-            /* out */ redMemRefSubview1[b], redMemRefSubview1[b], nullptr,
-            disableSaturation);
-        stickCS1[b].prepareInsideTiledLoop(create.kb, outerLoopIndices, E1);
+        meanSquare = create.math.mul(mean[b], mean[b]);
+        var = create.math.sub(mean2, meanSquare);
+      } else {
+        var = mean2;
       }
-      // stickCS2 is for sum of X2 into redMemRef2
-      redMemRefSubview2[b] =
-          create.mem.subview(redMemRef2, {b, 0}, {1, VL}, {1, 1});
-      stickCS2[b].init(create.kb,
-          /* in original */ {lnOp.getX(), redMemRefSubview[b]},
-          /* in memref*/ {xMemRef, redMemRefSubview2[b]},
-          /* in for stick */ {xMemRefFS},
-          /* out */ redMemRefSubview2[b], redMemRefSubview2[b], nullptr,
-          disableSaturation);
-      stickCS2[b].prepareInsideTiledLoop(create.kb, outerLoopIndices, E1);
-    }
+      Value varEps = create.math.add(var, epsilon);
+      Value stdDev = create.math.sqrt(varEps);
+      invStdDev[b] = create.math.div(oneFloat, stdDev);
+    });
+
+    // Normalize of entire vectors.
+    UnifiedStickSupportList blockedNormUSSList[B];
+    for (int64_t b = 0; b < B; ++b)
+      blockedNormUSSList[b].list = {xUSS, scaleUSS, biasUSS, yUSS};
+
+    // Iterates over sticks
+    create.affineKMem.forLoopIE(lit0, E1, stickLen,
+        [&](const onnx_mlir::AffineBuilderKrnlMem &ck, ValueRange loopInd) {
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          IndexExpr e1 = DimIE(loopInd[0]);
+
+          // Init before stick loop with index reflecting the b-blocking factor
+          // (2nd to last innermost dim).
+          for (int64_t b = 0; b < B; ++b) {
+            DimsExpr loopIndices = DimListIE(outerLoopIndices);
+            loopIndices.emplace_back(e1);
+            loopIndices[xRank - 2] = loopIndices[xRank - 2] + b;
+            blockedNormUSSList[b].beforeStickLoop(create.krnl, loopIndices, E1);
+          }
+
+          // Iterate within the stick
+          create.affineKMem.forLoopIE(lit0, litStickLen, archVL,
+              [&](const onnx_mlir::AffineBuilderKrnlMem &ck,
+                  ValueRange loopInd) {
+                MDBuilder create(ck);
+                IndexExprScope innerScope(ck, &outerScope);
+
+                IndexExpr l = DimIE(loopInd[0]);
+                for (int64_t b = 0; b < B; ++b) {
+                  // Function to apply to the inputs.
+                  UnifiedStickSupportList::GenericIterateFctOver4xF32M fct =
+                      [&](const KrnlBuilder &kb,
+                          mlir::SmallVectorImpl<mlir::Value> &inputOfF32Vals) {
+                        MDBuilder create(ck);
+                        Value x = inputOfF32Vals[0];     // Input.
+                        Value scale = inputOfF32Vals[1]; // Input.
+                        Value bias = inputOfF32Vals[2];  // Input.
+                        Value &y = inputOfF32Vals[3];    // Output.
+                        Value XMinusMean;
+                        if (isTraditionalLayerNorm)
+                          XMinusMean = create.math.sub(x, mean[b]);
+                        else
+                          XMinusMean = x;
+                        Value normalizedX =
+                            create.math.mul(XMinusMean, invStdDev[b]);
+                        // Process with multiplying by scale (scalar or 1D
+                        // vector).
+                        y = create.math.mul(normalizedX, scale);
+                        if (bias)
+                          y = create.math.add(y, bias);
+                      };
+                  blockedNormUSSList[b].genericLoadComputeStore(
+                      create.krnl, fct, l, 0);
+                } // over each b
+              }); // over one stick by archVL
+        });       // over all sticks by stickLen
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
@@ -1087,14 +1193,18 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       genCode(offsetInt, offsetVal);
     }
   }
-#endif
 };
+
+using ONNXFuzedStickUnstickLayerNormalizationOpLowering =
+    FuzedStickUnstickGenericLayerNormaOpLowering<ONNXLayerNormalizationOp,
+        ONNXLayerNormalizationOpShapeHelper>;
+using ONNXFuzedStickUnstickRMSLayerNormalizationOpLowering =
+    FuzedStickUnstickGenericLayerNormaOpLowering<ONNXRMSLayerNormalizationOp,
+        ONNXRMSLayerNormalizationOpShapeHelper>;
 
 //===----------------------------------------------------------------------===//
 // Pass
-
 namespace zhigh {
-
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
     bool enableParallel, bool disableSaturation) {
@@ -1104,6 +1214,14 @@ void populateONNXWithNNPALayoutToKrnlConversionPattern(
   patterns.insert<ONNXElementwiseOpLoweringWithNNPALayout<_OP_TYPE>>(          \
       typeConverter, ctx, enableParallel, disableSaturation);
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+
+#if 1
+  // Add normalization patterns.
+  patterns.insert<ONNXFuzedStickUnstickLayerNormalizationOpLowering>(
+      typeConverter, ctx, enableParallel, disableSaturation);
+  patterns.insert<ONNXFuzedStickUnstickRMSLayerNormalizationOpLowering>(
+      typeConverter, ctx, enableParallel, disableSaturation);
+#endif
 }
 
 } // namespace zhigh

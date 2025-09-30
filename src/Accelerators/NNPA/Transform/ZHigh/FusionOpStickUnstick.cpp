@@ -129,7 +129,7 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 
-#if 0 // hi alex
+#if 1 // hi alex
   // Layer normalization type of operations are conditionally accepted.
   // Additional outputs should be NoneType.
   if (auto layerNormOp = mlir::dyn_cast<ONNXLayerNormalizationOp>(op))

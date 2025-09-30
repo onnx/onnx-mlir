@@ -391,21 +391,21 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::MemRefType outputType, mlir::ValueRange outputDynSymbols) const;
 
   // Create a subview of val.
-  mlir::memref::SubViewOp subView(mlir::Value val,
+  mlir::memref::SubViewOp subview(mlir::Value val,
       mlir::ArrayRef<int64_t> offsets, // Offset for each val dims.
       mlir::ArrayRef<int64_t> sizes,   // Sizes for each val dims.
       mlir::ArrayRef<int64_t> strides) // Stride for each val dims.
       const;
 
   // Create a subview of val.
-  mlir::memref::SubViewOp subView(mlir::MemRefType outputType, mlir::Value val,
+  mlir::memref::SubViewOp subview(mlir::MemRefType outputType, mlir::Value val,
       mlir::ArrayRef<int64_t> offsets, // Offset for each val dims.
       mlir::ArrayRef<int64_t> sizes,   // Sizes for each val dims.
       mlir::ArrayRef<int64_t> strides) // Stride for each val dims.
       const;
 
   // Create a subview of val. Size of 1 => remove that dim.
-  mlir::memref::SubViewOp subView(mlir::Value val,
+  mlir::memref::SubViewOp subview(mlir::Value val,
       mlir::ArrayRef<IndexExpr> offsets, // Offset for each val dims.
       mlir::ArrayRef<IndexExpr> sizes,   // Sizes for each val dims.
       mlir::ArrayRef<IndexExpr> strides) // Stride for each val dims.
