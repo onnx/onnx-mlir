@@ -726,6 +726,32 @@ static bool isZTensorOfF32AndDLF16(Operation *op) {
   return hasDLF16;
 }
 
+// This use a wide range of distinct interfaces, keep it as is for the moment.
+Value allocateTraditionalOrZtensor(ConversionPatternRewriter &rewriter,
+    const TypeConverter *typeConverter, Operation *op, ValueRange operands,
+    Value outputTensor, DimsExpr &dims, int64_t VL) {
+  Type outputTensorType = outputTensor.getType();
+  if (zhigh::isZTensor(outputTensorType)) {
+    // Alloc for Z MemRefs
+    zhigh::ZMemRefType zMemRefType =
+        zhigh::convertZTensorToMemRefType(outputTensorType);
+    // Allocate a buffer for the result MemRef.
+    return zhigh::insertAllocForZMemRef(zMemRefType, dims, op, rewriter);
+  }
+  // Normal tensor.
+  // Convert the output type to MemRefType.
+  Type convertedType = typeConverter->convertType(outputTensorType);
+  int64_t alignment =
+      KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+  assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
+         "Failed to convert type to MemRefType");
+  MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
+  // Insert an allocation and deallocation for the result of this
+  // operation.
+  MemRefBuilder b(rewriter, op->getLoc());
+  return allocOrReuse(b, op, operands, outputMemRefType, dims, alignment, VL);
+}
+
 //===----------------------------------------------------------------------===//
 // Elementwise patterns.
 
@@ -777,29 +803,9 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value alloc;
-    Value outputTensor = elmsOp.getResult();
-    Type outputTensorType = outputTensor.getType();
-    if (zhigh::isZTensor(outputTensorType)) {
-      // Alloc for Z MemRefs
-      zhigh::ZMemRefType zMemRefType =
-          zhigh::convertZTensorToMemRefType(outputTensorType);
-      // Allocate a buffer for the result MemRef.
-      alloc = zhigh::insertAllocForZMemRef(
-          zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
-    } else {
-      // Convert the output type to MemRefType.
-      Type convertedType = this->typeConverter->convertType(outputTensorType);
-      int64_t alignment =
-          KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-      assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
-             "Failed to convert type to MemRefType");
-      MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
-      // Insert an allocation and deallocation for the result of this
-      // operation.
-      alloc = allocOrReuse(create.mem, op, operands, outputMemRefType,
-          shapeHelper.getOutputDims(), alignment);
-    }
+    Value alloc = allocateTraditionalOrZtensor(rewriter, this->typeConverter,
+        op, operands, elmsOp.getResult(), shapeHelper.getOutputDims(),
+        /*does not collapse and write past boundaries, ok to set VL=1 here*/ 1);
 
     UnifiedStickSupportList::IterateFctOver4xF32 fct =
         [&](const KrnlBuilder &b,
@@ -898,13 +904,9 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     }
 
     // Allocate output: convert and allocate
-    Type convertedYType =
-        this->typeConverter->convertType(lnOp.getY().getType());
-    assert(convertedYType && mlir::isa<MemRefType>(convertedYType) &&
-           "Failed to convert type to MemRefType");
-    MemRefType yMemRefType = mlir::cast<MemRefType>(convertedYType);
-    Value yMemRef =
-        create.mem.alignedAlloc(yMemRefType, shapeHelper.getOutputDims(0));
+    Value yMemRef = allocateTraditionalOrZtensor(rewriter, this->typeConverter,
+        op, operands, lnOp.getY(), shapeHelper.getOutputDims(0),
+        /*does not collapse and write past boundaries, ok to set VL=1 here*/ 1);
     UnifiedStickSupport yUSS(create.krnl, lnOp.getY(), yMemRef, E1,
         /*write only*/ false, true, disableSaturation);
 
