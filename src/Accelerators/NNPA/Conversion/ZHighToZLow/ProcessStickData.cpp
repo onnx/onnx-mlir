@@ -855,7 +855,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     // parallel reductions.
     const int64_t archVL = UnifiedStickSupport::archVL;
     const int64_t stickLen = UnifiedStickSupport::stickLen;
-    const int64_t B = 2; // hi alex
+    const int64_t B = 4; // hi alex
     bool isTraditionalLayerNorm = false;
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
       isTraditionalLayerNorm = true;
