@@ -232,7 +232,7 @@ struct OnnxBuilder : DialectBuilder {
   // Convert a Type to TensorType if it is of MemRefType.
   mlir::TensorType toTensor(mlir::Type input) const;
   // Convert Type to TypeRange of TensorType if it is of MemRefType.
-  mlir::TypeRange toTensors(mlir::TypeRange inputs) const;
+  llvm::SmallVector<mlir::Type> toTensors(mlir::TypeRange inputs) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
 
