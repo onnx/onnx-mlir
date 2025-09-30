@@ -125,6 +125,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     }
   }
 
+  // Do not use attention_mask.
+  if (ignoreAttentionMask>= 0)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createDonotUseAttentionMaskPass(
+        /*argIdx=*/ignoreAttentionMask));
+
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
