@@ -1907,6 +1907,25 @@ struct PropagateBiasIntoLayerNormRewritePattern
 // Rewrite pattern for Where
 // =============================================================================
 
+class NotWhereOptPattern : public OpRewritePattern<ONNXWhereOp> {
+public:
+  using OpRewritePattern<ONNXWhereOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXWhereOp onnxWhereOp, PatternRewriter &rewriter) const override {
+    auto notOp = onnxWhereOp.getCondition().getDefiningOp<ONNXNotOp>();
+    if (!notOp)
+      return failure();
+    rewriter.modifyOpInPlace(onnxWhereOp, [&]() {
+      onnxWhereOp.getOperation()->setOperands(
+          {notOp.getX(), onnxWhereOp.getY(), onnxWhereOp.getX()});
+      onnxWhereOp->setLoc(
+          rewriter.getFusedLoc({onnxWhereOp.getLoc(), notOp.getLoc()}));
+    });
+    return success();
+  }
+};
+
 class RemoveWhereEqualPattern : public OpRewritePattern<ONNXWhereOp> {
 public:
   using OpRewritePattern<ONNXWhereOp>::OpRewritePattern;
@@ -2751,6 +2770,7 @@ void ONNXWhereOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<AlwaysFalseWherePattern>(context);
   result.insert<RemoveWhereEqualPattern>(context);
+  result.insert<NotWhereOptPattern>(context);
 }
 
 // on the ONNXDequantizeLinearOp.

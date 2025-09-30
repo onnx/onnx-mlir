@@ -1962,6 +1962,32 @@ func.func @test_remove_where_equal_4(%arg0: tensor<?x?xi64>) -> tensor<2xi64> {
 
 // -----
 
+func.func @test_not_where_opt_1(%arg0: tensor<1x10xi1>, %arg1: tensor<1x10xbf16>, %arg2: tensor<1x10xbf16>) -> tensor<1x10xbf16> {
+  %0 = "onnx.Not"(%arg0) : (tensor<1x10xi1>) -> tensor<1x10xi1>
+  %1 = "onnx.Where"(%0, %arg1, %arg2) : (tensor<1x10xi1>, tensor<1x10xbf16>, tensor<1x10xbf16>) -> tensor<1x10xbf16>
+  onnx.Return %1 : tensor<1x10xbf16>
+// CHECK-LABEL:  func.func @test_not_where_opt_1
+// CHECK-SAME:   ([[ARG_0_:%.+]]: tensor<1x10xi1>, [[ARG_1_:%.+]]: tensor<1x10xbf16>, [[ARG_2_:%.+]]: tensor<1x10xbf16>) -> tensor<1x10xbf16> {
+// CHECK-NOT:       onnx.Not
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Where"([[ARG_0_]], [[ARG_2_]], [[ARG_1_]]) : (tensor<1x10xi1>, tensor<1x10xbf16>, tensor<1x10xbf16>) -> tensor<1x10xbf16>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x10xbf16>
+}
+
+// -----
+
+func.func @test_not_where_opt_2(%arg0: tensor<1x10xi1>, %arg1: tensor<1x10xbf16>, %arg2: tensor<1x10xbf16>) -> (tensor<1x10xi1>, tensor<1x10xbf16>) {
+  %0 = "onnx.Not"(%arg0) : (tensor<1x10xi1>) -> tensor<1x10xi1>
+  %1 = "onnx.Where"(%0, %arg1, %arg2) : (tensor<1x10xi1>, tensor<1x10xbf16>, tensor<1x10xbf16>) -> tensor<1x10xbf16>
+  onnx.Return %0, %1 : tensor<1x10xi1>, tensor<1x10xbf16>
+// CHECK-LABEL:  func.func @test_not_where_opt_2
+// CHECK-SAME:   ([[ARG_0_:%.+]]: tensor<1x10xi1>, [[ARG_1_:%.+]]: tensor<1x10xbf16>, [[ARG_2_:%.+]]: tensor<1x10xbf16>) -> (tensor<1x10xi1>, tensor<1x10xbf16>) {
+// CHECK-DAG:           [[VAR_0_:%.+]] = "onnx.Not"([[ARG_0_]]) : (tensor<1x10xi1>) -> tensor<1x10xi1>
+// CHECK-DAG:           [[VAR_1_:%.+]] = "onnx.Where"([[ARG_0_]], [[ARG_2_]], [[ARG_1_]]) : (tensor<1x10xi1>, tensor<1x10xbf16>, tensor<1x10xbf16>) -> tensor<1x10xbf16>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<1x10xi1>, tensor<1x10xbf16>
+}
+
+// -----
+
 func.func @test_recompose_concat(%arg0: tensor<1x3x4xf32>, %arg1: tensor<1x3x4xf32> ) -> tensor<1x12x4xf32> {
 %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64, onnx_node_name = "onnx.Concat_0"} : (tensor<1x3x4xf32>, tensor<1x3x4xf32>) -> tensor<1x6x4xf32>
 %1 = "onnx.Concat"(%0, %arg0) {axis = 1 : si64, onnx_node_name = "onnx.Concat_1"} : (tensor<1x6x4xf32>, tensor<1x3x4xf32>) -> tensor<1x9x4xf32>
