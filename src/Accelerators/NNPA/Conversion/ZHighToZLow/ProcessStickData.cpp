@@ -964,8 +964,8 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
               [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
                 IndexExprScope innerScopes(scf, &middleScope);
-                create.krnl.printf("full tile\n");
-                // Compute a full tile of B
+                // create.krnl.printf("full tile\n");
+                //  Compute a full tile of B
                 generateIter<B>(create, lnOp, elementType,
                     isTraditionalLayerNorm, xUSS, biasUSS, scaleUSS, redMemRef1,
                     redMemRef2, yUSS, outerIndices, E1, epsilon, archVL,
@@ -974,7 +974,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
               [&](const SCFBuilder &scf) {
                 MDBuilder create(scf);
                 IndexExprScope innerScope(scf, &middleScope);
-                create.krnl.printf("partial tile\n");
+                // create.krnl.printf("partial tile\n");
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 // Iterate over the last few values of b.
