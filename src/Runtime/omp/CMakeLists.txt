@@ -28,8 +28,6 @@ if(OPENMP_INCLUDE_DIR)
     CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
                              cmake -G Ninja -S ${OPENMP_SOURCE_DIR} \
                                 -B ${OMP_TOPDIR}/openmp-build \
-                                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} \
-                                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} \
                                 -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
                                 -DLIBOMP_ENABLE_SHARED=OFF"
 
