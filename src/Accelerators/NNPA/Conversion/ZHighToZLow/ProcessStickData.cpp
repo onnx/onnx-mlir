@@ -103,8 +103,9 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   Value maxInit = create.math.negativeInf(f32Type);
   Value splatMaxInit = create.vec.splat(vec8xF32Type, maxInit);
   // Could parallelize init, here main thread do it all. Use SIMD of 8x.
-  for (int64_t u = 0; u < tmpSize; u += 8) {
-    IndexExpr offset = LitIE(u);
+  for (int64_t offsetWithinVector = 0; offsetWithinVector < tmpSize;
+       offsetWithinVector += 8) {
+    IndexExpr offset = LitIE(offsetWithinVector);
     create.vec.storeIE(splatMinInit, minTmp, {offset});
     create.vec.storeIE(splatMaxInit, maxTmp, {offset});
   }
@@ -171,8 +172,9 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   // 8x.
   Value finalVecMin = create.vec.loadIE(vec8xF32Type, minTmp, {zero});
   Value finalVecMax = create.vec.loadIE(vec8xF32Type, maxTmp, {zero});
-  for (int u = 8; u < tmpSize; u += 8) {
-    IndexExpr offset = LitIE(u);
+  for (int offsetWithinVector = 8; offsetWithinVector < tmpSize;
+       offsetWithinVector += 8) {
+    IndexExpr offset = LitIE(offsetWithinVector);
     Value currMin = create.vec.loadIE(vec8xF32Type, minTmp, {offset});
     Value currMax = create.vec.loadIE(vec8xF32Type, maxTmp, {offset});
     finalVecMin = create.math.min(finalVecMin, currMin);
@@ -209,7 +211,7 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   Type originalType = originalVal.getType();
   auto originalShape = getShape(originalType);
   int64_t innermostShape = getShape(originalType, -1);
-  isBroadcast = (innermostShape == 1 && E1.getLiteral() != 1);
+  isBroadcast = innermostShape == 1 && !isWrite; // Shape=1, there will be some broadcast.
   isStick = zhigh::isZTensor(originalType);
   isBuffer = originalShape.size() == 2 && originalShape[0] == 1 &&
              originalShape[1] == archVL;
@@ -224,9 +226,13 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
     DimsExpr castShape = {lit2, litStickLen};
     this->memRef = create.mem.reinterpretCast(originalMemRef, castShape);
   }
-  LLVM_DEBUG(llvm::dbgs() << "  " << (isStick ? "is stick " : "")
-                          << (isBroadcast ? "is broadcast " : "")
-                          << (isBuffer ? "is buffer " : "") << "operand\n");
+  LLVM_DEBUG({
+    llvm::dbgs() << "  Operand: ";
+    originalVal.dump();
+    llvm::dbgs() << "    " << (isStick ? "is stick " : "")
+                 << (isBroadcast ? "is broadcast " : "")
+                 << (isBuffer ? "is buffer " : "") << "operand\n";
+  });
 }
 
 void UnifiedStickSupport::beforeStickLoop(
@@ -240,7 +246,8 @@ void UnifiedStickSupport::beforeStickLoop(
   highVal = lowVal = nullptr;
   // Handling for broadcast or stick
   if (isBroadcast) {
-    assert(isRead && "broadcast val must be read");
+    // hi alex
+    // assert(isRead && "broadcast val must be read");
     IndexExpr lit0 = LitIE(0);
     DimsExpr accessFct = computeAccessFct(memRef, outerIndices, lit0);
     Value scalar = create.krnl.loadIE(memRef, accessFct);
@@ -270,7 +277,7 @@ void UnifiedStickSupport::beforeStickLoop(
 
 // For read references.
 void UnifiedStickSupport::beforeCompute(
-    KrnlBuilder &kb, IndexExpr l, int64_t u) {
+    KrnlBuilder &kb, IndexExpr offsetWithinStick, int64_t offsetWithinVector) {
   if (!isRead)
     return;
   // Broadcast loaded inside the outer loops.
@@ -278,7 +285,8 @@ void UnifiedStickSupport::beforeCompute(
     assert(highVal && lowVal && "should be read in beforeStickLoop");
     return;
   }
-  // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
+  // Compute innermost offset (offsetWithinStick: index of loop,
+  // offsetWithinVector:  unrolling by archVL).
   MultiDialectBuilder<MathBuilder, VectorBuilder, ZLowBuilder> create(kb);
   DimsExpr currIndices;
   IndexExpr currStickOffset, currOffset;
@@ -291,7 +299,7 @@ void UnifiedStickSupport::beforeCompute(
   } else {
     currIndices = outerIndices;
     currStickOffset = stickOffset;
-    currOffset = l + (archVL * u);
+    currOffset = offsetWithinStick + (archVL * offsetWithinVector);
   }
   if (isStick) {
     DimsExpr accessFct = {DimIE(currStickOffset), currOffset};
@@ -312,13 +320,15 @@ void UnifiedStickSupport::beforeCompute(
 }
 
 // For write references.
-void UnifiedStickSupport::afterCompute(
-    KrnlBuilder &kb, IndexExpr l, int64_t u, Value tempBufferMemRef) {
+void UnifiedStickSupport::afterCompute(KrnlBuilder &kb,
+    IndexExpr offsetWithinStick, int64_t offsetWithinVector,
+    Value tempBufferMemRef) {
   if (!isWrite)
     return;
   assert(!isBroadcast && "output should not be broadcast");
   assert(highVal && lowVal && "expected high/low val to be defined");
-  // Compute innermost offset (l: index of loop, u:  unrolling by archVL).
+  // Compute innermost offset (offsetWithinStick: index of loop,
+  // offsetWithinVector:  unrolling by archVL).
   MultiDialectBuilder<MathBuilder, VectorBuilder, ZLowBuilder> create(kb);
   DimsExpr currIndices;
   IndexExpr currOffset, currStickOffset;
@@ -333,7 +343,7 @@ void UnifiedStickSupport::afterCompute(
   } else {
     currIndices = outerIndices;
     currStickOffset = stickOffset;
-    currOffset = l + (archVL * u);
+    currOffset = offsetWithinStick + (archVL * offsetWithinVector);
     currMemref = memRef;
   }
   if (isStick) {
@@ -417,27 +427,28 @@ void UnifiedStickSupportList::beforeStickLoop(
 }
 
 void UnifiedStickSupportList::beforeCompute(
-    KrnlBuilder &kb, IndexExpr l, int64_t u) {
+    KrnlBuilder &kb, IndexExpr offsetWithinStick, int64_t offsetWithinVector) {
   int64_t size = list.size();
   for (int64_t i = 0; i < size; ++i)
-    list[i].beforeCompute(kb, l, u);
+    list[i].beforeCompute(kb, offsetWithinStick, offsetWithinVector);
 }
 
-void UnifiedStickSupportList::afterCompute(
-    KrnlBuilder &kb, IndexExpr l, int64_t u, ValueRange tempBufferMemRefs) {
+void UnifiedStickSupportList::afterCompute(KrnlBuilder &kb,
+    IndexExpr offsetWithinStick, int64_t offsetWithinVector,
+    ValueRange tempBufferMemRefs) {
   int64_t size = list.size();
   int64_t tempSize = tempBufferMemRefs.size();
   for (int64_t i = 0; i < size; ++i) {
     Value tempMemRef = i < tempSize ? tempBufferMemRefs[i] : nullptr;
-    list[i].afterCompute(kb, l, u, tempMemRef);
+    list[i].afterCompute(kb, offsetWithinStick, offsetWithinVector, tempMemRef);
   }
 }
 
 void UnifiedStickSupportList::loadComputeStore(KrnlBuilder &kb,
-    IterateFctOver4xF32 processVectorOfF32Vals, IndexExpr l, int64_t u,
-    Value tempBufferMemRef) {
+    IterateFctOver4xF32 processVectorOfF32Vals, IndexExpr offsetWithinStick,
+    int64_t offsetWithinVector, Value tempBufferMemRef) {
   // Load values;
-  beforeCompute(kb, l, u);
+  beforeCompute(kb, offsetWithinStick, offsetWithinVector);
   // Gather input value, and usms that hold the store.
   int64_t size = list.size();
   mlir::SmallVector<Value, 4> highInputVals, lowInputVals;
@@ -460,13 +471,14 @@ void UnifiedStickSupportList::loadComputeStore(KrnlBuilder &kb,
   Value lowOutputVal = processVectorOfF32Vals(kb, lowInputVals);
   // Store values.
   storeUSMS->set4xF32Vals(highOutputVal, lowOutputVal);
-  storeUSMS->afterCompute(kb, l, u, tempBufferMemRef);
+  storeUSMS->afterCompute(
+      kb, offsetWithinStick, offsetWithinVector, tempBufferMemRef);
 }
 
 void UnifiedStickSupportList::genericLoadComputeStore(KrnlBuilder &kb,
-    GenericIterateFctOver4xF32M processVectorOfF32Vals, IndexExpr l,
-    int64_t u) {
-  beforeCompute(kb, l, u);
+    GenericIterateFctOver4xF32M processVectorOfF32Vals,
+    IndexExpr offsetWithinStick, int64_t offsetWithinVector) {
+  beforeCompute(kb, offsetWithinStick, offsetWithinVector);
   int64_t size = list.size();
   // Set the low/high values for all USS on the list, setting the values that
   // should be read to the proper values.
@@ -484,7 +496,7 @@ void UnifiedStickSupportList::genericLoadComputeStore(KrnlBuilder &kb,
     if (list[i].isInitialized() && list[i].hasWrite())
       list[i].set4xF32Vals(highVals[i], lowVals[i]);
   }
-  afterCompute(kb, l, u, {});
+  afterCompute(kb, offsetWithinStick, offsetWithinVector, {});
 }
 
 //===----------------------------------------------------------------------===//
@@ -611,10 +623,12 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                   [&](const SCFBuilder b, mlir::ValueRange loopInd) {
                     IndexExprScope innerScope(b, &outerScope);
                     MDBuilder create(b);
-                    IndexExpr l = DimIE(loopInd[0]);
-                    for (int64_t u = 0; u < unrollVL; ++u)
-                      stickCS.loadComputeStore(
-                          create.krnl, processVectorOfF32Vals, l, u);
+                    IndexExpr offsetWithinStick = DimIE(loopInd[0]);
+                    for (int64_t offsetWithinVector = 0;
+                         offsetWithinVector < unrollVL; ++offsetWithinVector)
+                      stickCS.loadComputeStore(create.krnl,
+                          processVectorOfF32Vals, offsetWithinStick,
+                          offsetWithinVector);
                   });
             },
             // Else, we don't have a full (64 e1) tile;
@@ -645,9 +659,10 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                     /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
                       IndexExprScope innerScope(b, &middleScope);
                       MDBuilder create(b);
-                      IndexExpr l = DimIE(loopInd[0]);
+                      IndexExpr offsetWithinStick = DimIE(loopInd[0]);
                       stickCS.loadComputeStore(create.krnl,
-                          processVectorOfF32Vals, l, /*no unroll here*/ 0);
+                          processVectorOfF32Vals, offsetWithinStick,
+                          /*no unroll here*/ 0);
                     });
               }
               if (!hasOnly8) {
@@ -679,13 +694,14 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
                     /*par*/ false, [&](SCFBuilder b, mlir::ValueRange loopInd) {
                       IndexExprScope innerScope(b, &middleScope);
                       MDBuilder create(b);
-                      IndexExpr l = DimIE(loopInd[0]);
-                      Value bufferVal =
-                          create.krnl.loadIE(outputBuffer, {litZero, l});
+                      IndexExpr offsetWithinStick = DimIE(loopInd[0]);
+                      Value bufferVal = create.krnl.loadIE(
+                          outputBuffer, {litZero, offsetWithinStick});
                       // Even if stickified, we don't need simd store, and
                       // thus we can use the memref format without the view.
                       DimsExpr innerIndices = DimListIE(outerIndices);
-                      innerIndices[d1] = DimIE(innerIndexPlusLastL) + l;
+                      innerIndices[d1] =
+                          DimIE(innerIndexPlusLastL) + offsetWithinStick;
                       create.krnl.storeIE(bufferVal, alloc, innerIndices);
                     });
               }
@@ -1071,7 +1087,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
                 MDBuilder create(ck);
                 IndexExprScope innerScope(ck, &outerScope);
 
-                IndexExpr l = DimIE(loopInd[0]);
+                IndexExpr offsetWithinStick = DimIE(loopInd[0]);
                 // load X, compute X**2, sum into reductions for a vector of
                 // ArchVL.
                 for (int64_t b = 0; b < B; ++b) {
@@ -1092,7 +1108,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
                         red2 = create.math.add(red2, xSquare);
                       };
                   blockedMeanUSSList[b].genericLoadComputeStore(
-                      create.krnl, fct, l, 0);
+                      create.krnl, fct, offsetWithinStick, 0);
                 } // over each b
               }); // over one stick archVL
         });       // over each sticks by stickLen
@@ -1157,7 +1173,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
                 MDBuilder create(ck);
                 IndexExprScope innerScope(ck, &outerScope);
 
-                IndexExpr l = DimIE(loopInd[0]);
+                IndexExpr offsetWithinStick = DimIE(loopInd[0]);
                 for (int64_t b = 0; b < B; ++b) {
                   // Function to apply to the inputs.
                   UnifiedStickSupportList::GenericIterateFctOver4xF32M fct =
@@ -1182,7 +1198,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
                           y = create.math.add(y, bias);
                       };
                   blockedNormUSSList[b].genericLoadComputeStore(
-                      create.krnl, fct, l, 0);
+                      create.krnl, fct, offsetWithinStick, 0);
                 } // over each b
               }); // over one stick by archVL
         });       // over all sticks by stickLen
@@ -1217,13 +1233,11 @@ void populateONNXWithNNPALayoutToKrnlConversionPattern(
       typeConverter, ctx, enableParallel, disableSaturation);
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 
-#if 1
   // Add normalization patterns.
   patterns.insert<ONNXFuzedStickUnstickLayerNormalizationOpLowering>(
       typeConverter, ctx, enableParallel, disableSaturation);
   patterns.insert<ONNXFuzedStickUnstickRMSLayerNormalizationOpLowering>(
       typeConverter, ctx, enableParallel, disableSaturation);
-#endif
 }
 
 } // namespace zhigh

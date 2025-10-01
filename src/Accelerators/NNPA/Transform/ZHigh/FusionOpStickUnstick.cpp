@@ -129,14 +129,12 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
 
-#if 1 // hi alex
   // Layer normalization type of operations are conditionally accepted.
   // Additional outputs should be NoneType.
   if (auto layerNormOp = mlir::dyn_cast<ONNXLayerNormalizationOp>(op))
     return isLayerNormCompatible(layerNormOp);
   if (auto RMSLayerNormOp = mlir::dyn_cast<ONNXRMSLayerNormalizationOp>(op))
     return isLayerNormCompatible(RMSLayerNormOp);
-#endif
 
   // Not supported, fail.
   return false;
@@ -192,12 +190,15 @@ static bool suitableComputeType(Operation *op) {
 // broadcast known at compile time.
 bool sameLastDimOrStaticBroadcast(
     DimAnalysis *dimAnalysis, Operation *op, Value referenceInputVal) {
+  fprintf(stderr, "hi alex, look at this op\n  ");
+  op->dump();
+
   // Get innermost shape of reference input val.
   ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
   if (!refType)
     return false; // Expected shaped type, abort.
-  if (refType.getRank() == 1)
-    return true; // Unary ops never have broadcasts.
+  if (refType.getRank() <= 1)
+    return true; // Scalar would always have static broadcasts.
   int64_t innermostShapeOfRef = getShape(refType, -1);
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
@@ -212,6 +213,8 @@ bool sameLastDimOrStaticBroadcast(
     ShapedType vType = mlir::dyn_cast<ShapedType>(v.getType());
     if (!vType)
       return false;
+    if (vType.getRank() <= 1) 
+      continue; // scalar, static broadcast known.
     int64_t innermostShapeOfV = getShape(vType, -1);
     if (!ShapedType::isDynamic(innermostShapeOfRef) && innermostShapeOfV == 1)
       continue;
@@ -301,7 +304,7 @@ Operation *patternForFusionFromUnstick(
   }
 #endif
   // Success.
-  LLVM_DEBUG(explanation(computeOp, unstickOp, ""));
+  LLVM_DEBUG(explanation(computeOp, unstickOp, "SUCCESS"));
   return computeOp;
 }
 
@@ -352,7 +355,7 @@ Operation *patternForFusionFromStick(
   }
 #endif
   // ZHighUnstickOp unstickOp = computeOp
-  LLVM_DEBUG(explanation(computeOp, stickOp, ""));
+  LLVM_DEBUG(explanation(computeOp, stickOp, "SUCCESS"));
   return computeOp;
 }
 
