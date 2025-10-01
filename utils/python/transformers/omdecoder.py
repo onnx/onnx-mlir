@@ -15,59 +15,61 @@ DLC_DECODER_NAME = "decoder_model.so"
 DLC_DECODER_WITH_PAST_NAME = "decoder_with_past_model.so"
 MULTI_QUERY_ATTN_MODELS = {"gpt_bigcode"}
 
+
 class OMConfig:
     """Simple config class to replace transformers config dependencies."""
+
     def __init__(self, config_dict: dict):
         for key, value in config_dict.items():
             setattr(self, key, value)
-            
-        # Add compatibility attributes for transformers
-        if not hasattr(self, '_attn_implementation'):
-            self._attn_implementation = "eager"
-    
+
     @classmethod
     def from_json_file(cls, config_path: Union[str, Path]) -> "OMConfig":
         """Load config from JSON file."""
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             config_dict = json.load(f)
         return cls(config_dict)
-    
+
     def to_dict(self) -> dict:
         """Convert config to dictionary."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
 
 class OMGenerationConfig:
     """Simple generation config to replace transformers GenerationConfig."""
+
     def __init__(self, **kwargs):
         # Default values
-        self.max_length = kwargs.get('max_length', 50)
-        self.max_new_tokens = kwargs.get('max_new_tokens', None)
-        self.min_length = kwargs.get('min_length', 0)
-        self.pad_token_id = kwargs.get('pad_token_id', 0)
-        self.eos_token_id = kwargs.get('eos_token_id', None)
-        
+        self.max_length = kwargs.get("max_length", 50)
+        self.max_new_tokens = kwargs.get("max_new_tokens", None)
+        self.min_length = kwargs.get("min_length", 0)
+        self.pad_token_id = kwargs.get("pad_token_id", 0)
+        self.eos_token_id = kwargs.get("eos_token_id", None)
+
         # Set any additional kwargs
         for key, value in kwargs.items():
             if not hasattr(self, key):
                 setattr(self, key, value)
-    
+
     @classmethod
     def from_model_config(cls, config: OMConfig) -> "OMGenerationConfig":
         """Create generation config from model config."""
-        config_dict = config.to_dict() if hasattr(config, 'to_dict') else config.__dict__
+        config_dict = (
+            config.to_dict() if hasattr(config, "to_dict") else config.__dict__
+        )
         return cls(**config_dict)
-    
+
     @classmethod
     def from_json_file(cls, config_path: Union[str, Path]) -> "OMGenerationConfig":
         """Load generation config from JSON file."""
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config_dict = json.load(f)
             return cls(**config_dict)
         except FileNotFoundError:
             logger.info("Generation config file not found, using defaults.")
             return cls()
+
 
 class OMPreTrainedModel:
     config_name = CONFIG_NAME
@@ -103,7 +105,7 @@ class OMPreTrainedModel:
     ) -> "OMPreTrainedModel":
         """Load model from pretrained weights."""
         model_path = Path(model_id)
-        
+
         if config is None:
             config_path = model_path / CONFIG_NAME
             if config_path.exists():
@@ -116,11 +118,11 @@ class OMPreTrainedModel:
         return cls._from_pretrained(model_id=model_id, config=config, **kwargs)
 
     @staticmethod
-    def load_model(path: Union[str, Path],tag: str) -> OMExecutionSession:
+    def load_model(path: Union[str, Path], tag: str) -> OMExecutionSession:
         if not isinstance(path, str):
             path = str(path)
-    
-        return OMExecutionSession(path, tag = tag)
+
+        return OMExecutionSession(path, tag=tag)
 
 
 class OMInferSession:
@@ -129,9 +131,12 @@ class OMInferSession:
     def __init__(self, session: OMExecutionSession, parent_model: OMPreTrainedModel):
         self.session = session
         self.parent_model = parent_model
-        self.input_names = [x["name"] for x in json.loads(self.session.input_signature())]
+        self.input_names = [
+            x["name"] for x in json.loads(self.session.input_signature())
+        ]
         self.output_names = {
-            x["name"]: idx for idx, x in enumerate(json.loads(self.session.output_signature()))
+            x["name"]: idx
+            for idx, x in enumerate(json.loads(self.session.output_signature()))
         }
 
     def forward(self, *args, **kwargs):
@@ -169,9 +174,14 @@ class OMDecoder(OMInferSession):
             labels = np.ascontiguousarray(labels, dtype=np.int64)
 
         # Flatten the past_key_values (no need to flatten for models using multi-query attn)
-        if (past_key_values is not None and 
-            getattr(self.parent_model.config, 'model_type', '') not in MULTI_QUERY_ATTN_MODELS):
-            past_key_values = [pkv for pkv_per_layer in past_key_values for pkv in pkv_per_layer]
+        if (
+            past_key_values is not None
+            and getattr(self.parent_model.config, "model_type", "")
+            not in MULTI_QUERY_ATTN_MODELS
+        ):
+            past_key_values = [
+                pkv for pkv_per_layer in past_key_values for pkv in pkv_per_layer
+            ]
 
         # prepare inputs in correct order
         inputs = []
@@ -191,20 +201,22 @@ class OMDecoder(OMInferSession):
         outputs = self.session.run(inputs)
 
         # Process outputs - they're already numpy arrays from ONNX-MLIR
-        past_key_values = [outputs[self.output_names[key]] for key in self.key_value_output_names]
+        past_key_values = [
+            outputs[self.output_names[key]] for key in self.key_value_output_names
+        ]
 
         # Restructure past_key_values for non-multi-query models
-        if getattr(self.parent_model.config, 'model_type', '') not in MULTI_QUERY_ATTN_MODELS:
+        if (
+            getattr(self.parent_model.config, "model_type", "")
+            not in MULTI_QUERY_ATTN_MODELS
+        ):
             past_key_values = [
-                past_key_values[i:i + 2] for i in range(0, len(past_key_values), 2)
+                past_key_values[i : i + 2] for i in range(0, len(past_key_values), 2)
             ]
 
         logits = outputs[self.output_names["logits"]]
 
-        return CausalLMOutput(
-            logits=logits, 
-            past_key_values=past_key_values
-        )
+        return CausalLMOutput(logits=logits, past_key_values=past_key_values)
 
 
 class OMModelDecoder(OMPreTrainedModel):
@@ -221,7 +233,7 @@ class OMModelDecoder(OMPreTrainedModel):
     ):
         # Explicitly call OMPreTrainedModel.__init__ to ensure config is set
         OMPreTrainedModel.__init__(self, config)
-        
+
         if kwargs:
             raise ValueError(
                 f"{self.__class__.__name__} received {', '.join(kwargs.keys())}, but do not accept those arguments."
@@ -235,9 +247,13 @@ class OMModelDecoder(OMPreTrainedModel):
 
         self.use_cache = use_cache
         self.decoder = OMDecoder(decoder_session, self)
-        self.decoder_with_past = OMDecoder(decoder_with_past_session, self) if use_cache else None
+        self.decoder_with_past = (
+            OMDecoder(decoder_with_past_session, self) if use_cache else None
+        )
 
-        self.generation_config = generation_config or OMGenerationConfig.from_model_config(config)
+        self.generation_config = (
+            generation_config or OMGenerationConfig.from_model_config(config)
+        )
 
     @staticmethod
     def load_model(
@@ -258,8 +274,11 @@ class OMModelDecoder(OMPreTrainedModel):
 
         decoder_session = OMPreTrainedModel.load_model(decoder_path, tag="decoder")
         decoder_with_past_session = (
-            OMPreTrainedModel.load_model(decoder_with_past_path, tag="decoder_with_past")
-            if decoder_with_past_path else None
+            OMPreTrainedModel.load_model(
+                decoder_with_past_path, tag="decoder_with_past"
+            )
+            if decoder_with_past_path
+            else None
         )
 
         return decoder_session, decoder_with_past_session
@@ -280,12 +299,16 @@ class OMModelDecoder(OMPreTrainedModel):
 
         # Build base paths (without extensions)
         decoder_path = model_path / decoder_file_name
-        decoder_with_past_path = model_path / decoder_with_past_file_name if use_cache else None
-        
+        decoder_with_past_path = (
+            model_path / decoder_with_past_file_name if use_cache else None
+        )
+
         # Build .so file paths
         decoder_so = decoder_path.with_suffix(".so")
-        decoder_with_past_so = decoder_with_past_path.with_suffix(".so") if use_cache else None
-        
+        decoder_with_past_so = (
+            decoder_with_past_path.with_suffix(".so") if use_cache else None
+        )
+
         # Validate .so files exist
         if not decoder_so.exists():
             raise ValueError("Not found the .so file for the decoder model.")
@@ -314,10 +337,6 @@ class OMModelDecoder(OMPreTrainedModel):
 class OMModelForCausalLM(OMModelDecoder, OMGeneration):
     """ONNX model with a causal language modeling head for ONNX-MLIR inference."""
 
-    main_input_name = "input_ids"
-    _supports_cache_class = False
-    _is_stateful = True
-
     def forward(
         self,
         input_ids: np.ndarray = None,
@@ -329,7 +348,7 @@ class OMModelForCausalLM(OMModelDecoder, OMGeneration):
     ) -> CausalLMOutput:
         # Use instance use_cache if not specified
         use_cache = use_cache if use_cache is not None else self.use_cache
-            
+
         if past_key_values is None or not use_cache:
             outputs = self.decoder(
                 input_ids=input_ids,
@@ -349,9 +368,14 @@ class OMModelForCausalLM(OMModelDecoder, OMGeneration):
             logits=outputs.logits,
             past_key_values=outputs.past_key_values,
         )
-    
+
     @classmethod
-    def _from_pretrained(cls, model_id: Union[str, Path], config: OMConfig, **kwargs,):
+    def _from_pretrained(
+        cls,
+        model_id: Union[str, Path],
+        config: OMConfig,
+        **kwargs,
+    ):
         return super()._from_pretrained(
             model_id, config, init_cls=OMModelForCausalLM, **kwargs
         )

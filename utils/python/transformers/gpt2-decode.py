@@ -1,5 +1,5 @@
 # This script is to run GPT2 from HuggingFace.
-# Command: ONNX_MLIR_HOME=/workdir/onnx-mlir/build/Debug python gpt2-decode.py -m /workdir/onnx-mlir/utils/python/transformers -o 100 2>&1 | tee log.txt 
+# Command: ONNX_MLIR_HOME=/workdir/onnx-mlir/build/Debug python gpt2-decode.py -m /workdir/onnx-mlir/utils/python/transformers -o 100 2>&1 | tee log.txt
 #
 # When running this script for the first time, it will download onnx models from
 # HuggingFace and compile the models. The onnx models and compiled models are
@@ -40,7 +40,13 @@ parser.add_argument(
 parser.add_argument(
     "-i", "--iterations", type=int, default=1, help="Number of iterations"
 )
-parser.add_argument("-m", "--model", type=str, default="/workdir/onnx-mlir/utils/python/transformers", help="Path to compiled model directory")
+parser.add_argument(
+    "-m",
+    "--model",
+    type=str,
+    default="/workdir/onnx-mlir/utils/python/transformers",
+    help="Path to compiled model directory",
+)
 args = parser.parse_args()
 
 # Information to download onnx models from HuggingFace.
@@ -107,7 +113,9 @@ decoder_with_past_sess = OMCompileExecutionSession(
 )
 
 # Setup a tokenizer.
-tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, cache_dir=cache_dir, local_files_only=True)
+tokenizer = AutoTokenizer.from_pretrained(
+    model_name_or_path, cache_dir=cache_dir, local_files_only=True
+)
 
 # Load model (after compilation is done)
 model_dir = args.model
@@ -121,10 +129,10 @@ else:
 max_length = args.out_tokens
 
 # Tokenize input & convert to numpy arrays
-model_inputs_torch = tokenizer(prompt, return_tensors="pt")
+model_inputs_dict = tokenizer(prompt, return_tensors="np")
 model_inputs = {
-    "input_ids": model_inputs_torch["input_ids"].numpy().astype(np.int64),
-    "attention_mask": model_inputs_torch["attention_mask"].numpy().astype(np.int64)
+    "input_ids": model_inputs_dict["input_ids"].astype(np.int64),
+    "attention_mask": model_inputs_dict["attention_mask"].astype(np.int64),
 }
 
 original_inputs_len = model_inputs["input_ids"].shape[1]
@@ -134,31 +142,31 @@ print("Prompt:", prompt)
 t = []
 for i in range(args.iterations):
     t0 = time.time()
-    
+
     # Generate with numpy arrays
     output = model.generate(
         input_ids=model_inputs["input_ids"],
         attention_mask=model_inputs["attention_mask"],
         max_new_tokens=max_length,
         do_sample=True,
-        top_k=10, 
-        temperature=1.2
+        top_k=10,
+        temperature=1.2,
     )
-    
+
     t_elap = time.time() - t0
     t += [t_elap]
-    
+
     # Decode the full generated text
     generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
     print("\nGenerated text:")
     print(generated_text)
-    
+
     # Also show just the new tokens
     new_tokens = output[0, original_inputs_len:]
     new_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
     print("\nNew tokens only:")
     print(new_text)
-    
+
     # Extract only the new tokens for timing calculations
     output_ids = new_tokens
 

@@ -1,10 +1,11 @@
 # Inferencing downloaded ONNX Models using Python
 
-This folder provides Python scripts for to downloading, compiling and inferencing autoregressive transformer models like GPT-2, Granite 3, or other models of the same architecture, using ONNX-MLIR.
+This folder provides Python scripts for downloading, compiling and inferencing autoregressive transformer models like GPT-2, Granite 3, or other models of the same architecture, using ONNX-MLIR.
 
 ### Prerequisites
 
-It is good practice to first setup a virtual environment inside the `onnx-mlir` directory to isolate dependencies and avoid potential version conflicts with other projects.
+It is good practice to first setup a virtual environment in this current directory `onnx-mlir/utils/python/transformers` to isolate dependencies and avoid potential version conflicts with Python or other projects. However, if you are using a container, this will already be enough for isolation so you may want to skip this step.
+
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -16,43 +17,7 @@ Then, if you haven't done so already, you can install all the required dependenc
 pip install -r requirements.txt
 ```
 
-Also, just like in the [mnist-example](../../../docs/mnist_example/README.md), it is recommended to update your environment variables like this:
-
-```bash
-# ONNX_MLIR_ROOT points to the root of the onnx-mlir,
-# under which the include and the build directory lies.
-export ONNX_MLIR_ROOT=$(pwd)/../..
-# Define the bin directory where onnx-mlir binary resides.Change only if you
-#have a non - standard install.
-export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
-# Define the include directory where onnx-mlir runtime include files resides.
-#Change only if you have a non - standard install.
-export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
-
-# Include ONNX-MLIR executable directories part of $PATH.
-export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH
-
-# Compiler needs to know where to find its runtime. 
-# Set ONNX_MLIR_RUNTIME_DIR to proper path.
-export ONNX_MLIR_RUNTIME_DIR=../../build/Debug/lib
-```
-
-Alternatively, you can use a .env file. If you are using the default container setup, just copy the cell below, create a `.env`-file inside this folder, and paste the content.
-
-```bash
-ONNX_MLIR_ROOT=/workdir/onnx-mlir
-ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
-ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
-ONNX_MLIR_RUNTIME_DIR=$ONNX_MLIR_ROOT/build/Debug/lib
-ONNX_MLIR_HOME=$ONNX_MLIR_ROOT/build/Debug
-```
-
-Once done, you can set all the environment variables with one command:
-```bash
-set -a && source .env && set +a
-```
-
-Lastly, set the `PYTHONPATH` variable so Python knows from where to import the necessary runtime module. You can do this by setting the PYTHONPATH to the following path:
+Also, you should set the `PYTHONPATH` variable so Python knows from where to import the necessary runtime module. You can do this by setting the PYTHONPATH to the following path:
 ```bash
 export PYTHONPATH=/workdir/onnx-mlir/build/Debug/lib:$PYTHONPATH
 ```
