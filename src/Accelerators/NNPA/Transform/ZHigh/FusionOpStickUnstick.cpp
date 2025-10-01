@@ -190,9 +190,6 @@ static bool suitableComputeType(Operation *op) {
 // broadcast known at compile time.
 bool sameLastDimOrStaticBroadcast(
     DimAnalysis *dimAnalysis, Operation *op, Value referenceInputVal) {
-  fprintf(stderr, "hi alex, look at this op\n  ");
-  op->dump();
-
   // Get innermost shape of reference input val.
   ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
   if (!refType)
@@ -213,7 +210,7 @@ bool sameLastDimOrStaticBroadcast(
     ShapedType vType = mlir::dyn_cast<ShapedType>(v.getType());
     if (!vType)
       return false;
-    if (vType.getRank() <= 1) 
+    if (vType.getRank() <= 1)
       continue; // scalar, static broadcast known.
     int64_t innermostShapeOfV = getShape(vType, -1);
     if (!ShapedType::isDynamic(innermostShapeOfRef) && innermostShapeOfV == 1)
@@ -325,6 +322,8 @@ Operation *patternForFusionFromStick(
     return nullptr;
   if (!canOpFuseWithStickUnstick(computeOp)) {
     LLVM_DEBUG(/* usefull to find new opportunities not supported yet*/
+      if (!mlir::isa<ONNXConstantOp>(computeOp))
+        // No explanation for constants...
         explanation(computeOp, stickOp, "FAILURE compute op cannot fuse"));
     return nullptr;
   }
