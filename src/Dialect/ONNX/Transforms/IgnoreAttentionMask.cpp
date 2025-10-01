@@ -73,6 +73,26 @@ struct RemoveAttentionMaskPattern : public OpRewritePattern<ONNXAddOp> {
       return failure();
 
     // Check that mask comes from attention_mask.
+    bool found = false;
+    SmallVector<Value> worklist;
+    DenseSet<Value> visited;
+    worklist.emplace_back(attentionMaskArg);
+    while (!worklist.empty() && !found) {
+      Value current = worklist.back();
+      worklist.pop_back();
+      if (current == mask) {
+        found = true;
+        break;
+      }
+      for (auto *user : current.getUsers())
+        for (auto next : user->getResults()) {
+          if (visited.insert(next).second)
+            worklist.push_back(next);
+        }
+    }
+    if (!found)
+      return rewriter.notifyMatchFailure(
+          addOp, "the mask is not connected with attention_mask arg");
 
     // Rewrite: bypass the AddOp.
     rewriter.modifyOpInPlace(
@@ -100,8 +120,8 @@ struct IgnoreAttentionMaskPass
     return "Do not use attention_mask in a self_attention layer";
   }
 
-  // Usage: onnx-mlir-opt --do-not-use-attention-mask='arg-idx=1'
-  Option<bool> argIdx{*this, "arg-idx",
+  // Usage: onnx-mlir-opt --ignore-attention-mask='arg-idx=1'
+  Option<int64_t> argIdx{*this, "arg-idx",
       llvm::cl::desc("Argument index of attention_mask in the function"),
       ::llvm::cl::init(1)};
 
