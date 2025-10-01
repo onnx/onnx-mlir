@@ -3,11 +3,11 @@
 
 # Supported ONNX Operation for Target *NNPA*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
+Onnx-mlir currently supports ONNX operations targeting up to opset 23. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
-   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 22.
+   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 23.
    * A ^ indicates onnx-mlir is compatible with the latest level of the NNPA Architecture which is z17.
 
 

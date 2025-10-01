@@ -290,6 +290,8 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # TODO: fix for incorrect value due to the ceil_mode.
+        # "test_averagepool_2d_ceil_last_window_starts_on_pad_cpu": {},
         "test_averagepool_2d_default_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -365,7 +367,7 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # ==OP== Bitshift
+        # ==OP== BitShift
         # ==MIN== 11
         "test_bitshift_right_uint8_cpu": {
             STATIC_SHAPE: {},
@@ -501,6 +503,10 @@ def get_test_models():
         },
         "test_cast_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
         "test_cast_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
+        # "test_cast_FLOAT16_to_FLOAT4E2M1_cpu":{},  # Does not support4-bit floats  https://onnx.ai/onnx/technical/float4.html
+        # "test_cast_FLOAT4E2M1_to_FLOAT16_cpu": {},  # Does not support4-bit floats
+        # "test_cast_FLOAT4E2M1_to_FLOAT_cpu": {},  # Does not support4-bit floats
+        # "test_cast_FLOAT_to_FLOAT4E2M1_cpu": {},  # Does not support4-bit floats
         # ==OP== CastLike
         # ==MIN== 19
         # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16. Does not support int4 and uint4.
@@ -610,6 +616,16 @@ def get_test_models():
         # "test_clip_default_int8_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_max_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_inbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+        "test_clip_min_greater_than_max_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_clip_min_greater_than_max_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Compress
         # ==MIN== 9
         "test_compress_0_cpu": {
@@ -880,6 +896,7 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # "test_dequantizelinear_float4e2m1_cpu": {}  # Does not support4-bit floats
         # ==OP== Div
         # ==MIN== 6
         # ==LIM== No support for short integers.
@@ -2439,13 +2456,14 @@ def get_test_models():
         },
         # ==OP== QuantizeLinear
         # ==MIN== 10
-        # ==LIM== Does not support per-axis and i8 quantization. Does not support int4 and uint4.
+        # ==LIM== Does not support per-axis and i8 quantization. Does not support int4 and uint4. Does not support4-bit floats
         # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_quantizelinear_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # "test_quantizelinear_float4e2m1_cpu": {}  # Does not support4-bit floats.
         # ==OP== QLinearMatMul
         # ==MIN== 10
         # ==LIM== Only support i8, ui8 and f32.
@@ -3330,6 +3348,26 @@ def get_test_models():
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        "test_top_k_same_values_2d_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_top_k_same_values_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_top_k_same_values_largest_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_top_k_uint64_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Transpose
         # ==MIN== 1
         # ==LIM== Does not support int4 and uint4.
@@ -3451,6 +3489,11 @@ def get_test_models():
         # "test_triu_zero_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== Unique
         # ==MIN== 11
+        "test_unique_length_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_unique_not_sorted_without_axis_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
