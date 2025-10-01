@@ -419,7 +419,7 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     # Encountered now all the measurements, has no more.
     meas_num = start_count - warmup_num
     assert meas_num > 0, "expected at least one set of measurement after warmups"
-       
+
     discard_num = 0
     if reporting == "QUARTILE":
         discard_num = int(meas_num / 4)
