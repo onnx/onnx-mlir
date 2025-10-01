@@ -2,13 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- DonotUseAttentionMask.cpp - Remove masking in Attention layer
-//----===//
+//===---- IgnoreAttentionMask.cpp - Remove masking in Attention layer -----===//
 //
 // Copyright 2025 The IBM Research Authors.
 //
 // =============================================================================
 //
+// This pass will ignore the use of attention_mask argument/input in a function
+// operation. In particular, it will replace AddOp(x, mask) by x.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,9 +25,7 @@
 
 using namespace mlir;
 
-namespace onnx_mlir {} // namespace onnx_mlir
-
-namespace {
+namespace onnx_mlir {
 
 // Attention masking is done via AddOp.
 // This is the pattern of masking:
@@ -85,21 +84,17 @@ private:
   Value attentionMaskArg;
 };
 
-} // namespace
+struct IgnoreAttentionMaskPass
+    : public PassWrapper<IgnoreAttentionMaskPass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(IgnoreAttentionMaskPass)
 
-namespace {
-
-struct DonotUseAttentionMaskPass : public PassWrapper<DonotUseAttentionMaskPass,
-                                       OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DonotUseAttentionMaskPass)
-
-  DonotUseAttentionMaskPass() = default;
-  DonotUseAttentionMaskPass(const DonotUseAttentionMaskPass &pass)
-      : mlir::PassWrapper<DonotUseAttentionMaskPass,
+  IgnoreAttentionMaskPass() = default;
+  IgnoreAttentionMaskPass(const IgnoreAttentionMaskPass &pass)
+      : mlir::PassWrapper<IgnoreAttentionMaskPass,
             OperationPass<func::FuncOp>>() {}
-  DonotUseAttentionMaskPass(uint64_t argIdx) { this->argIdx = argIdx; };
+  IgnoreAttentionMaskPass(uint64_t argIdx) { this->argIdx = argIdx; };
 
-  StringRef getArgument() const override { return "do-not-use-attention-mask"; }
+  StringRef getArgument() const override { return "ignore-attention-mask"; }
 
   StringRef getDescription() const override {
     return "Do not use attention_mask in a self_attention layer";
@@ -113,7 +108,7 @@ struct DonotUseAttentionMaskPass : public PassWrapper<DonotUseAttentionMaskPass,
   void runOnOperation() final;
 };
 
-void DonotUseAttentionMaskPass::runOnOperation() {
+void IgnoreAttentionMaskPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
@@ -130,9 +125,9 @@ void DonotUseAttentionMaskPass::runOnOperation() {
     signalPassFailure();
 }
 
-} // namespace
+} // namespace onnx_mlir
 
-std::unique_ptr<mlir::Pass> onnx_mlir::createDonotUseAttentionMaskPass(
+std::unique_ptr<mlir::Pass> onnx_mlir::createIgnoreAttentionMaskPass(
     uint64_t argIdx) {
-  return std::make_unique<DonotUseAttentionMaskPass>(argIdx);
+  return std::make_unique<IgnoreAttentionMaskPass>(argIdx);
 }
