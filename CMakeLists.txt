@@ -22,7 +22,7 @@ if (NOT ONNX_MLIR_ENABLE_PYBIND)
   set(ONNX_MLIR_INSTALL_PYTHON_EXTENSIONS OFF)
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to use")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -37,14 +37,6 @@ set(CMAKE_INSTALL_LIBDIR lib)
 if (NOT CMAKE_BUILD_TYPE)
   message(STATUS "No build type selected, default to Debug")
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)" FORCE)
-endif()
-
-# NOTE: The compiler flag /Ob1 will disable COMDAT (Common Data) functionality and will cause
-#       duplicate symbols errors.
-if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-  if (MSVC)
-      string(REGEX REPLACE "/Ob1" "/Ob2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-  endif()
 endif()
 
 # CMP0116: Ninja generators transform `DEPFILE`s from `add_custom_command()`
@@ -82,6 +74,25 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
   set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include)
   set(ONNX_MLIR_BUILD_INTREE OFF)
+  # NOTE: The compiler flag /Ob1 will disable COMDAT (Common Data) functionality and will cause
+  #       duplicate symbols errors.
+  if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    if (MSVC)
+        string(REGEX REPLACE "/Ob1" "/Ob2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+    endif()
+  endif()
+  if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    # Use the new MSVC preprocessor to improve standard conformance.
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zc:preprocessor")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
+
+    # Disable warning for non-standard usages of std::complex template which was
+    # introduced in MSVC 14.34.
+    # More details at https://github.com/microsoft/STL/pull/2759.
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
+
+  endif()
 else()
   message(STATUS "ONNX-MLIR in-tree build.")
   set(ONNX_MLIR_BUILD_INTREE ON)
@@ -149,19 +160,6 @@ if(ONNX_MLIR_ENABLE_JAVA)
 else()
   set(ONNX_MLIR_ENABLE_JNI FALSE)
   message(WARNING "Java explicitly disabled with the ONNX_MLIR_ENABLE_JAVA option, JNI targets will not work")
-endif()
-
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  # Use the new MSVC preprocessor to improve standard conformance.
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zc:preprocessor")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
-
-  # Disable warning for non-standard usages of std::complex template which was
-  # introduced in MSVC 14.34.
-  # More details at https://github.com/microsoft/STL/pull/2759.
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
-
 endif()
 
 # Suppress warnings in third party code if requested.
