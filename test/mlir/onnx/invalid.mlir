@@ -930,3 +930,59 @@ func.func @test_grid_sample_wrong_dim_grid(%arg0: tensor<1x1x4x4xf32>, %arg1: te
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x3xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
+
+// -----
+
+func.func @test_bernoulli_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.Bernoulli' op result element type f32 does not match the expected type f16}}
+  %1 = "onnx.Bernoulli"(%arg0) {dtype = 10 : si64, seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+func.func @test_cast_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.Cast' op element type does not match the 'to' attribute}}
+  %1 = "onnx.Cast"(%arg0) {to = f16} : (tensor<8x8xf16>) -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+func.func @test_cast_like_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.CastLike' op element type does not match the 'target types' operands element type}}
+  %1 = "onnx.CastLike"(%arg0, %arg0) : (tensor<8x8xf16>, tensor<8x8xf16>) -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+func.func @test_eyelike_wrong_dtype(%arg0 : tensor<8x8xi32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.EyeLike' op result element type f32 does not match the expected type f16}}
+  %1 = "onnx.EyeLike"(%arg0) {dtype = 10 : si64} : (tensor<8x8xi32>) -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+func.func @test_random_normal_wrong_dtype() -> tensor<*xf16> {
+  // expected-error @+1 {{'onnx.RandomNormal' op result element type f16 does not match the dtype f32}}
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
+}
+
+// -----
+func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
+  // expected-error @+1 {{'onnx.RandomNormalLike' op result element type f16 does not match the expected type f32}}
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+}
+
+// -----
+func.func @test_random_uniform_wrong_dtype() -> tensor<*xf16> {
+  // expected-error @+1 {{'onnx.RandomUniform' op result element type f16 does not match the dtype f32}}
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
+}
+
+// -----
+func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
+  // expected-error @+1 {{'onnx.RandomUniformLike' op result element type f16 does not match the expected type f32}}
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()}

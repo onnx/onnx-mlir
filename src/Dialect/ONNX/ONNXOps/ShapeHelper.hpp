@@ -369,6 +369,7 @@ using ONNXCoshOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCumSumOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXEluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXErfOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXEyeLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXExpOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXFloorOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXGeluOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -387,6 +388,7 @@ using ONNXMeanVarianceNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNegOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNotOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRandomNormalLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXRandomUniformLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReciprocalOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRoundOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -890,7 +892,6 @@ using ONNXDropoutOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDropoutO
 using ONNXDynamicQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDynamicQuantizeLinearOp>;
 using ONNXEinsumOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEinsumOp>;
 using ONNXGridSampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGridSampleOp>;
-using ONNXEyeLikeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEyeLikeOp>;
 using ONNXFlattenOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
 using ONNXGatherElementsOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
 using ONNXGatherNDOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
@@ -902,7 +903,6 @@ using ONNXNonMaxSuppressionOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ON
 using ONNXNonZeroOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonZeroOp>;
 using ONNXOneHotEncoderOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXOneHotEncoderOp>;
 using ONNXQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXQuantizeLinearOp>;
-using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomNormalOp>;
 using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
@@ -914,6 +914,33 @@ using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
+
+//===----------------------------------------------------------------------===//
+// RandomGenerator Shape Helper.
+//===----------------------------------------------------------------------===//
+template <typename OP_TYPE>
+struct ONNXRandomGeneratorShapeHelper : public ONNXOpShapeHelper {
+  ONNXRandomGeneratorShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXRandomGeneratorShapeHelper() = default;
+  mlir::LogicalResult computeShape() final {
+    OP_TYPE randomOp = llvm::cast<OP_TYPE>(op);
+
+    DimsExpr outputDims;
+    createIE->getIntFromArrayAsLiterals(randomOp.getShape(), outputDims);
+    if (!IndexExpr::isNonNegativeLiteral(outputDims))
+      return op->emitError("Random generator tensor has dynamic dimension.");
+    // Save the final result.
+    setOutputDims(outputDims);
+    return mlir::success();
+  }
+};
+
+using ONNXRandomNormalOpShapeHelper =
+    ONNXRandomGeneratorShapeHelper<mlir::ONNXRandomNormalOp>;
+using ONNXRandomUniformOpShapeHelper =
+    ONNXRandomGeneratorShapeHelper<mlir::ONNXRandomUniformOp>;
 
 //===----------------------------------------------------------------------===//
 // CustomOp Shape Helper.
@@ -972,4 +999,27 @@ void SaveOnnxAttrInOp(mlir::Operation *op,
 }
 
 } // namespace onnx_mlir
+
+#define GET_SHAPE_AND_TYPE_INFERENCE_FOR_SHAPE_COPYING_OPS(OP_NAME)            \
+  std::vector<Type> OP_NAME::resultTypeInference() {                           \
+    Type elementType =                                                         \
+        getResultElementTypeFromDtypeWithFallBackToInputType(*this);           \
+    std::vector<Type> resultTypes;                                             \
+    if (auto rankedInputType =                                                 \
+            mlir::dyn_cast<RankedTensorType>(getInput().getType())) {          \
+      resultTypes.push_back(rankedInputType.clone(elementType));               \
+    } else {                                                                   \
+      resultTypes.push_back(UnrankedTensorType::get(elementType));             \
+    }                                                                          \
+    return resultTypes;                                                        \
+  }                                                                            \
+                                                                               \
+  LogicalResult OP_NAME::inferShapes(                                          \
+      std::function<void(Region &)> doShapeInference) {                        \
+    if (!hasShapeAndRank(getInput()))                                          \
+      return success();                                                        \
+    return inferShapeForUnaryOps(getOperation(),                               \
+        getResultElementTypeFromDtypeWithFallBackToInputType(*this));          \
+  }
+
 #endif

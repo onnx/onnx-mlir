@@ -380,10 +380,13 @@ OpsWithVerifier = [
     "ArgMax",
     "ArgMin",
     "AveragePool",
+    "Bernoulli",
     "BitShift",
     "BitwiseAnd",
     "BitwiseOr",
     "BitwiseXor",
+    "Cast",
+    "CastLike",
     "CategoryMapper",
     "Compress",
     "Concat",
@@ -397,6 +400,7 @@ OpsWithVerifier = [
     "Einsum",
     "Equal",
     "Expand",
+    "EyeLike",
     "Flatten",
     "Gather",
     "GatherElements",
@@ -430,7 +434,10 @@ OpsWithVerifier = [
     "PRelu",
     "Pad",
     "Pow",
+    "RandomNormal",
     "RandomNormalLike",
+    "RandomUniform",
+    "RandomUniformLike",
     "Range",
     "Reshape",
     "Resize",
@@ -480,15 +487,20 @@ OpsWithHelpers = {
 # This dictionary provides special code for type inference for some Ops.
 # The type inference is used only in Builder before constant canonicalization.
 OpsWithResultTypeInference = [
+    "Bernoulli",
     "Constant",
     "Cast",
+    "CastLike",
     "ConstantOfShape",
     "EyeLike",
     "If",
     "Loop",
     "RandomNormal",
     "RandomNormalLike",
+    "RandomUniform",
+    "RandomUniformLike",
     "Scan",
+    "SequenceEmpty",
 ]
 
 # Add an Op in this list if the Op needs result type deduction which is required
