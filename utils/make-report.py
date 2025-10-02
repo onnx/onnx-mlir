@@ -88,9 +88,9 @@ Parameters on what to print:
                        2: Also list metrics.
                        3: Also list node name.
   -p/--plot <name>:    Print a "<name>.jpg" plot of the output.
-  --reporting <name>:  quartile: remove outlier points (default).
-                       all: do not remove outlier points.
-                       sum: accumulate the time all all experiments.
+  --reporting <name>:  quartile: average excluding outlier experiments (default).
+                       all: average including every experiments.
+                       sum: sum of every experiments.
 
 Parameters on how to print:
   -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or
