@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====---------- ProcessStickDataHelper.cpp - Process Stick data ---------===//
+//====---------- ProcessStickDataHelper.cpp - Process Stick data ----------===//
 //
 // Copyright 2025 The IBM Research Authors.
 //
