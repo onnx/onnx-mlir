@@ -38,10 +38,6 @@ The `OMGeneration`-class can be used to to build own models, e.g. for ONNX-MLIR 
 class OMModelForCausalLM(OMModelDecoder, OMGeneration):
     """ONNX model with a causal language modeling head for ONNX-MLIR inference."""
 
-    main_input_name = "input_ids"
-    _supports_cache_class = False
-    _is_stateful = True
-
     def forward(
         self,
         input_ids: np.ndarray = None,
@@ -53,7 +49,7 @@ class OMModelForCausalLM(OMModelDecoder, OMGeneration):
     ) -> CausalLMOutput:
         # Use instance use_cache if not specified
         use_cache = use_cache if use_cache is not None else self.use_cache
-            
+
         if past_key_values is None or not use_cache:
             outputs = self.decoder(
                 input_ids=input_ids,
@@ -73,9 +69,14 @@ class OMModelForCausalLM(OMModelDecoder, OMGeneration):
             logits=outputs.logits,
             past_key_values=outputs.past_key_values,
         )
-    
+
     @classmethod
-    def _from_pretrained(cls, model_id: Union[str, Path], config: OMConfig, **kwargs,):
+    def _from_pretrained(
+        cls,
+        model_id: Union[str, Path],
+        config: OMConfig,
+        **kwargs,
+    ):
         return super()._from_pretrained(
             model_id, config, init_cls=OMModelForCausalLM, **kwargs
         )
