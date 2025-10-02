@@ -344,8 +344,6 @@ Operation *patternForFusionFromUnstick(
   int64_t staticBroadcastSize, dynamicBroadcastDimNum;
   getKnownBroadcastSize(dimAnalysis, unstickOutVal, computeOp->getResult(0),
       staticBroadcastSize, dynamicBroadcastDimNum);
-  // fprintf(stderr, "hi alex, bcast size %d, dyn num %d\n",
-  //     (int)staticBroadcastSize, (int)dynamicBroadcastDimNum);
   if (staticBroadcastSize > 1 || dynamicBroadcastDimNum > 0) {
     LLVM_DEBUG(explanation(computeOp, unstickOp,
         "FAILURE due to unstick output being broadcasted to compute op"));
