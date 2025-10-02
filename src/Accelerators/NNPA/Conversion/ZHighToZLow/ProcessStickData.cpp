@@ -211,7 +211,8 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   Type originalType = originalVal.getType();
   auto originalShape = getShape(originalType);
   int64_t innermostShape = getShape(originalType, -1);
-  isBroadcast = innermostShape == 1 && !isWrite; // Shape=1, there will be some broadcast.
+  isBroadcast =
+      innermostShape == 1 && !isWrite; // Shape=1, there will be some broadcast.
   isStick = zhigh::isZTensor(originalType);
   isBuffer = originalShape.size() == 2 && originalShape[0] == 1 &&
              originalShape[1] == archVL;
@@ -246,8 +247,6 @@ void UnifiedStickSupport::beforeStickLoop(
   highVal = lowVal = nullptr;
   // Handling for broadcast or stick
   if (isBroadcast) {
-    // hi alex
-    // assert(isRead && "broadcast val must be read");
     IndexExpr lit0 = LitIE(0);
     DimsExpr accessFct = computeAccessFct(memRef, outerIndices, lit0);
     Value scalar = create.krnl.loadIE(memRef, accessFct);
@@ -871,7 +870,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     // parallel reductions.
     const int64_t archVL = UnifiedStickSupport::archVL;
     const int64_t stickLen = UnifiedStickSupport::stickLen;
-    const int64_t B = 4; // hi alex
+    const int64_t B = 4;
     bool isTraditionalLayerNorm = false;
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
       isTraditionalLayerNorm = true;

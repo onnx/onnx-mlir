@@ -38,7 +38,12 @@
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
 // because we only care about SIMD gen of the E1 (innermost) dimension.
-#define ELEMENTWISE_WITH_MULTIPLE_LAYOUTS 1
+#define ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS 1
+
+// If set to 1, we will perform fusion even when the unstick is fed to a compute
+// operation that will broadcast that values, thus resulting in multiple
+// unstickification of a given data element.
+#define ENABLE_UNSTICK_BROADCAST_TO_ELEMENTWISE 0
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -140,7 +145,7 @@ static bool canOpFuseWithStickUnstick(Operation *op) {
   return false;
 }
 
-#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
+#if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout.
 static bool suitableLayout(
@@ -223,6 +228,41 @@ bool sameLastDimOrStaticBroadcast(
   return true;
 }
 
+void getKnownBroadcastSize(DimAnalysis *dimAnalysis, Value val, Value refVal,
+    int64_t &staticBroadcastSize, int64_t &dynamicBroadcastDimNum) {
+  // Both are assumed to have known shapes.
+  ArrayRef<int64_t> shape = getShape(val.getType());
+  ArrayRef<int64_t> refShape = getShape(refVal.getType());
+  int64_t rank = shape.size();
+  int64_t refRank = refShape.size();
+  assert(rank <= refRank && "expected rank <= reference rank");
+  int64_t offset = refRank - rank;
+  // Compute broadcast info.
+  staticBroadcastSize = 1;
+  dynamicBroadcastDimNum = 0;
+  for (int64_t refD = 0; refD < refRank; ++refD) {
+    int64_t refDim = refShape[refD];
+    int64_t d = refD - offset;
+    if (d < 0) {
+      // We only have output dimensions... pure broadcast
+      if (ShapedType::isDynamic(refDim))
+        dynamicBroadcastDimNum++;
+      else
+        staticBroadcastSize *= refDim;
+    } else {
+      // We have two dimensions, test if they are different.
+      int64_t dim = shape[d];
+      if (!dimAnalysis->sameDim(val, d, refVal, refD)) {
+        if (!ShapedType::isDynamic(refDim) && !ShapedType::isDynamic(dim)) {
+          // Different dims are statics, test if stick broadcast to output dim.
+          if (dim == 1 && refDim != 1)
+            staticBroadcastSize *= refDim;
+        }
+      }
+    }
+  }
+}
+
 // When value is consumed by only one op, returns that op. Otherwise return
 // null.
 Operation *getSingleUseOperationOf(Value val) {
@@ -290,13 +330,25 @@ Operation *patternForFusionFromUnstick(
         explanation(computeOp, unstickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
-#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
+#if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   // Suitable layout?
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
   if (!suitableLayout(computeOp, unstickLayout)) {
     LLVM_DEBUG(explanation(
         computeOp, unstickOp, "FAILURE due to input zTensor layouts"));
+    return nullptr;
+  }
+#endif
+#if !ENABLE_UNSTICK_BROADCAST_TO_ELEMENTWISE
+  int64_t staticBroadcastSize, dynamicBroadcastDimNum;
+  getKnownBroadcastSize(dimAnalysis, unstickOutVal, computeOp->getResult(0),
+      staticBroadcastSize, dynamicBroadcastDimNum);
+  // fprintf(stderr, "hi alex, bcast size %d, dyn num %d\n",
+  //     (int)staticBroadcastSize, (int)dynamicBroadcastDimNum);
+  if (staticBroadcastSize > 1 || dynamicBroadcastDimNum > 0) {
+    LLVM_DEBUG(explanation(computeOp, unstickOp,
+        "FAILURE due to unstick output being broadcasted to compute op"));
     return nullptr;
   }
 #endif
@@ -322,7 +374,7 @@ Operation *patternForFusionFromStick(
     return nullptr;
   if (!canOpFuseWithStickUnstick(computeOp)) {
     LLVM_DEBUG(/* usefull to find new opportunities not supported yet*/
-      if (!mlir::isa<ONNXConstantOp>(computeOp))
+        if (!mlir::isa<ONNXConstantOp>(computeOp))
         // No explanation for constants...
         explanation(computeOp, stickOp, "FAILURE compute op cannot fuse"));
     return nullptr;
@@ -344,7 +396,7 @@ Operation *patternForFusionFromStick(
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
-#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
+#if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());
   if (!suitableLayout(computeOp, stickLayout)) {
