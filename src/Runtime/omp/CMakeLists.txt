@@ -1,14 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Find OpenMP headers built by LLVM
-find_path(OPENMP_INCLUDE_DIR
-  NAMES omp.h
-  HINTS
-    ${LLVM_BUILD_BINARY_DIR}/lib/clang/*/include
-  NO_DEFAULT_PATH
-)
-
-if(OPENMP_INCLUDE_DIR)
+if(OMP_SUPPORTED)
   set(OMP_TOPDIR ${CMAKE_CURRENT_BINARY_DIR})
   set_directory_properties(PROPERTIES EP_BASE ${OMP_TOPDIR})
   set(OPENMP_SOURCE_DIR ${LLVM_BUILD_MAIN_SRC_DIR}/../openmp)
