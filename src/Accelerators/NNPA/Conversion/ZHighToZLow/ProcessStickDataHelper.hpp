@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====---------- ProcessStickData.cpp - Process Stick data ----------------===//
+//====---------- ProcessStickDataHelper.cpp - Process Stick data ----------===//
 //
-// Copyright 2024-25 The IBM Research Authors.
+// Copyright 2025 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements the lowering of ZHigh operations to Krnl/Affine/SCF
-// operations that operates on stickified input/output data.
+// This file implements the helper class to support Stick handling.
 //
 //===----------------------------------------------------------------------===//
 

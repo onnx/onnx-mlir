@@ -1673,3 +1673,84 @@ func.func @test_onnx_mod_ztensor_ssn_big(%arg0: tensor<?x3x5x137xf16, #zhigh.lay
 // CHECK:         }
 }
 
+// -----
+
+
+func.func @test_add_with_scalar(%arg0: tensor<256x32x1xf32>, %arg1: tensor<f32>) -> tensor<256x32x1xf32> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<256x32x1xf32>) -> tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Add"(%0, %0) : (tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %2 = "onnx.Add"(%1, %arg1) {onnx_node_name = "onnx.Add_1"} : (tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<f32>) -> tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %3 = "zhigh.Add"(%2, %0) : (tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %4 = "zhigh.Unstick"(%3) : (tensor<256x32x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<256x32x1xf32>
+  return %4 : tensor<256x32x1xf32>
+
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 floordiv 64)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 * -64 + 1)>
+// CHECK-LABEL:  func.func @test_add_with_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<256x32x1xf32>, [[PARAM_1_:%.+]]: memref<f32>) -> memref<256x32x1xf32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<-8.57315738E+9> : vector<4xf32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant dense<8.57315738E+9> : vector<4xf32>
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_32_:%.+]] = arith.constant 32 : i64
+// CHECK-DAG:       [[CST_256_:%.+]] = arith.constant 256 : i64
+// CHECK-DAG:       [[CST_8_:%.+]] = arith.constant 8 : index
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<256x32x1xf32>, memref<256x32x1xf16, #map>) -> ()
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
+// CHECK:           krnl.store [[CST_256_]], [[RES_2_]]{{.}}[[CST_0_]]{{.}} : memref<3xi64>
+// CHECK:           krnl.store [[CST_32_]], [[RES_2_]]{{.}}[[CST_1_1_]]{{.}} : memref<3xi64>
+// CHECK:           krnl.store [[CST_1_]], [[RES_2_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
+// CHECK:           "zlow.add"([[RES_]], [[RES_]], [[RES_]]_2, [[RES_]]_1) {layout = "3DS"} : (memref<256x32x1xf16, #map>, memref<256x32x1xf16, #map>, memref<3xi64>, memref<256x32x1xf16, #map>) -> ()
+// CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
+// CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[RES_3_]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<256x32x1xf16, #map> to memref<2x64xf16>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 256){
+// CHECK-DAG:         [[VAR_1_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 32){
+// CHECK-DAG:           [[VAR_3_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
+// CHECK-DAG:           [[LOOP_2_:%.+]] = krnl.define_loops 1
+// CHECK:               krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
+// CHECK-DAG:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
+// CHECK-DAG:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_1_]], [[VAR_3_]], [[CST_0_]]{{.}} : memref<256x32x1xf16, #map>
+// CHECK:                 [[VAR_7_:%.+]] = vector.broadcast [[LOAD_RES_1_MEM_]] : f16 to vector<8xf16>
+// CHECK:                 [[VAR_output1_:%.+]], [[VAR_output2_:%.+]] = "zlow.vec_dlf16_to_f32"([[VAR_7_]]) : (vector<8xf16>) -> (vector<4xf32>, vector<4xf32>)
+// CHECK:                 [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
+// CHECK-DAG:             [[VAR_9_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f32 to vector<4xf32>
+// CHECK-DAG:             [[VAR_10_:%.+]] = krnl.get_linear_offset_index [[RES_3_]] at {{.}}[[VAR_1_]], [[VAR_3_]], [[CST_0_]]{{.}} : memref<256x32x1xf16, #map>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[VAR_11_:%.+]] = affine.apply [[MAP_1_]]([[VAR_10_]])
+// CHECK-DAG:             [[VAR_12_:%.+]] = affine.apply [[MAP_2_]]([[VAR_5_]])
+// CHECK:                 scf.for [[I_3_:%.+]] = [[CST_0_]] to [[VAR_12_]] step [[CST_8_]] {
+// CHECK-DAG:               [[VAR_13_:%.+]] = arith.addf [[VAR_output1_]], [[VAR_9_]] : vector<4xf32>
+// CHECK-DAG:               [[VAR_14_:%.+]] = arith.addf [[VAR_output1_]], [[VAR_9_]] : vector<4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:               [[VAR_15_:%.+]] = arith.minnumf [[VAR_13_]], [[VAR_cst_0_]] : vector<4xf32>
+// CHECK-DAG:               [[VAR_16_:%.+]] = arith.minnumf [[VAR_14_]], [[VAR_cst_0_]] : vector<4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:               [[VAR_17_:%.+]] = arith.maxnumf [[VAR_15_]], [[VAR_cst_]] : vector<4xf32>
+// CHECK-DAG:               [[VAR_18_:%.+]] = arith.maxnumf [[VAR_16_]], [[VAR_cst_]] : vector<4xf32>
+// CHECK:                   [[VAR_19_:%.+]] = "zlow.vec_f32_to_dlf16"([[VAR_17_]], [[VAR_18_]]) : (vector<4xf32>, vector<4xf32>) -> vector<8xf16>
+// CHECK:                   vector.store [[VAR_19_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_11_]], [[I_3_]]{{.}} : memref<2x64xf16>, vector<8xf16>
+// CHECK:                 }
+// CHECK:               }
+// CHECK:             }
+// CHECK:           }
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
+// CHECK-DAG:       [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
+// CHECK:           krnl.store [[CST_256_]], [[RES_5_]]{{.}}[[CST_0_]]{{.}} : memref<3xi64>
+// CHECK:           krnl.store [[CST_32_]], [[RES_5_]]{{.}}[[CST_1_1_]]{{.}} : memref<3xi64>
+// CHECK:           krnl.store [[CST_1_]], [[RES_5_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
+// CHECK:           "zlow.add"([[RES_3_]], [[RES_]], [[RES_]]_5, [[RES_]]_4) {layout = "3DS"} : (memref<256x32x1xf16, #map>, memref<256x32x1xf16, #map>, memref<3xi64>, memref<256x32x1xf16, #map>) -> ()
+// CHECK:           [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf32>
+// CHECK:           "zlow.unstick"([[RES_4_]], [[RES_6_]]) {layout = "3DS"} : (memref<256x32x1xf16, #map>, memref<256x32x1xf32>) -> ()
+// CHECK:           return [[RES_6_]] : memref<256x32x1xf32>
+// CHECK:         }
+}
+

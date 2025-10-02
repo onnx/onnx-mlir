@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====---------- ProcessStickData.cpp - Process Stick data ----------------===//
+//====---------- ProcessStickDataHelper.cpp - Process Stick data -----------===//
 //
-// Copyright 2024-2025 The IBM Research Authors.
+// Copyright 2025 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements the lowering of ZHigh operations to Krnl/Affine/SCF
-// operations that operates on stickified input/output data.
+// This file implements the helper class to support Stick handling.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,13 +20,10 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/DialectBuilder.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-// #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-// #include "src/Conversion/ONNXToKrnl/Quantization/QuantizeHelper.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-// #include "src/Support/SmallVectorHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
 
