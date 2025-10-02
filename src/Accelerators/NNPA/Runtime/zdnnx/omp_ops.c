@@ -380,30 +380,26 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_view, output_view;
-  uint32_t view_shape[4];
-  zdnn_data_layouts view_layout;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
     // To remove this constraint, the compiler needs to memset a newly allocated
     // ztensor with in-range values.
+    zdnn_data_layouts view_layout = ZDNN_4D;
+    uint32_t view_shape[4];
     uint32_t e4 = input_shape[E4] * input_shape[E3] * (input_shape[E2] / 32) *
                   (input_shape[E1] / 64);
-    view_layout = ZDNN_4D;
     view_shape[0] = e4;
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
+    zdnnx_create_view(input, &input_view, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
-    view_layout = input->pre_transformed_desc->layout;
-    view_shape[0] = input_shape[E4];
-    view_shape[1] = input_shape[E3];
-    view_shape[2] = input_shape[E2];
-    view_shape[3] = input_shape[E1];
+    input_view = *input;
+    output_view = *output;
   }
-  zdnnx_create_view(input, &input_view, view_shape, view_layout);
-  zdnnx_create_view(output, &output_view, view_shape, view_layout);
 
   // Select suitable tile sizes.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0, ts_e1 = 0;
@@ -512,31 +508,28 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_a_view, input_b_view, output_view;
-  uint32_t view_shape[4];
-  zdnn_data_layouts view_layout;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
     // To remove this constraint, the compiler needs to memset a newly allocated
     // ztensor with in-range values.
+    zdnn_data_layouts view_layout = ZDNN_4D;
+    uint32_t view_shape[4];
     uint32_t e4 = input_shape[E4] * input_shape[E3] * (input_shape[E2] / 32) *
                   (input_shape[E1] / 64);
-    view_layout = ZDNN_4D;
     view_shape[0] = e4;
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
+    zdnnx_create_view(input_a, &input_a_view, view_shape, view_layout);
+    zdnnx_create_view(input_b, &input_b_view, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
-    view_layout = input_a->pre_transformed_desc->layout;
-    view_shape[0] = input_shape[E4];
-    view_shape[1] = input_shape[E3];
-    view_shape[2] = input_shape[E2];
-    view_shape[3] = input_shape[E1];
+    input_a_view = *input_a;
+    input_b_view = *input_b;
+    output_view = *output;
   }
-  zdnnx_create_view(input_a, &input_a_view, view_shape, view_layout);
-  zdnnx_create_view(input_b, &input_b_view, view_shape, view_layout);
-  zdnnx_create_view(output, &output_view, view_shape, view_layout);
 
   // Select suitable tile sizes.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0, ts_e1 = 0;
