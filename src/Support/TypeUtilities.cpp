@@ -43,9 +43,14 @@ ArrayRef<int64_t> getShape(Type ty) {
   return mlir::cast<ShapedType>(ty).getShape();
 }
 
-/// Get specific shape value.
+/// Get specific shape value. If is a scalar, return 1.
 int64_t getShape(mlir::Type ty, int64_t index) {
   int64_t rank = getRank(ty);
+  if (rank == 0) {
+    // We have a scalar, return size of 1.
+    assert((index == 0 || index == -1) && "bad index for scalar");
+    return 1;
+  }
   if (index < 0)
     index += rank;
   assert(index >= 0 && index < rank && "out of range index [-rank...rank-1]");
