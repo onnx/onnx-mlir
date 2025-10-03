@@ -1,14 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Find OpenMP headers built by LLVM
-find_path(OPENMP_INCLUDE_DIR
-  NAMES omp.h
-  HINTS
-    ${LLVM_BUILD_BINARY_DIR}/lib/clang/*/include
-  NO_DEFAULT_PATH
-)
-
-if(OPENMP_INCLUDE_DIR)
+if(OMP_SUPPORTED)
   set(OMP_TOPDIR ${CMAKE_CURRENT_BINARY_DIR})
   set_directory_properties(PROPERTIES EP_BASE ${OMP_TOPDIR})
   set(OPENMP_SOURCE_DIR ${LLVM_BUILD_MAIN_SRC_DIR}/../openmp)
@@ -35,21 +27,11 @@ if(OPENMP_INCLUDE_DIR)
     INSTALL_COMMAND ""
   )
 
-  find_file(LIBOMP_PATH
-    NAMES libomp.a libomp.dylib libomp.so omp.lib libomp.lib iomp5.lib
-    PATHS ${LLVM_BUILD_BINARY_DIR}/runtimes/runtimes-bins/openmp/runtime/src
-    NO_DEFAULT_PATH
-  )
-
-  if(NOT LIBOMP_PATH)
-    message(FATAL_ERROR "Could not find built OpenMP library (libomp.a or shared)")
-  endif()
-
   add_custom_target(ompruntime
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${LIBOMP_PATH} ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
+            ${OMP_TOPDIR}/openmp-build/runtime/src/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
     DEPENDS OMomp
-    BYPRODUCTS ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
+    BYPRODUCTS ${OMP_TOPDIR}/openmp-build/runtime/src/libomp.a
   )
 
   install(FILES ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a DESTINATION lib)
