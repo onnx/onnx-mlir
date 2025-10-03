@@ -636,6 +636,19 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     create.krnl.blockAndPermute(loopDefs, {B}, outerOptLoops, innerOptLoops);
     // Handle Parallel
     bool useParallel = false;
+    if (enableParallel) {
+      // Parallelize one loop from 0 to (exclusively) min(2, outer loop nums).
+      int parRank = ubs.size();
+      if (parRank > 2)
+        parRank = 2;
+      SmallVector<IndexExpr, 2> parLbs(parRank, LitIE(0));
+      SmallVector<IndexExpr, 2> parUbs =
+          firstFew<IndexExpr, 2>(ubs, parRank - 1 /*inclusive*/);
+      if (tryCreateKrnlParallel(create.krnl, op, "layer-norm", outerOptLoops,
+              parLbs, parUbs, 0, parRank, {}, 4,
+              /*createKrnlParallel=*/true) != -1)
+        useParallel = true;
+    }
 
     // Temp reduction buffers
     MemRefType redType = MemRefType::get({B, archVL}, elementType);
