@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ Bernoulli.cpp - ONNX Operations -------------------===//
+//===------------------ RandomUniformLike.cpp - ONNX Operations -----------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
-// This file provides definition of ONNX dialect Bernoulli operation.
+// This file provides definition of ONNX dialect RandomUniformLike operation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,16 +22,12 @@ using namespace onnx_mlir;
 // Verify
 //===----------------------------------------------------------------------===//
 
-//===----------------------------------------------------------------------===//
-// Verify
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXBernoulliOp::verify() {
+LogicalResult ONNXRandomUniformLikeOp::verify() {
   return verifyElementTypeFromDtypeWithFallBackToInputType(*this);
 }
 
 //===----------------------------------------------------------------------===//
-// Type and Shape Inference
+// Shape + Type Inference
 //===----------------------------------------------------------------------===//
 
-GET_SHAPE_AND_TYPE_INFERENCE_FOR_SHAPE_COPYING_OPS(ONNXBernoulliOp)
+GET_SHAPE_AND_TYPE_INFERENCE_FOR_SHAPE_COPYING_OPS(ONNXRandomUniformLikeOp)
