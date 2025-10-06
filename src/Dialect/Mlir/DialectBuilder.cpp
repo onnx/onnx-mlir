@@ -1707,19 +1707,19 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value val, ArrayRef<int64_t> offsets,
+memref::SubViewOp MemRefBuilder::subview(Value val, ArrayRef<int64_t> offsets,
     ArrayRef<int64_t> sizes, ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(loc(), val, offsets, sizes, strides);
 }
 
-memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
+memref::SubViewOp MemRefBuilder::subview(MemRefType outputType, Value val,
     ArrayRef<int64_t> offsets, ArrayRef<int64_t> sizes,
     ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(
       loc(), outputType, val, offsets, sizes, strides);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value input,
+memref::SubViewOp MemRefBuilder::subview(Value input,
     ArrayRef<IndexExpr> offsetsIE, ArrayRef<IndexExpr> sizesIE,
     ArrayRef<IndexExpr> stridesIE) const {
   SmallVector<OpFoldResult, 4> offsets, sizes, strides;

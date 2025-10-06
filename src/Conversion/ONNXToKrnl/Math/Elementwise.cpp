@@ -78,10 +78,6 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 // Default VL=0 is used for non SIMD allocation
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment, int64_t VL);
-
-Value allocOrReuse(MemRefBuilder &create, Operation *op,
-    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
     int64_t alignment, int64_t VL) {
 
   int indexToReuse = -1;
@@ -101,7 +97,7 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
     });
     return generatedOperands[indexToReuse];
   } else {
-    if (VL == 0)
+    if (VL <= 1)
       return create.alignedAlloc(outputMemRefType, dims, alignment);
     else
       return create.alignedAllocWithSimdPadding(

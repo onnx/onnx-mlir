@@ -38,33 +38,114 @@
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
 // because we only care about SIMD gen of the E1 (innermost) dimension.
-#define ELEMENTWISE_WITH_MULTIPLE_LAYOUTS 1
+#define ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS 1
+
+// If set to 1, we will perform fusion even when the unstick is fed to a compute
+// operation that will broadcast that values, thus resulting in multiple
+// unstickification of a given data element.
+#define ENABLE_UNSTICK_BROADCAST_TO_ELEMENTWISE 0
 
 using namespace mlir;
 using namespace onnx_mlir;
 using namespace zhigh;
 
-// TODO: ensure that if there is already a stickified format in the compute,
-// then the new fusion is compatible, aka use the same format.
 namespace {
 
-// TODO: maybe unify the list from Elementwise.cpp and this one.
+//===----------------------------------------------------------------------===//
+// Utilities to report info.
+static void explanation(
+    Operation *computeOp, ZHighUnstickOp unstickOp, std::string message) {
+  llvm::dbgs() << "Unstick->compute (" << computeOp->getName() << ") fusion "
+               << message << ":\n  ";
+  unstickOp.dump();
+  llvm::dbgs() << "  ";
+  computeOp->dump();
+}
+
+static void explanation(
+    Operation *computeOp, ZHighStickOp stickOp, std::string message) {
+  llvm::dbgs() << "Compute->stick (" << computeOp->getName() << ") fusion "
+               << message << ":\n  ";
+  computeOp->dump();
+  llvm::dbgs() << "  ";
+  stickOp.dump();
+}
+
+static void explanation(Operation *computeOp, std::string message) {
+  llvm::dbgs() << "[Unstick->] compute [->Stick] (" << computeOp->getName()
+               << ") fusion " << message << ":\n  ";
+  computeOp->dump();
+}
+
+//===----------------------------------------------------------------------===//
+// Check if operation is compatible
+
+// Specific code for ops of the family of Layer Normalization.
+template <typename LAYER_NORM_OP>
+bool isLayerNormCompatible(LAYER_NORM_OP layerNorm) {
+  Value X = layerNorm.getX();
+  int64_t xRank = getRank(X.getType());
+  Operation *op = layerNorm.getOperation();
+  int64_t axis = layerNorm.getAxis();
+  axis = (axis < 0) ? axis + xRank : axis;
+  assert(axis >= 0 && axis < xRank && "out of bound layer norm axis");
+  if (axis != xRank - 1) {
+    LLVM_DEBUG(explanation(op, "FAILURE: LayerNorm with axis != last dim"));
+    return false;
+  }
+  // At this time, restrict cases with innermost dim that is static and multiple
+  // of 64.
+  int64_t lastDimShape = getShape(X.getType(), -1);
+  if (lastDimShape == ShapedType::kDynamic) {
+    LLVM_DEBUG(
+        explanation(op, "FAILURE: LayerNorm last dim not static-shaped"));
+    return false;
+  }
+  if (lastDimShape % 64 != 0) {
+    // Could handle non-multiple of 64, not needed at this time.
+    LLVM_DEBUG(
+        explanation(op, "FAILURE: LayerNorm last dim not multiple of 64"));
+    return false;
+  }
+  // At this time, restrict cases with only one output (others should be none).
+  int64_t resNum = op->getNumResults();
+  for (int64_t r = 1; r < resNum; ++r) {
+    if (!mlir::isa<NoneType>(op->getResult(r).getType())) {
+      LLVM_DEBUG(explanation(
+          op, "FAILURE: LayerNorm additional outputs not supported"));
+      return false;
+    }
+  }
+  return true;
+}
+
 static bool canOpFuseWithStickUnstick(Operation *op) {
   if (!op)
     return false;
-  // Exceptions:
+  // Operations not handled:
   // o no cast as they may have different input sizes/output sizes.
-  if (isa<ONNXCastOp>(op))
+  if (mlir::isa<ONNXCastOp>(op)) {
     return false;
-    // Return true for all of the elementwise operations.
+  }
+
+  // Elementwise operations are supported (they have a single output).
 #define ELEMENTWISE_ALL(_OP_TYPE)                                              \
-  if (isa<_OP_TYPE>(op))                                                       \
+  if (mlir::isa<_OP_TYPE>(op))                                                 \
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+
+  // Layer normalization type of operations are conditionally accepted.
+  // Additional outputs should be NoneType.
+  if (auto layerNormOp = mlir::dyn_cast<ONNXLayerNormalizationOp>(op))
+    return isLayerNormCompatible(layerNormOp);
+  if (auto RMSLayerNormOp = mlir::dyn_cast<ONNXRMSLayerNormalizationOp>(op))
+    return isLayerNormCompatible(RMSLayerNormOp);
+
+  // Not supported, fail.
   return false;
 }
 
-#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
+#if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
 // Make sure that all inputs have either an undefined layout or the same as
 // reference layout.
 static bool suitableLayout(
@@ -85,12 +166,14 @@ static bool suitableLayout(
 #endif
 
 // Make sure that all inputs and outputs have the right element type. Currently
-// only support f32 or d.
+// only support f32 or dlf16 in stickified format. None type is also tolerated.
 static bool suitableComputeType(Type type) {
   Type elementType = getElementTypeOrSelf(type);
   if (elementType.isF32())
     return true;
   if (elementType.isF16() && isZTensor(type))
+    return true;
+  if (mlir::isa<NoneType>(elementType))
     return true;
   return false;
 }
@@ -116,11 +199,14 @@ bool sameLastDimOrStaticBroadcast(
   ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
   if (!refType)
     return false; // Expected shaped type, abort.
-  if (refType.getRank() == 1)
-    return true; // Unary ops never have broadcasts.
+  if (refType.getRank() <= 1)
+    return true; // Scalar would always have static broadcasts.
   int64_t innermostShapeOfRef = getShape(refType, -1);
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
+    // Ignore none types
+    if (mlir::isa<NoneType>(v.getType()))
+      continue;
     // Same dimension, we are fine.
     if (v == referenceInputVal ||
         dimAnalysis->sameDim(v, -1, referenceInputVal, -1))
@@ -129,6 +215,8 @@ bool sameLastDimOrStaticBroadcast(
     ShapedType vType = mlir::dyn_cast<ShapedType>(v.getType());
     if (!vType)
       return false;
+    if (vType.getRank() <= 1)
+      continue; // scalar, static broadcast known.
     int64_t innermostShapeOfV = getShape(vType, -1);
     if (!ShapedType::isDynamic(innermostShapeOfRef) && innermostShapeOfV == 1)
       continue;
@@ -138,6 +226,41 @@ bool sameLastDimOrStaticBroadcast(
     return false;
   }
   return true;
+}
+
+void getKnownBroadcastSize(DimAnalysis *dimAnalysis, Value val, Value refVal,
+    int64_t &staticBroadcastSize, int64_t &dynamicBroadcastDimNum) {
+  // Both are assumed to have known shapes.
+  ArrayRef<int64_t> shape = getShape(val.getType());
+  ArrayRef<int64_t> refShape = getShape(refVal.getType());
+  int64_t rank = shape.size();
+  int64_t refRank = refShape.size();
+  assert(rank <= refRank && "expected rank <= reference rank");
+  int64_t offset = refRank - rank;
+  // Compute broadcast info.
+  staticBroadcastSize = 1;
+  dynamicBroadcastDimNum = 0;
+  for (int64_t refD = 0; refD < refRank; ++refD) {
+    int64_t refDim = refShape[refD];
+    int64_t d = refD - offset;
+    if (d < 0) {
+      // We only have output dimensions... pure broadcast
+      if (ShapedType::isDynamic(refDim))
+        dynamicBroadcastDimNum++;
+      else
+        staticBroadcastSize *= refDim;
+    } else {
+      // We have two dimensions, test if they are different.
+      int64_t dim = shape[d];
+      if (!dimAnalysis->sameDim(val, d, refVal, refD)) {
+        if (!ShapedType::isDynamic(refDim) && !ShapedType::isDynamic(dim)) {
+          // Different dims are statics, test if stick broadcast to output dim.
+          if (dim == 1 && refDim != 1)
+            staticBroadcastSize *= refDim;
+        }
+      }
+    }
+  }
 }
 
 // When value is consumed by only one op, returns that op. Otherwise return
@@ -169,23 +292,8 @@ Operation *getSingleUseOperationOf(Value val) {
   return multipleComputeOpNum ? nullptr : singleOp;
 }
 
-static void explanation(
-    Operation *computeOp, ZHighUnstickOp unstickOp, std::string message) {
-  llvm::dbgs() << "Unstick->compute (" << computeOp->getName() << ") fusion "
-               << message << ":\n  ";
-  unstickOp.dump();
-  llvm::dbgs() << "  ";
-  computeOp->dump();
-}
-
-static void explanation(
-    Operation *computeOp, ZHighStickOp stickOp, std::string message) {
-  llvm::dbgs() << "Compute->stick (" << computeOp->getName() << ") fusion "
-               << message << ":\n  ";
-  computeOp->dump();
-  llvm::dbgs() << "  ";
-  stickOp.dump();
-}
+//===----------------------------------------------------------------------===//
+// Check pattern starting at Unstick Op.
 
 // Return compute operation when fusion of unstick -> compute can be fused,
 // Nullptr is returned when not feasible. If unstick -> compute -> stick is
@@ -222,7 +330,7 @@ Operation *patternForFusionFromUnstick(
         explanation(computeOp, unstickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
-#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
+#if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   // Suitable layout?
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
@@ -232,10 +340,23 @@ Operation *patternForFusionFromUnstick(
     return nullptr;
   }
 #endif
+#if !ENABLE_UNSTICK_BROADCAST_TO_ELEMENTWISE
+  int64_t staticBroadcastSize, dynamicBroadcastDimNum;
+  getKnownBroadcastSize(dimAnalysis, unstickOutVal, computeOp->getResult(0),
+      staticBroadcastSize, dynamicBroadcastDimNum);
+  if (staticBroadcastSize > 1 || dynamicBroadcastDimNum > 0) {
+    LLVM_DEBUG(explanation(computeOp, unstickOp,
+        "FAILURE due to unstick output being broadcasted to compute op"));
+    return nullptr;
+  }
+#endif
   // Success.
-  LLVM_DEBUG(explanation(computeOp, unstickOp, ""));
+  LLVM_DEBUG(explanation(computeOp, unstickOp, "SUCCESS"));
   return computeOp;
 }
+
+//===----------------------------------------------------------------------===//
+// Check pattern starting at Stick Op
 
 // Return compute operation when compute -> stick can be fused.
 Operation *patternForFusionFromStick(
@@ -251,6 +372,8 @@ Operation *patternForFusionFromStick(
     return nullptr;
   if (!canOpFuseWithStickUnstick(computeOp)) {
     LLVM_DEBUG(/* usefull to find new opportunities not supported yet*/
+        if (!mlir::isa<ONNXConstantOp>(computeOp))
+        // No explanation for constants...
         explanation(computeOp, stickOp, "FAILURE compute op cannot fuse"));
     return nullptr;
   }
@@ -265,7 +388,13 @@ Operation *patternForFusionFromStick(
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
-#if !ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
+  // Suitable shapes? Has to do it here too as we need to be able to generate
+  // code for the computeOp (including the handling of all its inputs).
+  if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, stickOutVal)) {
+    LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to input shapes"));
+    return nullptr;
+  }
+#if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());
   if (!suitableLayout(computeOp, stickLayout)) {
@@ -275,10 +404,12 @@ Operation *patternForFusionFromStick(
   }
 #endif
   // ZHighUnstickOp unstickOp = computeOp
-  LLVM_DEBUG(explanation(computeOp, stickOp, ""));
+  LLVM_DEBUG(explanation(computeOp, stickOp, "SUCCESS"));
   return computeOp;
 }
 
+//===----------------------------------------------------------------------===//
+// Patterns for stick / unstick.
 class PatternsStartingFromUnstick : public OpRewritePattern<ZHighUnstickOp> {
 public:
   DimAnalysis *dimAnalysis;
@@ -319,17 +450,25 @@ public:
 
     Operation *computeOp = patternForFusionFromStick(stickOp, dimAnalysis);
     if (computeOp) {
-      int64_t resultNum = computeOp->getNumResults();
-      assert(resultNum == 1 && "expect only one result for any fused ops");
-      assert(computeOp->getResult(0) == stickOp.getIn() &&
-             "expected ouput to be stick input");
+      // Fuse only first result of an op (ok for LayerNorm and elementwise ops).
+      if (computeOp->getResult(0) != stickOp.getIn()) {
+        LLVM_DEBUG(explanation(computeOp, stickOp,
+            "FAILURE fuse only first result of compute op"));
+        return failure();
+      }
       // New compute op: has type of the stick output.
-      auto newResultType =
-          llvm::dyn_cast<RankedTensorType>(stickOp.getOut().getType());
+      int64_t resultNum = computeOp->getNumResults();
+      mlir::SmallVector<Type> newResultTypes;
+      newResultTypes.emplace_back(
+          llvm::dyn_cast<RankedTensorType>(stickOp.getOut().getType()));
+      for (int64_t r = 1; r < resultNum; ++r) {
+        // Additional output should only be NoneType at this time.
+        newResultTypes.emplace_back(computeOp->getResult(r).getType());
+      }
       // Clone compute state, insert in regions, and create.
       OperationState state(computeOp->getLoc(),
           computeOp->getName().getStringRef(), computeOp->getOperands(),
-          {newResultType}, computeOp->getAttrs());
+          newResultTypes, computeOp->getAttrs());
       for (unsigned i = 0, e = computeOp->getNumRegions(); i < e; ++i)
         state.addRegion();
       Operation *newComputeOp = rewriter.create(state);
