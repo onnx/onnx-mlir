@@ -647,8 +647,10 @@ int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
   if (findSuitableParallelDimension(
           lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
     if (!llvm::is_contained(exclusiveDims, parId)) {
-      if (createKrnlParallel)
+      if (createKrnlParallel) {
+        assert(parId <= (int64_t)loopDef.size() && "expected loop defs");
         createKrnl.parallel(loopDef[parId]);
+      }
       onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
       return parId;
     }

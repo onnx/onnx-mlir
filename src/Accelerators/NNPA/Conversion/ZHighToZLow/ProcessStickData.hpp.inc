@@ -26,6 +26,8 @@
 
 namespace onnx_mlir {
 
+// TODO: this could be replaced by the new infra at some time.
+
 // Iterate over each stick, for an original size of dims, and cover the
 // iterations from lbs to ubs. In most cases, lbs={0...} and ubs=dims, namely we
 // cover all iterations. But we can parallelize the loops from the outside, in
