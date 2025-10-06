@@ -37,15 +37,9 @@ cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
-To enable parallelization for onnx-mlir, llvm-project should be configured as
-```
-cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS=mlir \
-   -DLLVM_TARGETS_TO_BUILD="host" \
-   -DCMAKE_BUILD_TYPE=Release \
-   -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DLLVM_ENABLE_RTTI=ON \
-   -DLLVM_ENABLE_LIBEDIT=OFF
+On MacOS, or if you have link errors about missing `___kmpc_atomic...` functions, building the additional `compiler-rt`  runtimes should solve the issue. Namely, substitute the line below to the above `cmake` command.
+```bash
+   -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
 ```
 
 ## ONNX-MLIR (this project)
