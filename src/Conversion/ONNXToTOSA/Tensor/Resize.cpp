@@ -31,7 +31,7 @@ struct ScaleHelper {
   ScaleHelper(
       int64_t numerator, int64_t denominator, int64_t offset, int64_t border)
       : numerator(numerator), denominator(denominator), offset(offset),
-        border(border){};
+        border(border) {};
   int64_t numerator, denominator, offset, border;
 };
 
@@ -293,7 +293,7 @@ public:
     bool isNearestModeFloor = nearestMode == "floor";
     mlir::tosa::ResizeMode resizeMode =
         isBilinear ? mlir::tosa::ResizeMode::BILINEAR
-               : mlir::tosa::ResizeMode::NEAREST_NEIGHBOR;
+                   : mlir::tosa::ResizeMode::NEAREST_NEIGHBOR;
 
     if (halfPixelSymmetric)
       return rewriter.notifyMatchFailure(op,
@@ -319,7 +319,8 @@ public:
     Value border = mlir::tosa::getTosaConstShape(
         rewriter, loc, {yDimension.border, xDimension.border});
 
-    auto resizeModeAttr = mlir::tosa::ResizeModeAttr::get(rewriter.getContext(), resizeMode);
+    auto resizeModeAttr =
+        mlir::tosa::ResizeModeAttr::get(rewriter.getContext(), resizeMode);
     Type newOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
                                   inputType.getRank(), ShapedType::kDynamic),
