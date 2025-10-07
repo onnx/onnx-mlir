@@ -29,6 +29,10 @@ LogicalResult ONNXGridSampleOpShapeHelper::computeShape() {
 
   // Read data and indices shapes as dim indices.
   ONNXGridSampleOpAdaptor operandAdaptor(operands);
+  if (!hasShapeAndRank(operandAdaptor.getX()) ||
+      !hasShapeAndRank(operandAdaptor.getGrid())) {
+    return failure();
+  }
   DimsExpr inputDims;
   DimsExpr gridDims;
   createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
@@ -78,11 +82,18 @@ LogicalResult ONNXGridSampleOp::verify() {
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  auto inputShape =
-      mlir::cast<ShapedType>(operandAdaptor.getX().getType()).getShape();
-  int64_t inputRank = inputShape.size();
-  auto gridShape =
-      mlir::cast<ShapedType>(operandAdaptor.getGrid().getType()).getShape();
+  auto inputType = mlir::cast<ShapedType>(operandAdaptor.getX().getType());
+  if (!inputType.hasStaticShape()) {
+    return success();
+  }
+  const auto inputShape = inputType.getShape();
+  const int64_t inputRank = inputShape.size();
+
+  auto gridType = mlir::cast<ShapedType>(operandAdaptor.getGrid().getType());
+  if (!gridType.hasStaticShape()) {
+    return success();
+  }
+  const auto gridShape = gridType.getShape();
 
   // Check whether the ranks of input and grid are valid and are equal.
   // Input's dimensions of rank r+2 should be in the form of (N,C,D1,D2,...,Dr)
