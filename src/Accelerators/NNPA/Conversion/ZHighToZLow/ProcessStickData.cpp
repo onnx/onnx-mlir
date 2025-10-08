@@ -491,13 +491,14 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     Operation *op = elmsOp.getOperation();
     Location loc = ONNXLoc<ElementwiseOp>(op);
     ValueRange operands = adaptor.getOperands();
-    LLVM_DEBUG(llvm::dbgs() << "Investigate elementwise op (" << op->getName()
-                            << ") with possible NNPA layout\n");
 
     // Test if operation is suitable for processing here. If not, will be
     // handled by the normal elementwise operations.
-    if (!isZTensorOfF32AndDLF16(op))
+    if (!isZTensorOfF32AndDLF16(op)) {
+      LLVM_DEBUG(llvm::dbgs() << "Reject elementwise op (" << op->getName()
+                              << ") because no NNPA layout\n");
       return failure();
+    }
 
     LLVM_DEBUG({
       llvm::dbgs() << "Process elementwise op " << op->getName()

@@ -58,9 +58,9 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
              originalShape[1] == archVL;
   if (isStick && !isBroadcast) {
     // Overwrite memRefValue as a flattened [2, 64] view.
-    assert(
-        zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal) &&
-        "unsupported layout");
+    assert(zhigh::supportedLayoutForCompilerGeneratedStickUnstick(
+               originalVal, /*support NHWC*/ false) &&
+           "unsupported layout");
     MultiDialectBuilder<MemRefBuilder> create(kb);
     IndexExpr lit2 = LitIE(2);
     IndexExpr litStickLen = LitIE(stickLen);

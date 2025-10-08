@@ -73,7 +73,8 @@ public:
     // Generic way to handle all formats listed below.
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
-    // Convolution filters.
+    // Convolution filters.  NHWC is supported in ZLow because ONNX->KRNL added
+    // an extra loop to go from NHWC to NCHW (default for ONNX).
     StringAttr layout = unstickOp.getLayoutAttr();
     if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
@@ -143,7 +144,8 @@ public:
     // Generic way to handle all formats listed below.
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
-    // Convolution filters.
+    // Convolution filters. NHWC is supported in ZLow because ONNX->KRNL added
+    // an extra loop to go from NHWC to NCHW (default for ONNX).
     if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }

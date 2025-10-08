@@ -320,9 +320,10 @@ Operation *patternForFusionFromUnstick(
   }
   // We must support this layout.
   if (isZTensor(unstickInVal.getType()) &&
-      !supportedLayoutForCompilerGeneratedStickUnstick(unstickInVal)) {
+      !supportedLayoutForCompilerGeneratedStickUnstick(
+          unstickInVal, /*support NHWC*/ false)) {
     LLVM_DEBUG(
-        explanation(computeOp, unstickOp, "FAILURE due to unstick shape"));
+        explanation(computeOp, unstickOp, "FAILURE due to unstick layout"));
     return nullptr;
   }
   // Suitable shapes?
@@ -385,7 +386,8 @@ Operation *patternForFusionFromStick(
   }
   // We must support this layout.
   if (isZTensor(stickOutVal.getType()) &&
-      !supportedLayoutForCompilerGeneratedStickUnstick(stickOutVal)) {
+      !supportedLayoutForCompilerGeneratedStickUnstick(
+          stickOutVal, /*support NHWC*/ false)) {
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to stick layout"));
     return nullptr;
   }
