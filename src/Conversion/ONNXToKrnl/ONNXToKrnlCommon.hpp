@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -167,6 +167,12 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input, int64_t axis,
     bool ascending = false);
 
+/// Allocate memref (as before) if no input buffer can be reused.
+/// Default VL=0 is used for non SIMD allocation
+mlir::Value allocOrReuse(MemRefBuilder &create, mlir::Operation *op,
+    mlir::ValueRange generatedOperands, mlir::MemRefType outputMemRefType,
+    DimsExprRef dims, int64_t alignment, int64_t VL = 0);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -252,6 +258,15 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
   } else {
     llvm_unreachable("unsupported element type");
   }
+}
+
+// =============================================================================
+/// Emit post-processing for variadic element-wise ops.
+template <typename Op>
+mlir::Value emitPostProcessingFor(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
+    mlir::Value scalarResult) {
+  return scalarResult;
 }
 
 // =============================================================================
@@ -645,6 +660,10 @@ int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
 //===----------------------------------------------------------------------===//
 // Support functions for determining simd unrolling.
 //===----------------------------------------------------------------------===//
+
+// Over computing is only safe if none of the inputs are function parameters.
+// Otherwise, we always allocate a bit more memory.
+bool isOverComputeSafe(mlir::Operation *op);
 
 // Compute a suitable SIMD Vector length (which may be a multiple of the
 // hardware vector length, up to maxUnrollVL times). If the dims are too

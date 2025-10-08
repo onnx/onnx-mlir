@@ -36,7 +36,7 @@ mlir::Value load(const BUILDER &b, mlir::Value memref, mlir::ValueRange indices,
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
   // Perform load.
   if (computedIndices.size() == 0) {
-    // case memref<1xdtype>
+    // case memref<1 x dtype>
     auto type = mlir::cast<mlir::MemRefType>(memref.getType());
     if (type.getRank() == 1 && type.getShape()[0] == 1) {
       mlir::Value iZero = create.math.constantIndex(0);
@@ -63,7 +63,7 @@ void store(const BUILDER &b, mlir::Value val, mlir::Value memref,
   MultiDialectBuilder<MathBuilder> create(b);
   create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
   if (computedIndices.size() == 0) {
-    // case memref<1xdtype>
+    // case memref<1 x dtype>
     auto type = mlir::cast<mlir::MemRefType>(memref.getType());
     if (type.getRank() == 1 && type.getShape()[0] == 1) {
       mlir::Value iZero = create.math.constantIndex(0);
@@ -83,7 +83,6 @@ void storeIE(const BUILDER &b, mlir::Value val, mlir::Value memref,
   IndexExpr::getValues(indices, indexValues);
   store<BUILDER, STORE_OP>(b, val, memref, indexValues, offsets);
 }
-
 
 //===----------------------------------------------------------------------===//
 // Templates for multi-dimensional loop iterator.

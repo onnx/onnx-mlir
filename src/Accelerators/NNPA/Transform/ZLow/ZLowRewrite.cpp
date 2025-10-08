@@ -157,7 +157,7 @@ public:
 ///   zlow.stick(%view, %res)
 /// ```
 /// by removing `zlow.stick` and replacing `%res` by `%input`, which is
-/// constrained by that `%input` and `%res` have the same static shape.
+/// constrained by that `%input` and `%res` have the compatible static shape.
 /// This pattern potentially removes `zlow.unstick` and `viewOp` if they are
 /// dangling.
 ///
@@ -170,6 +170,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
+    Location loc = stickOp.getLoc();
     Value stickInput = stickOp.getX();
 
     // Do not handle NCHW layout stickification that transposes data
@@ -180,10 +181,6 @@ public:
 
     // Input is a block argument, ignore it.
     if (mlir::dyn_cast<BlockArgument>(stickInput))
-      return failure();
-
-    // Input must have no affine layout. In other words, it has been normalized.
-    if (hasNonIdentityLayout(stickInput.getType()))
       return failure();
 
     // Input is a view.
@@ -218,18 +215,37 @@ public:
       return failure();
 
     // Match shapes.
-    Value stickRes = stickOp.getOut();
-    Value unstickInput = unstickOp.getX();
-    MemRefType stickResType = mlir::dyn_cast<MemRefType>(stickRes.getType());
-    MemRefType unstickInputType =
-        mlir::dyn_cast<MemRefType>(unstickInput.getType());
-    if (!stickResType.hasStaticShape() ||
-        (stickResType.getShape() != unstickInputType.getShape()))
-      return failure();
+    Value srcZMemRef = unstickOp.getX();
+    Value tgtZMemRef = stickOp.getOut();
+    auto srcType = dyn_cast<ShapedType>(srcZMemRef.getType());
+    auto tgtType = dyn_cast<ShapedType>(tgtZMemRef.getType());
+    bool isNormalizedMemref = !hasNonIdentityLayout(srcZMemRef.getType());
+    if (isNormalizedMemref) {
+      // MemRefs are already normalized, there is no affine layout.
+      // Check that both ztensors have the same static shape.
+      if (!srcType.hasStaticShape() ||
+          (srcType.getShape() != tgtType.getShape()))
+        return failure();
+    } else {
+      // MemRefs have not yet normalized, so they have affine layouts to
+      // represent ztensor layouts.
+      std::string srcLayout = unstickOp.getLayout().value().str();
+      std::string tgtLayout = stickOp.getLayout().value().str();
+      if (!isNoopReshape(srcType, srcLayout, tgtType, tgtLayout))
+        return failure();
+    }
 
     // Rewrite
+    if (isNormalizedMemref) {
+      tgtZMemRef.replaceAllUsesWith(srcZMemRef);
+    } else {
+      // Insert a zlow.reshape to reshape the input ztensor.
+      // This zlow.reshape will be no-op once it is lowered to lower IR.
+      rewriter.setInsertionPointAfter(tgtZMemRef.getDefiningOp());
+      rewriter.create<ZLowReshapeOp>(loc, srcZMemRef, tgtZMemRef,
+          unstickOp.getLayoutAttr(), stickOp.getLayoutAttr());
+    }
     rewriter.eraseOp(stickOp);
-    stickRes.replaceAllUsesWith(unstickInput);
     // Remove the view op if there is no use.
     if (viewOp.getOperation()->getResults()[0].use_empty())
       rewriter.eraseOp(viewOp);

@@ -710,7 +710,8 @@ def ZLowReshapeOp:ZLow_Op<"reshape", [MemRefsNormalizable]> {
   // Note that no shape is needed for this operation.
   let arguments = (ins ZMemRef:$X,
                        ZMemRef:$Out,
-                       StrAttr:$layout);
+                       StrAttr:$x_layout,
+                       StrAttr:$out_layout);
 }
 
 #endif // ZLOW_OPS

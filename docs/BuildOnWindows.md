@@ -53,17 +53,19 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout f8cb7987c64dcffb72414a40560055cb717dbf74 && cd ..
+cd llvm-project && git checkout fc44a4fcd3c54be927c15ddd9211aca1501633e7 && cd ..
 ```
 
-[same-as-file]: <> (utils/build-mlir.cmd)
+[same-as-file]: <> ({"ref": "utils/build-mlir.cmd", "skip-ref": 2})
 ```shell
 set root_dir=%cd%
 md llvm-project\build
 cd llvm-project\build
+
 call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
-   -DLLVM_ENABLE_PROJECTS="mlir;clang;openmp" ^
+   -DLLVM_ENABLE_PROJECTS="mlir;clang" ^
+   -DLLVM_ENABLE_RUNTIMES="openmp" ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^

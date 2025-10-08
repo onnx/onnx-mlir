@@ -4,7 +4,7 @@
 
 //===------------------------- NNPACompilerOptions.cpp --------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -62,21 +62,19 @@ llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
                    "Currently only enable ONNXDiv. Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
-    "nnpa-load-device-placement-file",
+llvm::cl::opt<std::string> nnpaLoadConfigFile{"nnpa-load-config-file",
     llvm::cl::desc(
-        "Load device placement configuration from a JSON file. To "
-        "have a template for the JSON file, use "
-        "--nnpa-save-device-placement-file=cfg.json.\nNote that we can use "
-        "regex for "
+        "Load NNPA configuration such as device placement, quantization "
+        "operations from a JSON file. To have a template for the JSON file, "
+        "use "
+        "--nnpa-save-config-file=cfg.json.\nNote that we can use regex for "
         "string values in the JSON file to match operations.\nThe compiler "
-        "uses "
-        "C++ std::regex_match function for matching."),
+        "uses ECMAScript regular expressions for matching."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile{
-    "nnpa-save-device-placement-file",
-    llvm::cl::desc("Save device placement configuration to a JSON file."),
+llvm::cl::opt<std::string> nnpaSaveConfigFile{"nnpa-save-config-file",
+    llvm::cl::desc("Save NNPA configuration such as device placement and "
+                   "quantization operations to a JSON file."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
 llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
@@ -140,6 +138,12 @@ llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset(
     "nnpa-cpu-dql-scale",
     llvm::cl::desc("Use dynamic quantized linear computation of "
                    " scale and offset on CPU. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick(
+    "nnpa-disable-fusion-op-stick-unstick",
+    llvm::cl::desc("Disable fusion of eligible operations with "
+                   " surrounding stick and unstick ops. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 } // namespace onnx_mlir

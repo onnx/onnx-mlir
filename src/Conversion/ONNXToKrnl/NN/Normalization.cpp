@@ -986,8 +986,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                           scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                           meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
                           tmpRedMemRef2, XFlatDims[1], blockLocalInd, epsilon,
-                          1, totVL, scaleBroadcastKind, biasBroadcastKind,
-                          scaleModFactor, biasModFactor);
+                          /* B == 1 */ 1, totVL, scaleBroadcastKind,
+                          biasBroadcastKind, scaleModFactor, biasModFactor);
                     }); /* for inside blocked loop */
               },
               [&](const SCFBuilder &scf) {

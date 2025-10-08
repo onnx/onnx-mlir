@@ -647,8 +647,10 @@ int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
   if (findSuitableParallelDimension(
           lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
     if (!llvm::is_contained(exclusiveDims, parId)) {
-      if (createKrnlParallel)
+      if (createKrnlParallel) {
+        assert(parId <= (int64_t)loopDef.size() && "expected loop defs");
         createKrnl.parallel(loopDef[parId]);
+      }
       onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
       return parId;
     }
@@ -661,6 +663,16 @@ int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
 //===----------------------------------------------------------------------===//
 // Support functions for simd.
 //===----------------------------------------------------------------------===//
+
+bool isOverComputeSafe(Operation *op) {
+  for (Value v : op->getOperands()) {
+    if (!v.getDefiningOp()) {
+      LLVM_DEBUG(llvm::dbgs() << "  overcompute not safe for this op\n";);
+      return false;
+    }
+  }
+  return true;
+}
 
 // New style.
 int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
@@ -705,7 +717,7 @@ int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
                           << estimatedMaxVectorRegisterPressure << "\n");
 
   // Define a target max unroll as a function of register pressure.
-  int64_t unrollVL;
+  int64_t unrollVL = 1;
   int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
   if (estimatedMaxVectorRegisterPressure >= vrNum)
     unrollVL = 1;
@@ -724,8 +736,9 @@ int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
     totVL = archVL * unrollVL;
-    if (canOverCompute && staticSimdSize % totVL != 0) {
+    if (canOverCompute && staticSimdSize % totVL != 0 && archVL <= 16) {
       // Does not divide; since we can over compute, increase unrollVL by 1.
+      // Disable for very large archVL.
       LLVM_DEBUG(
           llvm::dbgs() << "  simd enable: can over compute, boost unrollVL\n");
       ++unrollVL;
@@ -941,7 +954,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
 // Implementation comments vs. createGenerateRuntimeVerificationPass
 // This check is according to onnx op semantics, not general bound
 // check for memref. Implementation of RuntimeVerification could be
-// borrowed. Slightly difference is that onnx semenatics check is for
+// borrowed. Slightly difference is that onnx semantics check is for
 // each dimension independently, not the final address is within
 // the memref bound.
 void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
@@ -959,7 +972,6 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
   DimsExpr dataDims, indicesDims;
   create.krnlIE.getShapeAsDims(data, dataDims);
   create.krnlIE.getShapeAsDims(indices, indicesDims);
-  SymbolIndexExpr axisDim(dataDims[axisLit]);
   int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
   ValueRange loopDef = create.krnl.defineLoops(indicesRank);
   LiteralIndexExpr zeroIE(0);
@@ -979,6 +991,7 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
         // data[axis].
         // Assume that the index is loaded from tensor with negative value
         // correction.
+        DimIndexExpr axisDim(dataDims[axisLit]);
         Value errorCondition =
             ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
         rewriter.create<scf::IfOp>(

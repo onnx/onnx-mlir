@@ -1707,19 +1707,19 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value val, ArrayRef<int64_t> offsets,
+memref::SubViewOp MemRefBuilder::subview(Value val, ArrayRef<int64_t> offsets,
     ArrayRef<int64_t> sizes, ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(loc(), val, offsets, sizes, strides);
 }
 
-memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
+memref::SubViewOp MemRefBuilder::subview(MemRefType outputType, Value val,
     ArrayRef<int64_t> offsets, ArrayRef<int64_t> sizes,
     ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(
       loc(), outputType, val, offsets, sizes, strides);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value input,
+memref::SubViewOp MemRefBuilder::subview(Value input,
     ArrayRef<IndexExpr> offsetsIE, ArrayRef<IndexExpr> sizesIE,
     ArrayRef<IndexExpr> stridesIE) const {
   SmallVector<OpFoldResult, 4> offsets, sizes, strides;
@@ -2202,7 +2202,7 @@ Value VectorBuilder::extractElement(Value vector, int64_t index) const {
   assert(type.getRank() == 1 && "expected 1D vector only");
   assert(index >= 0 && index < VL && "out of range vector index");
   Value position = create.math.constantIndex(index);
-  return b().create<vector::ExtractElementOp>(loc(), vector, position);
+  return b().create<vector::ExtractOp>(loc(), vector, position);
 }
 
 Value VectorBuilder::insertElement(
@@ -2215,7 +2215,7 @@ Value VectorBuilder::insertElement(
   Value position = create.math.constantIndex(index);
   // Unlike LLVM insert element which takes <dest, source, position>, vector
   // take <source, dest, position>
-  return b().create<vector::InsertElementOp>(loc(), element, vector, position);
+  return b().create<vector::InsertOp>(loc(), element, vector, position);
 }
 
 //===----------------------------------------------------------------------===//
