@@ -357,3 +357,4 @@ func.func @test_dynamic_quantize_linear_reduced_simd_only(%arg0: tensor<1x8xf32>
 // CHECK:           return [[RES_]], [[RES_]]_5, [[RES_]]_6 : memref<1x8xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
 }
+
