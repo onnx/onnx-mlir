@@ -129,8 +129,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
 
 # Install bazel 
 RUN mkdir /usr/local/bazel && cd /usr/local/bazel && \
-    curl -LO https://github.com/bazelbuild/bazel/releases/download/6.5.0/bazel-6.5.0-dist.zip  && \
-    unzip bazel-6.5.0-dist.zip &&  chmod -R +w . && \
+    curl -LO https://github.com/bazelbuild/bazel/releases/download/7.2.0/bazel-7.2.0-dist.zip  && \
+    unzip bazel-7.2.0-dist.zip &&  chmod -R +w . && \
     EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh && \
     cp output/bazel /usr/local/bin/
 RUN bazel --version
