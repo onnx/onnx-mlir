@@ -199,8 +199,9 @@ bool sameLastDimOrStaticBroadcast(
   ShapedType refType = mlir::dyn_cast<ShapedType>(referenceInputVal.getType());
   if (!refType)
     return false; // Expected shaped type, abort.
-  if (refType.getRank() <= 1)
+  if (refType.getRank() <= 1) {
     return true; // Scalar would always have static broadcasts.
+  }
   int64_t innermostShapeOfRef = getShape(refType, -1);
   // Now iterate over each of the inputs to op.
   for (Value v : op->getOperands()) {
@@ -390,7 +391,7 @@ Operation *patternForFusionFromStick(
   }
   // Suitable shapes? Has to do it here too as we need to be able to generate
   // code for the computeOp (including the handling of all its inputs).
-  if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, stickOutVal)) {
+  if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, stickInVal)) {
     LLVM_DEBUG(explanation(computeOp, stickOp, "FAILURE due to input shapes"));
     return nullptr;
   }
