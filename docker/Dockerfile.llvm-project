@@ -33,7 +33,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   libtool make maven ninja-build openjdk-11-jdk-headless \
                   python3 python3-dev python3-distutils python3-numpy \
                   python3-pip python3-pytest-xdist python3-setuptools \
-                  python3-typing-extensions zlib1g-dev wget tar && \
+                  python3-typing-extensions zlib1g-dev unzip zip && \
           rm -rf /var/lib/apt/lists/* && \
           ln -sf /usr/bin/pytest-3 /usr/bin/pytest; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
@@ -48,7 +48,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel ninja-build \
               python39 python39-devel python39-pip python39-setuptools \
-              python39-wheel tzdata-java zlib-devel wget tar && \
+              python39-wheel tzdata-java zlib-devel unzip zip which && \
 	  # Workaround broken ubi8 amd64 image installing python3.12 as
 	  # dependency of clang, which also breaks the /usr/bin/pip3
 	  # symlink creation
@@ -70,62 +70,92 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
 #     bazel --version
 
 
-# --- Build and install protobuf using Bazel with Bzlmod ---
-ARG PROTOBUF_VERSION=25.1
-ARG INSTALL_PROTOBUF_PATH=/usr/local
-ARG BUILD_TYPE=Release
-ARG CORE_NUMBER=2
-# ARG ORIGINAL_PATH=${pwd}
+# # --- Build and install protobuf using Bazel with Bzlmod ---
+# ARG PROTOBUF_VERSION=25.1
+# ARG INSTALL_PROTOBUF_PATH=/usr/local
+# ARG BUILD_TYPE=Release
+# ARG CORE_NUMBER=2
+# # ARG ORIGINAL_PATH=${pwd}
 
-# Install dependencies
-#RUN yum install -y wget git gcc-c++ make ninja-build python3 python3-pip cmake python3-devel
+# # Install dependencies
+# #RUN yum install -y wget git gcc-c++ make ninja-build python3 python3-pip cmake python3-devel
 
-# Download and extract Abseil and Protobuf sources
-RUN git clone --recurse-submodules -b v25.1 https://github.com/protocolbuffers/protobuf.git /workdir/protobuf-25.1
-#RUN cd / && \
-   # wget https://github.com/abseil/abseil-cpp/releases/download/20230802.2/abseil-cpp-20230802.2.tar.gz && \
-   # tar -xvf abseil-cpp-20230802.2.tar.gz && \
-   # wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz && \
-   # tar -xvf protobuf-${PROTOBUF_VERSION}.tar.gz
+# # Download and extract Abseil and Protobuf sources
+# RUN git clone --recurse-submodules -b v25.1 https://github.com/protocolbuffers/protobuf.git /workdir/protobuf-25.1
+# #RUN cd / && \
+#    # wget https://github.com/abseil/abseil-cpp/releases/download/20230802.2/abseil-cpp-20230802.2.tar.gz && \
+#    # tar -xvf abseil-cpp-20230802.2.tar.gz && \
+#    # wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz && \
+#    # tar -xvf protobuf-${PROTOBUF_VERSION}.tar.gz
 
-# Build and install Protobuf (static libs, no tests)
-RUN cd /workdir/protobuf-${PROTOBUF_VERSION} && \
-    mkdir build_source && cd build_source && \
-    cmake -G Ninja ../ \
-          -DBUILD_SHARED_LIBS=OFF \
-          -DCMAKE_INSTALL_PREFIX=$INSTALL_PROTOBUF_PATH \
-          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-          -Dprotobuf_BUILD_TESTS=OFF \
-          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          # -DABSL_ROOT_DIR="${ORIGINAL_PATH}/abseil-cpp-20230802.2"\
-          -DCMAKE_CXX_STANDARD=17 \
-          -DABSL_PROPAGATE_CXX_STD=on \
-    && cmake --build . --target install --parallel $CORE_NUMBER
+# # Build and install Protobuf (static libs, no tests)
+# RUN cd /workdir/protobuf-${PROTOBUF_VERSION} && \
+#     mkdir build_source && cd build_source && \
+#     cmake -G Ninja ../ \
+#           -DBUILD_SHARED_LIBS=OFF \
+#           -DCMAKE_INSTALL_PREFIX=$INSTALL_PROTOBUF_PATH \
+#           -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+#           -Dprotobuf_BUILD_TESTS=OFF \
+#           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+#           # -DABSL_ROOT_DIR="${ORIGINAL_PATH}/abseil-cpp-20230802.2"\
+#           -DCMAKE_CXX_STANDARD=17 \
+#           -DABSL_PROPAGATE_CXX_STD=on \
+#     && cmake --build . --target install --parallel $CORE_NUMBER
 
-# RUN export PATH=$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$INSTALL_PROTOBUF_PATH/bin:$PATH && \
-#     export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" && \
-#     export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include"
+# # RUN export PATH=$INSTALL_PROTOBUF_PATH/include:$INSTALL_PROTOBUF_PATH/lib:$INSTALL_PROTOBUF_PATH/bin:$PATH && \
+# #     export LDFLAGS="-L$INSTALL_PROTOBUF_PATH/lib" && \
+# #     export CPPFLAGS="-I$INSTALL_PROTOBUF_PATH/include"
 
-# Set environment variables for protobuf
-ENV PATH=${INSTALL_PROTOBUF_PATH}/bin:$PATH
-ENV LD_LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LD_LIBRARY_PATH
-ENV CPATH=${INSTALL_PROTOBUF_PATH}/include:$CPATH
-ENV LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LIBRARY_PATH
+# # Set environment variables for protobuf
+# ENV PATH=${INSTALL_PROTOBUF_PATH}/bin:$PATH
+# ENV LD_LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LD_LIBRARY_PATH
+# ENV CPATH=${INSTALL_PROTOBUF_PATH}/include:$CPATH
+# ENV LIBRARY_PATH=${INSTALL_PROTOBUF_PATH}/lib:$LIBRARY_PATH
 
-# Build and install Python protobuf bindings with cpp implementation support
-RUN cd /workdir/protobuf-${PROTOBUF_VERSION}/python && \
-    python3 setup.py build --cpp_implementation && \
-    python3 setup.py install && \
-    python3 -m pip install --upgrade pip setuptools wheel && \
-    PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp python3 setup.py bdist_wheel && \
-    pip3 install dist/*.whl
+# # Build and install Python protobuf bindings with cpp implementation support
+# RUN cd /workdir/protobuf-${PROTOBUF_VERSION}/python && \
+#     python3 setup.py build --cpp_implementation && \
+#     python3 setup.py install && \
+#     python3 -m pip install --upgrade pip setuptools wheel && \
+#     PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp python3 setup.py bdist_wheel && \
+#     pip3 install dist/*.whl
 
-# Verify versions
-#RUN protoc --version && python3 -c "import google.protobuf; print(google.protobuf.__version__)"
-RUN protoc --version && \
-    python3 -c "from google.protobuf.internal import api_implementation; \
-    print('protobuf version:', api_implementation.Version()); \
-    print('cpp_implementation:', api_implementation.Type())
+# # Verify versions
+# #RUN protoc --version && python3 -c "import google.protobuf; print(google.protobuf.__version__)"
+# RUN protoc --version && \
+#     python3 -c "from google.protobuf.internal import api_implementation; \
+#     print('protobuf version:', api_implementation.Version()); \
+#     print('cpp_implementation:', api_implementation.Type())
+
+# Install bazel 
+RUN mkdir /usr/local/bazel && cd /usr/local/bazel && \
+    curl -LO https://github.com/bazelbuild/bazel/releases/download/6.5.0/bazel-6.5.0-dist.zip  && \
+    unzip bazel-6.5.0-dist.zip &&  chmod -R +w . && \
+    EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh && \
+    cp output/bazel /usr/local/bin/
+RUN bazel --version
+
+# Install rust, cargo, and cargo-bazel
+ARG RUST_VERSION=1.88
+ARG CARGO_BAZEL_VERSION=0.16.0
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain none \
+    && . "${HOME}/.cargo/env" \
+    && rustup install ${RUST_VERSION} \
+    && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
+#ENV PATH="${HOME}/.cargo/bin:${PATH}"
+
+# Build and install protobuf using bazel
+WORKDIR /workdir
+RUN git clone --recursive https://github.com/protocolbuffers/protobuf.git
+RUN cd /workdir/protobuf && git checkout v32.0 && git submodule update --init --recursive
+RUN cd /workdir/protobuf && bazel build :protoc :protobuf
+RUN cp /workdir/protobuf/bazel-bin/protoc /usr/local/bin && \
+    cp -r /workdir/protobuf/bazel-bin/external/com_google_protobuf/python/google /usr/local/lib/python3.9/site-packages/google && \
+    cp -r /workdir/protobuf/bazel-bin/external/com_google_protobuf/libprotobuf.so* /usr/local/lib && \
+    ldconfig 
+
+RUN cd /workdir/protobuf && bazel build //python/dist:binary_wheel
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
