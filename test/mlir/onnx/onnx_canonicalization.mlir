@@ -85,6 +85,22 @@ func.func @cast_concat_swap(%arg0: tensor<1xi32>, %arg1: tensor<1xi32>) -> tenso
 
 // -----
 
+func.func @cast_concat_swap_dynamic(%arg0: tensor<*xi32>, %arg1: tensor<*xi32>) -> tensor<*xi64> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 0 : si64} : (tensor<*xi32>, tensor<*xi32>) -> tensor<*xi32>
+  %1 = "onnx.Cast"(%0) {to = i64} : (tensor<*xi32>) -> tensor<*xi64>
+  onnx.Return %1 : tensor<*xi64>
+
+// CHECK-LABEL:  func.func @cast_concat_swap_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xi32>, [[PARAM_1_:%.+]]: tensor<*xi32>) -> tensor<*xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = i64} : (tensor<*xi32>) -> tensor<*xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[PARAM_1_]]) {saturate = 1 : si64, to = i64} : (tensor<*xi32>) -> tensor<*xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xi64>
+// CHECK:         }
+}
+
+// -----
+
 func.func @cast_slice_swap(%arg0: tensor<3xi32>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>, %arg3: tensor<1xi64>, %arg4: tensor<1xi64>) -> tensor<1xi64> {
   %0 = "onnx.Slice"(%arg0, %arg1, %arg2, %arg3, %arg4) {axis = 0 : si64} : (tensor<3xi32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi32>
   %1 = "onnx.Cast"(%0) {to = i64} : (tensor<1xi32>) -> tensor<1xi64>

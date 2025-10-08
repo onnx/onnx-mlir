@@ -126,10 +126,8 @@ SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
   SmallVector<Value, 4> castInputs;
   for (Value inp : inputs) {
     ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
-    assert(inpType && "Type is not ShapedType");
-    ONNXCastOp castOp = rewriter.create<ONNXCastOp>(loc,
-        UnrankedTensorType::get(inpType.getElementType()), inp, saturate, to);
-    static_cast<void>(castOp.inferShapes([](Region &region) {}));
+    ONNXCastOp castOp = rewriter.create<ONNXCastOp>(
+        loc, inpType.clone(to.getValue()), inp, saturate, to);
     castInputs.emplace_back(castOp.getResult());
   }
   return castInputs;

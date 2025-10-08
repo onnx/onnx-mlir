@@ -4270,6 +4270,19 @@ func.func @test_grid_sample_same_dims(%arg0: tensor<1x3x1152x1344xf32>, %arg1: t
 // CHECK:         }
 }
 
+
+func.func @test_grid_sample_one_dynamic(%arg0: tensor<*xf32>, %arg1: tensor<1x1152x1344x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<*xf32>, tensor<1x1152x1344x2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// COM: Check that we do not crash
+// CHECK-LABEL:  func.func @test_grid_sample_one_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x1152x1344x2xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.GridSample"([[PARAM_0_]], [[PARAM_1_]]) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<*xf32>, tensor<1x1152x1344x2xf32>) -> tensor<*xf32>
+// CHECK:           return [[VAR_0_]] : tensor<*xf32>
+// CHECK:         }
+}
+
 func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<1x6x6x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
