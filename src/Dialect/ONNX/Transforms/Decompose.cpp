@@ -2840,9 +2840,8 @@ namespace {
 
 } // namespace
 
-template <typename OpToCreate>
-struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
-  CustomOpMicrosoftToOnnxOp(MLIRContext *context,
+struct CustomOpMicrosoftToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
+  CustomOpMicrosoftToOnnxOps(MLIRContext *context,
       std::string operationNameToRewrite, PatternBenefit benefit = 1)
       : OpRewritePattern<ONNXCustomOp>(context, benefit),
         operationNameToRewrite(std::move(operationNameToRewrite)) {}
@@ -2852,6 +2851,72 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
     if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
       return failure();
     }
+
+    return matchAndRewriteImpl(customOp, rewriter);
+  }
+
+  virtual LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp /*customOp*/, PatternRewriter & /*rewriter*/) const {
+    return failure();
+  }
+
+  static LogicalResult verifyOpValidity(Operation *op) {
+    assert(op);
+    onnx_mlir::IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
+    if (auto info = op->getName().getRegisteredInfo()) {
+      return info->verifyInvariants(op);
+    }
+    return mlir::verify(op);
+  }
+
+  static LogicalResult verifyOpsErasingOnError(
+      ValueRange values, PatternRewriter &rewriter) {
+    if (llvm::any_of(values, [](Value value) {
+          return failed(verifyOpValidity(value.getDefiningOp()));
+        })) {
+      for (auto value : values)
+        rewriter.eraseOp(value.getDefiningOp());
+      return failure();
+    }
+    return success();
+  }
+
+  const std::string operationNameToRewrite;
+};
+
+struct MicrosoftBiasGelu : public CustomOpMicrosoftToOnnxOps {
+  MicrosoftBiasGelu(MLIRContext *context, PatternBenefit benefit = 1)
+      : CustomOpMicrosoftToOnnxOps(context, "BiasGelu", benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    assert(customOp->getNumOperands() == 2 &&
+           "Expected two operands for BiasGelu");
+
+    auto input = customOp->getOperand(0);
+    auto bias = customOp->getOperand(1);
+    auto inputType = cast<ShapedType>(input.getType());
+    auto biasType = cast<ShapedType>(bias.getType());
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+    Value biasedInput = create.onnx.add(input, bias);
+    Value gelu = create.onnx.gelu(biasedInput,
+        /*approximateAttr=*/rewriter.getStringAttr("none"));
+    if (failed(verifyOpsErasingOnError({biasedInput, gelu}, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, gelu);
+    return success();
+  }
+};
+
+template <typename OpToCreate>
+struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpMicrosoftToOnnxOps {
+  using CustomOpMicrosoftToOnnxOps::CustomOpMicrosoftToOnnxOps;
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
     if (failed(shouldBeRewritten(customOp, rewriter))) {
       return failure();
     }
@@ -2870,15 +2935,7 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
 
     postProcess(customOp, newOp, rewriter);
 
-    onnx_mlir::IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
-    bool isNewOpValid;
-    if (auto info = newOp->getName().getRegisteredInfo()) {
-      isNewOpValid = succeeded(info->verifyInvariants(newOp));
-    } else {
-      isNewOpValid = succeeded(mlir::verify(newOp));
-    }
-    if (!isNewOpValid) {
-      rewriter.eraseOp(newOp);
+    if (failed(verifyOpsErasingOnError({newOp}, rewriter))) {
       return rewriter.notifyMatchFailure(customOp, "Failed verification");
     }
     rewriter.replaceOp(customOp, newOp);
@@ -2892,14 +2949,13 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
 
   virtual void postProcess(const ONNXCustomOp & /*customOp*/,
       OpToCreate & /*newOP*/, PatternRewriter & /*rewriter*/) const {}
-
-  std::string operationNameToRewrite;
 };
 
 template <typename OpToCreate>
 struct CustomOpMicrosoftQDquantizeLinear
-    : CustomOpMicrosoftToOnnxOp<OpToCreate> {
-  using CustomOpMicrosoftToOnnxOp<OpToCreate>::CustomOpMicrosoftToOnnxOp;
+    : CustomOpMicrosoftToSingleOnnxOp<OpToCreate> {
+  using CustomOpMicrosoftToSingleOnnxOp<
+      OpToCreate>::CustomOpMicrosoftToSingleOnnxOp;
 
   LogicalResult shouldBeRewritten(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const override {
@@ -3265,7 +3321,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
       context, "QuantizeLinear");
   patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
       context, "DequantizeLinear");
-  patterns.insert<CustomOpMicrosoftToOnnxOp<ONNXGeluOp>>(context, "Gelu");
+  patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
+  patterns.insert<MicrosoftBiasGelu>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);

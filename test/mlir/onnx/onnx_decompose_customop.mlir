@@ -163,3 +163,17 @@ func.func @customop_dequantize_axis(%arg0: tensor<*xui16>, %arg1: tensor<5xf32>,
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @customop_bias_gelu(%arg0: tensor<*xf32>, %arg1: tensor<5xf32>) -> tensor<*xf32> {
+    %1 = "onnx.Custom"(%arg0, %arg1) {domain_name = "com.microsoft", function_name = "BiasGelu"} : (tensor<*xf32>, tensor<5xf32>) -> tensor<*xf32>
+    onnx.Return %1: tensor<*xf32>
+
+// CHECK-LABEL:  func.func @customop_bias_gelu
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<5xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<*xf32>, tensor<5xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Gelu"([[VAR_0_]]) {approximate = "none"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<*xf32>
+// CHECK:         }
+}
