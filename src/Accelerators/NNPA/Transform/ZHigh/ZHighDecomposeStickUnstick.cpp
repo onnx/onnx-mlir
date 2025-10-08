@@ -50,8 +50,9 @@ bool canDecomposeUnstick(Value val) {
   // We only decompose unstick when all the leaves are stick ops or compute ops.
   //
   // The following situations are not good for decompositon:
-  // - there exists a ReturnOp as leaf.
-  // - there is a mix of stick ops and compute ops in the leaves.
+  // - there are more than one returned values as leaf.
+  // - there are more than one compute ops as leaf.
+  // - all data-movement ops are just view without data copying.
   //
   // If all the leaves are stick ops, DLF16ToF32 (of Unstick) will be propagated
   // down to F32ToDLF16 (of Stick) then they cancel each other.
@@ -61,49 +62,81 @@ bool canDecomposeUnstick(Value val) {
   // data-movement ops potentially faster. Do this only there is only a single
   // branch for compute ops to avoid doing DFL16ToF32 multiple times.
   //
-  // TODO: do not decompose if there are only reshape/squeenze/unsqueeze or 
-  // view op
+  uint64_t numStickOps = 0;
+  uint64_t numComputeOps = 0;
+  uint64_t numDataOps = 0;
+  uint64_t numReturns = 0;
+  bool allDataOpsAreView = false;
+
   SmallVector<Operation *> workList;
   DenseSet<Operation *> visited;
   workList.push_back(unstickOp.getOperation());
-  uint64_t numSticks = 0;
-  uint64_t numComputeOps = 0;
+  // llvm::outs() << "visiting \n";
+  // unstickOp.dump();
   while (!workList.empty()) {
     Operation *current = workList.back();
     workList.pop_back();
+    // llvm::outs() << "current\n";
+    // current->dump();
     for (auto *user : current->getUsers()) {
+      // llvm::outs() << "user\n";
+      // user->dump();
+      bool isONNXOp = user->getDialect()->getNamespace() ==
+                      ONNXDialect::getDialectNamespace();
       // Continue if user is StickOp or F32ToDLF16.
       if (isa<ZHighStickOp, ZHighF32ToDLF16Op>(user)) {
         visited.insert(user);
-        numSticks++;
+        numStickOps++;
         continue;
       }
-      bool isONNXOp = user->getDialect()->getNamespace() ==
-                      ONNXDialect::getDialectNamespace();
       // Continue if user is an ONNX Ops but not a data movement op.
       if (isONNXOp && !isDataMovementONNXOp(user)) {
         numComputeOps++;
         visited.insert(user);
         continue;
       }
-      // Early stop if user is ReturnOp.
-      if (isa<func::ReturnOp>(user))
-        return false;
+      // Continue if user is returned.
+      if (isa<func::ReturnOp>(user)) {
+        visited.insert(user);
+        numReturns++;
+        continue;
+      }
       // Early stop if user is not an ONNX Op.
-      if (user->getDialect()->getNamespace() !=
-          ONNXDialect::getDialectNamespace())
+      if (!isONNXOp)
         return false;
+
+      assert(isDataMovementONNXOp(user) && "Must be a data movement op");
+      numDataOps++;
+
+      // Check if this is a view op.
+      if (numDataOps == 1)
+        allDataOpsAreView = isViewONNXOp(user);
+      else
+        allDataOpsAreView &= isViewONNXOp(user);
+
       // Put to the work list if not visited.
       if (visited.insert(user).second)
         workList.push_back(user);
     };
   }
-  // Mix of sticks and compute ops in multiple branches is not good.
-  if (numSticks > 0 && numComputeOps > 0)
+  // All data ops are just view and leaves are only compute ops, no need to
+  // decompose.
+  if (allDataOpsAreView && (numStickOps == 0 && numReturns == 0) {
+    // llvm::outs() << "all are view\n";
     return false;
-  // Avoid multiple DLF16ToF32 in multiple branches.
-  if (numComputeOps > 1)
+  }
+  // More than one return values. If decomposing, there would have at least two
+  // DLF16ToF32, which is not good.
+  if (numReturns > 1) {
+    // llvm::outs() << " > 1 returns\n";
     return false;
+  }
+  // More than one compute ops. If decomposing, there would have at least two
+  // DLF16ToF32, which is not good.
+  if (numComputeOps > 1) {
+    // llvm::outs() << " > 1 compute ops\n";
+    return false;
+  }
   return true;
 }
 

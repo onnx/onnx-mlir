@@ -408,6 +408,10 @@ bool isDataMovementONNXOp(Operation *op) {
       ONNXSliceOp, ONNXExpandOp>(op);
 }
 
+bool isViewONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(op);
+}
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
