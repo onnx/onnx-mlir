@@ -47,7 +47,7 @@ if (ZDNNX_WITH_OMP)
   add_compile_definitions(ZDNNX_WITH_OMP)
   # If LLVM is built with OpenMP enabled, use LLVM's OpenMP.
   # Otherwise, use GCC's OpenMP.
-  if(TARGET omp)
+  if (OMP_SUPPORTED)
     set(ZDNNX_WITH_OMP_LLVM 1)
     add_compile_definitions(ZDNNX_WITH_OMP_LLVM)
     message(STATUS "zdnnx with OpenMP        : ON (LLVM's OpenMP)")

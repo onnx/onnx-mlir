@@ -78,10 +78,6 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 // Default VL=0 is used for non SIMD allocation
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment, int64_t VL);
-
-Value allocOrReuse(MemRefBuilder &create, Operation *op,
-    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
     int64_t alignment, int64_t VL) {
 
   int indexToReuse = -1;
@@ -101,7 +97,7 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
     });
     return generatedOperands[indexToReuse];
   } else {
-    if (VL == 0)
+    if (VL <= 1)
       return create.alignedAlloc(outputMemRefType, dims, alignment);
     else
       return create.alignedAllocWithSimdPadding(
@@ -129,13 +125,8 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 }
 
 // =============================================================================
-// Scalar ops handling
+// Scalar ops handling (IN ALPHABETICAL ORDER)
 // =============================================================================
-
-template <>
-GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
-  return {{GenericOps::ArithmeticGop, 1}};
-}
 
 template <>
 GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
@@ -143,43 +134,63 @@ GenOpMix getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
-  return {{GenericOps::MulGop, 1}};
-}
-
-template <>
-GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
-  return {{GenericOps::DivGop, 1}};
-}
-
-template <>
-GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
-  return {{GenericOps::ExpGop, 1}};
+GenOpMix getGenOpMix<ONNXAndOp>(Type t, Operation *op) {
+  return {{GenericOps::LogicalGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+GenOpMix getGenOpMix<ONNXAcosOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigArcGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAcoshOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAsinOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigArcGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAsinhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAtanOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigArcGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXAtanhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXBitwiseAndOp>(Type t, Operation *op) {
   return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
-  return {{GenericOps::TrigGop, 1}};
+GenOpMix getGenOpMix<ONNXBitwiseOrOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
-  return {{GenericOps::LogGop, 1}};
+GenOpMix getGenOpMix<ONNXBitwiseXorOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
-GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
-  return {{GenericOps::SqrtGop, 1}};
+GenOpMix getGenOpMix<ONNXCastOp>(Type t, Operation *op) {
+  return {{GenericOps::ConversionGop, 1}};
 }
 
 template <>
@@ -188,8 +199,78 @@ GenOpMix getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
 }
 
 template <>
+GenOpMix getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
+  return {{GenericOps::DivGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXEqualOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}};
+}
+
+template <>
 GenOpMix getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
   return {{GenericOps::FloorGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXGreaterOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXGreaterOrEqualOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXIsNaNOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXLessOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXLessOrEqualOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
+  return {{GenericOps::LogGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
+  return {{GenericOps::MulGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXNotOp>(Type t, Operation *op) {
+  return {{GenericOps::LogicalGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXOrOp>(Type t, Operation *op) {
+  return {{GenericOps::LogicalGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
+  return {{GenericOps::SqrtGop, 1}};
 }
 
 template <>
@@ -198,8 +279,28 @@ GenOpMix getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
 }
 
 template <>
+GenOpMix getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXTanOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
+}
+
+template <>
 GenOpMix getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
   return {{GenericOps::TrigHyperbolicGop, 1}};
+}
+
+template <>
+GenOpMix getGenOpMix<ONNXXorOp>(Type t, Operation *op) {
+  return {{GenericOps::LogicalGop, 1}};
 }
 
 //===----------------------------------------------------------------------===//
@@ -309,6 +410,29 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
 // size of the inputs is different than the data size of the outputs. As the
 // output of isInf is a bit, and the input is a float, there is size reduction;
 // thus this operation cannot be simdized at this time.
+
+template <>
+GenOpMix getGenOpMix<ONNXIsInfOp>(Type t, Operation *op) {
+  // Three different cases: Infinity, Negative Infinity and Positive Infinity
+  double detectNegAttribute =
+      mlir::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  double detectPosAttribute =
+      mlir::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+  bool detectInf = detectPosAttribute == 1 && detectNegAttribute == 1;
+  bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
+  bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+
+  if (detectInf)
+    // If infinity return true for both positive and negative infinity
+    return {{GenericOps::ArithmeticGop, 1}, {GenericOps::CompareGop, 2}};
+  if (detectPos)
+    // If positive infinity return true else false
+    return {{GenericOps::CompareGop, 1}};
+  if (detectNeg)
+    // If negative infinity return true else false
+    return {{GenericOps::CompareGop, 1}};
+  llvm_unreachable("unsupported case for this particular op.");
+}
 
 template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
@@ -1362,7 +1486,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // If fully collapse the loop, then we can allocate more data and we don't
   // care if we compute a few more values... set simdOnly to true then
   // regardless of whether the dims allow us to do so or not.
-  if (collapsedInnermostLoops == (int64_t)outputMemRefType.getRank()) {
+  if ((collapsedInnermostLoops == (int64_t)outputMemRefType.getRank()) &&
+      isOverComputeSafe(op)) {
     LLVM_DEBUG(llvm::dbgs() << "  fully flattened, set simdOnly to true\n");
     simdOnly = true;
   }
@@ -1994,7 +2119,8 @@ struct ONNXElementwiseUnaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
-      bool simdOnly, canOverCompute = true;
+      bool simdOnly;
+      bool canOverCompute = isOverComputeSafe(op);
       GenOpMix mix = getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
       int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
           collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
@@ -2168,7 +2294,9 @@ struct ONNXElementwiseBinaryOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
-      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      bool simdOnly;
+      bool canOverCompute =
+          (collapsedInnermostLoops == outputRank) && isOverComputeSafe(op);
       GenOpMix mix = getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
       int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
           collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
@@ -2335,7 +2463,10 @@ struct ONNXElementwiseVariadicOpLowering
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdLoopStaticTripCount;
-      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      bool simdOnly;
+      bool canOverCompute =
+          (collapsedInnermostLoops == outputRank) && isOverComputeSafe(op);
+
       GenOpMix mix = getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
       int64_t totVL = computeSuitableSimdUnrollFactor(outputMemRefType,
           collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,

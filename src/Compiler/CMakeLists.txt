@@ -175,12 +175,15 @@ add_onnx_mlir_library(OMCompilerUtils
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.
+  # BitWriter is needed for llvm::WriteBitcodeToFile (called in OMCompilerUtils.cpp,
+  # implemented in BitcodeWriter.cpp).
   LINK_COMPONENTS PRIVATE
   AllTargetsAsmParsers
   AllTargetsCodeGens
   AllTargetsDescs
   AllTargetsInfos
   MC
+  BitWriter
   )
 
   add_onnx_mlir_library(OMOptionUtils
@@ -207,7 +210,15 @@ add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
 endif()
-if (TARGET omp)
+
+# Find OpenMP headers built by LLVM
+find_path(OPENMP_INCLUDE_DIR
+  NAMES omp.h
+  HINTS
+    ${LLVM_BUILD_BINARY_DIR}/lib/clang/*/include
+  NO_DEFAULT_PATH
+)
+if(OPENMP_INCLUDE_DIR)
   add_dependencies(OMCompilerUtils ompruntime)
 endif()
 

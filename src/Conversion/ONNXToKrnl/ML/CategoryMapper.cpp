@@ -285,7 +285,7 @@ private:
                     .failed())
               llvm_unreachable("Failed to get strides");
             Value stringMemRef =
-                createMemRef.subView(memref, offsets, newShape, strides)
+                createMemRef.subview(memref, offsets, newShape, strides)
                     .getResult();
             inputElem = createKrnl.load(stringMemRef, loopInd);
           }

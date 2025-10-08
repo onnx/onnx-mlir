@@ -16,3 +16,9 @@ preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-o
 #            <location file="/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h" line="38" column="0"/>
 #        </error>
 preprocessorErrorDirective:/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h:38
+
+# There is an unknown macro here somewhere. Configuration is required. If LLVM_DEPRECATED is a macro then please configure it.
+# <error id="unknownMacro" severity="error" msg="There is an unknown macro here somewhere. Configuration is required. If LLVM_DEPRECATED is a macro then please configure it." verbose="There is an unknown macro here somewhere. Configuration is required. If LLVM_DEPRECATED is a macro then please configure it." file0="/workdir/onnx-mlir/third_party/stablehlo/stablehlo/integrations/cpp/builder/AttrTypeBuilderUtilTest.cpp">
+#            <location file="/workdir/llvm-project/mlir/include/mlir/IR/OperationSupport.h" line="805" column="3"/>
+#        </error>
+unknownMacro:/workdir/llvm-project/mlir/include/mlir/IR/OperationSupport.h:805 
