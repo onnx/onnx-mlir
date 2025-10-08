@@ -35,6 +35,10 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 //===----------------------------------------------------------------------===//
 
 def NoneLayoutAttr: NativeCodeCall<"StringAttr()">;
+def IsNotReturnedValue:
+  Constraint<CPred<"llvm::none_of($_self.getUsers(), [](Operation *op) { return isa<func::ReturnOp>(op); })">,
+  "The value is not a function return value"
+>; 
 
 // zhigh.Stick $input, $layout = onnx.LayoutTransform (zhigh.F32ToDLF16 $input), $layout
 // Not support NHWC layout since the stick does transpose internally. We can
@@ -49,9 +53,9 @@ def DecomposeStickPattern: Pat<
 // Not support NHWC layout since the unstick does transpose internally. We can
 // introduce transpose explicitly, but need to evaluate its overhead.
 def DecomposeUnstickPattern: Pat<
-  (ZHighUnstickOp $input),
+  (ZHighUnstickOp:$output $input),
   (ZHighDLF16ToF32Op (ONNXLayoutTransformOp $input, (NoneLayoutAttr))),
-  [(TensorHasNoNHWCLayout $input)]
+  [(TensorHasNoNHWCLayout $input), (IsNotReturnedValue:$output)]
 >;
 
 #endif // DECOMPOSE_STICK_UNSTICK_TD
