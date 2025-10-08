@@ -35,9 +35,15 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 //===----------------------------------------------------------------------===//
 
 def NoneLayoutAttr: NativeCodeCall<"StringAttr()">;
-def IsNotReturnedValue:
-  Constraint<CPred<"llvm::none_of($_self.getUsers(), [](Operation *op) { return isa<func::ReturnOp>(op); })">,
-  "The value is not a function return value"
+
+def FromDLF16ToF32Op:
+  Constraint<CPred<"$_self.getDefiningOp<onnx_mlir::zhigh::ZHighDLF16ToF32Op>()">,
+  "The value is produced by ZHighDLF16ToF32Op"
+>; 
+
+def CanDecomposeUnstick:
+  Constraint<CPred<"onnx_mlir::zhigh::canDecomposeUnstick($_self)">,
+  "The unstick op that produces this can be decomposed for optimizations"
 >; 
 
 // zhigh.Stick $input, $layout = onnx.LayoutTransform (zhigh.F32ToDLF16 $input), $layout
@@ -46,7 +52,7 @@ def IsNotReturnedValue:
 def DecomposeStickPattern: Pat<
   (ZHighStickOp $input, $layout, $noSaturation),
   (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), $layout),
-  [(IsNotNHWCLayout $layout)]
+  [(IsNotNHWCLayout $layout), (FromDLF16ToF32Op:$input)]
 >;
 
 // zhigh.Unstick $input = zhigh.F32ToDLF16 (onnx.LayoutTransform $input, $none_layout)
@@ -55,7 +61,7 @@ def DecomposeStickPattern: Pat<
 def DecomposeUnstickPattern: Pat<
   (ZHighUnstickOp:$output $input),
   (ZHighDLF16ToF32Op (ONNXLayoutTransformOp $input, (NoneLayoutAttr))),
-  [(TensorHasNoNHWCLayout $input), (IsNotReturnedValue:$output)]
+  [(TensorHasNoNHWCLayout $input), (CanDecomposeUnstick:$output)]
 >;
 
 #endif // DECOMPOSE_STICK_UNSTICK_TD

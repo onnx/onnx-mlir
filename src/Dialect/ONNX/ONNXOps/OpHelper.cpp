@@ -403,6 +403,11 @@ bool getI64ValuesFromONNXConstantOp(
   return true;
 }
 
+bool isDataMovementONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp,
+      ONNXSliceOp, ONNXExpandOp>(op);
+}
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
