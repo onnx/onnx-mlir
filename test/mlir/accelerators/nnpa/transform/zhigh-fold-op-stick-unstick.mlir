@@ -236,3 +236,57 @@ func.func @layer_norm_fusion2(%arg0: tensor<256x256xf32>, %arg1: tensor<256xf32>
 // CHECK:         }
 }
 
+// -----
+
+// Clip which has between 1 and 3 inputs (2 optional)
+
+func.func @clip_3_inputs(%arg0: tensor<4x32x64xf32>, %arg1: tensor<4x32x64xf32>, %arg2: tensor<1xf32>, %arg3: tensor<f32>) -> tensor<4x32x64xf32> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<4x32x64xf32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Add"(%0, %0) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %2 = "zhigh.Unstick"(%1) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf32>
+  %3 = "onnx.Clip"(%2, %arg2, %arg3) {onnx_node_name = "onnx.Clip_1"} : (tensor<4x32x64xf32>, tensor<1xf32>, tensor<f32>) -> tensor<4x32x64xf32>
+  %4 = "zhigh.Stick"(%3) {layout = "3DS"} : (tensor<4x32x64xf32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %5 = "zhigh.Add"(%4, %0) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %6 = "zhigh.Unstick"(%5) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf32>
+  return %6 : tensor<4x32x64xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @clip_3_inputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x32x64xf32>, [[PARAM_1_:%.+]]: tensor<4x32x64xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>, [[PARAM_3_:%.+]]: tensor<f32>) -> tensor<4x32x64xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<4x32x64xf32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Add"([[VAR_0_]], [[VAR_0_]]) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[VAR_1_]], [[PARAM_2_]], [[PARAM_3_]]) {onnx_node_name = "onnx.Clip_1"} : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1xf32>, tensor<f32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_4_:%.+]] = "zhigh.Unstick"([[VAR_3_]]) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf32>
+// CHECK:           return [[VAR_4_]] : tensor<4x32x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Clip which has between 1 and 3 inputs (2 optional)
+
+func.func @clip_2_inputs(%arg0: tensor<4x32x64xf32>, %arg1: tensor<4x32x64xf32>, %arg2: tensor<1xf32>, %arg3: tensor<f32>) -> tensor<4x32x64xf32> {
+  %none = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<4x32x64xf32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Add"(%0, %0) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %2 = "zhigh.Unstick"(%1) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf32>
+  %3 = "onnx.Clip"(%2, %arg2, %none) {onnx_node_name = "onnx.Clip_1"} : (tensor<4x32x64xf32>, tensor<1xf32>, none) -> tensor<4x32x64xf32>
+  %4 = "zhigh.Stick"(%3) {layout = "3DS"} : (tensor<4x32x64xf32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %5 = "zhigh.Add"(%4, %0) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %6 = "zhigh.Unstick"(%5) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf32>
+  return %6 : tensor<4x32x64xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @clip_2_inputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x32x64xf32>, [[PARAM_1_:%.+]]: tensor<4x32x64xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>, [[PARAM_3_:%.+]]: tensor<f32>) -> tensor<4x32x64xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<4x32x64xf32>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Add"([[VAR_1_]], [[VAR_1_]]) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Clip"([[VAR_2_]], [[PARAM_2_]], [[VAR_0_]]) {onnx_node_name = "onnx.Clip_1"} : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1xf32>, none) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_4_:%.+]] = "zhigh.Add"([[VAR_3_]], [[VAR_1_]]) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.Unstick"([[VAR_4_]]) : (tensor<4x32x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x32x64xf32>
+// CHECK:           return [[VAR_5_]] : tensor<4x32x64xf32>
+// CHECK:         }
+}
+
