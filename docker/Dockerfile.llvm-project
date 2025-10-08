@@ -149,7 +149,14 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 WORKDIR /workdir
 RUN git clone --recursive https://github.com/protocolbuffers/protobuf.git
 RUN cd /workdir/protobuf && git checkout v32.0 && git submodule update --init --recursive
-RUN cd /workdir/protobuf && bazel build :protoc :protobuf
+RUN export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
+    && export CARGO_BAZEL_REPIN=true \
+    && CC=clang CXX=clang++ && cd /workdir/protobuf \ 
+    && CC=clang CXX=clang++ bazel fetch //python/dist:binary_wheel \
+    && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
+           ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl \
+    && CC=clang CXX=clang++ bazel build //:protobuf //:protoc
+#RUN cd /workdir/protobuf && bazel build :protoc :protobuf
 RUN cp /workdir/protobuf/bazel-bin/protoc /usr/local/bin && \
     cp -r /workdir/protobuf/bazel-bin/external/com_google_protobuf/python/google /usr/local/lib/python3.9/site-packages/google && \
     cp -r /workdir/protobuf/bazel-bin/external/com_google_protobuf/libprotobuf.so* /usr/local/lib && \
