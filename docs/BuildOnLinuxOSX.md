@@ -37,7 +37,8 @@ cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
-On MacOS, or if you have link errors about missing `___kmpc_atomic...` functions, building the additional `compiler-rt`  runtimes should solve the issue. Namely, substitute the line below to the above `cmake` command.
+On MacOS with M-chips, or if you have link errors about missing `___kmpc_atomic...` functions, building the additional `compiler-rt`  runtimes should solve the issue. 
+Namely, substitute the line below to the above `cmake` command.
 ```bash
    -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
 ```
