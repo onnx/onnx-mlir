@@ -4455,3 +4455,16 @@ func.func @test_slice_negative_steps(%arg0: tensor<100x200xf32>) -> tensor<*xf32
 // CHECK-LABEL:  func.func @test_slice_negative_steps
 // CHECK:          "onnx.Slice"
 // CHECK-SAME:       (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<16x16xf32>
+
+// -----
+func.func @test_slice_negative_steps_mixed_dialects(%arg0: tensor<100x200xf32>) -> tensor<*xf32> {
+  %axes = "tosa.const"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "tosa.const"() {value = dense<[-10, -20]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "tosa.const"() {value = dense<[10, 20]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "tosa.const"() {value = dense<[-5, -10]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32> 
+}
+// CHECK-LABEL:  func.func @test_slice_negative_steps_mixed_dialects
+// CHECK:          "onnx.Slice"
+// CHECK-SAME:       (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<16x16xf32>

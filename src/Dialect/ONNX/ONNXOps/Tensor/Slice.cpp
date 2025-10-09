@@ -160,7 +160,7 @@ LogicalResult ONNXSliceOp::inferShapes(
 
   // Cannot infer shape if axes is not a constant. It can be a constant after
   // several rounds of shape-inference and constant propagation.
-  if (!isNoneValue(axes) && !getONNXConstantOp(axes))
+  if (!isNoneValue(axes) && !isConstLikeValue(axes))
     return success();
 
   const auto startsType =
