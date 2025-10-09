@@ -22,10 +22,10 @@
 
 #include <numeric>
 
-#include "mlir/IR/Matchers.h"
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -76,7 +76,6 @@ ValueRange emitSplitByChannels(PatternRewriter &rewriter, Location loc,
     splitShape[axis] = size;
     resultTypes.push_back(RankedTensorType::get(splitShape, elementType));
   }
-  rewriter.setInsertionPointAfter(input.getDefiningOp());
   // Perform Split Operation
   ValueRange results =
       create.onnx.split(ArrayRef(resultTypes), input, splitConstant, axis);
@@ -272,8 +271,6 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return reportFailure("RMS norm mul has too many uses");
     if (isdRecipOp && !isdRecipOp->hasOneUse())
       return reportFailure("RMS norm recip has too many uses");
-    if (!nsMulOp->hasOneUse())
-      return reportFailure("RMS norm scale mul has too many uses");
     // Now check values epsilon.
     if (!isScalarTensor(epsilon))
       return reportFailure("RMS epsilon is expected to be scalar");
@@ -657,8 +654,13 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       ONNXConvOp convOp1, PatternRewriter &rewriter) const final {
     Value input = convOp1.getX();
     if (!onnx_mlir::isRankedShapedType(input.getType()) ||
-        mlir::cast<ShapedType>(input.getType()).hasStaticShape() == false)
-      return failure();
+        !mlir::cast<ShapedType>(input.getType()).hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          convOp1, "input must be a ranked tensor with static shape");
+
+    if (!cast<ShapedType>(convOp1.getType()).hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          convOp1, "output type must be a ranked tensor with static shape");
 
     // Collect all ONNXConvOps using this input.
     SmallVector<ONNXConvOp> candidateConvs;
@@ -669,37 +671,87 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     // Must have at least two convs to combine.
     if (candidateConvs.size() < 2)
-      return failure();
+      return rewriter.notifyMatchFailure(
+          convOp1, "not enough conv ops to combine");
 
     // Ensure all candidate convs are compatible (including bias check).
     for (size_t i = 1; i < candidateConvs.size(); ++i) {
       if (!areCompatible(candidateConvs[0], candidateConvs[i]))
-        return failure();
+        return rewriter.notifyMatchFailure(
+            convOp1, "conv ops are not compatible for combining");
     }
 
     auto totalUses = static_cast<size_t>(
         std::distance(input.getUsers().begin(), input.getUsers().end()));
     if (candidateConvs.size() != totalUses)
-      return failure();
+      return rewriter.notifyMatchFailure(
+          convOp1, "number of candidate convs does not match input uses");
 
     SmallVector<ONNXConvOp> parallelConvs = candidateConvs;
-
-    bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
-    Location loc = convOp1.getLoc();
-    auto inputType = mlir::cast<ShapedType>(input.getType());
-    Type elementType = inputType.getElementType();
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-        rewriter, loc);
-
-    int64_t concatAxis = 1;
 
     SmallVector<Value> weightValues;
     int64_t totalOutputChannels = 0;
     for (auto conv : parallelConvs) {
       auto weightType = mlir::cast<ShapedType>(conv.getW().getType());
+      if (!weightType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            conv, "weight must be a ranked tensor with static shape");
+      if (!cast<ShapedType>(conv.getType()).hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            conv, "output type must be a ranked tensor with static shape");
       weightValues.push_back(conv.getW());
       totalOutputChannels += weightType.getShape()[0];
     }
+
+    auto *latestConv =
+        llvm::max_element(parallelConvs, [](ONNXConvOp a, ONNXConvOp b) {
+          return a->isBeforeInBlock(b.getOperation());
+        });
+
+    const auto checkIfOtherConvsReachable = [&](ONNXConvOp conv) {
+      SmallVector<Operation *> worklist;
+      DenseSet<Operation *> visited;
+      worklist.push_back(conv.getOperation());
+      while (!worklist.empty()) {
+        Operation *current = worklist.back();
+        worklist.pop_back();
+
+        for (auto *user : current->getUsers()) {
+          if (auto otherConv = dyn_cast<ONNXConvOp>(user)) {
+            if (llvm::is_contained(parallelConvs, otherConv)) {
+              // Found another conv that is part of the parallel convs.
+              return true;
+            }
+          }
+          if (visited.insert(user).second &&
+              user->isBeforeInBlock(*latestConv)) {
+            worklist.push_back(user);
+          }
+        };
+      }
+      return false;
+    };
+    // Ensure all convolutions are really parallel, none of then can be part of
+    // the input of another convolution
+    if (llvm::any_of(parallelConvs, checkIfOtherConvsReachable)) {
+      return rewriter.notifyMatchFailure(
+          convOp1, "conv ops are not parallel (reachable from each other)");
+    }
+
+    bool allHaveBias = !mlir::isa<NoneType>(parallelConvs[0].getB().getType());
+
+    Location loc = convOp1.getLoc();
+    for (auto conv : parallelConvs) {
+      loc = rewriter.getFusedLoc({loc, conv.getLoc()});
+    }
+    auto inputType = mlir::cast<ShapedType>(input.getType());
+    Type elementType = inputType.getElementType();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(*latestConv);
+
+    int64_t concatAxis = 1;
 
     auto firstWeightType =
         mlir::cast<ShapedType>(parallelConvs[0].getW().getType());
@@ -720,9 +772,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       Type newBiasType = RankedTensorType::get(newBiasShape, elementType);
       newBias = create.onnx.concat(newBiasType, biasValues, 0);
     } else {
-      // Bias is absent for all. Assign a null Value (nullptr) instead of
-      // ONNXNoneOp.
-      newBias = nullptr;
+      newBias = parallelConvs[0].getB();
     }
 
     SmallVector<int64_t> newOutputShape(
@@ -767,8 +817,7 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 
     if (allOutputsUsedInCommonConcat && commonConcatOp &&
         commonConcatOp.getAxis() == 1) {
-      commonConcatOp.getResult().replaceAllUsesWith(newConv.getResult());
-      rewriter.eraseOp(commonConcatOp);
+      rewriter.replaceOp(commonConcatOp, newConv);
     } else {
       SmallVector<int64_t> splitSizesVec;
       for (auto conv : parallelConvs) {
@@ -777,15 +826,15 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
         splitSizesVec.push_back(channels);
       }
 
-      rewriter.setInsertionPointAfter(newConv);
       ValueRange splitResults = onnx_mlir::emitSplitByChannels(
           rewriter, loc, newConv.getResult(), splitSizesVec, concatAxis);
-
       for (size_t i = 0; i < parallelConvs.size(); ++i) {
-        parallelConvs[i].getResult().replaceAllUsesWith(splitResults[i]);
+        rewriter.replaceAllOpUsesWith(parallelConvs[i], splitResults[i]);
       }
+      // Sort the block topological, as the operations after the split may be in
+      // the wrong place otherwise
+      mlir::sortTopologically(newConv->getBlock());
     }
-
     for (auto conv : parallelConvs) {
       rewriter.eraseOp(conv);
     }
@@ -851,44 +900,10 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
-  ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
-
-  // These ops will be Recomposed into other ONNX ops. Hence, they will not be
-  // available after this pass.
-
-  // Recompose LayerNorm, starting from scale/mul op
-  target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
-    Value x, scale;
-    FloatAttr epsilon;
-    int64_t axis;
-    bool isRMSLayerNorm;
-    if (RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
-            op, x, scale, axis, epsilon, isRMSLayerNorm))
-      return false;
-
-    bool isExactGelu;
-    if (RecomposeGeluFromMulPattern::matchGeluPattern(op, x, isExactGelu))
-      return false;
-
-    return true;
-  });
-
-  // Recompose QLinearMatMul, starting from QuantizeLinear.
-  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
-  target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
-      [](ONNXQuantizeLinearOp op) {
-        Value a, aScale, aZeroPoint, b, bScale, bZeroPoint, outScale,
-            outZeroPoint;
-        return !RecomposeQLinearMatMulFromQuantizeLinearPattern::
-            matchQLinearMatMulPattern(op, a, aScale, aZeroPoint, b, bScale,
-                bZeroPoint, outScale, outZeroPoint);
-      });
-
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
 
-  if (failed(applyPartialConversion(function, target, std::move(patterns))))
+  if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 

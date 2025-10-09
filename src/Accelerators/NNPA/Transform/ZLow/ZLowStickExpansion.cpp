@@ -4,7 +4,7 @@
 
 //===--- ZLowStickExpansion.cpp - ZLow Stick/Unstick Expansion Patterns ---===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,9 +40,11 @@
 
 #define DEBUG_TYPE "zlow-stick-expansion"
 
-// Prefetching is currently disabled due to issues with OpenMP lowering.
+// Prefetching is currently disabled due to issues with LLVM lowering.
+// Change this once fixes to prefetch are in LLVM.
 // TODO: see if it impacts performance significantly and investigate why
 // it causes issues with lowering.
+
 #define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 0
 
@@ -71,13 +73,10 @@ public:
     // Generic way to handle all formats listed below.
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
-    // Convolution filters.
+    // Convolution filters.  NHWC is supported in ZLow because ONNX->KRNL added
+    // an extra loop to go from NHWC to NCHW (default for ONNX).
     StringAttr layout = unstickOp.getLayoutAttr();
-    if (layout.getValue().equals_insensitive("4D") ||
-        layout.getValue().equals_insensitive("3D") ||
-        layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS") ||
-        layout.getValue().equals_insensitive("NHWC")) {
+    if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
@@ -136,6 +135,7 @@ public:
   bool enableParallel = true;
 
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
+
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
 
@@ -144,12 +144,9 @@ public:
     // Generic way to handle all formats listed below.
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
-    // Convolution filters.
-    if (layout.getValue().equals_insensitive("4D") ||
-        layout.getValue().equals_insensitive("3D") ||
-        layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS") ||
-        layout.getValue().equals_insensitive("NHWC")) {
+    // Convolution filters. NHWC is supported in ZLow because ONNX->KRNL added
+    // an extra loop to go from NHWC to NCHW (default for ONNX).
+    if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
@@ -236,16 +233,9 @@ public:
 
     // Parallel...
     if (enableParallel) {
-      int64_t parId;
       // TODO: may want to check if ub of rank makes sense here.
-      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
-        create.krnl.parallel(loopDefs[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "compiler-generated stickify");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in compiler-generated stickify");
-      }
+      tryCreateKrnlParallel(create.krnl, op, "compiler-generated stickify",
+          loopDefs, lbs, ubs, 0, rank, {}, /*min iter for going parallel*/ 8);
     }
 
     // Compute max tiles. It is actually not easy to compute the max number of

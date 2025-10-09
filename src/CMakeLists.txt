@@ -10,6 +10,19 @@ if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   return()
 endif()
 
+# Find OpenMP headers built by LLVM
+find_path(OPENMP_INCLUDE_DIR
+  NAMES omp.h
+  HINTS
+    ${LLVM_BUILD_BINARY_DIR}/lib/clang/*/include
+  NO_DEFAULT_PATH
+)
+if(OPENMP_INCLUDE_DIR)
+  set(OMP_SUPPORTED ON)
+else()
+  set(OMP_SUPPORTED OFF)
+endif()
+
 add_subdirectory(Accelerators)
 add_subdirectory(Interface)
 add_subdirectory(Dialect)

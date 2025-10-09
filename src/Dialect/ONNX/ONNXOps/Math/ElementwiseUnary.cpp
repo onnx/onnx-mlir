@@ -129,6 +129,15 @@ LogicalResult ONNXAtanhOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Binarizer
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBinarizerOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // BitwiseNot
 //===----------------------------------------------------------------------===//
 

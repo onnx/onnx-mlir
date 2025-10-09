@@ -1239,6 +1239,53 @@ private:
   int64_t maxPower;
 };
 
+class PowConversionRewritePattern : public OpRewritePattern<ONNXPowOp> {
+public:
+  using OpRewritePattern<ONNXPowOp>::OpRewritePattern;
+
+  PowConversionRewritePattern(MLIRContext *context, int64_t maxPower)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXPowOp powOp, PatternRewriter &rewriter) const override {
+    Operation *op = powOp.getOperation();
+    Location loc = powOp.getLoc();
+    Value input = powOp.getX();
+    Value exp = powOp.getY();
+
+    // Characterize element types.
+    Type inputElementType = getElementTypeOrSelf(input);
+    Type expElementType = getElementTypeOrSelf(exp);
+    bool inputIsInt = isa<IntegerType>(inputElementType);
+    bool inputIsFloat = isa<FloatType>(inputElementType);
+    bool expIsInt = isa<IntegerType>(expElementType);
+    bool expIsFloat = isa<FloatType>(expElementType);
+    // Since verifier make sure we only have int or float, can use call below.
+    int64_t inputWidth = inputElementType.getIntOrFloatBitWidth();
+    int64_t expWidth = expElementType.getIntOrFloatBitWidth();
+
+    // Detect cases that MLIR supports without conversions => failure, aka no
+    // need to do anything here.
+    if ((inputWidth == expWidth) &&
+        ((inputIsInt && expIsInt) || (inputIsFloat && expIsFloat) ||
+            (inputIsFloat && expIsInt)))
+      return failure();
+
+    // Rewrite pow with a cast of the exp type to the input type
+    // TODO: Standard is fuzzy on how to handle conversions in mix type
+    // situations. We should revisit this code if the standard change from the
+    // currently (unofficial, aka ORT) policy which is simply to convert the
+    // exponenet to the type of the base & output. This is especially
+    // "questionable" when the base is an integer type and the exponent is a
+    // float, as 0.5 could express a square root operation.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value newExp = create.onnx.cast(exp, inputElementType);
+    Value newPow = create.onnx.pow(input, newExp);
+    rewriter.replaceOp(op, {newPow});
+    return success();
+  }
+};
+
 // Rewrite a pattern like the following:
 //
 // %shape = onnx.Concat(%dim1, %dim2)
@@ -1580,6 +1627,41 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     }
 
     return failure();
+  }
+};
+
+struct RemoveDimZeroInputInConcatPattern
+    : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    ValueRange inputs = concatOp.getOperands();
+    int64_t axis = concatOp.getAxis();
+
+    // Collect indices of inputs whose dim size at axis is zero.
+    SmallVector<int64_t> indices;
+    for (unsigned int i = 0; i < inputs.size(); ++i) {
+      Value inp = inputs[i];
+      if (!hasShapeAndRank(inp))
+        continue;
+      ArrayRef<int64_t> shape = getShape(inp.getType());
+      // Scalar with rank 0. Dim size is one (not zero).
+      if (shape.size() == 0)
+        continue;
+      if (shape[axis] == 0)
+        indices.emplace_back(i);
+    }
+    if (indices.empty())
+      return rewriter.notifyMatchFailure(
+          concatOp, "No operand whose dim at axis is zero");
+
+    // Rewrite: remove operands whose dim at axis is zero.
+    rewriter.modifyOpInPlace(concatOp, [&]() {
+      for (int64_t idx : indices)
+        concatOp.getOperation()->eraseOperand(idx);
+    });
+    return success();
   }
 };
 
@@ -1974,6 +2056,126 @@ struct RemoveGroupNormPattern2
 };
 
 // =============================================================================
+// Rewrite pattern for ONNXTransposeOp
+// =============================================================================
+
+// Handle negative permute pattern here as they are used in many many places.
+// Added also the default where no permute is given.
+// Still had to also handle them in shape inference
+class HandleNegativePermutePatternInTranspose
+    : public OpRewritePattern<ONNXTransposeOp> {
+public:
+  using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXTransposeOp onnxTransposeOp,
+      PatternRewriter &rewriter) const override {
+    Location loc = onnxTransposeOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+
+    Value data = onnxTransposeOp.getData();
+    if (!hasShapeAndRank(data))
+      return failure();
+    // Get rank and permutation attribute, if any.
+    int64_t rank = mlir::cast<ShapedType>(data.getType()).getRank();
+    auto permAttr = onnxTransposeOp.getPermAttr();
+
+    if (!permAttr) {
+      // No Permute, default to reverse order.
+      SmallVector<int64_t, 4> defaultPerm;
+      for (int64_t i = rank - 1; i >= 0; --i)
+        defaultPerm.emplace_back(i);
+      Value res = create.transposeInt64(data, defaultPerm);
+      rewriter.replaceOp(onnxTransposeOp, res);
+      return success();
+    }
+
+    bool hasNegativePermVal = false;
+    SmallVector<int64_t, 4> newPerm;
+    for (int64_t i = 0; i < rank; ++i) {
+      int64_t p = ArrayAttrIntVal(permAttr, i);
+      if (p < 0) {
+        hasNegativePermVal = true;
+        p += rank;
+      }
+      newPerm.emplace_back(p);
+    }
+    // No negative value, no need to canonicalize.
+    if (!hasNegativePermVal)
+      return failure();
+    // Had a negative number, replace the transpose.
+    Value res = create.transposeInt64(data, newPerm);
+    rewriter.replaceOp(onnxTransposeOp, res);
+    return success();
+  }
+};
+
+// Pulls the specified op up through a split op.
+template <typename OpToPull>
+struct PullOpThroughSplitPattern : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+
+    Operation *firstUser = nullptr;
+    SmallVector<Operation *> opsToPullUp;
+    Location newLoc = rewriter.getUnknownLoc();
+
+    const auto areFilteredAttrsEqual = [](Operation *op1, Operation *op2) {
+      DenseMap<StringRef, Attribute> filteredAttrs1;
+      DenseMap<StringRef, Attribute> filteredAttrs2;
+      for (const auto &attr : op1->getAttrs()) {
+        if (attr.getName() != "onnx_node_name") {
+          filteredAttrs1[attr.getName()] = attr.getValue();
+        }
+      }
+      for (const auto &attr : op2->getAttrs()) {
+        if (attr.getName() != "onnx_node_name") {
+          filteredAttrs2[attr.getName()] = attr.getValue();
+        }
+      }
+      return filteredAttrs1 == filteredAttrs2;
+    };
+
+    for (Operation *op : splitOp->getUsers()) {
+      if (!isa<OpToPull>(op)) {
+        return rewriter.notifyMatchFailure(
+            splitOp, "SplitOp is not used by targeted op");
+      }
+      if (op->getOperand(0).getType() != op->getResult(0).getType()) {
+        // This could happen if shape inference did not run
+        return rewriter.notifyMatchFailure(
+            splitOp, "Targeted op must have same input and output type");
+      }
+      if (!firstUser) {
+        firstUser = op;
+      } else {
+        if (!areFilteredAttrsEqual(firstUser, op)) {
+          return rewriter.notifyMatchFailure(splitOp,
+              "SplitOp must be used by ops of the same type "
+              "and attributes");
+        }
+      }
+      opsToPullUp.push_back(op);
+      newLoc = rewriter.getFusedLoc({newLoc, op->getLoc()});
+    }
+    rewriter.setInsertionPoint(splitOp);
+    auto *newOpBeforeSplit = rewriter.clone(*opsToPullUp.front());
+    rewriter.modifyOpInPlace(newOpBeforeSplit, [&]() {
+      newOpBeforeSplit->setOperand(0, splitOp.getOperand(0));
+      newOpBeforeSplit->getResult(0).setType(splitOp.getOperand(0).getType());
+      newOpBeforeSplit->setLoc(newLoc);
+    });
+    rewriter.modifyOpInPlace(splitOp,
+        [&]() { splitOp->setOperand(0, newOpBeforeSplit->getResult(0)); });
+    for (Operation *op : opsToPullUp) {
+      rewriter.replaceOp(op, op->getOperands());
+    }
+    return success();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -2026,6 +2228,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 void ONNXConcatOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RecomposeConcatPattern>(context);
+  results.insert<RemoveDimZeroInputInConcatPattern>(context);
 }
 
 /// on the ONNXClipOp.
@@ -2052,6 +2255,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
   result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
       context);
+  result.insert<FuseScalarDivMatMulPattern>(context);
 }
 
 /// on the ONNXDropoutOp.
@@ -2158,6 +2362,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
+  results.insert<FuseScalarMulMatMulPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
@@ -2233,6 +2438,16 @@ void ONNXSpaceToDepthOp::getCanonicalizationPatterns(
   results.insert<RemoveSpaceToDepthDepthToSpacePattern>(context);
 }
 
+/// on the ONNXSplitOp
+void ONNXSplitOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  // TODO: This pattern could be more generic, for all unary, elementwise
+  // ops. Having a trait for them would make this easier.
+  results.insert<PullOpThroughSplitPattern<ONNXReluOp>>(context);
+  results.insert<PullOpThroughSplitPattern<ONNXLeakyReluOp>>(context);
+  ;
+}
+
 /// on the ONNXSqueezeOp.
 void ONNXSqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
@@ -2291,6 +2506,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
   result.insert<FuseTransposeAndTanhPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
+  result.insert<HandleNegativePermutePatternInTranspose>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
@@ -2312,6 +2528,7 @@ void ONNXPowOp::getCanonicalizationPatterns(
   // Is 64 necessary? Maybe too high?
   result.insert<PowToMulRewritePattern>(context, 64);
   result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
+  result.insert<PowConversionRewritePattern>(context);
 }
 
 /// on the ONNXXorOp.

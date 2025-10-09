@@ -1,5 +1,7 @@
 // RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR %s | FileCheck %s
 
+// -----
+
 // Check whether the compiler can remove unstick/stick so that the output of zdnn softmax is passed directly to zdnn matmul.
 func.func @softmax_matmul(%arg0: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 1, 3, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>

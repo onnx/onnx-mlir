@@ -15,16 +15,17 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 43d71baae36c8d8b5a9995aa35efebe09cc9c2d6 && cd ..
+cd llvm-project && git checkout fc44a4fcd3c54be927c15ddd9211aca1501633e7 && cd ..
 ```
 
-[same-as-file]: <> (utils/build-mlir.sh)
+[same-as-file]: <> ({"ref": "utils/build-mlir.sh", "skip-ref": 2})
 ``` bash
 mkdir llvm-project/build
 cd llvm-project/build
 
 cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS="mlir;clang;openmp" \
+   -DLLVM_ENABLE_PROJECTS="mlir;clang" \
+   -DLLVM_ENABLE_RUNTIMES="openmp" \
    -DLLVM_TARGETS_TO_BUILD="host" \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
@@ -36,15 +37,10 @@ cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
-To enable parallelization for onnx-mlir, llvm-project should be configured as
-```
-cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS=mlir \
-   -DLLVM_TARGETS_TO_BUILD="host" \
-   -DCMAKE_BUILD_TYPE=Release \
-   -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DLLVM_ENABLE_RTTI=ON \
-   -DLLVM_ENABLE_LIBEDIT=OFF
+On MacOS with M-chips, or if you have link errors about missing `___kmpc_atomic...` functions, building the additional `compiler-rt`  runtimes should solve the issue. 
+Namely, substitute the line below to the above `cmake` command.
+```bash
+   -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
 ```
 
 ## ONNX-MLIR (this project)

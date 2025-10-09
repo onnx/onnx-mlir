@@ -195,6 +195,10 @@ def IsFromONNXConstantOp: Constraint<
     CPred<"onnx_mlir::isDenseONNXConstant($0)">,
     "Is a value from ONNXConstantOp">;
 
+def IsScalarConstantTensor: Constraint<
+    CPred<"onnx_mlir::isScalarConstantTensor($0)">,
+    "Is a scalar constant ">;
+
 def IsNotFromONNXConstantOp: Constraint<
     CPred<"!(llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp()))">,
     "Is a value not from ONNXConstantOp">;
@@ -409,6 +413,34 @@ def FuseMulConvNullBiasPattern: Pat<
    (HasRankGT<0> $y),                  // constant cannot be a scalar.
    (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
 >;
+
+//===----------------------------------------------------------------------===//
+// This is to fuse the composition: 'Mul o MatMul' into 'MatMul' if the other input
+// of Mul is a SCALAR constant and the other input of MatMul is a constant,
+// by multipling the constant inputs at compile time:
+//
+// We have:
+//   (MatMul)    z = a * b      (where b is a constant)
+//   (Mul)       y = z x c      (where c is a SCALAR constant)
+//
+// which corresponds to the following computation:
+//   y = a * new_b
+// where
+//   new_b = b x c
+//
+//===----------------------------------------------------------------------===//
+def FuseScalarMulMatMulPattern: Pat<
+ (ONNXMulOp (either (ONNXMatMulOp $a, $b), $c)),
+ (ONNXMatMulOp $a, (ONNXMulOp $b, $c)),
+ [(IsFromONNXConstantOp $b), (IsScalarConstantTensor $c)]
+>;
+
+def FuseScalarDivMatMulPattern: Pat<
+ (ONNXDivOp (ONNXMatMulOp $a, $b), $c),
+ (ONNXMatMulOp $a, (ONNXDivOp $b, $c)),
+ [(IsFromONNXConstantOp $b), (IsScalarConstantTensor $c)]
+>;
+
 
 // TODO add pattern for non-null bias with constraints:
 // - bias must be have rank equal to 1 and

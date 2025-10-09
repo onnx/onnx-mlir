@@ -172,7 +172,8 @@ int Command::exec(std::string wdir) const {
 
   std::string errMsg;
   int rc = llvm::sys::ExecuteAndWait(_path, llvm::ArrayRef(argsRef),
-      /*Env=*/std::nullopt, /*Redirects=*/std::nullopt,
+      /*Env=*/{},
+      /*Redirects=*/{},
       /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
   if (rc != 0) {
@@ -893,9 +894,9 @@ static std::string getDataLayout(const Location &loc) {
   llvm::TargetOptions ops;
   std::string mcpuForLLVMToolchain = getTargetCPUOption(
       /*forLLVM*/ true, /*cpu only*/ true);
-  auto targetMachine =
-      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
-          mtriple, mcpuForLLVMToolchain, "" /*features*/, ops, std::nullopt)};
+  auto targetMachine = std::unique_ptr<llvm::TargetMachine>{
+      LLVMTarget.createTargetMachine(llvm::Triple(mtriple),
+          mcpuForLLVMToolchain, "" /*features*/, ops, std::nullopt)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;

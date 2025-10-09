@@ -35,6 +35,29 @@ endif()
 include(zdnn.cmake)
 setup_zdnn(v1.1.2)
 
+# Note: consider to use a compile flag instead.
+option(ZDNNX_DEBUG "Enable ZDNNX debug information" OFF)
+if (ZDNNX_DEBUG)
+  add_compile_definitions(ZDNNX_DEBUG)
+endif()
+
+# Note: consider to use a compile flag instead.
+option(ZDNNX_WITH_OMP "Enable ZDNNX with OMP" OFF)
+if (ZDNNX_WITH_OMP)
+  add_compile_definitions(ZDNNX_WITH_OMP)
+  # If LLVM is built with OpenMP enabled, use LLVM's OpenMP.
+  # Otherwise, use GCC's OpenMP.
+  if (OMP_SUPPORTED)
+    set(ZDNNX_WITH_OMP_LLVM 1)
+    add_compile_definitions(ZDNNX_WITH_OMP_LLVM)
+    message(STATUS "zdnnx with OpenMP        : ON (LLVM's OpenMP)")
+  else()
+    message(STATUS "zdnnx with OpenMP        : ON (GCC's OpenMP)")
+  endif()
+else()
+  message(STATUS "zdnnx with OpenMP        : OFF")
+endif()
+
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
 add_subdirectory(Support)

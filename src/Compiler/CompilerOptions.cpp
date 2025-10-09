@@ -199,7 +199,7 @@ static llvm::cl::opt<int, true> onnxConstPropExpansionBoundOpt(
     "onnx-const-prop-expansion-bound",
     llvm::cl::desc(
         "ONNX dialect constant propagation maximum expansion factor\n"
-        "Constants are not propagated if their bytes size exceed "
+        "Constants are not propagated if their bytes size exceed\n"
         "the aggregate operands' sizes by more than this factor\n"
         "Set to -1 to always propagate, which is the default."),
     llvm::cl::location(onnxConstPropExpansionBound), llvm::cl::init(-1),
@@ -359,10 +359,10 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
         "shapes for dynamic inputs.\n"
         "\"value\" is in the format of "
         "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
-        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
-        "0 or being -1 for all input indices), and\n"
-        "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
-        "unknown dimensions)."),
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (They can be an "
+        "integer starting from 0, a range e.g. 5-17, or -1 for all input "
+        "indices), and\n \"D1, D2, ...\" are dimension sizes (positive "
+        "integers or -1 for unknown dimensions)."),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -515,9 +515,9 @@ static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
 static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
     "instrument-signature",
     llvm::cl::desc(
-        "Specify which high-level operations should be selected for printing\n"
-        "the type and shape of their input/output tensors.\n"
-        "The ops are selected by their op name.\n"
+        "Print at runtime the type and shape for the input and output tensors\n"
+        "of the specified operations. Code is inserted as specified by the\n"
+        "--instrument-stage option.\n"
         "The instrument-signature defines the pattern to select the ops.\n"
         "\"NONE\" for no instrument (default).\n"
         "\"ALL\" or \"\" for all available operations.\n"
@@ -532,9 +532,9 @@ static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
 static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
     "instrument-onnx-node",
     llvm::cl::desc(
-        "Specify which onnx operation node will be selected for \n"
-        "inserting a runtime call after the node to print the data of\n"
-        "their input/output tensors.\n"
+        "Print at runtime the type, shape and data values for the\n"
+        "input and output tensors of the specified operations.\n"
+        "Code is inserted as specified by the --instrument-stage option.\n"
         "The ops are selected by their onnx node name, which is a string\n"
         "attribute unique to each onnx node (most of time).\n"
         "You can find them in the output of --EmitONNXIR\n"
@@ -692,7 +692,7 @@ static llvm::cl::list<std::string, std::vector<std::string>> extraLibsOpt("l",
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
-    llvm::cl::desc("Profile operations in an IR:"),
+    llvm::cl::desc("Profile operations in an IR (timing and signature):"),
     llvm::cl::location(profileIR),
     llvm::cl::values(clEnumVal(None, "No profiling. Default value."),
         clEnumVal(
@@ -729,7 +729,7 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
   #include "src/Compiler/CompilerOptions.hpp"
 
   if (debugTestCompilerOpt) {
-    fprintf(stderr, "use new optimization");
+    fprintf(stderr, "use new optimization\n");
     // invoke optimization.
   }
 
@@ -1413,6 +1413,23 @@ void initCompilerConfig() {
     if (VerboseOutput)
       llvm::outs() << "Native machine set as \"" << march << "\"\n";
   }
+}
+
+bool hasInstrumentation(InstrumentStages targetInstrumentationStage) {
+  // Want it here?
+  if (instrumentStage != targetInstrumentationStage)
+    return false;
+  // Now check if we are time/memory instrumenting anything.
+  return (instrumentOps != "" && instrumentOps != "NONE");
+}
+
+bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
+  // Want it here?
+  if (instrumentStage != targetInstrumentationStage)
+    return false;
+  // Now check if we are signature instrumenting anything.
+  return (instrumentSignatures != "" && instrumentSignatures != "NONE") ||
+         (instrumentOnnxNode != "" && instrumentOnnxNode != "NONE");
 }
 
 } // namespace onnx_mlir

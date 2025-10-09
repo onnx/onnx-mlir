@@ -603,7 +603,7 @@ Value IndexExprImpl::getValue() {
       // specs involving float and index calculations.
       float fval = floatLit;
       value = getRewriter().create<arith::ConstantFloatOp>(
-          getLoc(), llvm::APFloat(fval), getRewriter().getF32Type());
+          getLoc(), getRewriter().getF32Type(), llvm::APFloat(fval));
     } else {
       value = getRewriter().create<arith::ConstantIndexOp>(getLoc(), intLit);
     }

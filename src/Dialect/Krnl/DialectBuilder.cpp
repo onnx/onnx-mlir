@@ -148,6 +148,47 @@ void KrnlBuilder::permute(ValueRange loops, ArrayRef<int64_t> map) const {
   b().create<KrnlPermuteOp>(loc(), loops, map);
 }
 
+void KrnlBuilder::blockAndPermute(ValueRange originalLoops,
+    ArrayRef<int64_t> blockSizes, SmallVector<Value, 4> &outerLoops,
+    SmallVector<Value, 4> &innerLoops) {
+  int64_t rank = originalLoops.size();
+  int64_t blockedLoopNum = blockSizes.size();
+  int64_t unoptLoopNum = rank - blockedLoopNum;
+  assert(unoptLoopNum >= 0 && "too many blocked loops");
+  outerLoops.clear();
+  innerLoops.clear();
+  // Values for permute pattern.
+  SmallVector<Value, 4> permuteLoops;
+  mlir::SmallVector<int64_t> permuteMap(unoptLoopNum + 2 * blockedLoopNum, 0);
+  // Add unblocked loops as is.
+  for (int64_t u = 0; u < unoptLoopNum; ++u) {
+    outerLoops.emplace_back(originalLoops[u]);
+    permuteLoops.emplace_back(originalLoops[u]);
+    permuteMap[u] = u;
+  }
+  // Iterate over blocked loops
+  for (int64_t b = 0; b < blockedLoopNum; ++b) {
+    // Block the loop (resulting in 2 loops).
+    ValueRange blockedLoops =
+        block(originalLoops[unoptLoopNum + b], blockSizes[b]);
+    // Add to outer/inner loops.
+    outerLoops.emplace_back(blockedLoops[0]);
+    innerLoops.emplace_back(blockedLoops[1]);
+    // Add the 2 resulting loops to the permute input (consecutive order).
+    permuteLoops.emplace_back(blockedLoops[0]);
+    permuteLoops.emplace_back(blockedLoops[1]);
+    // Permute them so that all blocked loops first, then inner blocked loops.
+    permuteMap[unoptLoopNum + 2 * b] = unoptLoopNum + b;
+    permuteMap[unoptLoopNum + 2 * b + 1] = unoptLoopNum + blockedLoopNum + b;
+  }
+  // Apply the permute pattern.
+  permute(permuteLoops, permuteMap);
+}
+
+void KrnlBuilder::unroll(Value loop) const {
+  b().create<KrnlUnrollOp>(loc(), loop);
+}
+
 ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
   return b()
       .template create<KrnlGetInductionVariableValueOp>(loc(), loops)
@@ -188,6 +229,21 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+void KrnlBuilder::iterateWithOrigLoop(ValueRange originalLoops,
+    ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs,
+    KrnlLoopBodyFn bodyBuilderFn) const {
+  // Check that originalLoops, lbs, and ubs have the same rank.
+  assert(originalLoops.size() == lbs.size() && "expected same rank");
+  assert(originalLoops.size() == ubs.size() && "expected same rank");
+  b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs, ubs,
+      ValueRange(),
+      [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
+          ValueRange args, ValueRange iterArgs) {
+        KrnlBuilder createKrnl(builder, loc);
+        bodyBuilderFn(createKrnl, origLoopArgs);
+      });
+}
+
 // Deprecated
 KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
@@ -197,8 +253,8 @@ KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
   assert(originalLoops.size() == ubs.size() && "expected same rank");
   return b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs,
       ubs, inits,
-      [&](OpBuilder &builder, Location loc, ValueRange args,
-          ValueRange iterArgs) {
+      [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
+          ValueRange args, ValueRange iterArgs) {
         KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
         bodyBuilderFn(createKrnl, indices, iterArgs);
@@ -220,6 +276,21 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
   iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
+void KrnlBuilder::iterateIEWithOrigLoop(ValueRange originalLoops,
+    ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+    KrnlLoopBodyFn bodyBuilderFn) const {
+  // Check that originalLoops, lbs, and ubs have the same rank.
+  assert(originalLoops.size() == lbs.size() && "expected same rank");
+  assert(originalLoops.size() == ubs.size() && "expected same rank");
+  b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs, ubs,
+      ValueRange(),
+      [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
+          ValueRange args, ValueRange iterArgs) {
+        KrnlBuilder createKrnl(builder, loc);
+        bodyBuilderFn(createKrnl, origLoopArgs);
+      });
+}
+
 // Deprecated.
 KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
@@ -229,8 +300,8 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
   assert(originalLoops.size() == ubs.size() && "expected same rank");
   return b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs,
       ubs, inits,
-      [&](OpBuilder &builder, Location loc, ValueRange args,
-          ValueRange iterArgs) {
+      [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
+          ValueRange args, ValueRange iterArgs) {
         KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
         bodyBuilderFn(createKrnl, indices, iterArgs);

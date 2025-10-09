@@ -71,18 +71,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
-    if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(loopLbs, loopUbs, 0, 1, parId,
-              /*min iter for going parallel*/ 16)) {
-        create.krnl.parallel(outerLoops[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
-      } else {
-        onnxToKrnlParallelReport(op, false, 0, loopLbs[0], loopUbs[0],
-            "not enough work for matmul generic");
-      }
-    }
+                                                              //
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "matmul generic", outerLoops,
+          loopLbs, loopUbs, 0, 1, {}, /*min iter for going parallel*/ 16);
 
     // Non-reduction loop iterations: output-rank.
     create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
@@ -315,36 +307,21 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     }
 
-    // I, J, K loop.
-    ValueRange origLoop = create.krnl.defineLoops(3);
-    Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
-    // Define blocked loop and permute.
-    ValueRange iRegBlock = create.krnl.block(ii, iRegTile);
-    Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
-    ValueRange jRegBlock = create.krnl.block(jj, jRegTile);
-    Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
-    ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
-    Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
-    create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
-    if (enableParallel) {
-      int64_t parId;
-      SmallVector<IndexExpr, 1> lb(1, zeroIE), ub(1, dimI);
-      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-              /*min iter for going parallel*/ 4 * iRegTile)) {
-        create.krnl.parallel(ii1);
-        onnxToKrnlParallelReport(
-            op, true, 0, zeroIE, dimI, "matmul no broadcast");
-      } else {
-        onnxToKrnlParallelReport(op, false, 0, zeroIE, dimI,
-            "not enough work for matmul no broadcast");
-      }
-    }
-    create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
-        {I, J, K}, [&](const KrnlBuilder &createKrnl, ValueRange indices) {
-          Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
+    // I, J, K loops, blocking by reg sizes.
+    ValueRange origLoops = create.krnl.defineLoops(3);
+    mlir::SmallVector<Value, 4> lbs(3, zero);
+    mlir::SmallVector<Value, 4> ubs = {I, J, K};
+    mlir::SmallVector<int64_t, 4> blockSizes = {iRegTile, jRegTile, kRegTile};
+    mlir::SmallVector<Value, 4> outerLoops, innerLoops;
+    create.krnl.blockAndPermute(origLoops, blockSizes, outerLoops, innerLoops);
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "matmul no broadcast",
+          {outerLoops[0]}, {zeroIE}, {dimI}, 0, 1, {},
+          /*min iter for going parallel*/ 4 * iRegTile);
+    create.krnl.iterate(origLoops, outerLoops, lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
-              {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
+              innerLoops, indices, ubs, blockSizes, {}, {}, {}, simdize,
               /*unroll*/ true, /*overCompute*/ false);
         });
   }
@@ -406,39 +383,25 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     for (int64_t i = 0; i < broadcastRank; ++i)
       broadcastUB.emplace_back(create.mem.dim(C, i));
     if (enableParallel) {
-      int64_t parId;
-      // Could check out more than the outer dim of the broadcasts...
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)),
           ub(1, shapeHelper.getOutputDims()[0]);
-      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-              /*min iter for going parallel*/ 4)) {
-        create.krnl.parallel(broadcastLoop[0]);
-        onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "matmul broadcast");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, 0, lb[0], ub[0], "not enough work in matmul broadcast");
-      }
+      tryCreateKrnlParallel(create.krnl, op, "matmul no broadcast",
+          broadcastLoop, lb, ub, 0, 1, {}, /*min iter for going parallel*/ 4);
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](const KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
           MultiDialectBuilder<KrnlBuilder> create(createKrnl);
-          // I, J, K loop.
-          ValueRange origLoop = create.krnl.defineLoops(3);
-          // IJK indices.
-          Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
-          // Define blocked loop and permute.
-          ValueRange iRegBlock = create.krnl.block(ii, iRegTile);
-          Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
-          ValueRange jRegBlock = create.krnl.block(jj, jRegTile);
-          Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
-          ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
-          Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
-          create.krnl.permute(
-              {ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
-          create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
-              {I, J, K},
+          // I, J, K loop blocked by reg tiles.
+          ValueRange origLoops = create.krnl.defineLoops(3);
+          mlir::SmallVector<Value, 4> lbs(3, zero);
+          mlir::SmallVector<Value, 4> ubs = {I, J, K};
+          mlir::SmallVector<int64_t, 4> blockSizes = {
+              iRegTile, jRegTile, kRegTile};
+          mlir::SmallVector<Value, 4> outerLoops, innerLoops;
+          create.krnl.blockAndPermute(
+              origLoops, blockSizes, outerLoops, innerLoops);
+          create.krnl.iterate(origLoops, outerLoops, lbs, ubs,
               [&](const KrnlBuilder &createKrnl, ValueRange indices) {
-                Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
                 // Compute global start for B/C: {broadcastIndices, 0, 0}
                 SmallVector<Value, 4> broadcastGlobalStart;
                 for (int64_t i = 0; i < broadcastRank; ++i)
@@ -448,22 +411,21 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
                 if (sameStaticBroadcast) {
                   // Each of A, B, & C starts at broadcastGlobalStart.
                   createKrnl.matmul(A, broadcastGlobalStart, B,
-                      broadcastGlobalStart, C, broadcastGlobalStart,
-                      {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-                      {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
+                      broadcastGlobalStart, C, broadcastGlobalStart, innerLoops,
+                      indices, ubs, blockSizes, {}, {}, {}, simdize,
                       /*unroll*/ true, /*overCompute*/ false);
                 } else if (broadcastingB) {
                   // B & C start at broadcastGlobalStart, A starts at {0,0}.
                   createKrnl.matmul(A, {zero, zero}, B, broadcastGlobalStart, C,
-                      broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
-                      {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-                      simdize, /*unroll*/ true, /*overCompute*/ false);
+                      broadcastGlobalStart, innerLoops, indices, ubs,
+                      blockSizes, {}, {}, {}, simdize, /*unroll*/ true,
+                      /*overCompute*/ false);
                 } else {
                   // A & C start at broadcastGlobalStart, B starts at {0,0}.
                   createKrnl.matmul(A, broadcastGlobalStart, B, {zero, zero}, C,
-                      broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
-                      {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-                      simdize, /*unroll*/ true, /*overCompute*/ false);
+                      broadcastGlobalStart, innerLoops, indices, ubs,
+                      blockSizes, {}, {}, {}, simdize, /*unroll*/ true,
+                      /*overCompute*/ false);
                 }
               });
         });
@@ -534,8 +496,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
             break;
           }
       }
-      // While there is technically no broadcasting there, we can use nearly the
-      // same logic as in replace2x2Matmul2dBroadcasting. So reuse that code.
+      // While there is technically no broadcasting there, we can use nearly
+      // the same logic as in replace2x2Matmul2dBroadcasting. So reuse that
+      // code.
       if (sameBatchSize) {
         assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
         replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,

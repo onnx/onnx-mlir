@@ -359,6 +359,12 @@ Value MathBuilder::clip(Value val, Value lb, Value ub) const {
   return min(val, ub); // Clip upper range.
 }
 
+Value MathBuilder::cos(Value val) const {
+  if (isScalarOrVectorFloat(val))
+    return b().create<math::CosOp>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
@@ -417,9 +423,13 @@ Value MathBuilder::sqrt(Value val) const {
 
 Value MathBuilder::pow(Value base, Value exp) const {
   splatToMatch(base, exp);
-  if (isScalarOrVectorFloat(base))
+  if (isScalarOrVectorFloat(base) && isScalarOrVectorFloat(exp))
     return b().create<math::PowFOp>(loc(), base, exp);
-  llvm_unreachable("expected base float");
+  if (isScalarOrVectorFloat(base) && isScalarOrVectorInteger(exp))
+    return b().create<math::FPowIOp>(loc(), base, exp);
+  if (isScalarOrVectorInteger(base) && isScalarOrVectorInteger(exp))
+    return b().create<math::IPowIOp>(loc(), base, exp);
+  llvm_unreachable("expected pow: float ^ float, int ^ int, float ^ int");
 }
 
 Value MathBuilder::neg(Value val) const {
@@ -543,6 +553,40 @@ Value MathBuilder::ule(Value lhs, Value rhs) const {
   if (isScalarOrVectorUnsignedInteger(lhs))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ule);
   llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::shli(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isScalarOrVectorInteger(lhs)) {
+    Type elemType = elementTypeOfScalarOrVector(lhs);
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castShift = b().create<arith::ShLIOp>(loc(), castLhs, castRhs);
+      return castToUnsigned(castShift, elemWidth);
+    } else
+      return b().create<arith::ShLIOp>(loc(), lhs, rhs);
+  }
+  llvm_unreachable("expected int");
+}
+
+Value MathBuilder::shri(Value lhs, Value rhs) const {
+  splatToMatch(lhs, rhs);
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isScalarOrVectorInteger(lhs)) {
+    Type elemType = elementTypeOfScalarOrVector(lhs);
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castShift = b().create<arith::ShRUIOp>(loc(), castLhs, castRhs);
+      return castToUnsigned(castShift, elemWidth);
+    } else
+      return b().create<arith::ShRSIOp>(loc(), lhs, rhs);
+  }
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::gt(Value lhs, Value rhs) const {
@@ -1663,19 +1707,19 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value val, ArrayRef<int64_t> offsets,
+memref::SubViewOp MemRefBuilder::subview(Value val, ArrayRef<int64_t> offsets,
     ArrayRef<int64_t> sizes, ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(loc(), val, offsets, sizes, strides);
 }
 
-memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
+memref::SubViewOp MemRefBuilder::subview(MemRefType outputType, Value val,
     ArrayRef<int64_t> offsets, ArrayRef<int64_t> sizes,
     ArrayRef<int64_t> strides) const {
   return b().create<memref::SubViewOp>(
       loc(), outputType, val, offsets, sizes, strides);
 }
 
-memref::SubViewOp MemRefBuilder::subView(Value input,
+memref::SubViewOp MemRefBuilder::subview(Value input,
     ArrayRef<IndexExpr> offsetsIE, ArrayRef<IndexExpr> sizesIE,
     ArrayRef<IndexExpr> stridesIE) const {
   SmallVector<OpFoldResult, 4> offsets, sizes, strides;
@@ -1784,7 +1828,7 @@ void SCFBuilder::forLoop(
     Value lb, Value ub, int64_t step, SCFLoopBodyFn bodyFn) const {
   MathBuilder createMath(*this);
   Value stepVal = createMath.constantIndex(step);
-  b().create<scf::ForOp>(loc(), lb, ub, stepVal, std::nullopt,
+  b().create<scf::ForOp>(loc(), lb, ub, stepVal, llvm::ArrayRef<mlir::Value>(),
       [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
           ValueRange args) {
         SCFBuilder builder(childBuilder, childLoc);
@@ -2158,7 +2202,7 @@ Value VectorBuilder::extractElement(Value vector, int64_t index) const {
   assert(type.getRank() == 1 && "expected 1D vector only");
   assert(index >= 0 && index < VL && "out of range vector index");
   Value position = create.math.constantIndex(index);
-  return b().create<vector::ExtractElementOp>(loc(), vector, position);
+  return b().create<vector::ExtractOp>(loc(), vector, position);
 }
 
 Value VectorBuilder::insertElement(
@@ -2171,7 +2215,7 @@ Value VectorBuilder::insertElement(
   Value position = create.math.constantIndex(index);
   // Unlike LLVM insert element which takes <dest, source, position>, vector
   // take <source, dest, position>
-  return b().create<vector::InsertElementOp>(loc(), element, vector, position);
+  return b().create<vector::InsertOp>(loc(), element, vector, position);
 }
 
 //===----------------------------------------------------------------------===//

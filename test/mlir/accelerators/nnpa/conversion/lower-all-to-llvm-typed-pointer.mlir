@@ -133,7 +133,7 @@ func.func @test_call_zdnn_relu() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_relu
-  // CHECK: {{.*}} = llvm.call @zdnn_relu_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_relu({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -147,7 +147,7 @@ func.func @test_call_zdnn_tanh() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_tanh
-  // CHECK: {{.*}} = llvm.call @zdnn_tanh_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_tanh({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -161,7 +161,7 @@ func.func @test_call_zdnn_sigmoid() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sigmoid
-  // CHECK: {{.*}} = llvm.call @zdnn_sigmoid_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_sigmoid({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -176,7 +176,7 @@ func.func @test_call_zdnn_add() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_add
-  // CHECK: {{.*}} = llvm.call @zdnn_add_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_add({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -191,7 +191,7 @@ func.func @test_call_zdnn_sub() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sub
-  // CHECK: {{.*}} = llvm.call @zdnn_sub_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_sub({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -206,7 +206,7 @@ func.func @test_call_zdnn_mul() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_mul
-  // CHECK: {{.*}} = llvm.call @zdnn_mul_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_mul({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -221,7 +221,7 @@ func.func @test_call_zdnn_div() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_div
-  // CHECK: {{.*}} = llvm.call @zdnn_div_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_div({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -236,7 +236,7 @@ func.func @test_call_zdnn_softmax() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_softmax
-  // CHECK: {{.*}} = llvm.call @zdnn_softmax_ext({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_softmax({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -284,7 +284,7 @@ func.func @test_call_zdnn_min() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_min
-  // CHECK: {{.*}} = llvm.call @zdnn_min_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_min({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -299,7 +299,7 @@ func.func @test_call_zdnn_max() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_max
-  // CHECK: {{.*}} = llvm.call @zdnn_max_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_max({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -313,7 +313,7 @@ func.func @test_call_zdnn_exp() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_exp
-  // CHECK: {{.*}} = llvm.call @zdnn_exp_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_exp({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -327,7 +327,7 @@ func.func @test_call_zdnn_log() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_log
-  // CHECK: {{.*}} = llvm.call @zdnn_log_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnnx_log({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -338,7 +338,7 @@ func.func @test_matmul_no_bcast_unstacked(%x: memref<2048xf16>,%y: memref<2048xf
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_no_bcast_unstacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnnx_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -349,7 +349,7 @@ func.func @test_matmul_no_bcast_stacked(%x: memref<2048xf16>,%y: memref<2048xf16
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = -1 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_no_bcast_stacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnnx_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -360,7 +360,7 @@ func.func @test_matmul_bcast_stacked(%x: memref<2048xf16>,%y: memref<2048xf16>,%
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast1 = 0 : si64, is_bcast23 = -1 : si64, is_stacked = -1 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_bcast_stacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnnx_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -371,7 +371,7 @@ func.func @test_matmul_bcast_unstacked(%x: memref<2048xf16>,%y: memref<2048xf16>
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast1 = 0 : si64, is_bcast23 = -1 : si64, is_stacked = 0 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_bcast_unstacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnnx_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----

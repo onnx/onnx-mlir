@@ -608,7 +608,7 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
 // which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
 // requirement by definition. If found one, it is parDim and the function
-// returns true.
+// returns true. Otherwise parDim is unchanged.
 
 bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
@@ -620,8 +620,17 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     lastExclusiveDim = lb.size();
   for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
     IndexExpr tripCount = ub[i] - lb[i];
-    if (!tripCount.isLiteral() || tripCount.getLiteral() >= minSize) {
-      // Got one.
+    if (!tripCount.isLiteral()) {
+      // Got a dyn dim, assume will be large enough.
+      LLVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
+      parDim = i;
+      return true;
+    }
+    if (tripCount.getLiteral() >= minSize) {
+      // Got a literal dim with large enough trip count.
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Pick dim " << i << " as " << tripCount.getLiteral()
+                 << " greater than " << minSize << "\n");
       parDim = i;
       return true;
     }
@@ -629,12 +638,44 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
   return false;
 }
 
+int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
+    std::string msg, const ValueRange &loopDef, ArrayRef<IndexExpr> lbs,
+    ArrayRef<IndexExpr> ubs, int64_t firstInclusiveDim,
+    int64_t lastExclusiveDim, ArrayRef<int64_t> exclusiveDims, int64_t minSize,
+    bool createKrnlParallel) {
+  int64_t parId = -1;
+  if (findSuitableParallelDimension(
+          lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
+    if (!llvm::is_contained(exclusiveDims, parId)) {
+      if (createKrnlParallel) {
+        assert(parId <= (int64_t)loopDef.size() && "expected loop defs");
+        createKrnl.parallel(loopDef[parId]);
+      }
+      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
+      return parId;
+    }
+  }
+  onnxToKrnlParallelReport(
+      op, false, -1, -1, "no par dim with enough work in " + msg);
+  return -1;
+}
+
 //===----------------------------------------------------------------------===//
 // Support functions for simd.
 //===----------------------------------------------------------------------===//
 
+bool isOverComputeSafe(Operation *op) {
+  for (Value v : op->getOperands()) {
+    if (!v.getDefiningOp()) {
+      LLVM_DEBUG(llvm::dbgs() << "  overcompute not safe for this op\n";);
+      return false;
+    }
+  }
+  return true;
+}
+
 // New style.
-int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {
   // Default return values for no simd.
@@ -676,7 +717,7 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
                           << estimatedMaxVectorRegisterPressure << "\n");
 
   // Define a target max unroll as a function of register pressure.
-  int64_t unrollVL;
+  int64_t unrollVL = 1;
   int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
   if (estimatedMaxVectorRegisterPressure >= vrNum)
     unrollVL = 1;
@@ -695,8 +736,9 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
     totVL = archVL * unrollVL;
-    if (canOverCompute && staticSimdSize % totVL != 0) {
+    if (canOverCompute && staticSimdSize % totVL != 0 && archVL <= 16) {
       // Does not divide; since we can over compute, increase unrollVL by 1.
+      // Disable for very large archVL.
       LLVM_DEBUG(
           llvm::dbgs() << "  simd enable: can over compute, boost unrollVL\n");
       ++unrollVL;
@@ -732,7 +774,7 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
   return archVL * unrollVL;
 }
 
-int64_t capVLForMaxUnroll(
+int64_t capVLForMaxSimdUnroll(
     MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL) {
   if (totVL == 1)
     return 1; // Simd already disabled, nothing to cap.
@@ -748,7 +790,7 @@ int64_t capVLForMaxUnroll(
   return archVL * unrollVL;
 }
 
-int64_t boostVLForMinUnroll(
+int64_t boostVLForMinSimdUnroll(
     MemRefType memRefType, MemRefType convertedMemRefType, int64_t totVL) {
   if (totVL == 1)
     return 1; // Simd already disabled, nothing to cap.
@@ -792,7 +834,7 @@ int64_t capVLForSimdOnly(
 }
 
 // Old style.
-int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
@@ -846,6 +888,28 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
 }
 
 //===----------------------------------------------------------------------===//
+// Support for unrolling without leftovers.
+//===----------------------------------------------------------------------===//
+
+int64_t getNoLeftoverUnrollFactor(IndexExpr &lb, IndexExpr &ub,
+    int64_t unrollFactor, int64_t &literalTripCount) {
+  IndexExpr tripCount = ub - lb;
+  // Consider only literal trip counts.
+  if (!tripCount.isLiteral())
+    return 1;
+  literalTripCount = tripCount.getLiteral();
+  for (int64_t u = unrollFactor; u > 1; --u) {
+    if (literalTripCount % u == 0) {
+      // Found a suitable unroll factor that divides the trip count without
+      // without leftovers.
+      return u;
+    }
+  }
+  // None found;
+  return 1;
+}
+
+//===----------------------------------------------------------------------===//
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
@@ -890,7 +954,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
 // Implementation comments vs. createGenerateRuntimeVerificationPass
 // This check is according to onnx op semantics, not general bound
 // check for memref. Implementation of RuntimeVerification could be
-// borrowed. Slightly difference is that onnx semenatics check is for
+// borrowed. Slightly difference is that onnx semantics check is for
 // each dimension independently, not the final address is within
 // the memref bound.
 void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
@@ -908,7 +972,6 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
   DimsExpr dataDims, indicesDims;
   create.krnlIE.getShapeAsDims(data, dataDims);
   create.krnlIE.getShapeAsDims(indices, indicesDims);
-  SymbolIndexExpr axisDim(dataDims[axisLit]);
   int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
   ValueRange loopDef = create.krnl.defineLoops(indicesRank);
   LiteralIndexExpr zeroIE(0);
@@ -928,6 +991,7 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
         // data[axis].
         // Assume that the index is loaded from tensor with negative value
         // correction.
+        DimIndexExpr axisDim(dataDims[axisLit]);
         Value errorCondition =
             ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
         rewriter.create<scf::IfOp>(

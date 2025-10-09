@@ -83,7 +83,7 @@ target_include_directories(OMPyExecutionSessionBase
 # which we add back through target_compile_definitions and
 # target_include_directories.
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
-add_dependencies(PyRuntimeC onnx_proto)
+add_dependencies(PyRuntimeC onnx)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
@@ -108,11 +108,13 @@ install(TARGETS PyRuntimeC
   )
 
 # Target to prepare onnxmlir package
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs)
+
 add_custom_target(OMCreatePyRuntimePackage
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlir ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir
+        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/
         COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir
-        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/
+        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs
         DEPENDS PyRuntimeC
      )
 
@@ -132,7 +134,7 @@ if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 endif()
 
 pybind11_add_module(PyCompileAndRuntimeC PyOMCompileExecutionSession.cpp)
-add_dependencies(PyCompileAndRuntimeC onnx_proto)
+add_dependencies(PyCompileAndRuntimeC onnx)
 target_compile_options(PyCompileAndRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>

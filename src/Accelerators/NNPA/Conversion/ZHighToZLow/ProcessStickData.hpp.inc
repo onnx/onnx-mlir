@@ -4,7 +4,7 @@
 
 //====-------- ProcessStickData.hpp.inc - Process Stick data --------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -24,6 +25,8 @@
 #include "src/Support/SmallVectorHelper.hpp"
 
 namespace onnx_mlir {
+
+// TODO: this could be replaced by the new infra at some time.
 
 // Iterate over each stick, for an original size of dims, and cover the
 // iterations from lbs to ubs. In most cases, lbs={0...} and ubs=dims, namely we
@@ -42,18 +45,14 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, VectorBuilder, SCFBuilder>;
   MDBuilder create(b);
-  //IndexExprScope initialScope(b);
-  // Get info and check some inputs.
+  // IndexExprScope initialScope(b);
+  //  Get info and check some inputs.
   int64_t rank = dims.size();
   int64_t d1 = rank - 1;
   IndexExpr E1 = dims[d1];
   assert(lbs.size() == ubs.size() && "expected same sizes");
   assert(lbs.size() == dims.size() && "expected same sizes");
-  assert((inputLayout.getValue().equals_insensitive("4D") ||
-             inputLayout.getValue().equals_insensitive("3D") ||
-             inputLayout.getValue().equals_insensitive("2D") ||
-             inputLayout.getValue().equals_insensitive("3DS") ||
-             inputLayout.getValue().equals_insensitive("NHWC")) &&
+  assert(zhigh::supportedLayoutForCompilerGeneratedStickUnstick(inputLayout) &&
          "unsupported inputLayout");
 
   // Info for SIMD Vector Length (VL).
@@ -93,14 +92,11 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    if (findSuitableParallelDimension(tiledLbs, tiledUbs, 0, rank, parId, 8)) {
-      onnxToKrnlParallelReport(op, true, parId, tiledLbs[parId],
-          tiledUbs[parId], "compiler-generated stickify");
-    } else {
+    parId = tryCreateKrnlParallel(create.krnl, op,
+        "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
+        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
+    if (parId == -1)
       enableParallel = false;
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "no dim with enough work in compiler-generated stickify");
-    }
   }
 
   // Compute max sticks (tiles of 64 values). It is actually not easy to compute
@@ -166,7 +162,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                     MDBuilder create(b);
                     IndexExprScope innerScope(b, &outerScope);
                     IndexExpr l = DimIE(loopInd[0]);
-                    DimsExpr innerIndices = SymListIE(outerIndices);
+                    DimsExpr innerIndices = DimListIE(outerIndices);
                     innerIndices[d1] = innerIndices[d1] + l;
                     mlir::SmallVector<mlir::Value, 8> vecOfF32Vals;
                     // Load archVL (8) f16 values from input via reinterpreted
@@ -207,7 +203,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &middleScope);
                       IndexExpr l = DimIE(loopInd[0]);
-                      DimsExpr innerIndices = SymListIE(outerIndices);
+                      DimsExpr innerIndices = DimListIE(outerIndices);
                       innerIndices[d1] = innerIndices[d1] + l;
                       mlir::SmallVector<mlir::Value, 8> vecOfF32Vals;
                       // Load f16 values from input via reinterpreted data
@@ -248,7 +244,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                       // Load converted value.
                       mlir::Value f32 = create.krnl.loadIE(bufferF32, {l});
 
-                      DimsExpr innerIndices = SymListIE(outerIndices);
+                      DimsExpr innerIndices = DimListIE(outerIndices);
                       innerIndices[d1] = innerIndices[d1] + SymIE(lastL);
                       innerIndices[d1] = innerIndices[d1] + l;
                       processScalarF32Val(create.krnl, f32, innerIndices);

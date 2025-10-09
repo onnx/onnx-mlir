@@ -133,7 +133,7 @@ Value TosaBuilder::transpose(Value &value, llvm::ArrayRef<int32_t> perm) {
   assert((valueRank == static_cast<int64_t>(perm.size())) &&
          "value and perm vector don't have the same rank");
   // Create Permutation Const
-  Value permList = this->getConst(perm, {valueRank});
+  auto permList = mlir::DenseI32ArrayAttr::get(rewriter().getContext(), perm);
   auto valueType = mlir::cast<ShapedType>(value.getType());
   // get new value type
   Type newValueType = RankedTensorType::get(
@@ -251,8 +251,8 @@ ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
     definingOp = input.getDefiningOp();
   }
   if (auto constOp = dyn_cast_or_null<mlir::tosa::ConstOp>(definingOp)) {
-    if (constOp.getValueAttr())
-      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
+    if (constOp.getValuesAttr())
+      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValuesAttr());
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (constOp.getValue().has_value())
       return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());

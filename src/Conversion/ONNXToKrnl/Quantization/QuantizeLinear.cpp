@@ -100,7 +100,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         {GenericOps::EstimatedVectorRegisterPressure, 4}};
     GenOpMix mix1 = computeGenOpMixUnion(mixAdjust, mixRound);
     GenOpMix mix2 = computeGenOpMixUnion(mix1, mixOthers);
-    totVL = computeSuitableUnrollFactor(inputType /* use unquantized type*/,
+    totVL = computeSuitableSimdUnrollFactor(inputType /* use unquantized type*/,
         innermostLoopCollapse, mix2, canOverCompute, simdLoopStaticTripCount,
         simdOnly);
   }

@@ -197,12 +197,12 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   vector::populateVectorBitCastLoweringPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(
-      patterns, vector::VectorTransformsOptions());
+      patterns, vector::VectorContractLowering());
   vector::populateVectorMaskOpLoweringPatterns(patterns);
   vector::populateVectorShapeCastLoweringPatterns(patterns);
   vector::populateVectorInterleaveLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(
-      patterns, vector::VectorTransformsOptions());
+      patterns, vector::VectorTransposeLowering());
   // Vector transfer ops with rank > 1 should be lowered with VectorToSCF.
   vector::populateVectorTransferLoweringPatterns(
       patterns, /*maxTransferRank=*/1);
@@ -218,9 +218,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateSCFToControlFlowConversionPatterns(patterns);
 
   populateShapeToStandardConversionPatterns(patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   memref::populateExpandOpsPatterns(patterns);
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
@@ -272,6 +270,21 @@ void PostfixEntrypointNames(ModuleOp &module) {
     return WalkResult::advance();
   });
   return;
+}
+
+/// Remove unhandled parameter attributes in function arguments, e.g.
+/// onnx.dim_params, onnx.name, etc.
+void removeUnhandledParamAttrs(ModuleOp &module) {
+  for (auto funcOp : module.getOps<func::FuncOp>()) {
+    for (size_t i = 0; i < funcOp.getNumArguments(); ++i) {
+      funcOp.removeArgAttr(i, "onnx.dim_params");
+      funcOp.removeArgAttr(i, "onnx.name");
+    }
+    for (size_t i = 0; i < funcOp.getNumResults(); ++i) {
+      funcOp.removeResultAttr(i, "onnx.dim_params");
+      funcOp.removeResultAttr(i, "onnx.name");
+    }
+  }
 }
 
 /// Keep original MemRefTypes for inputs and outputs. These information will be
@@ -837,6 +850,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // The string is getting from the module's attribute
   // `onnx-mlir.symbol-postfix`.
   PostfixEntrypointNames(module);
+
+  // Remove unhandled parameter attributes in function arguments, e.g.
+  // onnx.dim_params, onnx.name, etc.
+  removeUnhandledParamAttrs(module);
 
   KRNL_ENTRY_POINT_ID = 0;
 

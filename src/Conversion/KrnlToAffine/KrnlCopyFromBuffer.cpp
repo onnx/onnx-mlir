@@ -66,9 +66,9 @@ public:
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
       long destIndex = destOffset + buffIndex;
       // Compute how many values to read.
-      IndexExpr destBound = create.krnlIE.getShapeAsSymbol(
+      IndexExpr destBound = create.krnlIE.getShapeAsDim(
           destMemref, destIndex); // Source memref size.
-      IndexExpr blockSize = create.krnlIE.getShapeAsSymbol(
+      IndexExpr blockSize = create.krnlIE.getShapeAsDim(
           buffMemref, buffIndex); // Buffer memref size.
       if (create.krnlIE.getArraySize(writeSizeAttr)) {
         int64_t memSize = blockSize.getLiteral();
@@ -101,7 +101,7 @@ public:
       KrnlBuilder createKrnl(createAffine);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
-      getIndexExprList<SymbolIndexExpr>(starts, currStarts);
+      getIndexExprList<DimIndexExpr>(starts, currStarts);
       int64_t destRank = starts.size();
       int64_t destOffset = destRank - buffRank;
       SmallVector<IndexExpr, 4> currStoreIndices;

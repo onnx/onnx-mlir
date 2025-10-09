@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -55,7 +55,7 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 Value insertAllocForZMemRefByDim(ArrayRef<IndexExpr> dims,
     ZTensorEncodingAttr::DataLayout layout,
     ZTensorEncodingAttr::QuantizedType qtype, Operation *op,
-    PatternRewriter &rewriter, int64_t alignment = gAlignment) {
+    PatternRewriter &rewriter, int64_t alignment) {
   // Construct a MemRefType for the given dimensions and element type.
   SmallVector<int64_t, 4> shape;
   for (IndexExpr d : dims)
@@ -79,7 +79,7 @@ Value insertAllocForZMemRefByDim(ArrayRef<IndexExpr> dims,
 //===----------------------------------------------------------------------===//
 
 Value insertAllocForZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
-    Operation *op, PatternRewriter &rewriter, int64_t alignment = gAlignment) {
+    Operation *op, PatternRewriter &rewriter, int64_t alignment) {
 
   Location loc = op->getLoc();
   MemRefType resType = zType.value;
@@ -1124,7 +1124,7 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
 
     // Emit a ZLow operation.
     rewriter.create<ZLowReshapeOp>(
-        loc, input, /* shape,*/ alloc, zMemRefType.layout);
+        loc, input, /* shape,*/ alloc, zMemRefType.layout, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -2226,20 +2226,13 @@ struct ZHighToZLowDataConversionLowering
     DimsExpr lbs = {LitIE(0)};
     bool useParallel = false;
     if (enableParallel) {
-      int64_t parId;
-      int64_t tripCount = flattenedOutputDims[0].isLiteral()
-                              ? std::ceil(flattenedOutputDims[0].getLiteral() /
-                                          static_cast<float>(archVL))
-                              : -1;
-      if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
-              /*min iter for going parallel*/ 1024)) {
+      int64_t parId = tryCreateKrnlParallel(create.krnl, op,
+          "dlf16-f32 conversion fully parallelized", {}, lbs,
+          flattenedOutputDims, 0, 1, {},
+          /*min iter for going parallel*/ 1024,
+          /*createKrnlParallel=*/false);
+      if (parId != -1)
         useParallel = true;
-        onnxToKrnlParallelReport(op, /*successful*/ true, 0, tripCount,
-            "dlf16-f32 conversion fully parallelized");
-      } else {
-        onnxToKrnlParallelReport(op, false, 0, tripCount,
-            "not enough work for dlf16-f32 conversion");
-      }
     }
     onnxToKrnlSimdReport(op, /*successful*/ true, archVL,
         flattenedOutputDims[0].isLiteral() ? flattenedOutputDims[0].getLiteral()

@@ -37,7 +37,7 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 // Returns the value TOSA ConstOp
 template <typename T>
 T getValueFromTosaConst(mlir::Value &val) {
-  return mlir::cast<T>(val.getDefiningOp<mlir::tosa::ConstOp>().getValue());
+  return mlir::cast<T>(val.getDefiningOp<mlir::tosa::ConstOp>().getValues());
 }
 
 // Creates a TOSA operation and performs shape inference on the individual

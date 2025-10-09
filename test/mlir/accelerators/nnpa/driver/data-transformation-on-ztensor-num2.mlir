@@ -1,8 +1,9 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR -tag="test" %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR %s | FileCheck %s
 
 // -----
 
 // Transpose will be done directly on stickified data, so no need to unstickify.
+
 func.func @transpose_on_ztensor_unknown_dims(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %0 = "onnx.Relu" (%arg0) : (tensor<?x?xf32>) -> tensor<?x?xf32>
   %1 = "onnx.Relu" (%0) : (tensor<?x?xf32>) -> tensor<?x?xf32>
@@ -51,10 +52,10 @@ func.func @transpose_on_ztensor_unknown_dims(%arg0: tensor<?x?xf32>) -> tensor<?
 // CHECK-DAG:       [[VAR_11_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_0_]]{{.}}
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[VAR_10_]], [[VAR_11_]]) {{.*}}: memref<1x?x1x?x32x64xf16>
 // CHECK:           [[VAR_cast_8_:%.+]] = memref.cast [[RES_5_]] : memref<1x?x1x?x32x64xf16> to memref<1x?x1x?x?x?xf16>
-// CHECK:           affine.for [[I_0_:%.+]] = 0 to [[VAR_dim_]] {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to [[VAR_dim_0_]] {
-// CHECK:               [[LOAD_RES_3_MEM_:%.+]] = affine.load [[RES_3_]][0, [[I_1_]] floordiv 64, 0, [[I_0_]] floordiv 32, [[I_0_]] mod 32, [[I_1_]] mod 64] : memref<1x?x1x?x32x64xf16>
-// CHECK:               affine.store [[LOAD_RES_3_MEM_]], [[RES_5_]][0, [[I_0_]] floordiv 64, 0, [[I_1_]] floordiv 32, [[I_1_]] mod 32, [[I_0_]] mod 64] : memref<1x?x1x?x32x64xf16>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to [[VAR_dim_0_]] {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to [[VAR_dim_]] {
+// CHECK:               [[LOAD_RES_3_MEM_:%.+]] = affine.load [[RES_3_]][0, [[I_0_]] floordiv 64, 0, [[I_1_]] floordiv 32, [[I_1_]] mod 32, [[I_0_]] mod 64] : memref<1x?x1x?x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_3_MEM_]], [[RES_5_]][0, [[I_1_]] floordiv 64, 0, [[I_0_]] floordiv 32, [[I_0_]] mod 32, [[I_1_]] mod 64] : memref<1x?x1x?x32x64xf16>
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[VAR_12_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
@@ -82,3 +83,4 @@ func.func @transpose_on_ztensor_unknown_dims(%arg0: tensor<?x?xf32>) -> tensor<?
 // CHECK:           return [[RES_10_]] : memref<?x?xf32>
 // CHECK:         }
 }
+

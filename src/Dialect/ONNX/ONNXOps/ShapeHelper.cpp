@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-20245 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -832,9 +832,9 @@ bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
     else
       collapsedDynamicSize = collapsedDynamicSize * output[r];
   }
-  // every input dim can be collapsed.
+  // Every input dim can be collapsed.
   collapsedInnermostLoops = outputRank;
-  return true;
+  return true; // Unary cannot have broadcast, so its always manageable.
 }
 
 LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand,

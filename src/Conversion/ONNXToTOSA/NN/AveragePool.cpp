@@ -46,7 +46,7 @@ void handleIncludePadAttr(
   TosaBuilder tosaBuilder(rewriter, loc);
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
       rewriter, intValues, loc, {0, 0, 0, 0}, {});
-  auto constTosaTensor = tosaBuilder.getSplattedConst(0.0);
+  auto constTosaTensor = tosaBuilder.getSplattedConst(0.0, {1});
 
   auto inputType = mlir::cast<mlir::TensorType>(input.getType());
   auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,

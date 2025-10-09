@@ -996,8 +996,6 @@ func.func @test_reshape_dim_not_bijection(%arg0: tensor<?x?x2048xf32>) -> tensor
 // CHECK:         }
 }
 
-// -----
-
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
 //===----------------------------------------------------------------------===//
@@ -2844,6 +2842,32 @@ func.func @test_range_int_constant() -> tensor<*xi32> {
 
 // -----
 
+func.func @test_range_add_scalar_int(%start: tensor<i64>) -> tensor<*xi64> {
+  %range = onnx.Constant dense<10> : tensor<i64>
+  %delta = onnx.Constant dense<1> : tensor<i64>
+  %limit = "onnx.Add"(%start, %range) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<*xi64>
+  onnx.Return %0 : tensor<*xi64>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_int
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<10xi64>
+}
+
+// -----
+
+func.func @test_range_add_scalar_float(%start: tensor<f32>) -> tensor<*xf32> {
+  %range = onnx.Constant dense<5.0> : tensor<f32>
+  %delta = onnx.Constant dense<1.0> : tensor<f32>
+  %limit = "onnx.Add"(%start, %range) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_float
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<5xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the upsample op inference.
 //===----------------------------------------------------------------------===//
@@ -4031,6 +4055,18 @@ func.func @dim_params_1(%arg0: tensor<?x10xf32> {onnx.dim_params = "0:batch_size
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) {onnx.out_dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?x10xf32>
+}
+
+// -----
+
+func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Binarizer"(%arg0) {threshold = 1.0 : f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_binarizer
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Binarizer"([[PARAM_0_]]) {threshold = 1.000000e+00 : f32} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x10xf32>
 // CHECK:         }
 }
 
@@ -4046,3 +4082,86 @@ func.func @test_matmul_2_param(%arg0 : tensor<16x?x64x42xf32> {onnx.dim_params="
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<16x?x64x?xf32>
 // CHECK:         }
 }
+
+// -----
+
+
+func.func private @test_hammingwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.HammingWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+// CHECK-LABEL:  func.func private @test_hammingwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HammingWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func private @test_hannwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.HannWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+
+// CHECK-LABEL:  func.func private @test_hannwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HannWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func private @test_blackamanwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.BlackmanWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+// CHECK-LABEL:  func.func private @test_blackamanwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.BlackmanWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Test RandomUniform static
+
+func.func @test_random_uniform_static_f16() -> tensor<*xf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 10 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
+
+// CHECK-LABEL:  func.func @test_random_uniform_static_f16
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
+}
+
+// -----
+
+func.func @test_random_uniform_static_f32() -> tensor<*xf32> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_random_uniform_static_f32
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf32>
+}
+// -----
+
+func.func @test_random_uniform_static_f64() -> tensor<*xf64> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 11 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+// CHECK-LABEL:  func.func @test_random_uniform_static_f64
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+
+ }
+
+// -----
+
+func.func @test_random_uniform_static_bf16() -> tensor<*xbf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 16 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+  
+// CHECK-LABEL:  func.func @test_random_uniform_static_bf16
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xbf16>
+}
+
+//===----------------------------------------------------------------------===//
+>>>>>>> upstream/main

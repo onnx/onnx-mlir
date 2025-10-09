@@ -106,8 +106,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       OpBuilder<(ins "std::string":$funcNameStr, "int64_t":$numOfOutput, "mlir::ValueRange":$operands)>,
       OpBuilder<(ins "mlir::StringAttr":$funcNameStr, "IntegerAttr":$numOfOutput, "mlir::ValueRange":$operands)>,
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
-    OpBuilder<(ins "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
-      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
+      OpBuilder<(ins "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 
@@ -157,7 +156,7 @@ def KrnlYieldOp : Op<Krnl_Dialect, "yield", [Pure, Terminator, ReturnLike,
   let arguments = (ins Variadic<AnyType>:$operands);
 
   let builders = [
-    OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
+    OpBuilder<(ins), [{ build($_builder, $_state, llvm::ArrayRef<mlir::Value>()); }]>
   ];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
@@ -204,19 +203,19 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, Implici
   let builders = [
     // Main builder.
     OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
-      CArg<"ValueRange", "std::nullopt">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+      CArg<"ValueRange", "llvm::ArrayRef<mlir::Value>()">:$iterArgs,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs,
       CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>">:$bodyBuilderFn)>
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange, ValueRange)>">:$bodyBuilderFn)>
   ];
 
   let hasCustomAssemblyFormat = 1;

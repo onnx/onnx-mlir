@@ -2134,10 +2134,10 @@ public:
     } else {
       if (SIMD_FOR_DLF16_CONVERSION) {
         // a vector of 8 elements of i16 - for input
-        Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
+        Type vecTypeI16 = mlir::VectorType::get(8, i16Ty);
         // a vector of 4 elements of i32 - for output
-        Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
-        Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
+        Type vecTypeI32 = mlir::VectorType::get(4, i32Ty);
+        Type vecTypeF32 = mlir::VectorType::get(4, f32Ty);
 
         // SIMD instruction in string for z/Linux and z/OS.
         // Convert and lengthen from DLF16: VCLFN(H/L) V1,V2,M3,M4
@@ -2163,6 +2163,7 @@ public:
                     /*asm_string=*/asmStr,
                     /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                     /*is_align_stack=*/false,
+                    /*tail_call_kind=*/LLVM::TailCallKind::None,
                     /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
                 .getResult(0);
@@ -2304,10 +2305,10 @@ public:
     } else {
       if (SIMD_FOR_DLF16_CONVERSION) {
         // a vector of 4 elements of i32 - for input
-        Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
+        Type vecTypeI32 = mlir::VectorType::get(4, i32Ty);
         // a vector of 8 elements of i16 - for output
-        Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
-        Type vecTypeF16 = LLVM::getFixedVectorType(f16Ty, 8);
+        Type vecTypeI16 = mlir::VectorType::get(8, i16Ty);
+        Type vecTypeF16 = mlir::VectorType::get(8, f16Ty);
 
         // SIMD instruction in string for z/Linux and z/OS.
         // Convert and round to DLF16: VCRNF V1,V2,V3,M4,M5
@@ -2334,6 +2335,7 @@ public:
                     /*asm_string=*/asmStr,
                     /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                     /*is_align_stack=*/false,
+                    /*tail_call_kind=*/LLVM::TailCallKind::None,
                     /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
                 .getResult(0);
@@ -2455,9 +2457,9 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Vector types.
-    Type vecTypeI16 = LLVM::getFixedVectorType(rewriter.getI16Type(), 8);
-    Type vecTypeI32 = LLVM::getFixedVectorType(rewriter.getI32Type(), 4);
-    Type vecTypeF32 = LLVM::getFixedVectorType(rewriter.getF32Type(), 4);
+    Type vecTypeI16 = mlir::VectorType::get(8, rewriter.getI16Type());
+    Type vecTypeI32 = mlir::VectorType::get(4, rewriter.getI32Type());
+    Type vecTypeF32 = mlir::VectorType::get(4, rewriter.getF32Type());
 
     // Use integer as container.
     ZLowConvertDLF16ToF32VectorOp::Adaptor operandAdaptor(operands);
@@ -2484,6 +2486,7 @@ public:
                 /*asm_string=*/asmStr,
                 /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                 /*is_align_stack=*/false,
+                /*tail_call_kind=*/LLVM::TailCallKind::None,
                 /*asm_dialect=*/LLVM::AsmDialectAttr(),
                 /*operand_attrs=*/ArrayAttr())
             .getResult(0);
@@ -2516,9 +2519,9 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Vector types.
-    Type vecTypeI16 = LLVM::getFixedVectorType(rewriter.getI16Type(), 8);
-    Type vecTypeI32 = LLVM::getFixedVectorType(rewriter.getI32Type(), 4);
-    Type vecTypeF16 = LLVM::getFixedVectorType(rewriter.getF16Type(), 8);
+    Type vecTypeI16 = mlir::VectorType::get(8, rewriter.getI16Type());
+    Type vecTypeI32 = mlir::VectorType::get(4, rewriter.getI32Type());
+    Type vecTypeF16 = mlir::VectorType::get(8, rewriter.getF16Type());
 
     // Use integer as container.
     ZLowConvertF32ToDLF16VectorOp::Adaptor operandAdaptor(operands);
@@ -2543,6 +2546,7 @@ public:
                 /*asm_string=*/asmStr,
                 /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                 /*is_align_stack=*/false,
+                /*tail_call_kind=*/LLVM::TailCallKind::None,
                 /*asm_dialect=*/LLVM::AsmDialectAttr(),
                 /*operand_attrs=*/ArrayAttr())
             .getResult(0);
