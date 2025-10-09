@@ -43,7 +43,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     createIE->getIntFromArrayAsSymbols(axes, axesSymbol);
     for (IndexExpr val : axesSymbol) {
       if (!val.isLiteral())
-        return op->emitError("Axes must be known at compile time");
+        return success();
       int64_t axis = val.getLiteral();
       if (axis < 0)
         axis += dataRank;

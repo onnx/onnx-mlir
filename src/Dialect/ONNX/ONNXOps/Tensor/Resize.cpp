@@ -47,7 +47,7 @@ bool isAbsent(Value input) {
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands, cast<ONNXResizeOp>(op));
   if (operandAdaptor.getAxes().has_value())
-    return op->emitOpError("axes are unsupported");
+    return failure();
   const auto x = operandAdaptor.getX();
   if (!hasShapeAndRank(x)) {
     return failure();
