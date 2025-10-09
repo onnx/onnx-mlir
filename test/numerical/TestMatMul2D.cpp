@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
+      argc, argv, "TestMatMul2D\n", nullptr, /*VFS=*/nullptr, "TEST_ARGS");
   initCompilerConfig();
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
