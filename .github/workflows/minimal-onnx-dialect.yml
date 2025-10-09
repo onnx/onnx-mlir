@@ -1,0 +1,50 @@
+name: Minimal ONNX dialect build
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build-minimal:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake gcc g++ python3-pip
+      - name: Cache MLIR build
+        id: cache-mlir
+        uses: actions/cache@v3
+        with:
+          path: llvm-project
+          key: ${{ runner.os }}-mlir-${{ hashFiles('utils/clone-mlir.sh', 'utils/build-mlir.sh') }}
+      - name: Clone + build MLIR
+        if: steps.cache-mlir.outputs.cache-hit != 'true'
+        run: |
+          bash utils/clone-mlir.sh
+          bash utils/build-mlir.sh
+      - name: Configure minimal build
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DMLIR_DIR=$GITHUB_WORKSPACE/llvm-project/build/lib/cmake/mlir \
+            -DONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT=ON \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: Build test-onnx-to-mlir
+        run: |
+          cmake --build build --target test-onnx-to-mlir -j2
+      - name: Smoke test
+        run: |
+          echo 'digraph G { }' > /tmp/empty.onnx || true
+          # Use a known small ONNX from torch-mlir tests if present in tree; otherwise skip.
+          if [ -f third_party/onnx/onnx/backend/test/data/node/test_relu/model.onnx ]; then
+            build/Release/bin/test-onnx-to-mlir third_party/onnx/onnx/backend/test/data/node/test_relu/model.onnx | head -n 20
+          else
+            echo 'Minimal build completed.'
+          fi
+
