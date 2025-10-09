@@ -119,24 +119,19 @@ bool canDecomposeUnstick(Value val) {
         workList.push_back(user);
     };
   }
-  // All data ops are just view and leaves are only compute ops, no need to
-  // decompose.
-  if (allDataOpsAreView && (numStickOps == 0 && numReturns == 0) {
+  // All data ops are just view and there is no stick, no need to decompose.
+  if (allDataOpsAreView && (numStickOps == 0)) {
     // llvm::outs() << "all are view\n";
     return false;
   }
-  // More than one return values. If decomposing, there would have at least two
-  // DLF16ToF32, which is not good.
-  if (numReturns > 1) {
+  // There is no benefit if the number of added DLF16ToF32 ops is more than
+  // the number of removed DLF16ToF32.
+  if (numStickOps > 0 && numComputeOps + numReturns > numStickOps)
+    return false;
+  else if (numStickOps == 0 && numReturns + numComputeOps >= 2)
     // llvm::outs() << " > 1 returns\n";
     return false;
-  }
-  // More than one compute ops. If decomposing, there would have at least two
-  // DLF16ToF32, which is not good.
-  if (numComputeOps > 1) {
-    // llvm::outs() << " > 1 compute ops\n";
-    return false;
-  }
+
   return true;
 }
 

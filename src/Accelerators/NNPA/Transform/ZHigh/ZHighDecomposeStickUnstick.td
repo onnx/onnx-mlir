@@ -49,6 +49,7 @@ def CanDecomposeUnstick:
 // zhigh.Stick $input, $layout = onnx.LayoutTransform (zhigh.F32ToDLF16 $input), $layout
 // Not support NHWC layout since the stick does transpose internally. We can
 // introduce transpose explicitly, but need to evaluate its overhead.
+// TODO: do not decompose weight stick.
 def DecomposeStickPattern: Pat<
   (ZHighStickOp $input, $layout, $noSaturation),
   (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), $layout),
