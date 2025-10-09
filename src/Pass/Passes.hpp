@@ -45,6 +45,8 @@ std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
 
+std::unique_ptr<mlir::Pass> createIgnoreAttentionMaskPass(uint64_t argIdx = 1);
+
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
