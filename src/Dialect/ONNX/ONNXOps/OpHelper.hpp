@@ -174,6 +174,14 @@ void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
+// Get a ElementsAttr from a value that is defined by a ConstantLike op that
+// folds to an ElementsAttr
+mlir::ElementsAttr getElementAttributeFromConstLikeValue(mlir::Value value);
+
+[[nodiscard]] bool isConstLikeValue(mlir::Value value);
+
+[[nodiscard]] bool isConstLikeOperation(mlir::Operation *op);
+
 bool compareValueFromElementAttribute(
     mlir::ElementsAttr &attr1, mlir::ElementsAttr &attr2);
 

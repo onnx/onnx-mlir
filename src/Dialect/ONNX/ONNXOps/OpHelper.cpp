@@ -316,6 +316,29 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
   return nullptr;
 }
 
+ElementsAttr getElementAttributeFromConstLikeValue(Value value) {
+  auto *definingOp = value.getDefiningOp();
+  if (!isConstLikeOperation(definingOp)) {
+    return nullptr;
+  }
+  SmallVector<OpFoldResult, 1> foldResults;
+  [[maybe_unused]] const LogicalResult folded = definingOp->fold(foldResults);
+  assert(succeeded(folded) && "ConstantLike op failed to fold");
+  assert(foldResults.size() == 1 &&
+         "ConstantLike op fold produced more results than expected");
+  auto foldAttr = dyn_cast<Attribute>(foldResults[0]);
+  assert(foldAttr && "ConstantLike op fold did not return an Attribute");
+  return dyn_cast<ElementsAttr>(foldAttr);
+}
+
+bool isConstLikeValue(Value value) {
+  return isConstLikeOperation(value.getDefiningOp());
+}
+
+bool isConstLikeOperation(mlir::Operation *op) {
+  return op && op->hasTrait<OpTrait::ConstantLike>();
+}
+
 // compare two ElementsAttr, except for their internal buffer size
 bool compareValueFromElementAttribute(
     ElementsAttr &attr1, ElementsAttr &attr2) {

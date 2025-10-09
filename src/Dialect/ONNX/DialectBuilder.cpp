@@ -887,7 +887,7 @@ Value OnnxBuilder::getOrCastToI8(Value val, bool simpleCast) {
 
 // Return null if none is found.
 ElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
-  return getElementAttributeFromONNXValue(value);
+  return getElementAttributeFromConstLikeValue(value);
 }
 
 // Return null if the value at index i is not a constant.
