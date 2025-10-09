@@ -47,20 +47,15 @@ bool canDecomposeUnstick(Value val) {
   // which forms a tree (pottentially a graph) whose root is the current value
   // and leaves are return or stick or compute ops.
   //
-  // We only decompose unstick when all the leaves are stick ops or compute ops.
+  // When decomposing a unstick op, a DLF16ToF32 op is propagated down to
+  // return, stick and compute ops.
+  // - When it meets a stick op, the DLF16ToF32 in unstick and the F32ToDLF16s
+  // in stick ops are removed.
+  // - When it meets a return or a compute op, each return or compute op needs
+  // one DLF16ToF32.
   //
-  // The following situations are not good for decompositon:
-  // - there are more than one returned values as leaf.
-  // - there are more than one compute ops as leaf.
-  // - all data-movement ops are just view without data copying.
-  //
-  // If all the leaves are stick ops, DLF16ToF32 (of Unstick) will be propagated
-  // down to F32ToDLF16 (of Stick) then they cancel each other.
-  //
-  // If all the leaves are compute ops, DLF16ToF32 will be propagated down so
-  // that data-movement ops works on dlf16 type instead of f32 type, making the
-  // data-movement ops potentially faster. Do this only there is only a single
-  // branch for compute ops to avoid doing DFL16ToF32 multiple times.
+  // So, the decomposition is only benefit if the total number of removed
+  // F32ToDLF16/DLF16ToF32 is greater than the total number of added DLF16ToF32.
   //
   uint64_t numStickOps = 0;
   uint64_t numComputeOps = 0;
@@ -71,16 +66,10 @@ bool canDecomposeUnstick(Value val) {
   SmallVector<Operation *> workList;
   DenseSet<Operation *> visited;
   workList.push_back(unstickOp.getOperation());
-  // llvm::outs() << "visiting \n";
-  // unstickOp.dump();
   while (!workList.empty()) {
     Operation *current = workList.back();
     workList.pop_back();
-    // llvm::outs() << "current\n";
-    // current->dump();
     for (auto *user : current->getUsers()) {
-      // llvm::outs() << "user\n";
-      // user->dump();
       bool isONNXOp = user->getDialect()->getNamespace() ==
                       ONNXDialect::getDialectNamespace();
       // Continue if user is StickOp or F32ToDLF16.
@@ -119,17 +108,19 @@ bool canDecomposeUnstick(Value val) {
         workList.push_back(user);
     };
   }
-  // All data ops are just view and there is no stick, no need to decompose.
-  if (allDataOpsAreView && (numStickOps == 0)) {
-    // llvm::outs() << "all are view\n";
+
+  // There is no benefit if all data ops are just view and there is no stick.
+  if (allDataOpsAreView && (numStickOps == 0))
     return false;
-  }
-  // There is no benefit if the number of added DLF16ToF32 ops is more than
-  // the number of removed DLF16ToF32.
-  if (numStickOps > 0 && numComputeOps + numReturns > numStickOps)
-    return false;
-  else if (numStickOps == 0 && numReturns + numComputeOps >= 2)
-    // llvm::outs() << " > 1 returns\n";
+
+  // For N stick ops, we can remove N F32ToDLF16s in N stick ops plus 1
+  // DLF16ToF32 in the unstick op.
+  uint64_t numRemovedOps = numStickOps + 1;
+  // Each return or compute op needs one DLF16ToF32.
+  uint64_t numAddedOps = numReturns + numComputeOps;
+  // There is no benefit if the number of added DLF16ToF32 ops is more than or
+  // equal to the number of removed DLF16ToF32/F32ToDLF16.
+  if (numAddedOps > 1 && numAddedOps >= numRemovedOps)
     return false;
 
   return true;
