@@ -639,24 +639,26 @@ IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
 // Because multiple places need to know if a given layout is supported by the
 // compiler generated stick/unstick, this function was added so that the
 // conditions are in a single location.
-bool supportedLayoutForCompilerGeneratedStickUnstick(mlir::Value val) {
+bool supportedLayoutForCompilerGeneratedStickUnstick(
+    mlir::Value val, bool includeNHWC) {
   ZTensorEncodingAttr::DataLayout layout =
       onnx_mlir::zhigh::getZTensorLayout(val.getType());
   return layout == ZTensorEncodingAttr::DataLayout::_4D ||
          layout == ZTensorEncodingAttr::DataLayout::_3D ||
          layout == ZTensorEncodingAttr::DataLayout::_3DS ||
          layout == ZTensorEncodingAttr::DataLayout::_2D ||
-         layout == ZTensorEncodingAttr::DataLayout::NHWC;
+         (includeNHWC && layout == ZTensorEncodingAttr::DataLayout::NHWC);
 }
 
-bool supportedLayoutForCompilerGeneratedStickUnstick(mlir::StringAttr layout) {
+bool supportedLayoutForCompilerGeneratedStickUnstick(
+    mlir::StringAttr layout, bool includeNHWC) {
   if (!layout)
     return false;
   return layout.getValue().equals_insensitive("4D") ||
          layout.getValue().equals_insensitive("3D") ||
          layout.getValue().equals_insensitive("3DS") ||
          layout.getValue().equals_insensitive("2D") ||
-         layout.getValue().equals_insensitive("NHWC");
+         (includeNHWC && layout.getValue().equals_insensitive("NHWC"));
 }
 
 } // namespace zhigh
