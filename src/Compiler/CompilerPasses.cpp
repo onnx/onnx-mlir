@@ -282,7 +282,7 @@ void addKrnlToLLVMPasses(
 
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
-    
+
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
