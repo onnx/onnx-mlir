@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestScan\n", nullptr, /*VFS=*/nullptr, "TEST_ARGS");
+      argc, argv, "TestScan\n", nullptr, nullptr, "TEST_ARGS");
   initCompilerConfig();
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";

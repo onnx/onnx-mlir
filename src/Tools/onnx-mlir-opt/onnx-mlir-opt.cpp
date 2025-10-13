@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
           getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
-          /*VFS=*/nullptr, customEnvFlags.c_str())) {
+          nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
   }

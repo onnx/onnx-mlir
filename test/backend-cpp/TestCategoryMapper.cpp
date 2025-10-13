@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
   setCompilerOption(onnx_mlir::OptionKind::CompilerOptLevel, "3");
   mlir::registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestCategoryMapper\n", nullptr, /*VFS=*/nullptr, "TEST_ARGS");
+      argc, argv, "TestCategoryMapper\n", nullptr, nullptr, "TEST_ARGS");
   onnx_mlir::initCompilerConfig();
   std::cout << "Target options: \""
             << onnx_mlir::getCompilerOption(onnx_mlir::OptionKind::TargetAccel)
