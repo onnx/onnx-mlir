@@ -35,7 +35,7 @@ namespace onnx_mlir {
 // UnifiedStickSupport.
 
 void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
-    mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
+    mlir::Value originalMemRef, bool isRead, bool isWrite,
     bool disableSaturation) {
   // Check it was not already initialized.
   assert(!isInitialized() && "should not initialize twice");
@@ -48,7 +48,6 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   this->disableSaturation = disableSaturation;
   assert((isRead || isWrite) && "must be at least read or write");
   // Classify: get info and classify.
-  assert(E1.isLiteral());
   Type originalType = originalVal.getType();
   auto originalShape = getShape(originalType);
   int64_t innermostShape = getShape(originalType, -1);
@@ -59,9 +58,9 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
              originalShape[1] == archVL;
   if (isStick && !isBroadcast) {
     // Overwrite memRefValue as a flattened [2, 64] view.
-    assert(
-        zhigh::supportedLayoutForCompilerGeneratedStickUnstick(originalVal) &&
-        "unsupported layout");
+    assert(zhigh::supportedLayoutForCompilerGeneratedStickUnstick(
+               originalVal, /*support NHWC*/ false) &&
+           "unsupported layout");
     MultiDialectBuilder<MemRefBuilder> create(kb);
     IndexExpr lit2 = LitIE(2);
     IndexExpr litStickLen = LitIE(stickLen);
@@ -78,7 +77,7 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
 }
 
 void UnifiedStickSupport::beforeStickLoop(
-    KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
+    KrnlBuilder &kb, DimsExpr &outerIndices) {
   if (!isInitialized())
     return;
   MultiDialectBuilder<KrnlBuilder, VectorBuilder, ZLowBuilder> create(kb);
@@ -238,14 +237,13 @@ void UnifiedStickSupport::set4xF32Vals(Value highVal, Value lowVal) {
 // UnifiedStickSupport.
 
 UnifiedStickSupportList::UnifiedStickSupportList(KrnlBuilder &kb,
-    ValueRange originalVals, ValueRange originalMemRefs, IndexExpr E1,
+    ValueRange originalVals, ValueRange originalMemRefs,
     mlir::BitVector isReads, mlir::BitVector isWrites, bool disableSaturation) {
-  init(kb, originalVals, originalMemRefs, E1, isReads, isWrites,
-      disableSaturation);
+  init(kb, originalVals, originalMemRefs, isReads, isWrites, disableSaturation);
 }
 
 void UnifiedStickSupportList::init(KrnlBuilder &kb, ValueRange originalVals,
-    ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+    ValueRange originalMemRefs, mlir::BitVector isReads,
     mlir::BitVector isWrites, bool disableSaturation) {
   int64_t size = originalVals.size();
   assert((int)originalMemRefs.size() == size && "bad memref size");
@@ -253,17 +251,17 @@ void UnifiedStickSupportList::init(KrnlBuilder &kb, ValueRange originalVals,
   assert((int)isWrites.size() == size && "bad isWrite size");
   list.clear();
   for (int64_t i = 0; i < size; ++i) {
-    UnifiedStickSupport uss(kb, originalVals[i], originalMemRefs[i], E1,
-        isReads[i], isWrites[i], disableSaturation);
+    UnifiedStickSupport uss(kb, originalVals[i], originalMemRefs[i], isReads[i],
+        isWrites[i], disableSaturation);
     list.emplace_back(uss);
   }
 }
 
 void UnifiedStickSupportList::beforeStickLoop(
-    KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1) {
+    KrnlBuilder &kb, DimsExpr &outerIndices) {
   int64_t size = list.size();
   for (int64_t i = 0; i < size; ++i)
-    list[i].beforeStickLoop(kb, outerIndices, E1);
+    list[i].beforeStickLoop(kb, outerIndices);
 }
 
 void UnifiedStickSupportList::beforeCompute(
