@@ -335,3 +335,13 @@ LogicalResult ONNXRMSLayerNormalizationOp::inferShapes(
   ONNXRMSLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(commonType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+namespace onnx_mlir {
+
+template struct ONNXLNOpShapeHelper<ONNXLayerNormalizationOp>;
+template struct ONNXLNOpShapeHelper<ONNXRMSLayerNormalizationOp>;
+
+} // namespace onnx_mlir

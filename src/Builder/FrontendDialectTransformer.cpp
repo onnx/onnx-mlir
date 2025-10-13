@@ -1308,11 +1308,11 @@ private:
 
     OpsetImportsMap function_opset_map =
         GetOpsetImportsFromProto(functionProto);
-
+    // Update the ShapeInferenceOptions with the new interface.
+    const onnx::ShapeInferenceOptions &options = onnx::ShapeInferenceOptions();
     // Populates graph.value_info().
     onnx::shape_inference::InferShapes(&graph, function_opset_map,
-        onnx::OpSchemaRegistry::Instance(),
-        /*options=*/{}, in_model_functions_);
+        onnx::OpSchemaRegistry::Instance(), options, in_model_functions_);
 
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
