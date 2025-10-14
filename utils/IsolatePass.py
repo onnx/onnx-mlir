@@ -102,6 +102,9 @@ def scan_listing(filename, print_list_name):
     try:
         with open(filename, "r") as file:
             for line in file:
+                if re.match(r"^onnx-mlir ", line):
+                    print(f"// Command:\n// {line}\n")
+                    continue
                 pass_name = extract_ir_pass_name(line)
                 if pass_name:
                     if current_name:
