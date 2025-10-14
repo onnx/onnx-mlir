@@ -24,5 +24,7 @@ maxLineLength=800
 
 echo "Command:" | tee ${@: -1}
 echo "onnx-mlir ${@:1:$#-1}" | tee -a ${@: -1}
+echo "" | tee -a ${@: -1}
+
 onnx-mlir ${@:1:$#-1} --mlir-elide-elementsattrs-if-larger=20 --mlir-elide-resource-strings-if-larger=20 2>&1 | cut -c -${maxLineLength} | sed -E "s/^(([^\"]*\"[^\"]*\")*[^\"]*\"[^\"]*)$/\1  \"/" | tee -a ${@: -1}
   
