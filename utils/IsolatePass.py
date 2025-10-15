@@ -18,6 +18,7 @@ import re
 
 # global variables
 pass_name_to_id = {}
+id_to_pass_name = []
 pass_listing = []
 debug = 0
 # Max length of a single line. If there are very long constants, truncate them.
@@ -50,9 +51,10 @@ def get_args():
     parser.add_argument(
         "-a",
         "--after",
-        help="Print the pass NUM(th) after the pass indicated by the  "
-        "-p or -n options. Number can be negative.",
-        metavar="NUM",
+        help="If STR is a number, N, print the pass Nth after the pass indicated by the  "
+        "-p or -n options. Number N can be negative. Otherwise, print the next pass that "
+        "matches the regex STR.",
+        metavar="STR",
     )
     parser.add_argument(
         "-l",
@@ -93,8 +95,9 @@ def process_line(str, length=max_line_length):
 
 
 def scan_listing(filename, print_list_name):
-    global pass_name_to_id, pass_listing
+    global pass_name_to_id, id_to_pass_name, pass_listing
     pass_name_to_id = {}
+    id_to_pass_name = []
     pass_listing = []
 
     current_listing = []
@@ -112,13 +115,14 @@ def scan_listing(filename, print_list_name):
                             # Save current listing.
                             id = len(pass_listing)
                             pass_listing.append("".join(current_listing))
+                            id_to_pass_name.append(current_name)
                             if current_name in pass_name_to_id:
                                 pass_name_to_id[current_name].append(id)
                             else:
                                 pass_name_to_id[current_name] = [id]
                             # Print info if requested.
                             if print_list_name:
-                                print(f"{id}: {pass_name}")
+                                print(f"{id}: {current_name}")
                     # Save new current name
                     current_name = pass_name
                     current_listing = []
@@ -164,23 +168,37 @@ def locate_pass(name, num):
     return ids[0]
 
 
-def print_pass(filename, id, num, name=None):
+def print_pass(filename, id, after, pass_name=None):
+    global pass_name_to_id, id_to_pass_name, pass_listing
     n = 0
-    if num:
-        n = int(num)
+    if after:
+        if re.fullmatch(r"[+-]?\d+", after) is not None:
+            # After is a number.
+            n = int(after)
+        else:
+            # After is a pass name, locate it.
+            regex = re.compile(after)
+            n = 1
+            while True:
+                if id + n >= len(id_to_pass_name):
+                    usage(f"Did not find pass {after} after pass {pass_name}")
+                if regex.search(id_to_pass_name[id + n]):
+                    # Found it
+                    break
+                n += 1
         id += n
     if id < 0 or id >= len(pass_listing):
         print(f"Out of bound id {id}, should be in [0..{len(pass_listing)}) range.")
         exit(1)
     message = f"// Printing pass with id {id}"
-    if name:
+    if pass_name:
         if n != 0:
             if n > 0:
-                message += f", {n}(th) pass(s) after {name}"
+                message += f", {n}(th) pass(s) after {pass_name}"
             else:
-                message += f", {-n}(th) pass(s) before {name}"
+                message += f", {-n}(th) pass(s) before {pass_name}"
         else:
-            message += f" with name {name}"
+            message += f" with name {pass_name}"
     message += f' from file "{filename}".'
     print(f"{message}\n\n", pass_listing[id], f"\n\n{message}")
 
