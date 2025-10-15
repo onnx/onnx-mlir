@@ -1666,6 +1666,106 @@ struct RemoveDimZeroInputInConcatPattern
 };
 
 // =============================================================================
+// Rewrite pattern onnx.dim
+// =============================================================================
+
+/// The pattern is to replace DimOp by a dimension value in the shape of
+/// ReshapeOp.
+///
+/// We would like to replace:
+/// ```
+/// %shape   = onnx.Concat(%d0, %d1, %d2)
+/// %reshape = onnx.Reshape(%X, %shape1) {allowzero = 0}
+/// %dim     = onnx.Dim(%reshape) {axis = 1}
+/// ```
+/// with
+/// ```
+/// %dim = %d1
+/// ```
+/// We only consider `allowzero=0` in this pattern.
+
+struct DimOpFromReshapeInputPattern : public OpRewritePattern<ONNXDimOp> {
+  using OpRewritePattern<ONNXDimOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXDimOp dimOp, PatternRewriter &rewriter) const final {
+    Value data = dimOp.getData();
+
+    // Donot handle unranked tensors.
+    if (!isRankedShapedType(data.getType()))
+      return rewriter.notifyMatchFailure(dimOp, "Input is unranked");
+
+    // Normalize axis.
+    int64_t rank = getRank(data.getType());
+    int64_t dimAxis = dimOp.getAxis();
+    if (dimAxis < 0)
+      dimAxis += rank;
+
+    // Dim is from a reshape op.
+    ONNXReshapeOp reshapeOp = data.getDefiningOp<ONNXReshapeOp>();
+    if (!reshapeOp)
+      return rewriter.notifyMatchFailure(dimOp, "Not found reshape op");
+    if (reshapeOp.getAllowzero() != 0)
+      return rewriter.notifyMatchFailure(dimOp, "Reshape op's allowzero != 0");
+
+    // Shape is from a concat op of dims.
+    Value shape = reshapeOp.getShape();
+    ONNXConcatOp concatOp = shape.getDefiningOp<ONNXConcatOp>();
+    if (!concatOp)
+      return rewriter.notifyMatchFailure(dimOp, "Not found concat op");
+    ValueRange dims = concatOp.getInputs();
+
+    // Ensure that the number of concat's inputs is equal to rank.
+    if (dims.size() != static_cast<uint64_t>(rank))
+      return rewriter.notifyMatchFailure(
+          dimOp, "Concat input size is not good");
+
+    // Values in shape can be -1 or 0 according to Reshape's definition.
+    // Those values are not real dimensions.
+    if (isConstOf(dims[dimAxis], -1) || (isConstOf(dims[dimAxis], 0)))
+      return rewriter.notifyMatchFailure(dimOp, "Dim at axis is -1 or 0");
+
+    rewriter.replaceOp(dimOp, dims[dimAxis]);
+    return success();
+  }
+};
+
+struct DimOpFromTransposeInputPattern : public OpRewritePattern<ONNXDimOp> {
+  using OpRewritePattern<ONNXDimOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXDimOp dimOp, PatternRewriter &rewriter) const final {
+    Value data = dimOp.getData();
+
+    // Donot handle unranked tensors.
+    if (!isRankedShapedType(data.getType()))
+      return rewriter.notifyMatchFailure(dimOp, "Input is unranked");
+
+    // Normalize axis.
+    int64_t rank = getRank(data.getType());
+    int64_t dimAxis = dimOp.getAxis();
+    if (dimAxis < 0)
+      dimAxis += rank;
+
+    // Dim is from a transpose op.
+    ONNXTransposeOp transposeOp = data.getDefiningOp<ONNXTransposeOp>();
+    if (!transposeOp)
+      return rewriter.notifyMatchFailure(dimOp, "Not found transpose op");
+    Value transposeData = transposeOp.getData();
+
+    // Transpose axes.
+    ArrayAttr permAttr = transposeOp.getPermAttr();
+    int64_t transposeAxis = ArrayAttrIntVal(permAttr, dimAxis);
+
+    Value replacedDim =
+        OnnxBuilder(rewriter, dimOp.getLoc()).dim(transposeData, transposeAxis);
+
+    rewriter.replaceOp(dimOp, replacedDim);
+    return success();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern LayerNormalization
 // =============================================================================
 
@@ -2268,6 +2368,8 @@ void ONNXDropoutOp::getCanonicalizationPatterns(
 void ONNXDimOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<DimOpToConstantPattern>(context);
+  results.insert<DimOpFromReshapeInputPattern>(context);
+  results.insert<DimOpFromTransposeInputPattern>(context);
 }
 
 /// on the ONNXEqualOp.
