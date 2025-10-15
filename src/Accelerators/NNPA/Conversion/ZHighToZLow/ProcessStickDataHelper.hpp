@@ -46,9 +46,6 @@ public:
   //
   // OriginalMemRef is the original translated tensor in memref.
   //
-  // E1 is the innermost (possibly stickified) dimension. Namely the UB of the
-  // innermost dim.
-  //
   // At least one of isRead or isWrite must be
   //
   // DisableSaturation indicates if saturation should not occur during
@@ -60,13 +57,12 @@ public:
   // exception is for "buffers", which are expected to have a [1,8] shape. They
   // will are used without access functions (typically (0,0..3) and (0, 4..7)).
   UnifiedStickSupport(KrnlBuilder &kb, mlir::Value originalVal,
-      mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
+      mlir::Value originalMemRef, bool isRead, bool isWrite,
       bool disableSaturation) {
-    init(kb, originalVal, originalMemRef, E1, isRead, isWrite,
-        disableSaturation);
+    init(kb, originalVal, originalMemRef, isRead, isWrite, disableSaturation);
   }
   void init(KrnlBuilder &kb, mlir::Value originalVal,
-      mlir::Value originalMemRef, IndexExpr E1, bool isRead, bool isWrite,
+      mlir::Value originalMemRef, bool isRead, bool isWrite,
       bool disableSaturation);
   UnifiedStickSupport() = default;
 
@@ -77,7 +73,7 @@ public:
   // 64, 128,... So this call "locks in" the outer indices for all but the
   // innermost index which will be allow to go from 0 to up to 63 (within that
   // stick).
-  void beforeStickLoop(KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1);
+  void beforeStickLoop(KrnlBuilder &kb, DimsExpr &outerIndices);
 
   // Perform the read and the write operations as needed. Index
   // offsetWithinStick is the offset into the current stick. processing totVL =
@@ -140,10 +136,10 @@ struct UnifiedStickSupportList {
 
   // Init, mimic the init of a single USS.
   UnifiedStickSupportList(KrnlBuilder &kb, mlir::ValueRange originalVals,
-      mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+      mlir::ValueRange originalMemRefs, mlir::BitVector isReads,
       mlir::BitVector isWrites, bool disableSaturation);
   void init(KrnlBuilder &kb, mlir::ValueRange originalVals,
-      mlir::ValueRange originalMemRefs, IndexExpr E1, mlir::BitVector isReads,
+      mlir::ValueRange originalMemRefs, mlir::BitVector isReads,
       mlir::BitVector isWrites, bool disableSaturation);
   UnifiedStickSupportList() = default;
 
@@ -151,7 +147,7 @@ struct UnifiedStickSupportList {
   // Outer indices should iterate over sticks (be blocked by stickLen). E.g. the
   // innermost index goes from 0, 64, 128,... Different actions are performed
   // for read vs write reference, stick vs broadcast///
-  void beforeStickLoop(KrnlBuilder &kb, DimsExpr &outerIndices, IndexExpr E1);
+  void beforeStickLoop(KrnlBuilder &kb, DimsExpr &outerIndices);
 
   void beforeCompute(
       KrnlBuilder &kb, IndexExpr offsetWithinStick, int64_t offsetWithinVector);
