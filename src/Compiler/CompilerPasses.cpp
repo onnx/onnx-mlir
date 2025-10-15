@@ -276,7 +276,7 @@ void addKrnlToLLVMPasses(
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
   // This pass is required on s390x targets to ensure all vector operations
-  // are properly lowered to LLVM dialect. (e.g., vector.from_elements)
+  // are properly lowered to LLVM dialect. (e.g., vector.to_elements)
   pm.addPass(mlir::createConvertVectorToLLVMPass());
 
   if (profileIR)
