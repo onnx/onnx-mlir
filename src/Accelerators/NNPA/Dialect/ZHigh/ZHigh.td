@@ -1230,4 +1230,40 @@ def ZHighReshapeOp:ZHigh_Op<"Reshape", [Pure,
   }];
 }
 
+def ZHighLayoutTransformExtendedOp:ZHigh_Op<"LayoutTransformExtended", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Extended Layout Transform";
+  let description = [{
+    ZHigh operation fuse an extended sequence of layout transformation on a Z Tensor.
+    It expects a Z Tensor input, perform a onnx.LayoutTransform to CPU format, followed
+    by a onnx.Reshape function that split a constant shape dimension into two ()
+  }];
+  let arguments = (ins AnyTypeOf<[AnyZTensor]>:$source, // Input Z Tensor to be reshaped.
+                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_split_axis, // reshape
+                       DefaultValuedAttr<SI64Attr, "1">:$reshape_split_factor, // reshape
+                       OptionalAttr<I64ArrayAttr>:$transpose_pattern, // transpose 
+                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_merge_axis, // reshape
+                       OptionalAttr<StrAttr>:$layout);  // Layout of output Z Tensor, default same as input.
+  let results = (outs AnyTypeOf<[AnyZTensor]>:$result);
+
+  let builders = [
+    // Copied from matmul, needed for DDR.
+    OpBuilder<(ins "::mlir::Value":$source, "::mlir::Value":$shape, "::mlir::StringAttr":$layout), [{
+      Type elementType = mlir::cast<ShapedType>(source.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, source, shape, layout);
+    }]>
+  ];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighReshapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighReshapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 #endif // ZHIGH_OPS
