@@ -19,7 +19,7 @@ struct OnnxToMlirOptions {
   bool enableRemoveDqQOp = true;
   bool enableRemoveDqQAroundOp = true;
   bool enableRemoveBinary = false;
-
+  bool enableFusePadIntoAvgpool = false;
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;

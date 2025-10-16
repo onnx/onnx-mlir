@@ -80,6 +80,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     }
   }
 
+  if (opts.enableFusePadIntoAvgpool)
+    pm.addPass(createFusePadIntoAvgpoolPass());
+
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
       opts.enableQuarkQuantizedLegalization));
