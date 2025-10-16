@@ -109,6 +109,10 @@ bool canDecomposeUnstick(Value val) {
     };
   }
 
+  // No data movement ops. Do nothing.
+  if (numDataOps == 0)
+    return false;
+
   // There is no benefit if all data ops are just view and there is no stick.
   if (allDataOpsAreView && (numStickOps == 0))
     return false;
