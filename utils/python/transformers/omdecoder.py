@@ -11,6 +11,7 @@ from PyRuntime import OMExecutionSession
 logger = logging.getLogger(__name__)
 
 CONFIG_NAME = "config.json"
+DLC_DECODER_MERGED_NAME = "model.so"
 DLC_DECODER_NAME = "decoder_model.so"
 DLC_DECODER_WITH_PAST_NAME = "decoder_with_past_model.so"
 MULTI_QUERY_ATTN_MODELS = {"gpt_bigcode"}
@@ -163,6 +164,7 @@ class OMDecoder(OMInferSession):
         self,
         input_ids: np.ndarray,
         attention_mask: Optional[np.ndarray] = None,
+        position_ids: Optional[np.ndarray] = None,
         past_key_values: Optional[Tuple[np.ndarray]] = None,
         labels: Optional[np.ndarray] = None,
     ) -> CausalLMOutput:
@@ -170,6 +172,8 @@ class OMDecoder(OMInferSession):
         input_ids = np.ascontiguousarray(input_ids, dtype=np.int64)
         if attention_mask is not None:
             attention_mask = np.ascontiguousarray(attention_mask, dtype=np.int64)
+        if position_ids is not None:
+            position_ids = np.ascontiguousarray(position_ids, dtype=np.int64)
         if labels is not None:
             labels = np.ascontiguousarray(labels, dtype=np.int64)
 
@@ -191,6 +195,8 @@ class OMDecoder(OMInferSession):
                 inputs.append(input_ids)
             elif name == "attention_mask":
                 inputs.append(attention_mask)
+            elif name == "position_ids":
+                inputs.append(position_ids)
             elif name == "labels":
                 inputs.append(labels)
             elif "past_key_values" in name and past_key_values is not None:
@@ -291,44 +297,61 @@ class OMModelDecoder(OMPreTrainedModel):
         init_cls,
         decoder_file_name: str = DLC_DECODER_NAME,
         decoder_with_past_file_name: str = DLC_DECODER_WITH_PAST_NAME,
+        decoder_merged_file_name: str = DLC_DECODER_MERGED_NAME,
         use_cache: bool = True,
+        is_merged_onnx: bool = False,
+        is_merged_so: bool = False,
         **kwargs,
     ):
         # Load model from pretrained directory
         model_path = Path(model_id)
 
-        # Build base paths (without extensions)
-        decoder_path = model_path / decoder_file_name
-        decoder_with_past_path = (
-            model_path / decoder_with_past_file_name if use_cache else None
-        )
+        om_inference_sessions = []
+        if is_merged_onnx and is_merged_so:
+            decoder_merged_path = model_path / decoder_merged_file_name
+            decoder_merged_so = decoder_merged_path.with_suffix(".so")
+            if not decoder_merged_so.exists():
+                raise ValueError("Not found the .so file for the decoder model.")
+            decoder_merger_session = OMPreTrainedModel.load_model(decoder_merged_so)
+            om_inference_sessions = [
+                decoder_merger_session,
+                decoder_merger_session if use_cache else None,
+            ]
+        else:
+            # Build base paths (without extensions)
+            decoder_path = model_path / decoder_file_name
+            decoder_with_past_path = (
+                model_path / decoder_with_past_file_name if use_cache else None
+            )
 
-        # Build .so file paths
-        decoder_so = decoder_path.with_suffix(".so")
-        decoder_with_past_so = (
-            decoder_with_past_path.with_suffix(".so") if use_cache else None
-        )
+            # Build .so file paths
+            decoder_so = decoder_path.with_suffix(".so")
+            decoder_with_past_so = (
+                decoder_with_past_path.with_suffix(".so") if use_cache else None
+            )
 
-        # Validate .so files exist
-        if not decoder_so.exists():
-            raise ValueError("Not found the .so file for the decoder model.")
-        if use_cache and not decoder_with_past_so.exists():
-            raise ValueError("Not found the .so file for the decoder_with_past model.")
+            # Validate .so files exist
+            if not decoder_so.exists():
+                raise ValueError("Not found the .so file for the decoder model.")
+            if use_cache and not decoder_with_past_so.exists():
+                raise ValueError(
+                    "Not found the .so file for the decoder_with_past model."
+                )
 
-        # Load sessions
-        decoder_session, decoder_with_past_session = cls.load_model(
-            decoder_path=decoder_so,
-            decoder_with_past_path=decoder_with_past_so,
-        )
+            # Load sessions
+            om_inference_sessions = cls.load_model(
+                decoder_path=decoder_so,
+                decoder_with_past_path=decoder_with_past_so,
+            )
 
         generation_config = OMGenerationConfig.from_json_file(
             model_path / "generation_config.json"
         )
 
         return init_cls(
-            decoder_session,
+            om_inference_sessions[0],
             config,
-            decoder_with_past_session=decoder_with_past_session,
+            decoder_with_past_session=om_inference_sessions[1],
             use_cache=use_cache,
             generation_config=generation_config,
         )
@@ -341,26 +364,51 @@ class OMModelForCausalLM(OMModelDecoder, OMGeneration):
         self,
         input_ids: np.ndarray = None,
         attention_mask: Optional[np.ndarray] = None,
+        position_ids: Optional[np.ndarray] = None,
         past_key_values: Optional[Tuple[np.ndarray]] = None,
         labels: Optional[np.ndarray] = None,
         use_cache: Optional[bool] = None,
         **kwargs,
     ) -> CausalLMOutput:
-        # Use instance use_cache if not specified
-        use_cache = use_cache if use_cache is not None else self.use_cache
-
-        if past_key_values is None or not use_cache:
+        batch_size = input_ids.shape[0]
+        seq_length = input_ids.shape[1]
+        if past_key_values is None or self.use_cache is False:
+            if self.is_merged_onnx:
+                # Create dummy key-value pairs for the first run.
+                num_key_value_heads = self.config.num_key_value_heads
+                embed_size_per_head = (
+                    self.config.hidden_size // self.config.num_attention_heads
+                )
+                empty_past_key_values = ()
+                for i in range(self.config.num_hidden_layers):
+                    kv = np.empty(
+                        (batch_size, num_key_value_heads, 0, embed_size_per_head)
+                    ).astype(np.float32)
+                    empty_past_key_values += ((kv, kv),)
+                # Create dummy position_ids for the first run.
+                position_ids = np.tile(
+                    np.arange(
+                        seq_length,
+                    ),
+                    (batch_size, 1),
+                )
             outputs = self.decoder(
                 input_ids=input_ids,
+                past_key_values=empty_past_key_values if self.is_merged_onnx else None,
                 attention_mask=attention_mask,
-                past_key_values=None,
+                position_ids=position_ids if self.is_merged_onnx else None,
                 labels=labels,
             )
         else:
+            if self.is_merged_onnx:
+                position_ids = np.full(
+                    (batch_size, seq_length), attention_mask.shape[1] - 1
+                )
             outputs = self.decoder_with_past(
                 input_ids=input_ids[:, -1:],
                 past_key_values=past_key_values,
                 attention_mask=attention_mask,
+                position_ids=position_ids if self.is_merged_onnx else None,
                 labels=labels,
             )
 
@@ -374,8 +422,16 @@ class OMModelForCausalLM(OMModelDecoder, OMGeneration):
         cls,
         model_id: Union[str, Path],
         config: OMConfig,
+        is_merged_onnx: bool = False,
+        is_merged_so: bool = False,
         **kwargs,
     ):
+        cls.is_merged_onnx = is_merged_onnx
         return super()._from_pretrained(
-            model_id, config, init_cls=OMModelForCausalLM, **kwargs
+            model_id,
+            config,
+            init_cls=OMModelForCausalLM,
+            is_merged_onnx=is_merged_onnx,
+            is_merged_so=is_merged_so,
+            **kwargs,
         )
