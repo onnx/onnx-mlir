@@ -54,7 +54,7 @@ bool canDecomposeUnstick(Value val) {
   // - When it meets a return or a compute op, each return or compute op needs
   // one DLF16ToF32.
   //
-  // So, the decomposition is only benefit if the total number of removed
+  // So, the decomposition is only beneficial if the total number of removed
   // F32ToDLF16/DLF16ToF32 is greater than the total number of added DLF16ToF32.
   //
   uint64_t numStickOps = 0;
@@ -72,6 +72,10 @@ bool canDecomposeUnstick(Value val) {
     for (auto *user : current->getUsers()) {
       bool isONNXOp = user->getDialect()->getNamespace() ==
                       ONNXDialect::getDialectNamespace();
+      // ZHighQuantizedStickOp currently does not work with DLF16 in symmetric
+      // mode. Temporarily put it into the ONNX category. Once it supports DLF16
+      // with symmetric mode, it would be in the same category as ZHighStickOp.
+      isONNXOp |= isa<ZHighQuantizedStickOp>(user);
       // Continue if user is StickOp or F32ToDLF16.
       if (isa<ZHighStickOp, ZHighF32ToDLF16Op>(user)) {
         visited.insert(user);
