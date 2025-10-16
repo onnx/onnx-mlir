@@ -22,7 +22,7 @@
 # Unterminated strings then cause issues with the VSCode mlir code prettifier.
 maxLineLength=800
 
-echo "Command:" | tee ${@: -1}
+echo "Command on `date`" | tee ${@: -1}
 echo "onnx-mlir ${@:1:$#-1}" | tee -a ${@: -1}
 echo "" | tee -a ${@: -1}
 
