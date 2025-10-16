@@ -58,6 +58,18 @@ def DelayDLF16ToF32ViaTransposePattern : Pat<
                                       (returnType (GetTypeInDLF16 $res))))
 >;
 
+def DelayDLF16ToF32ViaExpandPattern : Pat<
+  (ONNXExpandOp:$res (ZHighDLF16ToF32Op $arg), $shape),
+  (ZHighDLF16ToF32Op (ONNXExpandOp $arg, $shape,
+                                      (returnType (GetTypeInDLF16 $res))))
+>;
+
+def DelayDLF16ToF32ViaSlicePattern : Pat<
+  (ONNXSliceOp:$res (ZHighDLF16ToF32Op $arg), $starts, $ends, $axes, $steps),
+  (ZHighDLF16ToF32Op (ONNXSliceOp $arg, $starts, $ends, $axes, $steps,
+                                      (returnType (GetTypeInDLF16 $res))))
+>;
+
 def DelayDLF16ToF32ViaSqueezePattern : Pat<
   (ONNXSqueezeOp:$res (ZHighDLF16ToF32Op $arg), $axes),
   (ZHighDLF16ToF32Op (ONNXSqueezeOp $arg, $axes,
