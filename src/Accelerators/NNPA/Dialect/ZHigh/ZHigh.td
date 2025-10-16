@@ -1230,7 +1230,7 @@ def ZHighReshapeOp:ZHigh_Op<"Reshape", [Pure,
   }];
 }
 
-def ZHighLayoutTransformExtendedOp:ZHigh_Op<"LayoutTransformExtended", [Pure,
+def ZHighExtendedLayoutTransformOp:ZHigh_Op<"ExtendedLayoutTransform", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Extended Layout Transform";
@@ -1259,7 +1259,7 @@ def ZHighLayoutTransformExtendedOp:ZHigh_Op<"LayoutTransformExtended", [Pure,
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * ZHighReshapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighReshapeOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighExtendedLayoutTransformOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
