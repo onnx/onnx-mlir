@@ -19,17 +19,26 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
   )
 
-# CMAKE_CFG_INTDIR is . for single-config generators such as make, and
-# it has a value (e.g. $(Configuration)) otherwise, so we can use it to
-# determine whether we are dealing with a multi-config generator.
-if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
-  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-else()
+# Files to generate for the ExternalUtil custom target
+set(EXTERNAL_UTIL_GENERATED_FILES)
+# ExternalUtil.hpp is generator with the $<CONFIG> generator expression. This
+# will create a separate file for each configuration. Collect all generated
+# files as a dependency for the ExternalUtil custom target. For multi-config
+# generators CMAKE_CONFIGURATION_TYPES lists the enabled generator
+# configurations.
+foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
+  list(APPEND EXTERNAL_UTIL_GENERATED_FILES ${CONFIG}/ExternalUtil.hpp)
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
+endforeach()
+
+# Single config generator, ExternalUtil.hpp will be created in the
+# CMAKE_BUILD_TYPE directory
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  list(APPEND EXTERNAL_UTIL_GENERATED_FILES ${CMAKE_BUILD_TYPE}/ExternalUtil.hpp)
   set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 endif()
 
-add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
-
+add_custom_target(ExternalUtil DEPENDS ${EXTERNAL_UTIL_GENERATED_FILES})
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
 if (ONNX_MLIR_VENDOR)
