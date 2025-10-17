@@ -28,7 +28,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_message\
           absl::log_internal_nullguard' CMakeLists.txt \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . \
+       python3 -m pip install . --no-build-isolation \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
