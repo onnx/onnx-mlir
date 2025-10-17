@@ -108,16 +108,19 @@ func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
 // CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_2_]]{{.}} : memref<15xf32>, vector<12xf32>
 // CHECK:               [[VAR_4_:%.+]] = vector.shape_cast [[LOAD_PARAM_0_MEM_]] : vector<12xf32> to vector<3x4xf32>
 // CHECK:               [[VAR_5_:%.+]] = vector.extract [[VAR_4_]][0] : vector<4xf32> from vector<3x4xf32>
-// CHECK:               [[VAR_6_:%.+]] = "krnl.round_even"([[VAR_5_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_7_:%.+]] = vector.insert [[VAR_6_]], [[VAR_4_]] [0] : vector<4xf32> into vector<3x4xf32>
-// CHECK-DAG:           [[VAR_8_:%.+]] = vector.extract [[VAR_4_]][1] : vector<4xf32> from vector<3x4xf32>
-// CHECK:               [[VAR_9_:%.+]] = "krnl.round_even"([[VAR_8_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_10_:%.+]] = vector.insert [[VAR_9_]], [[VAR_7_]] [1] : vector<4xf32> into vector<3x4xf32>
-// CHECK-DAG:           [[VAR_11_:%.+]] = vector.extract [[VAR_4_]][2] : vector<4xf32> from vector<3x4xf32>
-// CHECK:               [[VAR_12_:%.+]] = "krnl.round_even"([[VAR_11_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK:               [[VAR_13_:%.+]] = vector.insert [[VAR_12_]], [[VAR_10_]] [2] : vector<4xf32> into vector<3x4xf32>
-// CHECK:               [[VAR_14_:%.+]] = vector.shape_cast [[VAR_13_]] : vector<3x4xf32> to vector<12xf32>
-// CHECK:               vector.store [[VAR_14_]], [[VAR_view_]]{{.}}[[VAR_2_]]{{.}} : memref<15xf32>, vector<12xf32>
+// CHECK-DAG:           [[VAR_6_:%.+]] = "krnl.round_even"([[VAR_5_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_7_:%.+]] = vector.extract [[VAR_4_]][1] : vector<4xf32> from vector<3x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_8_:%.+]] = "krnl.round_even"([[VAR_7_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_9_:%.+]] = vector.extract [[VAR_4_]][2] : vector<4xf32> from vector<3x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_10_:%.+]] = "krnl.round_even"([[VAR_9_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_11_:%.+]]:4 = vector.to_elements [[VAR_6_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_12_:%.+]]:4 = vector.to_elements [[VAR_8_]] : vector<4xf32>
+// CHECK:               [[VAR_13_:%.+]]:4 = vector.to_elements [[VAR_10_]] : vector<4xf32>
+// CHECK:               [[VAR_14_:%.+]] = vector.from_elements [[VAR_11_]]#0, [[VAR_11_]]#1, [[VAR_11_]]#2, [[VAR_11_]]#3, [[VAR_12_]]#0, [[VAR_12_]]#1, [[VAR_12_]]#2, [[VAR_12_]]#3, [[VAR_13_]]#0, [[VAR_13_]]#1, [[VAR_13_]]#2, [[VAR_13_]]#3 : vector<3x4xf32>
+// CHECK:               [[VAR_15_:%.+]] = vector.shape_cast [[VAR_14_]] : vector<3x4xf32> to vector<12xf32>
+// CHECK:               vector.store [[VAR_15_]], [[VAR_view_]]{{.}}[[VAR_2_]]{{.}} : memref<15xf32>, vector<12xf32>
 // CHECK:             }
 // CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 12 to 15){
@@ -165,31 +168,39 @@ func.func private @test_round_multiple16(%arg0 : tensor<?x32xf32>) -> tensor<*xf
 // CHECK:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_3_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:               [[VAR_5_:%.+]] = vector.shape_cast [[LOAD_VAR_reshape_MEM_]] : vector<32xf32> to vector<8x4xf32>
 // CHECK:               [[VAR_6_:%.+]] = vector.extract [[VAR_5_]][0] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_7_:%.+]] = "krnl.round_even"([[VAR_6_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_8_:%.+]] = vector.insert [[VAR_7_]], [[VAR_5_]] [0] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_9_:%.+]] = vector.extract [[VAR_5_]][1] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_10_:%.+]] = "krnl.round_even"([[VAR_9_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_11_:%.+]] = vector.insert [[VAR_10_]], [[VAR_8_]] [1] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_12_:%.+]] = vector.extract [[VAR_5_]][2] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_13_:%.+]] = "krnl.round_even"([[VAR_12_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_14_:%.+]] = vector.insert [[VAR_13_]], [[VAR_11_]] [2] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_15_:%.+]] = vector.extract [[VAR_5_]][3] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_16_:%.+]] = "krnl.round_even"([[VAR_15_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_17_:%.+]] = vector.insert [[VAR_16_]], [[VAR_14_]] [3] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_18_:%.+]] = vector.extract [[VAR_5_]][4] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_19_:%.+]] = "krnl.round_even"([[VAR_18_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_20_:%.+]] = vector.insert [[VAR_19_]], [[VAR_17_]] [4] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_21_:%.+]] = vector.extract [[VAR_5_]][5] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_22_:%.+]] = "krnl.round_even"([[VAR_21_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_23_:%.+]] = vector.insert [[VAR_22_]], [[VAR_20_]] [5] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_24_:%.+]] = vector.extract [[VAR_5_]][6] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_25_:%.+]] = "krnl.round_even"([[VAR_24_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.insert [[VAR_25_]], [[VAR_23_]] [6] : vector<4xf32> into vector<8x4xf32>
-// CHECK-DAG:           [[VAR_27_:%.+]] = vector.extract [[VAR_5_]][7] : vector<4xf32> from vector<8x4xf32>
-// CHECK:               [[VAR_28_:%.+]] = "krnl.round_even"([[VAR_27_]]) : (vector<4xf32>) -> vector<4xf32>
-// CHECK:               [[VAR_29_:%.+]] = vector.insert [[VAR_28_]], [[VAR_26_]] [7] : vector<4xf32> into vector<8x4xf32>
-// CHECK:               [[VAR_30_:%.+]] = vector.shape_cast [[VAR_29_]] : vector<8x4xf32> to vector<32xf32>
-// CHECK:               vector.store [[VAR_30_]], [[VAR_reshape_3_]]{{.}}[[VAR_3_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK-DAG:           [[VAR_7_:%.+]] = "krnl.round_even"([[VAR_6_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_8_:%.+]] = vector.extract [[VAR_5_]][1] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_9_:%.+]] = "krnl.round_even"([[VAR_8_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_10_:%.+]] = vector.extract [[VAR_5_]][2] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_11_:%.+]] = "krnl.round_even"([[VAR_10_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_12_:%.+]] = vector.extract [[VAR_5_]][3] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_13_:%.+]] = "krnl.round_even"([[VAR_12_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_14_:%.+]] = vector.extract [[VAR_5_]][4] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_15_:%.+]] = "krnl.round_even"([[VAR_14_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_16_:%.+]] = vector.extract [[VAR_5_]][5] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_17_:%.+]] = "krnl.round_even"([[VAR_16_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_18_:%.+]] = vector.extract [[VAR_5_]][6] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_19_:%.+]] = "krnl.round_even"([[VAR_18_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_20_:%.+]] = vector.extract [[VAR_5_]][7] : vector<4xf32> from vector<8x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_21_:%.+]] = "krnl.round_even"([[VAR_20_]]) : (vector<4xf32>) -> vector<4xf32>
+// CHECK-DAG:           [[VAR_22_:%.+]]:4 = vector.to_elements [[VAR_7_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_23_:%.+]]:4 = vector.to_elements [[VAR_9_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_24_:%.+]]:4 = vector.to_elements [[VAR_11_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_25_:%.+]]:4 = vector.to_elements [[VAR_13_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]]:4 = vector.to_elements [[VAR_15_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_27_:%.+]]:4 = vector.to_elements [[VAR_17_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_28_:%.+]]:4 = vector.to_elements [[VAR_19_]] : vector<4xf32>
+// CHECK:               [[VAR_29_:%.+]]:4 = vector.to_elements [[VAR_21_]] : vector<4xf32>
+// CHECK:               [[VAR_30_:%.+]] = vector.from_elements [[VAR_22_]]#0, [[VAR_22_]]#1, [[VAR_22_]]#2, [[VAR_22_]]#3, [[VAR_23_]]#0, [[VAR_23_]]#1, [[VAR_23_]]#2, [[VAR_23_]]#3, [[VAR_24_]]#0, [[VAR_24_]]#1, [[VAR_24_]]#2, [[VAR_24_]]#3, [[VAR_25_]]#0, [[VAR_25_]]#1, [[VAR_25_]]#2, [[VAR_25_]]#3, [[VAR_26_]]#0, [[VAR_26_]]#1, [[VAR_26_]]#2, [[VAR_26_]]#3, [[VAR_27_]]#0, [[VAR_27_]]#1, [[VAR_27_]]#2, [[VAR_27_]]#3, [[VAR_28_]]#0, [[VAR_28_]]#1, [[VAR_28_]]#2, [[VAR_28_]]#3, [[VAR_29_]]#0, [[VAR_29_]]#1, [[VAR_29_]]#2, [[VAR_29_]]#3 : vector<8x4xf32>
+// CHECK:               [[VAR_31_:%.+]] = vector.shape_cast [[VAR_30_]] : vector<8x4xf32> to vector<32xf32>
+// CHECK:               vector.store [[VAR_31_]], [[VAR_reshape_3_]]{{.}}[[VAR_3_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x32xf32>
