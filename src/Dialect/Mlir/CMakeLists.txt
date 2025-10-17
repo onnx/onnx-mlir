@@ -13,6 +13,7 @@ add_onnx_mlir_library(OMMlirDialects
 
   LINK_LIBS PUBLIC
   OMCompilerOptions
+  OMONNXOps
   MLIRMathDialect
   MLIRAffineDialect
   MLIRSCFDialect

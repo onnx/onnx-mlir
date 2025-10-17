@@ -452,6 +452,7 @@ public:
   }
   bool hasAffineExpr() const;
   bool hasValue() const;
+  bool hasDimParam() const;
 
   // Value/values has/have to be literal and satisfy the test.
   bool isLiteralAndIdenticalTo(int b) const;               // Values equal.
@@ -486,6 +487,7 @@ public:
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
   mlir::Value getValue() const;
   int64_t getShape(bool uniqueQuestionMark = false) const;
+  std::string getDimParam() const;
 
   // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list

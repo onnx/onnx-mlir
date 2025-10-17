@@ -3,11 +3,13 @@
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
 
-// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
+// -----
+
 func.func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-LABEL:  func.func private @test_reshape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index

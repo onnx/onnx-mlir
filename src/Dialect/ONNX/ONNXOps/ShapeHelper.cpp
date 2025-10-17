@@ -67,6 +67,37 @@ int64_t getAxisInRange(int64_t axis, Value val, bool includeRank) {
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+static void refineDimParams(
+    Operation *op, DimsExpr &inferredDims, Value output) {
+  // Get the index of output
+  if (!llvm::isa<OpResult>(output)) {
+    // output is a block parameter. It could be Func, Loop, If and etc.
+    // Give up now due to the complicated control flow.
+    return;
+  }
+
+  auto opResult = llvm::cast<OpResult>(output);
+  unsigned resultIndex = opResult.getResultNumber();
+  std::string dimParamsStr("");
+  bool isFirst = true;
+  for (unsigned i = 0; i < inferredDims.size(); ++i) {
+    if (inferredDims[i].isQuestionmark() && inferredDims[i].hasDimParam()) {
+      if (isFirst) {
+        isFirst = false;
+      } else {
+        dimParamsStr.append(",");
+      }
+      dimParamsStr = dimParamsStr + std::to_string(i) + ":" +
+                     inferredDims[i].getDimParam();
+    }
+  }
+  if (dimParamsStr == "")
+    return;
+  StringAttr dimParamsAttr = StringAttr::get(op->getContext(), dimParamsStr);
+  op->setAttr(
+      OP_DIM_PARAMS + std::to_string(resultIndex), StringAttr(dimParamsAttr));
+}
+
 /// Refine `inferredDims` using the output's shape if possible. For example,
 /// replacing a dynamic dim in `inferredDims` by a static dim in the output's
 /// shape.
@@ -85,7 +116,8 @@ static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
          "Inferred shape and existing shape are inconsistent in the number "
          "of elements");
 
-  // Try to update inferredDim if existingDim is static.
+  refineDimParams(op, inferredDims, output);
+
   for (unsigned i = 0; i < existingDims.size(); ++i) {
     // Safety checks for old convention of using -1 for dynamic.
     assert(existingDims[i] != -1 && "dynamic use kDynamic now");
@@ -429,6 +461,11 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         continue;
       }
       // Case: QuestionMark - QuestionMark
+      if (currentDimExpr.hasDimParam() && nextDimExpr.hasDimParam() &&
+          currentDimExpr.getDimParam() == nextDimExpr.getDimParam()) {
+        // Same symbolic dim
+        continue;
+      }
       if (!hasUniBroadcasting) {
         dimsExpr[j] = IndexExpr::max(currentDimExpr, nextDimExpr);
       }
@@ -456,6 +493,22 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // broadcasting for any reasons, hasNoBroadcast is set to false.
   bool hasNoBroadcast = true;
   for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
+    // Check with dim_param info: if all input of this dimension has same
+    // dim_param, sameDyn will remain true, and further check of this dimension
+    // is no needed.
+    DimsExpr dimsInput0 = inputsDims[0];
+    if (dimsInput0[r].isQuestionmark() && dimsInput0[r].hasDimParam()) {
+      bool sameDyn = true;
+      for (uint64_t i = 1; i < inputsDims.size(); i++) {
+        DimsExpr dims = inputsDims[i];
+        if (!(dims[r].isQuestionmark() && dims[r].hasDimParam() &&
+                dimsInput0[r].getDimParam() == dims[r].getDimParam())) {
+          sameDyn = false;
+        }
+      }
+      if (sameDyn)
+        continue;
+    }
     bool hasOne, hasOtherThanOne;
     hasOne = hasOtherThanOne = false;
     for (DimsExpr dims : inputsDims) {
