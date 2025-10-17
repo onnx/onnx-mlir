@@ -69,7 +69,7 @@ class OMGenerationConfig:
             return cls(**config_dict)
         except FileNotFoundError:
             logger.info("Generation config file not found, using defaults.")
-            return cls()
+            return None
 
 
 class OMPreTrainedModel:
