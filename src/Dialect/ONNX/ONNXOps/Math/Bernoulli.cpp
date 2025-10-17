@@ -13,9 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
-using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
@@ -23,24 +23,26 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-// Shape Inference
+// Verify
 //===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBernoulliOp::verify() {
+  return verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+      *this, getDtype());
+}
+
+//===----------------------------------------------------------------------===//
+// Type and Shape Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXBernoulliOp::resultTypeInference() {
+  return getResultTypeForShapeCopyingOp(*this, getDtype());
+}
 
 LogicalResult ONNXBernoulliOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto builder = OpBuilder(getContext());
-  if (!hasShapeAndRank(getInput())) {
+  if (!hasShapeAndRank(getInput()))
     return success();
-  }
-  Type elementType;
-  if (getDtypeAttr()) {
-    elementType = convertONNXTypeToMLIRType(
-        builder, static_cast<onnx::TensorProto_DataType>(
-                     getDtypeAttr().getValue().getSExtValue()));
-  } else {
-    elementType =
-        mlir::cast<RankedTensorType>(getInput().getType()).getElementType();
-  }
-  ONNXBernoulliOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
+  return inferShapeForUnaryOps(getOperation(),
+      getMLIRTypeFromDtypeWithFallBackToInputType(*this, getDtype()));
 }
