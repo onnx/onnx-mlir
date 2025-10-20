@@ -46,6 +46,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "decompose"
@@ -2872,13 +2873,28 @@ struct CustomOpMicrosoftToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
   static LogicalResult verifyOpsErasingOnError(
       ValueRange values, PatternRewriter &rewriter) {
     if (llvm::any_of(values, [](Value value) {
-          return failed(verifyOpValidity(value.getDefiningOp()));
+          return value && failed(verifyOpValidity(value.getDefiningOp()));
         })) {
       for (auto value : values)
-        rewriter.eraseOp(value.getDefiningOp());
+        if (value) {
+          rewriter.eraseOp(value.getDefiningOp());
+        }
       return failure();
     }
     return success();
+  }
+
+  static SmallVector<NamedAttribute> getFilteredAttrs(
+      ArrayRef<NamedAttribute> attrs,
+      ArrayRef<StringRef> additionalAttrNamesToFilter = {}) {
+    static const llvm::StringSet<> commonFilter{"domain_name", "function_name",
+        "output_element_type", "shape_infer_pattern", "inputs_for_infer"};
+    return SmallVector<NamedAttribute>{llvm::make_filter_range(
+        attrs, [&additionalAttrNamesToFilter](NamedAttribute attr) {
+          return !llvm::is_contained(commonFilter, attr.getName()) &&
+                 !llvm::is_contained(
+                     additionalAttrNamesToFilter, attr.getName());
+        })};
   }
 
   const std::string operationNameToRewrite;
@@ -2896,8 +2912,6 @@ struct MicrosoftBiasGelu : public CustomOpMicrosoftToOnnxOps {
 
     auto input = customOp->getOperand(0);
     auto bias = customOp->getOperand(1);
-    auto inputType = cast<ShapedType>(input.getType());
-    auto biasType = cast<ShapedType>(bias.getType());
     MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
     Value biasedInput = create.onnx.add(input, bias);
     Value gelu = create.onnx.gelu(biasedInput,
@@ -2907,6 +2921,103 @@ struct MicrosoftBiasGelu : public CustomOpMicrosoftToOnnxOps {
     }
 
     rewriter.replaceOp(customOp, gelu);
+    return success();
+  }
+};
+
+struct MicrosoftFusedConv : public CustomOpMicrosoftToOnnxOps {
+  MicrosoftFusedConv(MLIRContext *context, PatternBenefit benefit = 1)
+      : CustomOpMicrosoftToOnnxOps(context, "FusedConv", benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    assert(customOp.getNumOperands() >= 2 && customOp.getNumOperands() <= 4 &&
+           "Expected 2 to 4 operands for FusedConv");
+    if (customOp.getNumOperands() > 3) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition does not support 'Sum/Z'");
+    }
+
+    assert(customOp->hasAttrOfType<StringAttr>("activation"));
+    assert(customOp->hasAttrOfType<ArrayAttr>("activation_params"));
+
+    const SmallVector<NamedAttribute> filteredAttrs(getFilteredAttrs(
+        customOp->getAttrs(), {"activation", "activation_params"}));
+    SmallVector<Value> convOperands{customOp.getOperands()};
+    Value noneBias;
+    if (convOperands.size() < 3) {
+      noneBias = rewriter.create<ONNXNoneOp>(customOp->getLoc())->getResult(0);
+      convOperands.push_back(noneBias);
+    }
+
+    auto conv = rewriter.create<ONNXConvOp>(customOp->getLoc(),
+        customOp->getResultTypes(), convOperands, filteredAttrs);
+    Value convOpResult = conv.getResult();
+    const auto activation =
+        customOp->getAttrOfType<StringAttr>("activation").strref();
+    auto activationParams =
+        customOp->getAttrOfType<ArrayAttr>("activation_params");
+    SmallVector<FloatAttr> activationParamsValues;
+    for (auto attr : activationParams) {
+      auto asFloatAttr = dyn_cast<FloatAttr>(attr);
+      assert(asFloatAttr && asFloatAttr.getType().isF32() &&
+             "All activation params "
+             "must be f32");
+      activationParamsValues.push_back(asFloatAttr);
+    }
+    Value activationFunc;
+    Value castMin;
+    Value castMax;
+    if (activation == "Relu") {
+      activationFunc = rewriter.create<ONNXReluOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "Tanh") {
+      activationFunc = rewriter.create<ONNXTanhOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "Sigmoid") {
+      activationFunc = rewriter.create<ONNXSigmoidOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "LeakyRelu") {
+      assert(activationParamsValues.size() == 1 &&
+             "LeakyRelu must have exactly one parameter");
+      activationFunc = rewriter.create<ONNXLeakyReluOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, activationParamsValues[0]);
+    } else if (activation == "Clip") {
+      assert(activationParamsValues.size() == 2 &&
+             "Clip must have exactly two parameters");
+      MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+      auto scalarType = RankedTensorType::get({}, rewriter.getF32Type());
+      auto minVal = create.onnx.constant(
+          DenseElementsAttr::get(scalarType, activationParamsValues[0]));
+      auto castToType =
+          cast<ShapedType>(convOpResult.getType()).getElementType();
+      castMin = create.onnx.cast(minVal, castToType);
+      auto maxVal = create.onnx.constant(
+          DenseElementsAttr::get(scalarType, activationParamsValues[1]));
+      castMax = create.onnx.cast(maxVal, castToType);
+      activationFunc = rewriter.create<ONNXClipOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, castMin, castMax);
+    } else if (activation == "HardSigmoid") {
+      assert(activationParamsValues.size() == 2 &&
+             "HardSigmoid must have exactly two parameters");
+      activationFunc = rewriter.create<ONNXHardSigmoidOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, activationParamsValues[0],
+          activationParamsValues[1]);
+    } else {
+      rewriter.eraseOp(conv);
+      if (noneBias) {
+        rewriter.eraseOp(noneBias.getDefiningOp());
+      }
+      return rewriter.notifyMatchFailure(customOp,
+          "Decomposition only supports Relu, Tanh, Sigmoid, LeakyRelu, Clip, "
+          "and HardSigmoid activations");
+    }
+    if (failed(verifyOpsErasingOnError(
+            {noneBias, conv, castMin, castMax, activationFunc}, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+    rewriter.replaceOp(customOp, activationFunc);
     return success();
   }
 };
@@ -2922,13 +3033,7 @@ struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpMicrosoftToOnnxOps {
     }
 
     const SmallVector<NamedAttribute> filteredAttrs(
-        llvm::make_filter_range(customOp->getAttrs(), [](NamedAttribute attr) {
-          return attr.getName() != "domain_name" &&
-                 attr.getName() != "function_name" &&
-                 attr.getName() != "output_element_type" &&
-                 attr.getName() != "shape_infer_pattern" &&
-                 attr.getName() != "inputs_for_infer";
-        }));
+        getFilteredAttrs(customOp->getAttrs()));
 
     auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
         customOp->getResultTypes(), customOp.getOperands(), filteredAttrs);
@@ -3323,6 +3428,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
       context, "DequantizeLinear");
   patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
   patterns.insert<MicrosoftBiasGelu>(context);
+  patterns.insert<MicrosoftFusedConv>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);

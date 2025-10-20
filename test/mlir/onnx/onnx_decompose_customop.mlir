@@ -177,3 +177,184 @@ func.func @customop_bias_gelu(%arg0: tensor<*xf32>, %arg1: tensor<5xf32>) -> ten
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<*xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @fusedconv_relu_no_bias(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "Relu", activation_params = [],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_relu_no_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>, none) -> tensor<1x4x8x8xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Relu"([[VAR_1_]]) : (tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @fusedconv_relu_bias(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>, %b: tensor<4xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w, %b) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                    activation = "Relu", activation_params = [],
+                                    dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                    pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>, tensor<4xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_relu_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>, [[PARAM_2_:%.+]]: tensor<4xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>, tensor<4xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @fusedconv_tanh(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "Tanh", activation_params = [],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_tanh
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Tanh"([[VAR_1_]]) : (tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+func.func @fusedconv_sigmoid(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "Sigmoid", activation_params = [],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_sigmoid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Sigmoid"([[VAR_1_]]) : (tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+func.func @fusedconv_leakyrelu(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "LeakyRelu",
+                                activation_params = [5.000000e-01 : f32],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK:         }
+// CHECK-LABEL:  func.func @fusedconv_leakyrelu
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"
+// CHECK:           [[VAR_2_:%.+]] = "onnx.LeakyRelu"([[VAR_1_]]) {alpha = 5.000000e-01 : f32} : (tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @fusedconv_clip(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "Clip",
+                                activation_params = [0.000000e+00 : f32, 1.000000e+00 : f32],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_clip
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Conv"
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Cast"([[VAR_1_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Cast"([[VAR_0_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Clip"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) : (tensor<1x4x8x8xf32>, tensor<f32>, tensor<f32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+func.func @fusedconv_clip_not_f32(%x: tensor<1x3x8x8xf16>, %w: tensor<4x3x3x3xf16>) -> tensor<1x4x8x8xf16> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "Clip",
+                                activation_params = [0.000000e+00 : f32, 1.000000e+00 : f32],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf16>, tensor<4x3x3x3xf16>) -> tensor<1x4x8x8xf16>
+  onnx.Return %res : tensor<1x4x8x8xf16>
+// CHECK-LABEL:  func.func @fusedconv_clip_not_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf16>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf16>) -> tensor<1x4x8x8xf16> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Conv"
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Cast"([[VAR_1_]]) {saturate = 1 : si64, to = f16} : (tensor<f32>) -> tensor<f16>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Cast"([[VAR_0_]]) {saturate = 1 : si64, to = f16} : (tensor<f32>) -> tensor<f16>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Clip"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) : (tensor<1x4x8x8xf16>, tensor<f16>, tensor<f16>) -> tensor<1x4x8x8xf16>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<1x4x8x8xf16>
+// CHECK:         }
+}
+
+// -----
+
+func.func @fusedconv_hardsigmoid(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "HardSigmoid",
+                                activation_params = [2.000000e-01 : f32, 5.000000e-01 : f32],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_hardsigmoid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"
+// CHECK:           [[VAR_2_:%.+]] = "onnx.HardSigmoid"([[VAR_1_]]) {alpha = 2.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @fusedconv_unsupported_activation(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                activation = "Softplus", activation_params = [],
+                                dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_unsupported_activation
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) {activation = "Softplus", activation_params = [], dilations = [1, 1], domain_name = "com.microsoft", function_name = "FusedConv", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+}
+
+
+// -----
+// Too many operands Z/Sum
+func.func @fusedconv_too_many_operands(%x: tensor<1x3x8x8xf32>, %w: tensor<4x3x3x3xf32>, %b: tensor<4xf32>, %z: tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32> {
+  %res = "onnx.Custom"(%x, %w, %b, %z) {function_name = "FusedConv", domain_name = "com.microsoft",
+                                        activation = "Relu", activation_params = [],
+                                        dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3],
+                                        pads = [1, 1, 1, 1], strides = [1, 1]} :
+          (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>, tensor<4xf32>, tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+  onnx.Return %res : tensor<1x4x8x8xf32>
+// CHECK-LABEL:  func.func @fusedconv_too_many_operands
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x8x8xf32>, [[PARAM_1_:%.+]]: tensor<4x3x3x3xf32>, [[PARAM_2_:%.+]]: tensor<4xf32>, [[PARAM_3_:%.+]]: tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {activation = "Relu", activation_params = [], dilations = [1, 1], domain_name = "com.microsoft", function_name = "FusedConv", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>, tensor<4xf32>, tensor<1x4x8x8xf32>) -> tensor<1x4x8x8xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x4x8x8xf32>
+// CHECK:         }
+
+}
