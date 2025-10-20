@@ -74,7 +74,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createIgnoreAttentionMaskPass(/*argIdx*/ 1);
+    return createReplaceOpWithItsOperandPass(/*nodeNameRegexList*/ {});
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

@@ -110,8 +110,8 @@ add_onnx_mlir_library(OMONNXStandardFuncReturnPass
   OMShapeInference
   )
 
-add_onnx_mlir_library(OMIgnoreAttentionMask
-  IgnoreAttentionMask.cpp
+add_onnx_mlir_library(OMReplaceOpWithItsOperand
+  ReplaceOpWithItsOperand.cpp
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
