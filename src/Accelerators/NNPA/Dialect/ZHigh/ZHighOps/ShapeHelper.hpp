@@ -215,6 +215,21 @@ public:
 
 using ZHighFixGRUYOpShapeHelper = ONNXUnaryOpShapeHelper;
 
+//===----------------------------------------------------------------------===//
+// Shape helper for ExtendedLayoutTransform.
+//===----------------------------------------------------------------------===//
+
+struct ZHighExtendedLayoutTransformOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighExtendedLayoutTransformOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighExtendedLayoutTransformOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Shapes for intermediary results.
+  DimsExpr sourceDims, reshapeSplitDims, transposeDims, reshapeMergeDims;
+};
+
 } // namespace zhigh
 } // namespace onnx_mlir
 #endif

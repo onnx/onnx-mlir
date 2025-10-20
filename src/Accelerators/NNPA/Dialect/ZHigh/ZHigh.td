@@ -1237,27 +1237,37 @@ def ZHighExtendedLayoutTransformOp:ZHigh_Op<"ExtendedLayoutTransform", [Pure,
   let description = [{
     ZHigh operation fuse an extended sequence of layout transformation on a Z Tensor.
     It expects a Z Tensor input, perform a onnx.LayoutTransform to CPU format, followed
-    by a onnx.Reshape function that split a constant shape dimension into two ()
+    by a onnx.Reshape function that split a shape dimension into two consecutive shapes,
+    followed by a onnxTranspose, followed by a onnx.Reshape that merges two consecutive
+    shapes into 1, followed by Layout transform to the "layout", or a conversion to float.
+
+    Data type is that of source. if dlf16_to_32, then input is expected in dlf16 and output
+    will be converted to f32.
+
+    There are specific constraints for this operation; they are currently listed in the
+    Verifier.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$source, // Input Z Tensor to be reshaped.
-                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_split_axis, // reshape
-                       DefaultValuedAttr<SI64Attr, "1">:$reshape_split_factor, // reshape
-                       OptionalAttr<I64ArrayAttr>:$transpose_pattern, // transpose 
-                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_merge_axis, // reshape
+                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_split_axis, // reshape.
+                       DefaultValuedAttr<SI64Attr, "1">:$reshape_split_factor, // reshape.
+                       OptionalAttr<I64ArrayAttr>:$transpose_pattern, // transpose .
+                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_merge_axis, // reshape (leftmost one).
+                       DefaultValuedAttr<BoolAttr, "false">:$dlf16_to_f32, // convert to f32.
                        OptionalAttr<StrAttr>:$layout);  // Layout of output Z Tensor, default same as input.
   let results = (outs AnyTypeOf<[AnyZTensor]>:$result);
 
+  let hasVerifier = 1;
+
+  
   let builders = [
-    // Copied from matmul, needed for DDR.
-    OpBuilder<(ins "::mlir::Value":$source, "::mlir::Value":$shape, "::mlir::StringAttr":$layout), [{
-      Type elementType = mlir::cast<ShapedType>(source.getType()).getElementType();
-      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, source, shape, layout);
-    }]>
+    OpBuilder<(ins "::mlir::Value":$source,  "int64_t":$reshapeSplitAxis, 
+              "int64_t":$reshapeSplitFactor, "::mlir::ArrayAttr":$transposePattern,
+               "int64_t":$reshapeMergeAxis, "bool":$dlf16ToF32, "::mlir::StringAttr":$layout)>
   ];
+  
 
   let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * ZHighReshapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+    onnx_mlir::ONNXOpShapeHelper * ZHighExtendedLayoutTransformOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new ZHighExtendedLayoutTransformOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
