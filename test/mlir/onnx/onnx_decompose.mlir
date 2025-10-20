@@ -572,14 +572,28 @@ func.func @test_concatfuse_2(%arg0: tensor<?x20xf32>, %arg1: tensor<?x30xf32>) -
 
 // -----
 
-func.func @test_constantofshape(%arg0: tensor<?xi64>) -> tensor<*xi32> {
+func.func @test_constantofshape_1(%arg0: tensor<?xi64>) -> tensor<*xi32> {
   %0 = onnx.ConstantOfShape(%arg0) {value = dense<1> : tensor<1xi32>} : (tensor<?xi64>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
-// CHECK-LABEL:  func.func @test_constantofshape
+// CHECK-LABEL:  func.func @test_constantofshape_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64>) -> tensor<*xi32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_0_]]) : (tensor<i32>, tensor<?xi64>) -> tensor<*xi32>
+// CHECK:           return [[VAR_1_]] : tensor<*xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_constantofshape_2(%arg0: tensor<?xi64>) -> tensor<*xi32> {
+  %0 = onnx.ConstantOfShape(%arg0) : (tensor<?xi64>) -> tensor<*xi32>
+  return %0 : tensor<*xi32>
+
+// CHECK-LABEL:  func.func @test_constantofshape_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64>) -> tensor<*xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_0_]]) : (tensor<f32>, tensor<?xi64>) -> tensor<*xi32>
 // CHECK:           return [[VAR_1_]] : tensor<*xi32>
 // CHECK:         }
 }
