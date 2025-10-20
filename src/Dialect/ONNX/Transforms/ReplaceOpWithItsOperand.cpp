@@ -2,15 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- ReplaceOpWithItsOperand.cpp - Remove masking in Attention layer
-//-----===//
+//==----- ReplaceOpWithItsOperand.cpp - Replace an op with its operand ----===//
 //
 // Copyright 2025 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass will ignore the use of attention_mask argument/input in a function
-// operation. In particular, it will replace AddOp(x, mask) by x.
+// This pass will replace an operation with its operands by matching the onnx
+// node name.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,12 +18,9 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
