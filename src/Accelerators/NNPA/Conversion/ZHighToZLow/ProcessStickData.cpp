@@ -246,7 +246,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
   isReads[inputNum] = false; // Output is at index inputNum.
   isWrites[inputNum] = true; // Output is at index inputNum.
   UnifiedStickSupportList stickCS(create.krnl, originalVals, originalMemRefs,
-      E1, isReads, isWrites, disableSaturation);
+      isReads, isWrites, disableSaturation);
   bool isStickifiedOutput = stickCS.list[inputNum].hasStick();
 
   // Predicates used to avoid creating code that is never used.
@@ -284,7 +284,7 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
         IndexExpr E1 = DimIE(outputDims[d1]); // Original upper bound in d1.
         IndexExpr e1 = outerIndices[d1] = tiledOuterIndices[d1] * litStickLen;
 
-        stickCS.beforeStickLoop(create.krnl, outerIndices, E1);
+        stickCS.beforeStickLoop(create.krnl, outerIndices);
 
         if (enablePrefetch) {
           // TODO: enable prefetch
@@ -407,6 +407,8 @@ static bool isZTensorOfF32AndDLF16(Operation *op) {
   bool hasDLF16 = false;
   for (Value val : op->getOperands()) {
     Type elementType = getElementType(val.getType());
+    if (mlir::isa<NoneType>(elementType)) // Ignore none types.
+      continue;
     if (zhigh::isZTensor(val.getType())) {
       if (!elementType.isF16()) {
         return false;
@@ -420,6 +422,8 @@ static bool isZTensorOfF32AndDLF16(Operation *op) {
   }
   for (Value val : op->getResults()) {
     Type elementType = getElementType(val.getType());
+    if (mlir::isa<NoneType>(elementType)) // Ignore none types.
+      continue;
     if (zhigh::isZTensor(val.getType())) {
       if (!elementType.isF16()) {
         return false;
@@ -487,23 +491,21 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     Operation *op = elmsOp.getOperation();
     Location loc = ONNXLoc<ElementwiseOp>(op);
     ValueRange operands = adaptor.getOperands();
-    int64_t numArgs = operands.size();
-
-    LLVM_DEBUG(llvm::dbgs() << "Investigate elementwise op (" << op->getName()
-                            << ") with possible NNPA layout\n");
 
     // Test if operation is suitable for processing here. If not, will be
     // handled by the normal elementwise operations.
     if (!isZTensorOfF32AndDLF16(op)) {
+      LLVM_DEBUG(llvm::dbgs() << "Reject elementwise op (" << op->getName()
+                              << ") because no NNPA layout\n");
       return failure();
     }
+
     LLVM_DEBUG({
       llvm::dbgs() << "Process elementwise op " << op->getName()
                    << " with NNPA layout:\n  ";
       op->dump();
     });
-    assert(numArgs >= 0 && numArgs <= 2 && op->getNumResults() == 1 &&
-           "expect at most 2 inputs, exactly 1 output");
+    assert(op->getNumResults() == 1 && "expect exactly 1 output");
 
     // Shape helper.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
@@ -578,9 +580,14 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     // the computation type.
     Type elementType = rewriter.getF32Type();
 
+    // Test if operation is suitable for processing here. If not, will be
+    // handled by the normal elementwise operations.
+    if (!isZTensorOfF32AndDLF16(op))
+      return failure();
+
     int64_t XRank = xMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
-    assert(XRank >= 2 && "expected 2+ X/Y rank");
+    assert(XRank >= 2 && "expected 2+ for rank of X and Y");
     assert(axis == XRank - 1 && "fused Stick/Unstick/LN only with axis = -1");
 
     // Create builder and shape helper
@@ -589,16 +596,18 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     IndexExpr E1 = shapeHelper.getOutputDims(0)[XRank - 1];
+    assert(E1.isLiteral() && E1.getLiteral() % stickLen == 0 &&
+           "expected E1 mod 64 == 0");
 
     // Create Stick mem support for X.
-    UnifiedStickSupport xUSS(create.krnl, lnOp.getX(), xMemRef, E1,
+    UnifiedStickSupport xUSS(create.krnl, lnOp.getX(), xMemRef,
         /*read only*/ true, false, disableSaturation);
 
     // Get other info: 1) epsilon as a scalar, 2) scale, and 3) optional bias.
     Value epsilon =
         create.math.constant(elementType, lnOp.getEpsilon().convertToDouble());
     UnifiedStickSupport scaleUSS(create.krnl, lnOp.getScale(),
-        adaptor.getScale(), E1, /*read only*/ true, false, disableSaturation);
+        adaptor.getScale(), /*read only*/ true, false, disableSaturation);
     UnifiedStickSupport biasUSS;
     // TODO: current additional ONNX op ONNXRMSLayerNormalizationOp has bias;
     // but in opset 24, RMSNormalization is introduced without biased. We
@@ -607,7 +616,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
                   std::is_same<OP_TYPE, ONNXRMSLayerNormalizationOp>::value) {
       // Handle optional bias.
       if (!isNoneValue(lnOp.getB()))
-        biasUSS.init(create.krnl, lnOp.getB(), adaptor.getB(), E1,
+        biasUSS.init(create.krnl, lnOp.getB(), adaptor.getB(),
             /*read only*/ true, false, disableSaturation);
     }
 
@@ -615,7 +624,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     Value yMemRef = allocateTraditionalOrZtensor(rewriter, this->typeConverter,
         op, operands, lnOp.getY(), shapeHelper.getOutputDims(0),
         /*does not collapse and write past boundaries, ok to set VL=1 here*/ 1);
-    UnifiedStickSupport yUSS(create.krnl, lnOp.getY(), yMemRef, E1,
+    UnifiedStickSupport yUSS(create.krnl, lnOp.getY(), yMemRef,
         /*write only*/ false, true, disableSaturation);
 
     // This pass does not support mean or inv std dev.
@@ -749,14 +758,14 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
         create.vec.store(initVec, redMemRef1, {bb, zero});
         Value redSubview1 =
             create.mem.subview(redMemRef1, {b, 0}, {1, archVL}, {1, 1});
-        redUSS1.init(create.krnl, redSubview1, redSubview1, DimIE(E1),
-            /*read/write*/ true, true, disableSaturation);
+        redUSS1.init(create.krnl, redSubview1, redSubview1, /*read/write*/ true,
+            true, disableSaturation);
       }
       // Init tmpRed2 as third parameter.
       create.vec.store(initVec, redMemRef2, {bb, zero});
       Value redSubview2 =
           create.mem.subview(redMemRef2, {b, 0}, {1, archVL}, {1, 1});
-      UnifiedStickSupport redUSS2(create.krnl, redSubview2, redSubview2, E1,
+      UnifiedStickSupport redUSS2(create.krnl, redSubview2, redSubview2,
           /*read/write*/ true, true, disableSaturation);
       // Set list.
       blockedMeanUSSList[b].list = {xUSS, redUSS1, redUSS2};
@@ -782,7 +791,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
             loopIndices.emplace_back(e1); // Add E1 dim.
             assert(((int64_t)loopIndices.size()) == xRank && "size mismatch");
             loopIndices[xRank - 2] = loopIndices[xRank - 2] + b; // Account for
-            blockedMeanUSSList[b].beforeStickLoop(create.krnl, loopIndices, E1);
+            blockedMeanUSSList[b].beforeStickLoop(create.krnl, loopIndices);
           }
 
           // Iterate within the stick
@@ -868,7 +877,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
             DimsExpr loopIndices = DimListIE(outerLoopIndices);
             loopIndices.emplace_back(e1);
             loopIndices[xRank - 2] = loopIndices[xRank - 2] + b;
-            blockedNormUSSList[b].beforeStickLoop(create.krnl, loopIndices, E1);
+            blockedNormUSSList[b].beforeStickLoop(create.krnl, loopIndices);
           }
 
           // Iterate within the stick
