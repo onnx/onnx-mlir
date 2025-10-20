@@ -23,7 +23,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_message\
           absl::log_internal_nullguard' CMakeLists.txt \
     # Required for pip install with `--no-build-isolation` flag.
-    # setuptools >= 70.x creates conflicts with packaging versions.
+    # setuptools >= 70.x creates conflicts with pip packaging versions.
     && python3 -m pip install --upgrade setuptools==68.2.2 \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install . --no-build-isolation
