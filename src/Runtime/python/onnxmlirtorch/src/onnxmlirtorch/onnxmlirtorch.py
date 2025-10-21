@@ -195,5 +195,5 @@ class ONNXMLIRTorch:
             _, sess = cached_session
 
         # Run the inference
-        outputs = sess.run(None, np_args)
+        outputs = sess.run(np_args)
         return [torch.from_numpy(output) for output in outputs]
