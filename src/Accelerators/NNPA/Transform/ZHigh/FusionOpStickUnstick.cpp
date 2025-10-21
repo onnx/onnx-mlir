@@ -484,6 +484,57 @@ public:
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Patterns Layout Transform.
+
+bool hasStaticInnermostDimWithMod(Value val, int64_t mod) {
+  // First constraint for ZHighExtendedLayoutTransformOp
+  if (!hasShapeAndRank(val))
+    return false;
+  ShapedType type = mlir::cast<ShapedType>(val.getType());
+  auto shape = type.getShape();
+  int64_t rank = type.getRank();
+  if (rank == 0)
+    return false; // Is a scalar.
+  if (shape[rank - 1] == ShapedType::kDynamic)
+    return false; // Non-static.
+  if (mod > 1 && shape[rank - 1] % mod != 0)
+    return false; // Does not satisfy mod constraint.
+  return true;
+}
+
+bool doesTransposeLeaveInnermostInPlace(mlir::ArrayAttr &permute) {
+  int64_t rank = ArrayAttrSize(permute);
+  return ArrayAttrIntVal(permute, rank - 1) == rank - 1;
+}
+
+class PatternsForExtendedLayoutTransform
+    : public OpRewritePattern<ZHighExtendedLayoutTransformOp> {
+public:
+  DimAnalysis *dimAnalysis;
+
+  PatternsEndingWithStick(MLIRContext *context, DimAnalysis *dimAnalysis)
+      : OpRewritePattern<ZHighExtendedLayoutTransformOp>(context, 1),
+        dimAnalysis(dimAnalysis) {}
+
+  using OpRewritePattern<ZHighExtendedLayoutTransformOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZHighExtendedLayoutTransformOp layoutTransformOp,
+      PatternRewriter &rewriter) const override {
+    // Layout transform to CPU.
+    auto originalTargetLayout = layoutTransformOp.getTargetLayout();
+    if (originalTargetLayout.has_value())
+      return failure(); // Assume here no layout == CPU layout.
+    Value data = originalTargetLayout.getData();
+    if (!isZTensor(data))
+      return failure(); // Not sure why layout from CPU to CPU..just ignore.
+    if (!supportedLayoutForCompilerGeneratedStickUnstick(data, /*nhwc*/ false))
+      return failure(); // Unsupported.
+  }
+};
+//===----------------------------------------------------------------------===//
+// Pass.
+
 struct FusionOpStickUnstick
     : public PassWrapper<FusionOpStickUnstick, OperationPass<ModuleOp>> {
   using OpSetType = DenseSet<Operation *>;

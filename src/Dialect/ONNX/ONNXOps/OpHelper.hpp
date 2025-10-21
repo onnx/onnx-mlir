@@ -181,12 +181,13 @@ std::vector<onnx_mlir::IndexExpr> getIndexExprsForConvWindow(
 mlir::AffineMap getWindowAffineMap(
     mlir::Builder &builder, bool ceilMode, bool isDilated);
 
-// Helper functions to get values from attribute arrays.
+// Helper functions to get values from attribute arrays. Negative index i starts
+// from innermost.
 size_t ArrayAttrSize(mlir::ArrayAttr a);
 size_t ArrayAttrSize(std::optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(std::optional<mlir::ArrayAttr> a, int i);
-void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
+void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &vals);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
@@ -267,6 +268,12 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
+
+/// If the value val has only one use and that use is of type OP, return that
+/// op. Otherwise return null.
+template <typename OP>
+mlir::Operation *usedOnlyBy(Value val);
+
 
 /// Check the defining operation of a value.
 template <typename OP>

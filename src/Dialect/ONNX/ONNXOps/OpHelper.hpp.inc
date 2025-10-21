@@ -27,6 +27,17 @@ inline bool isNoneValue(mlir::Value value) {
   return MemRefBuilder::isNoneValue(value);
 }
 
+/// Check if this value has a single use by the given operation.
+template <typename OP>
+mlir::Operation *usedOnlyBy(mlir::Value val) {
+  mlir::Operation *op = nullptr;
+  for(mlir::Value v: val.getUses()) {
+    if (op || !mlir::isa<OP>(v)) return nullptr;
+    op = v.getDefiningOp();
+  }
+  return op;
+}
+
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v) {
