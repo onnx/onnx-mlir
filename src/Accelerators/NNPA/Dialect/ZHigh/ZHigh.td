@@ -1253,7 +1253,7 @@ def ZHighExtendedLayoutTransformOp:ZHigh_Op<"ExtendedLayoutTransform", [Pure,
                        OptionalAttr<I64ArrayAttr>:$transpose_pattern, // transpose .
                        DefaultValuedAttr<SI64Attr, "-1">:$reshape_merge_axis, // reshape (leftmost one).
                        DefaultValuedAttr<BoolAttr, "false">:$dlf16_to_f32, // convert to f32.
-                       OptionalAttr<StrAttr>:$layout);  // Layout of output Z Tensor, default same as input.
+                       OptionalAttr<StrAttr>:$target_layout);  // Layout of output Z Tensor, default same as input.
   let results = (outs AnyTypeOf<[AnyZTensor]>:$result);
 
   let hasVerifier = 1;

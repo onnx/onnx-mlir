@@ -272,7 +272,7 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 /// If the value val has only one use and that use is of type OP, return that
 /// op. Otherwise return null.
 template <typename OP>
-mlir::Operation *usedOnlyBy(Value val);
+mlir::Operation *usedOnlyBy(mlir::Value val);
 
 
 /// Check the defining operation of a value.

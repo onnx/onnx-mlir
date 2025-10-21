@@ -50,7 +50,7 @@ LogicalResult ZHighExtendedLayoutTransformOp::verify() {
                                    source, /*nhwc*/ false)) {
     return emitOpError("Support only a subset of zLayouts for source value");
   }
-  auto outputLayout = getLayoutAttr();
+  auto outputLayout = getTargetLayoutAttr();
   if (outputLayout) {
     if (getDlf16ToF32())
       return emitOpError("Cannot have a zLayout and request f32 output");
