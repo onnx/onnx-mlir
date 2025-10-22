@@ -55,7 +55,8 @@ bool canDecomposeUnstick(Value val) {
   // one DLF16ToF32.
   //
   // So, the decomposition is only beneficial if the total number of removed
-  // F32ToDLF16/DLF16ToF32 is greater than the total number of added DLF16ToF32.
+  // F32ToDLF16/DLF16ToF32 is strictly greater than the total number of added
+  // DLF16ToF32.
   //
   uint64_t numStickOps = 0;
   uint64_t numComputeOps = 0;
@@ -82,7 +83,7 @@ bool canDecomposeUnstick(Value val) {
         numStickOps++;
         continue;
       }
-      // Continue if user is an ONNX Ops but not a data movement op.
+      // Continue if user is an ONNX op but not a data movement op.
       if (isONNXOp && !isDataMovementONNXOp(user)) {
         numComputeOps++;
         visited.insert(user);
@@ -95,6 +96,9 @@ bool canDecomposeUnstick(Value val) {
         continue;
       }
       // Early stop if user is not an ONNX Op.
+      // NNPA ops cannot consumes any (unstickified) output from unstick but
+      // ONNX ops can, so if a consumming op here is not an ONNX op, we don't
+      // know how to compute cost for it. Thus, just stop.
       if (!isONNXOp)
         return false;
 

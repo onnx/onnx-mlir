@@ -38,6 +38,29 @@ func.func @data_movement_and_stick_and_return_ops(%arg0: tensor<1x3x5x?xf16, #zh
 
 // -----
 
+// COM: Unstick's output is used by data movement and comput ops.
+// COM: Decompose because we can reduce one F32ToDLF16 from the stick op.
+func.func @data_movement_and_stick_and_compute_ops(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<?xf32>) -> (tensor<1x5x3x?xf16, #zhigh.layout<{dataLayout = "4D"}>>, tensor<1x3x5x?xf32>) {
+  %2 = "zhigh.Unstick"(%arg0) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [0, 2, 1, 3] } : (tensor<1x3x5x?xf32>) -> tensor<1x5x3x?xf32>
+  %4 = "zhigh.Stick"(%3) {layout = "4D"} : (tensor<1x5x3x?xf32>) -> tensor<1x5x3x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  %5 = "onnx.Add"(%2, %arg1) : (tensor<1x3x5x?xf32>, tensor<?xf32>) -> tensor<1x3x5x?xf32>
+  return %4, %5 : tensor<1x5x3x?xf16, #zhigh.layout<{dataLayout = "4D"}>>, tensor<1x3x5x?xf32>
+
+// CHECK-LABEL:  func.func @data_movement_and_stick_and_compute_ops
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?xf32>) -> (tensor<1x5x3x?xf16, #zhigh.layout<{dataLayout = "4D"}>>, tensor<1x3x5x?xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.LayoutTransform"([[PARAM_0_]]) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.DLF16ToF32"([[VAR_0_]]) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[VAR_0_]]) {perm = [0, 2, 1, 3]} : (tensor<1x3x5x?xf16>) -> tensor<1x5x3x?xf16>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.LayoutTransform"([[VAR_2_]]) {target_layout = "4D"} : (tensor<1x5x3x?xf16>) -> tensor<1x5x3x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_1_]]) : (tensor<1x3x5x?xf32>, tensor<?xf32>) -> tensor<1x3x5x?xf32>
+// CHECK:           return [[VAR_3_]], [[VAR_4_]] : tensor<1x5x3x?xf16, #zhigh.layout<{dataLayout = "4D"}>>, tensor<1x3x5x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Decompose when only view ops are between unstick and stick.
 func.func @view_and_stick_ops(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<15x1x?xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
   %shape = onnx.Constant dense<[15, -1]> : tensor<2xi64>
