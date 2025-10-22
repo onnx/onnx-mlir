@@ -83,8 +83,14 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Replace ops with its operand. This is to bypass the operations.
+  if (!replaceOpWithItsOperand.empty())
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceOpWithItsOperandPass(
+        /*nodeNameRegexList=*/replaceOpWithItsOperand));
+
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
