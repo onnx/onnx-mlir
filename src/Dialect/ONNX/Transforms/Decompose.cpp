@@ -3182,6 +3182,89 @@ struct MicrosoftSkipLayerNorm : public CustomOpToOnnxOps {
   }
 };
 
+struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
+  MicrosoftSkipSimplifiedLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, MicrosoftDomainName, "SkipSimplifiedLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 3 && numIn <= 4) && "expects 3..4 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 4) && "expects 1..4 outputs");
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value skip = customOp.getOperand(1);
+    Value gamma = customOp.getOperand(2);
+    Value bias; // pre-norm bias
+
+    if (numIn >= 4)
+      bias = customOp.getOperand(3);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    assert(epsAttr && "Expected Epsilon");
+
+    Value skipAdd = create.onnx.add(input, skip);
+    Value sumIS;
+    if (bias) {
+      sumIS = create.onnx.add(skipAdd, bias);
+    } else {
+      sumIS = skipAdd;
+      skipAdd = nullptr;
+    }
+
+    SmallVector<Type, 3> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 1 ? customOp->getResultTypes()[1] : rewriter.getNoneType());
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    const auto si64Type = rewriter.getIntegerType(64, /*signed*/ true);
+
+    const SmallVector<NamedAttribute, 5> simplifiedLayerNormAttrs{
+        rewriter.getNamedAttr(
+            "domain_name", rewriter.getStringAttr(DefaultONNXDomainName)),
+        rewriter.getNamedAttr("function_name",
+            rewriter.getStringAttr("SimplifiedLayerNormalization")),
+        rewriter.getNamedAttr("axis", rewriter.getIntegerAttr(si64Type, -1)),
+        rewriter.getNamedAttr("epsilon", epsAttr),
+        rewriter.getNamedAttr(
+            "stash_type", rewriter.getIntegerAttr(si64Type, 1))};
+
+    auto skipLayerNorm = rewriter.create<ONNXCustomOp>(
+        loc, resultTypes, ValueRange{sumIS, gamma}, simplifiedLayerNormAttrs);
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(skipLayerNorm.getResult(0));
+    if (numOut >= 2)
+      replace.push_back(skipLayerNorm.getResult(1)); // mean
+    if (numOut >= 3)
+      replace.push_back(skipLayerNorm.getResult(2)); // inv_std_var
+    if (numOut == 4)
+      replace.push_back(sumIS); // input_skip_bias_sum
+
+    SmallVector<Value, 7> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+    toCheck.push_back(skipAdd);
+    toCheck.push_back(sumIS);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
 template <typename OpToCreate>
 struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
   CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
@@ -3594,6 +3677,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<MicrosoftFusedConv>(context);
   patterns.insert<MicrosoftSkipLayerNorm>(context);
   patterns.insert<SimplifiedLayerNorm>(context);
+  patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
