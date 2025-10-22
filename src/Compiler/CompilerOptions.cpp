@@ -89,6 +89,7 @@ std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
@@ -662,6 +663,18 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::list<std::string, std::vector<std::string>>
+    replaceOpWithItsOperandOpt("replace-op-with-its-operand",
+        llvm::cl::desc(
+            "Replace an operation's result by one of its operand. "
+            "Only support operations that have one result. The option's value "
+            "is a string in the form of input_id:node_name_regex, where "
+            "input_id is the index of the input operand used to replace the "
+            "operation's result and node_name_regex is a regex to match the "
+            "operation's onnx_node_name."),
+        llvm::cl::location(replaceOpWithItsOperand),
+        llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
     llvm::cl::desc("Disable Constant Propagation (default is false).\n"
