@@ -447,3 +447,71 @@ func.func @skip_layernorm_four_outputs(%input: tensor<2x4x8xf32>, %skip: tensor<
 // CHECK:           onnx.Return [[VAR_Y_]], [[VAR_Mean_]], [[VAR_InvStdDev_]], [[VAR_1_]] : tensor<2x4x8xf32>, tensor<2x4x1xf32>, tensor<2x4x1xf32>, tensor<2x4x8xf32>
 }
 
+
+// -----
+// SimplifiedLayerNormalization: 2 inputs (no bias), 1 output
+
+func.func @simplified_layernorm_basic(%input: tensor<2x4x8xf32>, %scale: tensor<8xf32>) -> tensor<2x4x8xf32> {
+  %r = "onnx.Custom"(%input, %scale) {domain_name = "", function_name = "SimplifiedLayerNormalization", epsilon = 1.000000e-05 : f32, axis = -1 : si64, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
+  onnx.Return %r : tensor<2x4x8xf32>
+// CHECK-LABEL:  func.func @simplified_layernorm_basic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8xf32>) -> tensor<2x4x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>, none) -> (tensor<2x4x8xf32>, none)
+// CHECK:           onnx.Return [[VAR_Y_]] : tensor<2x4x8xf32>
+}
+
+
+// -----
+// SimplifiedLayerNormalization: 3 inputs (with bias), 1 output
+
+func.func @simplified_layernorm_bias(%input: tensor<2x4x8xf32>, %scale: tensor<8xf32>, %bias: tensor<8xf32>) -> tensor<2x4x8xf32> {
+  %r = "onnx.Custom"(%input, %scale, %bias) {domain_name = "", function_name = "SimplifiedLayerNormalization", epsilon = 1.000000e-05 : f32, axis = -1 : si64, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
+  onnx.Return %r : tensor<2x4x8xf32>
+// CHECK-LABEL:  func.func @simplified_layernorm_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8xf32>, [[PARAM_2_:%.+]]: tensor<8xf32>) -> tensor<2x4x8xf32> {
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, none)
+// CHECK:           onnx.Return [[VAR_Y_]] : tensor<2x4x8xf32>
+}
+
+
+// -----
+// SimplifiedLayerNormalization: 2 inputs, 2 outputs (output, mean) -> mean is unused
+
+func.func @simplified_layernorm_two_outputs_mean_unused(%input: tensor<2x4x8xf32>, %scale: tensor<8xf32>) -> tensor<2x4x8xf32> {
+  %r0, %r1 = "onnx.Custom"(%input, %scale) {domain_name = "", function_name = "SimplifiedLayerNormalization", epsilon = 1.000000e-05 : f32, axis = -1 : si64, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>)
+  onnx.Return %r0 : tensor<2x4x8xf32>
+// CHECK-LABEL:  func.func @simplified_layernorm_two_outputs_mean_unused
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8xf32>) -> tensor<2x4x8xf32> {
+// CHECK:           [[VAR_0_:%.+]]:2 = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) {axis = -1 : si64, domain_name = "", epsilon = 9.99999974E-6 : f32, function_name = "SimplifiedLayerNormalization", stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>)
+// CHECK:           onnx.Return [[VAR_0_]]#0 : tensor<2x4x8xf32>
+}
+
+
+// -----
+// SimplifiedLayerNormalization: 2 inputs, 3 outputs (output, mean, inv_std_var) -> mean is unused
+
+func.func @simplified_layernorm_three_outputs_mean_unused(%input: tensor<2x4x8xf32>, %scale: tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>) {
+  %r0, %r1, %r2 = "onnx.Custom"(%input, %scale) {domain_name = "", function_name = "SimplifiedLayerNormalization", epsilon = 1.000000e-05 : f32, axis = -1 : si64, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, none, tensor<2x4x1xf32>)
+  onnx.Return %r0, %r2 : tensor<2x4x8xf32>, tensor<2x4x1xf32>
+// CHECK-LABEL:  func.func @simplified_layernorm_three_outputs_mean_unused
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>, none) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>)
+// CHECK:           onnx.Return [[VAR_Y_]], [[VAR_InvStdDev_]] : tensor<2x4x8xf32>, tensor<2x4x1xf32>
+}
+
+
+// -----
+// Negative: SimplifiedLayerNormalization: 2 inputs, 2 outputs (output, mean) -> mean is used
+
+func.func @simplified_layernorm_two_outputs_mean_used(%input: tensor<2x4x8xf32>, %scale: tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>) {
+  %r0, %r1 = "onnx.Custom"(%input, %scale) {domain_name = "", function_name = "SimplifiedLayerNormalization", epsilon = 1.000000e-05 : f32, axis = -1 : si64, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>)
+  onnx.Return %r0, %r1 : tensor<2x4x8xf32>, tensor<2x4x1xf32>
+// CHECK-LABEL:  func.func @simplified_layernorm_two_outputs_mean_used
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>) {
+// CHECK:           [[VAR_0_:%.+]]:2 = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) {axis = -1 : si64, domain_name = "", epsilon = 9.99999974E-6 : f32, function_name = "SimplifiedLayerNormalization", stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, tensor<2x4x1xf32>)
+// CHECK:           onnx.Return [[VAR_0_]]#0, [[VAR_0_]]#1 : tensor<2x4x8xf32>, tensor<2x4x1xf32>
+}
+
+

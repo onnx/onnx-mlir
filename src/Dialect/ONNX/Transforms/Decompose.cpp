@@ -2828,29 +2828,29 @@ public:
   }
 };
 
-namespace {
+static constexpr StringLiteral MicrosoftDomainName("com.microsoft");
+static constexpr StringLiteral DefaultONNXDomainName("");
 
-[[nodiscard]] bool isCustomMicrosoftOp(
-    ONNXCustomOp customOp, StringRef expectedName) {
+[[nodiscard]] bool isCustomOpWithNameAndDialect(
+    ONNXCustomOp customOp, StringRef expectedName, StringRef expectedDialect) {
   if (!customOp.getFunctionName().equals_insensitive(expectedName)) {
     return false;
   }
 
   const auto domAttr = customOp->getAttrOfType<StringAttr>("domain_name");
-  return domAttr && domAttr.getValue().equals_insensitive("com.microsoft");
+  return domAttr && domAttr.getValue().equals_insensitive(expectedDialect);
 }
 
-} // namespace
-
-struct CustomOpMicrosoftToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
-  CustomOpMicrosoftToOnnxOps(MLIRContext *context,
-      std::string operationNameToRewrite, PatternBenefit benefit = 1)
-      : OpRewritePattern<ONNXCustomOp>(context, benefit),
-        operationNameToRewrite(std::move(operationNameToRewrite)) {}
+struct CustomOpToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
+  CustomOpToOnnxOps(MLIRContext *context, StringRef dialect,
+      StringRef operationNameToRewrite, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXCustomOp>(context, benefit), dialect(dialect),
+        operationNameToRewrite(operationNameToRewrite) {}
 
   LogicalResult matchAndRewrite(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
+    if (!isCustomOpWithNameAndDialect(
+            customOp, operationNameToRewrite, dialect)) {
       return failure();
     }
 
@@ -2908,12 +2908,13 @@ struct CustomOpMicrosoftToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
         })};
   }
 
+  const std::string dialect;
   const std::string operationNameToRewrite;
 };
 
-struct MicrosoftBiasGelu : public CustomOpMicrosoftToOnnxOps {
+struct MicrosoftBiasGelu : public CustomOpToOnnxOps {
   MicrosoftBiasGelu(MLIRContext *context, PatternBenefit benefit = 1)
-      : CustomOpMicrosoftToOnnxOps(context, "BiasGelu", benefit) {}
+      : CustomOpToOnnxOps(context, MicrosoftDomainName, "BiasGelu", benefit) {}
 
   LogicalResult matchAndRewriteImpl(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -2936,9 +2937,9 @@ struct MicrosoftBiasGelu : public CustomOpMicrosoftToOnnxOps {
   }
 };
 
-struct MicrosoftFusedConv : public CustomOpMicrosoftToOnnxOps {
+struct MicrosoftFusedConv : public CustomOpToOnnxOps {
   MicrosoftFusedConv(MLIRContext *context, PatternBenefit benefit = 1)
-      : CustomOpMicrosoftToOnnxOps(context, "FusedConv", benefit) {}
+      : CustomOpToOnnxOps(context, MicrosoftDomainName, "FusedConv", benefit) {}
 
   LogicalResult matchAndRewriteImpl(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -3033,9 +3034,80 @@ struct MicrosoftFusedConv : public CustomOpMicrosoftToOnnxOps {
   }
 };
 
-struct MicrosoftSkipLayerNorm : public CustomOpMicrosoftToOnnxOps {
+/// Note: This is an operation in onnxruntime, which is in the ONNX instead of
+/// Microsoft domain for historic reasons.
+struct SimplifiedLayerNorm : public CustomOpToOnnxOps {
+  SimplifiedLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, DefaultONNXDomainName, "SimplifiedLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 1 && numIn <= 3) && "expects 1..3 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 3) && "expects 1..3 outputs");
+    // The onnxruntime version of RMSNorm/SimplifiedLayerNorm supports 1-3
+    // outputs, (output, mean, inv_std_var) The version in onnx and onnx-mlir
+    // only support output (and inv_std_var in case of onnx-mlir)
+    if (numOut > 1) {
+      if (!isa<NoneType>(customOp.getResultTypes()[1])) {
+        return rewriter.notifyMatchFailure(
+            customOp, "Use of mean not supported yet");
+      }
+    }
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value scale = customOp.getOperand(1);
+    Value bias = none; // layer-norm bias
+
+    if (numIn >= 3)
+      bias = customOp.getOperand(2);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    assert(epsAttr && "Expected Epsilon");
+    auto axisAttr = customOp->getAttrOfType<IntegerAttr>("axis");
+    assert(axisAttr && "Expected Axis");
+    auto stashTypeAttr = customOp->getAttrOfType<IntegerAttr>("stash_type");
+    assert(stashTypeAttr && "Expected Stash Type");
+
+    SmallVector<Type, 2> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    auto rms = rewriter.create<ONNXRMSLayerNormalizationOp>(
+        loc, resultTypes, input, scale, bias, axisAttr, epsAttr, stashTypeAttr);
+
+    SmallVector<Value, 3> replace;
+    replace.push_back(rms.getResult(0));
+    if (numOut > 1)
+      replace.push_back(none);
+    if (numOut > 2)
+      replace.push_back(rms.getResult(1));
+
+    SmallVector<Value, 4> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+struct MicrosoftSkipLayerNorm : public CustomOpToOnnxOps {
   MicrosoftSkipLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
-      : CustomOpMicrosoftToOnnxOps(ctx, "SkipLayerNormalization", b) {}
+      : CustomOpToOnnxOps(
+            ctx, MicrosoftDomainName, "SkipLayerNormalization", b) {}
 
   LogicalResult matchAndRewriteImpl(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -3082,21 +3154,21 @@ struct MicrosoftSkipLayerNorm : public CustomOpMicrosoftToOnnxOps {
 
     const auto si64Type = rewriter.getIntegerType(64, /*signed*/ true);
 
-    auto ln = rewriter.create<ONNXLayerNormalizationOp>(loc, resultTypes, sumIS,
-        gamma, beta, /*axis*/
+    auto rms = rewriter.create<ONNXLayerNormalizationOp>(loc, resultTypes,
+        sumIS, gamma, beta, /*axis*/
         rewriter.getIntegerAttr(si64Type, -1), epsAttr,
         /*stashType*/ rewriter.getIntegerAttr(si64Type, 1));
 
     SmallVector<Value, 4> replace;
-    replace.push_back(ln.getResult(0));
+    replace.push_back(rms.getResult(0));
     if (numOut >= 2)
-      replace.push_back(ln.getResult(1)); // mean
+      replace.push_back(rms.getResult(1)); // mean
     if (numOut >= 3)
-      replace.push_back(ln.getResult(2)); // inv_std_var
+      replace.push_back(rms.getResult(2)); // inv_std_var
     if (numOut == 4)
       replace.push_back(sumIS); // input_skip_bias_sum
 
-    SmallVector<Value, 6> toCheck(replace.begin(), replace.end());
+    SmallVector<Value, 7> toCheck(replace.begin(), replace.end());
     toCheck.push_back(none);
     toCheck.push_back(skipAdd);
     toCheck.push_back(sumIS);
@@ -3111,8 +3183,11 @@ struct MicrosoftSkipLayerNorm : public CustomOpMicrosoftToOnnxOps {
 };
 
 template <typename OpToCreate>
-struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpMicrosoftToOnnxOps {
-  using CustomOpMicrosoftToOnnxOps::CustomOpMicrosoftToOnnxOps;
+struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
+  CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
+      StringRef operationNameToRewrite, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(
+            context, MicrosoftDomainName, operationNameToRewrite, benefit) {}
 
   LogicalResult matchAndRewriteImpl(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -3518,6 +3593,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<MicrosoftBiasGelu>(context);
   patterns.insert<MicrosoftFusedConv>(context);
   patterns.insert<MicrosoftSkipLayerNorm>(context);
+  patterns.insert<SimplifiedLayerNorm>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
