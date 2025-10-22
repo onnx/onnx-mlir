@@ -2322,7 +2322,7 @@ struct DecomposeSlicePadPattern : public OpRewritePattern<ONNXPadOp> {
       // difficult, so skip for now
       return failure();
     }
-    const auto inputType = padOp.getData().getType().cast<ShapedType>();
+    const auto inputType = cast<ShapedType>(padOp.getData().getType());
     if (!inputType.hasStaticShape()) {
       // We need a static shape to calculate the ends for slice
       return failure();
@@ -3644,7 +3644,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+  if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
