@@ -54,76 +54,73 @@ namespace {
 //===----------------------------------------------------------------------===//
 // Utilities to report info.
 
-// Helper function for stick/unstick, do not use directly.
+// Specialized explanations.
 template <typename OP>
-static void explanationStickUnstick(Operation *computeOp, OP stickOrUnstickOp,
-    std::string message, bool success) {
-  std::string text = (success ? "SUCCESS: " : "FAILURE: ") + message;
-  if constexpr (std::is_same<OP, ZHighStickOp>::value) {
-    llvm::dbgs() << "Compute->stick (" << computeOp->getName() << ") fusion "
-                 << message << ":\n  ";
-    computeOp->dump();
+void explanation(OP mainOp, Operation *otherOp, std::string message) {
+  llvm_unreachable("expected specialization");
+}
+
+template <>
+void explanation(ZHighStickOp mainOp, Operation *otherOp, std::string message) {
+  llvm::dbgs() << "Compute->stick (" << otherOp->getName() << ") fusion "
+               << message << "\n  ";
+  otherOp->dump();
+  llvm::dbgs() << "  ";
+  mainOp.dump();
+}
+
+template <>
+void explanation(
+    ZHighUnstickOp mainOp, Operation *otherOp, std::string message) {
+  llvm::dbgs() << "Unstick->compute (" << otherOp->getName() << ") fusion "
+               << message << "\n  ";
+  mainOp.dump();
+  llvm::dbgs() << "  ";
+  otherOp->dump();
+}
+
+template <>
+void explanation(
+    ONNXLayerNormalizationOp mainOp, Operation *otherOp, std::string message) {
+  llvm::dbgs() << "[Unstick->] " << mainOp.getOperation()->getName()
+               << " [->Stick] fusion " << message << "\n  ";
+  mainOp.dump();
+}
+
+template <>
+void explanation(ONNXRMSLayerNormalizationOp mainOp, Operation *otherOp,
+    std::string message) {
+  // Same as above.
+  llvm::dbgs() << "[Unstick->] " << mainOp.getOperation()->getName()
+               << " [->Stick] fusion " << message << "\n  ";
+  mainOp.dump();
+}
+
+template <>
+void explanation(
+    ONNXLayoutTransformOp mainOp, Operation *otherOp, std::string message) {
+  if (otherOp) {
+    llvm::dbgs() << "LayoutTransform and " << otherOp->getName() << " fusion "
+                 << message << "\n  ";
+    mainOp.dump();
     llvm::dbgs() << "  ";
-    stickOrUnstickOp.dump();
-  } else if constexpr (std::is_same<OP, ZHighUnstickOp>::value) {
-    llvm::dbgs() << "Unstick->compute (" << computeOp->getName() << ") fusion "
-                 << message << ":\n  ";
-    stickOrUnstickOp.dump();
-    llvm::dbgs() << "  ";
-    computeOp->dump();
+    otherOp->dump();
   } else {
-    // Ignore second op.
-    llvm::dbgs() << "[Unstick->] compute [->Stick] (" << computeOp->getName()
-                 << ") fusion " << message << ":\n  ";
-    computeOp->dump();
+    llvm::dbgs() << "LayoutTransform fusion " << message << "\n  ";
+    mainOp.dump();
   }
 }
 
 // Reporting for stick/unstick fusion.
 template <typename OP>
-bool notifyFailure(
-    Operation *computeOp, OP stickOrUnstickOp, std::string message) {
-  LLVM_DEBUG(
-      explanationStickUnstick(computeOp, stickOrUnstickOp, message, false));
+bool notifyFailure(OP mainOp, Operation *otherOp, std::string message) {
+  LLVM_DEBUG(explanation(mainOp, otherOp, "FAILURE " + message));
   return false;
 }
 
 template <typename OP>
-bool notifySuccess(
-    Operation *computeOp, OP stickOrUnstickOp, std::string message) {
-  LLVM_DEBUG(explanexplanationStickUnstickation(
-      computeOp, stickOrUnstickOp, message, true));
-  return true;
-}
-
-// Helper function for layout transform, do not use directly.
-static void explanationLayoutTransform(
-    ONNXLayoutTransformOp layoutTransformOp, Operation *otherOp,
-    std::string message, bool success) {
-  std::string text = (success ? "SUCCESS: " : "FAILURE: ") + message;
-  if (otherOp) {
-    llvm::dbgs() << "LayoutTransform and " << otherOp->getName() << " fusion "
-                 << message << ":\n  ";
-    layoutTransformOp.dump();
-    llvm::dbgs() << "  ";
-  } else {
-    llvm::dbgs() << "LayoutTransform fusion " << message << ":\n  ";
-    layoutTransformOp.dump();
-  }
-}
-
-// Reporting for layout transform.
-bool notifyFailure(ONNXLayoutTransformOp &layoutTransformOp, Operation *otherOp,
-    std::string message) {
-  LLVM_DEBUG(explanationLayoutTransform(
-      layoutTransformOp, otherOp, message, false));
-  return false;
-}
-
-bool notifySuccess(ONNXLayoutTransformOp &layoutTransformOp, Operation *otherOp,
-    std::string message) {
-  LLVM_DEBUG(explanationLayoutTransform(
-      layoutTransformOp, otherOp, message, true));
+bool notifySuccess(OP mainOp, Operation *otherOp, std::string message) {
+  LLVM_DEBUG(explanation(mainOp, otherOp, "SUCCESS " + message));
   return true;
 }
 
@@ -140,21 +137,24 @@ bool isLayerNormCompatible(LAYER_NORM_OP layerNorm) {
   axis = (axis < 0) ? axis + xRank : axis;
   assert(axis >= 0 && axis < xRank && "out of bound layer norm axis");
   if (axis != xRank - 1)
-    return notifyFailure(op, op, "LayerNorm with axis != last dim");
-  // At this time, restrict cases with innermost dim that is static and multiple
-  // of 64.
+    return notifyFailure(layerNorm, nullptr, "LayerNorm with axis != last dim");
+  // At this time, restrict cases with innermost dim that is static and
+  // multiple of 64.
   int64_t lastDimShape = getShape(X.getType(), -1);
   if (lastDimShape == ShapedType::kDynamic)
-    return notifyFailure(op, op, "LayerNorm last dim not static-shaped");
+    return notifyFailure(
+        layerNorm, nullptr, "LayerNorm last dim not static-shaped");
   if (lastDimShape % 64 != 0)
     // Could handle non-multiple of 64, not needed at this time.
-    return notifyFailure(op, op, "LayerNorm last dim not multiple of 64");
-  // At this time, restrict cases with only one output (others should be none).
+    return notifyFailure(
+        layerNorm, nullptr, "LayerNorm last dim not multiple of 64");
+  // At this time, restrict cases with only one output (others should be
+  // none).
   int64_t resNum = op->getNumResults();
   for (int64_t r = 1; r < resNum; ++r) {
     if (!mlir::isa<NoneType>(op->getResult(r).getType()))
       return notifyFailure(
-          op, op, "LayerNorm additional outputs not supported");
+          layerNorm, nullptr, "LayerNorm additional outputs not supported");
   }
   return true;
 }
@@ -205,8 +205,9 @@ static bool suitableLayout(
 }
 #endif
 
-// Make sure that all inputs and outputs have the right element type. Currently
-// only support f32 or dlf16 in stickified format. None type is also tolerated.
+// Make sure that all inputs and outputs have the right element type.
+// Currently only support f32 or dlf16 in stickified format. None type is also
+// tolerated.
 static bool suitableComputeType(Type type) {
   Type elementType = getElementTypeOrSelf(type);
   if (elementType.isF32())
@@ -295,7 +296,8 @@ void getKnownBroadcastSize(DimAnalysis *dimAnalysis, Value val, Value refVal,
       int64_t dim = shape[d];
       if (!dimAnalysis->sameDim(val, d, refVal, refD)) {
         if (!ShapedType::isDynamic(refDim) && !ShapedType::isDynamic(dim)) {
-          // Different dims are statics, test if stick broadcast to output dim.
+          // Different dims are statics, test if stick broadcast to output
+          // dim.
           if (dim == 1 && refDim != 1)
             staticBroadcastSize *= refDim;
         }
@@ -317,9 +319,9 @@ Operation *getSingleUseOperationOf(Value val) {
       multipleComputeOpNum++;
       LLVM_DEBUG({
         if (multipleComputeOpNum == 1) {
-          // TODO, could look into tolerating multiple "supported" ops + some
-          // free ops such as "DimOp". Printout here highlights the missing
-          // opportunities.
+          // TODO, could look into tolerating multiple "supported" ops +
+          // some free ops such as "DimOp". Printout here highlights the
+          // missing opportunities.
           llvm::dbgs() << "Unstick -> multiple compute ops fusion FAILURE:\n  ";
           val.dump();
           llvm::dbgs() << "  ";
@@ -350,23 +352,23 @@ Operation *patternForFusionFromUnstick(
     return nullptr;
   if (!canOpFuseWithStickUnstick(computeOp)) {
     notifyFailure(/* usefull to find new opportunities not supported yet*/
-        computeOp, unstickOp, "compute op cannot fuse");
+        unstickOp, computeOp, "compute op cannot fuse");
     return nullptr;
   }
   if (!suitableComputeType(computeOp)) {
-    notifyFailure(computeOp, unstickOp, "due to non f32/dlf16 element type");
+    notifyFailure(unstickOp, computeOp, "due to non f32/dlf16 element type");
     return nullptr;
   }
   // We must support this layout.
   if (isZTensor(unstickInVal.getType()) &&
       !supportedLayoutForCompilerGeneratedStickUnstick(
           unstickInVal, /*support NHWC*/ false)) {
-    notifyFailure(computeOp, unstickOp, "due to unstick layout");
+    notifyFailure(unstickOp, computeOp, "due to unstick layout");
     return nullptr;
   }
   // Suitable shapes?
   if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, unstickOutVal)) {
-    notifyFailure(computeOp, unstickOp, "due to input shapes");
+    notifyFailure(unstickOp, computeOp, "due to input shapes");
     return nullptr;
   }
 #if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
@@ -374,7 +376,7 @@ Operation *patternForFusionFromUnstick(
   ZTensorEncodingAttr::DataLayout unstickLayout =
       onnx_mlir::zhigh::getZTensorLayout(unstickInVal.getType());
   if (!suitableLayout(computeOp, unstickLayout)) {
-    notifyFailure(computeOp, unstickOp, "due to input zTensor layouts");
+    notifyFailure(unstickOp, computeOp, "due to input zTensor layouts");
     return nullptr;
   }
 #endif
@@ -383,13 +385,13 @@ Operation *patternForFusionFromUnstick(
   getKnownBroadcastSize(dimAnalysis, unstickOutVal, computeOp->getResult(0),
       staticBroadcastSize, dynamicBroadcastDimNum);
   if (staticBroadcastSize > 1 || dynamicBroadcastDimNum > 0) {
-    notifyFailure(computeOp, unstickOp,
+    notifyFailure(unstickOp, computeOp,
         "due to unstick output being broadcasted to compute op");
     return nullptr;
   }
 #endif
   // Success.
-  notifySuccess(computeOp, unstickOp, "");
+  notifySuccess(unstickOp, computeOp, "");
   return computeOp;
 }
 
@@ -411,36 +413,36 @@ Operation *patternForFusionFromStick(
   if (!canOpFuseWithStickUnstick(computeOp)) {
     if (!mlir::isa<ONNXConstantOp>(computeOp))
       // No explanation for constants...
-      notifyFailure(computeOp, stickOp, "compute op cannot fuse");
+      notifyFailure(stickOp, computeOp, "compute op cannot fuse");
     return nullptr;
   }
   if (!suitableComputeType(computeOp)) {
-    notifyFailure(computeOp, stickOp, "due to non f32/dlf16 element type");
+    notifyFailure(stickOp, computeOp, "due to non f32/dlf16 element type");
     return nullptr;
   }
   // We must support this layout.
   if (isZTensor(stickOutVal.getType()) &&
       !supportedLayoutForCompilerGeneratedStickUnstick(
           stickOutVal, /*support NHWC*/ false)) {
-    notifyFailure(computeOp, stickOp, "due to stick layout");
+    notifyFailure(stickOp, computeOp, "due to stick layout");
     return nullptr;
   }
   // Suitable shapes? Has to do it here too as we need to be able to generate
   // code for the computeOp (including the handling of all its inputs).
   if (!sameLastDimOrStaticBroadcast(dimAnalysis, computeOp, stickInVal)) {
-    notifyFailure(computeOp, stickOp, "due to input shapes");
+    notifyFailure(stickOp, computeOp, "due to input shapes");
     return nullptr;
   }
 #if !ENABLE_ELEMENTWISE_WITH_MULTIPLE_LAYOUTS
   ZTensorEncodingAttr::DataLayout stickLayout =
       onnx_mlir::zhigh::getZTensorLayout(stickOp.getOut().getType());
   if (!suitableLayout(computeOp, stickLayout)) {
-    notifyFailure(computeOp, stickOp, "due to input zTensor layouts");
+    notifyFailure(stickOp, computeOp, "due to input zTensor layouts");
     return nullptr;
   }
 #endif
   // ZHighUnstickOp unstickOp = computeOp
-  notifySuccess(computeOp, stickOp, "");
+  notifySuccess(stickOp, computeOp, "");
   return computeOp;
 }
 
@@ -486,10 +488,11 @@ public:
 
     Operation *computeOp = patternForFusionFromStick(stickOp, dimAnalysis);
     if (computeOp) {
-      // Fuse only first result of an op (ok for LayerNorm and elementwise ops).
+      // Fuse only first result of an op (ok for LayerNorm and elementwise
+      // ops).
       if (computeOp->getResult(0) != stickOp.getIn()) {
         notifyFailure(
-            computeOp, stickOp, "fuse only first result of compute op");
+            stickOp, computeOp, "fuse only first result of compute op");
         return failure();
       }
       // New compute op: has type of the stick output.
@@ -542,76 +545,216 @@ bool doesTransposeLeaveInnermostInPlace(mlir::ArrayAttr &permute) {
 }
 
 class PatternsForExtendedLayoutTransform
-    : public OpRewritePattern<ZHighExtendedLayoutTransformOp> {
+    : public OpRewritePattern<ONNXLayoutTransformOp> {
 public:
   DimAnalysis *dimAnalysis;
 
   PatternsForExtendedLayoutTransform(
       MLIRContext *context, DimAnalysis *dimAnalysis)
-      : OpRewritePattern<ZHighExtendedLayoutTransformOp>(context, 1),
+      : OpRewritePattern<ONNXLayoutTransformOp>(context, 1),
         dimAnalysis(dimAnalysis) {}
 
-  using OpRewritePattern<ZHighExtendedLayoutTransformOp>::OpRewritePattern;
+  using OpRewritePattern<ONNXLayoutTransformOp>::OpRewritePattern;
 
-  bool locatePattern(ONNXLayoutTransformOp layoutTransformOp) {
+  bool locatePattern(ONNXLayoutTransformOp layoutTransform,
+      int64_t &reshapeSplitAxis, int64_t &reshapeSplitFactor,
+      int64_t &reshapeMergeAxis, bool &hasDlf16To32,
+      std::optional<mlir::ArrayAttr> &transposePattern,
+      std::optional<mlir::Attribute> &finalLayout) const {
+    // Parameters for op (if successful).
+    reshapeSplitAxis = reshapeMergeAxis = -1;
+    reshapeSplitFactor = 1;
+    hasDlf16To32 = false;
+
     // First layout transform should target CPU.
-    auto originalTargetLayout = layoutTransformOp.getTargetLayout();
+    auto originalTargetLayout = layoutTransform.getTargetLayout();
     if (originalTargetLayout.has_value())
-      return notifyFailure(layoutTransformOp, nullptr,
+      return notifyFailure(layoutTransform, nullptr,
           "First layout should target CPU"); // No layout == CPU layout.
-    Value inputData = layoutTransformOp.getData();
+    Value inputData = layoutTransform.getData();
     int64_t inputRank = getRank(inputData.getType());
     if (!isZTensor(inputData.getType()))
-      return notifyFailure(
-          layoutTransformOp, nullptr, "Expected zTensor input");
+      return notifyFailure(layoutTransform, nullptr, "Expected zTensor input");
     if (!supportedLayoutForCompilerGeneratedStickUnstick(
             inputData, /*nhwc*/ false))
       return notifyFailure(
-          layoutTransformOp, nullptr, "Compiler unsupported zTensor input");
+          layoutTransform, nullptr, "Compiler unsupported zTensor input");
+    if (!hasStaticInnermostDimWithMod(inputData, 64))
+      return notifyFailure(layoutTransform, nullptr,
+          "Compiler unsupported innermost dim (static, mod 64)");
 
-    // Parameters for op (if successful).
-    int64_t reshapeSplitAxis = -1, reshapeSplitFactor = 1,
-            reshapeMergeAxis = -1;
-    bool hasTranspose = false, dlf16To32 = false, hasFinalLayout = false;
-    mlir::ArrayAttr transposePattern;
-    mlir::StringAttr finalLayout;
-
-    // look for a permute
+    // Look for a permute.
     Value currOutputVal = layoutTransform.getOutput();
-    Operation *reshapeSplitOp = useOnlyBy<ONNXReshapeOp>(currOutput);
+    Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(currOutputVal);
     if (reshapeSplitOp) {
       ONNXReshapeOp reshapeSplit = mlir::cast<ONNXReshapeOp>(reshapeSplitOp);
       // Do we have a split?
       Value reshapedVal = reshapeSplit.getReshaped();
       int64_t reshapedRank = getRank(reshapedVal.getType());
       if (reshapedRank != inputRank + 1)
-        return notifyFailure(layoutTransformOp, reshapeSplitOp,
+        return notifyFailure(layoutTransform, reshapeSplitOp,
             "Reshape expected to split one dim (ranks)");
       // Look for the different shapes.
-      int64_t dout = 0;
-      for (int64_t din = 0; din < inputRank; ++din) {
-        if (do >= reshapedRank)
-          return notifyFailure(layoutTransformOp, reshapeSplitOp,
+      int64_t din = 0, dout = 0;
+      for (; din < inputRank; ++din, ++dout) {
+        if (dout >= reshapedRank)
+          return notifyFailure(layoutTransform, reshapeSplitOp,
               "Reshape expected to split one dim (out of dout)");
-        if (dimAnalysis(currOutputVal, din, reshapedVal, dout)) {
-          ++dout continue;
-        }
-        // Since we assume a split of one shape into two: speculatively set the
-        // split here.
-        if (splitAxis != -1)
-          return notifyFailure(layoutTransformOp, reshapeSplitOp,
+        if (dimAnalysis->sameDim(currOutputVal, din, reshapedVal, dout))
+          continue;
+        // Since we assume a split of one shape into two: speculatively set
+        // the split here.
+        if (reshapeSplitAxis != -1)
+          return notifyFailure(layoutTransform, reshapeSplitOp,
               "Reshape expected to split one dim (second split)");
-
-        splitAxis = din;
-        dout += 2;
+        reshapeSplitAxis = din;
+        ++dout; // Skip the split axis
       }
+      // Have a valid reshape split; find out the factor
+      if (din != inputRank || dout != inputRank + 1)
+        return notifyFailure(layoutTransform, reshapeSplitOp,
+            "Reshape expected to split one dim (end condition)");
+      // int64_t d1 = getShape(reshapedVal.getType(), reshapeSplitAxis);
+      int64_t d2 = getShape(reshapedVal.getType(), reshapeSplitAxis + 1);
+      if (d2 == ShapedType::kDynamic)
+        return notifyFailure(layoutTransform, reshapeSplitOp,
+            "Reshape expected to split one dim (const in 2nd place)");
+      if (reshapeSplitAxis == inputRank - 1 && d2 % 64 != 0)
+        return notifyFailure(layoutTransform, reshapeSplitOp,
+            "Reshape of last dim supports only 0 mod 64 static shape");
+      reshapeSplitFactor = d2;
+      currOutputVal = reshapedVal;
     }
+
+    // Check transpose.
+    Operation *transposeOp = usedOnlyBy<ONNXTransposeOp>(currOutputVal);
+    if (transposeOp) {
+      ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
+      auto perm = transpose.getPerm();
+      if (!perm.has_value())
+        return notifyFailure(layoutTransform, transposeOp,
+            "Last dim is transposed (default pattern)");
+      if (!doesTransposeLeaveInnermostInPlace(perm.value()))
+        return notifyFailure(
+            layoutTransform, transposeOp, "Last dim is transposed");
+      transposePattern = perm;
+      currOutputVal = transpose.getTransposed();
+    }
+
+    // Check reshape merge.
+    Operation *reshapeMergeOp = usedOnlyBy<ONNXReshapeOp>(currOutputVal);
+    if (reshapeMergeOp) {
+      ONNXReshapeOp reshapeMerge = mlir::cast<ONNXReshapeOp>(reshapeMergeOp);
+      // Do we have a merge?
+      Value reshapedVal = reshapeMerge.getReshaped();
+      int64_t reshapedRank = getRank(reshapedVal.getType());
+      if (reshapedRank != getRank(currOutputVal.getType()) - 1)
+        return notifyFailure(layoutTransform, reshapeMergeOp,
+            "Reshape expected to merge two dim (ranks)");
+      // Detect which dimension is merged.
+      int64_t din = 0, dout = 0;
+      for (; dout < reshapedRank; ++dout, ++din) {
+        if (din >= reshapedRank)
+          return notifyFailure(layoutTransform, reshapeMergeOp,
+              "Reshape expected to merge one dim (out of din)");
+        if (dimAnalysis->sameDim(currOutputVal, din, reshapedVal, dout))
+          continue;
+        // Since we assume a split of one shape into two: speculatively set
+        // the split here.
+        if (reshapeMergeAxis != -1)
+          return notifyFailure(layoutTransform, reshapeMergeOp,
+              "Reshape expected to merge one dim (second merge)");
+        reshapeMergeAxis = din;
+        ++din; // Skip the merge axis
+      }
+      // Have a valid reshape split; find out the factor
+      if (din != reshapedRank + 1 || dout != reshapedRank)
+        return notifyFailure(layoutTransform, reshapeSplitOp,
+            "Reshape expected to merge one dim (end condition)");
+      currOutputVal = reshapedVal;
+    }
+
+    // Check for a Layout transform / dlf16To32
+    Operation *finalLayoutTransformOp =
+        usedOnlyBy<ONNXLayoutTransformOp>(currOutputVal);
+    Operation *dlf16To32Op = usedOnlyBy<ZHighDLF16ToF32Op>(currOutputVal);
+    if (finalLayoutTransformOp) {
+      ONNXLayoutTransformOp finalLayoutTransform =
+          mlir::cast<ONNXLayoutTransformOp>(finalLayoutTransformOp);
+      if (!supportedLayoutForCompilerGeneratedStickUnstick(
+              finalLayoutTransform.getOutput(), /*nhwc*/ false))
+        return notifyFailure(layoutTransform, finalLayoutTransformOp,
+            "Compiler unsupported final zTensor output");
+      finalLayout = finalLayoutTransform.getTargetLayout();
+      currOutputVal = finalLayoutTransform.getOutput();
+    } else if (dlf16To32Op) {
+      ZHighDLF16ToF32Op dlf16To32 = mlir::cast<ZHighDLF16ToF32Op>(dlf16To32Op);
+      hasDlf16To32 = true;
+      currOutputVal = dlf16To32.getOut();
+    }
+
+    LLVM_DEBUG({
+      llvm::dbgs() << "ExtendedLayoutTransform: \n  Initial LT: ";
+      layoutTransform.dump();
+      if (reshapeSplitAxis != -1) {
+        llvm::dbgs() << "  reshape split (axis " << reshapeSplitAxis
+                     << ", factor " << reshapeSplitFactor << "): ";
+        reshapeSplitOp->dump();
+      }
+      if (transposeOp) {
+        llvm::dbgs() << "  transpose: ";
+        transposeOp->dump();
+      }
+      if (reshapeMergeAxis != -1) {
+        llvm::dbgs() << "  reshape merge (axis " << reshapeMergeAxis << "): ";
+        reshapeMergeOp->dump();
+      }
+      if (finalLayoutTransformOp) {
+        llvm::dbgs() << "  final LT: ";
+        finalLayoutTransformOp->dump();
+      }
+      if (dlf16To32Op) {
+        llvm::dbgs() << "  final dlf16To32: ";
+        dlf16To32Op->dump();
+      }
+    });
+    // Initial LT and transpose are sufficient to be useful.
+    if (transposeOp)
+      return notifySuccess(layoutTransform, nullptr, "with transpose op");
+    // Initial LT, one reshape, one finalLT/dlf16To32 are sufficient to be
+    // useful.
+    if ((reshapeSplitAxis != -1 || reshapeMergeAxis != -1) &&
+        (finalLayoutTransformOp || dlf16To32Op))
+      return notifySuccess(
+          layoutTransform, nullptr, "no transpose, with reshape and layout");
+
+    // Not enough.
+    return notifyFailure(layoutTransform, nullptr,
+        "Does not have sufficient ops to be beneficial");
   }
 
-  LogicalResult matchAndRewrite(
-      ZHighExtendedLayoutTransformOp layoutTransformOp,
+  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
       PatternRewriter &rewriter) const override {
+
+    int64_t reshapeSplitAxis, reshapeSplitFactor, reshapeMergeAxis;
+    bool hasDlf16To32;
+    std::optional<mlir::ArrayAttr> transposePattern;
+    std::optional<mlir::Attribute> finalLayout;
+    if (!locatePattern(layoutTransformOp, reshapeSplitAxis, reshapeSplitFactor,
+            reshapeMergeAxis, hasDlf16To32, transposePattern, finalLayout)) {
+      return failure();
+    }
+    // Perform substitution.
+#if 1 // hi alex
+    Location loc = layoutTransformOp.getLoc();
+    auto newOp = rewriter.create<ZHighExtendedLayoutTransformOp>(loc,
+        layoutTransformOp.getData(), reshapeSplitAxis, reshapeSplitFactor,
+        transposePattern, reshapeMergeAxis, hasDlf16To32, finalLayout);
+    rewriter.replaceOp(layoutTransformOp, newOp);
     return success();
+#else
+    return failure();
+#endif
   }
 };
 //===----------------------------------------------------------------------===//
@@ -650,6 +793,8 @@ struct FusionOpStickUnstick
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
+    patterns.insert<PatternsForExtendedLayoutTransform>(
+        &getContext(), dimAnalysis);
 
     if (failed(applyPatternsGreedily(module, std::move(patterns))))
       return signalPassFailure();

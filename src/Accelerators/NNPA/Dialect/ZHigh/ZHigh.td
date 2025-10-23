@@ -1261,8 +1261,8 @@ def ZHighExtendedLayoutTransformOp:ZHigh_Op<"ExtendedLayoutTransform", [Pure,
   
   let builders = [
     OpBuilder<(ins "::mlir::Value":$source,  "int64_t":$reshapeSplitAxis, 
-              "int64_t":$reshapeSplitFactor, "::mlir::ArrayAttr":$transposePattern,
-               "int64_t":$reshapeMergeAxis, "bool":$dlf16ToF32, "::mlir::StringAttr":$layout)>
+              "int64_t":$reshapeSplitFactor, "std::optional<>::mlir::ArrayAttr>":$transposePattern,
+               "int64_t":$reshapeMergeAxis, "bool":$dlf16ToF32, "std::optional<>::mlir::Attribute>":$layout)>
   ];
   
 
