@@ -45,13 +45,13 @@ input = torch.randn(2)
 output = opt_mod(input, input)
 print("output: ", output)
 
-
-# Second inference
+# Second inference: different input shapes, so recompile the model.
 input1 = torch.randn(3)
 input2 = torch.randn(3)
 output1 = opt_mod(input1, input2)
 print("output: ", output1)
 
+# Third inference: reuse the compiled .so in the cache: no recompilation.
 input3 = torch.randn(2)
 output2 = opt_mod(input3, input3)
 print("output: ", output2)

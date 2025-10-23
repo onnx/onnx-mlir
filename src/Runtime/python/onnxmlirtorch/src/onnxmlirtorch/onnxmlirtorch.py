@@ -90,7 +90,6 @@ def print_parameters(model, args, kwargs, outputs):
 # Backend function for torch.compile for onnx-mlir
 onnxmlir_counter = 1
 
-
 def onnxmlir_backend(torch_model, *args, **kwargs):
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
@@ -122,6 +121,7 @@ def interceptForward(model):
 class config:
     cache_size = 3
 
+glocalSessionCache = SessionCache(config.cache_size)
 
 class ONNXMLIRTorch:
     def __init__(self, torch_model, **kwargs):
@@ -129,7 +129,7 @@ class ONNXMLIRTorch:
         # Temporary directory
         self.workdir = tempfile.TemporaryDirectory()
         self.default_model_name = "model"
-        self.sessionCache = SessionCache(config.cache_size)
+        self.sessionCache = glocalSessionCache
         if "compile_tag" in kwargs.keys():
             self.tag = kwargs["compile_tag"]
         else:
