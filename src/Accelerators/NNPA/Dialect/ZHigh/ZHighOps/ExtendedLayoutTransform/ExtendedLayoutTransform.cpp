@@ -125,8 +125,9 @@ LogicalResult ZHighExtendedLayoutTransformOp::verify() {
 
 void ZHighExtendedLayoutTransformOp::build(OpBuilder &builder,
     OperationState &state, Value source, int64_t reshapeSplitAxis,
-    int64_t reshapeSplitFactor, ArrayAttr transposePattern,
-    int64_t reshapeMergeAxis, bool dlf16ToF32, StringAttr layout) {
+    int64_t reshapeSplitFactor, std::optional<ArrayAttr> transposePattern,
+    int64_t reshapeMergeAxis, bool dlf16ToF32,
+    std::optional<StringAttr> layout) {
 
   Type elementType;
   if (dlf16ToF32)
@@ -143,9 +144,10 @@ void ZHighExtendedLayoutTransformOp::build(OpBuilder &builder,
   auto si64Ty = builder.getI64Type();
   build(builder, state, resType, source,
       builder.getIntegerAttr(si64Ty, reshapeSplitAxis),
-      builder.getIntegerAttr(si64Ty, reshapeSplitFactor), transposePattern,
+      builder.getIntegerAttr(si64Ty, reshapeSplitFactor),
+      transposePattern.value_or(nullptr),
       builder.getIntegerAttr(si64Ty, reshapeMergeAxis),
-      builder.getBoolAttr(dlf16ToF32), layout);
+      builder.getBoolAttr(dlf16ToF32), layout.value_or(nullptr));
 }
 
 //===----------------------------------------------------------------------===//

@@ -560,7 +560,7 @@ public:
       int64_t &reshapeSplitAxis, int64_t &reshapeSplitFactor,
       int64_t &reshapeMergeAxis, bool &hasDlf16To32,
       std::optional<mlir::ArrayAttr> &transposePattern,
-      std::optional<mlir::Attribute> &finalLayout) const {
+      std::optional<mlir::StringAttr> &finalLayout) const {
     // Parameters for op (if successful).
     reshapeSplitAxis = reshapeMergeAxis = -1;
     reshapeSplitFactor = 1;
@@ -739,7 +739,7 @@ public:
     int64_t reshapeSplitAxis, reshapeSplitFactor, reshapeMergeAxis;
     bool hasDlf16To32;
     std::optional<mlir::ArrayAttr> transposePattern;
-    std::optional<mlir::Attribute> finalLayout;
+    std::optional<mlir::StringAttr> finalLayout;
     if (!locatePattern(layoutTransformOp, reshapeSplitAxis, reshapeSplitFactor,
             reshapeMergeAxis, hasDlf16To32, transposePattern, finalLayout)) {
       return failure();
