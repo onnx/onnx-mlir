@@ -685,7 +685,10 @@ public:
               finalLayoutTransform.getOutput(), /*nhwc*/ false))
         return notifyFailure(layoutTransform, finalLayoutTransformOp,
             "Compiler unsupported final zTensor output");
-      finalLayout = finalLayoutTransform.getTargetLayout();
+      std::optional<mlir::Attribute> layoutAttr = finalLayoutTransform.getTargetLayout();
+      mlir::StringAttr layoutStringAttr = mlir::dyn_cast<StringAttr>(layoutAttr.value());
+      assert(layoutStringAttr && "expected layout here");
+      finalLayout = layoutStringAttr;
       currOutputVal = finalLayoutTransform.getOutput();
     } else if (dlf16To32Op) {
       ZHighDLF16ToF32Op dlf16To32 = mlir::cast<ZHighDLF16ToF32Op>(dlf16To32Op);
@@ -745,7 +748,7 @@ public:
       return failure();
     }
     // Perform substitution.
-#if 1 // hi alex
+#if 0 // hi alex
     Location loc = layoutTransformOp.getLoc();
     auto newOp = rewriter.create<ZHighExtendedLayoutTransformOp>(loc,
         layoutTransformOp.getData(), reshapeSplitAxis, reshapeSplitFactor,
