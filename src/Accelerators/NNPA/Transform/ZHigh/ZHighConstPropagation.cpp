@@ -227,6 +227,7 @@ ZHighStickifiedConstantOp createQuantizedConstantForStick(
   init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
   status = allochelper_ztensor_alloc(&ztensor);
   assert(status == ZDNN_OK);
+  memset(ztensor.buffer, 0, ztensor.buffer_size);
   status = quantized_stickify(&ztensor, rawData.data());
   assert(status == ZDNN_OK);
   // Emit a constant global in ZHigh dialect.
