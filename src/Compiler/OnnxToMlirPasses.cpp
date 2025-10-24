@@ -40,7 +40,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         !opts.disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
         opts.enableConvTransposeDecompose,
         opts.enableConvTransposeDecomposeToPhasedConv,
-        opts.enableConvTranspose1dDecomposeToPhasedConv, opts.enableRecomposeLayernormByTranspose));
+        opts.enableConvTranspose1dDecomposeToPhasedConv,
+        opts.enableRecomposeLayernormByTranspose));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
