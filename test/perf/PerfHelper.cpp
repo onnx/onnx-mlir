@@ -35,7 +35,8 @@ int perf_main(int argc, char **argv) {
   onnxMlirArgv[0] = argv[0];
   onnxMlirArgv[1] = "-O3";
   if (!llvm::cl::ParseCommandLineOptions(onnxMlirArgc, onnxMlirArgv,
-          "set options for perf-algo", nullptr, /*env var*/ "PERF_ARGS"))
+          "set options for perf-algo", nullptr, nullptr,
+          /*env var*/ "PERF_ARGS"))
     return 2;
   if (::benchmark::ReportUnrecognizedArguments(argc, argv))
     return 1;
