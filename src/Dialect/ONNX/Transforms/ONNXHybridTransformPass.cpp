@@ -111,13 +111,20 @@ struct ONNXHybridTransformPass
           "phased Conv"),
       ::llvm::cl::init(false)};
 
+  Option<bool> recomposeLayernormByTranspose{*this,
+      "recompose-layernorm-by-transpose",
+      llvm::cl::desc("Use transpose operator to make unsuitable axes suitable "
+                     "for matching layernorm"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass(bool enableRecomposition,
       bool enableQuarkQuantizedOpsLegalization,
       bool enableConvTransposeDecompose,
       bool enableConvTransposeDecomposeToPhasedConv,
-      bool enableConvTranspose1dDecomposeToPhasedConv) {
+      bool enableConvTranspose1dDecomposeToPhasedConv,
+      bool recomposeLayernormByTranspose) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -125,6 +132,7 @@ struct ONNXHybridTransformPass
         enableConvTransposeDecomposeToPhasedConv;
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
+    this->recomposeLayernormByTranspose = recomposeLayernormByTranspose;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -171,7 +179,8 @@ struct ONNXHybridTransformPass
     }
 
     if (recomposition) {
-      getRecomposeONNXToONNXPatterns(cumulativePatterns);
+      getRecomposeONNXToONNXPatterns(
+          cumulativePatterns, recomposeLayernormByTranspose);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
@@ -210,9 +219,11 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization,
     bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv) {
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableRecomposeLayernormByTranspose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv);
+      enableConvTranspose1dDecomposeToPhasedConv,
+      enableRecomposeLayernormByTranspose);
 }
