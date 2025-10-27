@@ -114,11 +114,11 @@ def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
 
 
 class ONNXMLIRTorch:
-    def __init__(self, torch_model, **kwargs):
+    def __init__(self, gm: torch.fx.GraphModule, **kwargs):
         global onnxmlir_counter
         onnxmlir_counter += 1
         # Pytorch model.
-        self.torch_model = torch_model
+        self.gm = gm
         # Caching onnx_mlir sessions to avoid recompilation.
         self.session_cache = global_session_cache
 
@@ -140,10 +140,8 @@ class ONNXMLIRTorch:
         return self.forward(*example_inputs)
 
     def forward(self, *example_inputs):
-        cache_key = generate_hash_key(
-            self.torch_model, self.onnxmlir_kwargs["compile_options"]
-        )
-        # Check whether there is any cached compiled model
+        cache_key = generate_hash_key(self.gm, self.onnxmlir_kwargs["compile_options"])
+        # Check whether there is any cached compiled model.
         cached_session = self.session_cache.get(cache_key)
 
         if cached_session is None:
@@ -172,11 +170,11 @@ class ONNXMLIRTorch:
             if os.path.exists(old_so_file):
                 os.remove(old_so_file)
 
-            # Export the pytorch model to onnx.
-            self.export_model_to_onnx(example_inputs)
+            # Export the graph module to onnx.
+            self.export_gm_to_onnx(example_inputs)
 
             # Create a session for compiling and running the onnx model.
-            sess = self.create_onnx_mlir_session()
+            sess = self.create_onnxmlir_session()
 
             # Replace the victim cache entry
             self.session_cache.put(cache_key, (self.tag, sess))
@@ -184,11 +182,11 @@ class ONNXMLIRTorch:
             # Use the InferenceSession
             _, sess = cached_session
 
-        # Run the inference.
         # onnx_mlir accepts numpy arrays as inputs and outputs.
         om_inputs = [
             arg.numpy() for arg in example_inputs if isinstance(arg, torch.Tensor)
         ]
+        # Run the inference.
         om_outputs = sess.run(om_inputs)
         return [torch.from_numpy(output) for output in om_outputs]
 
@@ -197,7 +195,7 @@ class ONNXMLIRTorch:
         This computes a dictionary of dynamic shapes to be used in torch.export.
         """
         dynamic_shapes = {}
-        for node in self.torch_model.graph.nodes:
+        for node in self.gm.graph.nodes:
             if node.op != "placeholder":
                 continue
             input_name = node.target
@@ -217,19 +215,19 @@ class ONNXMLIRTorch:
                 dynamic_shapes[input_name] = dynamic_dims
         return dynamic_shapes
 
-    def export_model_to_onnx(self, example_inputs):
+    def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         dynamic_shapes = self.get_dynamic_shapes_for_export()
         torch.onnx.export(
-            self.torch_model,
+            self.gm,
             example_inputs,
             self.onnx_model,
             dynamic_shapes=dynamic_shapes,
         )
 
-    def create_onnx_mlir_session(self):
-        # Compile onnx model and hook with pyruntime
+    def create_onnxmlir_session(self):
+        # Return a session to compile and run the onnx model.
         return InferenceSession(
             self.onnx_model,
             temp_dir=self.workdir,
