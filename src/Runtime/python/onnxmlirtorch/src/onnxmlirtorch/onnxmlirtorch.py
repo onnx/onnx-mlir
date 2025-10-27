@@ -131,12 +131,9 @@ class ONNXMLIRTorch:
         self.tag = onnxmlir_counter
 
         # Args passed to onnx-mlir.
-        self.onnxmlir_kwargs = {}
+        self.onnxmlir_kwargs = {"compile_tag": str(self.tag)}
         if kwargs["options"] is not None:
             for k, v in kwargs["options"].items():
-                # compile_tag in onnx_mlir is a string.
-                if k == "compile_tag":
-                    self.onnxmlir_kwargs[k] = str(self.tag)
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
