@@ -291,7 +291,9 @@ public:
     bool isBilinear = mode == "linear";
     bool isNearest = mode == "nearest";
     bool isNearestModeFloor = nearestMode == "floor";
-    StringRef resizeMode = isBilinear ? "BILINEAR" : "NEAREST_NEIGHBOR";
+    mlir::tosa::ResizeMode resizeMode =
+        isBilinear ? mlir::tosa::ResizeMode::BILINEAR
+                   : mlir::tosa::ResizeMode::NEAREST_NEIGHBOR;
 
     if (halfPixelSymmetric)
       return rewriter.notifyMatchFailure(op,
@@ -317,7 +319,8 @@ public:
     Value border = mlir::tosa::getTosaConstShape(
         rewriter, loc, {yDimension.border, xDimension.border});
 
-    auto resizeModeAttr = rewriter.getStringAttr(resizeMode);
+    auto resizeModeAttr =
+        mlir::tosa::ResizeModeAttr::get(rewriter.getContext(), resizeMode);
     Type newOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
                                   inputType.getRank(), ShapedType::kDynamic),
