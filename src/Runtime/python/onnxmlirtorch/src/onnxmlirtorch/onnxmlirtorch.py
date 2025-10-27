@@ -5,6 +5,12 @@ import tempfile
 import torch
 import inspect
 
+from torch.fx import symbolic_trace
+from torch._inductor.codecache import (
+    FxGraphCachePickler,
+    FxGraphHashDetails,
+)
+
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache
 
@@ -88,10 +94,10 @@ def print_parameters(model, args, kwargs, outputs):
 
 
 # Backend function for torch.compile for onnx-mlir
-onnxmlir_counter = 1
+onnxmlir_counter = 0
 
 
-def onnxmlir_backend(torch_model, *args, **kwargs):
+def onnxmlir_backend(torch_model: torch.fx.GraphModule, *args, **kwargs):
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
     # The args and kwargs are inputs provided at inference, namely call to
@@ -126,6 +132,17 @@ class config:
 glocalSessionCache = SessionCache(config.cache_size)
 
 
+class OMFxGraphHashDetails:
+    def __init__(self, gm: torch.fx.GraphModule) -> None:
+        self.gm = gm
+
+
+def generate_hask_key(gm: torch.fx.GraphModule) -> str:
+    pickler = FxGraphCachePickler(gm)
+    details = OMFxGraphHashDetails(gm)
+    return pickler.get_hash(details)
+
+
 class ONNXMLIRTorch:
     def __init__(self, torch_model, **kwargs):
         self.torch_model = torch_model
@@ -146,12 +163,13 @@ class ONNXMLIRTorch:
 
     def forward(self, *args, **kwargs):
         # Convert the torch tensor to numpy tensor if needed
-        np_args = [arg.numpy() for arg in args]
-        # Get the shape of the input and convert it to string to be used as key
-        input_shapes = str([arg.shape for arg in args])
+        np_args = [arg.numpy() for arg in args if isinstance(arg, torch.Tensor)]
 
+        print("model", self.torch_model)
+        cache_key = generate_hask_key(self.torch_model)
+        print("cache key", cache_key)
         # Check whether there is any cached compiled model
-        cached_session = self.sessionCache.get(input_shapes)
+        cached_session = self.sessionCache.get(cache_key)
 
         if cached_session is None:
             # When there is no cached compiled lib, export the torch model
@@ -182,7 +200,16 @@ class ONNXMLIRTorch:
             self.tag += 1
             model_name = self.default_model_name + str(self.tag) + ".onnx"
             self.onnx_model = os.path.join(self.workdir.name, model_name)
-            torch.onnx.export(self.torch_model, args, self.onnx_model)
+            dynamic_axes = {}
+            for i, arg in enumerate(np_args):
+                print("shape", len(arg.shape))
+                dynamic_axes[f"input_{i}"] = {
+                    k: f"input_dim{k}" for k in range(len(arg.shape))
+                }
+            print("dynamic_axes", dynamic_axes)
+            torch.onnx.export(
+                self.torch_model, args, self.onnx_model, dynamic_shapes=dynamic_axes
+            )
 
             # Compile onnx model and hook with pyruntime
             sess = InferenceSession(
@@ -192,7 +219,7 @@ class ONNXMLIRTorch:
                 **self.kwargs,
             )
             # Replace the victim cache entry
-            self.sessionCache.put(input_shapes, (self.tag, sess))
+            self.sessionCache.put(cache_key, (self.tag, sess))
         else:
             # Use the InferenceSession
             _, sess = cached_session
