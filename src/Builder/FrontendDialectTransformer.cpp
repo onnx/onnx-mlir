@@ -1465,7 +1465,7 @@ private:
     try {
       onnx::shape_inference::InferShapes(&graph, function_opset_map,
           onnx::OpSchemaRegistry::Instance(),
-          /*options=*/{}, in_model_functions_);
+          /*options=*/onnx::ShapeInferenceOptions(), in_model_functions_);
     } catch (const std::exception &e) {
       llvm::errs() << "Warning: Caught exception running onnx shape inference "
                       "to populate graph.value_info: "
