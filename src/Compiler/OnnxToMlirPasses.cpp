@@ -51,7 +51,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
               /*enableQuarkQuantizedOpsLegalization=*/false,
               opts.enableConvTransposeDecompose,
               opts.enableConvTransposeDecomposeToPhasedConv,
-              opts.enableConvTranspose1dDecomposeToPhasedConv));
+              opts.enableConvTranspose1dDecomposeToPhasedConv,
+              opts.enableRecomposeLayernormByTranspose));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -107,7 +108,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         !opts.disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
         opts.enableConvTransposeDecompose,
         opts.enableConvTransposeDecomposeToPhasedConv,
-        opts.enableConvTranspose1dDecomposeToPhasedConv));
+        opts.enableConvTranspose1dDecomposeToPhasedConv,
+        opts.enableRecomposeLayernormByTranspose));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());

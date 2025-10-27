@@ -587,22 +587,23 @@ public:
 
 // This pattern bubbles up AddOp through transpose to keep the bias Add
 // operation right after LN_type op. This will helps the other patterns fold the
-// add into the operands of LayerNorm.
+// add into the operands of a Norm operator.
 //
-// From: LayerNorm
+// From:
+// Norm operator
 //    |
 // Transpose
 //    |
 //   Add
 //
 // To:
-// LayerNorm
+// Norm operator
 //    |
 //   Add
 //    |
 // Transpose
 template <typename LN_TYPE>
-class BubbleUpBiasForLayerNormPattern : public OpRewritePattern<ONNXAddOp> {
+class BubbleUpBiasForNormOpPattern : public OpRewritePattern<ONNXAddOp> {
 public:
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
@@ -2487,9 +2488,9 @@ void ONNXAddOp::getCanonicalizationPatterns(
       PropagateBiasIntoLayerNormRewritePattern<ONNXRMSLayerNormalizationOp>>(
       context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
-  results.insert<BubbleUpBiasForLayerNormPattern<ONNXLayerNormalizationOp>>(
+  results.insert<BubbleUpBiasForNormOpPattern<ONNXLayerNormalizationOp>>(
       context);
-  results.insert<BubbleUpBiasForLayerNormPattern<ONNXRMSLayerNormalizationOp>>(
+  results.insert<BubbleUpBiasForNormOpPattern<ONNXRMSLayerNormalizationOp>>(
       context);
 }
 

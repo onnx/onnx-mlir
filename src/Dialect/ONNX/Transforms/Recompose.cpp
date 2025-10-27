@@ -176,6 +176,9 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     Value res;
 
     if constexpr (RecomposeLayernormByTranspose) {
+      if (!hasShapeAndRank(scale))
+        return rewriter.notifyMatchFailure(
+            mulOp, "the scale doesn't have shape or rank");
       // if the permutation is empty, nothing is needed to be permuted.
       // Otherwise, both input and scale must be transposed.
       if (!permutation.empty()) {

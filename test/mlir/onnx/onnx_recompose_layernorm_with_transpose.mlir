@@ -1,6 +1,6 @@
-// RUN: onnx-mlir-opt --recompose-onnx="recompose-layernorm-by-transpose" --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -split-input-file --recompose-onnx="recompose-layernorm-by-transpose" --canonicalize %s | FileCheck %s
 
-func.func @main_graph(%arg0: tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32> {
+func.func @decomposition_to_layernorm_axis_1(%arg0: tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32> {
   %2 = onnx.Constant dense<1.000000e+00> : tensor<f32>
   %4 = onnx.Constant dense<9.99999997E-7> : tensor<f32>
   %5 = onnx.Constant dense<[[[0.0970484465]], [[0.0882187337]], [[0.135120019]], [[0.14907673]]]> : tensor<4x1x1xf32>
@@ -16,7 +16,7 @@ func.func @main_graph(%arg0: tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32>
   %17 = "onnx.Add"(%16, %6) {onnx_node_name = "/mask_downscaling/mask_downscaling.1/Add_1"} : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>) -> tensor<1x4x128x128xf32>
   return %17 : tensor<1x4x128x128xf32>
 }
-// CHECK-LABEL:  func.func @main_graph
+// CHECK-LABEL:  func.func @decomposition_to_layernorm_axis_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[0.0970484465]{{.}}, {{.}}[0.0882187337]{{.}}, {{.}}[0.135120019]{{.}}, {{.}}[0.14907673]{{.}}{{.}}> : tensor<4x1x1xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<{{.}}{{.}}[0.191972837]{{.}}, {{.}}[0.286264896]{{.}}, {{.}}[0.180535644]{{.}}, {{.}}[0.166878015]{{.}}{{.}}> : tensor<4x1x1xf32>
@@ -33,4 +33,93 @@ func.func @main_graph(%arg0: tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32>
 
 // -----
 
-// TODO: ADD more lit tests here
+func.func @decomposition_to_layernorm_axis_2(%arg0: tensor<1x128x4x128xf32> {onnx.name = "in0"}) -> (tensor<1x128x4x128xf32> {onnx.name = "out"}) {
+  %0 = onnx.Constant dense<[[[0.976699769], [0.380195737], [0.923246204], [0.261692435]]]> : tensor<1x4x1xf32>
+  %1 = onnx.Constant dense<9.99999997E-7> : tensor<f32>
+  %2 = onnx.Constant dense<2> : tensor<1xi64>
+  %3 = "onnx.ReduceMean"(%arg0, %2) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "ReduceMean1"} : (tensor<1x128x4x128xf32>, tensor<1xi64>) -> tensor<1x128x1x128xf32>
+  %4 = "onnx.Sub"(%arg0, %3) {onnx_node_name = "Sub2"} : (tensor<1x128x4x128xf32>, tensor<1x128x1x128xf32>) -> tensor<1x128x4x128xf32>
+  %5 = "onnx.Mul"(%4, %4) {onnx_node_name = "Mul3"} : (tensor<1x128x4x128xf32>, tensor<1x128x4x128xf32>) -> tensor<1x128x4x128xf32>
+  %6 = "onnx.ReduceMean"(%5, %2) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "ReduceMean4"} : (tensor<1x128x4x128xf32>, tensor<1xi64>) -> tensor<1x128x1x128xf32>
+  %7 = "onnx.Add"(%6, %1) {onnx_node_name = "Add6"} : (tensor<1x128x1x128xf32>, tensor<f32>) -> tensor<1x128x1x128xf32>
+  %8 = "onnx.Sqrt"(%7) {onnx_node_name = "Sqrt7"} : (tensor<1x128x1x128xf32>) -> tensor<1x128x1x128xf32>
+  %9 = "onnx.Div"(%4, %8) {onnx_node_name = "Div8"} : (tensor<1x128x4x128xf32>, tensor<1x128x1x128xf32>) -> tensor<1x128x4x128xf32>
+  %10 = "onnx.Mul"(%0, %9) {onnx_node_name = "Mul10"} : (tensor<1x4x1xf32>, tensor<1x128x4x128xf32>) -> tensor<1x128x4x128xf32>
+  %11 = "onnx.Add"(%10, %0) {onnx_node_name = "Add12"} : (tensor<1x128x4x128xf32>, tensor<1x4x1xf32>) -> tensor<1x128x4x128xf32>
+  onnx.Return %11 : tensor<1x128x4x128xf32>
+}
+// CHECK-LABEL:  func.func @decomposition_to_layernorm_axis_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x128x4x128xf32> {onnx.name = "in0"}) -> (tensor<1x128x4x128xf32> {onnx.name = "out"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[0.976699769], [0.380195737], [0.923246204], [0.261692435]{{.}}{{.}}> : tensor<1x4x1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 1, 4, 1]> : tensor<4xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<1x4x1xf32>, tensor<4xi64>) -> tensor<1x1x4x1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"([[VAR_2_]]) {perm = [0, 1, 3, 2]} : (tensor<1x1x4x1xf32>) -> tensor<1x1x1x4xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 1, 3, 2]} : (tensor<1x128x4x128xf32>) -> tensor<1x128x128x4xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<1x4x1xf32>, tensor<4xi64>) -> tensor<1x1x4x1xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [0, 1, 3, 2]} : (tensor<1x1x4x1xf32>) -> tensor<1x1x1x4xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_4_]], [[VAR_3_]], [[VAR_6_]]) {axis = 3 : si64, epsilon = 9.99999997E-7 : f32, stash_type = 1 : si64} : (tensor<1x128x128x4xf32>, tensor<1x1x1x4xf32>, tensor<1x1x1x4xf32>) -> (tensor<1x128x128x4xf32>, none, none)
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_Y_]]) {perm = [0, 1, 3, 2]} : (tensor<1x128x128x4xf32>) -> tensor<1x128x4x128xf32>
+// CHECK:           onnx.Return [[VAR_7_]] : tensor<1x128x4x128xf32>
+// CHECK:         }
+
+// -----
+
+func.func @decomposition_to_layernorm_axis_1_and_2(%arg0: tensor<1x4x128x128xf32> {onnx.name = "in0"}) -> (tensor<1x4x128x128xf32> {onnx.name = "out"}) {
+  %0 = onnx.Constant dense<[[[0.976699769]], [[0.380195737]], [[0.923246204]], [[0.261692435]]]> : tensor<4x1x1xf32>
+  %1 = onnx.Constant dense<9.99999997E-7> : tensor<f32>
+  %2 = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  %3 = "onnx.ReduceMean"(%arg0, %2) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "ReduceMean1"} : (tensor<1x4x128x128xf32>, tensor<2xi64>) -> tensor<1x1x1x128xf32>
+  %4 = "onnx.Sub"(%arg0, %3) {onnx_node_name = "Sub2"} : (tensor<1x4x128x128xf32>, tensor<1x1x1x128xf32>) -> tensor<1x4x128x128xf32>
+  %5 = "onnx.Mul"(%4, %4) {onnx_node_name = "Mul3"} : (tensor<1x4x128x128xf32>, tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32>
+  %6 = "onnx.ReduceMean"(%5, %2) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "ReduceMean4"} : (tensor<1x4x128x128xf32>, tensor<2xi64>) -> tensor<1x1x1x128xf32>
+  %7 = "onnx.Add"(%6, %1) {onnx_node_name = "Add6"} : (tensor<1x1x1x128xf32>, tensor<f32>) -> tensor<1x1x1x128xf32>
+  %8 = "onnx.Sqrt"(%7) {onnx_node_name = "Sqrt7"} : (tensor<1x1x1x128xf32>) -> tensor<1x1x1x128xf32>
+  %9 = "onnx.Div"(%4, %8) {onnx_node_name = "Div8"} : (tensor<1x4x128x128xf32>, tensor<1x1x1x128xf32>) -> tensor<1x4x128x128xf32>
+  %10 = "onnx.Mul"(%0, %9) {onnx_node_name = "Mul10"} : (tensor<4x1x1xf32>, tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32>
+  %11 = "onnx.Add"(%10, %0) {onnx_node_name = "Add12"} : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>) -> tensor<1x4x128x128xf32>
+  onnx.Return %11 : tensor<1x4x128x128xf32>
+}
+// CHECK-LABEL:  func.func @decomposition_to_layernorm_axis_1_and_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x128x128xf32> {onnx.name = "in0"}) -> (tensor<1x4x128x128xf32> {onnx.name = "out"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[0.976699769]{{.}}, {{.}}[0.380195737]{{.}}, {{.}}[0.923246204]{{.}}, {{.}}[0.261692435]{{.}}{{.}}> : tensor<4x1x1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 4, 1, 1]> : tensor<4xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<4x1x1xf32>, tensor<4xi64>) -> tensor<1x4x1x1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"([[VAR_2_]]) {perm = [0, 3, 1, 2]} : (tensor<1x4x1x1xf32>) -> tensor<1x1x4x1xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 3, 1, 2]} : (tensor<1x4x128x128xf32>) -> tensor<1x128x4x128xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<4x1x1xf32>, tensor<4xi64>) -> tensor<1x4x1x1xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [0, 3, 1, 2]} : (tensor<1x4x1x1xf32>) -> tensor<1x1x4x1xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_4_]], [[VAR_3_]], [[VAR_6_]]) {axis = 2 : si64, epsilon = 9.99999997E-7 : f32, stash_type = 1 : si64} : (tensor<1x128x4x128xf32>, tensor<1x1x4x1xf32>, tensor<1x1x4x1xf32>) -> (tensor<1x128x4x128xf32>, none, none)
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_Y_]]) {perm = [0, 2, 3, 1]} : (tensor<1x128x4x128xf32>) -> tensor<1x4x128x128xf32>
+// CHECK:           onnx.Return [[VAR_7_]] : tensor<1x4x128x128xf32>
+// CHECK:         }
+
+// -----
+
+func.func @decomposition_to_layernorm_axis_1_and_3(%arg0: tensor<1x4x128x128xf32> {onnx.name = "in0"}) -> (tensor<1x4x128x128xf32> {onnx.name = "out"}) {
+  %0 = onnx.Constant dense<[[[0.976699769]], [[0.380195737]], [[0.923246204]], [[0.261692435]]]> : tensor<4x1x1xf32>
+  %1 = onnx.Constant dense<9.99999997E-7> : tensor<f32>
+  %2 = onnx.Constant dense<[1, 3]> : tensor<2xi64>
+  %3 = "onnx.ReduceMean"(%arg0, %2) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "ReduceMean1"} : (tensor<1x4x128x128xf32>, tensor<2xi64>) -> tensor<1x1x128x1xf32>
+  %4 = "onnx.Sub"(%arg0, %3) {onnx_node_name = "Sub2"} : (tensor<1x4x128x128xf32>, tensor<1x1x128x1xf32>) -> tensor<1x4x128x128xf32>
+  %5 = "onnx.Mul"(%4, %4) {onnx_node_name = "Mul3"} : (tensor<1x4x128x128xf32>, tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32>
+  %6 = "onnx.ReduceMean"(%5, %2) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "ReduceMean4"} : (tensor<1x4x128x128xf32>, tensor<2xi64>) -> tensor<1x1x128x1xf32>
+  %7 = "onnx.Add"(%6, %1) {onnx_node_name = "Add6"} : (tensor<1x1x128x1xf32>, tensor<f32>) -> tensor<1x1x128x1xf32>
+  %8 = "onnx.Sqrt"(%7) {onnx_node_name = "Sqrt7"} : (tensor<1x1x128x1xf32>) -> tensor<1x1x128x1xf32>
+  %9 = "onnx.Div"(%4, %8) {onnx_node_name = "Div8"} : (tensor<1x4x128x128xf32>, tensor<1x1x128x1xf32>) -> tensor<1x4x128x128xf32>
+  %10 = "onnx.Mul"(%0, %9) {onnx_node_name = "Mul10"} : (tensor<4x1x1xf32>, tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32>
+  %11 = "onnx.Add"(%10, %0) {onnx_node_name = "Add12"} : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>) -> tensor<1x4x128x128xf32>
+  onnx.Return %11 : tensor<1x4x128x128xf32>
+}
+// CHECK-LABEL:  func.func @decomposition_to_layernorm_axis_1_and_3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x128x128xf32> {onnx.name = "in0"}) -> (tensor<1x4x128x128xf32> {onnx.name = "out"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[0.976699769]{{.}}, {{.}}[0.380195737]{{.}}, {{.}}[0.923246204]{{.}}, {{.}}[0.261692435]{{.}}{{.}}> : tensor<4x1x1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 4, 1, 1]> : tensor<4xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<4x1x1xf32>, tensor<4xi64>) -> tensor<1x4x1x1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"([[VAR_2_]]) {perm = [0, 2, 1, 3]} : (tensor<1x4x1x1xf32>) -> tensor<1x1x4x1xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 1, 3]} : (tensor<1x4x128x128xf32>) -> tensor<1x128x4x128xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<4x1x1xf32>, tensor<4xi64>) -> tensor<1x4x1x1xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [0, 2, 1, 3]} : (tensor<1x4x1x1xf32>) -> tensor<1x1x4x1xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_4_]], [[VAR_3_]], [[VAR_6_]]) {axis = 2 : si64, epsilon = 9.99999997E-7 : f32, stash_type = 1 : si64} : (tensor<1x128x4x128xf32>, tensor<1x1x4x1xf32>, tensor<1x1x4x1xf32>) -> (tensor<1x128x4x128xf32>, none, none)
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_Y_]]) {perm = [0, 2, 1, 3]} : (tensor<1x128x4x128xf32>) -> tensor<1x4x128x128xf32>
+// CHECK:           onnx.Return [[VAR_7_]] : tensor<1x4x128x128xf32>
+// CHECK:         }
