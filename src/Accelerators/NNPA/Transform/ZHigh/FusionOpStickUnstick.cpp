@@ -779,7 +779,7 @@ public:
       }
     });
 
-    if (hasDlf16To32)
+    if (false && hasDlf16To32)
       return notifyFailure(layoutTransform, finalLayoutTransformOp,
           "hi alex, not supported dlf16 to 32 yet");
 

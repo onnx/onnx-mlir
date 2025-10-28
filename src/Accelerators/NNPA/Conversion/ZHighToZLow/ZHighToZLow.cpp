@@ -20,6 +20,7 @@
 #include "mlir/IR/DialectResourceBlobManager.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickDataHelper.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
@@ -2372,6 +2373,16 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 
     // Handle parallelism here.
 
+    // Prepare support for conversion of dlf16 to 64, if needed.
+    UnifiedStickSupportList conversionSupportUSS;
+    bool disableSaturation = false; // hi alex
+    if (layoutTransform.getDlf16ToF32()) {
+      UnifiedStickSupport inputUSS(create.krnl, layoutTransform.getSource(),
+          inputVal, /*read*/ true, false, disableSaturation);
+      UnifiedStickSupport outputUSS(create.krnl, outputVal, allocVal,
+          /*write*/ false, true, disableSaturation);
+      conversionSupportUSS.list = {inputUSS, outputUSS};
+    }
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           // Process 64 values here at a time.
@@ -2425,21 +2436,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 
           // We have now the input and output access function.
           if (!layoutTransform.getDlf16ToF32()) {
-#if 0
-            create.krnl.forLoopIE(LitIE(0), LitIE(64), 1, false,
-                [&](const KrnlBuilder b, mlir::ValueRange loopInd) {
-                  MDBuilder create(b);
-                  IndexExprScope innerScope(b, &outerScope);
-                  IndexExpr l = DimIE(loopInd[0]);
-                  DimsExpr localInputAF = DimListIE(inputAF);
-                  DimsExpr localOutputAF = DimListIE(outputAF);
-                  localInputAF[inputRank - 1] = localInputAF[inputRank - 1] + l;
-                  localOutputAF[outputRank - 1] = localOutputAF[outputRank - 1] + l;
-                  Value tmp = create.krnl.loadIE(inputVal, localInputAF);
-                  create.krnl.storeIE(tmp, allocVal, localOutputAF);
-                });
-#else
-            // Simply have a mem copy.
+            // Simply have a mem copy since we don't have to convert to f32.
             Value inputOffset =
                 create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
             Value outputOffset =
@@ -2447,9 +2444,25 @@ struct ZHighToZLowExtendedLayoutTransformLowering
             Value len = create.math.constant(rewriter.getI64Type(), 64);
             create.krnl.memcpy(
                 allocVal, inputVal, len, outputOffset, inputOffset);
-#endif
           } else {
-            llvm_unreachable("not implemented yet");
+            conversionSupportUSS.list[0].beforeStickLoop(create.krnl, inputAF);
+            conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
+            int64_t U = 32;
+            // Function simply copy the single input to an output.
+            UnifiedStickSupportList::IterateFctOver4xF32 fct =
+                [&](const KrnlBuilder &b,
+                    mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
+                  return inputOfF32Vals[0];
+                };
+            create.krnl.forLoopIE(LitIE(0), LitIE(64), U, /*par*/ false,
+                [&](const KrnlBuilder kb, ValueRange loopInd) {
+                  IndexExprScope innerScope(kb, &outerScope);
+                  MDBuilder create(ck);
+                  IndexExpr l = DimIE(loopInd[0]);
+                  for (int64_t u = 0; u < U; ++u)
+                    conversionSupportUSS.loadComputeStore(
+                        create.krnl, fct, l, u);
+                });
           }
         });
     rewriter.replaceOp(layoutTransform, allocVal);
