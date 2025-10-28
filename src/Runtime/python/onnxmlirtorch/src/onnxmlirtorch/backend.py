@@ -71,22 +71,20 @@ and there is no reuse with cache among them.
 logger = logging.getLogger(__name__)
 
 
-class config:
+class ONNXMLIRConfig:
     cache_size = 3
 
 
-global_session_cache = SessionCache(config.cache_size)
+# An instance to cache onnx_mlir session so that there is no need to recompile the same model.
+global_session_cache = SessionCache(ONNXMLIRConfig.cache_size)
 
 
-onnxmlir_counter = 0
-
-
-# Backend function for torch.compile for onnx-mlir
+# Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
     # The args and kwargs are inputs provided at inference, namely call to
-    # forward()
+    # forward().
     onnxmlir_options = kwargs.get("options")
 
     # Backend to export, compile and run inference of model with onnxmlir.
@@ -119,20 +117,21 @@ def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
 
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, **kwargs):
-        global onnxmlir_counter
-        onnxmlir_counter += 1
         # Pytorch model.
         self.gm = gm
-        # Caching onnx_mlir sessions to avoid recompilation.
-        self.session_cache = global_session_cache
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
         self.onnx_model = None
         self.default_model_name = "model"
 
+        # Generate an unique key for the graph module.
+        self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+        logger.debug(f"cache key: {self.cache_key}")
+
         # Each onnx model has a unique tag.
-        self.tag = onnxmlir_counter
+        # Use the cache key as a tag when compiling the onnx model.
+        self.tag = self.cache_key
 
         # Args passed to onnx-mlir.
         self.onnxmlir_kwargs = {"compile_tag": str(self.tag)}
@@ -144,9 +143,8 @@ class ONNXMLIRTorch:
         return self.forward(*example_inputs)
 
     def forward(self, *example_inputs):
-        cache_key = generate_hash_key(self.gm, self.onnxmlir_kwargs["compile_options"])
         # Check whether there is any cached compiled model.
-        cached_session = self.session_cache.get(cache_key)
+        cached_session = global_session_cache.get(self.cache_key)
 
         if cached_session is None:
             logger.info("Export and compile the model.")
@@ -154,14 +152,13 @@ class ONNXMLIRTorch:
             # to an onnx model and compile it to a .so file.
             # Since the session is connected to a .so file, we have to make
             # sure that .so file exists with cached session.
-            # The .onnx and .so files as name with the tag, which continuous
-            # increase
+            # The number of .onnx and .so files gradually increases.
             # In the meantime, we want keep a limited number of temporary files
             # for .onnx and .so file.
             # The solution is to store the tuple of (tag, session) in the cache
             # When a cache entry becomes a victim, the corresponding files,
             # such as onnx model and .so are removed.
-            file_index = self.session_cache.victim()
+            file_index = global_session_cache.victim()
 
             # Remove the old .onnx and .so files.
             old_onnx_file = os.path.join(
@@ -181,11 +178,11 @@ class ONNXMLIRTorch:
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
 
-            # Replace the victim cache entry
-            self.session_cache.put(cache_key, (self.tag, sess))
+            # Replace the victim cache entry.
+            global_session_cache.put(self.cache_key, (self.tag, sess))
         else:
             logger.info("Found the model in the cache. No recompilation.")
-            # Use the InferenceSession
+            # Use the InferenceSession in the cache.
             _, sess = cached_session
 
         # onnx_mlir accepts numpy arrays as inputs and outputs.
@@ -208,7 +205,7 @@ class ONNXMLIRTorch:
             input_arg = node.meta["example_value"]
             # SymInts are not real inputs to the onnx model,
             # but we need to set it so that the export does not
-            # claim about input mismatch.
+            # complain about input mismatch.
             if isinstance(input_arg, torch.SymInt):
                 dynamic_shapes[input_name] = None
                 continue
@@ -232,7 +229,7 @@ class ONNXMLIRTorch:
             dynamic_shapes=dynamic_shapes,
         )
 
-    def create_onnxmlir_session(self):
+    def create_onnxmlir_session(self) -> InferenceSession:
         # Return a session to compile and run the onnx model.
         return InferenceSession(
             self.onnx_model,
