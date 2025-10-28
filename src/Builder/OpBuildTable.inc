@@ -18,6 +18,7 @@ op_dialect_version_map_["Asin"] = {22};
 op_dialect_version_map_["Asinh"] = {22};
 op_dialect_version_map_["Atan"] = {22};
 op_dialect_version_map_["Atanh"] = {22};
+op_dialect_version_map_["Attention"] = {23};
 op_dialect_version_map_["AveragePool"] = {22};
 op_dialect_version_map_["BatchNormalization"] = {15, 9};
 op_dialect_version_map_["Bernoulli"] = {22};
@@ -161,6 +162,7 @@ op_dialect_version_map_["Reshape"] = {21};
 op_dialect_version_map_["Resize"] = {19, 18, 13, 11, 10};
 op_dialect_version_map_["ReverseSequence"] = {10};
 op_dialect_version_map_["RoiAlign"] = {22};
+op_dialect_version_map_["RotaryEmbedding"] = {23};
 op_dialect_version_map_["Round"] = {22};
 op_dialect_version_map_["SVMClassifier"] = {1};
 op_dialect_version_map_["SVMRegressor"] = {1};
@@ -236,6 +238,8 @@ import_handler_map_["Atan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanOp>;
 import_handler_map_["Atanh"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanhOp>;
+import_handler_map_["Attention"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAttentionOp>;
 import_handler_map_["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
@@ -552,6 +556,8 @@ import_handler_map_["ReverseSequence"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReverseSequenceOp>;
 import_handler_map_["RoiAlign"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRoiAlignOp>;
+import_handler_map_["RotaryEmbedding"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRotaryEmbeddingOp>;
 import_handler_map_["Round"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRoundOp>;
 import_handler_map_["STFT"] = 

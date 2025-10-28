@@ -511,6 +511,91 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
+### `onnx.Attention` (ONNXAttentionOp)
+
+_ONNX Attention operation_
+
+Computes scaled dot product attention on query, key and value tensors, using an optional attention mask if passed.
+
+This operator covers self and cross variants of the attention operation based on sequence lengths of K, Q and V.
+
+For self attention, `kv_sequence_length` equals to `q_sequence_length`.
+
+For cross attention, query and key might have different lengths.
+
+This operator also covers the 3 following variants based on the number of heads:
+1) Multi-headed Attention (MHA): Described in the paper https://arxiv.org/pdf/1706.03762, `q_num_heads = kv_num_heads`.
+2) Group-query Attention (GQA): Described in the paper https://arxiv.org/pdf/2305.13245, `q_num_heads > kv_num_heads`, `q_num_heads % kv_num_heads == 0`.
+3) Multi-query Attention (MQA): Described in the paper https://arxiv.org/pdf/1911.02150, `q_num_heads > kv_num_heads`, `kv_num_heads=1`.
+
+Attention bias to be added is calculated based on `attn_mask` input and `is_causal attribute`, only one of which can be provided.
+1) If `is_causal` is set to `1`, the attention masking is a lower triangular matrix when the mask is a square matrix. The attention masking has the form of the upper left causal bias due to the alignment.
+2) `attn_mask`: A boolean mask where a value of `True` indicates that the element should take part in attention or a float mask of the same type as query, key, value that is added to the attention score.
+
+Both past and present state key/values are optional. They shall be used together, and not allowed to use only one of them.
+The following pattern is applied to the Q, K and V inputs after appropriate reshaping of K and V inputs based on sequence lengths and num heads provided:
+
+```
+  The following pattern is applied by this operator:
+      Q          K          V
+      |          |          |
+Q*sqrt(scale) K*sqrt(scale) |
+      |          |          |
+      |       Transpose     |
+      |          |          |
+      ---MatMul---          |
+            |               |
+ at_mask---Add              |
+            |               |
+  softcap (if provided)     |
+            |               |
+         Softmax            |
+            |               |
+            -----MatMul------
+                   |
+                   Y
+```
+
+
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<23>`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>is_causal</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>kv_num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>q_num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>qk_matmul_output_mode</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>softcap</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>softmax_precision</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `Q` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `K` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `V` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `attn_mask` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values or none type
+| `past_key` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `past_value` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `present_key` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `present_value` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `qk_matmul_output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+
 ### `onnx.AveragePool` (ONNXAveragePoolOp)
 
 _ONNX AveragePool operation_
@@ -8574,6 +8659,141 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
+### `onnx.RotaryEmbedding` (ONNXRotaryEmbeddingOp)
+
+_ONNX RotaryEmbedding operation_
+
+RotaryEmbedding is the implementation of rotary positional embeddings (RoPE) based on the paper https://arxiv.org/pdf/2104.09864.
+The key advantage of RoPE is that it allows the model to understand both the absolute position of a token and the relative distances
+between tokens. This is achieved through a rotational mechanism where the extent of rotation is computed based on the token's absolute position (position_ids).
+
+The rotational mechanism is defined by sine and cosine functions that are used to represent the rotation angles.
+For each token in the sequence, its positional embedding is computed by rotating its embedding vector. This is done by splitting the
+embedding vector either into two halves or interleaving every alternate token and applying the rotation matrix to each half of the embedding vector.
+The rotation matrix is parameterized by the token's position in the sequence. The rotated halves of the embedding vector are concatenated
+to form the final positional embedding for each token. The rotated positional embeddings are used in the self-attention mechanism.
+The rotation ensures that the model captures both absolute and relative positional information.
+
+Rotary embeddings are defined using the following algorithm:
+
+```python
+def rotary_embedding(
+    input: np.ndarray,
+    cos_cache: np.ndarray,
+    sin_cache: np.ndarray,
+    position_ids: np.ndarray | None = None,
+    interleaved=None,
+    rotary_embedding_dim=None,
+    num_heads=None,
+) -> np.ndarray:
+    original_input_shape = input.shape
+    # First ensure input to be processed has shape [batch_size, seq_len, num_heads, head_size]
+    if len(input.shape) == 4:
+        input = np.transpose(input, (0, 2, 1, 3))
+    batch_size = input.shape[0]
+    sequence_length = input.shape[1]
+    if len(input.shape) == 3:
+        hidden_size = input.shape[2]
+        assert num_heads != 0
+        head_size = int(hidden_size / num_heads)
+        new_shape = [batch_size, sequence_length, num_heads, head_size]
+        input = np.reshape(input, new_shape)
+    assert len(input.shape) == 4
+    head_size = input.shape[3]
+
+    # Fully or partially perform rotation on input based on rotary_embedding_dim attribute
+    if rotary_embedding_dim is None or rotary_embedding_dim == 0:
+        # If rotary_embedding_dim not provided, perform full rotation by using head_size
+        rotary_embedding_dim = head_size
+    x_rotate = input[:, :, :, :rotary_embedding_dim]
+    x_not_rotate = input[:, :, :, rotary_embedding_dim:]
+    rotary_embedding_dim_half = int(rotary_embedding_dim / 2)
+
+    # Retrieve sin and cos caches using position ids
+    if position_ids is not None:
+        cos_cache = cos_cache[
+            position_ids
+        ]  # Shape: [batch_size, sequence_length, rotary_embedding_dim/2]
+        sin_cache = sin_cache[
+            position_ids
+        ]  # Shape: [batch_size, sequence_length, rotary_embedding_dim/2]
+
+    # Shape: [batch_size, sequence_length, rotary_embedding_dim/2]
+    if cos_cache.shape[-1] != rotary_embedding_dim_half:
+        raise ValueError(
+            f\"Last dimension of cos cache ({cos_cache.shape[-1]}) does not match rotary_embedding_dim/2 ({rotary_embedding_dim_half}).\"
+        )
+    if sin_cache.shape[-1] != rotary_embedding_dim_half:
+        raise ValueError(
+            f\"Last dimension of sin cache ({sin_cache.shape[-1]}) does not match rotary_embedding_dim/2 ({rotary_embedding_dim_half}).\"
+        )
+
+    cos_cache = np.expand_dims(
+        cos_cache, axis=2
+    )  # Shape: [batch_size, sequence_length, 1, rotary_embedding_dim/2]
+    sin_cache = np.expand_dims(
+        sin_cache, axis=2
+    )  # Shape: [batch_size, sequence_length, 1, rotary_embedding_dim/2]
+
+    # Either divide the input in halves or interleave (based on interleaved attribute)
+    if interleaved:
+        x1 = x_rotate[:, :, :, 0::2]
+        x2 = x_rotate[:, :, :, 1::2]
+    else:
+        x1, x2 = np.split(x_rotate, 2, axis=-1)
+
+    # Calculate real and imaginary values
+    real = (cos_cache * x1) - (sin_cache * x2)
+    imag = (sin_cache * x1) + (cos_cache * x2)
+
+    # Inserted rotated embeddings back to the original input
+    if interleaved:
+        # x_rotate[:, :, :, 0::2] = real
+        # x_rotate[:, :, :, 1::2] = imag
+        real = np.expand_dims(real, axis=-1)
+        imag = np.expand_dims(imag, axis=-1)
+        x_rotate_concat = np.concatenate((real, imag), axis=-1)
+        x_rotate = np.reshape(x_rotate_concat, x_rotate.shape)
+    else:
+        x_rotate = np.concatenate((real, imag), axis=-1)
+    output = np.concatenate((x_rotate, x_not_rotate), axis=-1)
+    if len(original_input_shape) == 3:
+        output = np.reshape(output, original_input_shape)
+    else:
+        output = np.transpose(output, (0, 2, 1, 3))
+    return output
+```
+
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<23>`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>interleaved</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>rotary_embedding_dim</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `cos_cache` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `sin_cache` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `position_ids` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
 
 ### `onnx.Round` (ONNXRoundOp)
 
