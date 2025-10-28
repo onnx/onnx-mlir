@@ -1,5 +1,5 @@
 # Install rust, cargo, and cargo-bazel
-RUST_VERSION=1.88
+RUST_VERSION=1.89
 CARGO_BAZEL_VERSION=0.16.0
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
      sh -s -- -y --default-toolchain none
