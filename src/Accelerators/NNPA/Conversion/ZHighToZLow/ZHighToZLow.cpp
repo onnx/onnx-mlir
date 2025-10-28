@@ -2425,6 +2425,20 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 
           // We have now the input and output access function.
           if (!layoutTransform.getDlf16ToF32()) {
+#if 1
+            create.krnl.forLoopIE(LitIE(0), LitIE(64), 1, false,
+                [&](const KrnlBuilder b, mlir::ValueRange loopInd) {
+                  MDBuilder create(b);
+                  IndexExprScope innerScope(b, &outerScope);
+                  IndexExpr l = DimIE(loopInd[0]);
+                  DimsExpr localInputAF = DimListIE(inputAF);
+                  DimsExpr localOutputAF = DimListIE(outputAF);
+                  localInputAF[inputRank - 1] = localInputAF[inputRank - 1] + l;
+                  localOutputAF[outputRank - 1] = localOutputAF[outputRank - 1] + l;
+                  Value tmp = create.krnl.loadIE(inputVal, localInputAF);
+                  create.krnl.storeIE(tmp, allocVal, localOutputAF);
+                });
+#else
             // Simply have a mem copy.
             Value inputOffset =
                 create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
@@ -2433,12 +2447,13 @@ struct ZHighToZLowExtendedLayoutTransformLowering
             Value len = create.math.constant(rewriter.getI64Type(), 64);
             create.krnl.memcpy(
                 allocVal, inputVal, len, outputOffset, inputOffset);
+#endif
           } else {
             llvm_unreachable("not implemented yet");
           }
         });
     rewriter.replaceOp(layoutTransform, allocVal);
-   return success();
+    return success();
   }
 };
 
