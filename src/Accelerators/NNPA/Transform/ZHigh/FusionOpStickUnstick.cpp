@@ -817,7 +817,7 @@ public:
         resultVal.getType(), layoutTransformOp.getData(), reshapeSplitAxis,
         reshapeSplitFactor, transposePattern, reshapeMergeAxis, hasDlf16To32,
         finalLayout);
-    rewriter.replaceOp(layoutTransformOp, newOp);
+    rewriter.replaceOp(resultVal.getDefiningOp(), newOp);
     return success();
   }
 };
