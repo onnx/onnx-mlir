@@ -1247,22 +1247,24 @@ def ZHighExtendedLayoutTransformOp:ZHigh_Op<"ExtendedLayoutTransform", [Pure,
     There are specific constraints for this operation; they are currently listed in the
     Verifier.
   }];
-  let arguments = (ins AnyTypeOf<[AnyZTensor]>:$source, // Input Z Tensor to be reshaped.
+  let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3D, ZTensor_3DS, ZTensor_4D]>:$source, // Input Z Tensor to be reshaped.
                        DefaultValuedAttr<SI64Attr, "-1">:$reshape_split_axis, // reshape.
                        DefaultValuedAttr<SI64Attr, "1">:$reshape_split_factor, // reshape.
                        OptionalAttr<I64ArrayAttr>:$transpose_pattern, // transpose .
                        DefaultValuedAttr<SI64Attr, "-1">:$reshape_merge_axis, // reshape (leftmost one).
                        DefaultValuedAttr<BoolAttr, "false">:$dlf16_to_f32, // convert to f32.
                        OptionalAttr<StrAttr>:$target_layout);  // Layout of output Z Tensor, default same as input.
-  let results = (outs AnyTypeOf<[AnyZTensor]>:$result);
+  let results = (outs AnyTypeOf<[TensorOf<[F16, F32]>, ZTensor_2D, ZTensor_3D,
+                       ZTensor_3DS, ZTensor_4D]>:$result);
 
   let hasVerifier = 1;
 
-  
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$source,  "int64_t":$reshapeSplitAxis, 
-              "int64_t":$reshapeSplitFactor, "std::optional<::mlir::ArrayAttr>":$transposePattern,
-               "int64_t":$reshapeMergeAxis, "bool":$dlf16ToF32, "std::optional<::mlir::StringAttr>":$layout)>
+    OpBuilder<(ins "::mlir::Type": $resType, "::mlir::Value":$source,
+              "int64_t":$reshapeSplitAxis, "int64_t":$reshapeSplitFactor,
+              "std::optional<::mlir::ArrayAttr>":$transposePattern,
+              "int64_t":$reshapeMergeAxis,
+              "bool":$dlf16ToF32, "std::optional<::mlir::StringAttr>":$layout)>
   ];
   
 

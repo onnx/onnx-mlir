@@ -556,11 +556,105 @@ public:
 
   using OpRewritePattern<ONNXLayoutTransformOp>::OpRewritePattern;
 
+  bool locateReshapeSplit(ONNXReshapeOp reshapeSplit, int64_t &axis,
+      int64_t &factor, std::string &msg) const {
+    // Do we have a split?
+    Value inputVal = reshapeSplit.getData();
+    Value reshapedVal = reshapeSplit.getReshaped();
+    int64_t inputRank = getRank(inputVal.getType());
+    int64_t reshapedRank = getRank(reshapedVal.getType());
+    if (reshapedRank != inputRank + 1) {
+      msg = "Reshape expected to split one dim (ranks)";
+      return false;
+    }
+    // Look for the different shapes.
+    int64_t din = 0, dout = 0;
+    for (; din < inputRank; ++din, ++dout) {
+      if (dout >= reshapedRank) {
+        msg = "Reshape expected to split one dim (out of dout)";
+        return false;
+      }
+      if (dimAnalysis->sameDim(inputVal, din, reshapedVal, dout))
+        continue;
+      // Since we assume a split of one shape into two: speculatively set
+      // the split here.
+      if (axis != -1) {
+        msg = "Reshape expected to split one dim (second split)";
+        return false;
+      }
+      axis = din;
+      ++dout; // Skip the split axis
+    }
+    // Have a valid reshape split; find out the factor
+    if (din != inputRank || dout != inputRank + 1) {
+      msg = "Reshape expected to split one dim (end condition)";
+      return false;
+    }
+    factor = getShape(reshapedVal.getType(), axis + 1);
+    if (factor == ShapedType::kDynamic) {
+      msg = "Reshape expected to split one dim (const in 2nd place)";
+      return false;
+    }
+    if (axis == inputRank - 1 && factor % 64 != 0) {
+      msg = "Reshape of last dim supports only 0 mod 64 static shape";
+      return false;
+    }
+    return true;
+  }
+
+  bool locateReshapeMerge(
+      ONNXReshapeOp reshapeMerge, int64_t &axis, std::string &msg) const {
+    // Do we have a merge?
+    Value inputVal = reshapeMerge.getData();
+    Value reshapedVal = reshapeMerge.getReshaped();
+    int64_t inputRank = getRank(inputVal.getType());
+    int64_t reshapedRank = getRank(reshapedVal.getType());
+    if (reshapedRank != inputRank - 1) {
+      msg = "Reshape expected to merge two dim (ranks)";
+      return false;
+    }
+    // Detect which dimension is merged.
+    int64_t din = 0, dout = 0;
+    for (; dout < reshapedRank; ++dout, ++din) {
+      if (din >= inputRank) {
+        msg = "Reshape expected to merge one dim (out of din)";
+        return false;
+      }
+      if (dimAnalysis->sameDim(inputVal, din, reshapedVal, dout))
+        continue;
+      // Since we assume a split of one shape into two: speculatively set
+      // the split here.
+      if (axis != -1) {
+        msg = "Reshape expected to merge one dim (second merge)";
+        return false;
+      }
+      axis = din;
+      ++din; // Skip the merge axis
+    }
+    // Have a valid reshape split; find out the factor
+    if (din != reshapedRank + 1 || dout != reshapedRank) {
+      msg = "Reshape expected to merge one dim (end condition)";
+      return false;
+    }
+    return true;
+  }
+
+  // Will locate the pattern
+  // 1) LayoutTransform from zTensor to CPU
+  // 2) optional Reshape splitting one dim into two
+  // 3) optional Transpose (not moving the innermost dim)
+  // 4) optional Reshape merging 2 dim into one
+  // 5a) optional LayoutTransform from CPU to zTensor, or
+  // 5b) optional DLF16To32
+  //
+  // But to be worthwhile, the minimal number of operations is:
+  // a) a transpose (3), or
+  // b) one or more reshape (2, 4) feeding a LT or DLF (5a, 5b)
   bool locatePattern(ONNXLayoutTransformOp layoutTransform,
       int64_t &reshapeSplitAxis, int64_t &reshapeSplitFactor,
       int64_t &reshapeMergeAxis, bool &hasDlf16To32,
       std::optional<mlir::ArrayAttr> &transposePattern,
-      std::optional<mlir::StringAttr> &finalLayout) const {
+      std::optional<mlir::StringAttr> &finalLayout, Value &resultVal) const {
     // Parameters for op (if successful).
     reshapeSplitAxis = reshapeMergeAxis = -1;
     reshapeSplitFactor = 1;
@@ -572,7 +666,6 @@ public:
       return notifyFailure(layoutTransform, nullptr,
           "First layout should target CPU"); // No layout == CPU layout.
     Value inputData = layoutTransform.getData();
-    int64_t inputRank = getRank(inputData.getType());
     if (!isZTensor(inputData.getType()))
       return notifyFailure(layoutTransform, nullptr, "Expected zTensor input");
     if (!supportedLayoutForCompilerGeneratedStickUnstick(
@@ -584,116 +677,80 @@ public:
           "Compiler unsupported innermost dim (static, mod 64)");
 
     // Look for a permute.
-    Value currOutputVal = layoutTransform.getOutput();
-    Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(currOutputVal);
+    resultVal = layoutTransform.getOutput();
+    std::string msg;
+    Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
     if (reshapeSplitOp) {
       ONNXReshapeOp reshapeSplit = mlir::cast<ONNXReshapeOp>(reshapeSplitOp);
-      // Do we have a split?
-      Value reshapedVal = reshapeSplit.getReshaped();
-      int64_t reshapedRank = getRank(reshapedVal.getType());
-      if (reshapedRank != inputRank + 1)
-        return notifyFailure(layoutTransform, reshapeSplitOp,
-            "Reshape expected to split one dim (ranks)");
-      // Look for the different shapes.
-      int64_t din = 0, dout = 0;
-      for (; din < inputRank; ++din, ++dout) {
-        if (dout >= reshapedRank)
-          return notifyFailure(layoutTransform, reshapeSplitOp,
-              "Reshape expected to split one dim (out of dout)");
-        if (dimAnalysis->sameDim(currOutputVal, din, reshapedVal, dout))
-          continue;
-        // Since we assume a split of one shape into two: speculatively set
-        // the split here.
-        if (reshapeSplitAxis != -1)
-          return notifyFailure(layoutTransform, reshapeSplitOp,
-              "Reshape expected to split one dim (second split)");
-        reshapeSplitAxis = din;
-        ++dout; // Skip the split axis
-      }
-      // Have a valid reshape split; find out the factor
-      if (din != inputRank || dout != inputRank + 1)
-        return notifyFailure(layoutTransform, reshapeSplitOp,
-            "Reshape expected to split one dim (end condition)");
-      // int64_t d1 = getShape(reshapedVal.getType(), reshapeSplitAxis);
-      int64_t d2 = getShape(reshapedVal.getType(), reshapeSplitAxis + 1);
-      if (d2 == ShapedType::kDynamic)
-        return notifyFailure(layoutTransform, reshapeSplitOp,
-            "Reshape expected to split one dim (const in 2nd place)");
-      if (reshapeSplitAxis == inputRank - 1 && d2 % 64 != 0)
-        return notifyFailure(layoutTransform, reshapeSplitOp,
-            "Reshape of last dim supports only 0 mod 64 static shape");
-      reshapeSplitFactor = d2;
-      currOutputVal = reshapedVal;
+      if (!locateReshapeSplit(
+              reshapeSplit, reshapeSplitAxis, reshapeSplitFactor, msg))
+        return notifyFailure(layoutTransform, reshapeSplitOp, msg);
+      resultVal = reshapeSplit.getReshaped();
     }
 
     // Check transpose.
-    Operation *transposeOp = usedOnlyBy<ONNXTransposeOp>(currOutputVal);
+    Operation *transposeOp = usedOnlyBy<ONNXTransposeOp>(resultVal);
     if (transposeOp) {
       ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
-      auto perm = transpose.getPerm();
-      if (!perm.has_value())
+      transposePattern = transpose.getPerm();
+      if (!transposePattern.has_value())
         return notifyFailure(layoutTransform, transposeOp,
             "Last dim is transposed (default pattern)");
-      if (!doesTransposeLeaveInnermostInPlace(perm.value()))
+      if (!doesTransposeLeaveInnermostInPlace(transposePattern.value()))
         return notifyFailure(
             layoutTransform, transposeOp, "Last dim is transposed");
-      transposePattern = perm;
-      currOutputVal = transpose.getTransposed();
+      resultVal = transpose.getTransposed();
     }
 
     // Check reshape merge.
-    Operation *reshapeMergeOp = usedOnlyBy<ONNXReshapeOp>(currOutputVal);
+    bool terminateMatch = false;
+    Operation *reshapeMergeOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
     if (reshapeMergeOp) {
       ONNXReshapeOp reshapeMerge = mlir::cast<ONNXReshapeOp>(reshapeMergeOp);
-      // Do we have a merge?
-      Value reshapedVal = reshapeMerge.getReshaped();
-      int64_t reshapedRank = getRank(reshapedVal.getType());
-      if (reshapedRank != getRank(currOutputVal.getType()) - 1)
-        return notifyFailure(layoutTransform, reshapeMergeOp,
-            "Reshape expected to merge two dim (ranks)");
-      // Detect which dimension is merged.
-      int64_t din = 0, dout = 0;
-      for (; dout < reshapedRank; ++dout, ++din) {
-        if (din >= reshapedRank)
-          return notifyFailure(layoutTransform, reshapeMergeOp,
-              "Reshape expected to merge one dim (out of din)");
-        if (dimAnalysis->sameDim(currOutputVal, din, reshapedVal, dout))
-          continue;
-        // Since we assume a split of one shape into two: speculatively set
-        // the split here.
-        if (reshapeMergeAxis != -1)
-          return notifyFailure(layoutTransform, reshapeMergeOp,
-              "Reshape expected to merge one dim (second merge)");
-        reshapeMergeAxis = din;
-        ++din; // Skip the merge axis
+      if (!locateReshapeMerge(reshapeMerge, reshapeMergeAxis, msg)) {
+        // If we fail here, we have the option of just aborting the search.
+        reshapeMergeAxis = -1;
+        terminateMatch = true;
+        notifyFailure(
+            layoutTransform, reshapeMergeOp, msg + "; terminate match");
+      } else {
+        resultVal = reshapeMerge.getReshaped();
       }
-      // Have a valid reshape split; find out the factor
-      if (din != reshapedRank + 1 || dout != reshapedRank)
-        return notifyFailure(layoutTransform, reshapeSplitOp,
-            "Reshape expected to merge one dim (end condition)");
-      currOutputVal = reshapedVal;
     }
 
     // Check for a Layout transform / dlf16To32
-    Operation *finalLayoutTransformOp =
-        usedOnlyBy<ONNXLayoutTransformOp>(currOutputVal);
-    Operation *dlf16To32Op = usedOnlyBy<ZHighDLF16ToF32Op>(currOutputVal);
-    if (finalLayoutTransformOp) {
-      ONNXLayoutTransformOp finalLayoutTransform =
-          mlir::cast<ONNXLayoutTransformOp>(finalLayoutTransformOp);
-      if (!supportedLayoutForCompilerGeneratedStickUnstick(
-              finalLayoutTransform.getOutput(), /*nhwc*/ false))
-        return notifyFailure(layoutTransform, finalLayoutTransformOp,
-            "Compiler unsupported final zTensor output");
-      std::optional<mlir::Attribute> layoutAttr = finalLayoutTransform.getTargetLayout();
-      mlir::StringAttr layoutStringAttr = mlir::dyn_cast<StringAttr>(layoutAttr.value());
-      assert(layoutStringAttr && "expected layout here");
-      finalLayout = layoutStringAttr;
-      currOutputVal = finalLayoutTransform.getOutput();
-    } else if (dlf16To32Op) {
-      ZHighDLF16ToF32Op dlf16To32 = mlir::cast<ZHighDLF16ToF32Op>(dlf16To32Op);
-      hasDlf16To32 = true;
-      currOutputVal = dlf16To32.getOut();
+    Operation *finalLayoutTransformOp = nullptr;
+    Operation *dlf16To32Op = nullptr;
+    if (!terminateMatch) {
+      finalLayoutTransformOp = usedOnlyBy<ONNXLayoutTransformOp>(resultVal);
+      dlf16To32Op = usedOnlyBy<ZHighDLF16ToF32Op>(resultVal);
+      if (finalLayoutTransformOp) {
+        ONNXLayoutTransformOp finalLayoutTransform =
+            mlir::cast<ONNXLayoutTransformOp>(finalLayoutTransformOp);
+        if (!supportedLayoutForCompilerGeneratedStickUnstick(
+                finalLayoutTransform.getOutput(), /*nhwc*/ false)) {
+          // Cannot handle layout, just ignore this match.
+          notifyFailure(layoutTransform, finalLayoutTransformOp,
+              "Compiler unsupported final zTensor output, terminate match");
+          terminateMatch = true;
+          finalLayoutTransformOp = nullptr;
+        } else {
+          // Can handle layout, record layout.
+          std::optional<mlir::Attribute> layoutAttr =
+              finalLayoutTransform.getTargetLayout();
+          assert(layoutAttr.has_value() && "expected layout");
+          mlir::StringAttr layoutStringAttr =
+              mlir::dyn_cast<StringAttr>(layoutAttr.value());
+          assert(layoutStringAttr && "expected layout");
+          finalLayout = layoutStringAttr;
+          resultVal = finalLayoutTransform.getOutput();
+        }
+      } else if (dlf16To32Op) {
+        ZHighDLF16ToF32Op dlf16To32 =
+            mlir::cast<ZHighDLF16ToF32Op>(dlf16To32Op);
+        hasDlf16To32 = true;
+        resultVal = dlf16To32.getOut();
+      }
     }
 
     LLVM_DEBUG({
@@ -721,6 +778,11 @@ public:
         dlf16To32Op->dump();
       }
     });
+
+    if (hasDlf16To32)
+      return notifyFailure(layoutTransform, finalLayoutTransformOp,
+          "hi alex, not supported dlf16 to 32 yet");
+
     // Initial LT and transpose are sufficient to be useful.
     if (transposeOp)
       return notifySuccess(layoutTransform, nullptr, "with transpose op");
@@ -743,21 +805,20 @@ public:
     bool hasDlf16To32;
     std::optional<mlir::ArrayAttr> transposePattern;
     std::optional<mlir::StringAttr> finalLayout;
+    Value resultVal;
     if (!locatePattern(layoutTransformOp, reshapeSplitAxis, reshapeSplitFactor,
-            reshapeMergeAxis, hasDlf16To32, transposePattern, finalLayout)) {
+            reshapeMergeAxis, hasDlf16To32, transposePattern, finalLayout,
+            resultVal)) {
       return failure();
     }
     // Perform substitution.
-#if 0 // hi alex
     Location loc = layoutTransformOp.getLoc();
     auto newOp = rewriter.create<ZHighExtendedLayoutTransformOp>(loc,
-        layoutTransformOp.getData(), reshapeSplitAxis, reshapeSplitFactor,
-        transposePattern, reshapeMergeAxis, hasDlf16To32, finalLayout);
+        resultVal.getType(), layoutTransformOp.getData(), reshapeSplitAxis,
+        reshapeSplitFactor, transposePattern, reshapeMergeAxis, hasDlf16To32,
+        finalLayout);
     rewriter.replaceOp(layoutTransformOp, newOp);
     return success();
-#else
-    return failure();
-#endif
   }
 };
 //===----------------------------------------------------------------------===//

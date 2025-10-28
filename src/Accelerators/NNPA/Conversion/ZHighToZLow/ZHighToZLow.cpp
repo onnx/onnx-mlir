@@ -2280,6 +2280,171 @@ struct ZHighToZLowDataConversionLowering
   }
 };
 
+//===----------------------------------------------------------------------===//
+// ExtendedLayoutTransform
+//===----------------------------------------------------------------------===//
+struct ZHighToZLowExtendedLayoutTransformLowering
+    : public OpConversionPattern<ZHighExtendedLayoutTransformOp> {
+  using OpAdaptor = typename ZHighExtendedLayoutTransformOp::Adaptor;
+  bool enableParallel = false;
+
+  ZHighToZLowExtendedLayoutTransformLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern<ZHighExtendedLayoutTransformOp>(
+            typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ZHighExtendedLayoutTransformOp::getOperationName());
+  }
+
+  LogicalResult matchAndRewrite(ZHighExtendedLayoutTransformOp layoutTransform,
+      OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const final {
+    Location loc = layoutTransform.getLoc();
+    MDBuilder create(rewriter, loc);
+
+    fprintf(stderr, "hi alex, lowering layout transform\n");
+    layoutTransform.dump();
+
+    Operation *op = layoutTransform.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Value inputVal = adaptor.getSource();
+    Value outputVal = layoutTransform.getResult();
+    int64_t reshapeSplitAxis = layoutTransform.getReshapeSplitAxis();
+    int64_t factor = layoutTransform.getReshapeSplitFactor();
+    std::optional<ArrayAttr> transposePattern =
+        layoutTransform.getTransposePattern();
+    int64_t reshapeMergeAxis = layoutTransform.getReshapeMergeAxis();
+    int64_t inputRank = getRank(inputVal.getType());
+    int64_t outputRank = getRank(outputVal.getType());
+
+    // Compute output dims.
+    ZHighExtendedLayoutTransformOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
+    // IndexExprScope allocScope(create.vec, shapeHelper.getScope());
+    // getIndexExprList<SymIE>(shapeHelper.getOutputDims(), outputDims);
+
+    Value allocVal;
+    if (isZTensor(outputVal.getType())) {
+      // Convert output type to MemRef,
+      ZMemRefType zMemRefType = convertZTensorToMemRefType(outputVal.getType());
+      // Allocate output.
+      allocVal = insertAllocForZMemRef(zMemRefType, outputDims, op, rewriter);
+    } else {
+      // Convert the output type to MemRef.
+      Type outputTensorType = outputVal.getType();
+      Type convertedType = this->typeConverter->convertType(outputTensorType);
+      int64_t alignment =
+          KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+      assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
+             "Failed to convert type to MemRefType");
+      // Allocate output.
+      int64_t totVL = 64; // From data alloc's perspective.
+      MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
+      allocVal = create.mem.alignedAllocWithSimdPadding(
+          outputMemRefType, outputDims, totVL, alignment);
+    }
+
+    // We iterate over the splitted shape, so input+1 if we have a split axis.
+    // This is simpler because if we keep it combined and parallelization cut
+    // the split axis in chunks that are not friendly, then we may have issues
+    // (or have to generate much more conservative code). So the loop ubs
+    // reflect the input dimensions.
+    int64_t loopRank = (reshapeSplitAxis != -1) ? inputRank + 1 : inputRank;
+    ValueRange loopDef = create.krnl.defineLoops(loopRank);
+    DimsExpr inputDims = shapeHelper.sourceDims;
+    DimsExpr lbs(loopRank, LitIE(0));
+    DimsExpr ubs;
+    for (int64_t din = 0; din < inputRank; ++din) {
+      if (din == reshapeSplitAxis) {
+        int64_t factor = layoutTransform.getReshapeSplitFactor();
+        ubs.emplace_back(inputDims[din].ceilDiv(factor));
+        ubs.emplace_back(LitIE(factor));
+      } else {
+        ubs.emplace_back(inputDims[din]);
+      }
+    }
+    assert((int64_t)ubs.size() == loopRank && "missing ubs values");
+    // Inner dim is tiled by 64; guaranteed to be full tile.
+    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
+
+    // Handle parallelism here.
+
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange indices) {
+          // Process 64 values here at a time.
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          // Loop indices: iterate over the iteration space with split dim.
+          DimsExpr loopIndices = DimListIE(indices);
+          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * 64;
+
+          // Since we iterate over the split iterations; create input indices
+          // merging the split dims.
+          DimsExpr inputAF;
+          for (int64_t d = 0; d < loopRank; ++d) {
+            if (d == reshapeSplitAxis) {
+              IndexExpr i = loopIndices[d] * factor;
+              inputAF.emplace_back(i + loopIndices[d + 1]);
+              ++d; // Skip next d.
+            } else {
+              inputAF.emplace_back(loopIndices[d]);
+            }
+          }
+          assert((int64_t)inputAF.size() == inputRank && "input issue");
+
+          // Now compute the output indices. LoopIndices are already split.
+          DimsExpr outputAF = loopIndices;
+          // First, perform transpose, if any.
+          if (transposePattern.has_value()) {
+            DimsExpr tmpAF = outputAF;
+            outputAF.clear();
+            for (int64_t d = 0; d < loopRank; ++d) {
+              int64_t permuteIndex = ArrayAttrIntVal(transposePattern, d);
+              outputAF.emplace_back(tmpAF[permuteIndex]);
+            }
+          }
+          // Then: perform merge, if any.
+          if (reshapeMergeAxis != -1) {
+            DimsExpr tmpAF = outputAF;
+            outputAF.clear();
+            for (int64_t d = 0; d < loopRank; ++d) {
+              if (d == reshapeMergeAxis) {
+                IndexExpr i =
+                    tmpAF[d] * DimIE(shapeHelper.transposeDims[d + 1]);
+                outputAF.emplace_back(i + tmpAF[d + 1]);
+                ++d; // Skip next d.
+              } else {
+                outputAF.emplace_back(tmpAF[d]);
+              }
+            }
+          }
+          assert((int64_t)outputAF.size() == outputRank && "output issue");
+
+          // We have now the input and output access function.
+          if (!layoutTransform.getDlf16ToF32()) {
+            // Simply have a mem copy.
+            Value inputOffset =
+                create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
+            Value outputOffset =
+                create.krnl.getLinearOffsetIndexIE(allocVal, outputAF);
+            Value len = create.math.constant(rewriter.getI64Type(), 64);
+            create.krnl.memcpy(
+                allocVal, inputVal, len, outputOffset, inputOffset);
+          } else {
+            llvm_unreachable("not implemented yet");
+          }
+        });
+    rewriter.replaceOp(layoutTransform, allocVal);
+   return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Populate all the patterns.
+//===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
     bool enableParallel) {
@@ -2340,6 +2505,9 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowQuantizedStickOpLowering>(
       typeConverter, ctx, enableSIMD, enableParallel);
   patterns.insert<ZHighToZLowQuantizedMatMulOpLowering>(typeConverter, ctx);
+  // Extended transpose
+  patterns.insert<ZHighToZLowExtendedLayoutTransformLowering>(
+      typeConverter, ctx, enableParallel);
 }
 
 } // namespace zhigh

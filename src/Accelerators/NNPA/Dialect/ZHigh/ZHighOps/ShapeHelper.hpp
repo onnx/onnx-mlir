@@ -222,8 +222,8 @@ using ZHighFixGRUYOpShapeHelper = ONNXUnaryOpShapeHelper;
 
 struct ZHighExtendedLayoutTransformOpShapeHelper : public ONNXOpShapeHelper {
   ZHighExtendedLayoutTransformOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands = {},
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      mlir::ValueRange operands = {}, IndexExprBuilder *ieBuilder = nullptr,
+      IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ZHighExtendedLayoutTransformOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;

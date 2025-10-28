@@ -68,14 +68,13 @@ LogicalResult ZHighExtendedLayoutTransformOp::verify() {
     if (splitAxis < 0 || splitAxis >= splitRank)
       return emitOpError("out of bound split Axis");
     if (splitAxis == sourceRank - 1) {
-      // Split the innermost one, make sure the leftover is still a multiple
-      // of 64.
+      // Split the innermost one, ensure the split factor is a multiple of 64.
       int64_t splitFactor = getReshapeSplitFactor();
       int64_t splitDim = sourceShape[sourceRank - 1];
       if (splitDim % splitFactor != 0)
         return emitOpError(
             "Expected the split to break into even sub-partitions");
-      if ((splitDim / splitFactor) % 64 != 0)
+      if (splitFactor % 64 != 0)
         return emitOpError("Innermost dim expected to remain a multiple of 64");
     }
     // Because of the split, rank increases by one.
@@ -124,24 +123,12 @@ LogicalResult ZHighExtendedLayoutTransformOp::verify() {
 //===----------------------------------------------------------------------===//
 
 void ZHighExtendedLayoutTransformOp::build(OpBuilder &builder,
-    OperationState &state, Value source, int64_t reshapeSplitAxis,
+    OperationState &state, Type resType, Value source, int64_t reshapeSplitAxis,
     int64_t reshapeSplitFactor, std::optional<ArrayAttr> transposePattern,
     int64_t reshapeMergeAxis, bool dlf16ToF32,
     std::optional<StringAttr> layout) {
 
-  Type elementType;
-  if (dlf16ToF32)
-    elementType = builder.getF32Type();
-  else
-    elementType = getElementType(source.getType());
-  Type resType = UnrankedTensorType::get(elementType);
-
-  /* hi alex, should I use inference here?
-  if (auto inType = mlir::dyn_cast<RankedTensorType>(input.getType()))
-    resType = RankedTensorType::get(inType.getShape(), elementType);
-  */
-
-  auto si64Ty = builder.getI64Type();
+  auto si64Ty = builder.getIntegerType(64, /*isSigned=*/true);
   build(builder, state, resType, source,
       builder.getIntegerAttr(si64Ty, reshapeSplitAxis),
       builder.getIntegerAttr(si64Ty, reshapeSplitFactor),
@@ -171,9 +158,9 @@ LogicalResult ZHighExtendedLayoutTransformOpShapeHelper::computeShape() {
       // If splitAxis is -1, we will always come here.
       reshapeSplitDims.emplace_back(sourceDims[d]);
     } else {
-      // Split: add splitfactor, sourceDim[d]/splitFactor
+      // Split: add sourceDim[d]/splitFactor. splitfactor, splitFactor.
+      reshapeSplitDims.emplace_back(sourceDims[d].ceilDiv(splitFactor));
       reshapeSplitDims.emplace_back(splitFactor);
-      reshapeSplitDims.emplace_back(sourceDims[d] / splitFactor);
     }
   }
   int64_t splitRank = reshapeSplitDims.size();
