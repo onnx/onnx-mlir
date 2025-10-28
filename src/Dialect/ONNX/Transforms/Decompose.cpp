@@ -2873,26 +2873,26 @@ struct CustomOpToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
 
   static LogicalResult verifyOpsErasingOnError(
       ValueRange values, PatternRewriter &rewriter) {
-    if (llvm::any_of(values, [](Value value) {
-          return value && failed(verifyOpValidity(value.getDefiningOp()));
+    if (llvm::all_of(values, [](Value value) {
+          return !value || succeeded(verifyOpValidity(value.getDefiningOp()));
         })) {
-      SmallVector<Operation *> opsToErase;
-      for (auto value : values) {
-        if (value) {
-          opsToErase.push_back(value.getDefiningOp());
-        }
-      }
-      llvm::sort(opsToErase);
-      opsToErase.erase(llvm::unique(opsToErase), opsToErase.end());
-      // We need to ensure that the ops get erased in reverse topological order,
-      // as its only allowed to erase an op if it does not have an use
-      computeTopologicalSorting(opsToErase);
-      for (auto *op : llvm::reverse(opsToErase)) {
-        rewriter.eraseOp(op);
-      }
-      return failure();
+      return success();
     }
-    return success();
+    SmallVector<Operation *> opsToErase;
+    for (auto value : values) {
+      if (value) {
+        opsToErase.push_back(value.getDefiningOp());
+      }
+    }
+    llvm::sort(opsToErase);
+    opsToErase.erase(llvm::unique(opsToErase), opsToErase.end());
+    // We need to ensure that the ops get erased in reverse topological order,
+    // as its only allowed to erase an op if it does not have an use
+    computeTopologicalSorting(opsToErase);
+    for (auto *op : llvm::reverse(opsToErase)) {
+      rewriter.eraseOp(op);
+    }
+    return failure();
   }
 
   static SmallVector<NamedAttribute> getFilteredAttrs(
