@@ -2447,7 +2447,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
           } else {
             conversionSupportUSS.list[0].beforeStickLoop(create.krnl, inputAF);
             conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
-            int64_t U = 32;
+            int64_t U = 4;
             // Function simply copy the single input to an output.
             UnifiedStickSupportList::IterateFctOver4xF32 fct =
                 [&](const KrnlBuilder &b,
