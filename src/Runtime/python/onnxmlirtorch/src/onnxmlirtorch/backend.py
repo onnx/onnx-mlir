@@ -1,10 +1,11 @@
-import numpy as np
 import os
 import sys
 import tempfile
-import torch
 import inspect
+import logging
 
+import numpy as np
+import torch
 from torch._inductor.codecache import (
     FxGraphCachePickler,
     FxGraphHashDetails,
@@ -65,6 +66,9 @@ different inference  may become difference due to the optimization based on
 the inputs. Different ONNXMLIRTorch object will be created for each inference,
 and there is no reuse with cache among them.
 """
+
+
+logger = logging.getLogger(__name__)
 
 
 class config:
@@ -145,6 +149,7 @@ class ONNXMLIRTorch:
         cached_session = self.session_cache.get(cache_key)
 
         if cached_session is None:
+            logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
             # Since the session is connected to a .so file, we have to make
@@ -179,6 +184,7 @@ class ONNXMLIRTorch:
             # Replace the victim cache entry
             self.session_cache.put(cache_key, (self.tag, sess))
         else:
+            logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession
             _, sess = cached_session
 

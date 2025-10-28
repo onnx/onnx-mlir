@@ -1,2 +1,2 @@
-from .onnxmlirtorch import ONNXMLIRTorch
-from .onnxmlirtorch import *
+from .backend import ONNXMLIRTorch
+from .backend import *
