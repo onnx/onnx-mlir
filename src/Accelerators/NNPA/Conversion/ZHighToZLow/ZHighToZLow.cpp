@@ -2425,7 +2425,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 
           // We have now the input and output access function.
           if (!layoutTransform.getDlf16ToF32()) {
-#if 1
+#if 0
             create.krnl.forLoopIE(LitIE(0), LitIE(64), 1, false,
                 [&](const KrnlBuilder b, mlir::ValueRange loopInd) {
                   MDBuilder create(b);
