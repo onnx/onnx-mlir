@@ -98,6 +98,7 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool simdIsEnabled);
 std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass();
 std::unique_ptr<mlir::Pass> createProcessKrnlParallelClausePass();
+std::unique_ptr<mlir::Pass> createBufferOMPLoopHoistingPass();
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 /// Add pass for lowering to Stablehlo IR.
