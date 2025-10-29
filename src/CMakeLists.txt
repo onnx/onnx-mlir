@@ -25,7 +25,6 @@ endif()
 
 add_subdirectory(Accelerators)
 add_subdirectory(Interface)
-add_subdirectory(Pass)
 add_subdirectory(Dialect)
 add_subdirectory(Support)
 add_subdirectory(Conversion)

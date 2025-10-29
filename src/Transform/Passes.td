@@ -4,7 +4,7 @@
 include "mlir/Pass/PassBase.td"
 include "mlir/Rewrite/PassUtil.td"
 
-def BufferOMPLoopHoisting : Pass<"buffer-omploop-hoisting"> {
+def BufferOMPLoopHoisting : Pass<"buffer-omploop-hoisting", "func::FuncOp"> {
   let summary = "Hoist buffer(alloc and dealloc) for omp loops";
   let description = [{
     This pass hoists buffer alloc/dealloc from omp worksharing loop
