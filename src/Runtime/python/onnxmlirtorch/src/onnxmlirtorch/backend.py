@@ -243,9 +243,10 @@ class ONNXMLIRTorch:
             input_arg = node.meta["example_value"]
             input_names.append(input_name)
 
-            # SymInts are not real inputs to the onnx model,
-            # but we need to set it so that the export does not
-            # complain about input mismatch.
+            # SymInts are not real inputs to the onnx model
+            # and Parameters are constants at inference time,
+            # but we need to set them so that the export does not
+            # complain about input name mismatch.
             if isinstance(input_arg, torch.SymInt) or isinstance(
                 input_arg, torch.nn.Parameter
             ):
