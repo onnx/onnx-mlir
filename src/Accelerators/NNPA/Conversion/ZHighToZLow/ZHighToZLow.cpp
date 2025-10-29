@@ -2373,6 +2373,13 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
     // Handle parallelism here.
+    if (enableParallel) {
+      int maxId = std::min(loopRank - 1, (int64_t)2);
+      tryCreateKrnlParallel(create.krnl, op,
+          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
+          maxId, {}, /*min iter for going parallel*/ 4,
+          /*createKrnlParallel=*/true);
+    }
 
     // Prepare support for conversion of dlf16 to 64, if needed.
     UnifiedStickSupportList conversionSupportUSS;
