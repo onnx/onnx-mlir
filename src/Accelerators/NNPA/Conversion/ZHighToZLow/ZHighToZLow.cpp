@@ -2454,7 +2454,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
                     mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
                   return inputOfF32Vals[0];
                 };
-            create.krnl.forLoopIE(LitIE(0), LitIE(64), U, /*par*/ false,
+            create.krnl.forLoopIE(LitIE(0), LitIE(64), U*8, /*par*/ false,
                 [&](const KrnlBuilder kb, ValueRange loopInd) {
                   IndexExprScope innerScope(kb, &outerScope);
                   MDBuilder create(ck);
