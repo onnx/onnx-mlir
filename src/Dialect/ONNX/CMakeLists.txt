@@ -58,11 +58,13 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/Reduction.cpp
   ONNXOps/Math/Scatter.cpp
   ONNXOps/Math/TopK.cpp
+  ONNXOps/NN/Attention.cpp
   ONNXOps/NN/Conv.cpp
   ONNXOps/NN/Dropout.cpp
   ONNXOps/NN/Normalization.cpp
   ONNXOps/NN/Pooling.cpp
   ONNXOps/NN/RoiAlign.cpp
+  ONNXOps/NN/RotaryEmbedding.cpp
   ONNXOps/ObjectDetection/NonMaxSuppression.cpp
   ONNXOps/Quantize/DequantizeLinear.cpp
   ONNXOps/Quantize/DynamicQuantizeLinear.cpp
