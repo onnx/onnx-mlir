@@ -20,6 +20,7 @@
 #include <numeric>
 
 #include "mlir/Dialect/Traits.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -580,6 +581,67 @@ public:
     Value res = create.onnx.reshape(outputType, x, reshapeShape, reshapeAZ);
 
     rewriter.replaceOp(op, res);
+    return success();
+  };
+};
+
+// This pattern bubbles up AddOp through transpose to keep the bias Add
+// operation right after LN_type op. This will helps the other patterns fold the
+// add into the operands of a Norm operator.
+//
+// From:
+// Norm operator
+//    |
+// Transpose
+//    |
+//   Add
+//
+// To:
+// Norm operator
+//    |
+//   Add
+//    |
+// Transpose
+template <typename LN_TYPE>
+class BubbleUpBiasForNormOpPattern : public OpRewritePattern<ONNXAddOp> {
+public:
+  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &r) const override {
+    if (!isConstLikeValue(addOp.getB()))
+      return r.notifyMatchFailure(addOp, "not a constant rhs operand");
+
+    auto transposeOp =
+        llvm::dyn_cast_or_null<ONNXTransposeOp>(addOp.getA().getDefiningOp());
+    if (!transposeOp)
+      return r.notifyMatchFailure(addOp, "the producer is not a transpose");
+
+    if (!transposeOp->hasOneUse())
+      return r.notifyMatchFailure(
+          addOp, "cannot bubble up because transpose has other user");
+
+    auto layernormResult = transposeOp.getData();
+    auto layerNorm =
+        llvm::dyn_cast_or_null<LN_TYPE>(layernormResult.getDefiningOp());
+    if (!layerNorm)
+      return r.notifyMatchFailure(
+          transposeOp, "the producer is not a layernorm");
+
+    if (!isNoneValue(layerNorm.getB()))
+      return r.notifyMatchFailure(layerNorm, "layernorm already has a bias");
+
+    OnnxBuilder create(r, addOp.getLoc());
+
+    auto perm = extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr());
+    auto invertedPerm = invertPermutationVector(perm);
+    auto cstReshaped = create.upRank(addOp.getB(), getRank(addOp.getType()));
+    auto cstTranposed = create.transposeInt64(cstReshaped, invertedPerm);
+    auto newAddOp = create.add(layernormResult, cstTranposed);
+    auto transposedBack = create.transposeInt64(newAddOp, perm);
+
+    r.replaceOp(addOp, transposedBack);
+
     return success();
   };
 };
@@ -2426,6 +2488,10 @@ void ONNXAddOp::getCanonicalizationPatterns(
       PropagateBiasIntoLayerNormRewritePattern<ONNXRMSLayerNormalizationOp>>(
       context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
+  results.insert<BubbleUpBiasForNormOpPattern<ONNXLayerNormalizationOp>>(
+      context);
+  results.insert<BubbleUpBiasForNormOpPattern<ONNXRMSLayerNormalizationOp>>(
+      context);
 }
 
 /// on the ONNXAndOp.

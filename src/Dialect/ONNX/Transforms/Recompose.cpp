@@ -23,6 +23,7 @@
 #include <numeric>
 
 #include "mlir/Analysis/TopologicalSortUtils.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -89,6 +90,34 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 // #include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
 
+// There could be scenarios that the pattern can be matched as layernorm but the
+// axis is not suitable. However, there is a possibility to make the axis
+// suitable by transposing the original input tensor and axis. In the following
+// example, since the second dimension is being reduced, it's not a layernorm
+// but if that dimension is transposed to the last dimension and and change the
+// axis of layernorm to 3 and transpose the result back, the transform IR is
+// semantically and mathematically correct and legal.
+//
+// Before:
+// %9 = "onnx.ReduceMeanV13"(%8) {axes = [1]} : (<1x4x128xf32>) -> <1x1x128xf32>
+// %10 = "onnx.Sub"(%8, %9) (<1x4x128xf32>, <1x1x128xf32>) -> <1x4x128xf32>
+// %11 = "onnx.Mul"(%10, %10) (<1x4x128xf32>, <1x4x128xf32>) -> <1x4x128xf32>
+// %12 = "onnx.ReduceMeanV13"(%11) {axes = [1]} : (<1x4x128xf32>) ->
+// <1x1x128xf32> %13 = "onnx.Add"(%12, %4) : (<1x1x128xf32>, <f32>) ->
+// <1x1x128xf32> %14 = "onnx.Sqrt"(%13): (<1x1x128xf32>) -> <1x1x128xf32> %15 =
+// "onnx.Div"(%10, %14) : (<1x4x128xf32>, <1x1x128xf32>) -> <1x4x128xf32> %16 =
+// "onnx.Mul"(%15, %5) : (<1x4x128xf32>, <4x1x1xf32>) -> <1x4x128xf32>
+//
+// After:
+// %9 = "onnx.Transpose"(%6)
+//      {perm = [0, 2, 3, 1]} : (<1x4x128x128xf32>) -> <1x128x128x4xf32>
+// %Y = "onnx.LayerNormalization"(%9, %8, %1)
+//      {axis = 3 : si64} : (<1x128x128x4xf32>, <1x1x1x4xf32>, none) ->
+//      (<1x128x128x4xf32>)
+// %10 = "onnx.Transpose"(%Y)
+//      {perm = [0, 3, 1, 2]} : (<1x128x128x4xf32>) -> <1x4x128x128xf32>
+
+template <bool RecomposeLayernormByTranspose = false>
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -131,16 +160,38 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     int64_t axis;
     bool isRMSLayerNorm;
     SmallVector<Location> layerNormLocations;
-    if (!matchLayerNormPattern(
-            mulOp, x, scale, axis, epsilon, layerNormLocations, isRMSLayerNorm))
+
+    // This will be filled up with the permutation that helps us by transposing
+    // the original tensor and adapting the axis, we make unsuitable axis for
+    // layer suitable.
+    SmallVector<int64_t> permutation;
+    if (!matchLayerNormPattern(mulOp, x, scale, axis, epsilon,
+            layerNormLocations, isRMSLayerNorm, permutation))
       return failure();
 
     // Replace
     MultiDialectBuilder<OnnxBuilder> create(
         rewriter, rewriter.getFusedLoc(layerNormLocations));
-    Type xType = x.getType();
     Value noneVal = create.onnx.none();
     Value res;
+
+    if constexpr (RecomposeLayernormByTranspose) {
+      if (!hasShapeAndRank(scale))
+        return rewriter.notifyMatchFailure(
+            mulOp, "the scale doesn't have shape or rank");
+      // if the permutation is empty, nothing is needed to be permuted.
+      // Otherwise, both input and scale must be transposed.
+      if (!permutation.empty()) {
+        if (scale) {
+          // Layernorm supports broadcasting and in order to transpose, the rank
+          // should be equalized.
+          scale = create.onnx.upRank(scale, getRank(x.getType()));
+          scale = create.onnx.transposeInt64(scale, permutation);
+        }
+        x = create.onnx.transposeInt64(x, permutation);
+      }
+    }
+
     if (isRMSLayerNorm) {
       if (!scale) {
         // set scale to unity if there is no scale value present in the pattern
@@ -150,15 +201,26 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
         // because the pass that generates RMSNormAdf templated graph requires
         // the scale to be a tensor of dimension same as the inner most
         // dimension of input tensor
-        auto result = this->createScaleConstOp(xType, create);
+        auto result = this->createScaleConstOp(x.getType(), create);
         if (failed(result))
           return failure();
         scale = result.value();
       }
-      res = create.onnx.RMSLayerNorm(xType, x, scale, noneVal, axis, epsilon);
+      res = create.onnx.RMSLayerNorm(
+          x.getType(), x, scale, noneVal, axis, epsilon);
     } else {
-      res = create.onnx.layerNorm(xType, x, scale, noneVal, axis, epsilon);
+      res =
+          create.onnx.layerNorm(x.getType(), x, scale, noneVal, axis, epsilon);
     }
+
+    if constexpr (RecomposeLayernormByTranspose) {
+      // Transpose back the result if the input and scale got transposed.
+      if (!permutation.empty()) {
+        res = create.onnx.transposeInt64(
+            res, invertPermutationVector(permutation));
+      }
+    }
+
     copySingleResultType(mulOp, res);
     rewriter.replaceOp(mulOp, res);
     return success();
@@ -202,7 +264,8 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   */
   static bool matchLayerNormPattern(ONNXMulOp LayerNormOp, Value &x,
       Value &scale, int64_t &axis, FloatAttr &epsilonAttr,
-      SmallVectorImpl<Location> &layerNormLocations, bool &isRMSLayerNorm) {
+      SmallVectorImpl<Location> &layerNormLocations, bool &isRMSLayerNorm,
+      SmallVectorImpl<int64_t> &perm) {
     using namespace onnx_mlir;
     Location loc = LayerNormOp.getLoc();
     isRMSLayerNorm = false;
@@ -388,8 +451,14 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return reportFailure("RMS need rank and shape for input dd");
     int64_t ddRank = mlir::cast<ShapedType>(dd.getType()).getRank();
     int64_t varAxis;
-    if (!suitableAxis(vReduceOp, ddRank, varAxis))
-      return reportFailure("RMS unsuitable var reduce axes");
+    if constexpr (!RecomposeLayernormByTranspose) {
+      if (!suitableAxis(vReduceOp, ddRank, varAxis))
+        return reportFailure("RMS unsuitable var reduce axes");
+    } else {
+      if (failed(isAxisSuitableWithTranspose(vReduceOp, ddRank, varAxis)))
+        return reportFailure("RMS unsuitable var reduce axes that cannot be "
+                             "handled even with transposition");
+    }
 
     // 3: All the conditions are now correct for having an RMS pattern.
     // Now check if we can extend the pattern to a full LM pattern.
@@ -438,10 +507,24 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
         return reportFailure("LN need rank and shape for input x");
       int64_t x1Rank = mlir::cast<ShapedType>(x1.getType()).getRank();
       int64_t meanAxis;
-      if (!suitableAxis(mReduceOp, x1Rank, meanAxis))
-        hasFullPattern = reportFailure("LN unsuitable mean reduce axes");
-      else if (meanAxis != varAxis)
-        hasFullPattern = reportFailure("LN mean and var axes must be the same");
+      if constexpr (!RecomposeLayernormByTranspose) {
+        if (!suitableAxis(mReduceOp, x1Rank, meanAxis))
+          hasFullPattern = reportFailure("LN unsuitable mean reduce axes");
+        else if (meanAxis != varAxis)
+          hasFullPattern =
+              reportFailure("LN mean and var axes must be the same");
+      } else {
+        auto permutation =
+            isAxisSuitableWithTranspose(mReduceOp, x1Rank, meanAxis);
+        if (failed(permutation))
+          hasFullPattern =
+              reportFailure("LN unsuitable mean reduce axes that cannot be "
+                            "handled even with transposition");
+        else if (meanAxis != varAxis)
+          hasFullPattern =
+              reportFailure("LN mean and var axes must be the same");
+        perm = permutation.value();
+      }
     }
 
     // We have now success, either with the shorter RMS LN pattern or the
@@ -450,13 +533,27 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (hasFullPattern) {
       isRMSLayerNorm = false;
       x = x1;
-      LLVM_DEBUG(llvm::dbgs() << "LayerNorm from mult, axis " << axis << "\n");
+
     } else {
       isRMSLayerNorm = true;
       x = d;
-      LLVM_DEBUG(
-          llvm::dbgs() << "RMSLayerNorm from mult, axis " << axis << "\n");
     }
+
+    static const std::string layerNormKind =
+        isRMSLayerNorm ? "RMSLayerNorm" : "LayerNorm";
+    if (perm.empty()) {
+      LLVM_DEBUG(llvm::dbgs() << llvm::formatv(
+                     "{0} from mult, axis {1}", layerNormKind, axis));
+    } else {
+      std::string msg;
+      llvm::raw_string_ostream rso(msg);
+      llvm::interleaveComma(perm, rso);
+      LLVM_DEBUG(llvm::dbgs()
+                 << llvm::formatv("{0} from mult with transpose {1} of the "
+                                  "original input and new axis {2} \n",
+                        layerNormKind, msg, axis));
+    }
+
     // Collect the locations of the recomposed ops
     if (mReduceOp)
       layerNormLocations.push_back(mReduceOp->getLoc());
@@ -481,31 +578,34 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   }
 
 private:
-  static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
+  // Return the reduced dimensions as bit vector.
+  static FailureOr<llvm::SmallBitVector> getReducedAxis(
+      Operation *op, int64_t xRank, int64_t &axis) {
     SmallVector<int64_t> axes; // The axes attribute/operand of the ReduceMeanOp
     if (auto reduceOpV13 = mlir::dyn_cast<ONNXReduceMeanV13Op>(op)) {
       if (reduceOpV13.getKeepdims() != 1)
-        return reportFailure("need keepdims = 1");
+        return success(reportFailure("need keepdims = 1"));
       ArrayAttr axesAttr = reduceOpV13.getAxesAttr();
       for (size_t i = 0; i < axesAttr.size(); ++i) {
         axes.emplace_back(onnx_mlir::ArrayAttrIntVal(axesAttr, i));
       }
     } else if (auto reduceOp = mlir::dyn_cast<ONNXReduceMeanOp>(op)) {
       if (reduceOp.getKeepdims() != 1)
-        return reportFailure("need keepdims = 1");
+        return success(reportFailure("need keepdims = 1"));
       Value axesValue = reduceOp.getAxes();
       if (isa<NoneType>(axesValue.getType())) {
         if (reduceOp.getNoopWithEmptyAxes()) {
           // No reduction
-          return reportFailure("needs a reduction on at least one dimension");
+          return success(
+              reportFailure("needs a reduction on at least one dimension"));
         } else {
           // Reduction on all dimensions
           axis = 0;
-          return true;
+          return llvm::SmallBitVector(xRank, true);
         }
       }
       if (!onnx_mlir::getI64ValuesFromONNXConstantOp(axesValue, axes)) {
-        return reportFailure("only static axes are supported");
+        return success(reportFailure("only static axes are supported"));
       }
     } else {
       llvm_unreachable("ReduceMean is the only supported op");
@@ -517,21 +617,57 @@ private:
       int64_t a = onnx_mlir::getAxisInRange(axe, xRank);
       reduceAxes[a] = true;
     }
+    return reduceAxes;
+  }
+
+  // Check if the axis is suitable for Layernorm.
+  static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
+    auto reduceAxes = getReducedAxis(op, xRank, axis);
+    if (failed(reduceAxes))
+      return false;
+
     // Check that we have a "false"* "true"+ pattern.
     bool foundFirstAxis = false;
     for (int64_t i = 0; i < xRank; ++i) {
       if (!foundFirstAxis) {
-        if (reduceAxes[i]) {
+        if (reduceAxes.value()[i]) {
           foundFirstAxis = true;
           axis = i;
         }
-      } else if (!reduceAxes[i]) {
+      } else if (!reduceAxes.value()[i]) {
         // Once we found an axis, we must reduce all subsequent dimensions.
         return false;
       }
     }
     // Ensure we had at least one reduction.
     return foundFirstAxis;
+  }
+
+  // Checks if the axes with transpose op could be suitable for Layernorm.
+  // normalized_axes is [axis, ..., rank of X - 1] in layernorm but the
+  // reduce_mean ops in the decomposition have axes = [1,3] in the 4d tensor,
+  // that's not suitable for layernorm. However, we transpose the dimensions 1
+  // and 3 to the innermost dimension with perm = [0,2,1,3], this can be
+  // represented as Layernorm with axis = 2.
+  static FailureOr<SmallVector<int64_t>> isAxisSuitableWithTranspose(
+      Operation *op, int64_t xRank, int64_t &axis) {
+    auto reduceAxes = getReducedAxis(op, xRank, axis);
+    if (failed(reduceAxes))
+      return failure();
+
+    SmallVector<int64_t> reducedIdx;
+    SmallVector<int64_t> nonReducedIdx;
+    for (int64_t i = 0; i < xRank; ++i) {
+      auto &array = reduceAxes.value()[i] ? reducedIdx : nonReducedIdx;
+      array.push_back(i);
+    }
+
+    SmallVector<int64_t> perm;
+    perm.append(nonReducedIdx);
+    perm.append(reducedIdx);
+    axis = nonReducedIdx.size();
+
+    return perm;
   }
 
   static bool reportFailure(std::string msg) {
@@ -1270,11 +1406,17 @@ struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
 
-  RecomposeONNXToONNXPass(const std::string &target) { this->target = target; }
+  RecomposeONNXToONNXPass(
+      const std::string &target, const bool &recomposeLayernormByTranspose) {
+    this->target = target;
+    this->recomposeLayernormByTranspose = recomposeLayernormByTranspose;
+  }
   RecomposeONNXToONNXPass(const RecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<RecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target.getValue();
+    this->recomposeLayernormByTranspose =
+        pass.recomposeLayernormByTranspose.getValue();
   }
 
   StringRef getArgument() const override { return "recompose-onnx"; }
@@ -1287,6 +1429,12 @@ struct RecomposeONNXToONNXPass
   Option<std::string> target{*this, "target",
       llvm::cl::desc("Target Dialect to Recompose into"), ::llvm::cl::init("")};
 
+  Option<bool> recomposeLayernormByTranspose{*this,
+      "recompose-layernorm-by-transpose",
+      llvm::cl::desc("Use transpose operator to make unsuitable axes suitable "
+                     "for matching layernorm"),
+      ::llvm::cl::init(false)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -1298,7 +1446,8 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
+  onnx_mlir::getRecomposeONNXToONNXPatterns(
+      patterns, recomposeLayernormByTranspose);
 
   if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
@@ -1307,10 +1456,12 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 } // namespace
 
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
-    mlir::RewritePatternSet &patterns) {
+    mlir::RewritePatternSet &patterns, bool recomposeLayernormByTranspose) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<RecomposeGeluFromMulPattern>(context);
-  patterns.insert<RecomposeLayerNormFromMulPattern>(context);
+  patterns.insert<RecomposeLayerNormFromMulPattern<false>>(context);
+  if (recomposeLayernormByTranspose)
+    patterns.insert<RecomposeLayerNormFromMulPattern<true>>(context);
   patterns.insert<RecomposeDepthToSpaceCRD>(context);
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it
@@ -1322,6 +1473,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
  * Create a RecomposeONNX pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createRecomposeONNXToONNXPass(
-    const std::string &target) {
-  return std::make_unique<RecomposeONNXToONNXPass>(target);
+    const std::string &target, const bool &recomposeLayernormByTranspose) {
+  return std::make_unique<RecomposeONNXToONNXPass>(
+      target, recomposeLayernormByTranspose);
 }
