@@ -986,3 +986,102 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
   // expected-error @+1 {{'onnx.RandomUniformLike' op result element type f16 does not match the expected type f32}}
   %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
   "onnx.Return"(%0) : (tensor<*xf16>) -> ()}
+
+// -----
+
+func.func @test_rotary_embedding_missing_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.RotaryEmbedding' op attribute 'num_heads' must be provided when input is a 3D tensor.}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_rotary_embedding_bad_dtype(%data: tensor<1x128x3072xi64>, %cos_cache: tensor<4096x48xi64>, %sin_cache: tensor<4096x48xi64>) -> tensor<*xi64> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.RotaryEmbedding' op operand #0 must be tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) : (tensor<1x128x3072xi64>, tensor<4096x48xi64>, tensor<4096x48xi64>, none) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}
+
+// -----
+
+func.func @test_rotary_embedding_bad_embedding_dim(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<4096x48xf32>' at index: 1' has dimension at index 1 with value 48, value should be 50}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64, rotary_embedding_dim = 100: si64} : (tensor<1x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_rotary_embedding_bad_input_rank(%data: tensor<1x2x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x2x32x128x96xf32>' at index: 0' has rank 5, rank should be 3 or 4}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x2x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_rotary_embedding_bad_caches_rank(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<48xf32>, %sin_cache: tensor<48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<48xf32>' at index: 1' has rank 1, rank should be 2 or 3}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x96xf32>, tensor<48xf32>, tensor<48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_rotary_embedding_bad_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x128x3072xf32>' at index: 0' has dimension at index 2 with value 3072, value should be divisible by 31}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 31: si64} : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_attention_bad_q_rank(%q: tensor<1x2x32x128x96xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.Attention: operand '<block argument> of type 'tensor<1x2x32x128x96xf32>' at index: 0' has rank 5, rank should be 3 or 4}}
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) : (tensor<1x2x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_attention_missing_q_num_heads(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Attention' op attribute 'q_num_heads' must be provided when input 'q' is a 3D tensor.}}
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {kv_num_heads = 16: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_attention_missing_kv_num_heads(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Attention' op attribute 'kv_num_heads' must be provided when inputs 'k' or 'v' are 3D tensors.}}
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_attention_bad_q_num_heads(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.Attention: operand '<block argument> of type 'tensor<1x128x3072xf32>' at index: 0' has dimension at index 2 with value 3072, value should be divisible by 31}}
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 31: si64, kv_num_heads = 16: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_attention_bad_kv_num_heads(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.Attention: operand '<block argument> of type 'tensor<1x128x1536xf32>' at index: 1' has dimension at index 2 with value 1536, value should be divisible by 15}}
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64, kv_num_heads = 15: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}

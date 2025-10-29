@@ -45,7 +45,8 @@ LogicalResult ONNXAttentionOpShapeHelper::computeShape() {
     return failure();
   }
 
-  if (attentionOp.getOperands().size() != 6)
+  // Need past_key/value inputs to infer shapes for present_key/value outputs
+  if (attentionOp->getNumOperands() < 6)
     return success();
 
   if (isNoneValue(attentionOp.getPastKey()) ||
@@ -90,6 +91,96 @@ LogicalResult ONNXAttentionOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
+
+LogicalResult ONNXAttentionOp::verify() {
+  const int64_t numIn = this->getNumOperands();
+  const int64_t numOut = this->getNumResults();
+
+  // If presentK and presentV are outputs, then we must pass pastK and pastV as
+  // inputs
+  if (numOut >= 3) {
+    Value presentK = this->getResult(1);
+    Value presentV = this->getResult(2);
+    if (!isNoneValue(presentK) || !isNoneValue(presentV)) {
+      if (numIn < 6)
+        return emitOpError("inputs 'pastK' and 'pastV' are needed for outputs "
+                           "'presentK' and 'presentV'");
+
+      Value pastK = this->getOperand(4);
+      Value pastV = this->getOperand(5);
+      if (isNoneValue(pastK) || isNoneValue(pastV))
+        return emitOpError("inputs 'pastK' and 'pastV' are needed for outputs "
+                           "'presentK' and 'presentV'");
+    }
+  }
+
+  ONNXAttentionOpAdaptor adaptor(*this);
+
+  Value q = adaptor.getQ();
+  if (!hasShapeAndRank(q))
+    return success(); // Won't be able to do any more checking at this stage.
+
+  auto qType = mlir::cast<ShapedType>(q.getType());
+  int64_t qRank = qType.getShape().size();
+  if (qRank != 3 && qRank != 4)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), q, qRank, "3 or 4");
+
+  // check q_num_heads is present for 3D input
+  auto qNumHeads = adaptor.getQNumHeads();
+  if (qRank == 3 && !qNumHeads)
+    return emitOpError("attribute 'q_num_heads' must be provided when input "
+                       "'q' is a 3D tensor.");
+
+  Value k = adaptor.getK();
+  Value v = adaptor.getV();
+  if (!hasShapeAndRank(k) || !hasShapeAndRank(v))
+    return success(); // Won't be able to do any more checking at this stage.
+
+  auto kType = mlir::cast<ShapedType>(k.getType());
+  int64_t kRank = kType.getShape().size();
+  if (kRank != 3 && kRank != 4)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), k, kRank, "3 or 4");
+
+  auto vType = mlir::cast<ShapedType>(v.getType());
+  int64_t vRank = vType.getShape().size();
+  if (vRank != 3 && vRank != 4)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), v, vRank, "3 or 4");
+
+  // check kv_num_heads is present for 3D inputs
+  auto kvNumHeads = adaptor.getKvNumHeads();
+  if ((kRank == 3 || vRank == 3) && !kvNumHeads)
+    return emitOpError("attribute 'kv_num_heads' must be provided when inputs "
+                       "'k' or 'v' are 3D tensors.");
+
+  auto divisibleByNumHeads =
+      [&](ShapedType &type, std::optional<int64_t> numHeads, Value &operand) {
+        if (type.hasStaticShape()) {
+          auto shape = type.getShape();
+          if (type.getRank() == 3 && numHeads && shape[2] % *numHeads != 0)
+            return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+                *this->getOperation(), operand, 2, shape[2],
+                "divisible by " + std::to_string(*numHeads));
+        }
+        return success();
+      };
+
+  auto qTypeDivisibleByQNumHeads = divisibleByNumHeads(qType, qNumHeads, q);
+  if (!succeeded(qTypeDivisibleByQNumHeads))
+    return qTypeDivisibleByQNumHeads;
+
+  auto kTypeDivisibleByKVNumHeads = divisibleByNumHeads(kType, kvNumHeads, k);
+  if (!succeeded(kTypeDivisibleByKVNumHeads))
+    return kTypeDivisibleByKVNumHeads;
+
+  auto vTypeDivisibleByKVNumHeads = divisibleByNumHeads(vType, kvNumHeads, v);
+  if (!succeeded(vTypeDivisibleByKVNumHeads))
+    return vTypeDivisibleByKVNumHeads;
+
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // Shape Inference

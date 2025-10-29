@@ -4510,7 +4510,6 @@ func.func @test_attention_4d(%q: tensor<1x32x128x96xf32>, %k: tensor<1x16x128x96
 // CHECK:          "onnx.Attention"
 // CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<1x32x128x48xf32>
 
-
 func.func @test_attention_3d(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>) -> tensor<*xf32> {
   %none = "onnx.NoValue"() {value} : () -> none
   %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64, kv_num_heads = 16: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)

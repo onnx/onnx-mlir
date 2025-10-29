@@ -490,6 +490,7 @@ def ONNXAttentionOp:ONNX_Op<"Attention",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
@@ -8077,6 +8078,7 @@ def ONNXRotaryEmbeddingOp:ONNX_Op<"RotaryEmbedding",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
