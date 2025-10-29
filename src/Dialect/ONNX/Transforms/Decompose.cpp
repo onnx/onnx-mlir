@@ -23,6 +23,7 @@
 #include <cmath>
 #include <numeric>
 
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -46,6 +47,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "decompose"
@@ -2320,7 +2322,7 @@ struct DecomposeSlicePadPattern : public OpRewritePattern<ONNXPadOp> {
       // difficult, so skip for now
       return failure();
     }
-    const auto inputType = padOp.getData().getType().cast<ShapedType>();
+    const auto inputType = cast<ShapedType>(padOp.getData().getType());
     if (!inputType.hasStaticShape()) {
       // We need a static shape to calculate the ends for slice
       return failure();
@@ -2826,59 +2828,465 @@ public:
   }
 };
 
-namespace {
+static constexpr StringLiteral MicrosoftDomainName("com.microsoft");
+static constexpr StringLiteral DefaultONNXDomainName("");
 
-[[nodiscard]] bool isCustomMicrosoftOp(
-    ONNXCustomOp customOp, StringRef expectedName) {
+[[nodiscard]] bool isCustomOpWithNameAndDialect(
+    ONNXCustomOp customOp, StringRef expectedName, StringRef expectedDialect) {
   if (!customOp.getFunctionName().equals_insensitive(expectedName)) {
     return false;
   }
 
   const auto domAttr = customOp->getAttrOfType<StringAttr>("domain_name");
-  return domAttr && domAttr.getValue().equals_insensitive("com.microsoft");
+  return domAttr && domAttr.getValue().equals_insensitive(expectedDialect);
 }
 
-} // namespace
-
-template <typename OpToCreate>
-struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
-  CustomOpMicrosoftToOnnxOp(MLIRContext *context,
-      std::string operationNameToRewrite, PatternBenefit benefit = 1)
-      : OpRewritePattern<ONNXCustomOp>(context, benefit),
-        operationNameToRewrite(std::move(operationNameToRewrite)) {}
+struct CustomOpToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
+  CustomOpToOnnxOps(MLIRContext *context, StringRef dialect,
+      StringRef operationNameToRewrite, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXCustomOp>(context, benefit), dialect(dialect),
+        operationNameToRewrite(operationNameToRewrite) {}
 
   LogicalResult matchAndRewrite(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
+    if (!isCustomOpWithNameAndDialect(
+            customOp, operationNameToRewrite, dialect)) {
       return failure();
     }
+
+    return matchAndRewriteImpl(customOp, rewriter);
+  }
+
+  virtual LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp /*customOp*/, PatternRewriter & /*rewriter*/) const {
+    return failure();
+  }
+
+  static LogicalResult verifyOpValidity(Operation *op) {
+    assert(op);
+    onnx_mlir::IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
+    if (auto info = op->getName().getRegisteredInfo()) {
+      return info->verifyInvariants(op);
+    }
+    return mlir::verify(op);
+  }
+
+  static LogicalResult verifyOpsErasingOnError(
+      ValueRange values, PatternRewriter &rewriter) {
+    if (llvm::all_of(values, [](Value value) {
+          return !value || succeeded(verifyOpValidity(value.getDefiningOp()));
+        })) {
+      return success();
+    }
+    SmallVector<Operation *> opsToErase;
+    for (auto value : values) {
+      if (value) {
+        opsToErase.push_back(value.getDefiningOp());
+      }
+    }
+    llvm::sort(opsToErase);
+    opsToErase.erase(llvm::unique(opsToErase), opsToErase.end());
+    // We need to ensure that the ops get erased in reverse topological order,
+    // as its only allowed to erase an op if it does not have an use
+    computeTopologicalSorting(opsToErase);
+    for (auto *op : llvm::reverse(opsToErase)) {
+      rewriter.eraseOp(op);
+    }
+    return failure();
+  }
+
+  static SmallVector<NamedAttribute> getFilteredAttrs(
+      ArrayRef<NamedAttribute> attrs,
+      ArrayRef<StringRef> additionalAttrNamesToFilter = {}) {
+    static const llvm::StringSet<> commonFilter{"domain_name", "function_name",
+        "output_element_type", "shape_infer_pattern", "inputs_for_infer"};
+    return SmallVector<NamedAttribute>{llvm::make_filter_range(
+        attrs, [&additionalAttrNamesToFilter](NamedAttribute attr) {
+          return !llvm::is_contained(commonFilter, attr.getName()) &&
+                 !llvm::is_contained(
+                     additionalAttrNamesToFilter, attr.getName());
+        })};
+  }
+
+  const std::string dialect;
+  const std::string operationNameToRewrite;
+};
+
+struct MicrosoftBiasGelu : public CustomOpToOnnxOps {
+  MicrosoftBiasGelu(MLIRContext *context, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(context, MicrosoftDomainName, "BiasGelu", benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    assert(customOp->getNumOperands() == 2 &&
+           "Expected two operands for BiasGelu");
+
+    auto input = customOp->getOperand(0);
+    auto bias = customOp->getOperand(1);
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+    Value biasedInput = create.onnx.add(input, bias);
+    Value gelu = create.onnx.gelu(biasedInput,
+        /*approximateAttr=*/rewriter.getStringAttr("none"));
+    if (failed(verifyOpsErasingOnError({biasedInput, gelu}, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, gelu);
+    return success();
+  }
+};
+
+struct MicrosoftFusedConv : public CustomOpToOnnxOps {
+  MicrosoftFusedConv(MLIRContext *context, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(context, MicrosoftDomainName, "FusedConv", benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    assert(customOp.getNumOperands() >= 2 && customOp.getNumOperands() <= 4 &&
+           "Expected 2 to 4 operands for FusedConv");
+    if (customOp.getNumOperands() > 3) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition does not support 'Sum/Z'");
+    }
+
+    assert(customOp->hasAttrOfType<StringAttr>("activation"));
+    assert(customOp->hasAttrOfType<ArrayAttr>("activation_params"));
+
+    const SmallVector<NamedAttribute> filteredAttrs(getFilteredAttrs(
+        customOp->getAttrs(), {"activation", "activation_params"}));
+    SmallVector<Value> convOperands{customOp.getOperands()};
+    Value noneBias;
+    if (convOperands.size() < 3) {
+      noneBias = rewriter.create<ONNXNoneOp>(customOp->getLoc())->getResult(0);
+      convOperands.push_back(noneBias);
+    }
+
+    auto conv = rewriter.create<ONNXConvOp>(customOp->getLoc(),
+        customOp->getResultTypes(), convOperands, filteredAttrs);
+    Value convOpResult = conv.getResult();
+    const auto activation =
+        customOp->getAttrOfType<StringAttr>("activation").strref();
+    auto activationParams =
+        customOp->getAttrOfType<ArrayAttr>("activation_params");
+    SmallVector<FloatAttr> activationParamsValues;
+    for (auto attr : activationParams) {
+      auto asFloatAttr = dyn_cast<FloatAttr>(attr);
+      assert(asFloatAttr && asFloatAttr.getType().isF32() &&
+             "All activation params "
+             "must be f32");
+      activationParamsValues.push_back(asFloatAttr);
+    }
+    Value activationFunc;
+    Value castMin;
+    Value castMax;
+    if (activation == "Relu") {
+      activationFunc = rewriter.create<ONNXReluOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "Tanh") {
+      activationFunc = rewriter.create<ONNXTanhOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "Sigmoid") {
+      activationFunc = rewriter.create<ONNXSigmoidOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "LeakyRelu") {
+      assert(activationParamsValues.size() == 1 &&
+             "LeakyRelu must have exactly one parameter");
+      activationFunc = rewriter.create<ONNXLeakyReluOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, activationParamsValues[0]);
+    } else if (activation == "Clip") {
+      assert(activationParamsValues.size() == 2 &&
+             "Clip must have exactly two parameters");
+      MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+      auto scalarType = RankedTensorType::get({}, rewriter.getF32Type());
+      auto minVal = create.onnx.constant(
+          DenseElementsAttr::get(scalarType, activationParamsValues[0]));
+      auto castToType =
+          cast<ShapedType>(convOpResult.getType()).getElementType();
+      castMin = create.onnx.cast(minVal, castToType);
+      auto maxVal = create.onnx.constant(
+          DenseElementsAttr::get(scalarType, activationParamsValues[1]));
+      castMax = create.onnx.cast(maxVal, castToType);
+      activationFunc = rewriter.create<ONNXClipOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, castMin, castMax);
+    } else if (activation == "HardSigmoid") {
+      assert(activationParamsValues.size() == 2 &&
+             "HardSigmoid must have exactly two parameters");
+      activationFunc = rewriter.create<ONNXHardSigmoidOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, activationParamsValues[0],
+          activationParamsValues[1]);
+    } else {
+      rewriter.eraseOp(conv);
+      if (noneBias) {
+        rewriter.eraseOp(noneBias.getDefiningOp());
+      }
+      return rewriter.notifyMatchFailure(customOp,
+          "Decomposition only supports Relu, Tanh, Sigmoid, LeakyRelu, Clip, "
+          "and HardSigmoid activations");
+    }
+    if (failed(verifyOpsErasingOnError(
+            {noneBias, conv, castMin, castMax, activationFunc}, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+    rewriter.replaceOp(customOp, activationFunc);
+    return success();
+  }
+};
+
+/// Note: This is an operation in onnxruntime, which is in the ONNX instead of
+/// Microsoft domain for historic reasons.
+struct SimplifiedLayerNorm : public CustomOpToOnnxOps {
+  SimplifiedLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, DefaultONNXDomainName, "SimplifiedLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 1 && numIn <= 3) && "expects 1..3 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 3) && "expects 1..3 outputs");
+    // The onnxruntime version of RMSNorm/SimplifiedLayerNorm supports 1-3
+    // outputs, (output, mean, inv_std_var) The version in onnx and onnx-mlir
+    // only support output (and inv_std_var in case of onnx-mlir)
+    if (numOut > 1) {
+      if (!isa<NoneType>(customOp.getResultTypes()[1])) {
+        return rewriter.notifyMatchFailure(
+            customOp, "Use of mean not supported yet");
+      }
+    }
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value scale = customOp.getOperand(1);
+    Value bias = none; // layer-norm bias
+
+    if (numIn >= 3)
+      bias = customOp.getOperand(2);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    assert(epsAttr && "Expected Epsilon");
+    auto axisAttr = customOp->getAttrOfType<IntegerAttr>("axis");
+    assert(axisAttr && "Expected Axis");
+    auto stashTypeAttr = customOp->getAttrOfType<IntegerAttr>("stash_type");
+    assert(stashTypeAttr && "Expected Stash Type");
+
+    SmallVector<Type, 2> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    auto rms = rewriter.create<ONNXRMSLayerNormalizationOp>(
+        loc, resultTypes, input, scale, bias, axisAttr, epsAttr, stashTypeAttr);
+
+    SmallVector<Value, 3> replace;
+    replace.push_back(rms.getResult(0));
+    if (numOut > 1)
+      replace.push_back(none);
+    if (numOut > 2)
+      replace.push_back(rms.getResult(1));
+
+    SmallVector<Value, 4> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+struct MicrosoftSkipLayerNorm : public CustomOpToOnnxOps {
+  MicrosoftSkipLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, MicrosoftDomainName, "SkipLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 3 && numIn <= 5) && "expects 3..5 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 4) && "expects 1..4 outputs");
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value skip = customOp.getOperand(1);
+    Value gamma = customOp.getOperand(2);
+    Value beta = none; // layer-norm bias
+    Value bias;        // pre-norm bias
+
+    if (numIn >= 4)
+      beta = customOp.getOperand(3);
+    if (numIn == 5)
+      bias = customOp.getOperand(4);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    assert(epsAttr && "Expected Epsilon");
+
+    Value skipAdd = create.onnx.add(input, skip);
+    Value sumIS;
+    if (bias) {
+      sumIS = create.onnx.add(skipAdd, bias);
+    } else {
+      sumIS = skipAdd;
+      skipAdd = nullptr;
+    }
+
+    SmallVector<Type, 3> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 1 ? customOp->getResultTypes()[1] : rewriter.getNoneType());
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    const auto si64Type = rewriter.getIntegerType(64, /*signed*/ true);
+
+    auto rms = rewriter.create<ONNXLayerNormalizationOp>(loc, resultTypes,
+        sumIS, gamma, beta, /*axis*/
+        rewriter.getIntegerAttr(si64Type, -1), epsAttr,
+        /*stashType*/ rewriter.getIntegerAttr(si64Type, 1));
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(rms.getResult(0));
+    if (numOut >= 2)
+      replace.push_back(rms.getResult(1)); // mean
+    if (numOut >= 3)
+      replace.push_back(rms.getResult(2)); // inv_std_var
+    if (numOut == 4)
+      replace.push_back(sumIS); // input_skip_bias_sum
+
+    SmallVector<Value, 7> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+    toCheck.push_back(skipAdd);
+    toCheck.push_back(sumIS);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
+  MicrosoftSkipSimplifiedLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, MicrosoftDomainName, "SkipSimplifiedLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 3 && numIn <= 4) && "expects 3..4 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 4) && "expects 1..4 outputs");
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value skip = customOp.getOperand(1);
+    Value gamma = customOp.getOperand(2);
+    Value bias; // pre-norm bias
+
+    if (numIn >= 4)
+      bias = customOp.getOperand(3);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    assert(epsAttr && "Expected Epsilon");
+
+    Value skipAdd = create.onnx.add(input, skip);
+    Value sumIS;
+    if (bias) {
+      sumIS = create.onnx.add(skipAdd, bias);
+    } else {
+      sumIS = skipAdd;
+      skipAdd = nullptr;
+    }
+
+    SmallVector<Type, 3> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 1 ? customOp->getResultTypes()[1] : rewriter.getNoneType());
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    const auto si64Type = rewriter.getIntegerType(64, /*signed*/ true);
+
+    const SmallVector<NamedAttribute, 5> simplifiedLayerNormAttrs{
+        rewriter.getNamedAttr(
+            "domain_name", rewriter.getStringAttr(DefaultONNXDomainName)),
+        rewriter.getNamedAttr("function_name",
+            rewriter.getStringAttr("SimplifiedLayerNormalization")),
+        rewriter.getNamedAttr("axis", rewriter.getIntegerAttr(si64Type, -1)),
+        rewriter.getNamedAttr("epsilon", epsAttr),
+        rewriter.getNamedAttr(
+            "stash_type", rewriter.getIntegerAttr(si64Type, 1))};
+
+    auto skipLayerNorm = rewriter.create<ONNXCustomOp>(
+        loc, resultTypes, ValueRange{sumIS, gamma}, simplifiedLayerNormAttrs);
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(skipLayerNorm.getResult(0));
+    if (numOut >= 2)
+      replace.push_back(skipLayerNorm.getResult(1)); // mean
+    if (numOut >= 3)
+      replace.push_back(skipLayerNorm.getResult(2)); // inv_std_var
+    if (numOut == 4)
+      replace.push_back(sumIS); // input_skip_bias_sum
+
+    SmallVector<Value, 7> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+    toCheck.push_back(skipAdd);
+    toCheck.push_back(sumIS);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+template <typename OpToCreate>
+struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
+  CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
+      StringRef operationNameToRewrite, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(
+            context, MicrosoftDomainName, operationNameToRewrite, benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
     if (failed(shouldBeRewritten(customOp, rewriter))) {
       return failure();
     }
 
     const SmallVector<NamedAttribute> filteredAttrs(
-        llvm::make_filter_range(customOp->getAttrs(), [](NamedAttribute attr) {
-          return attr.getName() != "domain_name" &&
-                 attr.getName() != "function_name" &&
-                 attr.getName() != "output_element_type" &&
-                 attr.getName() != "shape_infer_pattern" &&
-                 attr.getName() != "inputs_for_infer";
-        }));
+        getFilteredAttrs(customOp->getAttrs()));
 
     auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
         customOp->getResultTypes(), customOp.getOperands(), filteredAttrs);
 
     postProcess(customOp, newOp, rewriter);
 
-    onnx_mlir::IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
-    bool isNewOpValid;
-    if (auto info = newOp->getName().getRegisteredInfo()) {
-      isNewOpValid = succeeded(info->verifyInvariants(newOp));
-    } else {
-      isNewOpValid = succeeded(mlir::verify(newOp));
-    }
-    if (!isNewOpValid) {
-      rewriter.eraseOp(newOp);
+    if (failed(verifyOpsErasingOnError({newOp}, rewriter))) {
       return rewriter.notifyMatchFailure(customOp, "Failed verification");
     }
     rewriter.replaceOp(customOp, newOp);
@@ -2892,14 +3300,13 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
 
   virtual void postProcess(const ONNXCustomOp & /*customOp*/,
       OpToCreate & /*newOP*/, PatternRewriter & /*rewriter*/) const {}
-
-  std::string operationNameToRewrite;
 };
 
 template <typename OpToCreate>
 struct CustomOpMicrosoftQDquantizeLinear
-    : CustomOpMicrosoftToOnnxOp<OpToCreate> {
-  using CustomOpMicrosoftToOnnxOp<OpToCreate>::CustomOpMicrosoftToOnnxOp;
+    : CustomOpMicrosoftToSingleOnnxOp<OpToCreate> {
+  using CustomOpMicrosoftToSingleOnnxOp<
+      OpToCreate>::CustomOpMicrosoftToSingleOnnxOp;
 
   LogicalResult shouldBeRewritten(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const override {
@@ -3237,7 +3644,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+  if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
@@ -3265,7 +3672,12 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
       context, "QuantizeLinear");
   patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
       context, "DequantizeLinear");
-  patterns.insert<CustomOpMicrosoftToOnnxOp<ONNXGeluOp>>(context, "Gelu");
+  patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
+  patterns.insert<MicrosoftBiasGelu>(context);
+  patterns.insert<MicrosoftFusedConv>(context);
+  patterns.insert<MicrosoftSkipLayerNorm>(context);
+  patterns.insert<SimplifiedLayerNorm>(context);
+  patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
