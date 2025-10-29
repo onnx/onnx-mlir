@@ -68,6 +68,9 @@ the inputs. Different ONNXMLIRTorch object will be created for each inference,
 and there is no reuse with cache among them.
 """
 
+# Freeze the model to avoid parameter inputs in the forward signature in GraphModule.
+# Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
+# torch._dynamo.config.prepare_freezing = 1
 
 logger = logging.getLogger(__name__)
 
@@ -147,10 +150,13 @@ def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
     return pickler.get_hash(details)
 
 
+
+
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, **kwargs):
         # Pytorch model.
         self.gm = gm
+        logger.info(f"graph module: {gm}")
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
@@ -261,6 +267,7 @@ class ONNXMLIRTorch:
                 dynamic_shapes[input_name] = dynamic_dims
             else:
                 dynamic_shapes[input_name] = None
+        logger.info(f"dynamic_shapes: {dynamic_shapes}")
         return input_names, dynamic_shapes
 
     def export_gm_to_onnx(self, example_inputs):
