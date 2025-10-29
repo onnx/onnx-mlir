@@ -3,6 +3,7 @@ import sys
 import tempfile
 import inspect
 import logging
+import types
 
 import numpy as np
 import torch
@@ -77,6 +78,37 @@ class ONNXMLIRConfig:
 
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
 global_session_cache = SessionCache(ONNXMLIRConfig.cache_size)
+
+
+def create_dynamic_wrapper(gm: torch.fx.GraphModule):
+    """
+    Wrap the graph module so that it has function outputs() which is called by torchscript.
+    """
+    sig = inspect.signature(gm.forward)
+    params = list(sig.parameters.values())
+
+    # Build argument list for the forward method.
+    arg_names = [p.name for p in params]
+    arg_str = ", ".join(str(p) for p in params)
+    call_str = ", ".join(f"{name}={name}" for name in arg_names)
+
+    # Define the forward method dynamically.
+    forward_code = f"def forward(self, {arg_str}):\n    return self.gm({call_str})"
+    local_vars = {}
+    exec(forward_code, globals(), local_vars)
+    forward_fn = local_vars["forward"]
+
+    # Create the class dynamically.
+    def init(self, gm):
+        super(self.__class__, self).__init__()
+        self.gm = gm
+
+    DynamicWrappedGraphModule = types.new_class(
+        "DynamicWrappedGraphModule",
+        (torch.nn.Module,),
+        exec_body=lambda ns: ns.update({"__init__": init, "forward": forward_fn}),
+    )
+    return DynamicWrappedGraphModule(gm)
 
 
 # Backend function for torch.compile.
@@ -190,23 +222,33 @@ class ONNXMLIRTorch:
             arg.numpy() for arg in example_inputs if isinstance(arg, torch.Tensor)
         ]
         # Run the inference.
+        logger.info(f"onnx_mlir input sig: {sess.input_signature()}")
+        logger.info(f"onnx_mlir output sig: {sess.output_signature()}")
         om_outputs = sess.run(om_inputs)
         return [torch.from_numpy(output) for output in om_outputs]
 
-    def get_dynamic_shapes_for_export(self) -> dict[str, dict[int, str]]:
+    def get_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
         """
         This computes a dictionary of dynamic shapes to be used in torch.export.
         """
         dynamic_shapes = {}
+        input_names = []
         for node in self.gm.graph.nodes:
+            if node.op == "output":
+                # TODO explore node.args to build output_names
+                continue
             if node.op != "placeholder":
                 continue
             input_name = node.target
             input_arg = node.meta["example_value"]
+            input_names.append(input_name)
+
             # SymInts are not real inputs to the onnx model,
             # but we need to set it so that the export does not
             # complain about input mismatch.
-            if isinstance(input_arg, torch.SymInt):
+            if isinstance(input_arg, torch.SymInt) or isinstance(
+                input_arg, torch.nn.Parameter
+            ):
                 dynamic_shapes[input_name] = None
                 continue
             # Get dynamic dimensions from dynamic input tensors.
@@ -216,16 +258,21 @@ class ONNXMLIRTorch:
                     dynamic_dims[dim_idx] = str(dim_size)
             if dynamic_dims:
                 dynamic_shapes[input_name] = dynamic_dims
-        return dynamic_shapes
+            else:
+                dynamic_shapes[input_name] = None
+        return input_names, dynamic_shapes
 
     def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
-        dynamic_shapes = self.get_dynamic_shapes_for_export()
+        input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
+        wgm = create_dynamic_wrapper(self.gm)
         torch.onnx.export(
-            self.gm,
+            # self.gm,
+            wgm,
             example_inputs,
             self.onnx_model,
+            input_names=input_names,
             dynamic_shapes=dynamic_shapes,
         )
 
