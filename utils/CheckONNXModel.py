@@ -191,8 +191,17 @@ parser.add_argument(
 parser.add_argument(
     "--rtol", type=str, default="", help="Relative tolerance for verification."
 )
+
 parser.add_argument(
     "--atol", type=str, default="", help="Absolute tolerance for verification."
+)
+
+parser.add_argument(
+    "--cache-model",
+    metavar="PATH",
+    type=str,
+    help="Path to a folder to load a reference compiled model if the reference compiled model exists."
+    "Otherwise, compile the reference model and save it into this folder."
 )
 
 args = parser.parse_args()
@@ -295,6 +304,8 @@ def main():
         ref_cmd += ["--lower-bound=" + args.lower_bound]
     if args.upper_bound:
         ref_cmd += ["--upper-bound=" + args.upper_bound]
+    if args.cache_model:
+        ref_cmd += ["--cache-model=" + args.cache_model]
     # Model name.
     ref_cmd += [model_str]
 
