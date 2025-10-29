@@ -2288,11 +2288,12 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     : public OpConversionPattern<ZHighExtendedLayoutTransformOp> {
   using OpAdaptor = typename ZHighExtendedLayoutTransformOp::Adaptor;
   bool enableParallel = false;
+  bool disableSaturation = false;
 
-  ZHighToZLowExtendedLayoutTransformLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern<ZHighExtendedLayoutTransformOp>(
-            typeConverter, ctx) {
+  ZHighToZLowExtendedLayoutTransformLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
+      : OpConversionPattern<ZHighExtendedLayoutTransformOp>(typeConverter, ctx),
+        disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2375,8 +2376,9 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 
     // Prepare support for conversion of dlf16 to 64, if needed.
     UnifiedStickSupportList conversionSupportUSS;
-    bool disableSaturation = false; // hi alex
     if (layoutTransform.getDlf16ToF32()) {
+      assert(UnifiedStickSupport::stickLen == 64 &&
+             "used 64 in ExtendedLayoutTransform");
       UnifiedStickSupport inputUSS(create.krnl, layoutTransform.getSource(),
           inputVal, /*read*/ true, false, disableSaturation);
       UnifiedStickSupport outputUSS(create.krnl, outputVal, allocVal,
@@ -2448,13 +2450,14 @@ struct ZHighToZLowExtendedLayoutTransformLowering
             conversionSupportUSS.list[0].beforeStickLoop(create.krnl, inputAF);
             conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
             int64_t U = 4;
+            int64_t totVL = U * UnifiedStickSupport::archVL;
             // Function simply copy the single input to an output.
             UnifiedStickSupportList::IterateFctOver4xF32 fct =
                 [&](const KrnlBuilder &b,
                     mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
                   return inputOfF32Vals[0];
                 };
-            create.krnl.forLoopIE(LitIE(0), LitIE(64), U*8, /*par*/ false,
+            create.krnl.forLoopIE(LitIE(0), LitIE(64), totVL, /*par*/ false,
                 [&](const KrnlBuilder kb, ValueRange loopInd) {
                   IndexExprScope innerScope(kb, &outerScope);
                   MDBuilder create(ck);
@@ -2475,7 +2478,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 //===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel) {
+    bool enableParallel, bool disableSaturation) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
@@ -2535,7 +2538,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowQuantizedMatMulOpLowering>(typeConverter, ctx);
   // Extended transpose
   patterns.insert<ZHighToZLowExtendedLayoutTransformLowering>(
-      typeConverter, ctx, enableParallel);
+      typeConverter, ctx, enableParallel, disableSaturation);
 }
 
 } // namespace zhigh
