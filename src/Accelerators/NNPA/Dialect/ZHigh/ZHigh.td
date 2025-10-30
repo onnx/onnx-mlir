@@ -2,11 +2,13 @@
 
 //===----- ZHigh.td -- ZHigh Dialect Operation Definitions -*- tablegen ----==//
 //
-// Copyright 2019-2024 The IBM Research Authors
+// Copyright 2019-2025 The IBM Research Authors
 //
 // =============================================================================
 //
 // Defines ZHigh Dialect operations.
+//
+// When updating, run `make onnx-mlir-docs` to update the docs.
 //
 //===----------------------------------------------------------------------===//
 
