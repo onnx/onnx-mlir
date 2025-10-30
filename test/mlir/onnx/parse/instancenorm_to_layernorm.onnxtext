@@ -1,0 +1,19 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 8,
+   opset_import: ["" : 6]
+>
+test_instancenorm_e2e (float[2,3,4,5] input, float[3] scale, float[3] bias) => (float[2,3,4,5] output) {
+   output = InstanceNormalization <epsilon: float = 0.01> (input, scale, bias)
+}
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[INPUT:%.+]]: tensor<2x3x4x5xf32> {onnx.name = "input"}, [[SCALE:%.+]]: tensor<3xf32> {onnx.name = "scale"}, [[BIAS:%.+]]: tensor<3xf32> {onnx.name = "bias"}) -> (tensor<2x3x4x5xf32> {onnx.name = "output"}) {
+// CHECK-DAG:       [[AXES:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+// CHECK-DAG:       [[UNSQUEEZE_SCALE:%.+]] = "onnx.Unsqueeze"([[SCALE]], [[AXES]]) : (tensor<3xf32>, tensor<2xi64>) -> tensor<3x1x1xf32>
+// CHECK-DAG:       [[UNSQUEEZE_BIAS:%.+]] = "onnx.Unsqueeze"([[BIAS]], [[AXES]]) : (tensor<3xf32>, tensor<2xi64>) -> tensor<3x1x1xf32>
+// CHECK:           [[OUTPUT:%.+]], [[MEAN:%.+]], [[INV_STD_DEV:%.+]] = "onnx.LayerNormalization"([[INPUT]], [[UNSQUEEZE_SCALE]], [[UNSQUEEZE_BIAS]]) {axis = 2 : si64, epsilon = 1.000000e-02 : f32, stash_type = 1 : si64} : (tensor<2x3x4x5xf32>, tensor<3x1x1xf32>, tensor<3x1x1xf32>) -> (tensor<2x3x4x5xf32>, none, none)
+// CHECK:           onnx.Return [[OUTPUT]] : tensor<2x3x4x5xf32>
+// CHECK:         }
+

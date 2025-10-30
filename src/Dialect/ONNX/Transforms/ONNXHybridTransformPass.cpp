@@ -130,7 +130,7 @@ struct ONNXHybridTransformPass
       bool enableConvTransposeDecompose,
       bool enableConvTransposeDecomposeToPhasedConv,
       bool enableConvTranspose1dDecomposeToPhasedConv,
-      bool enableInstanceNormDecompose, bool recomposeLayernormByTranspose) {
+      bool recomposeLayernormByTranspose, bool enableInstanceNormDecompose) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -138,8 +138,8 @@ struct ONNXHybridTransformPass
         enableConvTransposeDecomposeToPhasedConv;
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
-    this->enableInstanceNormDecompose = enableInstanceNormDecompose;
     this->recomposeLayernormByTranspose = recomposeLayernormByTranspose;
+    this->enableInstanceNormDecompose = enableInstanceNormDecompose;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -228,11 +228,11 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose,
-    bool enableRecomposeLayernormByTranspose) {
+    bool enableRecomposeLayernormByTranspose,
+    bool enableInstanceNormDecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableRecomposeLayernormByTranspose);
+      enableConvTranspose1dDecomposeToPhasedConv,
+      enableRecomposeLayernormByTranspose, enableInstanceNormDecompose);
 }
