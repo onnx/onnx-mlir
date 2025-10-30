@@ -985,6 +985,20 @@ LogicalResult ONNXCustomOpShapeHelper::computeShape() {
   return success();
 }
 
+std::vector<mlir::Type> getResultTypeForShapeCopyingOp(
+    Operation *op, std::optional<int64_t> dtype) {
+  assert(op->getNumOperands() == 1 && op->getNumResults() == 1);
+  Type elementType = getMLIRTypeFromDtypeWithFallBackToInputType(op, dtype);
+  std::vector<Type> resultTypes;
+  if (auto rankedInputType =
+          mlir::dyn_cast<RankedTensorType>(op->getOperand(0).getType())) {
+    resultTypes.push_back(rankedInputType.clone(elementType));
+  } else {
+    resultTypes.push_back(UnrankedTensorType::get(elementType));
+  }
+  return resultTypes;
+}
+
 //===----------------------------------------------------------------------===//
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
