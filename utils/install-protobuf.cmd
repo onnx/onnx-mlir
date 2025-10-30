@@ -1,4 +1,5 @@
 REM Check out protobuf v21.12
+REM THIS SCRIPT IS NOT MAINTAINED
 set protobuf_version=25.3
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
