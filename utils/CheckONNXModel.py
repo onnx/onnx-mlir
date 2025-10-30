@@ -197,12 +197,20 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--cache-model",
+    "--cache-ref-model",
     metavar="PATH",
     type=str,
     help="Path to a folder to load a reference compiled model if the reference compiled model exists."
     "Otherwise, compile the reference model and save it into this folder."
 )
+parser.add_argument(
+    "--cache-test-model",
+    metavar="PATH",
+    type=str,
+    help="Path to a folder to load a test compiled model if the test compiled model exists."
+    "Otherwise, compile the test model and save it into this folder."
+)
+
 
 args = parser.parse_args()
 
@@ -304,8 +312,8 @@ def main():
         ref_cmd += ["--lower-bound=" + args.lower_bound]
     if args.upper_bound:
         ref_cmd += ["--upper-bound=" + args.upper_bound]
-    if args.cache_model:
-        ref_cmd += ["--cache-model=" + args.cache_model]
+    if args.cache_ref_model:
+        ref_cmd += ["--cache-model=" + args.cache_ref_model]
     # Model name.
     ref_cmd += [model_str]
 
@@ -327,6 +335,8 @@ def main():
         test_cmd += ["--atol=" + args.atol]
     if args.rtol:
         test_cmd += ["--rtol=" + args.rtol]
+    if args.cache_test_model:
+        ref_cmd += ["--cache-model=" + args.cache_test_model]
     # Model name.
     test_cmd += [model_str]
 
