@@ -3513,6 +3513,67 @@ public:
 };
 
 // =============================================================================
+// Decompose InstanceNormalization to LayerNormalization
+// =============================================================================
+struct DecomposeInstanceNormPattern
+    : public OpRewritePattern<ONNXInstanceNormalizationOp> {
+  using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
+
+  static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
+    return onnx_mlir::hasStaticShape(instanceNormOp.getInput().getType()) &&
+           onnx_mlir::hasStaticShape(instanceNormOp.getOutput().getType());
+  }
+
+  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
+      PatternRewriter &rewriter) const final {
+    // Match.
+    if (!isDecomposable(instanceNormOp)) {
+      return failure();
+    }
+
+    // Get info.
+    Value input = instanceNormOp.getInput();
+    Value scale = instanceNormOp.getScale();
+    Value bias = instanceNormOp.getB();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+    Type elementType = inputType.getElementType();
+    auto inputShape = inputType.getShape();
+    int64_t C = inputShape[1];
+    int64_t inputRank = inputType.getRank();
+    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
+    assert(inputRank > nonSpacialRank &&
+           "expected instance norm with input ranks > 2");
+
+    // Rewrite.
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, instanceNormOp.getLoc());
+    int64_t axis = nonSpacialRank;
+    int64_t numInNorm = inputRank - axis;
+    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm
+    // 1s.
+    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
+    biasScaleShape.emplace_back(C);
+    for (int64_t i = 1; i <= numInNorm; ++i) {
+      biasScaleShape.emplace_back(1);
+      axesList.emplace_back(i);
+    }
+    Value axes = create.onnx.constantInt64(axesList);
+    Type biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
+    Value newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
+    Value newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
+    // Create output using layer norm.
+    Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
+        instanceNormOp.getEpsilonAttr());
+    // Set the type of the output to be the same as the output of the original
+    // operation we are trying to replace.
+    Y.setType(instanceNormOp.getResult().getType());
+    // Replace operation.
+    rewriter.replaceOp(instanceNormOp, Y);
+    return success();
+  }
+};
+
+// =============================================================================
 // Decompose Hardswish to simpler ONNX ops
 // =============================================================================
 // DecomposeHardSwishPattern replaces ONNXHardSwishOp with its equivalent
@@ -3577,13 +3638,15 @@ struct DecomposeONNXToONNXPass
   DecomposeONNXToONNXPass(const std::string &target,
       bool enableConvTransposeDecompose = false,
       bool enableConvTransposeDecomposeToPhasedConv = false,
-      bool enableConvTranspose1dDecomposeToPhasedConv = false) {
+      bool enableConvTranspose1dDecomposeToPhasedConv = false,
+      bool enableInstanceNormDecompose = true) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
         enableConvTransposeDecomposeToPhasedConv;
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
+    this->enableInstanceNormDecompose = enableInstanceNormDecompose;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -3594,6 +3657,8 @@ struct DecomposeONNXToONNXPass
         pass.enableConvTransposeDecompose.getValue();
     this->enableConvTransposeDecomposeToPhasedConv =
         pass.enableConvTransposeDecomposeToPhasedConv.getValue();
+    this->enableInstanceNormDecompose =
+        pass.enableInstanceNormDecompose.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -3623,6 +3688,12 @@ struct DecomposeONNXToONNXPass
           "phased Conv"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableInstanceNormDecompose{*this,
+      "enable-instancenorm-decompose",
+      llvm::cl::desc("Enable decomposition of InstanceNormalization to "
+                     "LayerNormalization"),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -3635,7 +3706,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv);
+      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -3653,7 +3724,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getDecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv) {
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableInstanceNormDecompose) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -3662,6 +3734,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     convtranspose_phased::populateWithGenerated(patterns);
   if (enableConvTranspose1dDecomposeToPhasedConv)
     convtranspose_1d_phased::populateWithGenerated(patterns);
+  if (enableInstanceNormDecompose)
+    patterns.insert<DecomposeInstanceNormPattern>(context);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   patterns.insert<ConcatFusePattern>(context);
   patterns.insert<DecomposeHardSwishPattern>(context);
@@ -3699,8 +3773,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
 std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv) {
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableInstanceNormDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv);
+      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose);
 }

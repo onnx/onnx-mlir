@@ -347,7 +347,6 @@ OpsWithCanonicalizer = [
     "GroupNormalizationV18",
     "GRU",
     "Identity",
-    "InstanceNormalization",
     "Less",
     "Loop",
     "LSTM",
