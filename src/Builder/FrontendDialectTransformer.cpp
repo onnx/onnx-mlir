@@ -916,6 +916,11 @@ private:
                        << " contains subgraph attributes but does not "
                           "implement HasOnnxSubgraphOpInterface interface. The "
                           "subgraph will be dropped.\n";
+          if constexpr (!std::is_same_v<T, ONNXCustomOp>) {
+            assert(false && "Not-custom ops must implement "
+                            "HasOnnxSubgraphOpInterface if they have "
+                            "subgraph attributes.");
+          }
           continue;
         }
         auto opWithSubgraph =
