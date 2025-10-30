@@ -1,0 +1,21 @@
+// RUN: onnx-mlir --EmitONNXBasic --addResultNamesAttr=true --printIR --mlir-print-debuginfo %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 9]
+>
+test_import_loc_without_name (float[1,1,6,2048] input) => (float[1,1,6,2048] output) <float[1] Initializer0 = {1}> {
+   Constant0 = Constant <value: tensor = float[1] {0}> ()
+   Y, , running_var = BatchNormalization <epsilon: float = 1e-05, momentum: float = 0.9, training_mode: int = 1> (input, Initializer0, Constant0, Constant0, Constant0)
+   Add_output_0 = Add (input, Y)
+   output = Identity (Add_output_0)
+}
+
+// CHECK: onnx.Constant {ResultNames = ["Initializer0"]}
+// CHECK: onnx.Constant {ResultNames = ["Constant0"]}
+// CHECK: %Y, %out_mean, %out_var, %saved_mean, %saved_var =
+// CHECK-SAME: "onnx.BatchNormalizationV9"
+// CHECK-SAME: ResultNames = ["Y", "", "running_var", "", ""]
+// CHECK: "onnx.Add"
+// CHECK-SAME: ResultNames = ["Add_output_0"]
+// CHECK: "onnx.Identity"
+// CHECK-SAME: ResultNames = ["output"]
