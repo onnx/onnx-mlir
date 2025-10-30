@@ -104,15 +104,21 @@ void printNamedAttribute(OpAsmPrinter &printer, NamedAttribute namedAttr) {
   printAttribute(printer, namedAttr.getValue());
 }
 
-void printOptionalAttrDict(
-    OpAsmPrinter &printer, ArrayRef<NamedAttribute> attrs) {
+void printOptionalAttrDict(OpAsmPrinter &printer,
+    ArrayRef<NamedAttribute> attrs, ArrayRef<StringRef> elidedAttrs = {}) {
+  SmallVector<NamedAttribute, 4> filteredAttrs;
+  for (NamedAttribute attr : attrs) {
+    if (llvm::is_contained(elidedAttrs, attr.getName().strref()))
+      continue;
+    filteredAttrs.emplace_back(attr);
+  }
   // If there are no attributes, then there is nothing to be done.
-  if (attrs.empty())
+  if (filteredAttrs.empty())
     return;
 
   // Otherwise, print them all out in braces.
   printer << " {";
-  llvm::interleaveComma(attrs, printer.getStream(),
+  llvm::interleaveComma(filteredAttrs, printer.getStream(),
       [&](NamedAttribute attr) { printNamedAttribute(printer, attr); });
   printer << '}';
 }
@@ -156,6 +162,7 @@ void ONNXConstantOp::print(OpAsmPrinter &printer) {
     assert(!mlir::isa<SparseElementsAttr>(elements) &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
+      printOptionalAttrDict(printer, (*this)->getAttrs(), {"value"});
       printer << ' ';
       printAttribute(printer, elements);
       return;
@@ -165,6 +172,7 @@ void ONNXConstantOp::print(OpAsmPrinter &printer) {
     // ONNXConstantOp sparse_value must be SparseElementsAttr.
     auto sparseElements = mlir::cast<SparseElementsAttr>(*attr);
     if (sparseElements.getType() == resultType) {
+      printOptionalAttrDict(printer, (*this)->getAttrs(), {"sparse_value"});
       printer << ' ';
       printer.printAttribute(sparseElements);
       return;
@@ -182,9 +190,10 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
   // First try to parse attribute dictionary.
   if (parser.parseOptionalAttrDict(result.attributes))
     return failure();
-  // If there is no attribute dictionary, the parse above succeeds parsing
-  // nothing. We detect this case by the absence of result attributes.
-  if (result.attributes.empty()) {
+  // If value/sparse_value were not in the attributes, parse them from their
+  // pretty form.
+  if (!result.attributes.get("value") &&
+      !result.attributes.get("sparse_value")) {
     // Try to parse a SparseElementsAttr or or other ElementsAttr.
     OptionalParseResult opt = parser.parseOptionalAttribute(attr, type);
     if (opt.has_value()) {
