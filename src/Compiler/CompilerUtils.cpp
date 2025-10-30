@@ -995,6 +995,10 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     TOTAL_COMPILE_PHASE--;
   }
 
+  // Print out the ONNXBasicIR if requested.
+  if (printONNXBasicIR)
+    outputModule(module, llvm::outs(), /*largeElementLimit=*/10);
+
   std::string msg = "Compiling and Optimizing MLIR Module";
   showCompilePhase(msg);
   auto compileModuleTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
