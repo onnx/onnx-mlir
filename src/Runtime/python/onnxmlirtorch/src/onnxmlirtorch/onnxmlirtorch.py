@@ -123,13 +123,16 @@ class config:
     cache_size = 3
 
 
+glocalSessionCache = SessionCache(config.cache_size)
+
+
 class ONNXMLIRTorch:
     def __init__(self, torch_model, **kwargs):
         self.torch_model = torch_model
         # Temporary directory
         self.workdir = tempfile.TemporaryDirectory()
         self.default_model_name = "model"
-        self.sessionCache = SessionCache(config.cache_size)
+        self.sessionCache = glocalSessionCache
         if "compile_tag" in kwargs.keys():
             self.tag = kwargs["compile_tag"]
         else:
@@ -195,5 +198,5 @@ class ONNXMLIRTorch:
             _, sess = cached_session
 
         # Run the inference
-        outputs = sess.run(None, np_args)
+        outputs = sess.run(np_args)
         return [torch.from_numpy(output) for output in outputs]

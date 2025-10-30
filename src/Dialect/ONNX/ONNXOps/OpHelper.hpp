@@ -205,6 +205,14 @@ bool getI64ValuesFromONNXConstantOp(
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
 inline bool isNoneValue(mlir::Value value);
 
+// Test if the operation is a data movement ONNX operation that just shuffles
+// elements without any computation.
+bool isDataMovementONNXOp(mlir::Operation *op);
+
+// Test if the operation is a view ONNX operation that just changes the shape
+// withou data copying.
+bool isViewONNXOp(mlir::Operation *op);
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
