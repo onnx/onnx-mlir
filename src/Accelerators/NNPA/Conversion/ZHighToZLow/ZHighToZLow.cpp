@@ -2305,9 +2305,6 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     Location loc = layoutTransform.getLoc();
     MDBuilder create(rewriter, loc);
 
-    fprintf(stderr, "hi alex, lowering layout transform\n");
-    layoutTransform.dump();
-
     Operation *op = layoutTransform.getOperation();
     ValueRange operands = adaptor.getOperands();
     Value inputVal = adaptor.getSource();

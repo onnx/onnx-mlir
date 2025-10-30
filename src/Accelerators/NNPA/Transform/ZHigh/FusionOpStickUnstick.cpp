@@ -779,10 +779,6 @@ public:
       }
     });
 
-    if (false && hasDlf16To32)
-      return notifyFailure(layoutTransform, finalLayoutTransformOp,
-          "hi alex, not supported dlf16 to 32 yet");
-
     // Initial LT and transpose are sufficient to be useful.
     if (transposeOp)
       return notifySuccess(layoutTransform, nullptr, "with transpose op");
