@@ -70,7 +70,7 @@ and there is no reuse with cache among them.
 
 # Freeze the model to avoid parameter inputs in the forward signature in GraphModule.
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
-# torch._dynamo.config.prepare_freezing = 1
+torch._dynamo.config.prepare_freezing = 1
 
 logger = logging.getLogger(__name__)
 
