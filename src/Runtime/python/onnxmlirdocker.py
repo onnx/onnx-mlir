@@ -58,6 +58,7 @@ class InferenceSession:
     def __init__(self, model_path, **kwargs):
         self.debug = False
         self.session = None
+        self.output_dir = tempfile.TemporaryDirectory()
         self.handleParameters(model_path, **kwargs)
         if self.session is not None:
             return
@@ -117,7 +118,7 @@ class InferenceSession:
                 self.compiled_model += ".so"
             self.output_dirname = os.path.dirname(self.compiled_model)
         else:
-            self.output_dirname = tempfile.TemporaryDirectory().name
+            self.output_dirname = self.output_dir.name
             self.compiled_model = os.path.join(
                 self.output_dirname, self.model_basename.removesuffix(self.model_suffix)
             )
@@ -292,7 +293,7 @@ class InferenceSession:
 
     def getSession(self):
         # When the script is used in package onnxmlir, the files to be imported
-        # are within the package. Path in the pakcage should be used.
+        # are within the package. Path in the package should be used.
         # Otherwise, env variable ONNX_MLIR_HOME is used to for import path
         if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
             try:
