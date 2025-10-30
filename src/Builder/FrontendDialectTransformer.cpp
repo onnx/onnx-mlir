@@ -911,9 +911,18 @@ private:
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
         OperationName opName = op->getName();
-        assert(opName.hasInterface<HasOnnxSubgraphOpInterface>() &&
-               "Op contains subgraph attributes but does not "
-               "implement HasOnnxSubgraphOpInterface interface.");
+        if (!opName.hasInterface<HasOnnxSubgraphOpInterface>()) {
+          llvm::errs() << "\nWarning: Node " << op
+                       << " contains subgraph attributes but does not "
+                          "implement HasOnnxSubgraphOpInterface interface. The "
+                          "subgraph will be dropped.\n";
+          if constexpr (!std::is_same_v<T, ONNXCustomOp>) {
+            assert(false && "Not-custom ops must implement "
+                            "HasOnnxSubgraphOpInterface if they have "
+                            "subgraph attributes.");
+          }
+          continue;
+        }
         auto opWithSubgraph =
             mlir::cast<HasOnnxSubgraphOpInterface>(op.getOperation());
         auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());

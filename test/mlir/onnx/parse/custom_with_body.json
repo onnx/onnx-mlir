@@ -1,0 +1,75 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s > output.txt 2>&1; cat output.txt | FileCheck %s
+// CHECK: Warning: Node %0 = "onnx.Custom"(%arg0) {domain_name = "my.custom", function_name = "Super", onnx_node_name = "mySuperOp"} : (tensor<1x64x112x112xbf16>) -> tensor<*xbf16> contains subgraph attributes but does not implement HasOnnxSubgraphOpInterface interface. The subgraph will be dropped.
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x112x112xbf16> {onnx.name = "myInput"}) -> (tensor<*xbf16> {onnx.name = "output0"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]]) {domain_name = "my.custom", function_name = "Super", onnx_node_name = "mySuperOp"} : (tensor<1x64x112x112xbf16>) -> tensor<*xbf16>
+// CHECK:           return [[VAR_0_]] : tensor<*xbf16>
+// CHECK:         }
+{
+  "irVersion": "8",
+  "producerName": "handwritten",
+  "producerVersion": "1.0",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "myInput"
+        ],
+        "output": [
+          "output0"
+        ],
+        "name": "mySuperOp",
+        "opType": "Super",
+        "domain": "my.custom",
+        "attribute": [
+          {
+            "name": "body",
+            "type": "GRAPH"
+          }
+        ]
+      }
+    ],
+    "name": "main_graph",
+    "input": [
+      {
+        "name": "myInput",
+        "type": {
+          "tensorType": {
+            "elemType": 16,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "64"
+                },
+                {
+                  "dimValue": "112"
+                },
+                {
+                  "dimValue": "112"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "output0",
+        "type": {
+          "tensorType": {
+            "elemType": 16
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "17"
+    }
+  ]
+}
