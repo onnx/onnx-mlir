@@ -5,6 +5,12 @@ _Krnl acos scalar operation_
 
 Krnl acos scalar operation.
 
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
 #### Operands:
 
 | Operand | Description |
@@ -22,6 +28,12 @@ Krnl acos scalar operation.
 _Krnl acosh scalar operation_
 
 Krnl acosh scalar operation.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -41,6 +53,12 @@ _Krnl asin scalar operation_
 
 Krnl asin scalar operation.
 
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
 #### Operands:
 
 | Operand | Description |
@@ -58,6 +76,12 @@ Krnl asin scalar operation.
 _Krnl asinh scalar operation_
 
 Krnl asinh scalar operation.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -77,6 +101,12 @@ _Krnl atan scalar operation_
 
 Krnl atan scalar operation.
 
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
 #### Operands:
 
 | Operand | Description |
@@ -94,6 +124,12 @@ Krnl atan scalar operation.
 _Krnl atanh scalar operation_
 
 Krnl atanh scalar operation.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -336,6 +372,12 @@ _Krnl erf scalar operation_
 
 Krnl erf scalar operation.
 
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
 #### Operands:
 
 | Operand | Description |
@@ -497,6 +539,12 @@ _Krnl isinf scalar operation_
 
 Krnl isinf scalar operation.
 
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
 #### Operands:
 
 | Operand | Description |
@@ -514,6 +562,12 @@ Krnl isinf scalar operation.
 _Krnl isnan scalar operation_
 
 Krnl isnan scalar operation.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -1207,6 +1261,12 @@ _Krnl round to nearest even operation_
 Krnl round to nearest even operation.  Accept scalar or vector float values.
 Vector must be 1D of a size that is a multiple of the hardware vector size.
 
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
 #### Operands:
 
 | Operand | Description |
@@ -1426,6 +1486,12 @@ Effects: `MemoryEffects::Effect{}`
 _Krnl tan scalar operation_
 
 Krnl tan scalar operation.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
