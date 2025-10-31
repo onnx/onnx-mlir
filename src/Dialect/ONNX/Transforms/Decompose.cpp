@@ -3071,11 +3071,22 @@ struct SimplifiedLayerNorm : public CustomOpToOnnxOps {
       bias = customOp.getOperand(2);
 
     auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
-    assert(epsAttr && "Expected Epsilon");
+    if (!epsAttr)
+      epsAttr =
+          rewriter.getF32FloatAttr(9.999999747378752e-06f); // default epsilon
+
     auto axisAttr = customOp->getAttrOfType<IntegerAttr>("axis");
-    assert(axisAttr && "Expected Axis");
+    if (!axisAttr) {
+      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+      axisAttr = rewriter.getIntegerAttr(si64Type, -1); // default axis
+    }
+
     auto stashTypeAttr = customOp->getAttrOfType<IntegerAttr>("stash_type");
-    assert(stashTypeAttr && "Expected Stash Type");
+    if (!stashTypeAttr) {
+      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+      stashTypeAttr =
+          rewriter.getIntegerAttr(si64Type, 1); // default stash_type
+    }
 
     SmallVector<Type, 2> resultTypes;
     resultTypes.push_back(customOp->getResultTypes()[0]);
@@ -3134,7 +3145,9 @@ struct MicrosoftSkipLayerNorm : public CustomOpToOnnxOps {
       bias = customOp.getOperand(4);
 
     auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
-    assert(epsAttr && "Expected Epsilon");
+    if (!epsAttr)
+      epsAttr =
+          rewriter.getF32FloatAttr(9.999999747378752e-06f); // default epsilon
 
     Value skipAdd = create.onnx.add(input, skip);
     Value sumIS;
@@ -3209,7 +3222,9 @@ struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
       bias = customOp.getOperand(3);
 
     auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
-    assert(epsAttr && "Expected Epsilon");
+    if (!epsAttr)
+      epsAttr =
+          rewriter.getF32FloatAttr(9.999999747378752e-06f); // default epsilon
 
     Value skipAdd = create.onnx.add(input, skip);
     Value sumIS;
