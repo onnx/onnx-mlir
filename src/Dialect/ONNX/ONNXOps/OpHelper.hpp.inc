@@ -27,6 +27,19 @@ inline bool isNoneValue(mlir::Value value) {
   return MemRefBuilder::isNoneValue(value);
 }
 
+/// Check if this value has a single use by the given operation.
+template <typename OP>
+mlir::Operation *usedOnlyBy(mlir::Value val) {
+  mlir::Operation *op = nullptr;
+  for (mlir::OpOperand &use : val.getUses()) {
+    mlir::Operation *useOp = use.getOwner();
+    if (op || !mlir::isa<OP>(useOp))
+      return nullptr;
+    op = useOp;
+  }
+  return op;
+}
+
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v) {
@@ -34,8 +47,8 @@ bool definedBy(mlir::Value v) {
 }
 
 template <typename OP1, typename OP2>
-bool areDefinedBy(mlir::Value A, mlir::Value B, mlir::Value &matchedOP1, mlir::Value
-  &matchedOP2) {
+bool areDefinedBy(mlir::Value A, mlir::Value B, mlir::Value &matchedOP1,
+    mlir::Value &matchedOP2) {
   if (A.getDefiningOp<OP1>() && B.getDefiningOp<OP2>()) {
     matchedOP1 = A;
     matchedOP2 = B;
@@ -110,7 +123,7 @@ bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
 //
 // we call
 // ```
-//   ONNXTanhOp tanhOp; 
+//   ONNXTanhOp tanhOp;
 //   bool found = matchConstAndOp<ONNXTanhOp>(A, B, 0.5, tanhOp);
 // ```
 // where `A` and `B` are operands of ONNXMul that produces %y.
@@ -118,37 +131,38 @@ template <typename OP>
 bool matchConstAndOp(mlir::Value A, mlir::Value B, double cst, OP &matchOp) {
   auto opA = A.getDefiningOp<OP>();
   auto opB = B.getDefiningOp<OP>();
-  if (onnx_mlir::isDenseONNXConstant(A) && onnx_mlir::isConstOf(A, cst) && opB)
-  {
+  if (onnx_mlir::isDenseONNXConstant(A) && onnx_mlir::isConstOf(A, cst) &&
+      opB) {
     matchOp = opB;
     return true;
   }
-  if (opA && onnx_mlir::isDenseONNXConstant(B) && onnx_mlir::isConstOf(B, cst))
-  {
+  if (opA && onnx_mlir::isDenseONNXConstant(B) &&
+      onnx_mlir::isConstOf(B, cst)) {
     matchOp = opA;
     return true;
   }
   return false;
 }
 
-// This is to recognize a binary op, e.g. A*B where one of A and B is the given 
+// This is to recognize a binary op, e.g. A*B where one of A and B is the given
 // value and the other one is defined by OP.
 // Note: this function can handle the communitive property of the binary op.
 //
 // For example, to recognize this pattern where %z is one of the inputs of *,
 // and the other input of * is defined by onnx.Tanh:
 // %x = "onnx.Tanh"()
-// %y = %z * %x    // or %x * %z 
+// %y = %z * %x    // or %x * %z
 //
 // we call
 // ```
 //   Value z;
-//   ONNXTanhOp tanhOp; 
+//   ONNXTanhOp tanhOp;
 //   bool found = matchConstAndOp<ONNXTanhOp>(A, B, z, tanhOp);
 // ```
 // where `A` and `B` are operands of ONNXMul that produces %y.
 template <typename OP>
-bool matchValueAndOp(mlir::Value A, mlir::Value B, mlir::Value matchValue, OP &matchOp) {
+bool matchValueAndOp(
+    mlir::Value A, mlir::Value B, mlir::Value matchValue, OP &matchOp) {
   auto opA = A.getDefiningOp<OP>();
   auto opB = B.getDefiningOp<OP>();
   if ((A == matchValue) && opB) {

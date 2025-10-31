@@ -8,6 +8,8 @@
 //
 // Defines ZLow Dialect operations.
 //
+// When updating, run `make onnx-mlir-docs` to update the docs.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ZLOW_OPS
