@@ -204,6 +204,14 @@ bool getI64ValuesFromONNXConstantOp(
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
 inline bool isNoneValue(mlir::Value value);
 
+// Test if the operation is a data movement ONNX operation that just shuffles
+// elements without any computation.
+bool isDataMovementONNXOp(mlir::Operation *op);
+
+// Test if the operation is a view ONNX operation that just changes the shape
+// withou data copying.
+bool isViewONNXOp(mlir::Operation *op);
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -255,6 +263,20 @@ bool isConstOf(mlir::Value constValue, double n);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
+
+mlir::Type getMLIRTypeFromDtypeWithFallBackToInputType(
+    mlir::Operation *op, std::optional<int64_t> dtype);
+
+mlir::LogicalResult verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+    mlir::Operation *op, std::optional<int64_t> dtype);
+
+mlir::Type getMLIRTypeFromDtype(mlir::MLIRContext *ctx, int64_t dtype);
+
+mlir::LogicalResult verifyResultElementTypeEqualsDtype(
+    mlir::Operation *op, int64_t dtype);
+
+mlir::Type getMLIRTypeFromDtypeDefaultingToF32(
+    mlir::MLIRContext *ctx, std::optional<int64_t> dtype);
 
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);

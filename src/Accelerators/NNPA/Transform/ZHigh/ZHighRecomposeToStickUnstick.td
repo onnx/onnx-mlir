@@ -36,6 +36,8 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 def NoneLayoutAttr: NativeCodeCall<"StringAttr()">;
 
+def HasOneUse : Constraint<CPred<"$_self.hasOneUse()">, "op has exactly one use">;
+
 // zhigh.Stick $input, $layout = onnx.LayoutTransform (zhigh.F32ToDLF16 $input), $layout
 // Not support NHWC layout since the stick does transpose internally. We can
 // introduce transpose explicitly, but need to evaluate its overhead.
@@ -49,9 +51,9 @@ def RecomposeToStickPattern: Pat<
 // Not support NHWC layout since the unstick does transpose internally. We can
 // introduce transpose explicitly, but need to evaluate its overhead.
 def RecomposeToUnstickPattern: Pat<
-  (ZHighDLF16ToF32Op (ONNXLayoutTransformOp $input, $layout)),
+  (ZHighDLF16ToF32Op (ONNXLayoutTransformOp:$output $input, $layout)),
   (ZHighUnstickOp $input),
-  []
+  [(HasOneUse:$output)]
 >;
 
 #endif // RECOMPOSE_TO_STICK_UNSTICK_TD

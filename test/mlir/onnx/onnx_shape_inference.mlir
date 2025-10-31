@@ -3216,15 +3216,146 @@ func.func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> t
 
 // Test RandomNormalLike missing dtype
 
-func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf32> {
-  %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf64> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
 
   // CHECK-LABEL: @test_random_normal_like_type_default1
   // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
 }
 
+//==----------------------------------------------------------------------===//
+
 // -----
+
+// Test RandomUniform static
+
+func.func @test_random_normal_static_f16() -> tensor<*xf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
+}
+
+// -----
+
+func.func @test_random_normal_static_f32() -> tensor<*xf32> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf32>
+}
+
+// -----
+
+func.func @test_random_normal_static_f64() -> tensor<*xf64> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+}
+
+// -----
+
+func.func @test_random_normal_static_bf16() -> tensor<*xbf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_bf16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xbf16>
+}
+
+//===----------------------------------------------------------------------===//
+
+// -----
+
+// Test RandomUniformLike static
+
+func.func @test_random_normal_like_static_f16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf16>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_f32(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf32>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_f64(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf64> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf64>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_bf16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xbf16> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_bf16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xbf16>
+}
+
+// -----
+
+// Test RandomUniformLike dynamic
+
+func.func @test_random_normal_like_dynamic_f16(%arg0: tensor<1x?x28x28xf32>) -> tensor<*xf16> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<1x?x28x28xf16>
+}
+
+// -----
+
+func.func @test_random_normal_like_dynamic_f32(%arg0: tensor<1x1x?x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x?x28xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x?x28xf32>) -> tensor<1x1x?x28xf32>
+}
+
+// -----
+
+func.func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> tensor<*xf64> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<1x1x28x?xf64>
+}
+
+// -----
+
+// Test RandomUniformLike missing dtype
+
+func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf64> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_type_default1
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
+}
+
 
 //===----------------------------------------------------------------------===//
 // Test NonMaxSuppression

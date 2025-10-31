@@ -403,6 +403,15 @@ bool getI64ValuesFromONNXConstantOp(
   return true;
 }
 
+bool isDataMovementONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp,
+      ONNXSliceOp, ONNXExpandOp>(op);
+}
+
+bool isViewONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(op);
+}
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -735,6 +744,58 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   }
 
   return onnxType;
+}
+
+Type getMLIRTypeFromDtypeWithFallBackToInputType(
+    Operation *op, std::optional<int64_t> dtype) {
+  assert(op->getNumOperands() == 1 && "Expecting one input operand");
+  if (dtype) {
+    auto builder = OpBuilder(op->getContext());
+    return convertONNXTypeToMLIRType(
+        builder, static_cast<onnx::TensorProto_DataType>(*dtype));
+  }
+  return cast<ShapedType>(op->getOperand(0).getType()).getElementType();
+}
+
+LogicalResult verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+    Operation *op, std::optional<int64_t> dtype) {
+  const auto elementType =
+      getMLIRTypeFromDtypeWithFallBackToInputType(op, dtype);
+  assert(op->getNumResults() == 1 && "Expected single result");
+  const auto resultType = cast<ShapedType>(op->getResultTypes()[0]);
+  if (resultType.getElementType() != elementType) {
+    return op->emitOpError(llvm::formatv(
+        "result element type {0} does not match the expected type {1}",
+        resultType.getElementType(), elementType));
+  }
+  return success();
+}
+
+Type getMLIRTypeFromDtype(MLIRContext *ctx, int64_t dtype) {
+  auto builder = OpBuilder(ctx);
+  return convertONNXTypeToMLIRType(
+      builder, static_cast<onnx::TensorProto_DataType>(dtype));
+}
+
+LogicalResult verifyResultElementTypeEqualsDtype(Operation *op, int64_t dtype) {
+  const auto elementType = getMLIRTypeFromDtype(op->getContext(), dtype);
+  assert(op->getNumResults() == 1 && "Expected single result");
+  const auto resultType = cast<ShapedType>(op->getResultTypes()[0]);
+  if (resultType.getElementType() != elementType) {
+    return op->emitOpError(
+        llvm::formatv("result element type {0} does not match the dtype {1}",
+            resultType.getElementType(), elementType));
+  }
+  return success();
+}
+
+Type getMLIRTypeFromDtypeDefaultingToF32(
+    MLIRContext *ctx, std::optional<int64_t> dtype) {
+  auto builder = OpBuilder(ctx);
+  if (!dtype)
+    return builder.getF32Type();
+  return convertONNXTypeToMLIRType(
+      builder, static_cast<onnx::TensorProto_DataType>(*dtype));
 }
 
 bool isScalarTensor(Value v) {
