@@ -201,14 +201,14 @@ parser.add_argument(
     metavar="PATH",
     type=str,
     help="Path to a folder to load a reference compiled model if the reference compiled model exists."
-    "Otherwise, compile the reference model and save it into this folder."
+    "Otherwise, compile the reference model and save it into this folder.",
 )
 parser.add_argument(
     "--cache-test-model",
     metavar="PATH",
     type=str,
     help="Path to a folder to load a test compiled model if the test compiled model exists."
-    "Otherwise, compile the test model and save it into this folder."
+    "Otherwise, compile the test model and save it into this folder.",
 )
 
 

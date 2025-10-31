@@ -282,7 +282,6 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 template <typename OP>
 mlir::Operation *usedOnlyBy(mlir::Value val);
 
-
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v);
