@@ -374,13 +374,15 @@ func.func @skip_layernorm_basic(%input: tensor<2x4x8xf32>, %skip: tensor<2x4x8xf
 }
 
 
+
+
 // -----
 // SkipLayerNormalization: 4 inputs (beta), 1 output
 
-func.func @skip_layernorm_beta(%input: tensor<2x4x8xf32>, %skip: tensor<2x4x8xf32>, %gamma: tensor<8xf32>, %beta: tensor<8xf32>) -> tensor<2x4x8xf32> {
-  %r = "onnx.Custom"(%input, %skip, %gamma, %beta) {domain_name = "com.microsoft", function_name = "SkipLayerNormalization", epsilon = 1.000000e-05 : f32} : (tensor<2x4x8xf32>, tensor<2x4x8xf32>, tensor<8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
+func.func @skip_layernorm_beta_no_eps(%input: tensor<2x4x8xf32>, %skip: tensor<2x4x8xf32>, %gamma: tensor<8xf32>, %beta: tensor<8xf32>) -> tensor<2x4x8xf32> {
+  %r = "onnx.Custom"(%input, %skip, %gamma, %beta) {domain_name = "com.microsoft", function_name = "SkipLayerNormalization"} : (tensor<2x4x8xf32>, tensor<2x4x8xf32>, tensor<8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
   onnx.Return %r : tensor<2x4x8xf32>
-// CHECK-LABEL:  func.func @skip_layernorm_beta
+// CHECK-LABEL:  func.func @skip_layernorm_beta_no_eps
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<2x4x8xf32>, [[PARAM_2_:%.+]]: tensor<8xf32>, [[PARAM_3_:%.+]]: tensor<8xf32>) -> tensor<2x4x8xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4x8xf32>, tensor<2x4x8xf32>) -> tensor<2x4x8xf32>
 // CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_0_]], [[PARAM_2_]], [[PARAM_3_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>, tensor<8xf32>) -> (tensor<2x4x8xf32>, none, none)
@@ -461,6 +463,19 @@ func.func @simplified_layernorm_basic(%input: tensor<2x4x8xf32>, %scale: tensor<
 // CHECK:           onnx.Return [[VAR_Y_]] : tensor<2x4x8xf32>
 }
 
+// -----
+
+func.func @simplified_layernorm_no_attrs(%input: tensor<2x4x8xf32>, %scale: tensor<8xf32>) -> tensor<2x4x8xf32> {
+  %r = "onnx.Custom"(%input, %scale) {domain_name = "", function_name = "SimplifiedLayerNormalization"} : (tensor<2x4x8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
+  onnx.Return %r : tensor<2x4x8xf32>
+// CHECK-LABEL:  func.func @simplified_layernorm_no_attrs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8xf32>) -> tensor<2x4x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x4x8xf32>, tensor<8xf32>, none) -> (tensor<2x4x8xf32>, none)
+// CHECK:           onnx.Return [[VAR_Y_]] : tensor<2x4x8xf32>
+}
+
+
 
 // -----
 // SimplifiedLayerNormalization: 3 inputs (with bias), 1 output
@@ -517,10 +532,10 @@ func.func @simplified_layernorm_two_outputs_mean_used(%input: tensor<2x4x8xf32>,
 // -----
 // SkipSimplifiedLayerNormalization: 3 inputs, 1 output
 
-func.func @skip_simplified_layernorm_basic(%input: tensor<2x4x8xf32>, %skip: tensor<2x4x8xf32>, %gamma: tensor<8xf32>) -> tensor<2x4x8xf32> {
-  %r = "onnx.Custom"(%input, %skip, %gamma) {domain_name = "com.microsoft", function_name = "SkipSimplifiedLayerNormalization", epsilon = 1.000000e-05 : f32} : (tensor<2x4x8xf32>, tensor<2x4x8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
+func.func @skip_simplified_layernorm_basic_no_attr(%input: tensor<2x4x8xf32>, %skip: tensor<2x4x8xf32>, %gamma: tensor<8xf32>) -> tensor<2x4x8xf32> {
+  %r = "onnx.Custom"(%input, %skip, %gamma) {domain_name = "com.microsoft", function_name = "SkipSimplifiedLayerNormalization"} : (tensor<2x4x8xf32>, tensor<2x4x8xf32>, tensor<8xf32>) -> tensor<2x4x8xf32>
   onnx.Return %r : tensor<2x4x8xf32>
-// CHECK-LABEL:  func.func @skip_simplified_layernorm_basic
+// CHECK-LABEL:  func.func @skip_simplified_layernorm_basic_no_attr
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<2x4x8xf32>, [[PARAM_2_:%.+]]: tensor<8xf32>) -> tensor<2x4x8xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4x8xf32>, tensor<2x4x8xf32>) -> tensor<2x4x8xf32>
