@@ -72,6 +72,10 @@ and there is no reuse with cache among them.
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
 torch._dynamo.config.prepare_freezing = 1
 
+# For onnx export.
+# looks like setting it doesnot causing pytorch using draft_export.
+os.environ["TORCH_ONNX_ENABLE_DRAFT_EXPORT"] = "True"
+
 logger = logging.getLogger(__name__)
 
 
@@ -282,10 +286,13 @@ class ONNXMLIRTorch:
             self.onnx_model,
             input_names=input_names,
             dynamic_shapes=dynamic_shapes,
+            external_data=False,
         )
 
     def create_onnxmlir_session(self) -> InferenceSession:
         # Return a session to compile and run the onnx model.
+        # import shutil
+        # shutil.copytree(self.workdir.name, '/home1/tung/dlc-backend-torch/debug')
         return InferenceSession(
             self.onnx_model,
             temp_dir=self.workdir,
