@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 
+#include "mlir/Pass/Pass.h"
 #include "llvm/ADT/ArrayRef.h"
 
 namespace mlir {
@@ -131,5 +132,18 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
+#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTING
+#include "src/Transform/Passes.h.inc"
+
+// Passes generated with table gen
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+
 } // namespace onnx_mlir
+
+/*
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+*/
+
 #endif

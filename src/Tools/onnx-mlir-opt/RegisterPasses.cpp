@@ -164,7 +164,10 @@ void registerOMPasses(int optLevel) {
 }
 
 void registerMLIRPasses() {
-  registerTransformsPasses();
+  // Register passes created from Passes.td
+  mlir::registerTransformsPasses();
+  onnx_mlir::registerTransformsPasses();
+
   affine::registerAffinePasses();
   func::registerFuncPasses();
   registerLinalgPasses();
