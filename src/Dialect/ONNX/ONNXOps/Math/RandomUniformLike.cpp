@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ RandomNormalLike.cpp - ONNX Operations ------------===//
+//===------------------ RandomUniformLike.cpp - ONNX Operations -----------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
-// This file provides definition of ONNX dialect RandomNormalLike operation.
+// This file provides definition of ONNX dialect RandomUniformLike operation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,14 +16,13 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
-using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXRandomNormalLikeOp::verify() {
+LogicalResult ONNXRandomUniformLikeOp::verify() {
   return verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
       *this, getDtype());
 }
@@ -32,11 +31,11 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 // Shape + Type Inference
 //===----------------------------------------------------------------------===//
 
-std::vector<Type> ONNXRandomNormalLikeOp::resultTypeInference() {
+std::vector<Type> ONNXRandomUniformLikeOp::resultTypeInference() {
   return getResultTypeForShapeCopyingOp(*this, getDtype());
 }
 
-LogicalResult ONNXRandomNormalLikeOp::inferShapes(
+LogicalResult ONNXRandomUniformLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))
     return success();
