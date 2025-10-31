@@ -538,7 +538,10 @@ public:
     rewriter.replaceOp(op, dqAct.getResult());
 
     // STEP 7: Remove Q->DQ chain
-    for (Operation *user : quantOutputOp.getY().getUsers()) {
+
+    // prevent iterating and removing elements
+    auto users = llvm::make_early_inc_range(quantOutputOp.getY().getUsers());
+    for (Operation *user : users) {
       if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
         (void)tryRemoveQThenDQChain(rewriter, tailDQ);
       }
