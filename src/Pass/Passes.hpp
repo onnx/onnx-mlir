@@ -18,8 +18,8 @@
 #include <memory>
 #include <string>
 
-#include "llvm/ADT/ArrayRef.h"
 #include "mlir/Pass/Pass.h"
+#include "llvm/ADT/ArrayRef.h"
 
 namespace mlir {
 class MLIRContext;
@@ -139,14 +139,11 @@ std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 #define GEN_PASS_REGISTRATION
 #include "src/Transform/Passes.h.inc"
 
-
 } // namespace onnx_mlir
 
-  
 /*
 #define GEN_PASS_REGISTRATION
 #include "src/Transform/Passes.h.inc"
 */
-
 
 #endif
