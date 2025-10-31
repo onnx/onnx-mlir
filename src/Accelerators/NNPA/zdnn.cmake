@@ -38,7 +38,7 @@ function(setup_zdnn version)
       BUILD_COMMAND sh -c "export MAKEFLAGS=--no-print-directory && \
                          make -q -C zdnn lib/libzdnn.so && true || \
                          (MAKEFLAGS=--no-print-directory \
-                          make -j$(nproc) -C zdnn lib/libzdnn.so && \
+                          make -j${nproc} -C zdnn lib/libzdnn.so && \
                           ar -rc ${ZDNN_LIBDIR}/libzdnn.a ${ZDNN_OBJDIR}/*.o)"
 
       INSTALL_COMMAND ""

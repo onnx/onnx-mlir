@@ -259,21 +259,21 @@ def rewriteMatMulNDto3D_Broadcast_2: Pat<
 def rewriteQLinearMatMulNDto3D_NonBroadcast: Pattern<
   (ONNXDequantizeLinearOp:$y_nd
     (ONNXQLinearMatMulOp:$qy_nd
-      (ONNXQuantizeLinearOp:$qa_nd $a_nd, $a_scale, $a_zeropoint, $a_axis, $a_saturate), $_, $_,
-      (ONNXQuantizeLinearOp:$qb_nd $b_nd, $b_scale, $b_zeropoint, $b_axis, $b_saturate), $_, $_,
+      (ONNXQuantizeLinearOp:$qa_nd $a_nd, $a_scale, $a_zeropoint, $a_axis, $a_block_size, $a_output_dtype, $a_precision, $a_saturate), $_, $_,
+      (ONNXQuantizeLinearOp:$qb_nd $b_nd, $b_scale, $b_zeropoint, $b_axis, $b_block_size, $b_output_dtype, $b_precision, $b_saturate), $_, $_,
       $_, $_),
-    $y_scale, $y_zeropoint, $y_axis),
+    $y_scale, $y_zeropoint, $y_axis, $y_block_size, $y_output_dtype),
   [
   // Reshape A to 3D and do quantization.
   (ReshapeTo3D:$a_3d $a_nd),
   (ONNXQuantizeLinearOp:$qa_3d
-    $a_3d, $a_scale, $a_zeropoint, $a_axis, $a_saturate,
+    $a_3d, $a_scale, $a_zeropoint, $a_axis, $a_block_size, $a_output_dtype, $a_precision, $a_saturate,
     (returnType (GetShapeAndElemType $a_3d, $qa_nd))),
 
   // Reshape B to 3D and do quantization.
   (ReshapeTo3D:$b_3d $b_nd),
   (ONNXQuantizeLinearOp:$qb_3d
-    $b_3d, $b_scale, $b_zeropoint, $b_axis, $b_saturate,
+    $b_3d, $b_scale, $b_zeropoint, $b_axis, $b_block_size, $b_output_dtype, $b_precision, $b_saturate,
     (returnType (GetShapeAndElemType $b_3d, $qb_nd))),
 
   // Call QLinearMatMul on 3D inputs.
@@ -284,7 +284,7 @@ def rewriteQLinearMatMulNDto3D_NonBroadcast: Pattern<
      (returnType (GetMatMulResultType $qa_3d, $qb_3d))),
 
   // Dequantize the 3D output.
-  (ONNXDequantizeLinearOp:$y_3d $qy_3d, $y_scale, $y_zeropoint, $y_axis,
+  (ONNXDequantizeLinearOp:$y_3d $qy_3d, $y_scale, $y_zeropoint, $y_axis, $y_block_size, $y_output_dtype,
     (returnType (GetShapeAndElemType $qy_3d, $y_nd))),
 
   // Reshape the output back to ND.
@@ -297,15 +297,15 @@ def rewriteQLinearMatMulNDto3D_NonBroadcast: Pattern<
 def rewriteQLinearMatMulNDto3D_Broadcast1: Pattern<
   (ONNXDequantizeLinearOp:$y_nd
     (ONNXQLinearMatMulOp:$qy_nd
-      (ONNXQuantizeLinearOp:$qa_nd $a_nd, $a_scale, $a_zeropoint, $a_axis, $a_saturate), $_, $_,
+      (ONNXQuantizeLinearOp:$qa_nd $a_nd, $a_scale, $a_zeropoint, $a_axis, $a_block_size, $a_output_dtype, $a_precision, $a_saturate), $_, $_,
       $qb, $b_scale, $b_zeropoint,
       $_, $_),
-    $y_scale, $y_zeropoint, $y_axis),
+    $y_scale, $y_zeropoint, $y_axis, $y_block_size, $y_output_dtype),
   [
   // Reshape A to 3D and do quantization.
   (ReshapeTo3D:$a_3d $a_nd),
   (ONNXQuantizeLinearOp:$qa_3d
-    $a_3d, $a_scale, $a_zeropoint, $a_axis, $a_saturate,
+    $a_3d, $a_scale, $a_zeropoint, $a_axis, $a_block_size, $a_output_dtype, $a_precision, $a_saturate,
     (returnType (GetShapeAndElemType $a_3d, $qa_nd))),
 
   // Call QLinearMatMul on 3D inputs.
@@ -316,7 +316,7 @@ def rewriteQLinearMatMulNDto3D_Broadcast1: Pattern<
      (returnType (GetMatMulResultType $qa_3d, $qb))),
 
   // Dequantize the 3D output.
-  (ONNXDequantizeLinearOp:$y_3d $qy_3d, $y_scale, $y_zeropoint, $y_axis,
+  (ONNXDequantizeLinearOp:$y_3d $qy_3d, $y_scale, $y_zeropoint, $y_axis, $y_block_size, $y_output_dtype,
     (returnType (GetShapeAndElemType $qy_3d, $y_nd))),
 
   // Reshape the output back to ND.
@@ -330,14 +330,14 @@ def rewriteQLinearMatMulNDto3D_Broadcast2: Pattern<
   (ONNXDequantizeLinearOp:$y_nd
     (ONNXQLinearMatMulOp:$qy_nd
       $qa, $a_scale, $a_zeropoint,
-      (ONNXQuantizeLinearOp:$qb_nd $b_nd, $b_scale, $b_zeropoint, $b_axis, $b_saturate), $_, $_,
+      (ONNXQuantizeLinearOp:$qb_nd $b_nd, $b_scale, $b_zeropoint, $b_axis, $b_block_size, $b_output_dtype, $b_precision, $b_saturate), $_, $_,
       $_, $_),
-    $y_scale, $y_zeropoint, $y_axis),
+    $y_scale, $y_zeropoint, $y_axis, $y_block_size, $y_output_dtype),
   [
   // Reshape B to 3D and do quantization.
   (ReshapeTo3D:$b_3d $b_nd),
   (ONNXQuantizeLinearOp:$qb_3d
-    $b_3d, $b_scale, $b_zeropoint, $b_axis, $b_saturate,
+    $b_3d, $b_scale, $b_zeropoint, $b_axis, $b_block_size, $b_output_dtype, $b_precision, $b_saturate,
     (returnType (GetShapeAndElemType $b_3d, $qb_nd))),
 
   // Call QLinearMatMul on 3D inputs.
@@ -348,7 +348,7 @@ def rewriteQLinearMatMulNDto3D_Broadcast2: Pattern<
      (returnType (GetMatMulResultType $qa, $qb_3d))),
 
   // Dequantize the 3D output.
-  (ONNXDequantizeLinearOp:$y_3d $qy_3d, $y_scale, $y_zeropoint, $y_axis,
+  (ONNXDequantizeLinearOp:$y_3d $qy_3d, $y_scale, $y_zeropoint, $y_axis, $y_block_size, $y_output_dtype,
     (returnType (GetShapeAndElemType $qy_3d, $y_nd))),
 
   // Reshape the output back to ND.

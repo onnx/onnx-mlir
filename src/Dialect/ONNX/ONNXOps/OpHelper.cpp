@@ -627,6 +627,8 @@ Type convertONNXTypeToMLIRType(
     return builder.getType<Float8E4M3FNUZType>();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2:
     return builder.getType<Float8E5M2Type>();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT4E2M1:
+    return builder.getType<Float4E2M1FNType>();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2FNUZ:
     return builder.getType<Float8E5M2FNUZType>();
   case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
