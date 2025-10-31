@@ -20,7 +20,10 @@ template <>
 LogicalResult ONNXAttentionOpShapeHelper::computeShape() {
   auto attentionOp = cast<ONNXAttentionOp>(op);
 
-  int64_t rank = createIE->getShapedTypeRank(attentionOp.getQ());
+  const int64_t rank = createIE->getShapedTypeRank(attentionOp.getQ());
+  if (rank != 3 && rank != 4)
+    return failure();
+
   DimsExpr qShape;
   createIE->getShapeAsDims(attentionOp.getQ(), qShape);
   DimsExpr kShape;
@@ -31,29 +34,30 @@ LogicalResult ONNXAttentionOpShapeHelper::computeShape() {
   auto qNumHeads = attentionOp.getQNumHeads();
   auto kvNumHeads = attentionOp.getKvNumHeads();
 
+  auto normalizeInputTo4D = [](DimsExpr inputShape,
+                                std::optional<int64_t> numHeads) -> DimsExpr {
+    DimsExpr shape4D = inputShape;
+    if (inputShape.size() == 4)
+      return shape4D;
+
+    assert(numHeads && "*_num_heads attributes must be present with 3D inputs");
+    shape4D.insert(shape4D.begin() + 1, LitIE(*numHeads));
+    shape4D[3] = shape4D[3].floorDiv(shape4D[1]);
+
+    return shape4D;
+  };
+
+  DimsExpr qShape4D = normalizeInputTo4D(qShape, qNumHeads);
+  DimsExpr kShape4D = normalizeInputTo4D(kShape, kvNumHeads);
+  DimsExpr vShape4D = normalizeInputTo4D(vShape, kvNumHeads);
+
+  DimsExpr outputDims = qShape;
   if (rank == 4) {
-    DimsExpr outputDims = qShape;
-    outputDims[3] = vShape[3];
-    setOutputDims(outputDims, 0);
-  } else if (rank == 3) {
-    assert(qNumHeads && kvNumHeads &&
-           "*_num_heads attributes must be present with 3D inputs");
-    DimsExpr outputDims = qShape;
-    outputDims[2] = LitIE(*qNumHeads * (vShape[2].getLiteral() / *kvNumHeads));
-    setOutputDims(outputDims, 0);
-  } else {
-    return failure();
+    outputDims[3] = vShape4D[3];
+  } else /*if (rank == 3)*/ {
+    outputDims[2] = qShape4D[1] * vShape4D[3];
   }
-
-  // Need past_key/value inputs to infer shapes for present_key/value outputs
-  if (attentionOp->getNumOperands() < 6)
-    return success();
-
-  if (isNoneValue(attentionOp.getPastKey()) ||
-      isNoneValue(attentionOp.getPastValue()) ||
-      isNoneValue(attentionOp.getPresentKey()) ||
-      isNoneValue(attentionOp.getPresentValue()))
-    return success();
+  setOutputDims(outputDims, 0);
 
   if (!hasShapeAndRank(attentionOp.getPastKey()) ||
       !hasShapeAndRank(attentionOp.getPastValue()))
@@ -67,21 +71,19 @@ LogicalResult ONNXAttentionOpShapeHelper::computeShape() {
   if (pastKShape.size() != 4 || pastVShape.size() != 4)
     return failure();
 
-  auto totalSeqLen = pastKShape[2] + kShape[2];
+  auto totalSeqLen = pastKShape[2] + kShape4D[2];
 
-  DimsExpr presentKeyDims = kShape;
+  DimsExpr presentKeyDims = kShape4D;
   presentKeyDims[2] = totalSeqLen;
   setOutputDims(presentKeyDims, 1);
 
-  DimsExpr presentValueDims = vShape;
+  DimsExpr presentValueDims = vShape4D;
   presentValueDims[2] = totalSeqLen;
   setOutputDims(presentValueDims, 2);
 
-  if (attentionOp.getQkMatmulOutputMode()) {
-    DimsExpr qkOutputDims = qShape;
-    qkOutputDims[3] = totalSeqLen;
-    setOutputDims(presentValueDims, 3);
-  }
+  DimsExpr qkOutputDims = qShape4D;
+  qkOutputDims[3] = totalSeqLen;
+  setOutputDims(presentValueDims, 3);
 
   return success();
 }
@@ -93,25 +95,16 @@ LogicalResult ONNXAttentionOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAttentionOp::verify() {
-  const int64_t numIn = this->getNumOperands();
-  const int64_t numOut = this->getNumResults();
-
   // If presentK and presentV are outputs, then we must pass pastK and pastV as
   // inputs
-  if (numOut >= 3) {
-    Value presentK = this->getResult(1);
-    Value presentV = this->getResult(2);
-    if (!isNoneValue(presentK) || !isNoneValue(presentV)) {
-      if (numIn < 6)
-        return emitOpError("inputs 'pastK' and 'pastV' are needed for outputs "
-                           "'presentK' and 'presentV'");
-
-      Value pastK = this->getOperand(4);
-      Value pastV = this->getOperand(5);
-      if (isNoneValue(pastK) || isNoneValue(pastV))
-        return emitOpError("inputs 'pastK' and 'pastV' are needed for outputs "
-                           "'presentK' and 'presentV'");
-    }
+  Value presentK = this->getResult(1);
+  Value presentV = this->getResult(2);
+  if (!isNoneValue(presentK) || !isNoneValue(presentV)) {
+    Value pastK = this->getOperand(4);
+    Value pastV = this->getOperand(5);
+    if (isNoneValue(pastK) || isNoneValue(pastV))
+      return emitOpError("inputs 'pastK' and 'pastV' are needed for outputs "
+                         "'presentK' and 'presentV'");
   }
 
   ONNXAttentionOpAdaptor adaptor(*this);
@@ -120,7 +113,7 @@ LogicalResult ONNXAttentionOp::verify() {
   if (!hasShapeAndRank(q))
     return success(); // Won't be able to do any more checking at this stage.
 
-  auto qType = mlir::cast<ShapedType>(q.getType());
+  auto qType = cast<ShapedType>(q.getType());
   int64_t qRank = qType.getShape().size();
   if (qRank != 3 && qRank != 4)
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
@@ -137,13 +130,13 @@ LogicalResult ONNXAttentionOp::verify() {
   if (!hasShapeAndRank(k) || !hasShapeAndRank(v))
     return success(); // Won't be able to do any more checking at this stage.
 
-  auto kType = mlir::cast<ShapedType>(k.getType());
+  auto kType = cast<ShapedType>(k.getType());
   int64_t kRank = kType.getShape().size();
   if (kRank != 3 && kRank != 4)
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), k, kRank, "3 or 4");
 
-  auto vType = mlir::cast<ShapedType>(v.getType());
+  auto vType = cast<ShapedType>(v.getType());
   int64_t vRank = vType.getShape().size();
   if (vRank != 3 && vRank != 4)
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
@@ -195,10 +188,9 @@ LogicalResult ONNXAttentionOp::inferShapes(
     if (!hasShapeAndRank(this->getOperand(i)))
       return success();
 
-  Type elementType = mlir::cast<ShapedType>(getQ().getType()).getElementType();
+  Type elementType = getElementTypeOrSelf(getQ().getType());
   ONNXAttentionOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-  return success();
 }
 
 //===----------------------------------------------------------------------===//

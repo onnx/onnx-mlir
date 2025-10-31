@@ -1007,6 +1007,24 @@ func.func @test_rotary_embedding_bad_dtype(%data: tensor<1x128x3072xi64>, %cos_c
 
 // -----
 
+func.func @test_rotary_embedding_4d_odd_head_size(%data: tensor<1x32x128x95xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x32x128x95xf32>' at index: 0' has dimension at index 3 with value 95, value should be even}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x95xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_rotary_embedding_3d_odd_head_size(%data: tensor<1x128x3040xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x128x3040xf32>' at index: 0' has dimension at index 2 with value 3040, value should be divisible by 32 * 2}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3040xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
 func.func @test_rotary_embedding_bad_embedding_dim(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<4096x48xf32>' at index: 1' has dimension at index 1 with value 48, value should be 50}}

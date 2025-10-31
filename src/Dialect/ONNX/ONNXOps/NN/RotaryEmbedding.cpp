@@ -35,7 +35,7 @@ LogicalResult ONNXRotaryEmbeddingOp::verify() {
     return success(); // Won't be able to do any checking at this stage.
 
   auto inputType = mlir::cast<ShapedType>(input.getType());
-  int64_t inputRank = inputType.getRank();
+  const int64_t inputRank = inputType.getRank();
 
   if (inputRank != 3 && inputRank != 4)
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
@@ -46,13 +46,19 @@ LogicalResult ONNXRotaryEmbeddingOp::verify() {
     return emitOpError(
         "attribute 'num_heads' must be provided when input is a 3D tensor.");
 
-  // Check hidden_size divisible by num_heads
   if (inputType.hasStaticShape()) {
     auto inputShape = inputType.getShape();
-    if (inputRank == 3 && numHeads && inputShape[2] % *numHeads != 0)
+    // Check head_size is even
+    if (inputRank == 4 && inputShape[3] % 2 != 0)
+      return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+          *this->getOperation(), input, 3, inputShape[3], "even");
+
+    // Check hidden_size divisible by num_heads and resulting head_size is
+    // even (i.e. hidden_size % (num_heads * 2)  == 0)
+    if (inputRank == 3 && numHeads && inputShape[2] % (*numHeads * 2) != 0)
       return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
           *this->getOperation(), input, 2, inputShape[2],
-          "divisible by " + std::to_string(*numHeads));
+          "divisible by " + std::to_string(*numHeads) + " * 2");
   }
 
   Value cosCache = adaptor.getCosCache();
@@ -103,7 +109,7 @@ LogicalResult ONNXRotaryEmbeddingOp::inferShapes(
   if (!hasShapeAndRank(getOperation()->getOperand(0)))
     return success();
 
-  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
+  Type elementType = getElementTypeOrSelf(getX().getType());
   ONNXRotaryEmbeddingOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

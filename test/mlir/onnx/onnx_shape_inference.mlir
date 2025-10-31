@@ -4536,3 +4536,21 @@ func.func @test_attention_4d_qk_output(%q: tensor<1x32x128x96xf32>, %k: tensor<1
 // CHECK-LABEL:  func.func @test_attention_4d_qk_output
 // CHECK:          "onnx.Attention"
 // CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<1x32x128x48xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x48xf32>, tensor<1x16x384x48xf32>)
+
+func.func @test_attention_3d_inputs_4d_present_kv(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>, %past_k: tensor<1x16x256x96xf32>, %past_v: tensor<1x16x256x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %past_k, %past_v) {q_num_heads = 32: si64, kv_num_heads = 16: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_3d_inputs_4d_present_kv
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:        (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<1x128x1536xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x48xf32>, none)
+
+func.func @test_attention_3d_q_4d_kv(%q: tensor<1x128x3072xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_3d_q_4d_kv
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<1x128x1536xf32>
