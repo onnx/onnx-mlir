@@ -19,6 +19,7 @@
 #include <string>
 
 #include "llvm/ADT/ArrayRef.h"
+#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 class MLIRContext;
@@ -98,7 +99,6 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool simdIsEnabled);
 std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass();
 std::unique_ptr<mlir::Pass> createProcessKrnlParallelClausePass();
-std::unique_ptr<mlir::Pass> createBufferOMPLoopHoistingPass();
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 /// Add pass for lowering to Stablehlo IR.
@@ -132,5 +132,21 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
+#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTING
+#include "src/Transform/Passes.h.inc"
+
+// Passes generated with table gen
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+
+
 } // namespace onnx_mlir
+
+  
+/*
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+*/
+
+
 #endif

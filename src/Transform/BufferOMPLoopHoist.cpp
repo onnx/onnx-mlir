@@ -24,6 +24,8 @@ struct BufferOMPLoopHoistingPass
 
 void BufferOMPLoopHoistingPass::runOnOperation() {}
 
-std::unique_ptr<Pass> onnx_mlir::createBufferOMPLoopHoistingPass() {
+namespace onnx_mlir {
+std::unique_ptr<Pass> createBufferOMPLoopHoisting() {
   return std::make_unique<BufferOMPLoopHoistingPass>();
-}
+};
+} //namespace

@@ -15,7 +15,6 @@ def BufferOMPLoopHoisting : Pass<"buffer-omploop-hoisting", "func::FuncOp"> {
     It is assumed that bufferization::buildBufferDeallocationPipeline
     and createConvertBufferizationToMemRefPass() have been called.
   }];
-  let constructor = "onnx_mlir::createBufferOMPLoopHoistingPass()";
 }
 
 #endif
