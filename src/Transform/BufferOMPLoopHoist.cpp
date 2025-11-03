@@ -28,4 +28,4 @@ namespace onnx_mlir {
 std::unique_ptr<Pass> createBufferOMPLoopHoisting() {
   return std::make_unique<BufferOMPLoopHoistingPass>();
 };
-} //namespace
+} // namespace
