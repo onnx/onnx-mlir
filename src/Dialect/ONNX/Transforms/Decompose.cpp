@@ -48,7 +48,6 @@
 #include "src/Support/TypeUtilities.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "decompose"
 
@@ -3280,6 +3279,185 @@ struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
   }
 };
 
+struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
+  MicrosoftGroupQueryAttention(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "GroupQueryAttention", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+
+    using namespace onnx_mlir;
+    const Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 7 && numIn <= 12) && "expects 7..12 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 3 && numOut <= 4) && "expects 3..4 outputs");
+
+    Value query = customOp.getOperand(0);
+    Value key = customOp.getOperand(1);
+    Value value = customOp.getOperand(2);
+    Value pastKey = customOp.getOperand(3);
+    Value pastValue = customOp.getOperand(4);
+
+    // These inputs are not needed for onnx.Attention:
+    // Value seqlens_k = customOp.getOperand(5);
+    // Value total_sequence_length = customOp.getOperand(6);
+
+    Value cosCache;
+    Value sinCache;
+    if (numIn > 7) {
+      cosCache = customOp.getOperand(7);
+      sinCache = customOp.getOperand(8);
+    }
+
+    Value positionIds;
+    if (numIn > 9)
+      positionIds = customOp.getOperand(9);
+
+    Value attentionBias;
+    if (numIn > 10)
+      attentionBias = customOp.getOperand(10);
+
+    if (numIn > 11 && !isNoneValue(customOp.getOperand(11)))
+      return rewriter.notifyMatchFailure(
+          customOp, "input 'head_sink' not supported by onnx.Attention");
+
+    auto qNumHeads = customOp->getAttrOfType<IntegerAttr>("num_heads");
+    assert(qNumHeads && "Expected number of attention heads for q");
+    auto kvNumHeads = customOp->getAttrOfType<IntegerAttr>("kv_num_heads");
+    assert(kvNumHeads && "Expected number of attention heads for k and v");
+
+    if (!isa<ShapedType>(query.getType()))
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'query' input to have shaped type");
+    auto queryType = cast<ShapedType>(query.getType());
+    if (!queryType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'query' input to have static type");
+    assert(queryType.getRank() == 3 && "Query input must have rank 3");
+
+    auto none = rewriter.create<ONNXNoneOp>(loc);
+    auto si64Type = rewriter.getIntegerType(64, true);
+
+    SmallVector<Value, 6> toCheck = {none};
+
+    // query, key and value inputs may be packed in the same input (query). We
+    // need to split them up if this is the case.
+    ONNXConstantOp splitLens;
+    ONNXSplitOp split;
+    if (isNoneValue(key) && isNoneValue(value)) {
+      int64_t totalNumHeads = qNumHeads.getSInt() + 2 * kvNumHeads.getSInt();
+      // microsoft.GroupQueryAttention assumes the head_size is the same for q,
+      // k and v
+      int64_t headSize = queryType.getShape()[2] / totalNumHeads;
+
+      SmallVector<int64_t, 3> splitLensI64 = {headSize * qNumHeads.getSInt(),
+          headSize * kvNumHeads.getSInt(), headSize * kvNumHeads.getSInt()};
+      splitLens = getONNXConstOpFromVector(rewriter, loc, splitLensI64);
+
+      SmallVector<Type, 3> convertedTypes;
+      for (auto len : splitLensI64) {
+        SmallVector<int64_t, 3> dims(queryType.getShape());
+        dims[2] = len;
+        convertedTypes.push_back(
+            RankedTensorType::get(dims, queryType.getElementType()));
+      }
+
+      split =
+          rewriter.create<ONNXSplitOp>(loc, convertedTypes, query, splitLens,
+              /*axis=*/
+              rewriter.getIntegerAttr(si64Type, 2),
+              /*num_outputs=*/nullptr);
+
+      toCheck.push_back(splitLens);
+      toCheck.push_back(split.getResult(0));
+
+      query = split->getOpResult(0);
+      key = split->getOpResult(1);
+      value = split->getOpResult(2);
+    }
+
+    // If do_rotary = 1, query and key need to be passed through a rotary
+    // embedding op
+    auto doRotary = customOp->getAttrOfType<IntegerAttr>("do_rotary");
+    ONNXRotaryEmbeddingOp ropeQuery;
+    ONNXRotaryEmbeddingOp ropeKey;
+    if (doRotary && doRotary.getSInt() > 0) {
+      assert(numIn >= 9 && !isNoneValue(cosCache) && !isNoneValue(sinCache));
+
+      if (numIn < 10 || isNoneValue(positionIds))
+        positionIds = none;
+
+      int64_t rotaryInterleaved = 0;
+      if (customOp->hasAttrOfType<IntegerAttr>("rotary_interleaved"))
+        rotaryInterleaved =
+            customOp->getAttrOfType<IntegerAttr>("rotary_interleaved")
+                .getSInt();
+
+      ropeQuery = rewriter.create<ONNXRotaryEmbeddingOp>(loc, query.getType(),
+          query, cosCache, sinCache, positionIds, rotaryInterleaved, qNumHeads);
+      ropeKey = rewriter.create<ONNXRotaryEmbeddingOp>(loc, key.getType(), key,
+          cosCache, sinCache, positionIds, rotaryInterleaved, kvNumHeads);
+
+      toCheck.push_back(ropeQuery);
+      toCheck.push_back(ropeKey);
+
+      query = ropeQuery;
+      key = ropeKey;
+    }
+
+    // Create the onnx.Attention op
+    if (numIn < 11 || isNoneValue(attentionBias))
+      attentionBias = none;
+
+    SmallVector<Type, 4> attentionResultTypes(customOp.getResultTypes());
+    if (numOut < 4)
+      attentionResultTypes.push_back(rewriter.getNoneType());
+
+    auto attention = rewriter.create<ONNXAttentionOp>(loc, attentionResultTypes,
+        ValueRange{query, key, value, attentionBias, pastKey, pastValue});
+
+    attention.setQNumHeadsAttr(qNumHeads);
+    attention.setKvNumHeadsAttr(kvNumHeads);
+
+    if (customOp->hasAttrOfType<IntegerAttr>("qk_output")) {
+      auto qkOutput = customOp->getAttrOfType<IntegerAttr>("qk_output");
+      if (qkOutput.getSInt() == 2) {
+        attention.setQkMatmulOutputModeAttr(
+            rewriter.getIntegerAttr(si64Type, 3));
+      } else {
+        attention.setQkMatmulOutputModeAttr(
+            rewriter.getIntegerAttr(si64Type, 0));
+      }
+    }
+
+    if (customOp->hasAttrOfType<FloatAttr>("scale"))
+      attention.setScaleAttr(customOp->getAttrOfType<FloatAttr>("scale"));
+    if (customOp->hasAttrOfType<FloatAttr>("softcap"))
+      attention.setSoftcapAttr(customOp->getAttrOfType<FloatAttr>("softcap"));
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(attention.getResult(0));
+    if (numOut >= 3) {
+      replace.push_back(attention.getResult(1)); // present_k
+      replace.push_back(attention.getResult(2)); // present_v
+    }
+    if (numOut == 4)
+      replace.push_back(attention.getResult(3)); // qk_output
+
+    toCheck.push_back(attention.getResult(0));
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+
+    return success();
+  };
+};
+
 template <typename OpToCreate>
 struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
   CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
@@ -3767,6 +3945,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<MicrosoftSkipLayerNorm>(context);
   patterns.insert<SimplifiedLayerNorm>(context);
   patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  patterns.insert<MicrosoftGroupQueryAttention>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
