@@ -4468,3 +4468,89 @@ func.func @test_slice_negative_steps_mixed_dialects(%arg0: tensor<100x200xf32>) 
 // CHECK-LABEL:  func.func @test_slice_negative_steps_mixed_dialects
 // CHECK:          "onnx.Slice"
 // CHECK-SAME:       (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<16x16xf32>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for RotaryEncoder.
+//===----------------------------------------------------------------------===//
+
+func.func @test_rotary_embedding_4d_no_pos_ids(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_rotary_embedding_4d_no_pos_ids
+// CHECK:          "onnx.RotaryEmbedding"
+// CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<1x32x128x96xf32>
+
+
+func.func @test_rotary_embedding_3d_no_pos_ids(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_rotary_embedding_3d_no_pos_ids
+// CHECK:          "onnx.RotaryEmbedding"
+// CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<1x128x3072xf32>
+
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Attention.
+//===----------------------------------------------------------------------===//
+
+func.func @test_attention_4d(%q: tensor<1x32x128x96xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) : (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_4d
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<1x32x128x48xf32>
+
+func.func @test_attention_3d(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64, kv_num_heads = 16: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_3d
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<1x128x1536xf32>
+
+func.func @test_attention_4d_present_kv(%q: tensor<1x32x128x96xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>, %past_k: tensor<1x16x256x96xf32>, %past_v: tensor<1x16x256x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %past_k, %past_v) : (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_4d_present_kv
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:        (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<1x32x128x48xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x48xf32>, none)
+
+func.func @test_attention_4d_qk_output(%q: tensor<1x32x128x96xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>, %past_k: tensor<1x16x256x96xf32>, %past_v: tensor<1x16x256x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %past_k, %past_v) {qk_matmul_output_mode = 1: si64 }: (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_4d_qk_output
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<1x32x128x48xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x48xf32>, tensor<1x16x384x48xf32>)
+
+func.func @test_attention_3d_inputs_4d_present_kv(%q: tensor<1x128x3072xf32>, %k: tensor<1x128x1536xf32>, %v: tensor<1x128x768xf32>, %past_k: tensor<1x16x256x96xf32>, %past_v: tensor<1x16x256x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %past_k, %past_v) {q_num_heads = 32: si64, kv_num_heads = 16: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_3d_inputs_4d_present_kv
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:        (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x48xf32>) -> (tensor<1x128x1536xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x48xf32>, none)
+
+func.func @test_attention_3d_q_4d_kv(%q: tensor<1x128x3072xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
+  return %out : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_attention_3d_q_4d_kv
+// CHECK:          "onnx.Attention"
+// CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<1x128x1536xf32>
