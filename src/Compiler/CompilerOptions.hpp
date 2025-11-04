@@ -99,7 +99,7 @@ extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
 extern bool printIR;                                          // onnx-mlir only
-extern bool printONNXBasicIR;                                 // onnx-mlir only
+extern int printONNXBasicIR;                                  // onnx-mlir only
 extern bool preserveBitcode;                                  // onnx-mlir only
 extern bool preserveLLVMIR;                                   // onnx-mlir only
 extern bool preserveMLIR;                                     // onnx-mlir only

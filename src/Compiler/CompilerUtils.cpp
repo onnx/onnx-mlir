@@ -996,8 +996,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   }
 
   // Print out the ONNXBasicIR if requested.
-  if (printONNXBasicIR)
-    outputModule(module, llvm::outs(), /*largeElementLimit=*/10);
+  if (printONNXBasicIR > 0)
+    outputModule(module, llvm::outs(), /*largeElementLimit=*/printONNXBasicIR);
 
   std::string msg = "Compiling and Optimizing MLIR Module";
   showCompilePhase(msg);
