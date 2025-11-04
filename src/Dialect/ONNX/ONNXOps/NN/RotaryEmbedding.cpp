@@ -90,7 +90,7 @@ LogicalResult ONNXRotaryEmbeddingOp::verify() {
           *this->getOperation(), cosCache, lastIndex, cosCacheShape[lastIndex],
           std::to_string(rotaryEmbeddingDim / 2));
     lastIndex = sinCacheShape.size() - 1;
-    if (sinCacheShape[lastIndex] == rotaryEmbeddingDim / 2)
+    if (sinCacheShape[lastIndex] != rotaryEmbeddingDim / 2)
       return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
           *this->getOperation(), sinCache, lastIndex, sinCacheShape[lastIndex],
           std::to_string(rotaryEmbeddingDim / 2));

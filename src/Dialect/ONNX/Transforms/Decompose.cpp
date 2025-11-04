@@ -3458,6 +3458,62 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
   };
 };
 
+struct MicrosoftRotaryEmbedding : public CustomOpToOnnxOps {
+  MicrosoftRotaryEmbedding(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "RotaryEmbedding", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+
+    const Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn == 4) && "expects 4 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut == 1) && "expects 1 outputs");
+
+    Value input = customOp.getOperand(0);
+    Value position_ids = customOp.getOperand(1);
+    Value cos_cache = customOp.getOperand(2);
+    Value sin_cache = customOp.getOperand(3);
+
+    if (customOp->hasAttrOfType<IntegerAttr>("is_packed_batching") &&
+        customOp->getAttrOfType<IntegerAttr>("is_packed_batching").getSInt() !=
+            0)
+      return rewriter.notifyMatchFailure(customOp,
+          "attribute 'is_packed_batching' not supported by "
+          "onnx.RotaryEmbedding");
+    if (customOp->hasAttrOfType<IntegerAttr>("scale") &&
+        customOp->getAttrOfType<FloatAttr>("scale").getValueAsDouble() != 1.0f)
+      return rewriter.notifyMatchFailure(
+          customOp, "attribute 'scale' not supported by onnx.RotaryEmbedding");
+
+    auto rotaryEmbedding =
+        rewriter.create<ONNXRotaryEmbeddingOp>(loc, customOp->getResultTypes(),
+            ValueRange{input, cos_cache, sin_cache, position_ids});
+
+    if (customOp->hasAttrOfType<IntegerAttr>("num_heads"))
+      rotaryEmbedding->setAttr(
+          "num_heads", customOp->getAttrOfType<IntegerAttr>("num_heads"));
+
+    if (customOp->hasAttrOfType<IntegerAttr>("interleaved"))
+      rotaryEmbedding->setAttr(
+          "interleaved", customOp->getAttrOfType<IntegerAttr>("interleaved"));
+
+    if (customOp->hasAttrOfType<IntegerAttr>("rotary_embedding_dim"))
+      rotaryEmbedding->setAttr("rotary_embedding_dim",
+          customOp->getAttrOfType<IntegerAttr>("rotary_embedding_dim"));
+
+    if (failed(verifyOpsErasingOnError({rotaryEmbedding}, rewriter))) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition failed verification");
+    }
+
+    rewriter.replaceOp(customOp, rotaryEmbedding);
+
+    return success();
+  };
+};
+
 template <typename OpToCreate>
 struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
   CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
@@ -3946,6 +4002,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<SimplifiedLayerNorm>(context);
   patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   patterns.insert<MicrosoftGroupQueryAttention>(context);
+  patterns.insert<MicrosoftRotaryEmbedding>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);

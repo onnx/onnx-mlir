@@ -866,3 +866,48 @@ func.func @gqa_with_scale_softcap_and_qk_output_2(
 // CHECK-SAME:          : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x1536xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>) -> (tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>, tensor<1x32x128x256xf32>)
 // CHECK:           return %[[VAL_7]], %[[VAL_8]], %[[VAL_9]], %[[VAL_10]] : tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>, tensor<1x32x128x256xf32>
 // CHECK:         }
+
+// -----
+
+func.func @rotary_embedding_4d_interleaved_rotdim_16(%data: tensor<1x32x128x96xf32>, %pos_ids: tensor<1x128xi64>, %cos_cache: tensor<4096x8xf32>, %sin_cache: tensor<4096x8xf32>) -> tensor<1x32x128x96xf32> {
+  %0 = "onnx.Custom"(%data, %pos_ids, %cos_cache, %sin_cache) {
+    domain_name = "com.microsoft",
+    function_name = "RotaryEmbedding",
+    interleaved = 1 : si64,
+    rotary_embedding_dim = 16 : si64
+  }: (tensor<1x32x128x96xf32>, tensor<1x128xi64>, tensor<4096x8xf32>, tensor<4096x8xf32>) -> tensor<1x32x128x96xf32>
+  return %0 : tensor<1x32x128x96xf32>
+}
+
+// CHECK-LABEL:   func.func @rotary_embedding_4d_interleaved_rotdim_16(
+// CHECK-SAME:                                                     %[[VAL_0:.*]]: tensor<1x32x128x96xf32>,
+// CHECK-SAME:                                                     %[[VAL_1:.*]]: tensor<1x128xi64>,
+// CHECK-SAME:                                                     %[[VAL_2:.*]]: tensor<4096x8xf32>,
+// CHECK-SAME:                                                     %[[VAL_3:.*]]: tensor<4096x8xf32>) -> tensor<1x32x128x96xf32> {
+// CHECK:           %[[VAL_4:.*]] = "onnx.RotaryEmbedding"(%[[VAL_0]], %[[VAL_2]], %[[VAL_3]], %[[VAL_1]]) 
+// CHECK-SAME:          {interleaved = 1 : si64, rotary_embedding_dim = 16 : si64} 
+// CHECK-SAME:          : (tensor<1x32x128x96xf32>, tensor<4096x8xf32>, tensor<4096x8xf32>, tensor<1x128xi64>) -> tensor<1x32x128x96xf32>
+// CHECK:           return %[[VAL_4]] : tensor<1x32x128x96xf32>
+// CHECK:         }
+
+// -----
+
+func.func @test_rotary_embedding_3d(%data: tensor<1x128x3072xf32>, %pos_ids: tensor<1x128xi64>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<1x128x3072xf32> {
+  %0 = "onnx.Custom"(%data, %pos_ids, %cos_cache, %sin_cache) {
+    domain_name = "com.microsoft",
+    function_name = "RotaryEmbedding",
+    num_heads = 32: si64
+  } : (tensor<1x128x3072xf32>, tensor<1x128xi64>, tensor<4096x48xf32>, tensor<4096x48xf32>) -> tensor<1x128x3072xf32>
+  return %0 : tensor<1x128x3072xf32>
+}
+
+// CHECK-LABEL:   func.func @test_rotary_embedding_3d(
+// CHECK-SAME:                                        %[[VAL_0:.*]]: tensor<1x128x3072xf32>,
+// CHECK-SAME:                                        %[[VAL_1:.*]]: tensor<1x128xi64>,
+// CHECK-SAME:                                        %[[VAL_2:.*]]: tensor<4096x48xf32>,
+// CHECK-SAME:                                        %[[VAL_3:.*]]: tensor<4096x48xf32>) -> tensor<1x128x3072xf32> {
+// CHECK:           %[[VAL_4:.*]] = "onnx.RotaryEmbedding"(%[[VAL_0]], %[[VAL_2]], %[[VAL_3]], %[[VAL_1]]) 
+// CHECK-SAME:          {interleaved = 0 : si64, num_heads = 32 : si64, rotary_embedding_dim = 0 : si64} 
+// CHECK-SAME:          : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, tensor<1x128xi64>) -> tensor<1x128x3072xf32>
+// CHECK:           return %[[VAL_4]] : tensor<1x128x3072xf32>
+// CHECK:         }
