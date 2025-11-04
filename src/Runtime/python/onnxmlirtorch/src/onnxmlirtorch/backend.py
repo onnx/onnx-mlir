@@ -71,6 +71,11 @@ and there is no reuse with cache among them.
 # Freeze the model to avoid parameter inputs in the forward signature in GraphModule.
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
 torch._dynamo.config.prepare_freezing = 1
+torch._dynamo.config.specialize_int = True
+torch._dynamo.config.assume_static_by_default = False 
+torch._dynamo.config.allow_ignore_mark_dynamic = True 
+torch._dynamo.config.force_unspec_int_unbacked_size_like_on_torchrec_kjt = True 
+torch._dynamo.config.allow_unspec_int_on_nn_module = True 
 
 # For onnx export.
 # looks like setting it doesnot causing pytorch using draft_export.
