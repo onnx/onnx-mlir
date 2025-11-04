@@ -54,7 +54,7 @@ EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
-bool printONNXBasicIR;                                 // onnx-mlir only
+int printONNXBasicIR;                                  // onnx-mlir only
 bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
@@ -319,14 +319,14 @@ static llvm::cl::opt<bool, true> printIROpt("printIR",
     llvm::cl::desc("Print the IR to stdout:."), llvm::cl::location(printIR),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> printIRONNXBasicIROpt("printONNXBasicIR",
+static llvm::cl::opt<int, true> printIRONNXBasicIROpt("printONNXBasicIR",
     llvm::cl::desc(
-        "Print ONNXBasicIR to stdout, where constants with more than 10 "
-        "elements are truncated to the first 10. ONNXBasicIR is imported from "
-        "the input onnx model into MLIR language, and it keeps most of "
-        "information in the input onnx model. This option is useful to examine "
-        "the onnx model without interrupting the compilation."),
-    llvm::cl::location(printONNXBasicIR), llvm::cl::init(false),
+        "Print ONNXBasicIR to stdout, where constants with more than a given "
+        "number of elements are elided. ONNXBasicIR is imported from the input "
+        "onnx model into MLIR language, and it keeps most of information in "
+        "the input onnx model. This option is useful to examine the onnx model "
+        "without interrupting the compilation."),
+    llvm::cl::location(printONNXBasicIR), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(

@@ -75,6 +75,7 @@ torch._dynamo.config.prepare_freezing = 1
 # For onnx export.
 # looks like setting it doesnot causing pytorch using draft_export.
 os.environ["TORCH_ONNX_ENABLE_DRAFT_EXPORT"] = "True"
+torch.fx.experimental._config.patch(backed_size_oblivious=True)
 
 logger = logging.getLogger(__name__)
 
@@ -278,10 +279,10 @@ class ONNXMLIRTorch:
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
-        wgm = create_dynamic_wrapper(self.gm)
+        #wgm = create_dynamic_wrapper(self.gm)
         torch.onnx.export(
-            # self.gm,
-            wgm,
+            self.gm,
+            #wgm,
             example_inputs,
             self.onnx_model,
             input_names=input_names,

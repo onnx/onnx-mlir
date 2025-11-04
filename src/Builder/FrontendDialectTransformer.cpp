@@ -1458,7 +1458,7 @@ private:
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       Type outTy = ImportType(output.type(), dim_params);
-      if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
+      if (!options_.useOnnxModelTypes || std::getenv("IMPORTER_FORCE_DYNAMIC"))
         outTy = UnrankedTensorType::get(
             mlir::cast<TensorType>(outTy).getElementType());
       if (output.type().tensor_type().has_shape()) {
