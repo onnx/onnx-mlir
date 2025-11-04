@@ -175,6 +175,13 @@ Value OnnxBuilder::gelu(Value input, StringAttr approximateAttr) const {
       toTensor(input.getType()), input, approximateAttr);
 }
 
+Value OnnxBuilder::gemm(Type Y, Value A, Value B, Value C, FloatAttr alpha,
+    FloatAttr beta, IntegerAttr transA, IntegerAttr transB) const {
+
+  return createOpAndInferShapes<ONNXGemmOp>(
+      toTensor(Y), A, B, C, alpha, beta, transA, transB);
+}
+
 // ONNXLayerNormalizationOp, version with one output only (Y).
 Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
     Value bias, int64_t axis, FloatAttr epsilon) const {
