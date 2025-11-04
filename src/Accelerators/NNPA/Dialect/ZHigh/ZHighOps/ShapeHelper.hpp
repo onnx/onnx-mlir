@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -214,6 +215,21 @@ public:
 };
 
 using ZHighFixGRUYOpShapeHelper = ONNXUnaryOpShapeHelper;
+
+//===----------------------------------------------------------------------===//
+// Shape helper for ExtendedLayoutTransform.
+//===----------------------------------------------------------------------===//
+
+struct ZHighExtendedLayoutTransformOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighExtendedLayoutTransformOpShapeHelper(mlir::Operation *op,
+      mlir::ValueRange operands = {}, IndexExprBuilder *ieBuilder = nullptr,
+      IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighExtendedLayoutTransformOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Shapes for intermediary results.
+  DimsExpr sourceDims, reshapeSplitDims, transposeDims, reshapeMergeDims;
+};
 
 } // namespace zhigh
 } // namespace onnx_mlir
