@@ -1566,7 +1566,7 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
   for (auto it = model.opset_import().begin(); it != model.opset_import().end();
-      ++it) {
+       ++it) {
     if (it->domain() == "" || it->domain() == "ai.onnx") {
       originVersion = it->version();
       break;
@@ -1633,7 +1633,7 @@ int readAndStripComments(
   // Remove // comments, which are non-standard json and onnx text
   // but appear in lit tests in test/mlir/onnx/parse.
   for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
-      ++line) {
+       ++line) {
     if (line->ltrim(" \t").starts_with("//"))
       continue; // omit comment lines beginning with (whitespace and) //
     if (line->contains("//")) {
