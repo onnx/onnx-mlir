@@ -1458,9 +1458,15 @@ private:
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       Type outTy = ImportType(output.type(), dim_params);
-      if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
-        outTy = UnrankedTensorType::get(
-            mlir::cast<TensorType>(outTy).getElementType());
+      if (!options_.useOnnxModelTypes ||
+          std::getenv("IMPORTER_FORCE_DYNAMIC")) {
+        // Donot use an unranked tensor type for a custom op, since
+        // shape inference for the custom op may not work.
+        ONNXCustomOp customOp = val.getDefiningOp<ONNXCustomOp>();
+        if (!customOp)
+          outTy = UnrankedTensorType::get(
+              mlir::cast<TensorType>(outTy).getElementType());
+      }
       if (output.type().tensor_type().has_shape()) {
         val.setType(outTy);
       }
