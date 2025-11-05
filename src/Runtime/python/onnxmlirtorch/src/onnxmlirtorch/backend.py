@@ -166,6 +166,7 @@ class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, **kwargs):
         # Pytorch model.
         self.gm = gm
+        self.convert_symint_args_to_tensors(self.gm)
         logger.info(f"graph module: {gm}")
 
         # Information for compiling and running an onnx model.
@@ -191,6 +192,11 @@ class ONNXMLIRTorch:
         return self.forward(*example_inputs)
 
     def forward(self, *example_inputs):
+        tensor_example_inputs = tuple(
+            torch.tensor(x, dtype=torch.int64) if isinstance(x, int) else x
+            for x in example_inputs
+        )
+
         # Check whether there is any cached compiled model.
         cached_session = global_session_cache.get(self.cache_key)
 
@@ -221,7 +227,7 @@ class ONNXMLIRTorch:
                 os.remove(old_so_file)
 
             # Export the graph module to onnx.
-            self.export_gm_to_onnx(example_inputs)
+            self.export_gm_to_onnx(tensor_example_inputs)
 
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
@@ -235,7 +241,7 @@ class ONNXMLIRTorch:
 
         # onnx_mlir accepts numpy arrays as inputs and outputs.
         om_inputs = [
-            arg.numpy() for arg in example_inputs if isinstance(arg, torch.Tensor)
+            arg.numpy() for arg in tensor_example_inputs if isinstance(arg, torch.Tensor)
         ]
         # Run the inference.
         logger.info(f"onnx_mlir input sig: {sess.input_signature()}")
@@ -272,13 +278,45 @@ class ONNXMLIRTorch:
             dynamic_dims = {}
             for dim_idx, dim_size in enumerate(input_arg.shape):
                 if isinstance(dim_size, torch.SymInt):
-                    dynamic_dims[dim_idx] = str(dim_size)
+                    dynamic_dims[dim_idx] = "dim" + str(dim_size)
             if dynamic_dims:
                 dynamic_shapes[input_name] = dynamic_dims
             else:
                 dynamic_shapes[input_name] = None
         logger.info(f"dynamic_shapes: {dynamic_shapes}")
         return input_names, dynamic_shapes
+
+
+    def convert_symint_args_to_tensors(self, graph_module: torch.fx.GraphModule):
+        graph = graph_module.graph
+        placeholders_to_replace = []
+
+        # First pass: collect SymInt placeholders
+        for node in list(graph.nodes):
+            if node.op == 'placeholder' and node.type in [int, torch.SymInt]:
+                new_name = f"{node.name}_tensor"
+                if node.type is torch.SymInt:
+                    value = int(node.meta["example_value"])  # safely convert to int
+                else:
+                    value = node.meta["example_value"]
+                with graph.inserting_before(node):
+                    new_node = graph.placeholder(new_name)
+                    new_node.meta = {'tensor_meta': {'shape': [1], 'dtype': torch.int64}, 'example_value': torch.tensor([value], dtype=torch.int64) }
+                    new_node.type = torch.Tensor
+                placeholders_to_replace.append((node, new_node))
+
+        # Second pass: replace uses with .item() calls
+        for old_node, new_node in placeholders_to_replace:
+            for user in list(old_node.users):
+                with graph.inserting_before(user):
+                    item_node = graph.call_method('item', args=(new_node,))
+                    user.replace_input_with(old_node, item_node)
+            graph.erase_node(old_node)
+
+        graph.lint()
+        graph_module.recompile()
+        return graph_module
+
 
     def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
@@ -293,6 +331,7 @@ class ONNXMLIRTorch:
             input_names=input_names,
             dynamic_shapes=dynamic_shapes,
             external_data=False,
+            #optimize=False,
         )
 
     def create_onnxmlir_session(self) -> InferenceSession:
