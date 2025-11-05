@@ -18,6 +18,8 @@
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 #include "stablehlo/dialect/BroadcastUtils.h"
+#include "llvm/ADT/STLExtras.h"
+#include <cassert>
 
 using namespace mlir;
 
@@ -50,6 +52,25 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
   Value resultExtents =
       mlir::hlo::computeNaryElementwiseBroadcastingResultExtents(
           loc, op->getOperands(), rewriter);
+
+  // If the input and output have a dynamic shape such that the rank of input
+  // matches the rank of output and shapes are compatible (i.e. no broadcasting
+  // is needed), then the dynamic_broadcast_in_dim is effectively a no-op. In
+  // such cases, we can directly pass the input operands. It can later be
+  // canonicalised and bufferised accordingly.
+  llvm::for_each(op->getOperands(), [&](Value operand) {
+    ShapedType operandShapeType = mlir::dyn_cast<ShapedType>(operand.getType());
+    assert(operandShapeType != nullptr && "operand type is not shaped");
+    if (operandShapeType.hasStaticShape())
+      return;
+    if (operandShapeType.getShape() == outputShapedType.getShape())
+      broadcastedOperands.push_back(operand);
+  });
+  if (broadcastedOperands.size() == op->getNumOperands())
+    return broadcastedOperands;
+  else
+    broadcastedOperands.clear();
+
   for (Value operand : op->getOperands()) {
     RankedTensorType operandType =
         mlir::dyn_cast<RankedTensorType>(operand.getType());
