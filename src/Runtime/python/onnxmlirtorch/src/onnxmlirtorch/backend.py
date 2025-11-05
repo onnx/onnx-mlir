@@ -167,7 +167,7 @@ class ONNXMLIRTorch:
         # Pytorch model.
         self.gm = gm
         self.convert_symint_args_to_tensors(self.gm)
-        logger.info(f"graph module: {gm}")
+        logger.debug(f"graph module: {gm}")
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
