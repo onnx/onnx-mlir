@@ -9,7 +9,6 @@
 // =============================================================================
 
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/Support/Debug.h"
@@ -22,6 +21,29 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// Minimal version of getZArchNum to avoid dependency on Compiler module
+namespace {
+int64_t decodeZArchNum(std::string str) {
+  if (str == "arch12" || str == "z14") // Z14 and equivalents.
+    return 12;
+  if (str == "arch13" || str == "z15") // Z15 and equivalents.
+    return 13;
+  if (str == "arch14" || str == "z16") // Z16 and equivalents.
+    return 14;
+  if (str == "arch15" || str == "z17") // Z17 and equivalents.
+    return 15;
+  return -1;
+}
+
+int64_t getZArchNumLocal(const std::string &arch, const std::string cpu) {
+  // Give priority to march, use (deprecated) mcpu if march is not defined.
+  int64_t num = decodeZArchNum(arch);
+  if (num == -1)
+    num = decodeZArchNum(cpu);
+  return num;
+}
+} // anonymous namespace
+
 // =============================================================================
 // Handling of global vector machine support pointer
 
@@ -31,7 +53,7 @@ namespace onnx_mlir {
 /*static*/ void VectorMachineSupport::setGlobalVectorMachineSupport(
     const std::string &arch, const std::string &cpu, const std::string &attr) {
   // IBM Z servers use march (deprecated mcpu), process here.
-  int64_t zArchNum = getZArchNum(arch, cpu);
+  int64_t zArchNum = getZArchNumLocal(arch, cpu);
   if (zArchNum == 12) {
     globalVectorMachineSupport = new ZArch12VectorMachineSupport();
   } else if (zArchNum == 13) {

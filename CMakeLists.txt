@@ -12,6 +12,7 @@ option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
 option(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
+option(ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT "Build only ONNX dialect without lowering passes and runtime" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -163,7 +164,10 @@ endif()
 set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+if (ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT)
+  # Minimal build: only include ONNX protobuf library.
+  add_subdirectory(third_party/onnx)
+elseif (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(third_party/onnx)
   add_subdirectory(third_party/pybind11)
 else()
@@ -196,13 +200,15 @@ endif()
 # compile flags updated via llvm_update_compile_flags, so we need to do that to
 # benchmark and rapidcheck as well, so that we can successfully link against them.
 # Otherwise, some of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(benchmark)
-llvm_update_compile_flags(benchmark_main)
-llvm_update_compile_flags(rapidcheck)
+if (NOT ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT)
+  llvm_update_compile_flags(benchmark)
+  llvm_update_compile_flags(benchmark_main)
+  llvm_update_compile_flags(rapidcheck)
 
-if (ONNX_MLIR_ENABLE_STABLEHLO)
-  llvm_update_compile_flags(stablehlo-opt)
-  llvm_update_compile_flags(stablehlo-translate)
+  if (ONNX_MLIR_ENABLE_STABLEHLO)
+    llvm_update_compile_flags(stablehlo-opt)
+    llvm_update_compile_flags(stablehlo-translate)
+  endif()
 endif()
 
 # Increase the log level for onnx-mlir
@@ -217,11 +223,19 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
 endif()
 
-if (ONNX_MLIR_ENABLE_STABLEHLO)
+if (ONNX_MLIR_ENABLE_STABLEHLO AND NOT ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+if (ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT)
+  # Minimal build: only include headers and ONNX dialect source.
+  add_subdirectory(include)
+  add_subdirectory(src/Interface)
+  add_subdirectory(src/Support)
+  add_subdirectory(src/Builder)
+  add_subdirectory(src/Dialect/Mlir)
+  add_subdirectory(src/Dialect/ONNX)
+elseif (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(src)
 else()
   add_subdirectory(utils)

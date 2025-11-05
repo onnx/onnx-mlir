@@ -4,7 +4,11 @@ add_onnx_mlir_interface(ShapeInferenceOpInterface)
 add_onnx_mlir_interface(ShapeHelperOpInterface)
 add_onnx_mlir_interface(ResultTypeInferenceOpInterface)
 add_onnx_mlir_interface(HasOnnxSubgraphOpInterface)
-add_onnx_mlir_interface(SpecializedKernelOpInterface)
+
+# Conditionally build the SpecializedKernel interface.
+if(NOT ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT)
+  add_onnx_mlir_interface(SpecializedKernelOpInterface)
+endif()
 
 add_onnx_mlir_library(OMShapeInferenceOpInterface
   ShapeInferenceOpInterface.cpp
@@ -50,14 +54,15 @@ add_onnx_mlir_library(OMHasOnnxSubgraphOpInterface
   MLIRIR
   LLVMSupport
   )
+if(NOT ONNX_MLIR_ENABLE_ONLY_ONNX_DIALECT)
+  add_onnx_mlir_library(OMSpecializedKernelOpInterface
+    SpecializedKernelOpInterface.cpp
 
-add_onnx_mlir_library(OMSpecializedKernelOpInterface
-  SpecializedKernelOpInterface.cpp
+    DEPENDS  
+    OMSpecializedKernelOpInterfaceIncGen
 
-  DEPENDS  
-  OMSpecializedKernelOpInterfaceIncGen
-
-  LINK_LIBS PUBLIC
-  MLIRIR
-  LLVMSupport
-  )
+    LINK_LIBS PUBLIC
+    MLIRIR
+    LLVMSupport
+    )
+endif()

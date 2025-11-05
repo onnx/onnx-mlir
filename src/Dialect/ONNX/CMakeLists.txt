@@ -125,7 +125,22 @@ add_onnx_mlir_library(OMONNXOps
   MLIRMemRefTransforms
   )
 
+# Add the generated directory to the include path so interface headers can find the generated files
+target_include_directories(OMONNXOps PRIVATE ${GEN_DIR})
+
 configure_file(ONNXOps.td.inc.dc.in
   ${CMAKE_CURRENT_BINARY_DIR}/ONNXOps.td.inc.dc
   @ONLY
+  )
+
+# Add test executable
+add_onnx_mlir_executable(test-onnx-to-mlir
+  test-onnx-to-mlir.cpp
+
+  LINK_LIBS PRIVATE
+  OMONNXOps
+  OMBuilder
+  MLIRFuncDialect
+  MLIRSupport
+  LLVMSupport
   )
