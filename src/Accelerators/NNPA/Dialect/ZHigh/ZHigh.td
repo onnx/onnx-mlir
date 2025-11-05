@@ -2,11 +2,13 @@
 
 //===----- ZHigh.td -- ZHigh Dialect Operation Definitions -*- tablegen ----==//
 //
-// Copyright 2019-2024 The IBM Research Authors
+// Copyright 2019-2025 The IBM Research Authors
 //
 // =============================================================================
 //
 // Defines ZHigh Dialect operations.
+//
+// When updating, run `make onnx-mlir-docs` to update the docs.
 //
 //===----------------------------------------------------------------------===//
 
@@ -1224,6 +1226,54 @@ def ZHighReshapeOp:ZHigh_Op<"Reshape", [Pure,
     onnx_mlir::ONNXOpShapeHelper * ZHighReshapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new ZHighReshapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighExtendedLayoutTransformOp:ZHigh_Op<"ExtendedLayoutTransform", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Extended Layout Transform";
+  let description = [{
+    ZHigh operation fuse an extended sequence of layout transformation on a Z Tensor.
+    It expects a Z Tensor input, perform a onnx.LayoutTransform to CPU format, followed
+    by a onnx.Reshape function that split a shape dimension into two consecutive shapes,
+    followed by a onnxTranspose, followed by a onnx.Reshape that merges two consecutive
+    shapes into 1, followed by Layout transform to the "layout", or a conversion to float.
+
+    Data type is that of source. if dlf16_to_32, then input is expected in dlf16 and output
+    will be converted to f32.
+
+    There are specific constraints for this operation; they are currently listed in the
+    Verifier.
+  }];
+  let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3D, ZTensor_3DS, ZTensor_4D]>:$source, // Input Z Tensor to be reshaped.
+                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_split_axis, // reshape.
+                       DefaultValuedAttr<SI64Attr, "1">:$reshape_split_factor, // reshape.
+                       OptionalAttr<I64ArrayAttr>:$transpose_pattern, // transpose .
+                       DefaultValuedAttr<SI64Attr, "-1">:$reshape_merge_axis, // reshape (leftmost one).
+                       DefaultValuedAttr<BoolAttr, "false">:$dlf16_to_f32, // convert to f32.
+                       OptionalAttr<StrAttr>:$target_layout);  // Layout of output Z Tensor, default same as input.
+  let results = (outs AnyTypeOf<[TensorOf<[F16, F32]>, ZTensor_2D, ZTensor_3D,
+                       ZTensor_3DS, ZTensor_4D]>:$result);
+
+  let hasVerifier = 1;
+
+  let builders = [
+    OpBuilder<(ins "::mlir::Type": $resType, "::mlir::Value":$source,
+              "int64_t":$reshapeSplitAxis, "int64_t":$reshapeSplitFactor,
+              "std::optional<::mlir::ArrayAttr>":$transposePattern,
+              "int64_t":$reshapeMergeAxis,
+              "bool":$dlf16ToF32, "std::optional<::mlir::StringAttr>":$layout)>
+  ];
+  
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighExtendedLayoutTransformOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighExtendedLayoutTransformOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
