@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.17.0"
+current_onnx_version = "1.19.1"
 
 # Check the version of onnx package being used.
 if (
@@ -99,6 +99,7 @@ version_dict = {
     "Asinh": [22],
     "Atan": [22],
     "Atanh": [22],
+    "Attention": [23],
     "AveragePool": [22],
     "BatchNormalization": [15, 9],
     "Bernoulli": [22],
@@ -242,6 +243,7 @@ version_dict = {
     "Resize": [19, 18, 13, 11, 10],
     "ReverseSequence": [10],
     "RoiAlign": [22],
+    "RotaryEmbedding": [23],
     "Round": [22],
     "SVMClassifier": [1],
     "SVMRegressor": [1],
@@ -347,7 +349,6 @@ OpsWithCanonicalizer = [
     "GroupNormalizationV18",
     "GRU",
     "Identity",
-    "InstanceNormalization",
     "Less",
     "Loop",
     "LSTM",
@@ -379,6 +380,7 @@ OpsWithVerifier = [
     "And",
     "ArgMax",
     "ArgMin",
+    "Attention",
     "AveragePool",
     "Bernoulli",
     "BitShift",
@@ -443,6 +445,7 @@ OpsWithVerifier = [
     "Resize",
     "ReverseSequence",
     "RoiAlign",
+    "RotaryEmbedding",
     "ScatterElements",
     "ScatterND",
     "SequenceEmpty",

@@ -2088,68 +2088,6 @@ public:
 };
 
 // =============================================================================
-// Rewrite pattern for Instance Normalization
-// =============================================================================
-
-struct RemoveInstanceNormPattern
-    : public OpRewritePattern<ONNXInstanceNormalizationOp> {
-  using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
-
-  static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
-    return onnx_mlir::hasStaticShape(instanceNormOp.getInput().getType()) &&
-           onnx_mlir::hasStaticShape(instanceNormOp.getOutput().getType());
-  }
-
-  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
-      PatternRewriter &rewriter) const final {
-    // Match.
-    if (!isDecomposable(instanceNormOp)) {
-      return failure();
-    }
-
-    // Get info.
-    Value input = instanceNormOp.getInput();
-    Value scale = instanceNormOp.getScale();
-    Value bias = instanceNormOp.getB();
-    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
-    Type elementType = inputType.getElementType();
-    auto inputShape = inputType.getShape();
-    int64_t C = inputShape[1];
-    int64_t inputRank = inputType.getRank();
-    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
-    assert(inputRank > nonSpacialRank &&
-           "expected instance norm with input ranks > 2");
-
-    // Rewrite.
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-        rewriter, instanceNormOp.getLoc());
-    int64_t axis = nonSpacialRank;
-    int64_t numInNorm = inputRank - axis;
-    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm
-    // 1s.
-    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
-    biasScaleShape.emplace_back(C);
-    for (int64_t i = 1; i <= numInNorm; ++i) {
-      biasScaleShape.emplace_back(1);
-      axesList.emplace_back(i);
-    }
-    Value axes = create.onnx.constantInt64(axesList);
-    Type biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
-    Value newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
-    Value newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
-    // Create output using layer norm.
-    Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
-        instanceNormOp.getEpsilonAttr());
-    // Set the type of the output to be the same as the output of the original
-    // operation we are trying to replace.
-    Y.setType(instanceNormOp.getResult().getType());
-    // Replace operation.
-    rewriter.replaceOp(instanceNormOp, Y);
-    return success();
-  }
-};
-
-// =============================================================================
 // Rewrite pattern for Group Normalization
 // =============================================================================
 
@@ -2612,12 +2550,6 @@ void ONNXGRUOp::getCanonicalizationPatterns(
 void ONNXIdentityOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<IdentityEliminationPattern>(context);
-}
-
-/// on the ONNXInstanceNormalizationOp.
-void ONNXInstanceNormalizationOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RemoveInstanceNormPattern>(context);
 }
 
 /// on the ONNXLayoutTransformOp.

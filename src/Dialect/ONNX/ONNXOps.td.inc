@@ -408,6 +408,91 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
   }];
 }
 
+def ONNXAttentionOp:ONNX_Op<"Attention",
+  [Pure, OpVersionTrait<23>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX Attention operation";
+  let description = [{
+  Computes scaled dot product attention on query, key and value tensors, using an optional attention mask if passed.
+  
+  This operator covers self and cross variants of the attention operation based on sequence lengths of K, Q and V.
+  
+  For self attention, `kv_sequence_length` equals to `q_sequence_length`.
+  
+  For cross attention, query and key might have different lengths.
+  
+  This operator also covers the 3 following variants based on the number of heads:
+  1) Multi-headed Attention (MHA): Described in the paper https://arxiv.org/pdf/1706.03762, `q_num_heads = kv_num_heads`.
+  2) Group-query Attention (GQA): Described in the paper https://arxiv.org/pdf/2305.13245, `q_num_heads > kv_num_heads`, `q_num_heads % kv_num_heads == 0`.
+  3) Multi-query Attention (MQA): Described in the paper https://arxiv.org/pdf/1911.02150, `q_num_heads > kv_num_heads`, `kv_num_heads=1`.
+  
+  Attention bias to be added is calculated based on `attn_mask` input and `is_causal attribute`, only one of which can be provided.
+  1) If `is_causal` is set to `1`, the attention masking is a lower triangular matrix when the mask is a square matrix. The attention masking has the form of the upper left causal bias due to the alignment.
+  2) `attn_mask`: A boolean mask where a value of `True` indicates that the element should take part in attention or a float mask of the same type as query, key, value that is added to the attention score.
+  
+  Both past and present state key/values are optional. They shall be used together, and not allowed to use only one of them.
+  The following pattern is applied to the Q, K and V inputs after appropriate reshaping of K and V inputs based on sequence lengths and num heads provided:
+  
+  ```
+    The following pattern is applied by this operator:
+        Q          K          V
+        |          |          |
+  Q*sqrt(scale) K*sqrt(scale) |
+        |          |          |
+        |       Transpose     |
+        |          |          |
+        ---MatMul---          |
+              |               |
+   at_mask---Add              |
+              |               |
+    softcap (if provided)     |
+              |               |
+           Softmax            |
+              |               |
+              -----MatMul------
+                     |
+                     Y
+  ```
+  
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Q,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$K,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$V,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I1]>, NoneType]>:$attn_mask,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$past_key,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$past_value,
+    DefaultValuedAttr<SI64Attr, "0">:$is_causal,
+    OptionalAttr<SI64Attr>:$kv_num_heads,
+    OptionalAttr<SI64Attr>:$q_num_heads,
+    DefaultValuedAttr<SI64Attr, "0">:$qk_matmul_output_mode,
+    OptionalAttr<F32Attr>:$scale,
+    DefaultValuedAttr<F32Attr, "0.0">:$softcap,
+    OptionalAttr<SI64Attr>:$softmax_precision);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$present_key,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$present_value,
+    AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$qk_matmul_output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 6;
+    }
+    static int getNumberOfResults() {
+      return 4;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30,30,32,30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAttentionOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+}
+
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
   [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX AveragePool operation";
@@ -891,28 +976,31 @@ def ONNXCastOp:ONNX_Op<"Cast",
   to the following rules. `[x]` means the value rounded to
   the target mantissa width.
   
-  | x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
-  |------|----|----|----|----|
-  | 0 | 0 | 0 | 0 | 0 |
-  |-0 | -0 | 0 | -0 | 0 |
-  | NaN | NaN | NaN | NaN | NaN |
-  | +/- Inf | +/- FLT_MAX | NaN | FLT_MAX | NaN |
-  | [x] > FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX |
-  | [x] < -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
-  | else | RNE | RNE | RNE | RNE |
+  | x                 | E4M3FN   | E4M3FNUZ | E5M2     | E5M2FNUZ |
+  | ----------------- | -------- | -------- | -------- | -------- |
+  | 0                 | 0        | 0        | 0        | 0        |
+  | -0                | -0       | 0        | -0       | 0        |
+  | NaN               | NaN      | NaN      | NaN      | NaN      |
+  | Inf               | FLT_MAX  | NaN      | FLT_MAX  | NaN      |
+  | -Inf              | -FLT_MAX | NaN      | -FLT_MAX | NaN      |
+  | \[x\] > FLT_MAX   | FLT_MAX  | FLT_MAX  | FLT_MAX  | FLT_MAX  |
+  | \[x\] \< -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+  | else              | RNE      | RNE      | RNE      | RNE      |
   
   The behavior changes if the parameter 'saturate' is set to False.
   The rules then become:
   
-  | x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
-  |------|----|----|----|----|
-  | 0 | 0 | 0 | 0 | 0 |
-  |-0 | -0 | 0 | -0 | 0 |
-  | NaN | NaN | NaN | NaN | NaN |
-  | +/- Inf | NaN | NaN | +/- Inf | NaN |
-  | [x] > FLT_MAX | NaN | NaN | Inf | NaN |
-  | [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
-  | else | RNE | RNE | RNE | RNE |
+  | x                 | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+  | ----------------- | ------ | -------- | ---- | -------- |
+  | 0                 | 0      | 0        | 0    | 0        |
+  | -0                | -0     | 0        | -0   | 0        |
+  | NaN               | NaN    | NaN      | NaN  | NaN      |
+  | -NaN              | -NaN   | NaN      | -NaN | NaN      |
+  | Inf               | NaN    | NaN      | Inf  | NaN      |
+  | -Inf              | -NaN   | NaN      | -Inf | NaN      |
+  | \[x\] > FLT_MAX   | NaN    | NaN      | Inf  | NaN      |
+  | \[x\] \< -FLT_MAX | NaN    | NaN      | -Inf | NaN      |
+  | else              | RNE    | RNE      | RNE  | RNE      |
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>]>:$input,
     DefaultValuedAttr<SI64Attr, "1">:$saturate,
@@ -1054,12 +1142,18 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
   let description = [{
   Center crop or pad an input to given dimensions.
   
-  The crop/pad dimensions can be specified for a subset of the `axes`. Non-specified dimensions will not be
-  cropped or padded.
+  The crop/pad dimensions can be specified for a subset of the `axes`; unspecified dimensions will remain unchanged.
   
-  If the input dimensions are bigger than the crop shape, a centered cropping window is extracted from the input.
-  If the input dimensions are smaller than the crop shape, the input is padded on each side equally,
-  so that the input is centered in the output.
+  If the input dimensions are larger than the target crop dimensions, a centered cropping window will be extracted
+  from the input. The starting value for the cropping window is rounded down, which means that if the difference
+  between the input shape and the crop shape is odd, the cropping window will be shifted half a pixel to the left
+  of the input center.
+  
+  If the input dimensions are smaller than the target crop dimensions, the input will be padded equally on both sides
+  to center it in the output. In cases where the total number of padding pixels is odd, an additional pixel will be
+  added to the right side.
+  
+  The padding value used is zero.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input_data,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$shape,
@@ -1094,6 +1188,8 @@ def ONNXClipOp:ONNX_Op<"Clip",
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
   numeric_limits::lowest() and numeric_limits::max(), respectively.
+  When 'min' is greater than 'max', the clip operator sets all the 'input' values to
+  the value of 'max'. Thus, this is equivalent to 'Min(max, Max(input, min))'.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$min,
@@ -1886,7 +1982,6 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   must have the same shape, determining the quantization's granularity: a scalar for per-tensor/per-layer quantization,
   a 1-D tensor for per-axis quantization, or have a rank identical to the input for blocked quantization.
   See QuantizeLinear for details on quantization granularity.
-  
   `x_zero_point` and `x` must have the same type. `x` and `y` must have the same shape. In the case of dequantizing
   `int32`, there's no zero point (zero point is supposed to be 0).
   `zero-point` is usually not used in the case of float8 types quantization, but the dequantization formula remains the same
@@ -2564,7 +2659,22 @@ def ONNXGatherOp:ONNX_Op<"Gather",
   entries of the axis dimension of `data` (by default outer-most one as axis=0) indexed by `indices`, and concatenates
   them in an output tensor of rank q + (r - 1).
   
-  If `axis = 0`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
+  It is an indexing operation that indexes into the input `data` along a single (specified) axis.
+  Each entry in `indices` produces a `r-1` dimensional slice of the input tensor.
+  The entire operation produces, conceptually, a `q`-dimensional tensor of `r-1` dimensional slices,
+  which is arranged into a `q + (r-1)`-dimensional tensor, with the `q` dimensions taking the
+  place of the original `axis` that is being indexed into.
+  
+  The following few examples illustrate how `Gather` works for specific shapes of `data`,
+  `indices`, and given value of `axis`:
+  | data shape | indices shape | axis | output shape | output equation |
+  | --- | --- | --- | --- | --- |
+  | (P, Q) | ( )  (a scalar)   | 0 | (Q)       | output[q] = data[indices, q] |
+  | (P, Q, R) | ( )  (a scalar)   | 1 | (P, R)       | output[p, r] = data[p, indices, r] |
+  | (P, Q) | (R, S) | 0 | (R, S, Q) | output[r, s, q] = data[ [indices[r, s], q] |
+  | (P, Q) | (R, S) | 1 | (P, R, S) | output[p, r, s] = data[ p, indices[r, s]] |
+  
+  More generally, if `axis = 0`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
   then `output[i_{0}, ..., i_{q-1}, j_{0}, ..., j_{r-2\}\] = input[k , j_{0}, ..., j_{r-2\}\]`:
   
   ```
@@ -3283,7 +3393,7 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
   y = scale * (x - mean) / sqrt(variance + epsilon) + bias,
   ```
   where the mean and variance are computed per instance per group of channels, and
-  `scale` and `bias` should be specified for each group of channels. The number of
+  `scale` and `bias` should be specified for each channel. The number of
   groups `num_groups` should be divisible by the number of channels so that there are
   an equal number of channels per group.
   
@@ -3618,7 +3728,6 @@ def ONNXIfOp:ONNX_Op<"If",
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
   [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   Carries out instance normalization as described in the paper
@@ -4829,19 +4938,23 @@ def ONNXModOp:ONNX_Op<"Mod",
   [Pure, OpVersionTrait<13>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, SameOperandsAndResultElementType]> {
   let summary = "ONNX Mod operation";
   let description = [{
-  Performs element-wise binary modulus (with Numpy-style broadcasting support).
-    The sign of the remainder is the same as that of the Divisor.
+  Performs an element-wise binary modulo operation.
+  The semantics and supported data types depend on the value of the `fmod` attribute which must be `0` (default), or `1`.
   
-    Mod operator can also behave like C fmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
-    (in contrast to integer mod). To force a behavior like numpy.fmod() an 'fmod' Attribute is provided.
-    This attribute is set to 0 by default causing the behavior to be like integer mod.
-    Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.fmod().
+  If the `fmod` attribute is set to `0`, `T` is constrained to integer data types and the semantics follow that of the Python `%`-operator.
+  The sign of the result is that of the divisor.
   
-    If the input type is floating point, then `fmod` attribute must be set to 1.
+  If `fmod` is set to `1`, the behavior of this operator follows that of the `fmod` function in C and `T` is constrained to floating point data types.
+  The result of this operator is the remainder of the division operation `x / y` where `x` and `y` are respective elements of `A` and `B`. The result is exactly the value `x - n * y`, where `n` is `x / y` with its fractional part truncated.
+  The returned value has the same sign as `x` (except if `x` is `-0`) and is less or equal to `|y|` in magnitude.
+  The following special cases apply when `fmod` is set to `1`:
+  - If `x` is `-0` and `y` is greater than zero, either `+0` or `-0` may be returned.
+  - If `x` is `±∞` and `y` is not `NaN`, `NaN` is returned.
+  - If `y` is `±0` and `x` is not `NaN`, `NaN` should be returned.
+  - If `y` is `±∞` and `x` is finite, `x` is returned.
+  - If either argument is `NaN`, `NaN` is returned.
   
-    In case of dividend being zero, the results will be platform dependent.
-  
-    This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
+  This operator supports **multidirectional (i.e., NumPy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B,
@@ -6137,7 +6250,6 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
   The linear quantization operator consumes a high-precision tensor, a scale, and a zero point to compute the
   low-precision/quantized tensor. The scale factor and zero point must have the same shape, determining the quantization
   granularity. The quantization formula is `y = saturate((x / y_scale) + y_zero_point)`.
-  
   Saturation is done according to:
   - uint16: [0, 65535]
   - int16: [-32768, 32767]
@@ -6145,12 +6257,9 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
   - int8: [-128, 127]
   - uint4: [0, 15]
   - int4: [-8, 7]
-  
   For `(x / y_scale)`, it rounds to the nearest even. Refer to https://en.wikipedia.org/wiki/Rounding for details.
-  
   `y_zero_point` and `y` must have the same type. `y_zero_point` is usually not used for quantization to float8 types, but the quantization
   formula remains the same for consistency, and the type of the attribute `y_zero_point` still determines the quantization type.
-  
   There are three supported quantization granularities, determined by the shape of `y_scale`.
   In all cases, `y_zero_point` must have the same shape as `y_scale`.
   - Per-tensor (per-layer) quantization: `y_scale` is a scalar.
@@ -7837,6 +7946,141 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
   let hasVerifier = 1;
 }
 
+def ONNXRotaryEmbeddingOp:ONNX_Op<"RotaryEmbedding",
+  [Pure, OpVersionTrait<23>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX RotaryEmbedding operation";
+  let description = [{
+  RotaryEmbedding is the implementation of rotary positional embeddings (RoPE) based on the paper https://arxiv.org/pdf/2104.09864.
+  The key advantage of RoPE is that it allows the model to understand both the absolute position of a token and the relative distances
+  between tokens. This is achieved through a rotational mechanism where the extent of rotation is computed based on the token's absolute position (position_ids).
+  
+  The rotational mechanism is defined by sine and cosine functions that are used to represent the rotation angles.
+  For each token in the sequence, its positional embedding is computed by rotating its embedding vector. This is done by splitting the
+  embedding vector either into two halves or interleaving every alternate token and applying the rotation matrix to each half of the embedding vector.
+  The rotation matrix is parameterized by the token's position in the sequence. The rotated halves of the embedding vector are concatenated
+  to form the final positional embedding for each token. The rotated positional embeddings are used in the self-attention mechanism.
+  The rotation ensures that the model captures both absolute and relative positional information.
+  
+  Rotary embeddings are defined using the following algorithm:
+  
+  ```python
+  def rotary_embedding(
+      input: np.ndarray,
+      cos_cache: np.ndarray,
+      sin_cache: np.ndarray,
+      position_ids: np.ndarray | None = None,
+      interleaved=None,
+      rotary_embedding_dim=None,
+      num_heads=None,
+  ) -> np.ndarray:
+      original_input_shape = input.shape
+      # First ensure input to be processed has shape [batch_size, seq_len, num_heads, head_size]
+      if len(input.shape) == 4:
+          input = np.transpose(input, (0, 2, 1, 3))
+      batch_size = input.shape[0]
+      sequence_length = input.shape[1]
+      if len(input.shape) == 3:
+          hidden_size = input.shape[2]
+          assert num_heads != 0
+          head_size = int(hidden_size / num_heads)
+          new_shape = [batch_size, sequence_length, num_heads, head_size]
+          input = np.reshape(input, new_shape)
+      assert len(input.shape) == 4
+      head_size = input.shape[3]
+  
+      # Fully or partially perform rotation on input based on rotary_embedding_dim attribute
+      if rotary_embedding_dim is None or rotary_embedding_dim == 0:
+          # If rotary_embedding_dim not provided, perform full rotation by using head_size
+          rotary_embedding_dim = head_size
+      x_rotate = input[:, :, :, :rotary_embedding_dim]
+      x_not_rotate = input[:, :, :, rotary_embedding_dim:]
+      rotary_embedding_dim_half = int(rotary_embedding_dim / 2)
+  
+      # Retrieve sin and cos caches using position ids
+      if position_ids is not None:
+          cos_cache = cos_cache[
+              position_ids
+          ]  # Shape: [batch_size, sequence_length, rotary_embedding_dim/2]
+          sin_cache = sin_cache[
+              position_ids
+          ]  # Shape: [batch_size, sequence_length, rotary_embedding_dim/2]
+  
+      # Shape: [batch_size, sequence_length, rotary_embedding_dim/2]
+      if cos_cache.shape[-1] != rotary_embedding_dim_half:
+          raise ValueError(
+              f\"Last dimension of cos cache ({cos_cache.shape[-1]}) does not match rotary_embedding_dim/2 ({rotary_embedding_dim_half}).\"
+          )
+      if sin_cache.shape[-1] != rotary_embedding_dim_half:
+          raise ValueError(
+              f\"Last dimension of sin cache ({sin_cache.shape[-1]}) does not match rotary_embedding_dim/2 ({rotary_embedding_dim_half}).\"
+          )
+  
+      cos_cache = np.expand_dims(
+          cos_cache, axis=2
+      )  # Shape: [batch_size, sequence_length, 1, rotary_embedding_dim/2]
+      sin_cache = np.expand_dims(
+          sin_cache, axis=2
+      )  # Shape: [batch_size, sequence_length, 1, rotary_embedding_dim/2]
+  
+      # Either divide the input in halves or interleave (based on interleaved attribute)
+      if interleaved:
+          x1 = x_rotate[:, :, :, 0::2]
+          x2 = x_rotate[:, :, :, 1::2]
+      else:
+          x1, x2 = np.split(x_rotate, 2, axis=-1)
+  
+      # Calculate real and imaginary values
+      real = (cos_cache * x1) - (sin_cache * x2)
+      imag = (sin_cache * x1) + (cos_cache * x2)
+  
+      # Inserted rotated embeddings back to the original input
+      if interleaved:
+          # x_rotate[:, :, :, 0::2] = real
+          # x_rotate[:, :, :, 1::2] = imag
+          real = np.expand_dims(real, axis=-1)
+          imag = np.expand_dims(imag, axis=-1)
+          x_rotate_concat = np.concatenate((real, imag), axis=-1)
+          x_rotate = np.reshape(x_rotate_concat, x_rotate.shape)
+      else:
+          x_rotate = np.concatenate((real, imag), axis=-1)
+      output = np.concatenate((x_rotate, x_not_rotate), axis=-1)
+      if len(original_input_shape) == 3:
+          output = np.reshape(output, original_input_shape)
+      else:
+          output = np.transpose(output, (0, 2, 1, 3))
+      return output
+  ```
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$X,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$cos_cache,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$sin_cache,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$position_ids,
+    DefaultValuedAttr<SI64Attr, "0">:$interleaved,
+    OptionalAttr<SI64Attr>:$num_heads,
+    DefaultValuedAttr<SI64Attr, "0">:$rotary_embedding_dim);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRotaryEmbeddingOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+}
+
 def ONNXRoundOp:ONNX_Op<"Round",
   [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Round operation";
@@ -8645,11 +8889,11 @@ def ONNXShapeOp:ONNX_Op<"Shape",
   The end axis, if specified, is exclusive (and the returned value will not include the size of that axis).
   If the end axis is omitted, the axes upto the last one will be included.
   Negative axes indicate counting back from the last axis.
-  Note that axes will be clamped to the range [0, r-1], where r is the
+  Note that axes will be clamped to the range [0, r], where r is the
   rank of the input tensor if they are out-of-range (after adding r in the case of
   negative axis). Thus, specifying any end value > r is equivalent to specifying an end
   value of r, and specifying any start value < -r is equivalent to specifying a start
-  value of 0.
+  value of 0. If start > end, the result will be an empty shape.
   
   Examples:
   

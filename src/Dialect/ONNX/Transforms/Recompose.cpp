@@ -579,62 +579,62 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
 private:
   // Return the reduced dimensions as bit vector.
-  static FailureOr<llvm::SmallBitVector> getReducedAxis(
-      Operation *op, int64_t xRank, int64_t &axis) {
+  static bool getReducedAxis(Operation *op, int64_t xRank, int64_t &axis,
+      llvm::SmallBitVector &reducedAxis) {
     SmallVector<int64_t> axes; // The axes attribute/operand of the ReduceMeanOp
+    reducedAxis.resize(xRank, false);
     if (auto reduceOpV13 = mlir::dyn_cast<ONNXReduceMeanV13Op>(op)) {
       if (reduceOpV13.getKeepdims() != 1)
-        return success(reportFailure("need keepdims = 1"));
+        return reportFailure("need keepdims = 1");
       ArrayAttr axesAttr = reduceOpV13.getAxesAttr();
       for (size_t i = 0; i < axesAttr.size(); ++i) {
         axes.emplace_back(onnx_mlir::ArrayAttrIntVal(axesAttr, i));
       }
     } else if (auto reduceOp = mlir::dyn_cast<ONNXReduceMeanOp>(op)) {
       if (reduceOp.getKeepdims() != 1)
-        return success(reportFailure("need keepdims = 1"));
+        return reportFailure("need keepdims = 1");
       Value axesValue = reduceOp.getAxes();
       if (isa<NoneType>(axesValue.getType())) {
         if (reduceOp.getNoopWithEmptyAxes()) {
           // No reduction
-          return success(
-              reportFailure("needs a reduction on at least one dimension"));
+          return reportFailure("needs a reduction on at least one dimension");
         } else {
           // Reduction on all dimensions
           axis = 0;
-          return llvm::SmallBitVector(xRank, true);
+          reducedAxis.set(0, xRank);
+          return true;
         }
       }
       if (!onnx_mlir::getI64ValuesFromONNXConstantOp(axesValue, axes)) {
-        return success(reportFailure("only static axes are supported"));
+        return reportFailure("only static axes are supported");
       }
     } else {
       llvm_unreachable("ReduceMean is the only supported op");
     }
 
     // Record axes value in bit vector.
-    llvm::SmallBitVector reduceAxes(xRank, false);
     for (int64_t axe : axes) {
       int64_t a = onnx_mlir::getAxisInRange(axe, xRank);
-      reduceAxes[a] = true;
+      reducedAxis[a] = true;
     }
-    return reduceAxes;
+    return true;
   }
 
   // Check if the axis is suitable for Layernorm.
   static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
-    auto reduceAxes = getReducedAxis(op, xRank, axis);
-    if (failed(reduceAxes))
+    llvm::SmallBitVector reducedAxis;
+    if (!getReducedAxis(op, xRank, axis, reducedAxis))
       return false;
 
     // Check that we have a "false"* "true"+ pattern.
     bool foundFirstAxis = false;
     for (int64_t i = 0; i < xRank; ++i) {
       if (!foundFirstAxis) {
-        if (reduceAxes.value()[i]) {
+        if (reducedAxis[i]) {
           foundFirstAxis = true;
           axis = i;
         }
-      } else if (!reduceAxes.value()[i]) {
+      } else if (!reducedAxis[i]) {
         // Once we found an axis, we must reduce all subsequent dimensions.
         return false;
       }
@@ -651,14 +651,14 @@ private:
   // represented as Layernorm with axis = 2.
   static FailureOr<SmallVector<int64_t>> isAxisSuitableWithTranspose(
       Operation *op, int64_t xRank, int64_t &axis) {
-    auto reduceAxes = getReducedAxis(op, xRank, axis);
-    if (failed(reduceAxes))
+    llvm::SmallBitVector reducedAxis;
+    if (!getReducedAxis(op, xRank, axis, reducedAxis))
       return failure();
 
     SmallVector<int64_t> reducedIdx;
     SmallVector<int64_t> nonReducedIdx;
     for (int64_t i = 0; i < xRank; ++i) {
-      auto &array = reduceAxes.value()[i] ? reducedIdx : nonReducedIdx;
+      auto &array = reducedAxis[i] ? reducedIdx : nonReducedIdx;
       array.push_back(i);
     }
 
