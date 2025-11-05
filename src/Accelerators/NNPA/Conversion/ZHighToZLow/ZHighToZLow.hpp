@@ -57,7 +57,7 @@ mlir::Value insertAllocForZMemRef(ZMemRefType zType,
 /// Populate all conversion patterns for ZHigh Ops.
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel);
+    bool enableParallel, bool disableSaturation);
 
 /// Populate conversions for elementwise with NNPA layout patterns.
 void populateONNXWithNNPALayoutToKrnlConversionPattern(
