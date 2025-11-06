@@ -874,8 +874,9 @@ private:
         }
         unsigned int j = i;
         // Variadic output is a single ODS result.
-        if (variadicOut)
+        if (variadicOut) {
           j = 0;
+        }
         if (!givenOutputTypes.empty()) {
           outputTypes.emplace_back(
               UnrankedTensorType::get(givenOutputTypes[i]));
@@ -1570,10 +1571,9 @@ private:
     auto domainAttr = builder_.getNamedAttr(
         "domain_name", builder_.getStringAttr(node.domain()));
     attributes.push_back(domainAttr);
-    int nIn = 0;
-    int nOut = 0;
+    const int nIn = ONNXCustomOp::getNumberOfOperands();
+    const int nOut = ONNXCustomOp::getNumberOfResults();
     getNodeInputs(node, inputs);
-    nOut = node.output().size();
     std::vector<Type> givenOutputTypes;
 
     // We lack a way of specifying import behavior for custom domains. For now
