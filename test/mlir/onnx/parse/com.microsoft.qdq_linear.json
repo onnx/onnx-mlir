@@ -1,8 +1,8 @@
 // RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s | FileCheck %s
 // Semi hand-written model.
 // When converted to onnxtext, onnx-mlir didn't like the result.
-// CHECK-DAG:       [[SCALE:%.+]] = onnx.Constant dense<-1.08420217E-19> : tensor<f32>
-// CHECK-DAG:       [[ZERO_P:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK-DAG:       [[SCALE:%.+]] = onnx.Constant {onnx_node_name = "scale"} dense<-1.08420217E-19> : tensor<f32>
+// CHECK-DAG:       [[ZERO_P:%.+]] = onnx.Constant {onnx_node_name = "zeropoint"} dense<0> : tensor<i8>
 // CHECK:           [[DQ:%.+]] = "onnx.DequantizeLinear"(%arg0, [[SCALE]], [[ZERO_P]]) {axis = 1 : si64, block_size = 0 : si64, onnx_node_name = "myDequantizeLinear"} : (tensor<1x64x112x112xi8>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xf32>
 // CHECK:           [[RELU:%.+]] = "onnx.Relu"([[DQ]]) {onnx_node_name = "myrelu1Relu"} : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
 // CHECK:           [[Q:%.+]] = "onnx.QuantizeLinear"([[RELU]], [[SCALE]], [[ZERO_P]]) {axis = 1 : si64, block_size = 0 : si64, onnx_node_name = "myQuantizeLinear_1", output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x64x112x112xf32>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xi8>
