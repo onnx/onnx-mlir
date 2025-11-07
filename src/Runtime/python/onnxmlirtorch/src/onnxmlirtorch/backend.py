@@ -159,14 +159,14 @@ def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
 
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
+        logger.debug(f"Original example_inputs in __init__: {args}")
+
         # Pytorch model.
         self.gm = gm
         logger.debug(f"Original graph module: {self.gm}")
 
         # Rewrite the graph for exporting to onnx.
-        self.example_inputs_indices, self.removed_example_inputs = (
-            self.rewrite_gm_for_export(*args)
-        )
+        self.example_inputs_indices, _ = self.rewrite_gm_for_export(*args)
         logger.debug(f"Rewritten graph module: {self.gm}")
 
         # Information for compiling and running an onnx model.
@@ -174,9 +174,9 @@ class ONNXMLIRTorch:
         self.onnx_model = None
         self.default_model_name = "model"
 
-        # Generate an unique key for the graph module.
+        # Generate an unique key from the graph module.
         self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-        logger.debug(f"cache key: {self.cache_key}")
+        logger.debug(f"Cache key: {self.cache_key}")
         # Check whether there is any cached compiled model.
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
@@ -194,21 +194,12 @@ class ONNXMLIRTorch:
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
-        logger.info(f"Original example_inputs: {example_inputs}")
-        tensor_example_inputs = []
-        for i in self.example_inputs_indices:
-            x = example_inputs[i]
-            if isinstance(x, int):
-                tensor_example_inputs.append(torch.tensor(x, dtype=torch.int64))
-            elif isinstance(x, torch.Tensor):
-                tensor_example_inputs.append(x)
-            else:
-                raise ValueError("Unsupported input type. Consider to support it")
-        logger.info(f"example_inputs in forward: {tensor_example_inputs}")
-
-        return self.forward(*tuple(tensor_example_inputs))
+        logger.debug(f"Original example_inputs in __call__: {example_inputs}")
+        tensor_example_inputs = self.get_real_inputs(example_inputs) 
+        return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
+        logger.debug(f"Inputs to forward: {example_inputs}")
         if self.cached_session is None:
             logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
@@ -258,10 +249,22 @@ class ONNXMLIRTorch:
             arg.numpy() for arg in example_inputs if isinstance(arg, torch.Tensor)
         ]
         # Run the inference.
-        logger.info(f"onnx_mlir input sig: {sess.input_signature()}")
-        logger.info(f"onnx_mlir output sig: {sess.output_signature()}")
+        logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
+        logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
         om_outputs = sess.run(om_inputs)
         return [torch.from_numpy(output) for output in om_outputs]
+
+    def get_real_inputs(self, example_inputs):
+        tensor_real_inputs = []
+        for i in self.example_inputs_indices:
+            x = example_inputs[i]
+            if isinstance(x, int):
+                tensor_real_inputs.append(torch.tensor(x, dtype=torch.int64))
+            elif isinstance(x, torch.Tensor):
+                tensor_real_inputs.append(x)
+            else:
+                raise ValueError("Unsupported input type. Consider to support it")
+        return tuple(tensor_real_inputs)
 
     def get_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
         """
@@ -297,7 +300,7 @@ class ONNXMLIRTorch:
                 dynamic_shapes[input_name] = dynamic_dims
             else:
                 dynamic_shapes[input_name] = None
-        logger.info(f"dynamic_shapes: {dynamic_shapes}")
+        logger.debug(f"dynamic_shapes: {dynamic_shapes}")
         return input_names, dynamic_shapes
 
     def rewrite_gm_for_export(self, *example_inputs):
@@ -439,16 +442,13 @@ class ONNXMLIRTorch:
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
-        # wgm = create_dynamic_wrapper(self.gm)
         torch.onnx.export(
             self.gm,
-            # wgm,
             example_inputs,
             self.onnx_model,
             input_names=input_names,
             dynamic_shapes=dynamic_shapes,
             external_data=False,
-            # optimize=False,
         )
 
     def create_onnxmlir_session(self) -> InferenceSession:
