@@ -1,3 +1,12 @@
+from dataclasses import dataclass
+from typing import Any
+
+@dataclass
+class CacheValue:
+    tag: Any = None 
+    sess: Any = None 
+    example_inputs_indices: Any = None
+
 class SessionCache:
     def __init__(self, capacity=3):
         self.capacity = capacity
@@ -17,7 +26,7 @@ class SessionCache:
         return None
 
     # The put is assumed to be called after victim()
-    def put(self, key, value):
+    def put(self, key, value: CacheValue):
         self.cache[key] = value
         self.access_order.append(key)
         if len(self.cache) != len(self.access_order):
