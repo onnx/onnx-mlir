@@ -4,7 +4,7 @@
 
 // FAILURE: Could not successfully parse ONNX file
 // FAILURE: ONNX type with id: 0 is not a valid type
-// FAILURE: Failed to import output type for
+// FAILURE: Failed to get type for 'output_c'
 // FAILURE: Failed to import main graph, could not get its function type
 
 // RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --useOnnxModelTypesForCustomOps=false --allowMissingOutputTypes=true --printIR %s  | FileCheck --check-prefix=INFERRED %s

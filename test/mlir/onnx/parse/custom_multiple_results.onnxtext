@@ -1,0 +1,22 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --useOnnxModelTypesForCustomOps=false --printIR %s  | FileCheck %s
+<
+    ir_version: 10,
+    opset_import: ["" : 17, "com.test" : 1000]
+>
+test_custom (float[1,3,800,800] input) => (float[1,625,256] out)
+<float input_scale =  {0.015625}, uint8 input_zero_point =  {128}, float dq_scale =  {0.5}, uint8 dq_zero_point =  {128}, uint8[1,3,800,800] quant_linear, uint8[625,256] customop_res1, uint8[1,625,256] customop_res2> {
+    quant_linear = QuantizeLinear <axis: int = 1> (input, input_scale, input_zero_point)
+    customop_res1, customop_res2 = com.test.super_layer <body: string = "subgraph"> (quant_linear)
+    out = DequantizeLinear <axis: int = 1> (customop_res2, dq_scale, dq_zero_point)
+}
+// CHECK-LABEL:  func.func 
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x800x800xf32> {onnx.name = "input"}) -> (tensor<1x625x256xf32> {onnx.name = "out"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.562500e-02> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<128> : tensor<ui8>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<128> : tensor<ui8>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.QuantizeLinear"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) {axis = 1 : si64, block_size = 0 : si64, onnx_node_name = "onnx.QuantizeLinear_0", output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x3x800x800xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x3x800x800xui8>
+// CHECK:           [[VAR_5_:%.+]]:2 = "onnx.Custom"([[VAR_4_]]) {body = "subgraph", domain_name = "com.test", function_name = "super_layer", onnx_node_name = "onnx.Custom_1"} : (tensor<1x3x800x800xui8>) -> (tensor<*xui8>, tensor<*xui8>)
+// CHECK:           [[VAR_6_:%.+]] = "onnx.DequantizeLinear"([[VAR_5_]]#1, [[VAR_2_]], [[VAR_3_]]) {axis = 1 : si64, block_size = 0 : si64, onnx_node_name = "onnx.DequantizeLinear_2"} : (tensor<*xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x625x256xf32>
+// CHECK:           return [[VAR_6_]] : tensor<1x625x256xf32>
+// CHECK:         }
