@@ -165,10 +165,8 @@ mlir::Value emitMemRefReinterpretCastOp(
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value input, int64_t axis,
-    bool ascending = false,
-    std::optional<mlir::Value> K = std::nullopt,
-    bool sorted = true);
+    mlir::Location loc, mlir::Value input, int64_t axis, bool ascending = false,
+    std::optional<mlir::Value> K = std::nullopt, bool sorted = true);
 
 /// Emit krnl ops to compute TopK of a given MemRef along a given axis.
 /// This function is optimized for TopK: it allocates and returns the final

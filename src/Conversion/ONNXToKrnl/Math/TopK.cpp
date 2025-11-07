@@ -41,12 +41,11 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
         typeConverter->convertType(topKOp.getIndices().getType());
     assert(valuesConvertedType && mlir::isa<MemRefType>(valuesConvertedType) &&
            "Failed to convert Values type to MemRefType");
-    assert(indicesConvertedType && mlir::isa<MemRefType>(indicesConvertedType) &&
+    assert(indicesConvertedType &&
+           mlir::isa<MemRefType>(indicesConvertedType) &&
            "Failed to convert Indices type to MemRefType");
-    MemRefType valuesMemRefType =
-        mlir::cast<MemRefType>(valuesConvertedType);
-    MemRefType indicesMemRefType =
-        mlir::cast<MemRefType>(indicesConvertedType);
+    MemRefType valuesMemRefType = mlir::cast<MemRefType>(valuesConvertedType);
+    MemRefType indicesMemRefType = mlir::cast<MemRefType>(indicesConvertedType);
 
     // Op's Attributes.
     int64_t rank = valuesMemRefType.getRank();
@@ -64,7 +63,7 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
     // Get K from the output dimensions (it's already loaded by shapeHelper)
     IndexExpr kIndexExpr = resDims[axis];
     Value kValCasted = kIndexExpr.getValue();
-    
+
     // Check if we can use the fast path.
     // The fast path in emitTopK requires axis to be the last dim.
     if ((rank > 6) || (axis != (rank - 1))) {
@@ -78,9 +77,9 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
     }
 
     // Call the new emitTopK function.
-    std::pair<Value, Value> outputs = emitTopK(rewriter, loc, X,
-        valuesMemRefType, indicesMemRefType, resDims, axis, ascendingMode,
-        kValCasted, sortedMode);
+    std::pair<Value, Value> outputs =
+        emitTopK(rewriter, loc, X, valuesMemRefType, indicesMemRefType, resDims,
+            axis, ascendingMode, kValCasted, sortedMode);
 
     rewriter.replaceOp(op, {outputs.first, outputs.second});
     onnxToKrnlSimdReport(op);

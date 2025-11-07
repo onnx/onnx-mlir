@@ -15,7 +15,7 @@
 #ifndef ONNX_MLIR_OMSORT_H
 #define ONNX_MLIR_OMSORT_H
 
-#include "onnx-mlir/Runtime/OMTensor.h" 
+#include "onnx-mlir/Runtime/OMTensor.h"
 
 // Type definition block
 #if defined(__APPLE__)
@@ -29,14 +29,14 @@ typedef int(
 #endif
 
 #if defined(__APPLE__)
-typedef void(sortFunctionType(
-    void *base, size_t nmemb, size_t size, void *data, compareFunctionType *compar));
+typedef void(sortFunctionType(void *base, size_t nmemb, size_t size, void *data,
+    compareFunctionType *compar));
 #elif defined(_MSC_VER)
-typedef void(__cdecl sortFunctionType(
-    void *base, size_t nmemb, size_t size, void *data, compareFunctionType *compar));
-#else 
-typedef void(sortFunctionType(
-    void *base, size_t nmemb, size_t size, compareFunctionType *compar, void *data));
+typedef void(__cdecl sortFunctionType(void *base, size_t nmemb, size_t size,
+    void *data, compareFunctionType *compar));
+#else
+typedef void(sortFunctionType(void *base, size_t nmemb, size_t size,
+    compareFunctionType *compar, void *data));
 #endif
 
 #ifdef __cplusplus
@@ -46,8 +46,8 @@ extern "C" {
 //
 // === Function Prototypes (Declarations) ===
 //
-compareFunctionType *getCompareFunction(uint64_t ascending,
-    OM_DATA_TYPE dataType);
+compareFunctionType *getCompareFunction(
+    uint64_t ascending, OM_DATA_TYPE dataType);
 
 void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending);

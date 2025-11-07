@@ -180,7 +180,7 @@ std::map<int64_t, int64_t> getReductionMapping(
   }
 
   for (decltype(inRank) inIndex = 0, outIndex = 0; inIndex < inRank;
-       ++inIndex) {
+      ++inIndex) {
     // If it is a reduction axis, there is no relationship among dimensions.
     if (isReductionAxis[inIndex]) {
       if (keepdims)
@@ -335,8 +335,8 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
-    Value input, int64_t axis, bool ascending,
-    std::optional<mlir::Value> K, bool sorted) {
+    Value input, int64_t axis, bool ascending, std::optional<mlir::Value> K,
+    bool sorted) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
       MemRefBuilder>
       create(rewriter, loc);
@@ -370,19 +370,22 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value valAscending =
         create.math.constant(intType, static_cast<int64_t>(ascending));
 
-  if (K.has_value()) {
-        // If K is provided, call omTensorTopK for partial sort (faster).
-        Value valK = rewriter.create<mlir::arith::IndexCastOp>(loc, intType, K.value());
-        Value valSorted = create.math.constant(intType, static_cast<int64_t>(sorted));
-        SmallVector<Value, 6> operands = {order, input, valAxis, valAscending, valK, valSorted};
-        rewriter.create<KrnlCallOp>(loc, "omTensorTopK", 1, operands);
-      } else {
-        // Otherwise, call the original omTensorSort for a full sort.
-        SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
-        rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
-      }
-      return order;
+    if (K.has_value()) {
+      // If K is provided, call omTensorTopK for partial sort (faster).
+      Value valK =
+          rewriter.create<mlir::arith::IndexCastOp>(loc, intType, K.value());
+      Value valSorted =
+          create.math.constant(intType, static_cast<int64_t>(sorted));
+      SmallVector<Value, 6> operands = {
+          order, input, valAxis, valAscending, valK, valSorted};
+      rewriter.create<KrnlCallOp>(loc, "omTensorTopK", 1, operands);
+    } else {
+      // Otherwise, call the original omTensorSort for a full sort.
+      SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+      rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     }
+    return order;
+  }
   // Do sorting in the descending order of input and return their indices.
   // Using bubble sort.
   SmallVector<IndexExpr, 4> outerUbs(ubs);
@@ -428,8 +431,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 std::pair<mlir::Value, mlir::Value> emitTopK(
     ConversionPatternRewriter &rewriter, Location loc, Value input,
     MemRefType valuesMemRefType, MemRefType indicesMemRefType,
-    DimsExpr &outputDims, int64_t axis, bool ascending, Value K,
-    bool sorted) {
+    DimsExpr &outputDims, int64_t axis, bool ascending, Value K, bool sorted) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
       MemRefBuilder>
       create(rewriter, loc);
@@ -468,8 +470,7 @@ std::pair<mlir::Value, mlir::Value> emitTopK(
   Value valAscending =
       create.math.constant(intType, static_cast<int64_t>(ascending));
   Value valK = rewriter.create<arith::IndexCastOp>(loc, intType, K);
-  Value valSorted =
-      create.math.constant(intType, static_cast<int64_t>(sorted));
+  Value valSorted = create.math.constant(intType, static_cast<int64_t>(sorted));
   SmallVector<Value, 6> operands = {
       tempOrder, input, valAxis, valAscending, valK, valSorted};
   rewriter.create<KrnlCallOp>(loc, "omTensorTopK", 1, operands);
@@ -498,8 +499,8 @@ std::pair<mlir::Value, mlir::Value> emitTopK(
 
         // Store value and index in the final small tensors.
         createKrnl.store(val, resMemRef, resLoopInd);
-        Value original_index_i64 =
-            rewriter.create<arith::IndexCastOp>(loc, indicesMemRefType.getElementType(), original_index);
+        Value original_index_i64 = rewriter.create<arith::IndexCastOp>(
+            loc, indicesMemRefType.getElementType(), original_index);
         createKrnl.store(original_index_i64, resIndexMemRef, resLoopInd);
       });
 
