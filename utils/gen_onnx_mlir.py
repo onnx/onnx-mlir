@@ -85,219 +85,244 @@ if (
 # TODO: how to keep the old version
 
 version_dict = {
-    "Abs": [13],
-    "Acos": [22],
-    "Acosh": [22],
-    "Adagrad": [1],
-    "Adam": [1],
-    "Add": [14],
-    "And": [7],
-    "ArgMax": [13],
-    "ArgMin": [13],
-    "ArrayFeatureExtractor": [1],
-    "Asin": [22],
-    "Asinh": [22],
-    "Atan": [22],
-    "Atanh": [22],
-    "Attention": [23],
-    "AveragePool": [22],
-    "BatchNormalization": [15, 9],
-    "Bernoulli": [22],
-    "Binarizer": [1],
-    "BitShift": [11],
-    "BitwiseAnd": [18],
-    "BitwiseNot": [18],
-    "BitwiseOr": [18],
-    "BitwiseXor": [18],
-    "BlackmanWindow": [17],
-    "Cast": [21],
-    "CastLike": [21],
-    "CastMap": [1],
-    "CategoryMapper": [1],
-    "Ceil": [13],
-    "Celu": [12],
-    "CenterCropPad": [18],
-    "Clip": [13, 12, 11, 6],
-    "Compress": [11],
-    "Concat": [13],
-    "ConcatFromSequence": [11],
-    "Constant": [21],
-    "ConstantOfShape": [21],
-    "Conv": [22],
-    "ConvInteger": [10],
-    "ConvTranspose": [22],
-    "Cos": [22],
-    "Cosh": [22],
-    "Col2Im": [18],
-    "CumSum": [14],
-    "DeformConv": [22],
-    "DepthToSpace": [13],
-    "DequantizeLinear": [21],
-    "Det": [22],
-    "DFT": [20, 17],
-    "DictVectorizer": [1],
-    "Div": [14],
-    "Dropout": [22],
-    "DynamicQuantizeLinear": [11],
-    "Einsum": [12],
-    "Elu": [22],
-    "Equal": [19],
-    "Erf": [13],
-    "Exp": [13],
-    "Expand": [13],
-    "EyeLike": [22],
-    "FeatureVectorizer": [1],
-    "Flatten": [21],
-    "Floor": [13],
-    "GRU": [22],
-    "Gather": [13],
-    "GatherElements": [13],
-    "GatherND": [13],
-    "Gelu": [20],
-    "Gemm": [13],
-    "GlobalAveragePool": [22],
-    "GlobalLpPool": [2],
-    "GlobalMaxPool": [22],
-    "Gradient": [1],
-    "Greater": [13],
-    "GreaterOrEqual": [16],
-    "GridSample": [22, 20, 16],
-    "GroupNormalization": [21, 18],
-    "HammingWindow": [17],
-    "HannWindow": [17],
-    "HardSigmoid": [22],
-    "Hardmax": [13],
-    "HardSwish": [22],
-    "Identity": [21],
-    "If": [21],
-    "Imputer": [1],
-    "InstanceNormalization": [22],
-    "IsInf": [20],
-    "IsNaN": [20],
-    "LayerNormalization": [17],
-    "LRN": [13],
-    "LSTM": [22],
-    "LabelEncoder": [2],
-    "LeakyRelu": [16],
-    "Less": [13],
-    "LessOrEqual": [16],
-    "LinearClassifier": [1],
-    "LinearRegressor": [1],
-    "Log": [13],
-    "LogSoftmax": [13],
-    "Loop": [21],
-    "LpNormalization": [22],
-    "LpPool": [22],
-    "MatMul": [13],
-    "MatMulInteger": [10],
-    "Max": [13],
-    "MaxPool": [22],
-    "MaxRoiPool": [22],
-    "MaxUnpool": [22],
-    "Mean": [13],
-    "MeanVarianceNormalization": [13],
-    "MelWeightMatrix": [17],
-    "Min": [13],
-    "Mish": [22],
-    "Mod": [13],
-    "Momentum": [1],
-    "Mul": [14],
-    "Multinomial": [22],
-    "Neg": [13],
-    "NegativeLogLikelihoodLoss": [22],
-    "NonMaxSuppression": [11],
-    "NonZero": [13],
-    "Normalizer": [1],
-    "Not": [1],
-    "OneHot": [11],
-    "OneHotEncoder": [1],
-    "Optional": [15],
-    "OptionalGetElement": [18],
-    "OptionalHasElement": [18],
-    "Or": [7],
-    "PRelu": [16],
-    "Pad": [21, 18, 13, 11, 2],
-    "Pow": [15],
-    "QLinearConv": [10],
-    "QLinearMatMul": [10],
-    "QuantizeLinear": [21],
-    "RNN": [22],
-    "RandomNormal": [22],
-    "RandomNormalLike": [22],
-    "RandomUniform": [22],
-    "RandomUniformLike": [22],
-    "Range": [11],
-    "Reciprocal": [13],
-    "ReduceL1": [18, 13],
-    "ReduceL2": [18, 13],
-    "ReduceLogSum": [18, 13],
-    "ReduceLogSumExp": [18, 13],
-    "ReduceMax": [20, 18, 13],
-    "ReduceMean": [18, 13],
-    "ReduceMin": [20, 18, 13],
-    "ReduceProd": [18, 13],
-    "ReduceSum": [13, 11],
-    "ReduceSumSquare": [18, 13],
-    "Relu": [14],
-    "Reshape": [21],
-    "Resize": [19, 18, 13, 11, 10],
-    "ReverseSequence": [10],
-    "RoiAlign": [22],
-    "RotaryEmbedding": [23],
-    "Round": [22],
-    "SVMClassifier": [1],
-    "SVMRegressor": [1],
-    "Scaler": [1],
-    "Scan": [21],
-    "Scatter": [11],
-    "ScatterElements": [18],
-    "ScatterND": [18],
-    "Selu": [22],
-    "SequenceAt": [11],
-    "SequenceConstruct": [11],
-    "SequenceEmpty": [11],
-    "SequenceErase": [11],
-    "SequenceInsert": [11],
-    "SequenceLength": [11],
-    "SequenceMap": [17],
-    "Shape": [21],
-    "Shrink": [9],
-    "Sigmoid": [13],
-    "Sign": [13],
-    "Sin": [22],
-    "Sinh": [22],
-    "Size": [21],
-    "Slice": [13],
-    "Softmax": [13, 11],
-    "SoftmaxCrossEntropyLoss": [13],
-    "Softplus": [22],
-    "Softsign": [22],
-    "SpaceToDepth": [13],
-    "Split": [18, 13, 11],
-    "SplitToSequence": [11],
-    "Sqrt": [13],
-    "Squeeze": [21, 11],
-    "StringNormalizer": [10],
-    "STFT": [17],
-    "Sub": [14],
-    "Sum": [13],
-    "Tan": [22],
-    "Tanh": [13],
-    "TfIdfVectorizer": [9],
-    "ThresholdedRelu": [22],
-    "Tile": [13],
-    "TopK": [11],
-    "Transpose": [21],
-    "Trilu": [14],
-    "TreeEnsembleClassifier": [1],
-    "TreeEnsembleRegressor": [1],
-    "Unique": [11],
-    "Unsqueeze": [21, 11],
-    "Upsample": [10, 7],
-    "Where": [16],
-    "Xor": [7],
-    "ZipMap": [1],
+    "": {
+        "Abs": [13],
+        "Acos": [22],
+        "Acosh": [22],
+        "Add": [14],
+        "And": [7],
+        "ArgMax": [13],
+        "ArgMin": [13],
+        "Asin": [22],
+        "Asinh": [22],
+        "Atan": [22],
+        "Atanh": [22],
+        "Attention": [23],
+        "AveragePool": [22],
+        "BatchNormalization": [15, 9],
+        "Bernoulli": [22],
+        "BitShift": [11],
+        "BitwiseAnd": [18],
+        "BitwiseNot": [18],
+        "BitwiseOr": [18],
+        "BitwiseXor": [18],
+        "BlackmanWindow": [17],
+        "Cast": [21],
+        "CastLike": [21],
+        "Ceil": [13],
+        "Celu": [12],
+        "CenterCropPad": [18],
+        "Clip": [13, 12, 11, 6],
+        "Compress": [11],
+        "Concat": [13],
+        "ConcatFromSequence": [11],
+        "Constant": [21],
+        "ConstantOfShape": [21],
+        "Conv": [22],
+        "ConvInteger": [10],
+        "ConvTranspose": [22],
+        "Cos": [22],
+        "Cosh": [22],
+        "Col2Im": [18],
+        "CumSum": [14],
+        "DeformConv": [22],
+        "DepthToSpace": [13],
+        "DequantizeLinear": [21],
+        "Det": [22],
+        "DFT": [20, 17],
+        "Div": [14],
+        "Dropout": [22],
+        "DynamicQuantizeLinear": [11],
+        "Einsum": [12],
+        "Elu": [22],
+        "Equal": [19],
+        "Erf": [13],
+        "Exp": [13],
+        "Expand": [13],
+        "EyeLike": [22],
+        "Flatten": [21],
+        "Floor": [13],
+        "GRU": [22],
+        "Gather": [13],
+        "GatherElements": [13],
+        "GatherND": [13],
+        "Gelu": [20],
+        "Gemm": [13],
+        "GlobalAveragePool": [22],
+        "GlobalLpPool": [2],
+        "GlobalMaxPool": [22],
+        "Greater": [13],
+        "GreaterOrEqual": [16],
+        "GridSample": [22, 20, 16],
+        "GroupNormalization": [21, 18],
+        "HammingWindow": [17],
+        "HannWindow": [17],
+        "HardSigmoid": [22],
+        "Hardmax": [13],
+        "HardSwish": [22],
+        "Identity": [21],
+        "If": [21],
+        "InstanceNormalization": [22],
+        "IsInf": [20],
+        "IsNaN": [20],
+        "LayerNormalization": [17],
+        "LRN": [13],
+        "LSTM": [22],
+        "LeakyRelu": [16],
+        "Less": [13],
+        "LessOrEqual": [16],
+        "Log": [13],
+        "LogSoftmax": [13],
+        "Loop": [21],
+        "LpNormalization": [22],
+        "LpPool": [22],
+        "MatMul": [13],
+        "MatMulInteger": [10],
+        "Max": [13],
+        "MaxPool": [22],
+        "MaxRoiPool": [22],
+        "MaxUnpool": [22],
+        "Mean": [13],
+        "MeanVarianceNormalization": [13],
+        "MelWeightMatrix": [17],
+        "Min": [13],
+        "Mish": [22],
+        "Mod": [13],
+        "Mul": [14],
+        "Multinomial": [22],
+        "Neg": [13],
+        "NegativeLogLikelihoodLoss": [22],
+        "NonMaxSuppression": [11],
+        "NonZero": [13],
+        "Not": [1],
+        "OneHot": [11],
+        "Optional": [15],
+        "OptionalGetElement": [18],
+        "OptionalHasElement": [18],
+        "Or": [7],
+        "PRelu": [16],
+        "Pad": [21, 18, 13, 11, 2],
+        "Pow": [15],
+        "QLinearConv": [10],
+        "QLinearMatMul": [10],
+        "QuantizeLinear": [21],
+        "RNN": [22],
+        "RandomNormal": [22],
+        "RandomNormalLike": [22],
+        "RandomUniform": [22],
+        "RandomUniformLike": [22],
+        "Range": [11],
+        "Reciprocal": [13],
+        "ReduceL1": [18, 13],
+        "ReduceL2": [18, 13],
+        "ReduceLogSum": [18, 13],
+        "ReduceLogSumExp": [18, 13],
+        "ReduceMax": [20, 18, 13],
+        "ReduceMean": [18, 13],
+        "ReduceMin": [20, 18, 13],
+        "ReduceProd": [18, 13],
+        "ReduceSum": [13, 11],
+        "ReduceSumSquare": [18, 13],
+        "Relu": [14],
+        "Reshape": [21],
+        "Resize": [19, 18, 13, 11, 10],
+        "ReverseSequence": [10],
+        "RoiAlign": [22],
+        "RotaryEmbedding": [23],
+        "Round": [22],
+        "Scan": [21],
+        "Scatter": [11],
+        "ScatterElements": [18],
+        "ScatterND": [18],
+        "Selu": [22],
+        "SequenceAt": [11],
+        "SequenceConstruct": [11],
+        "SequenceEmpty": [11],
+        "SequenceErase": [11],
+        "SequenceInsert": [11],
+        "SequenceLength": [11],
+        "SequenceMap": [17],
+        "Shape": [21],
+        "Shrink": [9],
+        "Sigmoid": [13],
+        "Sign": [13],
+        "Sin": [22],
+        "Sinh": [22],
+        "Size": [21],
+        "Slice": [13],
+        "Softmax": [13, 11],
+        "SoftmaxCrossEntropyLoss": [13],
+        "Softplus": [22],
+        "Softsign": [22],
+        "SpaceToDepth": [13],
+        "Split": [18, 13, 11],
+        "SplitToSequence": [11],
+        "Sqrt": [13],
+        "Squeeze": [21, 11],
+        "StringNormalizer": [10],
+        "STFT": [17],
+        "Sub": [14],
+        "Sum": [13],
+        "Tan": [22],
+        "Tanh": [13],
+        "TfIdfVectorizer": [9],
+        "ThresholdedRelu": [22],
+        "Tile": [13],
+        "TopK": [11],
+        "Transpose": [21],
+        "Trilu": [14],
+        "Unique": [11],
+        "Unsqueeze": [21, 11],
+        "Upsample": [10, 7],
+        "Where": [16],
+        "Xor": [7],
+    },
+    "ai.onnx.ml": {
+        "ArrayFeatureExtractor": [1],
+        "Binarizer": [1],
+        "CastMap": [1],
+        "CategoryMapper": [1],
+        "DictVectorizer": [1],
+        "FeatureVectorizer": [1],
+        "Imputer": [1],
+        "LabelEncoder": [2],
+        "LinearClassifier": [1],
+        "LinearRegressor": [1],
+        "Normalizer": [1],
+        "OneHotEncoder": [1],
+        "SVMClassifier": [1],
+        "SVMRegressor": [1],
+        "Scaler": [1],
+        "TreeEnsembleClassifier": [1],
+        "TreeEnsembleRegressor": [1],
+        "ZipMap": [1],
+    },
+    "ai.onnx.preview.training": {
+        "Adagrad": [1],
+        "Adam": [1],
+        "Gradient": [1],
+        "Momentum": [1],
+    },
 }
+additional_op_version_dict = {
+    "com.amd.quark": {
+        "BFPQuantizeDequantize": [1],
+    }
+}
+
+
+domain_abrv_dict = {
+    "": "ONNX",
+    "ai.onnx.ml": "ONNX",
+    "ai.onnx.preview.training": "ONNX",
+    "com.amd.quark": "AMDQuark",
+}
+
+
+def map_op_name_to_onnx_mlir_name(op_name: str, domain: str) -> str:
+    assert domain in domain_abrv_dict
+    return domain_abrv_dict[domain] + op_name + "Op"
+
 
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", "type")])
@@ -1417,20 +1442,20 @@ def gen_op_def(schema, with_version=False):
     return s
 
 
-def gen_op_versions(file):
+def gen_op_versions(file, op_version_dict, domain):
     indent = inc_indent()
     s = ""
-    for key, item in version_dict.items():
-        s += indent + 'op_dialect_version_map_["' + key + '"] = '
+    for key, item in op_version_dict.items():
+        s += indent + 'dialect_op_version_map_["{}"]["{}"] = '.format(domain, key)
         s += "{" + "{}".format(", ".join(str(x) for x in item)) + "};\n"
     file.write(s)
 
 
-def gen_opsets(file, defined_versions_collected):
+def gen_opsets(file, defined_versions_collected, dialect):
     indent = inc_indent()
     s = ""
     for name, versions in defined_versions_collected.items():
-        s += indent + 'op_opsets_map_["' + name + '"] = '
+        s += indent + 'dialect_op_opsets_map_["{}"]["{}"] = '.format(dialect, name)
         s += "{" + "{}".format(", ".join(str(x) for x in versions)) + "};\n"
     file.write(s)
 
@@ -1444,41 +1469,24 @@ special cases:
 """
 
 
-def gen_op_importer(schema, file, with_version=False):
+def gen_op_importer(domain, name, file, since_version=None):
     indent = inc_indent()
-    if with_version:
-        opName = schema.name + "V" + str(schema.since_version)
+    if since_version is not None:
+        opName = name + "V" + str(since_version)
     else:
-        opName = schema.name
-    s = indent + 'import_handler_map_["' + opName + '"] = \n '
+        opName = name
 
-    expected_num_operands = len(schema.inputs)
-    expected_num_results = len(schema.outputs)
-    for input in schema.inputs:
-        if OpSchema.FormalParameterOption.Variadic == input.option:
-            expected_num_operands = -1
-    for output in schema.outputs:
-        if OpSchema.FormalParameterOption.Variadic == output.option:
-            expected_num_results = -1
+    mappedName = map_op_name_to_onnx_mlir_name(opName, domain)
+    s = indent + 'import_handler_map_["{}"]["{}"] = \n '.format(domain, opName)
 
     # Only support special op handler for the op without version.
-    if with_version:
-        handler_func = "buildOperation<mlir::ONNX{}Op>".format(opName)
+    if since_version is not None:
+        handler_func = "buildOperation<mlir::{}>".format(mappedName)
     else:
         handler_func = special_op_handler.get(
-            schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName)
+            name, "buildOperation<mlir::{}>".format(mappedName)
         )
 
-    # Special handlers currently require expected num operands/results to be specified.
-    # TODO: remove special handlers.
-    args = ["node"]
-    """
-    if expected_num_operands != -1 or expected_num_results != -1 or "buildOperation" not in handler_func:
-        args.append(
-            "/* expected_num_operands = */ {}".format(expected_num_operands))
-        args.append(
-            '/* expected_num_results = */ {}'.format(expected_num_results))
-    """
     s += inc_indent(indent) + "&onnx_mlir::detail::FrontendGenImpl::"
     s += handler_func + ";\n"
 
@@ -1520,36 +1528,42 @@ def build_operator_schemas():
                     # Generate operation of the latest version of your onnx.
                     existing_ops.add(schema.name)
                     processed_name_map.append((n, schema, versions))
+                    if domain not in version_dict:
+                        continue
 
                     # Add checks against version_dict.
-                    if schema.name not in version_dict:
+                    if schema.name not in version_dict[domain]:
                         print(
                             "Check-operation-version: Operation {} is new  with version {}".format(
                                 schema.name, schema.since_version
                             )
                         )
-                    elif schema.since_version > version_dict[schema.name][0]:
+                    elif schema.since_version > version_dict[domain][schema.name][0]:
                         print(
                             "Check-operation-version: Operation {}".format(schema.name)
                             + " has a newer version {} over old version {}".format(
-                                schema.since_version, version_dict[schema.name][0]
+                                schema.since_version,
+                                version_dict[domain][schema.name][0],
                             )
                         )
                 else:
                     # Generate operation according to the version in version_dict.
-                    if schema.name not in version_dict:
+                    if (
+                        domain not in version_dict
+                        or schema.name not in version_dict[domain]
+                    ):
                         continue
                     found = False
                     v_counter = 0
                     for schema in reversed(versions):
                         # Check the version number against the version_dict.
-                        specified_version = version_dict[schema.name][v_counter]
+                        specified_version = version_dict[domain][schema.name][v_counter]
                         if schema.since_version == specified_version:
                             existing_ops.add(schema.name)
                             processed_name_map.append((n, schema, versions))
                             found = True
                             v_counter += 1
-                            if len(version_dict[schema.name]) == v_counter:
+                            if len(version_dict[domain][schema.name]) == v_counter:
                                 break
                     if not found:
                         print(
@@ -1586,41 +1600,56 @@ def main(args):  # type: (Type[Args]) -> None
 
     op_importer = args.op_importer
     op_importer.write(autogen_warning)
-    gen_op_versions(op_importer)
+    for domain, version_map in version_dict.items():
+        gen_op_versions(op_importer, version_map, domain)
+    for domain, version_map in additional_op_version_dict.items():
+        gen_op_versions(op_importer, version_map, domain)
 
-    new_version_dict = dict()
+    new_version_dict = defaultdict(dict)
     operator_schemas, operation_opsets = build_operator_schemas()
     for domain, support_map in operator_schemas:
         for _, name_map in support_map:
             # Generate Op with version number if not the latest version.
             previous_name = ""
             for op_type, schema, versions in name_map:
-                new_version_dict[schema.name] = [schema.since_version]
+                new_version_dict[domain][schema.name] = [schema.since_version]
                 if not check_operation_version:
                     with_version = previous_name == schema.name
-                    gen_op_importer(schema, op_importer, with_version)
+                    since_version = schema.since_version if with_version else None
+                    gen_op_importer(domain, schema.name, op_importer, since_version)
                     r = gen_op_def(schema, with_version)
                     op_def.write(r)
                     previous_name = schema.name
 
-    opsets_collected = dict()  # type: (Dict[str, List[int]])
+    for domain, version_map in additional_op_version_dict.items():
+        for op_name in version_map:
+            gen_op_importer(domain, op_name, op_importer)
+
+    opsets_collected = defaultdict(
+        dict
+    )  # type: (defaultdict[str, Dict[str, List[int]]])
     for domain, ops in operation_opsets.items():
         for op, versions in ops.items():
-            assert (
-                op not in opsets_collected
-            ), "Operation with same name exists in multiple domains"
-            opsets_collected[op] = versions
+            assert op not in opsets_collected[domain], "Operation exist multiple times?"
+            opsets_collected[domain][op] = versions
 
-    gen_opsets(op_importer, opsets_collected)
+    for domain, collected in opsets_collected.items():
+        gen_opsets(op_importer, collected, domain)
+    for domain, versions_map in additional_op_version_dict.items():
+        gen_opsets(op_importer, versions_map, domain)
 
     if check_operation_version:
-        for key in version_dict:
-            if not key in new_version_dict:
-                print("op {} is not in the version".format(key))
-            # Assume the top version will be upgraded to the latest version.
-            # The existing extra version (from index 1) will be kept.
-            for x in version_dict[key][1:]:
-                new_version_dict[key].append(x)
+        for domain, version_map in version_dict.items():
+            for key in version_map:
+                if (
+                    not domain in new_version_dict
+                    or not key in new_version_dict[domain]
+                ):
+                    print("op {}.{} is not in the version".format(domain, key))
+                # Assume the top version will be upgraded to the latest version.
+                # The existing extra version (from index 1) will be kept.
+                for x in version_map[key][1:]:
+                    new_version_dict[domain][key].append(x)
         pprint.pprint(new_version_dict)
 
 
