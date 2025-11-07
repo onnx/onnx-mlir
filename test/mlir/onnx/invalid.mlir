@@ -1103,3 +1103,20 @@ func.func @test_attention_bad_kv_num_heads(%q: tensor<1x128x3072xf32>, %k: tenso
   %out, %present_k, %present_v, %qk_out = "onnx.Attention"(%q, %k, %v, %none, %none, %none) {q_num_heads = 32: si64, kv_num_heads = 15: si64} : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x768xf32>, none, none, none) -> (tensor<*xf32>, none, none, none)
   return %out : tensor<*xf32>
 }
+
+
+// -----
+
+func.func @test_bfp_quant_dequant_wrong_method(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
+  // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op invalid bfp_method attribute value: from_bfp. Supported values are 'to_bfp' and 'to_bfp_prime'.}}
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { bfp_method = "from_bfp"}  : (tensor<16x32xf32>) -> tensor<16x32xf32>
+  return %0 : tensor<16x32xf32>
+}
+
+// -----
+
+func.func @test_bfp_quant_dequant_wrong_rounding_mode(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
+  // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op invalid rounding_mode attribute value: 4. Supported values are 0 for rounding half away from zero, 1 for rounding half upward and 2 for rounding half to even.}}
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { rounding_mode = 4: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
+  return %0 : tensor<16x32xf32>
+}
