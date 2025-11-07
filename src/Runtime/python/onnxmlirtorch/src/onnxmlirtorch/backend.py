@@ -68,15 +68,15 @@ the inputs. Different ONNXMLIRTorch object will be created for each inference,
 and there is no reuse with cache among them.
 """
 
-# Freeze the model to avoid parameter inputs in the forward signature in GraphModule.
+# Freeze the model so that parameters (weights and biases) in
+# the forward function's arguments become constants in GraphModule.
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
-torch._dynamo.config.prepare_freezing = 1
-torch._dynamo.config.specialize_int = True
+# torch._dynamo.config.specialize_int = True
 torch._dynamo.config.assume_static_by_default = False
-torch._dynamo.config.allow_ignore_mark_dynamic = True
-torch._dynamo.config.force_unspec_int_unbacked_size_like_on_torchrec_kjt = True
-torch._dynamo.config.allow_unspec_int_on_nn_module = True
-torch._dynamo.config.install_free_tensors = True
+# torch._dynamo.config.allow_ignore_mark_dynamic = True
+# torch._dynamo.config.force_unspec_int_unbacked_size_like_on_torchrec_kjt = True
+# torch._dynamo.config.allow_unspec_int_on_nn_module = True
+# torch._dynamo.config.install_free_tensors = True
 
 
 logger = logging.getLogger(__name__)
@@ -88,37 +88,6 @@ class ONNXMLIRConfig:
 
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
 global_session_cache = SessionCache(ONNXMLIRConfig.cache_size)
-
-
-def create_dynamic_wrapper(gm: torch.fx.GraphModule):
-    """
-    Wrap the graph module so that it has function outputs() which is called by torchscript.
-    """
-    sig = inspect.signature(gm.forward)
-    params = list(sig.parameters.values())
-
-    # Build argument list for the forward method.
-    arg_names = [p.name for p in params]
-    arg_str = ", ".join(str(p) for p in params)
-    call_str = ", ".join(f"{name}={name}" for name in arg_names)
-
-    # Define the forward method dynamically.
-    forward_code = f"def forward(self, {arg_str}):\n    return self.gm({call_str})"
-    local_vars = {}
-    exec(forward_code, globals(), local_vars)
-    forward_fn = local_vars["forward"]
-
-    # Create the class dynamically.
-    def init(self, gm):
-        super(self.__class__, self).__init__()
-        self.gm = gm
-
-    DynamicWrappedGraphModule = types.new_class(
-        "DynamicWrappedGraphModule",
-        (torch.nn.Module,),
-        exec_body=lambda ns: ns.update({"__init__": init, "forward": forward_fn}),
-    )
-    return DynamicWrappedGraphModule(gm)
 
 
 # Backend function for torch.compile.
@@ -195,7 +164,7 @@ class ONNXMLIRTorch:
 
     def __call__(self, *example_inputs):
         logger.debug(f"Original example_inputs in __call__: {example_inputs}")
-        tensor_example_inputs = self.get_real_inputs(example_inputs) 
+        tensor_example_inputs = self.get_real_inputs(example_inputs)
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
