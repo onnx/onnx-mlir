@@ -180,7 +180,7 @@ std::map<int64_t, int64_t> getReductionMapping(
   }
 
   for (decltype(inRank) inIndex = 0, outIndex = 0; inIndex < inRank;
-      ++inIndex) {
+       ++inIndex) {
     // If it is a reduction axis, there is no relationship among dimensions.
     if (isReductionAxis[inIndex]) {
       if (keepdims)
