@@ -848,23 +848,33 @@ private:
     // Use the type map or types in input model to determine the data type of
     // output.
     std::vector<int> outputMap = T::getTypeMap();
+    const bool shouldTakeShapeFromModelForCustomOp =
+        isCustomOp &&
+        (options_.useOnnxModelTypesForCustomOps || givenOutputTypes.empty());
     for (unsigned int i = 0; i < (unsigned int)node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else {
-        if (options_.useOnnxModelTypes ||
-            (isCustomOp && options_.useOnnxModelTypesForCustomOps)) {
+        if (options_.useOnnxModelTypes || shouldTakeShapeFromModelForCustomOp) {
           auto onnxModelType = ConvertOnnxType(node.output(i), errorMessage);
           if (onnxModelType) {
             const auto ec = onnxModelType->getError();
             if (!ec) {
-              outputTypes.emplace_back(*onnxModelType.value());
+              Type outputType = *onnxModelType.value();
+              if (!options_.useOnnxModelTypesForCustomOps &&
+                  !options_.useOnnxModelTypes) {
+                if (auto shapedType = mlir::dyn_cast<ShapedType>(outputType)) {
+                  Type elementType = shapedType.getElementType();
+                  outputType = UnrankedTensorType::get(elementType);
+                }
+              }
+              outputTypes.emplace_back(outputType);
               continue;
             }
             if (!options_.allowMissingOutputTypes || ec != InvalidOnnxFormat) {
               errorMessage +=
-                  "Failed to get type for '" + node.output(i) + "\n";
+                  "Failed to get type for '" + node.output(i) + "'\n";
               return ec;
             }
             llvm::errs() << "Warning: "
@@ -874,13 +884,19 @@ private:
         }
         unsigned int j = i;
         // Variadic output is a single ODS result.
-        if (variadicOut)
+        if (variadicOut) {
           j = 0;
+        }
         if (!givenOutputTypes.empty()) {
+          assert(givenOutputTypes.size() > i &&
+                 "givenOutputTypes size is less than number of outputs");
           outputTypes.emplace_back(
               UnrankedTensorType::get(givenOutputTypes[i]));
         } else if (j < outputMap.size() && outputMap[j] >= MAX_NUM_TYPES) {
           // Mapping gives a connection with an input.
+          assert(
+              outputMap[j] - MAX_NUM_TYPES < static_cast<int>(inputs.size()) &&
+              "output type mapping to input is out of range");
           Type inputType = inputs[outputMap[j] - MAX_NUM_TYPES].getType();
           if (mlir::isa<TensorType>(inputType)) {
             Type elementType =
@@ -1570,10 +1586,9 @@ private:
     auto domainAttr = builder_.getNamedAttr(
         "domain_name", builder_.getStringAttr(node.domain()));
     attributes.push_back(domainAttr);
-    int nIn = 0;
-    int nOut = 0;
+    const int nIn = ONNXCustomOp::getNumberOfOperands();
+    const int nOut = ONNXCustomOp::getNumberOfResults();
     getNodeInputs(node, inputs);
-    nOut = node.output().size();
     std::vector<Type> givenOutputTypes;
 
     // We lack a way of specifying import behavior for custom domains. For now
