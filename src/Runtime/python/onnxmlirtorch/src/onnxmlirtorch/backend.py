@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import time
 import inspect
 import logging
 import types
@@ -71,8 +72,9 @@ and there is no reuse with cache among them.
 # Freeze the model so that parameters (weights and biases) in
 # the forward function's arguments become constants in GraphModule.
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
-# torch._dynamo.config.specialize_int = True
+torch._dynamo.config.prepare_freezing = 1
 torch._dynamo.config.assume_static_by_default = False
+# torch._dynamo.config.specialize_int = True
 # torch._dynamo.config.allow_ignore_mark_dynamic = True
 # torch._dynamo.config.force_unspec_int_unbacked_size_like_on_torchrec_kjt = True
 # torch._dynamo.config.allow_unspec_int_on_nn_module = True
@@ -128,31 +130,46 @@ def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
 
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
-        logger.debug(f"Original example_inputs in __init__: {args}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Original example_inputs in __init__: {args}")
 
         # Pytorch model.
         self.gm = gm
-        logger.debug(f"Original graph module: {self.gm}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Original graph module: {self.gm}")
 
-        # Rewrite the graph for exporting to onnx.
-        self.example_inputs_indices, _ = self.rewrite_gm_for_export(*args)
-        logger.debug(f"Rewritten graph module: {self.gm}")
+        # Generate an unique key from the graph module.
+        start = time.time()
+        self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+        logger.info(f"generate_hash_key took {time.time() - start} seconds")
+
+        # Check whether there is any cached compiled model.
+        self.cached_session = global_session_cache.get(self.cache_key)
+        if self.cached_session is None:
+            # Rewrite the graph for exporting to onnx.
+            start = time.time()
+            self.example_inputs_indices, _ = self.rewrite_gm_for_export(*args)
+            logger.info(f"rewrite_gm_for_export took {time.time() - start} seconds")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Rewritten graph module: {self.gm}")
+
+            # Cache the rewritten graph module.
+            start = time.time()
+            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+            logger.info(f"generate_hash_key took {time.time() - start} seconds")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Cache key: {self.cache_key}")
+        else:
+            self.example_inputs_indices = self.cached_session.example_inputs_indices
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Example inputs indices: {self.example_inputs_indices}")
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
         self.onnx_model = None
         self.default_model_name = "model"
-
-        # Generate an unique key from the graph module.
-        self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-        logger.debug(f"Cache key: {self.cache_key}")
-        # Check whether there is any cached compiled model.
-        self.cached_session = global_session_cache.get(self.cache_key)
-        if self.cached_session:
-            self.example_inputs_indices = self.cached_session.example_inputs_indices
-        logger.debug(f"Example inputs indices: {self.example_inputs_indices}")
-
-        # Each onnx model has a unique tag.
+        # Each onnx model is assigned a unique tag.
         # Use the cache key as a tag when compiling the onnx model.
         self.tag = self.cache_key
 
@@ -163,12 +180,14 @@ class ONNXMLIRTorch:
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
-        logger.debug(f"Original example_inputs in __call__: {example_inputs}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Original example_inputs in __call__: {example_inputs}")
         tensor_example_inputs = self.get_real_inputs(example_inputs)
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
-        logger.debug(f"Inputs to forward: {example_inputs}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Inputs to forward: {example_inputs}")
         if self.cached_session is None:
             logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
@@ -215,12 +234,17 @@ class ONNXMLIRTorch:
 
         # onnx_mlir accepts numpy arrays as inputs and outputs.
         om_inputs = [
-            arg.numpy() for arg in example_inputs if isinstance(arg, torch.Tensor)
+            arg.contiguous().numpy()
+            for arg in example_inputs
+            if isinstance(arg, torch.Tensor)
         ]
         # Run the inference.
-        logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
-        logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
+            logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
+        start = time.time()
         om_outputs = sess.run(om_inputs)
+        logger.info(f"sess.run took {time.time() - start} seconds")
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_real_inputs(self, example_inputs):
@@ -269,15 +293,28 @@ class ONNXMLIRTorch:
                 dynamic_shapes[input_name] = dynamic_dims
             else:
                 dynamic_shapes[input_name] = None
-        logger.debug(f"dynamic_shapes: {dynamic_shapes}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"dynamic_shapes: {dynamic_shapes}")
         return input_names, dynamic_shapes
 
     def rewrite_gm_for_export(self, *example_inputs):
+        start = time.time()
         example_inputs_indices, removed_example_inputs, constant_values = (
             self.extract_constants_from_example_inputs(example_inputs)
         )
+        logger.info(
+            f"  extract_constants_from_example_inputs took {time.time() - start} seconds"
+        )
+        start = time.time()
         self.freeze_constants_with_values(constant_values)
+        logger.info(
+            f"  freeze_constants_with_values took {time.time() - start} seconds"
+        )
+        start = time.time()
         self.convert_symint_args_to_tensors(self.gm)
+        logger.info(
+            f"  convert_symint_args_to_tensors took {time.time() - start} seconds"
+        )
         return example_inputs_indices, removed_example_inputs
 
     def convert_symint_args_to_tensors(self, graph_module: torch.fx.GraphModule):
@@ -355,9 +392,10 @@ class ONNXMLIRTorch:
         return example_inputs_indices, removed_example_inputs_indices, constant_values
 
     def freeze_constants_with_values(self, constant_values: dict):
-        logger.debug(
-            f"freeze_constants_with_values, constant_values: {constant_values}"
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                f"freeze_constants_with_values, constant_values: {constant_values}"
+            )
 
         graph = self.gm.graph
         placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
@@ -365,7 +403,8 @@ class ONNXMLIRTorch:
 
         for name, value_use_nodes in constant_values.items():
             value, use_nodes = value_use_nodes
-            logger.debug(f"freeze_constants_with_values, {name}, {value}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"freeze_constants_with_values, {name}, {value}")
             if name not in name_to_node:
                 continue
             node = name_to_node[name]
@@ -390,16 +429,18 @@ class ONNXMLIRTorch:
                 # Optional: remove .item() calls if they follow the pattern
                 # TODO(tung) only replace if not symint
                 if use_node.op == "call_method" and use_node.target == "item":
-                    logger.debug(
-                        f"freeze_constants_with_values, replace {use_node} by {value}"
-                    )
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            f"freeze_constants_with_values, replace {use_node} by {value}"
+                        )
                     # Replace the .item() node with the scalar directly
                     scalar_value = (
                         value.item() if isinstance(value, torch.Tensor) else value
                     )
                     use_node.replace_all_uses_with(scalar_value)
                     graph.erase_node(use_node)
-            logger.debug(f"freeze_constants_with_values, {name}, {value} END")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"freeze_constants_with_values, {name}, {value} END")
 
             graph.erase_node(node)
 
