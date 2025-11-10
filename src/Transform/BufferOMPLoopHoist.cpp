@@ -5,8 +5,11 @@
 #include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"
 
 #include "src/Pass/Passes.hpp"
+
+#define DEBUG_TYPE "buffer-omploop-hoisting"
 
 using namespace mlir;
 
@@ -29,16 +32,17 @@ bool directlyNestedIn(Operation *op, Operation *wsloopOp) {
   bool foundLoopNest =
       false; // flag for omp::LoopNestOp between alloc and wsloop
   while ((parentOp = currentOp->getParentOp()) != wsloopOp) {
-    if (isa<omp::ParallelOp>(parentOp)) {
+    if (isa<omp::LoopNestOp>(parentOp)) {
+      foundLoopNest = true;
+    } else if (isa<LoopLikeOpInterface>(parentOp)) {
+      // Can not be any other loops. This condition can be relaxed.
+      return false;
+    } else if (isa<omp::ParallelOp>(parentOp)) {
       // Need to worry other omp structure, such as task?
       return false;
     }
-    if (isa<omp::LoopNestOp>(parentOp)) {
-      foundLoopNest = true;
-    }
     currentOp = parentOp;
   }
-
   return foundLoopNest;
 }
 
@@ -46,10 +50,11 @@ bool areOperandsDefinedOutside(
     memref::AllocOp allocOp, omp::WsloopOp wsloopOp) {
   for (Value operand : allocOp.getOperands()) {
     Operation *currentOp = operand.getDefiningOp();
-    while (Operation *parentOp = currentOp->getParentOp()) {
-      if (parentOp == wsloopOp.getOperation())
+    if (!currentOp)
+      currentOp = mlir::cast<BlockArgument>(operand).getOwner()->getParentOp();
+    while ((currentOp = currentOp->getParentOp())) {
+      if (currentOp == wsloopOp.getOperation())
         return false;
-      currentOp = parentOp;
     }
   }
   return true;
@@ -60,14 +65,15 @@ std::optional<Operation *> findDealloc(
   // Find the only one dealloc. Otherwise nullOpt.
   std::optional<Operation *> deallocOpt =
       memref::findDealloc(allocOp.getResult());
-  if (!deallocOpt)
-    return deallocOpt;
-
+  if (!deallocOpt.has_value())
+    return std::nullopt;
+  // This check is needed due to the implementation of findDealloc.
+  // When there is no use of the AllocOp, a std::optional<nullptr> is returned.
+  if (!*deallocOpt)
+    return std::nullopt;
   // Check whether the dealloc is in the wsloop and postdominate alloc
   Block *allocBlock = allocOp.getResult().getParentBlock();
   Block *deallocBlock = (*deallocOpt)->getBlock();
-  allocBlock->dump();
-  deallocBlock->dump();
   // This is the simplified common case for us.
   if (allocBlock == deallocBlock)
     return deallocOpt;
@@ -99,29 +105,37 @@ std::optional<Operation *> HandleOneAlloc(
   // hoisted out of wsloop.
   std::optional<Operation *> deallocOpt = findDealloc(allocOp, wsloopOp);
 
-  if (!deallocOpt)
+  if (!deallocOpt.has_value())
     return deallocOpt;
 
   return deallocOpt;
 }
 
-// Hoist the alloc/dealloc in one omp.wsloop
+// Hoist the alloc/dealloc in an omp.WsloopOp
 void HandleOneLoop(omp::WsloopOp wsloopOp) {
   llvm::SmallVector<Operation *, 4> deallocList;
   llvm::SmallVector<Operation *, 4> allocList;
   wsloopOp.walk([&](memref::AllocOp allocOp) {
     std::optional<Operation *> deallocOpt = HandleOneAlloc(allocOp, wsloopOp);
-    if (deallocOpt) {
+    if (deallocOpt.has_value()) {
       allocList.emplace_back(allocOp.getOperation());
       deallocList.emplace_back(*deallocOpt);
     }
   });
 
   // Perform hoisting
-  for (auto alloc : allocList)
+  for (auto alloc : allocList) {
     alloc->moveBefore(wsloopOp.getOperation());
-  for (auto dealloc : deallocList)
+    LLVM_DEBUG(llvm::dbgs() << "\nHoisted:\n");
+    alloc->print(llvm::dbgs());
+    LLVM_DEBUG(llvm::dbgs() << "\n");
+  }
+  for (auto dealloc : deallocList) {
     dealloc->moveAfter(wsloopOp.getOperation());
+    LLVM_DEBUG(llvm::dbgs() << "\nHoisted:\n");
+    dealloc->print(llvm::dbgs());
+    LLVM_DEBUG(llvm::dbgs() << "\n");
+  }
 }
 
 void BufferOMPLoopHoistingPass::runOnOperation() {
