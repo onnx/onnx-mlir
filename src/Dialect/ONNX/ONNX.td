@@ -257,5 +257,6 @@ class OpVersionTrait<int version>
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/ONNX/ONNXOps.td.inc"
 include "src/Dialect/ONNX/AdditionalONNXOps.td"
+include "src/Dialect/ONNX/AMDQuarkOps.td"
 
 #endif // ONNX_OPS

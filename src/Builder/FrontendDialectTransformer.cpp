@@ -197,12 +197,12 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
-  // onnxop: list of versions supported by onnx-mlir for dialect
-  std::map<std::string, std::vector<int>> op_dialect_version_map_;
-  // onnxop: list of versions for dialect
-  std::map<std::string, std::vector<int>> op_opsets_map_;
-  // onnxop: the top version in third_part/onnx
-  std::map<std::string, int> op_dialect_top_version_map_;
+  // onnxop: list of versions supported by onnx-mlir for dialect, op
+  std::map<std::string, std::map<std::string, std::vector<int>>>
+      dialect_op_version_map_;
+  // onnxop: list of versions for dialect, op
+  std::map<std::string, std::map<std::string, std::vector<int>>>
+      dialect_op_opsets_map_;
 
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
@@ -214,7 +214,8 @@ private:
       onnx_mlir::detail::FrontendGenImpl::*)(
       const onnx::NodeProto &, std::string & /*errorMessage*/);
 
-  std::map<std::string, ImportHandlerType> import_handler_map_;
+  std::map<std::string, std::map<std::string, ImportHandlerType>>
+      import_handler_map_;
 
   // The total number of elements in all initializers. This value is a rough
   // counter of the number of parameters in a model.
@@ -1304,18 +1305,26 @@ private:
 
     const int current_opset = current_opset_it->second;
 
+    const auto op_version_map = dialect_op_version_map_.find(node.domain());
+    if (op_version_map == dialect_op_version_map_.end())
+      return "";
+
+    const auto op_opsets_map = dialect_op_opsets_map_.find(node.domain());
+    if (op_opsets_map == dialect_op_opsets_map_.end())
+      return "";
+
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
 
     const auto supported_opset_list_it =
-        op_dialect_version_map_.find(node.op_type());
-    const auto opset_list_it = op_opsets_map_.find(node.op_type());
+        op_version_map->second.find(node.op_type());
+    const auto opset_list_it = op_opsets_map->second.find(node.op_type());
 
-    // Custom ops may not be present in op_dialect_version_map_. If no version
+    // Custom ops may not be present in op_version_map. If no version
     // info is found, treat as unversioned (no renaming).
-    if (supported_opset_list_it == op_dialect_version_map_.end() ||
-        opset_list_it == op_opsets_map_.end())
+    if (supported_opset_list_it == op_version_map->second.end() ||
+        opset_list_it == op_opsets_map->second.end())
       return "";
 
     // To determine the opset version for a node/op:
@@ -1626,13 +1635,14 @@ private:
 
   [[nodiscard]] std::error_code ImportNode(
       const onnx::NodeProto &node, std::string &errorMessage) {
-    if (isDefaultDomain(node.domain()) || (node.domain() == "ai.onnx.ml") ||
-        (node.domain() == "ai.onnx.preview.training")) {
-      std::string opName = node.op_type() + GetImportVersionOfNode(node);
-      auto handler = import_handler_map_.find(opName);
+
+    std::string opName = node.op_type() + GetImportVersionOfNode(node);
+    auto domainIt = import_handler_map_.find(node.domain());
+    if (domainIt != import_handler_map_.end()) {
+      auto handler = domainIt->second.find(opName);
       std::vector<std::string> funcs = options_.functionsToDecompose;
-      if (!(std::find(funcs.begin(), funcs.end(), opName) != funcs.end())) {
-        if (handler != import_handler_map_.end()) {
+      if (!llvm::is_contained(funcs, opName)) {
+        if (handler != domainIt->second.end()) {
           // It's a regular op with a registered handler.
           return (this->*(handler->second))(node, errorMessage);
         }
