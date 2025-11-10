@@ -4,6 +4,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/STLExtras.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -17,7 +18,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "llvm/ADT/STLExtras.h"
 #include <cmath>
 #include <optional>
 #include <variant>
@@ -108,8 +108,8 @@ std::optional<T> getScalarTensorValueFromVal(Value value) {
   return getScalarTensorValue<T>(constOp);
 }
 
-static mlir::DenseElementsAttr makeScalarDEA(
-    mlir::ShapedType likeTy, double d) {
+static mlir::DenseElementsAttr makeScalarDEA(mlir::ShapedType likeTy,
+                                             double d) {
   using namespace mlir;
 
   auto ranked = likeTy.dyn_cast<RankedTensorType>();
@@ -127,7 +127,7 @@ static mlir::DenseElementsAttr makeScalarDEA(
       llvm::APFloat ap(d);
       bool loses = false;
       ap.convert(useFT.getFloatSemantics(), llvm::APFloat::rmNearestTiesToEven,
-          &loses);
+                 &loses);
       dv = ap.convertToDouble();
     }
     return DenseElementsAttr::get(ranked, FloatAttr::get(outFT, dv));
@@ -167,7 +167,8 @@ static mlir::DenseElementsAttr makeScalarDEA(
 }
 
 static void updateInitializer(mlir::PatternRewriter &rewriter,
-    mlir::Operation *targetOp, mlir::Value oldInit, double newScalar) {
+                              mlir::Operation *targetOp, mlir::Value oldInit,
+                              double newScalar) {
   using namespace mlir;
 
   if (!targetOp || !oldInit)
@@ -236,9 +237,9 @@ static void updateInitializer(mlir::PatternRewriter &rewriter,
 // Returns success() iff Q->DQ is *removable* under strict checks.
 // If doRewrite==true, it also *applies* the rewrite for this DQ (replaces DQ
 // with Q.x).
-static mlir::LogicalResult tryRemoveQThenDQChain(
-    mlir::PatternRewriter &rewriter, mlir::ONNXDequantizeLinearOp dqOp,
-    bool doRewrite) {
+static mlir::LogicalResult
+tryRemoveQThenDQChain(mlir::PatternRewriter &rewriter,
+                      mlir::ONNXDequantizeLinearOp dqOp, bool doRewrite) {
   using namespace mlir;
 
   // Match direct Q -> DQ
@@ -286,8 +287,8 @@ static mlir::LogicalResult tryRemoveQThenDQChain(
 // If doRewrite=false: returns true iff *any* removable DQ user exists (no
 // mutation). If doRewrite=true : performs removals and returns true iff it
 // removed at least one DQ. Also erases Q if it becomes dead after removals.
-static bool Remove_Q_Plus_DQ(
-    mlir::PatternRewriter &rewriter, ONNXQuantizeLinearOp qOp, bool doRewrite) {
+static bool Remove_Q_Plus_DQ(mlir::PatternRewriter &rewriter,
+                             ONNXQuantizeLinearOp qOp, bool doRewrite) {
   using namespace mlir;
   if (!qOp)
     return false;
@@ -322,7 +323,7 @@ static bool isValuePreservingOp(mlir::Operation *op) {
   if (!op)
     return false;
   return isa<mlir::ONNXIdentityOp, mlir::ONNXReshapeOp, mlir::ONNXSqueezeOp,
-      mlir::ONNXUnsqueezeOp, mlir::ONNXTransposeOp>(op);
+             mlir::ONNXUnsqueezeOp, mlir::ONNXTransposeOp>(op);
 }
 
 template <typename BinOp>
@@ -353,7 +354,8 @@ private:
   };
 
   LogicalResult match_qdq(mlir::PatternRewriter &rewriter, MatchState &state,
-      ONNXDequantizeLinearOp dq1, ONNXDequantizeLinearOp dq2) const {
+                          ONNXDequantizeLinearOp dq1,
+                          ONNXDequantizeLinearOp dq2) const {
 
     ONNXDequantizeLinearOp constantDqOp = nullptr;
     ONNXConstantOp constantSourceOp = nullptr;
@@ -374,7 +376,7 @@ private:
       if (auto intermediateOp = dq1.getX().getDefiningOp()) {
         if (isValuePreservingOp(intermediateOp)) {
           if (auto constOp = intermediateOp->getOperand(0)
-                  .getDefiningOp<ONNXConstantOp>()) {
+                                 .getDefiningOp<ONNXConstantOp>()) {
             constantDqOp = dq1;
             state.dequantActivationOfBinOp = dq2;
             constantSourceOp = constOp;
@@ -384,7 +386,7 @@ private:
       if (auto intermediateOp = dq2.getX().getDefiningOp()) {
         if (isValuePreservingOp(intermediateOp)) {
           if (auto constOp = intermediateOp->getOperand(0)
-                  .getDefiningOp<ONNXConstantOp>()) {
+                                 .getDefiningOp<ONNXConstantOp>()) {
             constantDqOp = dq2;
             state.dequantActivationOfBinOp = dq1;
             constantSourceOp = constOp;
@@ -401,7 +403,8 @@ private:
     {
       auto scalar_value_opt = getScalarTensorValue<int64_t>(constantSourceOp);
       if (!scalar_value_opt) {
-        return rewriter.notifyMatchFailure(constantSourceOp,
+        return rewriter.notifyMatchFailure(
+            constantSourceOp,
             " must be a scalar value or a list of same value");
       }
       Value scaleVal = constantDqOp.getXScale();
@@ -419,7 +422,7 @@ private:
   }
 
   LogicalResult match_binary_op(mlir::PatternRewriter &rewriter,
-      MatchState &state, BinOp binaryOp) const {
+                                MatchState &state, BinOp binaryOp) const {
     ONNXConstantOp constantOp = nullptr;
 
     Value lhs = binaryOp.getOperand(0);
@@ -427,11 +430,6 @@ private:
     Value out = binaryOp->getResult(0);
     state.quantOutputOfBinOp =
         dyn_cast<ONNXQuantizeLinearOp>(*out.getUsers().begin());
-    // auto qOut = getUniqueQuantUserOrNull(binaryOp->getResult(0));
-    // if (!qOut)
-    //   return rewriter.notifyMatchFailure(binaryOp,
-    //       "binary result must have exactly one ONNXQuantizeLinearOp user");
-    // state.quantOutputOfBinOp = qOut;
 
     // -------- Case A: lhs is DQ, rhs is Constant --------
     if (auto dqOp = lhs.getDefiningOp<ONNXDequantizeLinearOp>()) {
@@ -469,28 +467,9 @@ private:
     return failure();
   }
 
-  /*LogicalResult check_needed_values(mlir::PatternRewriter &rewriter,
-      const MatchState &state, Operation *binaryOp) const {
-    if (state.kValue == 0.0) {
-      if (isa<ONNXDivOp>(binaryOp)) {
-        return rewriter.notifyMatchFailure(binaryOp,
-            "when opType is Div, remove binary op only if k_value is "
-            "not zero, to avoid ZeroDivisionError");
-      }
-    }
-    if (state.dstScale == 0.0) {
-      if (isa<ONNXAddOp, ONNXSubOp>(binaryOp)) {
-        return rewriter.notifyMatchFailure(binaryOp,
-            "when opType is Add or Sub, remove binary op only if y_scale is "
-            "not "
-            "zero, to avoid ZeroDivisionError");
-      }
-    }
-    return success();
-  }*/
-
   LogicalResult check_needed_values(mlir::PatternRewriter &rewriter,
-      const MatchState &state, Operation *binaryOp) const {
+                                    const MatchState &state,
+                                    Operation *binaryOp) const {
     const bool dstIsDQ = llvm::isa<ONNXDequantizeLinearOp>(state.dstNode);
     const bool dstIsQ = llvm::isa<ONNXQuantizeLinearOp>(state.dstNode);
 
@@ -499,12 +478,15 @@ private:
     // 0 in those cases.
     if (state.kValue == 0.0) {
       if (dstIsDQ && llvm::isa<ONNXDivOp>(binaryOp)) {
-        return rewriter.notifyMatchFailure(binaryOp,
+
+        return rewriter.notifyMatchFailure(
+            binaryOp,
             "when opType is Div, remove binary op only if k_value is not zero, "
             "to avoid ZeroDivisionError");
-      }
-      else if (dstIsQ && llvm::isa<ONNXMulOp>(binaryOp)) {
-        return rewriter.notifyMatchFailure(binaryOp,
+      } else if (dstIsQ && llvm::isa<ONNXMulOp>(binaryOp)) {
+
+        return rewriter.notifyMatchFailure(
+            binaryOp,
             "when opType is Mul, remove binary op only if k_value is not zero, "
             "to avoid ZeroDivisionError");
       }
@@ -513,7 +495,8 @@ private:
     // k/scale is used for Add/Sub to update zero_point.
     // Avoid division by zero when dstScale == 0.
     if (state.dstScale == 0.0 && (llvm::isa<ONNXAddOp, ONNXSubOp>(binaryOp))) {
-      return rewriter.notifyMatchFailure(binaryOp,
+      return rewriter.notifyMatchFailure(
+          binaryOp,
           "when opType is Add or Sub, remove binary op only if scale is not "
           "zero, to avoid ZeroDivisionError");
     }
@@ -552,7 +535,7 @@ private:
                         std::is_same_v<BinOp, ONNXSubOp> ||
                         std::is_same_v<BinOp, ONNXMulOp> ||
                         std::is_same_v<BinOp, ONNXDivOp>,
-          "Unsupported binary operation type for this pattern");
+                    "Unsupported binary operation type for this pattern");
       return false;
     }
 
@@ -564,20 +547,8 @@ private:
     return true;
   }
 
-  static ONNXQuantizeLinearOp getSingleQuantizeUser(Value v) {
-    ONNXQuantizeLinearOp q = nullptr;
-    for (Operation *u : v.getUsers()) {
-      if (auto cand = dyn_cast<ONNXQuantizeLinearOp>(u)) {
-        if (q)
-          return nullptr; // more than one Quantize user
-        q = cand;
-      }
-    }
-    return q;
-  }
-
-  LogicalResult findDestinationNode(
-      mlir::PatternRewriter &rewriter, MatchState &state, Operation *op) const {
+  LogicalResult findDestinationNode(mlir::PatternRewriter &rewriter,
+                                    MatchState &state, Operation *op) const {
     auto dq = state.dequantActivationOfBinOp;
     if (!dq)
       return rewriter.notifyMatchFailure(
@@ -638,8 +609,8 @@ private:
   }
 
 public:
-  LogicalResult matchAndRewrite(
-      BinOp op, PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(BinOp op,
+                                PatternRewriter &rewriter) const override {
 
     // STEP 1: Match begin: Assuming only one user
     if (!op->hasOneUse()) {
@@ -656,10 +627,10 @@ public:
 
     // STEP 2
     if (failed(match_binary_op(rewriter, state, op))) {
-      return rewriter.notifyMatchFailure(op,
-          " does not match to critieria to remove binary. Remove binary op "
-          "only if one of the dequantize linear input "
-          "has const scalar value ");
+      return rewriter.notifyMatchFailure(
+          op, " does not match to critieria to remove binary. Remove binary op "
+              "only if one of the dequantize linear input "
+              "has const scalar value ");
     }
 
     // STEP 3
@@ -669,6 +640,7 @@ public:
 
     // STEP 4
     if (failed(check_needed_values(rewriter, state, op))) {
+
       return failure();
     }
 
@@ -689,13 +661,13 @@ public:
           // Update zero-point at DQ.x
           Value xZp = dqDst.getXZeroPoint();
           updateInitializer(rewriter, dqDst.getOperation(), xZp,
-              static_cast<double>(state.newZp));
+                            static_cast<double>(state.newZp));
         } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
                              std::is_same_v<BinOp, ONNXDivOp>) {
           // Update scale at DQ.x
           Value xScale = dqDst.getXScale();
-          updateInitializer(
-              rewriter, dqDst.getOperation(), xScale, state.newScale);
+          updateInitializer(rewriter, dqDst.getOperation(), xScale,
+                            state.newScale);
         }
       } else if (auto qDst = llvm::dyn_cast<ONNXQuantizeLinearOp>(dst)) {
         if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
@@ -703,13 +675,13 @@ public:
           // Update zero-point at Q.y
           Value yZp = qDst.getYZeroPoint();
           updateInitializer(rewriter, qDst.getOperation(), yZp,
-              static_cast<double>(state.newZp));
+                            static_cast<double>(state.newZp));
         } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
                              std::is_same_v<BinOp, ONNXDivOp>) {
           // Update scale at Q.y
           Value yScale = qDst.getYScale();
-          updateInitializer(
-              rewriter, qDst.getOperation(), yScale, state.newScale);
+          updateInitializer(rewriter, qDst.getOperation(), yScale,
+                            state.newScale);
         }
       } else {
         return rewriter.notifyMatchFailure(
@@ -717,10 +689,10 @@ public:
       }
     }
 
-    // STEP 6: Remove binary op
+    // STEP 7: Remove binary op
     rewriter.replaceOp(op, state.dequantActivationOfBinOp.getResult());
 
-    // STEP 7: Remove Q->DQ chain
+    // STEP 8: Remove Q->DQ chain
     ONNXQuantizeLinearOp chainStartQ = nullptr;
 
     if (llvm::isa<ONNXDequantizeLinearOp>(state.dstNode)) {
@@ -749,7 +721,9 @@ struct FoldDQBinaryQPass
     : public PassWrapper<FoldDQBinaryQPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FoldDQBinaryQPass)
 
-  StringRef getArgument() const final { return "dq-binary-q-opt-onnx-to-onnx"; }
+  StringRef getArgument() const final {
+    return "dq-binary-q-opt-onnx-to-onnx";
+  }
   StringRef getDescription() const final {
     return "Fold Add/Sub/Mul/Div through Q/DQ by updating scale/zero_point, "
            "then remove trivial Q->DQ chains when safe.";
@@ -760,7 +734,7 @@ struct FoldDQBinaryQPass
     RewritePatternSet patterns(&getContext());
     patterns
         .add<FoldBinaryThroughQDQ<ONNXDivOp>, FoldBinaryThroughQDQ<ONNXSubOp>,
-            FoldBinaryThroughQDQ<ONNXMulOp>, FoldBinaryThroughQDQ<ONNXAddOp>>(
+             FoldBinaryThroughQDQ<ONNXMulOp>, FoldBinaryThroughQDQ<ONNXAddOp>>(
             &getContext());
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
