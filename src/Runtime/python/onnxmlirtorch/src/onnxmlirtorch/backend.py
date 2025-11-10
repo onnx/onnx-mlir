@@ -143,49 +143,33 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
 
 
 def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
+    start = time.time()
     pickler = OMFxGraphCachePickler(gm)
     details = OMFxGraphHashDetails(gm, compile_options)
-    return "_om_" + pickler.get_hash(details)
+    key = "_om_" + pickler.get_hash(details)
+    logger.info(f"Creating a cache key took {time.time() - start} seconds: {key}")
+    return key
 
 
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Original example_inputs in __init__: {args}")
-
-        # Pytorch model.
+        # Input graph module.
         self.gm = gm
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module: {self.gm}")
 
         # Generate an unique key from the graph module.
-        start = time.time()
         self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-        logger.info(
-            f"Creating a cache key took {time.time() - start} seconds: {self.cache_key}"
-        )
 
         # Check whether there is any cached compiled model.
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session is None:
             # Rewrite the graph for exporting to onnx.
-            start = time.time()
             self.example_inputs_indices, _ = self.rewrite_gm_for_export(*args)
-            logger.info(f"rewrite_gm_for_export took {time.time() - start} seconds")
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Rewritten graph module: {self.gm}")
-
             # Cache the rewritten graph module.
-            start = time.time()
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-            logger.info(
-                f"Creating a cache key took {time.time() - start} seconds: {self.cache_key}"
-            )
         else:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
-
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Example inputs indices: {self.example_inputs_indices}")
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
@@ -202,14 +186,10 @@ class ONNXMLIRTorch:
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Original example_inputs in __call__: {example_inputs}")
         tensor_example_inputs = self.get_real_inputs(example_inputs)
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Inputs to forward: {example_inputs}")
         if self.cached_session is None:
             logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
@@ -320,23 +300,11 @@ class ONNXMLIRTorch:
         return input_names, dynamic_shapes
 
     def rewrite_gm_for_export(self, *example_inputs):
-        start = time.time()
         example_inputs_indices, removed_example_inputs, constant_values = (
             self.extract_constants_from_example_inputs(example_inputs)
         )
-        logger.info(
-            f"  extract_constants_from_example_inputs took {time.time() - start} seconds"
-        )
-        start = time.time()
         self.freeze_constants_with_values(constant_values)
-        logger.info(
-            f"  freeze_constants_with_values took {time.time() - start} seconds"
-        )
-        start = time.time()
         self.convert_symint_args_to_tensors(self.gm)
-        logger.info(
-            f"  convert_symint_args_to_tensors took {time.time() - start} seconds"
-        )
         return example_inputs_indices, removed_example_inputs
 
     def convert_symint_args_to_tensors(self, graph_module: torch.fx.GraphModule):
