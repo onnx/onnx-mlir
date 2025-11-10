@@ -5,14 +5,18 @@ import time
 import inspect
 import logging
 import types
-
+import functools
 import numpy as np
 import torch
 from torch._inductor.codecache import (
+    _ident,
+    extract_tensor_metadata_for_cache_key,
     FxGraphCachePickler,
     FxGraphHashDetails,
 )
-from torch._subclasses.fake_tensor import FakeTensor
+from torch._subclasses.fake_tensor import (
+    FakeTensor,
+)
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
@@ -74,11 +78,6 @@ and there is no reuse with cache among them.
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
 torch._dynamo.config.prepare_freezing = 1
 torch._dynamo.config.assume_static_by_default = False
-# torch._dynamo.config.specialize_int = True
-# torch._dynamo.config.allow_ignore_mark_dynamic = True
-# torch._dynamo.config.force_unspec_int_unbacked_size_like_on_torchrec_kjt = True
-# torch._dynamo.config.allow_unspec_int_on_nn_module = True
-# torch._dynamo.config.install_free_tensors = True
 
 
 logger = logging.getLogger(__name__)
@@ -108,10 +107,31 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
     return onnxmlir_forward_fn
 
 
-class OMFxGraphHashDetails:
+class OMFxGraphCachePickler(FxGraphCachePickler):
+    def __init__(self, gm: torch.fx.GraphModule):
+        super().__init__(gm)
+        # pyrefly: ignore  # bad-override
+        self.dispatch_table: dict
+        self.dispatch_table.update(
+            {
+                FakeTensor: functools.partial(self._reduce_fake_tensor),
+                torch.Tensor: functools.partial(self._reduce_tensor),
+                torch.nn.parameter.Parameter: functools.partial(self._reduce_tensor),
+                torch.SymInt: functools.partial(self._reduce_symint),
+            }
+        )
+
+    def _reduce_tensor(self, tensor):
+        """
+        Reduce the tensor to a stable key for caching.
+        """
+        metadata = extract_tensor_metadata_for_cache_key(tensor)
+        return (_ident, (metadata,))
+
+
+class OMFxGraphHashDetails(FxGraphHashDetails):
     """
-    This class includes information to hash a GraphModule so that we don't need
-    to recompile the graph again.
+    Object to capture all the details relevant to computing a safe and stable cache key.
     Information includes:
         - A GraphModule: a symbolic representation of the model,
         - Compilation options for onnx-mlir
@@ -123,9 +143,9 @@ class OMFxGraphHashDetails:
 
 
 def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
-    pickler = FxGraphCachePickler(gm)
+    pickler = OMFxGraphCachePickler(gm)
     details = OMFxGraphHashDetails(gm, compile_options)
-    return pickler.get_hash(details)
+    return "_om_" + pickler.get_hash(details)
 
 
 class ONNXMLIRTorch:
@@ -141,7 +161,9 @@ class ONNXMLIRTorch:
         # Generate an unique key from the graph module.
         start = time.time()
         self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-        logger.info(f"generate_hash_key took {time.time() - start} seconds")
+        logger.info(
+            f"Creating a cache key took {time.time() - start} seconds: {self.cache_key}"
+        )
 
         # Check whether there is any cached compiled model.
         self.cached_session = global_session_cache.get(self.cache_key)
@@ -156,9 +178,9 @@ class ONNXMLIRTorch:
             # Cache the rewritten graph module.
             start = time.time()
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-            logger.info(f"generate_hash_key took {time.time() - start} seconds")
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Cache key: {self.cache_key}")
+            logger.info(
+                f"Creating a cache key took {time.time() - start} seconds: {self.cache_key}"
+            )
         else:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
 
