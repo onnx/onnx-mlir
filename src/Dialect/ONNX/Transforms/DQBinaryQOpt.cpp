@@ -233,62 +233,89 @@ static void updateInitializer(mlir::PatternRewriter &rewriter,
   }
 }
 
-static LogicalResult tryRemoveQThenDQChain(
-    mlir::PatternRewriter &rewriter, mlir::ONNXDequantizeLinearOp dqOp) {
+// Returns success() iff Q->DQ is *removable* under strict checks.
+// If doRewrite==true, it also *applies* the rewrite for this DQ (replaces DQ
+// with Q.x).
+static mlir::LogicalResult tryRemoveQThenDQChain(
+    mlir::PatternRewriter &rewriter, mlir::ONNXDequantizeLinearOp dqOp,
+    bool doRewrite) {
   using namespace mlir;
 
-  // Match Q -> DQ
+  // Match direct Q -> DQ
   auto qOp = dqOp.getX().template getDefiningOp<ONNXQuantizeLinearOp>();
-  if (!qOp) {
+  if (!qOp)
     return failure();
-  }
 
   // 1) Axis / block_size must match
-  if (qOp.getAxis() != dqOp.getAxis()) {
+  if (qOp.getAxis() != dqOp.getAxis())
     return failure();
-  }
-  if (qOp.getBlockSize() != dqOp.getBlockSize()) {
+  if (qOp.getBlockSize() != dqOp.getBlockSize())
     return failure();
-  }
 
   // 2) Zero-points must match scalars/splats
   auto zpQ = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
   auto zpDQ = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
-  if (!zpQ || !zpDQ || zpQ != zpDQ) {
+  if (!zpQ || !zpDQ || zpQ != zpDQ)
     return failure();
-  }
 
   // 3) Scales must match scalars/splats
   auto sQ = getElementAttributeFromONNXValue(qOp.getYScale());
   auto sDQ = getElementAttributeFromONNXValue(dqOp.getXScale());
-  if (!sQ || !sDQ || sQ != sDQ) {
+  if (!sQ || !sDQ || sQ != sDQ)
     return failure();
-  }
 
-  // 4) Data type consistency: input of Q and output of DQ must have same elem
-  // type.
+  // 4) Element type parity between Q.x and DQ.y
   auto qInTypeOp = qOp.getX().getType();
   auto dqOutTypeOp = dqOp.getResult().getType();
-
-  if (auto qInTensorType = qInTypeOp.dyn_cast<TensorType>()) {
-    if (auto dqOutTensorType = dqOutTypeOp.dyn_cast<TensorType>()) {
-      if (dqOutTensorType.getElementType() != qInTensorType.getElementType()) {
-        return failure();
-      }
-    } else {
-      return failure();
-    }
-  } else {
+  auto qInT = qInTypeOp.dyn_cast<TensorType>();
+  auto dqOutT = dqOutTypeOp.dyn_cast<TensorType>();
+  if (!qInT || !dqOutT)
     return failure();
+  if (dqOutT.getElementType() != qInT.getElementType())
+    return failure();
+
+  // If only checking removability, stop here.
+  if (!doRewrite)
+    return success();
+
+  // Rewrite: replace DQ with Q's float input.
+  rewriter.replaceOp(dqOp, qOp.getX());
+  return success();
+}
+
+// If doRewrite=false: returns true iff *any* removable DQ user exists (no
+// mutation). If doRewrite=true : performs removals and returns true iff it
+// removed at least one DQ. Also erases Q if it becomes dead after removals.
+static bool Remove_Q_Plus_DQ(
+    mlir::PatternRewriter &rewriter, ONNXQuantizeLinearOp qOp, bool doRewrite) {
+  using namespace mlir;
+  if (!qOp)
+    return false;
+
+  int removableCount = 0;
+  int removedCount = 0;
+
+  // Safe iteration while potentially mutating (when doRewrite==true)
+  auto users = llvm::make_early_inc_range(qOp.getY().getUsers());
+  for (Operation *user : users) {
+    if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
+      if (succeeded(
+              tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ false))) {
+        ++removableCount;
+        if (doRewrite) {
+          if (succeeded(
+                  tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ true)))
+            ++removedCount;
+        }
+      }
+    }
   }
 
-  // Replace DQ with Q's float input; erase Q if it becomes dead.
-  rewriter.replaceOp(dqOp, qOp.getX());
-  if (qOp->use_empty()) {
+  if (doRewrite && qOp->use_empty()) {
     rewriter.eraseOp(qOp);
   }
 
-  return success();
+  return doRewrite ? (removedCount > 0) : (removableCount > 0);
 }
 
 static bool isValuePreservingOp(mlir::Operation *op) {
@@ -304,14 +331,25 @@ struct FoldBinaryThroughQDQ : public OpRewritePattern<BinOp> {
 
 private:
   struct MatchState {
-    ONNXDequantizeLinearOp dequantActivationOp = nullptr;
-    double kValue = 0.0;      // Dequantized value of the constant node
-    double dstScale = 0.0;    // Destination node's scale
-    int64_t dstZeroPoint = 0; // Destination node's zero-point
-    double newScale =
-        0.0; // New scale of the destination node after constant folding
-    int64_t newZp =
-        0; // New zero-point of the estination node after constant folding
+    ONNXDequantizeLinearOp dequantActivationOfBinOp =
+        nullptr;                                       // BinaryOP parent op
+    ONNXQuantizeLinearOp quantOutputOfBinOp = nullptr; // BinaryOp child op
+
+    // Destination/source ops picked by find_destination_node()
+    mlir::Operation *dstNode =
+        nullptr; // DQ when folding into DQ, or Q when folding into Q
+    mlir::Operation *srcNode = nullptr;
+
+    // Current destination params (read before fold)
+    double dstScale = 0.0;
+    int64_t dstZeroPoint = 0;
+
+    // New params to write after fold
+    double newScale = 0.0;
+    int64_t newZp = 0;
+
+    // Constant value folded
+    double kValue = 0.0;
   };
 
   LogicalResult match_qdq(mlir::PatternRewriter &rewriter, MatchState &state,
@@ -323,36 +361,39 @@ private:
     // Case 1: Direct ConstantOp as input to the DQ.
     if (auto constOp = dq1.getX().getDefiningOp<ONNXConstantOp>()) {
       constantDqOp = dq1;
-      state.dequantActivationOp = dq2;
+      state.dequantActivationOfBinOp = dq2;
       constantSourceOp = constOp;
     } else if (auto constOp = dq2.getX().getDefiningOp<ONNXConstantOp>()) {
       constantDqOp = dq2;
-      state.dequantActivationOp = dq1;
+      state.dequantActivationOfBinOp = dq1;
       constantSourceOp = constOp;
     }
     // Case 2: The input to the DQ op comes from a chain whose input is a
     // constant.
-    else if (auto intermediateOp = dq1.getX().getDefiningOp()) {
-      if (isValuePreservingOp(intermediateOp)) {
-        if (auto constOp =
-                intermediateOp->getOperand(0).getDefiningOp<ONNXConstantOp>()) {
-          constantDqOp = dq1;
-          state.dequantActivationOp = dq2;
-          constantSourceOp = constOp;
+    else {
+      if (auto intermediateOp = dq1.getX().getDefiningOp()) {
+        if (isValuePreservingOp(intermediateOp)) {
+          if (auto constOp = intermediateOp->getOperand(0)
+                  .getDefiningOp<ONNXConstantOp>()) {
+            constantDqOp = dq1;
+            state.dequantActivationOfBinOp = dq2;
+            constantSourceOp = constOp;
+          }
         }
       }
-    } else if (auto intermediateOp = dq2.getX().getDefiningOp()) {
-      if (isValuePreservingOp(intermediateOp)) {
-        if (auto constOp =
-                intermediateOp->getOperand(0).getDefiningOp<ONNXConstantOp>()) {
-          constantDqOp = dq2;
-          state.dequantActivationOp = dq1;
-          constantSourceOp = constOp;
+      if (auto intermediateOp = dq2.getX().getDefiningOp()) {
+        if (isValuePreservingOp(intermediateOp)) {
+          if (auto constOp = intermediateOp->getOperand(0)
+                  .getDefiningOp<ONNXConstantOp>()) {
+            constantDqOp = dq2;
+            state.dequantActivationOfBinOp = dq1;
+            constantSourceOp = constOp;
+          }
         }
       }
     }
 
-    if (!constantDqOp || !constantSourceOp || !state.dequantActivationOp) {
+    if (!constantDqOp || !constantSourceOp || !state.dequantActivationOfBinOp) {
       return failure();
     }
 
@@ -383,24 +424,32 @@ private:
 
     Value lhs = binaryOp.getOperand(0);
     Value rhs = binaryOp.getOperand(1);
+    Value out = binaryOp->getResult(0);
+    state.quantOutputOfBinOp =
+        dyn_cast<ONNXQuantizeLinearOp>(*out.getUsers().begin());
+    // auto qOut = getUniqueQuantUserOrNull(binaryOp->getResult(0));
+    // if (!qOut)
+    //   return rewriter.notifyMatchFailure(binaryOp,
+    //       "binary result must have exactly one ONNXQuantizeLinearOp user");
+    // state.quantOutputOfBinOp = qOut;
 
     // -------- Case A: lhs is DQ, rhs is Constant --------
     if (auto dqOp = lhs.getDefiningOp<ONNXDequantizeLinearOp>()) {
       if (auto constOp = rhs.getDefiningOp<ONNXConstantOp>()) {
-        state.dequantActivationOp = dqOp;
+        state.dequantActivationOfBinOp = dqOp;
         constantOp = constOp;
       }
     }
     // -------- Case A reversed --------
     else if (auto dqOp = rhs.getDefiningOp<ONNXDequantizeLinearOp>()) {
       if (auto constOp = lhs.getDefiningOp<ONNXConstantOp>()) {
-        state.dequantActivationOp = dqOp;
+        state.dequantActivationOfBinOp = dqOp;
         constantOp = constOp;
       }
     }
 
     // -------- Fill state values for Case A and Case A reversed --------
-    if (state.dequantActivationOp && constantOp) {
+    if (state.dequantActivationOfBinOp && constantOp) {
       auto kValueOpt = getScalarTensorValue<double>(constantOp);
       if (!kValueOpt) {
         return rewriter.notifyMatchFailure(
@@ -420,7 +469,7 @@ private:
     return failure();
   }
 
-  LogicalResult check_needed_values(mlir::PatternRewriter &rewriter,
+  /*LogicalResult check_needed_values(mlir::PatternRewriter &rewriter,
       const MatchState &state, Operation *binaryOp) const {
     if (state.kValue == 0.0) {
       if (isa<ONNXDivOp>(binaryOp)) {
@@ -438,21 +487,66 @@ private:
       }
     }
     return success();
+  }*/
+
+  LogicalResult check_needed_values(mlir::PatternRewriter &rewriter,
+      const MatchState &state, Operation *binaryOp) const {
+    const bool dstIsDQ = llvm::isa<ONNXDequantizeLinearOp>(state.dstNode);
+    const bool dstIsQ = llvm::isa<ONNXQuantizeLinearOp>(state.dstNode);
+
+    // scale_new = scale / k  (for Div when folding into DQ)  OR  scale_new =
+    // scale / k (for Mul when folding into Q) Avoid division by zero when k ==
+    // 0 in those cases.
+    if (state.kValue == 0.0) {
+      if (dstIsDQ && llvm::isa<ONNXDivOp>(binaryOp)) {
+        return rewriter.notifyMatchFailure(binaryOp,
+            "when opType is Div, remove binary op only if k_value is not zero, "
+            "to avoid ZeroDivisionError");
+      }
+      else if (dstIsQ && llvm::isa<ONNXMulOp>(binaryOp)) {
+        return rewriter.notifyMatchFailure(binaryOp,
+            "when opType is Mul, remove binary op only if k_value is not zero, "
+            "to avoid ZeroDivisionError");
+      }
+    }
+
+    // k/scale is used for Add/Sub to update zero_point.
+    // Avoid division by zero when dstScale == 0.
+    if (state.dstScale == 0.0 && (llvm::isa<ONNXAddOp, ONNXSubOp>(binaryOp))) {
+      return rewriter.notifyMatchFailure(binaryOp,
+          "when opType is Add or Sub, remove binary op only if scale is not "
+          "zero, to avoid ZeroDivisionError");
+    }
+
+    return mlir::success();
   }
 
   static bool compute_new_scale_and_zp_values(MatchState &state) {
     double newScale = state.dstScale;
     double newZpFloat = static_cast<double>(state.dstZeroPoint);
     const double kVal = state.kValue;
+    const bool dstIsDQ = llvm::isa<ONNXDequantizeLinearOp>(state.dstNode);
 
     if constexpr (std::is_same_v<BinOp, ONNXAddOp>) {
-      newZpFloat -= (kVal / newScale);
+      if (dstIsDQ)
+        newZpFloat -= (kVal / newScale);
+      else
+        newZpFloat += (kVal / newScale);
     } else if constexpr (std::is_same_v<BinOp, ONNXSubOp>) {
-      newZpFloat += (kVal / newScale);
+      if (dstIsDQ)
+        newZpFloat += (kVal / newScale);
+      else
+        newZpFloat -= (kVal / newScale);
     } else if constexpr (std::is_same_v<BinOp, ONNXMulOp>) {
-      newScale *= kVal;
+      if (dstIsDQ)
+        newScale *= kVal;
+      else
+        newScale /= kVal;
     } else if constexpr (std::is_same_v<BinOp, ONNXDivOp>) {
-      newScale /= kVal;
+      if (dstIsDQ)
+        newScale /= kVal;
+      else
+        newScale *= kVal;
     } else {
       static_assert(std::is_same_v<BinOp, ONNXAddOp> ||
                         std::is_same_v<BinOp, ONNXSubOp> ||
@@ -470,6 +564,79 @@ private:
     return true;
   }
 
+  static ONNXQuantizeLinearOp getSingleQuantizeUser(Value v) {
+    ONNXQuantizeLinearOp q = nullptr;
+    for (Operation *u : v.getUsers()) {
+      if (auto cand = dyn_cast<ONNXQuantizeLinearOp>(u)) {
+        if (q)
+          return nullptr; // more than one Quantize user
+        q = cand;
+      }
+    }
+    return q;
+  }
+
+  LogicalResult findDestinationNode(
+      mlir::PatternRewriter &rewriter, MatchState &state, Operation *op) const {
+    auto dq = state.dequantActivationOfBinOp;
+    if (!dq)
+      return rewriter.notifyMatchFailure(
+          op, "dequantActivationOfBinOp not set in MatchState");
+
+    // Producer Quantize of DQ.x (may be null if DQ consumes a block arg or
+    // non-Q)
+    auto q = dq.getX().template getDefiningOp<ONNXQuantizeLinearOp>();
+
+    // Non-mutating probe: removable only if Q exists and matches
+    bool removableQDQ = false;
+    if (q)
+      removableQDQ = Remove_Q_Plus_DQ(rewriter, q, /*doRewrite=*/false);
+
+    // Branch detection on distinct users
+    auto hasBranchOnValue = [](mlir::Value v) {
+      llvm::SmallPtrSet<mlir::Operation *, 8> uniq;
+      for (auto *u : v.getUsers())
+        uniq.insert(u);
+      return uniq.size() > 1;
+    };
+    const bool branch_after = hasBranchOnValue(dq.getY());
+    const bool branch_before = q ? hasBranchOnValue(q.getY()) : false;
+    const bool branch_on_dequant_activation = branch_after || branch_before;
+
+    // If we cannot remove Q->DQ (or there is branching), fold into DQ
+    if (!removableQDQ || branch_on_dequant_activation) {
+      state.dstNode = dq.getOperation();                       // DQ
+      state.srcNode = state.quantOutputOfBinOp.getOperation(); // Q after binop
+
+      auto scaleOpt = getScalarTensorValueFromVal<double>(dq.getXScale());
+      auto zpOpt = getScalarTensorValueFromVal<int64_t>(dq.getXZeroPoint());
+      if (!scaleOpt || !zpOpt)
+        return rewriter.notifyMatchFailure(
+            dq, "DQ x_scale/x_zero_point must be scalar");
+      state.dstScale = *scaleOpt;
+      state.dstZeroPoint = *zpOpt;
+      return success();
+    }
+
+    // Else: fold into the Quantize after the binop
+    auto qOut = state.quantOutputOfBinOp;
+    if (!qOut)
+      return rewriter.notifyMatchFailure(
+          op, "expected a unique Quantize user of the binary result");
+
+    state.dstNode = qOut.getOperation();                           // Q
+    state.srcNode = state.dequantActivationOfBinOp.getOperation(); // DQ
+
+    auto scaleOpt = getScalarTensorValueFromVal<double>(qOut.getYScale());
+    auto zpOpt = getScalarTensorValueFromVal<int64_t>(qOut.getYZeroPoint());
+    if (!scaleOpt || !zpOpt)
+      return rewriter.notifyMatchFailure(
+          qOut, "Quantize y_scale/y_zero_point must be scalar");
+    state.dstScale = *scaleOpt;
+    state.dstZeroPoint = *zpOpt;
+    return success();
+  }
+
 public:
   LogicalResult matchAndRewrite(
       BinOp op, PatternRewriter &rewriter) const override {
@@ -478,8 +645,8 @@ public:
     if (!op->hasOneUse()) {
       return rewriter.notifyMatchFailure(op, "pattern requires a single user");
     }
-    auto quantOutputOp = dyn_cast<ONNXQuantizeLinearOp>(*op->user_begin());
-    if (!quantOutputOp) {
+    auto quantOutputOfBinOp = dyn_cast<ONNXQuantizeLinearOp>(*op->user_begin());
+    if (!quantOutputOfBinOp) {
       return rewriter.notifyMatchFailure(
           op, "expected user to be an ONNXQuantizeLinearOp");
     }
@@ -495,56 +662,83 @@ public:
           "has const scalar value ");
     }
 
-    // Store the value of the scale and zero point of the destination node
-    {
-      Value scaleVal = state.dequantActivationOp.getXScale();
-      Value zpVal = state.dequantActivationOp.getXZeroPoint();
-      auto scale_value_opt = getScalarTensorValueFromVal<double>(scaleVal);
-      auto zp_value_opt = getScalarTensorValueFromVal<int64_t>(zpVal);
-      if (!scale_value_opt || !zp_value_opt) {
-        return rewriter.notifyMatchFailure(state.dequantActivationOp,
-            " must be a scalar value or a list of same value");
-      }
-      state.dstScale = scale_value_opt.value();
-      state.dstZeroPoint = zp_value_opt.value();
+    // STEP 3
+    if (failed(findDestinationNode(rewriter, state, op))) {
+      return failure();
     }
 
-    // STEP 3
+    // STEP 4
     if (failed(check_needed_values(rewriter, state, op))) {
       return failure();
     }
 
-    // STEP 4 -Modify
+    // STEP 5 -Modify
     if (!compute_new_scale_and_zp_values(state)) {
       return failure();
     }
 
-    // STEP 5: call initializer based on the binary op
-    ONNXDequantizeLinearOp dqAct = state.dequantActivationOp;
-    if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
-                  std::is_same_v<BinOp, ONNXSubOp>) {
-      Value zpVal = dqAct.getXZeroPoint();
-      updateInitializer(rewriter, dqAct.getOperation(), zpVal,
-          static_cast<double>(state.newZp));
+    // STEP 6: call initializer based on the binary op
+    {
+      auto *dst = state.dstNode;
+      if (!dst)
+        return rewriter.notifyMatchFailure(op, "dstNode not set");
 
-    } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
-                         std::is_same_v<BinOp, ONNXDivOp>) {
-      Value scaleVal = dqAct.getXScale();
-      updateInitializer(
-          rewriter, dqAct.getOperation(), scaleVal, state.newScale);
+      if (auto dqDst = llvm::dyn_cast<ONNXDequantizeLinearOp>(dst)) {
+        if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
+                      std::is_same_v<BinOp, ONNXSubOp>) {
+          // Update zero-point at DQ.x
+          Value xZp = dqDst.getXZeroPoint();
+          updateInitializer(rewriter, dqDst.getOperation(), xZp,
+              static_cast<double>(state.newZp));
+        } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
+                             std::is_same_v<BinOp, ONNXDivOp>) {
+          // Update scale at DQ.x
+          Value xScale = dqDst.getXScale();
+          updateInitializer(
+              rewriter, dqDst.getOperation(), xScale, state.newScale);
+        }
+      } else if (auto qDst = llvm::dyn_cast<ONNXQuantizeLinearOp>(dst)) {
+        if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
+                      std::is_same_v<BinOp, ONNXSubOp>) {
+          // Update zero-point at Q.y
+          Value yZp = qDst.getYZeroPoint();
+          updateInitializer(rewriter, qDst.getOperation(), yZp,
+              static_cast<double>(state.newZp));
+        } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
+                             std::is_same_v<BinOp, ONNXDivOp>) {
+          // Update scale at Q.y
+          Value yScale = qDst.getYScale();
+          updateInitializer(
+              rewriter, qDst.getOperation(), yScale, state.newScale);
+        }
+      } else {
+        return rewriter.notifyMatchFailure(
+            op, "dstNode is neither Dequantize nor Quantize");
+      }
     }
 
     // STEP 6: Remove binary op
-    rewriter.replaceOp(op, dqAct.getResult());
+    rewriter.replaceOp(op, state.dequantActivationOfBinOp.getResult());
 
     // STEP 7: Remove Q->DQ chain
+    ONNXQuantizeLinearOp chainStartQ = nullptr;
 
-    // prevent iterating and removing elements
-    auto users = llvm::make_early_inc_range(quantOutputOp.getY().getUsers());
-    for (Operation *user : users) {
-      if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
-        (void)tryRemoveQThenDQChain(rewriter, tailDQ);
+    if (llvm::isa<ONNXDequantizeLinearOp>(state.dstNode)) {
+      // Folding happened in the Dequantize: chain start is the Quantize after
+      // the BinOp
+      chainStartQ = state.quantOutputOfBinOp; // set earlier during match
+    } else if (llvm::isa<ONNXQuantizeLinearOp>(state.dstNode)) {
+      // Folding happened in the Quantize: chain start is the Quantize feeding
+      // DQ.x
+      if (auto dqAct = state.dequantActivationOfBinOp) {
+        chainStartQ =
+            dqAct.getX().template getDefiningOp<ONNXQuantizeLinearOp>();
       }
+    }
+
+    // Run the cleanup if we found a Quantize
+    if (chainStartQ) {
+      (void)Remove_Q_Plus_DQ(rewriter, chainStartQ, /*doRewrite=*/true);
     }
 
     return success();
