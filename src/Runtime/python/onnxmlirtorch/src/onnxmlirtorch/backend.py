@@ -235,11 +235,7 @@ class ONNXMLIRTorch:
             sess = self.cached_session.sess
 
         # onnx_mlir accepts numpy arrays as inputs and outputs.
-        om_inputs = [
-            arg.contiguous().numpy()
-            for arg in example_inputs
-            if isinstance(arg, torch.Tensor)
-        ]
+        om_inputs = [arg.contiguous().numpy() for arg in example_inputs]
         # Run the inference.
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
