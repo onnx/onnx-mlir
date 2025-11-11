@@ -4568,3 +4568,11 @@ func.func @test_bfp_quant_dequant(%arg0: tensor<16x32xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:  func.func @test_bfp_quant_dequant
 // CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
 // CHECK-SAME:       (tensor<16x32xf32>) -> tensor<16x32xf32>
+
+func.func @test_bfp_quant_dequant_bf16(%arg0: tensor<16x32xbf16>) -> tensor<*xbf16> {
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0)  : (tensor<16x32xbf16>) -> tensor<*xbf16>
+  return %0 : tensor<*xbf16>
+}
+// CHECK-LABEL:  func.func @test_bfp_quant_dequant_bf16
+// CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
+// CHECK-SAME:       (tensor<16x32xbf16>) -> tensor<16x32xbf16>
