@@ -60,6 +60,9 @@ mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val);
 mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
     mlir::Value tensor, size_t axis, size_t rank);
 
+mlir::Value createMulShiftConst(
+    mlir::PatternRewriter &rewriter, mlir::Location loc, int32_t shift);
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>

@@ -21,8 +21,8 @@ func.func @test_batchnorm_f32(%arg0: tensor<100x3x10x10xf32>) -> tensor<100x3x10
 // CHECK-DAG:       [[VAR_9_:%.+]] = tosa.sub [[PARAM_0_]], [[VAR_4_]] : (tensor<100x3x10x10xf32>, tensor<1x3x1x1xf32>) -> tensor<100x3x10x10xf32>
 // CHECK:           [[VAR_10_:%.+]] = tosa.add [[VAR_7_]], [[VAR_8_]] : (tensor<1x3x1x1xf32>, tensor<1x1x1x1xf32>) -> tensor<1x3x1x1xf32>
 // CHECK:           [[VAR_11_:%.+]] = tosa.rsqrt [[VAR_10_]] : (tensor<1x3x1x1xf32>) -> tensor<1x3x1x1xf32>
-// CHECK:           [[VAR_12_:%.+]] = tosa.mul [[VAR_9_]], [[VAR_11_]] {shift = 0 : i8} : (tensor<100x3x10x10xf32>, tensor<1x3x1x1xf32>) -> tensor<100x3x10x10xf32>
-// CHECK:           [[VAR_13_:%.+]] = tosa.mul [[VAR_12_]], [[VAR_5_]] {shift = 0 : i8} : (tensor<100x3x10x10xf32>, tensor<1x3x1x1xf32>) -> tensor<100x3x10x10xf32>
+// CHECK:           [[VAR_12_:%.+]] = tosa.mul [[VAR_9_]], [[VAR_11_]] : (tensor<100x3x10x10xf32>, tensor<1x3x1x1xf32>) -> tensor<100x3x10x10xf32>
+// CHECK:           [[VAR_13_:%.+]] = tosa.mul [[VAR_12_]], [[VAR_5_]] : (tensor<100x3x10x10xf32>, tensor<1x3x1x1xf32>) -> tensor<100x3x10x10xf32>
 // CHECK:           [[VAR_14_:%.+]] = tosa.add [[VAR_13_]], [[VAR_6_]] : (tensor<100x3x10x10xf32>, tensor<1x3x1x1xf32>) -> tensor<100x3x10x10xf32>
 // CHECK:           return [[VAR_14_]] : tensor<100x3x10x10xf32>
 }
@@ -49,8 +49,8 @@ func.func @test_batchnorm_f16_dynamic(%arg0: tensor<100x3x?x?xf16>) -> tensor<*x
 // CHECK:           [[VAR_9_:%.+]] = tosa.sub [[PARAM_0_]], [[VAR_4_]] : (tensor<100x3x?x?xf16>, tensor<1x3x1x1xf16>) -> tensor<100x3x?x?xf16>
 // CHECK:           [[VAR_10_:%.+]] = tosa.add [[VAR_7_]], [[VAR_8_]] : (tensor<1x3x1x1xf16>, tensor<1x1x1x1xf16>) -> tensor<1x3x1x1xf16>
 // CHECK:           [[VAR_11_:%.+]] = tosa.rsqrt [[VAR_10_]] : (tensor<1x3x1x1xf16>) -> tensor<1x3x1x1xf16>
-// CHECK:           [[VAR_12_:%.+]] = tosa.mul [[VAR_9_]], [[VAR_11_]] {shift = 0 : i8} : (tensor<100x3x?x?xf16>, tensor<1x3x1x1xf16>) -> tensor<100x3x?x?xf16>
-// CHECK:           [[VAR_13_:%.+]] = tosa.mul [[VAR_12_]], [[VAR_5_]] {shift = 0 : i8} : (tensor<100x3x?x?xf16>, tensor<1x3x1x1xf16>) -> tensor<100x3x?x?xf16>
+// CHECK:           [[VAR_12_:%.+]] = tosa.mul [[VAR_9_]], [[VAR_11_]] : (tensor<100x3x?x?xf16>, tensor<1x3x1x1xf16>) -> tensor<100x3x?x?xf16>
+// CHECK:           [[VAR_13_:%.+]] = tosa.mul [[VAR_12_]], [[VAR_5_]] : (tensor<100x3x?x?xf16>, tensor<1x3x1x1xf16>) -> tensor<100x3x?x?xf16>
 // CHECK:           [[VAR_14_:%.+]] = tosa.add [[VAR_13_]], [[VAR_6_]] : (tensor<100x3x?x?xf16>, tensor<1x3x1x1xf16>) -> tensor<100x3x?x?xf16>
 // CHECK:           return [[VAR_14_]] : tensor<100x3x?x?xf16>
 }
@@ -78,8 +78,8 @@ func.func @test_batchnorm_bf16_dynamic(%arg0: tensor<100x3x?x?xbf16>) -> tensor<
 // CHECK:           [[VAR_9_:%.+]] = tosa.sub [[PARAM_0_]], [[VAR_4_]] : (tensor<100x3x?x?xbf16>, tensor<1x3x1x1xbf16>) -> tensor<100x3x?x?xbf16>
 // CHECK:           [[VAR_10_:%.+]] = tosa.add [[VAR_7_]], [[VAR_8_]] : (tensor<1x3x1x1xbf16>, tensor<1x1x1x1xbf16>) -> tensor<1x3x1x1xbf16>
 // CHECK:           [[VAR_11_:%.+]] = tosa.rsqrt [[VAR_10_]] : (tensor<1x3x1x1xbf16>) -> tensor<1x3x1x1xbf16>
-// CHECK:           [[VAR_12_:%.+]] = tosa.mul [[VAR_9_]], [[VAR_11_]] {shift = 0 : i8} : (tensor<100x3x?x?xbf16>, tensor<1x3x1x1xbf16>) -> tensor<100x3x?x?xbf16>
-// CHECK:           [[VAR_13_:%.+]] = tosa.mul [[VAR_12_]], [[VAR_5_]] {shift = 0 : i8} : (tensor<100x3x?x?xbf16>, tensor<1x3x1x1xbf16>) -> tensor<100x3x?x?xbf16>
+// CHECK:           [[VAR_12_:%.+]] = tosa.mul [[VAR_9_]], [[VAR_11_]] : (tensor<100x3x?x?xbf16>, tensor<1x3x1x1xbf16>) -> tensor<100x3x?x?xbf16>
+// CHECK:           [[VAR_13_:%.+]] = tosa.mul [[VAR_12_]], [[VAR_5_]] : (tensor<100x3x?x?xbf16>, tensor<1x3x1x1xbf16>) -> tensor<100x3x?x?xbf16>
 // CHECK:           [[VAR_14_:%.+]] = tosa.add [[VAR_13_]], [[VAR_6_]] : (tensor<100x3x?x?xbf16>, tensor<1x3x1x1xbf16>) -> tensor<100x3x?x?xbf16>
 // CHECK:           return [[VAR_14_]] : tensor<100x3x?x?xbf16>
 }
@@ -107,8 +107,8 @@ func.func @test_batchnorm_f64(%arg0: tensor<100x3x10x10xf64>) -> tensor<100x3x10
 // CHECK-NEXT: [[VAR_9_:%.+]]  = tosa.sub %arg0, [[VAR_4_]] : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
 // CHECK-NEXT: [[VAR_10_:%.+]]  = tosa.add %7, [[VAR_8_]] : (tensor<1x3x1x1xf64>, tensor<1x1x1x1xf64>) -> tensor<1x3x1x1xf64>
 // CHECK-NEXT: [[VAR_11_:%.+]]  = tosa.rsqrt [[VAR_10_]] : (tensor<1x3x1x1xf64>) -> tensor<1x3x1x1xf64>
-// CHECK-NEXT: [[VAR_12_:%.+]]  = tosa.mul [[VAR_9_]], %11 {shift = 0 : i8} : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
-// CHECK-NEXT: [[VAR_13_:%.+]]  = tosa.mul [[VAR_12_]], %5 {shift = 0 : i8} : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
+// CHECK-NEXT: [[VAR_12_:%.+]]  = tosa.mul [[VAR_9_]], %11 : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
+// CHECK-NEXT: [[VAR_13_:%.+]]  = tosa.mul [[VAR_12_]], %5 : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
 // CHECK-NEXT: [[VAR_14_:%.+]]  = tosa.add [[VAR_13_]], [[VAR_6_]] : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
 // CHECK-NEXT: return [[VAR_14_]] : tensor<100x3x10x10xf64>
 }

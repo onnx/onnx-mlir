@@ -211,14 +211,22 @@ Value TosaBuilder::mul(Value &lhs, Value &rhs, int32_t shift) {
     rhs = valueVec[1];
   }
   auto lhsType = mlir::cast<ShapedType>(lhs.getType());
+  auto elementType = lhsType.getElementType();
   Type newValueType =
       (!lhsType.hasRank())
           ? lhsType
           : RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
                                       lhsType.getRank(), ShapedType::kDynamic),
-                lhsType.getElementType());
+                elementType);
+
+  if (isa<IntegerType>(elementType)) {
+    Value shiftConst = tosa::createMulShiftConst(rewriter(), loc(), shift);
+    return tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
+        rewriter(), loc(), newValueType, lhs, rhs, shiftConst);
+  }
+
   return tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-      rewriter(), loc(), newValueType, lhs, rhs, shift);
+      rewriter(), loc(), newValueType, lhs, rhs, Value());
 }
 
 Value TosaBuilder::intdiv(Value &lhs, Value &rhs) {

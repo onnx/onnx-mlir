@@ -14,7 +14,7 @@ func.func @test_dequantizeLinear(%arg0 : tensor<32x3x224x224xi8>) -> tensor<32x3
 // CHECK-DAG:    %[[CAST_0:.*]] = tosa.cast %[[ARG_0]] : (tensor<32x3x224x224xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CASTZP:.*]] = tosa.cast %[[ZP]] : (tensor<1x1x1x1xi8>) -> tensor<1x1x1x1xf32>
 // CHECK-DAG:    %[[SUB:.*]] = tosa.sub %[[CAST_0]], %[[CASTZP]] : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
-// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[SCALE]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[SCALE]] : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    return %[[MUL]] : tensor<32x3x224x224xf32>
 
 // -----
@@ -34,7 +34,7 @@ func.func @test_dequantizeLinear_f16(%arg0 : tensor<32x3x224x224xi8>) -> tensor<
 // CHECK-DAG:    %[[CASTZP:.*]] = tosa.cast %[[ZP]] : (tensor<1x1x1x1xi8>) -> tensor<1x1x1x1xf32>
 // CHECK-DAG:    %[[SUB:.*]] = tosa.sub %[[CAST_0]], %[[CASTZP]] : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CASTSCALE:.*]] = tosa.cast %[[SCALE]] : (tensor<1x1x1x1xf16>) -> tensor<1x1x1x1xf32>
-// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[CASTSCALE]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[CASTSCALE]] : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CAST:.*]] = tosa.cast %[[MUL]] : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xf16>
 // CHECK-DAG:    return %[[CAST]] : tensor<32x3x224x224xf16>
 
@@ -77,7 +77,7 @@ func.func @no_zeropoint(%arg0: tensor<5xi8>, %arg1: tensor<f32>) -> tensor<5xf32
 // CHECK-SAME:                            %[[VAL_1:.*]]: tensor<f32>) -> tensor<5xf32> {
 // CHECK:           %[[VAL_2:.*]] = tosa.cast %[[VAL_0]] : (tensor<5xi8>) -> tensor<5xf32>
 // CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
 // CHECK:           return %[[VAL_4]] : tensor<5xf32>
 
 // -----
@@ -93,7 +93,7 @@ func.func @f8E4M3FN(%arg0: tensor<5xf8E4M3FN>, %arg1: tensor<f32>) -> tensor<5xf
 // CHECK-SAME:                        %[[VAL_1:.*]]: tensor<f32>) -> tensor<5xf32> {
 // CHECK:           %[[VAL_2:.*]] = tosa.cast %[[VAL_0]] : (tensor<5xf8E4M3FN>) -> tensor<5xf32>
 // CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
 // CHECK:           return %[[VAL_4]] : tensor<5xf32>
 
 // -----
