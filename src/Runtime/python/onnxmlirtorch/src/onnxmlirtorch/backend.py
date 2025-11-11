@@ -6,6 +6,7 @@ import inspect
 import logging
 import types
 import functools
+
 import numpy as np
 import torch
 from torch._inductor.codecache import (
@@ -22,62 +23,39 @@ from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
 
 """
-This file provides the utility to run inference of a torch model with onnx-mlir
-compiler. There are two ways:
+This file provides an onnx-mlir compiler backend for torch.compile().
+To use the backend, simply pass onnxmlir_backend to torch.compile(), for example,
+torch.compile(model, backend=onnxmlir_backend, ...)
 
-1. Add a wrapper to a torch model so that the onnx export, compile with 
-onnx-mlir and run will happen automatically at inference of the model
+Below is one example of running a bert model using onnx-mlir backend.
+```python
+import torch
+from transformers import AutoModel, AutoTokenizer
+from onnxmlirtorch import onnxmlir_backend
 
-Example code:
- 
- # Assuem torch_model is the a torch model
- torch_model = ONNXLIRTorch(torch_model)
- results = torch_model(inputs) 
+model_path = "ibm-granite/granite-embedding-30m-english"
+model = AutoModel.from_pretrained(model_path)
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model.eval()
 
-If user prefers the torch.compile style, the code could be:
- opt_model = onnxmlirtorch.compile(torch_model)
- results = opt_model(inputs)
+om_options = {
+    "compiler_image_name": None,
+    "compile_options": "-O3 --useOnnxModelTypes=false",
+    "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+}
+with torch.no_grad():
+    compiled_model = torch.compile(
+        model,
+        backend=onnxmlir_backend,
+        options=om_options,
+    )
 
-The two format are identical in functionality.
 
-2. Provide a customized backend, onnxmlir_backend, to torch.compile()
-Example code:
- # Assuem torch_model is the a torch model
- opt_model = torch.compile(torch_model, backend=onnxmlirtorch.onnxmlir_backend)
- results = opt_model(inputs)
-
- You can provide options on how to compile the model to torch.compile.
-Example code:
- myoptions={'compile_options' : '-O3',}
- opt_model = torch.compile(torch_model,
-   backend = onnxmlirtorch.onnxmlir_backend,
-   options = myoptions)
- results = opt_model(inputs)
- 
-
-Code structure:
-Most of the functionality is implmented in class ONNXMLIRTorch. When an 
-inference is called, the forward() function will export to the torch model
-with the provided inputs to an onnx modeli (.onnx), compile the onnx model into
-a library (.so), and run inference with the generated library. 
-The ONNXMLIRTorch class also cache the existing session to reduce redundant
-operation for possible reuse.
-Components used by ONNXMLIRTorch:
- -- onnxmlirdocker: basic functionality of compile and run 
- -- SessionCache: cache for inteference session histroy
-
-Current implementation checks the history of inference with only the shape of
-the inputs, not the model itself. When torch.compile is used, the model from
-different inference  may become difference due to the optimization based on
-the inputs. Different ONNXMLIRTorch object will be created for each inference,
-and there is no reuse with cache among them.
+inputs = tokenizer("AI is fascinating", return_tensors="pt")
+with torch.no_grad():
+    outputs = compiled_model(**inputs)
+```
 """
-
-# Freeze the model so that parameters (weights and biases) in
-# the forward function's arguments become constants in GraphModule.
-# Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
-torch._dynamo.config.prepare_freezing = 1
-torch._dynamo.config.assume_static_by_default = False
 
 
 logger = logging.getLogger(__name__)
@@ -147,7 +125,7 @@ def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
     pickler = OMFxGraphCachePickler(gm)
     details = OMFxGraphHashDetails(gm, compile_options)
     key = "_om_" + pickler.get_hash(details)
-    logger.info(f"Creating a cache key took {time.time() - start} seconds: {key}")
+    logger.info(f"Creating a cache key took {(time.time() - start)*1000} ms: {key}")
     return key
 
 
@@ -242,7 +220,7 @@ class ONNXMLIRTorch:
             logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
         start = time.time()
         om_outputs = sess.run(om_inputs)
-        logger.info(f"sess.run took {time.time() - start} seconds")
+        logger.info(f"sess.run took {(time.time() - start)*1000} ms")
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_real_inputs(self, example_inputs):

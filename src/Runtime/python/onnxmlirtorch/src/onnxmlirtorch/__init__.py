@@ -1,2 +1,3 @@
-from .backend import ONNXMLIRTorch
-from .backend import *
+from .register import *
+
+__all__ = ['onnxmlir_backend']
