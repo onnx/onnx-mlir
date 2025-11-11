@@ -1,11 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### sessioncache.py *******###################################
+#
+# Copyright 2025 The IBM Research Authors.
+#
+################################################################################
+#
+# This file defines a SessionCache class used for caching onnx-mlir sessions.
+#
+################################################################################
+
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass
 class CacheValue:
-    tag: Any = None 
-    sess: Any = None 
+    tag: Any = None
+    sess: Any = None
     example_inputs_indices: Any = None
+
 
 class SessionCache:
     def __init__(self, capacity=3):

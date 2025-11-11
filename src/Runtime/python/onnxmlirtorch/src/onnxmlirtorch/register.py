@@ -1,3 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### register.py *******#######################################
+#
+# Copyright 2025 The IBM Research Authors.
+#
+################################################################################
+#
+# This file registers onnxmlir_backend with pytorch.
+#
+################################################################################
+
 import torch
 from torch._dynamo import register_backend
 from torch._dynamo.backends.registry import lookup_backend

@@ -1,3 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### backend.py *******########################################
+#
+# Copyright 2025 The IBM Research Authors.
+#
+################################################################################
+#
+# This file defines an onnx-mlir backend for torch.compile().
+#
+################################################################################
+
 import os
 import sys
 import tempfile
