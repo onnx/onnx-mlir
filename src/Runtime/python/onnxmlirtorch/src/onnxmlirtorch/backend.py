@@ -36,14 +36,17 @@ from .sessioncache import SessionCache, CacheValue
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
-To use the backend, simply pass onnxmlir_backend to torch.compile(), for example,
-torch.compile(model, backend=onnxmlir_backend, ...)
+
+The backend can be used by passing onnxmlir_backend to torch.compile():
+- torch.compile(model, backend=onnxmlir_backend, ...)
+or using "onnxmlir" as the backend name:
+- torch.compile(model, backend="onnxmlir", ...)
 
 Below is one example of running a bert model using onnx-mlir backend.
 ```python
 import torch
+import onnxmlirtorch
 from transformers import AutoModel, AutoTokenizer
-from onnxmlirtorch import onnxmlir_backend
 
 model_path = "ibm-granite/granite-embedding-30m-english"
 model = AutoModel.from_pretrained(model_path)
@@ -52,15 +55,14 @@ model.eval()
 
 om_options = {
     "compiler_image_name": None,
-    "compile_options": "-O3 --useOnnxModelTypes=false",
+    "compile_options": "-O3",
     "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
 }
-with torch.no_grad():
-    compiled_model = torch.compile(
-        model,
-        backend=onnxmlir_backend,
-        options=om_options,
-    )
+compiled_model = torch.compile(
+    model,
+    backend="onnxmlir",
+    options=om_options,
+)
 
 
 inputs = tokenizer("AI is fascinating", return_tensors="pt")
@@ -447,32 +449,3 @@ class ONNXMLIRTorch:
             **self.onnxmlir_kwargs,
         )
 
-
-# Alternative interface to minic the usage of torch.compile
-def compile(torch_model, **kwargs):
-    return ONNXMLIRTorch(torch_model, **kwargs)
-
-
-def print_parameters(model, args, kwargs, outputs):
-    print("------------ Begin ---------")
-    fn = model.forward
-    if fn is not None:
-        signature = inspect.signature(fn)
-        for param_name, param in signature.parameters.items():
-            print(f"Parameter name: {param_name}")
-    print(
-        f"number of input parameters of forward call: args {len(args)}, kwargs {len(kwargs)}"
-    )
-    # Print out each parameter.
-    # ToFix: save them into file
-    print("args")
-    for arg in args:
-        print(arg)
-    print("kwargs")
-    for key, value in kwargs.items():
-        print(f"{key} : {value}")
-    print("------------ End ---------\n")
-
-
-def interceptForward(model):
-    model.register_forward_hook(print_parameters, with_kwargs=True)
