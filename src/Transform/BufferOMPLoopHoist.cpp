@@ -127,13 +127,13 @@ void HandleOneLoop(omp::WsloopOp wsloopOp) {
   for (auto alloc : allocList) {
     alloc->moveBefore(wsloopOp.getOperation());
     LLVM_DEBUG(llvm::dbgs() << "\nHoisted:\n");
-    alloc->print(llvm::dbgs());
+    LLVM_DEBUG(alloc->print(llvm::dbgs()));
     LLVM_DEBUG(llvm::dbgs() << "\n");
   }
   for (auto dealloc : deallocList) {
     dealloc->moveAfter(wsloopOp.getOperation());
     LLVM_DEBUG(llvm::dbgs() << "\nHoisted:\n");
-    dealloc->print(llvm::dbgs());
+    LLVM_DEBUG(dealloc->print(llvm::dbgs()));
     LLVM_DEBUG(llvm::dbgs() << "\n");
   }
 }

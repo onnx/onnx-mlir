@@ -28,7 +28,7 @@ func.func @omploop_hoist_basic() {
 // CHECK:           omp.parallel {
 // CHECK:             [[RES_:%.+]] = memref.alloc() {{.*}}: memref<4x16xf32>
 // CHECK:             omp.wsloop {
-// CHECK:               omp.loop_nest ([[arg0_]]) : index = ([[CST_0_]]) to ([[CST_512_]]) step ([[CST_4_]]) {
+// CHECK:               omp.loop_nest ([[arg0_:%.+]]) : index = ([[CST_0_]]) to ([[CST_512_]]) step ([[CST_4_]]) {
 // CHECK:                 omp.yield
 // CHECK:               }
 // CHECK:             }
@@ -72,7 +72,7 @@ func.func @omploop_hoist_multiple(%arg0 : memref<1x?x768xf32>) {
 // CHECK-DAG:         [[RES_:%.+]] = memref.alloc() {{.*}}: memref<4x16xf32>
 // CHECK-DAG:         [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<16xf32>
 // CHECK:             omp.wsloop {
-// CHECK:               omp.loop_nest ([[arg1_]]) : index = ([[CST_0_]]) to ([[VAR_dim_]]) step ([[CST_4_]]) {
+// CHECK:               omp.loop_nest ([[ARG1_:%.+]]) : index = ([[CST_0_]]) to ([[VAR_dim_]]) step ([[CST_4_]]) {
 // CHECK:                 omp.yield
 // CHECK:               }
 // CHECK:             }
@@ -112,8 +112,8 @@ func.func @omploop_hoist_defined_inside(%arg0 : memref<1x?x768xf32>) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK:           omp.parallel {
 // CHECK:             omp.wsloop {
-// CHECK:               omp.loop_nest ([[arg1_]]) : index = ([[CST_0_]]) to ([[VAR_dim_]]) step ([[CST_4_]]) {
-// CHECK:                 [[RES_:%.+]] = memref.alloc([[arg1_]]) : memref<?x16xf32>
+// CHECK:               omp.loop_nest ([[ARG1_:%.+]]) : index = ([[CST_0_]]) to ([[VAR_dim_]]) step ([[CST_4_]]) {
+// CHECK:                 [[RES_:%.+]] = memref.alloc([[ARG1_]]) : memref<?x16xf32>
 // CHECK:                 memref.dealloc [[RES_]] : memref<?x16xf32>
 // CHECK:                 omp.yield
 // CHECK:               }
@@ -154,7 +154,7 @@ func.func @omploop_hoisting_defined_outside(%arg0 : memref<1x?x768xf32>) {
 // CHECK:           omp.parallel {
 // CHECK:             [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) : memref<?x16xf32>
 // CHECK:             omp.wsloop {
-// CHECK:               omp.loop_nest ([[arg1_]]) : index = ([[CST_0_]]) to ([[VAR_dim_]]) step ([[CST_4_]]) {
+// CHECK:               omp.loop_nest ([[arg1_:%.+]]) : index = ([[CST_0_]]) to ([[VAR_dim_]]) step ([[CST_4_]]) {
 // CHECK:                 omp.yield
 // CHECK:               }
 // CHECK:             }
@@ -231,7 +231,7 @@ func.func @omploop_hoist_alloca() {
     omp.terminator
   }
   return
-// CHECK-LABEL:  func.func @omploop_hoist_basic
+// CHECK-LABEL:  func.func @omploop_hoist_alloca
 // CHECK-SAME:   () {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
