@@ -27,9 +27,11 @@ def AMDQuarkBFPQuantizeDequantizeOp: ONNX_Op<"AMDQuarkBFPQuantizeDequantizeOp",
     MicroeXponents (MX) extends the concept of BFP by introducing two levels of exponents: shared exponents for entire blocks and micro exponents for finer-grained sub-blocks. This two-level approach enables more precise scaling of individual elements within a block, reducing quantization error and improving the representational range. The paper https://arxiv.org/abs/2302.08007 introduces three specific formats: MX4, MX6 and MX9, which have different bits of mantissa.
 
     This operator converts floating-point values (typically 32-bit floating-point numbers) into BFP or MX values, then convert them back. It approximates the Quantize-Dequantize process and introduces quantization errors.
+
+    Support for BF16 is an AMD extension in ONNX-MLIR to https://quark.docs.amd.com/latest/onnx/custom_operators/BFPQuantizeDequantize.html.
   }];
 
-  let arguments = (ins TensorOf<[F32]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$X,
                        DefaultValuedStrAttr<StrAttr, "to_bfp">:$bfp_method,
                        DefaultValuedAttr<SI64Attr, "1">:$axis,
                        DefaultValuedAttr<SI64Attr, "16">:$bit_width,
@@ -38,7 +40,7 @@ def AMDQuarkBFPQuantizeDequantizeOp: ONNX_Op<"AMDQuarkBFPQuantizeDequantizeOp",
                        DefaultValuedAttr<SI64Attr, "2">:$sub_block_size,
                        DefaultValuedAttr<SI64Attr, "1">:$sub_block_shift_bits
                       );
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$Y);
 
   let hasVerifier = 1;
 
