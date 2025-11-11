@@ -1,4 +1,5 @@
-// RUN: mlir-opt --pass-pipeline="func.func(your-pass-name)" %s | FileCheck %s
+// RUN: onnx-mlir-opt --dq-binary-q-opt-onnx-to-onnx %s -split-input-file | FileCheck %s
+
 
   func.func @test_fold_mul_case_b_safe(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
     %0 = onnx.Constant dense<0> : tensor<ui16>
