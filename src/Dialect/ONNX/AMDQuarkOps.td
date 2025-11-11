@@ -28,7 +28,7 @@ def AMDQuarkBFPQuantizeDequantizeOp: ONNX_Op<"AMDQuarkBFPQuantizeDequantizeOp",
 
     This operator converts floating-point values (typically 32-bit floating-point numbers) into BFP or MX values, then convert them back. It approximates the Quantize-Dequantize process and introduces quantization errors.
 
-    Support for BF16 is an AMD extension in ONNX-MLIR.
+    Support for BF16 is an AMD extension in ONNX-MLIR to https://quark.docs.amd.com/latest/onnx/custom_operators/BFPQuantizeDequantize.html.
   }];
 
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$X,
