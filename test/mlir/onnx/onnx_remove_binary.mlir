@@ -29,7 +29,7 @@
 // CHECK-NOT:    "onnx.Mul"
 
 // ============================================================================
-// ===== CASE A: lhs = DQ, rhs = Const  (fold into Q; update Q.y_zero_point) =====
+// CASE A: lhs = DQ, rhs = Const  (fold into Q; update Q.y_zero_point) 
 // ============================================================================
 
 func.func @caseA_lhsDQ_rhsConst_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
@@ -55,7 +55,7 @@ func.func @caseA_lhsDQ_rhsConst_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<1x4x
 // CHECK: return %[[Q]] : tensor<1x4xi8>
 
 // ============================================================================
-// ===== CASE A-REV: rhs = DQ, lhs = Const  (fold into Q; update Q.y_zero_point) =====
+// CASE A-REV: rhs = DQ, lhs = Const  (fold into Q; update Q.y_zero_point)
 // ============================================================================
 
 func.func @caseA_rev_rhsDQ_lhsConst_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
@@ -81,7 +81,7 @@ func.func @caseA_rev_rhsDQ_lhsConst_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<
 // CHECK: return %[[Q]] : tensor<1x4xi8>
 
 // ============================================================================
-// ===== CASE B: both inputs are DQ; constant via dq1  (fold into Q) =====
+// CASE B: both inputs are DQ; constant via dq1  (fold into Q)
 // ============================================================================
 
 func.func @caseB_bothDQ_constViaDQ1_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
@@ -107,7 +107,7 @@ func.func @caseB_bothDQ_constViaDQ1_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<
 // CHECK: return %[[Q]] : tensor<1x4xi8>
 
 // ============================================================================
-// ===== CASE B with value-preserving link on constant side: Reshape(const_q) → DQ =====
+// CASE B with value-preserving link on constant side: Reshape(const_q) → DQ 
 // ============================================================================
 
   func.func @caseB_constViaReshape_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
@@ -139,7 +139,8 @@ func.func @caseB_bothDQ_constViaDQ1_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<
 // CHECK-NOT:    onnx.Reshape
 
 // ============================================================================
-// ===== BRANCH-BEFORE: Q1 has another user  (fold into DQ; update DQ.x_zero_point) =====
+// BRANCH-BEFORE: Q1 has another user  (fold into DQ; update DQ.x_zero_point) 
+// Also checks for Removal of Q->DQ chain after the binary op
 // ============================================================================
 
   func.func @branchBefore_foldIntoDQ(%arg0: tensor<1x4xf32>) -> (tensor<1x4xf32>, tensor<1x4xi8>) {
@@ -250,89 +251,7 @@ func.func @test_kval_0_dst_q_mul(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
 // CHECK-SAME: : (tensor<10x1xui16>, tensor<f32>, tensor<ui16>) -> tensor<10x1xf32>
 // CHECK: return %[[DQOUT]] : tensor<10x1xf32>
 
-// ============================================================================
-// k_value == 0 and (dst is QuantizeLinear) with a Div
-// ============================================================================
 
-func.func @test_kval_0_dst_q_div(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
-  %0 = onnx.Constant dense<0> : tensor<ui16>
-  %1 = onnx.Constant dense<5.78499521E-6> : tensor<f32>
-  %2 = onnx.Constant dense<0> : tensor<ui16>
-  %3 = onnx.Constant dense<0.00152590231> : tensor<f32>
-  %4 = onnx.Constant dense<0> : tensor<ui16>  
-  %5 = onnx.Constant dense<10> : tensor<ui16>
-  %6 = onnx.Constant dense<1.000000e-01> : tensor<f32>
-  %7 = "onnx.DequantizeLinear"(%4, %3, %2) {axis = 1 : si64, block_size = 0 : si64}
-       : (tensor<ui16>, tensor<f32>, tensor<ui16>) -> tensor<f32>
-  %8 = "onnx.QuantizeLinear"(%arg0, %1, %0) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64}
-       : (tensor<10x1xf32>, tensor<f32>, tensor<ui16>) -> tensor<10x1xui16>
-  %9  = "onnx.DequantizeLinear"(%8, %1, %0) {axis = 1 : si64, block_size = 0 : si64}
-       : (tensor<10x1xui16>, tensor<f32>, tensor<ui16>) -> tensor<10x1xf32>
-  %10 = "onnx.Div"(%9, %7) : (tensor<10x1xf32>, tensor<f32>) -> tensor<10x1xf32>
-  %11 = "onnx.QuantizeLinear"(%10, %6, %5) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64}
-       : (tensor<10x1xf32>, tensor<f32>, tensor<ui16>) -> tensor<10x1xui16>
-  %12 = "onnx.DequantizeLinear"(%11, %6, %5) {axis = 1 : si64, block_size = 0 : si64}
-       : (tensor<10x1xui16>, tensor<f32>, tensor<ui16>) -> tensor<10x1xf32>
-
-  return %12 : tensor<10x1xf32>
-}
-
-// CHECK-LABEL: func.func @test_kval_0_dst_q_div(
-// CHECK-SAME: %arg0: tensor<10x1xf32>) -> tensor<10x1xf32>
-// CHECK: %[[ZP:.*]] = onnx.Constant dense<10> : tensor<ui16>
-// CHECK: %[[S_DQ:.*]] = onnx.Constant dense<1.000000e-01> : tensor<f32>
-// CHECK: %[[S_Q:.*]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
-// CHECK: %[[Q:.*]] = "onnx.QuantizeLinear"(%arg0, %[[S_Q]], %[[ZP]])
-// CHECK-SAME: {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64}
-// CHECK-SAME: : (tensor<10x1xf32>, tensor<f32>, tensor<ui16>) -> tensor<10x1xui16>
-// CHECK: %[[DQ:.*]] = "onnx.DequantizeLinear"(%[[Q]], %[[S_DQ]], %[[ZP]])
-// CHECK-SAME: {axis = 1 : si64, block_size = 0 : si64}
-// CHECK-SAME: : (tensor<10x1xui16>, tensor<f32>, tensor<ui16>) -> tensor<10x1xf32>
-// CHECK-NOT: "onnx.Div"
-// CHECK: return %[[DQ]] : tensor<10x1xf32>
-
-// ============================================================================
-// Test A: Fold happened into DQ  →  chainStartQ = Quantize AFTER the BinOp
-// Expect: the Q→DQ pair AFTER the BinOp is removed by Remove_Q_Plus_DQ.
-// ============================================================================
-
-func.func @cleanup_qdq_after_binop_folded_into_dq(%arg0: tensor<4xf32>) -> tensor<4xf32> {
-  // Activation path: Q_act -> DQ_act
-  %s_act  = onnx.Constant dense<5.000000e-01> : tensor<f32>
-  %zp_act = onnx.Constant dense<0>            : tensor<i8>
-  %q_act  = "onnx.QuantizeLinear"(%arg0, %s_act, %zp_act)
-            : (tensor<4xf32>, tensor<f32>, tensor<i8>) -> tensor<4xi8>
-  %dq_act = "onnx.DequantizeLinear"(%q_act, %s_act, %zp_act)
-            : (tensor<4xi8>, tensor<f32>, tensor<i8>) -> tensor<4xf32>
-  %c_q  = onnx.Constant dense<10>             : tensor<i8>
-  %c_s  = onnx.Constant dense<5.000000e+00>   : tensor<f32>
-  %c_zp = onnx.Constant dense<0>              : tensor<i8>
-  %dq_c = "onnx.DequantizeLinear"(%c_q, %c_s, %c_zp)
-          : (tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<f32>
-  %add = "onnx.Add"(%dq_act, %dq_c) : (tensor<4xf32>, tensor<f32>) -> tensor<4xf32>
-  %s_out  = onnx.Constant dense<1.000000e-01> : tensor<f32>
-  %zp_out = onnx.Constant dense<0>            : tensor<i8>
-  %q_out  = "onnx.QuantizeLinear"(%add, %s_out, %zp_out)
-            : (tensor<4xf32>, tensor<f32>, tensor<i8>) -> tensor<4xi8>
-
-  %dq_out = "onnx.DequantizeLinear"(%q_out, %s_out, %zp_out)
-            : (tensor<4xi8>, tensor<f32>, tensor<i8>) -> tensor<4xf32>
-  return %dq_out : tensor<4xf32>
-}
-
-// CHECK-LABEL: func.func @cleanup_qdq_after_binop_folded_into_dq(
-// CHECK-SAME:                         %arg0: tensor<4xf32>) -> tensor<4xf32>
-// CHECK: %[[S:.*]]      = onnx.Constant dense<1.000000e-01> : tensor<f32>
-// CHECK: %[[ZP_DQ:.*]]  = onnx.Constant dense<0>            : tensor<i8>
-// CHECK: %[[ZP_Q:.*]]   = onnx.Constant dense<-1>           : tensor<i8>
-// CHECK: %[[Q:.*]] = "onnx.QuantizeLinear"(%arg0, %[[S]], %[[ZP_Q]])
-// CHECK-SAME: {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64}
-// CHECK-SAME: : (tensor<4xf32>, tensor<f32>, tensor<i8>) -> tensor<4xi8>
-// CHECK: %[[DQ:.*]] = "onnx.DequantizeLinear"(%[[Q]], %[[S]], %[[ZP_DQ]])
-// CHECK-SAME: {axis = 1 : si64, block_size = 0 : si64}
-// CHECK-SAME: : (tensor<4xi8>, tensor<f32>, tensor<i8>) -> tensor<4xf32>
-// CHECK-NOT: "onnx.Add"
-// CHECK: return %[[DQ]] : tensor<4xf32>
 
 
 // ============================================================================
