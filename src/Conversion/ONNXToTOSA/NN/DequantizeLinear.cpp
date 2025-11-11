@@ -96,18 +96,10 @@ public:
         rewriter, loc, adaptor.getXScale(), axis, resultType.getRank());
     Value scaleFactorCast =
         tosaBuilder.castToNewTensorElementType(scaleFactorConst, arithType);
-    Value mulOp;
-    auto castedType = mlir::cast<ShapedType>(casted.getType());
-    if (isa<IntegerType>(castedType.getElementType())) {
-      Value shiftConst = tosa::createMulShiftConst(rewriter, loc, 0);
-      mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-          rewriter, loc, casted.getType(), casted, scaleFactorCast, shiftConst)
-                  .getResult();
-    } else {
-      mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-          rewriter, loc, casted.getType(), casted, scaleFactorCast, Value())
-                  .getResult();
-    }
+    Value shiftConst = tosa::createMulShiftConst(rewriter, loc, 0);
+    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
+        rewriter, loc, casted.getType(), casted, scaleFactorCast, shiftConst)
+                      .getResult();
     Value castOp = tosaBuilder.castToNewTensorElementType(
         mulOp, resultType.getElementType());
 

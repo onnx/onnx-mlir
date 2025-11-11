@@ -91,18 +91,10 @@ public:
     Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter,
         loc, expandedScaleFactorConst.getType(), expandedScaleFactorConst)
                       .getResult();
-    Value scaledResult;
-    auto xShapedType = mlir::cast<ShapedType>(xType);
-    if (isa<IntegerType>(xShapedType.getElementType())) {
-      Value shiftConst = tosa::createMulShiftConst(rewriter, loc, 0);
-      scaledResult = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-          rewriter, loc, xType, x, recOp, shiftConst)
-                         .getResult();
-    } else {
-      scaledResult = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-          rewriter, loc, xType, x, recOp, Value())
-                         .getResult();
-    }
+    Value shiftConst = tosa::createMulShiftConst(rewriter, loc, 0);
+    Value scaledResult = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
+        rewriter, loc, xType, x, recOp, shiftConst)
+                             .getResult();
 
     // Quantization to i4/i8/16/ is particular since the intermediate result of
     // (x / y_scale) must round to the nearest even. This is particularly

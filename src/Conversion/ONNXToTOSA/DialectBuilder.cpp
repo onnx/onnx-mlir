@@ -219,14 +219,10 @@ Value TosaBuilder::mul(Value &lhs, Value &rhs, int32_t shift) {
                                       lhsType.getRank(), ShapedType::kDynamic),
                 elementType);
 
-  if (isa<IntegerType>(elementType)) {
-    Value shiftConst = tosa::createMulShiftConst(rewriter(), loc(), shift);
-    return tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-        rewriter(), loc(), newValueType, lhs, rhs, shiftConst);
-  }
-
+  Value shiftConst =
+      tosa::createMulShiftConst(rewriter(), loc(), /*shift=*/shift);
   return tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-      rewriter(), loc(), newValueType, lhs, rhs, Value());
+      rewriter(), loc(), newValueType, lhs, rhs, shiftConst);
 }
 
 Value TosaBuilder::intdiv(Value &lhs, Value &rhs) {
