@@ -100,6 +100,10 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
 
 class OMFxGraphCachePickler(FxGraphCachePickler):
+    """
+    A class to serialize a FxGraph for hashing.
+    """
+
     def __init__(self, gm: torch.fx.GraphModule):
         super().__init__(gm)
         # pyrefly: ignore  # bad-override
@@ -123,7 +127,7 @@ class OMFxGraphCachePickler(FxGraphCachePickler):
 
 class OMFxGraphHashDetails(FxGraphHashDetails):
     """
-    Object to capture all the details relevant to computing a safe and stable cache key.
+    A class to capture all the details relevant to computing a safe and stable cache key.
     Information includes:
         - A GraphModule: a symbolic representation of the model,
         - Compilation options for onnx-mlir
@@ -288,11 +292,18 @@ class ONNXMLIRTorch:
         return input_names, dynamic_shapes
 
     def rewrite_gm_for_export(self, *example_inputs):
+        # Freeze scalar constant arguments that are typically parameters, e.g.,
+        # epsilon value, from the config file of the model and they are constants.
         example_inputs_indices, removed_example_inputs, constant_values = (
-            self.extract_constants_from_example_inputs(example_inputs)
+            self.extract_scalar_constant_args(example_inputs)
         )
-        self.freeze_constants_with_values(constant_values)
+        self.freeze_scalar_constant_args(constant_values)
+        # Since onnx does not support scalar inputs, symbolic integer arguments
+        # are converted to tensor arguments.
         self.convert_symint_args_to_tensors(self.gm)
+        # After rewriting the argument list of the graph module, we maintain
+        # a list of un-removed arguments that are used in forward for passing
+        # correct example inputs to the rewritten graph module.
         return example_inputs_indices, removed_example_inputs
 
     def convert_symint_args_to_tensors(self, graph_module: torch.fx.GraphModule):
@@ -324,11 +335,12 @@ class ONNXMLIRTorch:
                     user.replace_input_with(old_node, item_node)
             graph.erase_node(old_node)
 
-        graph.lint()
-        graph_module.recompile()
-        return graph_module
+        if placeholders_to_replace:
+            graph.lint()
+            graph_module.recompile()
+            return graph_module
 
-    def extract_constants_from_example_inputs(self, example_inputs: tuple):
+    def extract_scalar_constant_args(self, example_inputs: tuple):
         graph = self.gm.graph
         placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
         input_names = [n.name for n in placeholder_nodes]
@@ -336,10 +348,18 @@ class ONNXMLIRTorch:
         # Map input names to example values.
         name_to_value = dict(zip(input_names, example_inputs))
 
-        # Detect constants using previous heuristic.
-        constants = []
+        # Detect scalar constants by this pattern: placeholder -> .item().
+        scalar_constants = []
         name_to_use_nodes = {}
         for node in placeholder_nodes:
+            input_arg = node.meta["example_value"]
+            # Not a tensor.
+            if not isinstance(input_arg, torch.Tensor):
+                continue
+            # Not a scalar.
+            if input_arg.ndim != 0:
+                continue
+            # Pattern: placeholder -> .item().
             uses = [n for n in graph.nodes if node in n.all_input_nodes]
             item_nodes = [
                 n for n in uses if n.op == "call_method" and n.target == "item"
@@ -350,30 +370,34 @@ class ONNXMLIRTorch:
             item_uses = [n for n in graph.nodes if item_node in n.all_input_nodes]
             other_uses = [n for n in uses if n != item_node]
             if item_uses and not other_uses:
-                constants.append(node.name)
+                scalar_constants.append(node.name)
                 name_to_use_nodes[node.name] = item_nodes
 
         # Build constant_values dict.
         constant_values = {
             name: (name_to_value[name], name_to_use_nodes[name])
-            for name in constants
+            for name in scalar_constants
             if name in name_to_value
         }
 
+        # Keep lists of indices of example inputs that are removed and not removed.
         example_inputs_indices = []
         removed_example_inputs_indices = []
         for i, name in enumerate(name_to_value.keys()):
-            if name not in constants:
+            if name not in scalar_constants:
                 example_inputs_indices.append(i)
             else:
                 removed_example_inputs_indices.append(i)
         return example_inputs_indices, removed_example_inputs_indices, constant_values
 
-    def freeze_constants_with_values(self, constant_values: dict):
+    def freeze_scalar_constant_args(self, constant_values: dict):
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                f"freeze_constants_with_values, constant_values: {constant_values}"
+                f"freeze_scalar_constant_args, constant_values: {constant_values}"
             )
+
+        if not constant_values:
+            return
 
         graph = self.gm.graph
         placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
@@ -382,43 +406,42 @@ class ONNXMLIRTorch:
         for name, value_use_nodes in constant_values.items():
             value, use_nodes = value_use_nodes
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"freeze_constants_with_values, {name}, {value}")
+                logger.debug(f"freeze_scalar_constant_args, {name}, {value}")
             if name not in name_to_node:
                 continue
             node = name_to_node[name]
 
-            # Register scalar or tensor
+            # Register scalar or tensor.
             if isinstance(value, torch.Tensor):
                 self.gm.register_buffer(name, value)
             else:
                 setattr(self.gm, name, value)
 
-            # Insert get_attr node
+            # Insert get_attr node.
             with graph.inserting_before(node):
                 get_attr_node = graph.get_attr(name)
 
-            # Replace all uses of the placeholder with get_attr
+            # Replace all uses of the placeholder with get_attr.
             for use_node in use_nodes:
                 new_args = []
                 for arg in use_node.args:
                     new_args.append(get_attr_node if arg == node else arg)
                 use_node.args = tuple(new_args)
 
-                # Optional: remove .item() calls if they follow the pattern
-                # TODO(tung) only replace if not symint
+                # Remove .item() calls if they follow the pattern.
                 if use_node.op == "call_method" and use_node.target == "item":
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(
-                            f"freeze_constants_with_values, replace {use_node} by {value}"
+                            f"freeze_scalar_constant_args, replace {use_node} by {value}"
                         )
-                    # Replace the .item() node with the scalar directly
+                    # Replace the .item() node with the scalar directly.
                     scalar_value = (
                         value.item() if isinstance(value, torch.Tensor) else value
                     )
                     use_node.replace_all_uses_with(scalar_value)
                     graph.erase_node(use_node)
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"freeze_constants_with_values, {name}, {value} END")
+                logger.debug(f"freeze_scalar_constant_args, {name}, {value} END")
 
             graph.erase_node(node)
 
@@ -441,11 +464,8 @@ class ONNXMLIRTorch:
 
     def create_onnxmlir_session(self) -> InferenceSession:
         # Return a session to compile and run the onnx model.
-        # import shutil
-        # shutil.copytree(self.workdir.name, '/home1/tung/dlc-backend-torch/debug')
         return InferenceSession(
             self.onnx_model,
             temp_dir=self.workdir,
             **self.onnxmlir_kwargs,
         )
-
