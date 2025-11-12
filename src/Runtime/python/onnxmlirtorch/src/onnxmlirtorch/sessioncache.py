@@ -52,9 +52,9 @@ class SessionCache:
     def victim(self):
         if len(self.cache) >= self.capacity:
             oldest_key = self.access_order.pop()
-            cache_index, _ = self.cache[oldest_key]
+            cache_value = self.cache[oldest_key]
             del self.cache[oldest_key]
-            return cache_index
+            return cache_value.tag
         else:
             return len(self.cache)
 

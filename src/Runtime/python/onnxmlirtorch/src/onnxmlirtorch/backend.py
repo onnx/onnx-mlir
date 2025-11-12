@@ -195,22 +195,13 @@ class ONNXMLIRTorch:
             # The number of .onnx and .so files gradually increases.
             # In the meantime, we want keep a limited number of temporary files
             # for .onnx and .so file.
-            # The solution is to store the tuple of (tag, session) in the cache
+            # The solution is to store the tag in the cache value.
             # When a cache entry becomes a victim, the corresponding files,
             # such as onnx model and .so are removed.
-            file_index = global_session_cache.victim()
+            tag_id = global_session_cache.victim()
 
             # Remove the old .onnx and .so files.
-            old_onnx_file = os.path.join(
-                self.workdir.name, self.default_model_name + str(file_index) + ".onnx"
-            )
-            if os.path.exists(old_onnx_file):
-                os.remove(old_onnx_file)
-            old_so_file = os.path.join(
-                self.workdir.name, self.default_model_name + str(file_index) + ".so"
-            )
-            if os.path.exists(old_so_file):
-                os.remove(old_so_file)
+            self.cleanup_onnxmlir_files(tag_id)
 
             # Export the graph module to onnx.
             self.export_gm_to_onnx(example_inputs)
@@ -469,3 +460,40 @@ class ONNXMLIRTorch:
             temp_dir=self.workdir,
             **self.onnxmlir_kwargs,
         )
+
+    def cleanup_onnxmlir_files(self, tag_id):
+        base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
+        old_files = [base + ".onnx", base + ".so"]
+        for f in old_files:
+            if os.path.exists(f):
+                os.remove(old_onnx_file)
+
+
+# Alternative interface to minic the usage of torch.compile
+def compile(torch_model, *args, **kwargs):
+    return ONNXMLIRTorch(torch_model, *args, **kwargs)
+
+
+def print_parameters(model, args, kwargs, outputs):
+    print("------------ Begin ---------")
+    fn = model.forward
+    if fn is not None:
+        signature = inspect.signature(fn)
+        for param_name, param in signature.parameters.items():
+            print(f"Parameter name: {param_name}")
+    print(
+        f"number of input parameters of forward call: args {len(args)}, kwargs {len(kwargs)}"
+    )
+    # Print out each parameter.
+    # ToFix: save them into file
+    print("args")
+    for arg in args:
+        print(arg)
+    print("kwargs")
+    for key, value in kwargs.items():
+        print(f"{key} : {value}")
+    print("------------ End ---------\n")
+
+
+def interceptForward(model):
+    model.register_forward_hook(print_parameters, with_kwargs=True)

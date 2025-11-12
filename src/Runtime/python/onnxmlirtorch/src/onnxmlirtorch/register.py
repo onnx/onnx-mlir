@@ -20,8 +20,8 @@ from torch._dynamo.exc import InvalidBackend
 # Alternative way is setting TORCHDYNAMO_PREPARE_FREEZING=1
 torch._dynamo.config.prepare_freezing = 1
 
-# Need for exporting with dynamic shapes.
-torch._dynamo.config.assume_static_by_default = False
+# Exporting with dynamic shapes.
+# torch._dynamo.config.assume_static_by_default = False
 
 from .backend import (
     onnxmlir_backend,
