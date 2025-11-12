@@ -317,6 +317,12 @@ private:
     auto loc =
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
     Value initializer = createConstantValue(mlirAttr, loc);
+    if (options_.addResultNamesAttr) {
+      if (auto constOp = initializer.getDefiningOp()) {
+        constOp->setAttr(
+            "ResultNames", builder_.getStrArrayAttr({tensor.name()}));
+      }
+    }
     num_of_parameters_ += mlirAttr.getShapedType().getNumElements();
     return initializer;
   }
@@ -992,6 +998,15 @@ private:
       // Found in models. Not sure about the specification.
       if (output != "")
         frontend_symbols_.AddMapping(output, op->getResult(i));
+    }
+    if (options_.addResultNamesAttr) {
+      SmallVector<StringRef, 4> resultNames;
+      for (const auto &output : node.output())
+        resultNames.push_back(output);
+      // Trailing unused results don't appear in node.output(). Add empty
+      // names for them.
+      resultNames.resize(op->getNumResults(), "");
+      op->setAttr("ResultNames", builder_.getStrArrayAttr(resultNames));
     }
     return CompilerSuccess;
   }
