@@ -204,20 +204,19 @@ Value TosaBuilder::reshape(Value value, llvm::ArrayRef<int64_t> shape) {
       rewriter(), loc(), newValueType, value, shapeAttr);
 }
 
-Value TosaBuilder::mul(Value &lhs, Value &rhs, int32_t shift) {
+Value TosaBuilder::mul(Value &lhs, Value &rhs, int8_t shift) {
   if (needsRankBroadcast({lhs, rhs})) {
     llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
     lhs = valueVec[0];
     rhs = valueVec[1];
   }
   auto lhsType = mlir::cast<ShapedType>(lhs.getType());
-  auto elementType = lhsType.getElementType();
   Type newValueType =
       (!lhsType.hasRank())
           ? lhsType
           : RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
                                       lhsType.getRank(), ShapedType::kDynamic),
-                elementType);
+                lhsType.getElementType());
 
   Value shiftConst =
       tosa::createMulShiftConst(rewriter(), loc(), /*shift=*/shift);
