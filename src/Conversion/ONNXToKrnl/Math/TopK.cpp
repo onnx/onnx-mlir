@@ -4,7 +4,7 @@
 
 //===----------------------- TopK.cpp - TopK Op ---------------------------===//
 //
-// Copyright 2021-2023 The IBM Research Authors.
+// Copyright 2021-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,62 +30,58 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
     Value X = adaptor.getX();
 
     // Builders.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
         create(rewriter, loc);
 
-    // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
-           "Failed to convert type to MemRefType");
-    MemRefType resMemRefType = mlir::cast<MemRefType>(convertedType);
-
-    // Common types.
-    Type i64Type = rewriter.getI64Type();
+    // Get output memref types.
+    Type valuesConvertedType =
+        typeConverter->convertType(topKOp.getValues().getType());
+    Type indicesConvertedType =
+        typeConverter->convertType(topKOp.getIndices().getType());
+    assert(valuesConvertedType && mlir::isa<MemRefType>(valuesConvertedType) &&
+           "Failed to convert Values type to MemRefType");
+    assert(indicesConvertedType &&
+           mlir::isa<MemRefType>(indicesConvertedType) &&
+           "Failed to convert Indices type to MemRefType");
+    MemRefType valuesMemRefType = mlir::cast<MemRefType>(valuesConvertedType);
+    MemRefType indicesMemRefType = mlir::cast<MemRefType>(indicesConvertedType);
 
     // Op's Attributes.
-    int64_t rank = resMemRefType.getRank();
+    int64_t rank = valuesMemRefType.getRank();
     int64_t axis = adaptor.getAxis();
     axis = axis < 0 ? axis + rank : axis;
     assert(axis >= 0 && axis < rank && "axis is out of bound");
     bool ascendingMode = adaptor.getLargest() != 1;
-    // According to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
-    // 'Indices' are undefined'.
-    // In this case, we still return sorted values and indices to make them
-    // deterministic. So this attribute is not used.
-    // bool sortedMode = TopKOp.sorted() == 1;
+    bool sortedMode = topKOp.getSorted() != 0;
 
-    // Compute the output's dimension sizes.
+    // Get output shape.
     ONNXTopKOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     DimsExpr resDims = shapeHelper.getOutputDims();
 
-    // Insert an allocation and deallocation for the results of this operation.
-    Value resMemRef = create.mem.alignedAlloc(resMemRefType, resDims);
-    Value resIndexMemRef = create.mem.alignedAlloc(
-        MemRefType::get(resMemRefType.getShape(), i64Type), resDims);
+    // Get K from the output dimensions (it's already loaded by shapeHelper)
+    IndexExpr kIndexExpr = resDims[axis];
+    Value kValCasted = kIndexExpr.getValue();
 
-    // Compute argSort of X along axis.
-    Value argSort = emitArgSort(rewriter, loc, X, axis,
-        /*ascending=*/ascendingMode);
+    // Check if we can use the fast path.
+    // The fast path in emitTopK requires axis to be the last dim.
+    if ((rank > 6) || (axis != (rank - 1))) {
+      // TODO: Add support for the generic (slow) path if needed.
+      // This would involve re-implementing the bubble sort from emitArgSort
+      // or emitting a full sort.
+      // For now, we only support the fast path.
+      return op->emitError(
+          "TopK lowering only supports axis being the last dimension "
+          "and rank <= 6");
+    }
 
-    // Produce the final result.
-    SmallVector<IndexExpr> zeroDims(rank, LitIE(0));
-    ValueRange loopDef = create.krnl.defineLoops(rank);
-    create.krnl.iterateIE(loopDef, loopDef, zeroDims, resDims,
-        [&](const KrnlBuilder &createKrnl, ValueRange resLoopInd) {
-          Value resInd = createKrnl.load(argSort, resLoopInd);
-          SmallVector<Value> resIndexLoopInd(resLoopInd);
-          resIndexLoopInd[axis] = resInd;
-          // Store value.
-          Value val = createKrnl.load(X, resIndexLoopInd);
-          createKrnl.store(val, resMemRef, resLoopInd);
-          // Store index.
-          Value resIndI64 =
-              rewriter.create<arith::IndexCastOp>(loc, i64Type, resInd);
-          createKrnl.store(resIndI64, resIndexMemRef, resLoopInd);
-        });
+    // Call the new emitTopK function.
+    std::pair<Value, Value> outputs =
+        emitTopK(rewriter, loc, X, valuesMemRefType, indicesMemRefType, resDims,
+            axis, ascendingMode, kValCasted, sortedMode);
 
-    rewriter.replaceOp(op, {resMemRef, resIndexMemRef});
+    rewriter.replaceOp(op, {outputs.first, outputs.second});
     onnxToKrnlSimdReport(op);
     return success();
   }
