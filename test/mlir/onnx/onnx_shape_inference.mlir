@@ -4554,3 +4554,25 @@ func.func @test_attention_3d_q_4d_kv(%q: tensor<1x128x3072xf32>, %k: tensor<1x16
 // CHECK-LABEL:  func.func @test_attention_3d_q_4d_kv
 // CHECK:          "onnx.Attention"
 // CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<1x16x128x96xf32>, tensor<1x16x128x48xf32>, none, none, none) -> (tensor<1x128x1536xf32>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for amd.quark.BFPQuantizeDequantize
+//===----------------------------------------------------------------------===//
+
+func.func @test_bfp_quant_dequant(%arg0: tensor<16x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0)  : (tensor<16x32xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_bfp_quant_dequant
+// CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
+// CHECK-SAME:       (tensor<16x32xf32>) -> tensor<16x32xf32>
+
+func.func @test_bfp_quant_dequant_bf16(%arg0: tensor<16x32xbf16>) -> tensor<*xbf16> {
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0)  : (tensor<16x32xbf16>) -> tensor<*xbf16>
+  return %0 : tensor<*xbf16>
+}
+// CHECK-LABEL:  func.func @test_bfp_quant_dequant_bf16
+// CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
+// CHECK-SAME:       (tensor<16x32xbf16>) -> tensor<16x32xbf16>
