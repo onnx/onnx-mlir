@@ -567,8 +567,7 @@ private:
     // Maintain a mapping between the parameter and its initializer.
     std::unordered_set<std::string> initializerNames;
     for (const auto &initializer : graph.initializer()) {
-      Value tensor = ImportTensor(initializer);
-      BindOnnxName(initializer.name(), tensor);
+      BindOnnxName(initializer.name(), ImportTensor(initializer));
       initializerNames.insert(initializer.name());
     }
 
