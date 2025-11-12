@@ -182,7 +182,7 @@ class ONNXMLIRTorch:
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
-        tensor_example_inputs = self.get_real_inputs(example_inputs)
+        tensor_example_inputs = self.get_tensor_example_inputs(example_inputs)
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
@@ -241,17 +241,17 @@ class ONNXMLIRTorch:
         logger.info(f"sess.run took {(time.time() - start)*1000} ms")
         return [torch.from_numpy(output) for output in om_outputs]
 
-    def get_real_inputs(self, example_inputs):
-        tensor_real_inputs = []
+    def get_tensor_example_inputs(self, example_inputs):
+        tensor_inputs = []
         for i in self.example_inputs_indices:
             x = example_inputs[i]
             if isinstance(x, int):
-                tensor_real_inputs.append(torch.tensor(x, dtype=torch.int64))
+                tensor_inputs.append(torch.tensor(x, dtype=torch.int64))
             elif isinstance(x, torch.Tensor):
-                tensor_real_inputs.append(x)
+                tensor_inputs.append(x)
             else:
                 raise ValueError("Unsupported input type. Consider to support it")
-        return tuple(tensor_real_inputs)
+        return tuple(tensor_inputs)
 
     def get_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
         """
