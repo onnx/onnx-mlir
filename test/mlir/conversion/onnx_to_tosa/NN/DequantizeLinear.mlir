@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Advanced Micro Devices, Inc.
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
 
 func.func @test_dequantizeLinear(%arg0 : tensor<32x3x224x224xi8>) -> tensor<32x3x224x224xf32> {
@@ -107,3 +108,13 @@ func.func @all_scalar(%arg0 : tensor<i8>) -> tensor<f32> {
 
 // CHECK-LABEL: all_scalar
 // CHECK-NOT: onnx.DequantizeLinear
+
+// -----
+
+func.func @dynamic(%arg0 : tensor<?xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<f32> {
+  %0 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?xi8>, tensor<f32>, tensor<i8>) -> tensor<f32>
+  return %0 : tensor<f32>
+}
+
+// CHECK-LABEL: dynamic
+// CHECK: onnx.DequantizeLinear
