@@ -28,12 +28,14 @@ my_option = {
 
 opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option, dynamic=True)
 
+
 def run_model(x, y):
     print("Doing computation, input shape:", x.shape, y.shape)
     z = opt_mod(x, y)
     assert np.array_equal(z, x + y)
     print("Verified output.")
     return z
+
 
 # First inference
 print("\n1st inference: should compile")
