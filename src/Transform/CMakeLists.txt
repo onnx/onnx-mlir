@@ -45,8 +45,9 @@ add_onnx_mlir_library(BufferOMPLoopHoist
   OMTransformsPassIncGen
 
   LINK_LIBS PUBLIC
-  OMONNXOps
-  OMKrnlOps
   MLIRPass
+  MLIROpenMPDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
   OMOptionUtils
   )
