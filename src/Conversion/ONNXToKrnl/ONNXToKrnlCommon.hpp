@@ -17,6 +17,7 @@
 #define ONNX_MLIR_ONNX_TO_KRNL_H
 
 #include <map>
+#include <optional>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -164,8 +165,17 @@ mlir::Value emitMemRefReinterpretCastOp(
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value input, int64_t axis,
-    bool ascending = false);
+    mlir::Location loc, mlir::Value input, int64_t axis, bool ascending = false,
+    std::optional<mlir::Value> K = std::nullopt, bool sorted = true);
+
+/// Emit krnl ops to compute TopK of a given MemRef along a given axis.
+/// This function is optimized for TopK: it allocates and returns the final
+/// (Values, Indices) memrefs with the correct output shape <..., K, ...>.
+std::pair<mlir::Value, mlir::Value> emitTopK(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Value input, mlir::MemRefType valuesMemRefType,
+    mlir::MemRefType indicesMemRefType, DimsExpr &outputDims, int64_t axis,
+    bool ascending, mlir::Value K, bool sorted);
 
 /// Allocate memref (as before) if no input buffer can be reused.
 /// Default VL=0 is used for non SIMD allocation
