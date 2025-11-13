@@ -41,7 +41,8 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     const std::string &target = "", bool enableConvTransposeDecompose = false,
     bool enableConvTransposeDecomposeToPhasedConv = false,
     bool enableConvTranspose1dDecomposeToPhasedConv = false,
-    bool enableInstanceNormDecompose = true);
+    bool enableInstanceNormDecompose = true,
+    bool enableSplitToSliceDecompose = false);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "",
     const bool &recomposeLayernormByTranspose = false);
