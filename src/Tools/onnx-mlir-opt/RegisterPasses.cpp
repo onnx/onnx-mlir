@@ -164,8 +164,12 @@ void registerOMPasses(int optLevel) {
 }
 
 void registerMLIRPasses() {
-  // Register passes created from Passes.td
+  // Register passes created from Passes.td.
+  // The function name is registerTransformsPasses(). They are put into
+  // Different name space to be distinguished.
+  // Passes from MLIR project
   mlir::registerTransformsPasses();
+  // Passes created from onnx-mlir/src/Transform/Passes.td
   onnx_mlir::registerTransformsPasses();
 
   affine::registerAffinePasses();
