@@ -128,14 +128,14 @@ bool MathBuilder::splatToMatch(Value &first, Value &second) const {
   // Splat first if needed.
   if (!firstVectorType && secondVectorType) {
     firstVectorType = VectorType::get(secondVectorType.getShape(), firstType);
-    first = create.vec.splat(firstVectorType, first);
+    first = create.vec.broadcast(firstVectorType, first);
     LLVM_DEBUG(llvm::dbgs() << "  splat first\n");
     return true;
   }
   // Splat second if needed.
   if (firstVectorType && !secondVectorType) {
     secondVectorType = VectorType::get(firstVectorType.getShape(), secondType);
-    second = create.vec.splat(secondVectorType, second);
+    second = create.vec.broadcast(secondVectorType, second);
     LLVM_DEBUG(llvm::dbgs() << "  splat second\n");
     return true;
   }
@@ -693,7 +693,7 @@ Value MathBuilder::constant(Type type, double val) const {
     // For vectors, need to splat the constant.
     MultiDialectBuilder<VectorBuilder> create(*this);
     VectorType vecType = mlir::dyn_cast<VectorType>(type);
-    constant = create.vec.splat(vecType, constant);
+    constant = create.vec.broadcast(vecType, constant);
   }
   return constant;
 }
@@ -803,7 +803,7 @@ Value MathBuilder::negativeInf(Type type) const {
     // For vectors, need to splat the constant.
     MultiDialectBuilder<VectorBuilder> create(*this);
     VectorType vecType = mlir::dyn_cast<VectorType>(type);
-    constant = create.vec.splat(vecType, constant);
+    constant = create.vec.broadcast(vecType, constant);
   }
   return constant;
 }
@@ -818,7 +818,7 @@ Value MathBuilder::positiveInf(Type type) const {
     // For vectors, need to splat the constant.
     MultiDialectBuilder<VectorBuilder> create(*this);
     VectorType vecType = mlir::dyn_cast<VectorType>(type);
-    constant = create.vec.splat(vecType, constant);
+    constant = create.vec.broadcast(vecType, constant);
   }
   return constant;
 }
@@ -898,7 +898,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // is not, then perform a scalar cast first, and then splat the output.
     Value scalarCastVal = cast(destElemType, src);
     MultiDialectBuilder<VectorBuilder> create(*this);
-    return create.vec.splat(destVecType, scalarCastVal);
+    return create.vec.broadcast(destVecType, scalarCastVal);
   }
   if (srcVecType && !destVecType) {
     // When the source (to be cast) is a vector, but the destination type is
@@ -1979,11 +1979,6 @@ void VectorBuilder::storeIE(Value val, Value memref,
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
   return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
-}
-
-// Val is required to be a index/integer/float.
-Value VectorBuilder::splat(VectorType vecType, Value val) const {
-  return b().create<vector::SplatOp>(loc(), vecType, val);
 }
 
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {

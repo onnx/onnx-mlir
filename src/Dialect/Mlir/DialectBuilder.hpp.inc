@@ -405,7 +405,7 @@ void simdReduceIE(const BUILDER &builder, IndexExpr lb, IndexExpr ub,
     mlir::Type elementType = initVal.getType();
     auto vectorType = mlir::VectorType::get({VL}, elementType);
     vectorTypes.emplace_back(vectorType);
-    mlir::Value initVec = create.vec.splat(vectorType, initVal);
+    mlir::Value initVec = create.vec.broadcast(vectorType, initVal);
     create.vec.storeIE(initVec, tmps[i], tmpAFs[i]);
   }
   if (VL > 1) {

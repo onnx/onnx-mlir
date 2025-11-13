@@ -1186,7 +1186,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value tmpAlloc = create.mem.alignedAlloc(tmpType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
-          Value initVec = create.vec.splat(vecType, identity);
+          Value initVec = create.vec.broadcast(vecType, identity);
           genOneHorizontalSimdReduction(rewriter, create, op, elementType,
               vecType, tmpAlloc, flatInput, flatAlloc, initVec, divisorForMean,
               outLoopInd, simdUB, VL, simdOnly);
@@ -1332,7 +1332,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value tmpBlockedAlloc = create.mem.alignedAlloc(tmpBlockedType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
-          Value initVec = create.vec.splat(vecType, identity);
+          Value initVec = create.vec.broadcast(vecType, identity);
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex =
               DimIE(blockedOutLoopInd[flatOutRank - 1]);

@@ -190,9 +190,9 @@ public:
     Value vecDlf16Min, vecDlf16Max;
     if (saturation) {
       Value dlf16Min = create.math.constant(f32Type, DLF16_MIN);
-      vecDlf16Min = create.vec.splat(vecF32Type, dlf16Min);
+      vecDlf16Min = create.vec.broadcast(vecF32Type, dlf16Min);
       Value dlf16Max = create.math.constant(f32Type, DLF16_MAX);
-      vecDlf16Max = create.vec.splat(vecF32Type, dlf16Max);
+      vecDlf16Max = create.vec.broadcast(vecF32Type, dlf16Max);
     }
 
     // Useful references for indexing dimensions (neg val are not used).
