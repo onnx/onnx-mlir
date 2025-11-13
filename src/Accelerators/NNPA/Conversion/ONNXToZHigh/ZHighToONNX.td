@@ -30,8 +30,8 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 
 def NotBlockArgument : Constraint<CPred<"!isa<BlockArgument>($_self)">>;
 def HasOneUse: Constraint<CPred<"$_self.hasOneUse()">>;
-def CreateONNXMinOp : NativeCodeCall<"$_builder.create<ONNXMinOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
-def CreateONNXMaxOp : NativeCodeCall<"$_builder.create<ONNXMaxOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
+def CreateONNXMinOp : NativeCodeCall<"ONNXMinOp::create($_builder, $_loc, $0.getType(), ValueRange({$1, $2}))">;
+def CreateONNXMaxOp : NativeCodeCall<"ONNXMaxOp::create($_builder, $_loc, $0.getType(), ValueRange({$1, $2}))">;
 
 //===----------------------------------------------------------------------===//
 // ONNXAddOp %X = ZHighUnstickOp (ZHighAddOp (ZHighStickOp %X),

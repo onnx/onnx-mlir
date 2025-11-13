@@ -157,7 +157,7 @@ public:
             SET_INSTRUMENT_INIT(tag);
             hasInitializedRuntime = true;
           }
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
         }
 
         // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
@@ -168,7 +168,7 @@ public:
             SET_INSTRUMENT_INIT(tag);
             hasInitializedRuntime = true;
           }
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
         }
       }
       return WalkResult::advance();

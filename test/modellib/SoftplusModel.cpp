@@ -46,15 +46,15 @@ bool SoftplusLibBuilder::build() {
   Block &entryBlock = funcOp.getBody().front();
   auto xVal = entryBlock.getArgument(0);
 
-  auto addOp = builder.create<ONNXAddOp>(loc,
+  auto addOp = ONNXAddOp::create(builder, loc,
       /*Y=*/yType, /*X=*/xVal, /*X=*/xVal);
-  auto softPlusOp = builder.create<ONNXSoftplusOp>(loc,
+  auto softPlusOp = ONNXSoftplusOp::create(builder, loc,
       /*Y=*/yType, /*X=*/addOp);
-  auto subOp = builder.create<ONNXSubOp>(loc,
+  auto subOp = ONNXSubOp::create(builder, loc,
       /*Y=*/yType, /*X=*/softPlusOp, /*X=*/xVal);
 
   llvm::SmallVector<Value, 1> results = {subOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -63,7 +63,7 @@ bool SoftplusLibBuilder::build() {
 
 bool SoftplusLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 1;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0];

@@ -891,8 +891,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
                   cond, create.math.add(axe, dataDimConst), axe);
-              Value jVal = rewriter.create<arith::IndexCastOp>(
-                  loc, rewriter.getIndexType(), dim);
+              Value jVal = arith::IndexCastOp::create(
+                  rewriter, loc, rewriter.getIndexType(), dim);
               createKrnl.store(trueVal, maskVal, jVal);
             });
       } else {
@@ -905,8 +905,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value dim =
               create.math.select(cond, create.math.add(axe, dataDimConst), axe);
           create.math.select(cond, create.math.add(axe, dataDimConst), axe);
-          Value jVal = rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getIndexType(), dim);
+          Value jVal = arith::IndexCastOp::create(
+              rewriter, loc, rewriter.getIndexType(), dim);
           create.krnl.store(trueVal, maskVal, jVal);
         }
       }

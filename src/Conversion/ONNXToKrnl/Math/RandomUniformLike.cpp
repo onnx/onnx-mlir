@@ -53,7 +53,7 @@ struct ONNXRandomUniformLikeOpLowering
 
     SmallVector<Value, 4> operands = {alloc, lowValue, highValue, seedValue};
     // Create a call to the runtime function for uniform random generation.
-    rewriter.create<KrnlCallOp>(loc, "run_uniform_random", 1, operands);
+    KrnlCallOp::create(rewriter, loc, "run_uniform_random", 1, operands);
 
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);

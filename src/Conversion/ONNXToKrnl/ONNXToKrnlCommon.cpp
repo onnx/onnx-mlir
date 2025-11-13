@@ -373,16 +373,16 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     if (K.has_value()) {
       // If K is provided, call omTensorTopK for partial sort (faster).
       Value valK =
-          rewriter.create<mlir::arith::IndexCastOp>(loc, intType, K.value());
+          mlir::arith::IndexCastOp::create(rewriter, loc, intType, K.value());
       Value valSorted =
           create.math.constant(intType, static_cast<int64_t>(sorted));
       SmallVector<Value, 6> operands = {
           order, input, valAxis, valAscending, valK, valSorted};
-      rewriter.create<KrnlCallOp>(loc, "omTensorTopK", 1, operands);
+      KrnlCallOp::create(rewriter, loc, "omTensorTopK", 1, operands);
     } else {
       // Otherwise, call the original omTensorSort for a full sort.
       SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
-      rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
+      KrnlCallOp::create(rewriter, loc, "omTensorSort", 1, operands);
     }
     return order;
   }
@@ -469,11 +469,11 @@ std::pair<mlir::Value, mlir::Value> emitTopK(
   Value valAxis = create.math.constant(intType, axis);
   Value valAscending =
       create.math.constant(intType, static_cast<int64_t>(ascending));
-  Value valK = rewriter.create<arith::IndexCastOp>(loc, intType, K);
+  Value valK = arith::IndexCastOp::create(rewriter, loc, intType, K);
   Value valSorted = create.math.constant(intType, static_cast<int64_t>(sorted));
   SmallVector<Value, 6> operands = {
       tempOrder, input, valAxis, valAscending, valK, valSorted};
-  rewriter.create<KrnlCallOp>(loc, "omTensorTopK", 1, operands);
+  KrnlCallOp::create(rewriter, loc, "omTensorTopK", 1, operands);
 
   // === Logic from TopK.cpp ===
 
@@ -499,8 +499,8 @@ std::pair<mlir::Value, mlir::Value> emitTopK(
 
         // Store value and index in the final small tensors.
         createKrnl.store(val, resMemRef, resLoopInd);
-        Value original_index_i64 = rewriter.create<arith::IndexCastOp>(
-            loc, indicesMemRefType.getElementType(), original_index);
+        Value original_index_i64 = arith::IndexCastOp::create(
+            rewriter, loc, indicesMemRefType.getElementType(), original_index);
         createKrnl.store(original_index_i64, resIndexMemRef, resLoopInd);
       });
 
@@ -647,7 +647,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
     if (inputs.size() != 1)
       return Value();
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+    return UnrealizedConversionCastOp::create(builder, loc, resultType, inputs)
         .getResult(0);
   });
 
@@ -656,7 +656,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
     if (inputs.size() != 1)
       return Value();
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+    return UnrealizedConversionCastOp::create(builder, loc, resultType, inputs)
         .getResult(0);
   });
 }
@@ -1088,8 +1088,8 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
         DimIndexExpr axisDim(dataDims[axisLit]);
         Value errorCondition =
             ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
-        rewriter.create<scf::IfOp>(
-            loc, errorCondition,
+        scf::IfOp::create(
+            rewriter, loc, errorCondition,
             /*thenBuilder=*/
             [&](OpBuilder &thenBuilder, Location thenLoc) {
               MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
@@ -1107,7 +1107,7 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
               create.krnl.printf(msg, indexVal, true);
               msg = "The out-of-bound index is replaced with zero.\n";
               create.krnl.printf(msg);
-              thenBuilder.create<scf::YieldOp>(thenLoc);
+              scf::YieldOp::create(thenBuilder, thenLoc);
             },
             /*elseBuilder=*/nullptr);
       });

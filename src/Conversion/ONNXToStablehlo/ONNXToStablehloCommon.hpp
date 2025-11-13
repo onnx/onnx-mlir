@@ -73,16 +73,16 @@ Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
   Value broadcastedValue;
   ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
   if (inpType.hasStaticShape())
-    broadcastedValue = rewriter.create<stablehlo::ConstantOp>(
-        loc, DenseElementsAttr::get(inpType,
-                 rewriter.getFloatAttr(inpType.getElementType(), value)));
+    broadcastedValue = stablehlo::ConstantOp::create(rewriter, loc,
+        DenseElementsAttr::get(
+            inpType, rewriter.getFloatAttr(inpType.getElementType(), value)));
   else {
     Type elemType = inpType.getElementType();
-    Value floatValue = rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elemType, value));
-    Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
-    broadcastedValue = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, inpType, floatValue, shape, rewriter.getDenseI64ArrayAttr({}));
+    Value floatValue = stablehlo::ConstantOp::create(
+        rewriter, loc, rewriter.getFloatAttr(elemType, value));
+    Value shape = shape::ShapeOfOp::create(rewriter, loc, inp);
+    broadcastedValue = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
+        inpType, floatValue, shape, rewriter.getDenseI64ArrayAttr({}));
   }
   return broadcastedValue;
 }
@@ -95,16 +95,16 @@ Value getShapedInt(Location loc, ConversionPatternRewriter &rewriter,
   Value broadcastedValue;
   ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
   if (inpType.hasStaticShape())
-    broadcastedValue = rewriter.create<stablehlo::ConstantOp>(
-        loc, DenseElementsAttr::get(inpType,
-                 rewriter.getIntegerAttr(inpType.getElementType(), value)));
+    broadcastedValue = stablehlo::ConstantOp::create(rewriter, loc,
+        DenseElementsAttr::get(
+            inpType, rewriter.getIntegerAttr(inpType.getElementType(), value)));
   else {
     Type elemType = inpType.getElementType();
-    Value intValue = rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getIntegerAttr(elemType, value));
-    Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
-    broadcastedValue = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, inpType, intValue, shape, rewriter.getDenseI64ArrayAttr({}));
+    Value intValue = stablehlo::ConstantOp::create(
+        rewriter, loc, rewriter.getIntegerAttr(elemType, value));
+    Value shape = shape::ShapeOfOp::create(rewriter, loc, inp);
+    broadcastedValue = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
+        inpType, intValue, shape, rewriter.getDenseI64ArrayAttr({}));
   }
   return broadcastedValue;
 }

@@ -51,14 +51,14 @@ public:
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
     Type i8PtrType = getPointerType(ctx, i8Type);
-    Value strPtr = rewriter.create<LLVM::IntToPtrOp>(
-        loc, i8PtrType, operandAdaptor.getStr());
+    Value strPtr = LLVM::IntToPtrOp::create(
+        rewriter, loc, i8PtrType, operandAdaptor.getStr());
 
     // Strlen call.
     // TODO: should return a size_t
     Type retType = IntegerType::get(context, 64);
-    auto funcCall = rewriter.create<func::CallOp>(
-        loc, strlenRef, retType, ArrayRef<Value>({strPtr}));
+    auto funcCall = func::CallOp::create(
+        rewriter, loc, strlenRef, retType, ArrayRef<Value>({strPtr}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();

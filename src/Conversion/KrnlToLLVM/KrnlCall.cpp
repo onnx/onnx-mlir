@@ -175,13 +175,13 @@ private:
         .Case<IntegerAttr>([&](IntegerAttr integerAttr) {
           auto int64Ty = IntegerType::get(context, 64);
           Value cst =
-              rewriter.create<LLVM::ConstantOp>(loc, int64Ty, integerAttr);
+              LLVM::ConstantOp::create(rewriter, loc, int64Ty, integerAttr);
           parameterTypeList.emplace_back(int64Ty);
           parameterList.emplace_back(cst);
         })
         .Case<FloatAttr>([&](FloatAttr floatAttr) {
           auto f64Ty = rewriter.getF64Type();
-          Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty,
+          Value cst = LLVM::ConstantOp::create(rewriter, loc, f64Ty,
               rewriter.getFloatAttr(f64Ty, floatAttr.getValueAsDouble()));
           parameterTypeList.emplace_back(f64Ty);
           parameterList.emplace_back(cst);
@@ -199,9 +199,8 @@ private:
           Value constantGlobal =
               create.krnl.constant(memRefTy, "constant_", denseAttr);
           Value convertedConstantGlobal =
-              rewriter
-                  .create<UnrealizedConversionCastOp>(loc,
-                      llvmTypeConverter->convertType(memRefTy), constantGlobal)
+              UnrealizedConversionCastOp::create(rewriter, loc,
+                  llvmTypeConverter->convertType(memRefTy), constantGlobal)
                   .getResult(0);
 
           auto int64Ty = IntegerType::get(context, 64);

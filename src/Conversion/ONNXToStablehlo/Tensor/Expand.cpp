@@ -53,11 +53,11 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
 
     Value ones;
     if (mlir::isa<IntegerType>(elementType))
-      ones = rewriter.create<stablehlo::ConstantOp>(
-          loc, rewriter.getIntegerAttr(elementType, 1));
+      ones = stablehlo::ConstantOp::create(
+          rewriter, loc, rewriter.getIntegerAttr(elementType, 1));
     else
-      ones = rewriter.create<stablehlo::ConstantOp>(
-          loc, rewriter.getFloatAttr(elementType, 1.0));
+      ones = stablehlo::ConstantOp::create(
+          rewriter, loc, rewriter.getFloatAttr(elementType, 1.0));
     Value broadcastedOnes;
     if (mlir::ElementsAttr constShape =
             getElementAttributeFromConstValue(shape)) {
@@ -66,8 +66,8 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
         shapeValues.push_back(element.getInt());
       RankedTensorType broadcastedType =
           RankedTensorType::get(shapeValues, elementType);
-      broadcastedOnes = rewriter.create<stablehlo::BroadcastInDimOp>(
-          loc, broadcastedType, ones, rewriter.getDenseI64ArrayAttr({}));
+      broadcastedOnes = stablehlo::BroadcastInDimOp::create(rewriter, loc,
+          broadcastedType, ones, rewriter.getDenseI64ArrayAttr({}));
     } else {
       ShapedType shapeType = mlir::cast<ShapedType>(shape.getType());
       assert(shapeType.getRank() == 1 && shapeType.hasStaticShape() &&
@@ -75,14 +75,14 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
       int64_t shapeRank = shapeType.getShape()[0];
       SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamic);
       RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
-      broadcastedOnes = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
+      broadcastedOnes = stablehlo::DynamicBroadcastInDimOp::create(rewriter,
           loc, onesType, ones, shape, rewriter.getDenseI64ArrayAttr({}));
     }
     llvm::SmallVector<Value, 4> newOperands = {input, broadcastedOnes};
     llvm::SmallVector<Value, 4> broadcastedOperands = getBroadcastedOperands(
         newOperands, outputType, rewriter, loc, outputRank);
-    Value result = rewriter.create<stablehlo::MulOp>(
-        loc, op->getResultTypes(), broadcastedOperands);
+    Value result = stablehlo::MulOp::create(
+        rewriter, loc, op->getResultTypes(), broadcastedOperands);
     rewriter.replaceOp(op, result);
 
     return success();

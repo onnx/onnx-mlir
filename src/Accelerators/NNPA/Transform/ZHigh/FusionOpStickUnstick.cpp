@@ -809,7 +809,7 @@ public:
     }
     // Perform substitution.
     Location loc = layoutTransformOp.getLoc();
-    auto newOp = rewriter.create<ZHighExtendedLayoutTransformOp>(loc,
+    auto newOp = ZHighExtendedLayoutTransformOp::create(rewriter, loc,
         resultVal.getType(), layoutTransformOp.getData(), reshapeSplitAxis,
         reshapeSplitFactor, transposePattern, reshapeMergeAxis, hasDlf16To32,
         finalLayout);
