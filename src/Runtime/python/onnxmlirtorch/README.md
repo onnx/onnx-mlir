@@ -1,6 +1,6 @@
 This package provides an onnxmlir-based compiler backend for torch.compile().
 
-## Description
+## Usage
 Let's start with a simple torch model:
 ```
 import torch
@@ -52,6 +52,8 @@ input2=torch.randn(2)
 print(opt_mod(input1, input2))
 
 ```
+
+For more information about `torch.compile`, see its [document](https://docs.pytorch.org/docs/stable/generated/torch.compile.html).
 
 ## Installation
 
