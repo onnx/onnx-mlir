@@ -34,6 +34,11 @@ public:
     Location loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     Value x = op.getX();
+    // We check for the type of the x input here to plain reject dynamic input
+    // tensors. This is not necessary for the lowering but prevents later errors
+    // when going back from dynamic to static types, i.e. inputs are dynamic but
+    // outputs not. Adapt this to support dynamic shapes once it becomes
+    // relevant.
     auto xType = dyn_cast<ShapedType>(x.getType());
     if (!xType.hasStaticShape()) {
       return rewriter.notifyMatchFailure(loc, "expected valid tensor x type");
