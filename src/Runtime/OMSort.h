@@ -46,6 +46,17 @@ extern "C" {
 //
 // === Function Prototypes (Declarations) ===
 //
+// Custom quick sort function declaration for environments
+// not supporting qsort_r (e.g. zos)
+
+#ifdef __APPLE__
+void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+    void *dataPtr, compareFunctionType compFunc);
+#else
+void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+    compareFunctionType compFunc, void *dataPtr);
+#endif
+
 compareFunctionType *getCompareFunction(
     uint64_t ascending, OM_DATA_TYPE dataType);
 
