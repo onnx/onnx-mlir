@@ -24,22 +24,22 @@ using namespace onnx_mlir;
 static bool isConstantOrInitializer(Value val) {
   if (!val)
     return false;
-  
+
   // Return false for NoValue (which has NoneType)
   if (mlir::isa<NoneType>(val.getType())) {
     return false;
   }
- 
+
   Operation *definingOp = val.getDefiningOp();
   if (!definingOp) {
     return false;
   }
-  
+
   // Check if it's a constant op
   if (llvm::isa<ONNXConstantOp>(definingOp)) {
     return true;
   }
-  
+
   // Recursively check if all operands are initializers
   // If all operands are constants, the result is effectively constant
   for (Value operand : definingOp->getOperands()) {
@@ -98,10 +98,10 @@ public:
       if (!isConstantOrInitializer(resizeOp.getRoi()) ||
           !isConstantOrInitializer(resizeOp.getScales()) ||
           !isConstantOrInitializer(resizeOp.getSizes())) {
-                       return failure();
+        return failure();
       }
     }
-    
+
     // Unsqueeze requires axes to be a constant
     if (llvm::isa<ONNXUnsqueezeOp>(op)) {
       auto unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
@@ -109,7 +109,7 @@ public:
         return failure();
       }
     }
-    
+
     // Squeeze requires axes to be a constant
     if (llvm::isa<ONNXSqueezeOp>(op)) {
       auto squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
@@ -117,7 +117,7 @@ public:
         return failure();
       }
     }
-    
+
     // Reshape requires shape to be a constant
     if (llvm::isa<ONNXReshapeOp>(op)) {
       auto reshapeOp = llvm::cast<ONNXReshapeOp>(op);
@@ -125,7 +125,7 @@ public:
         return failure();
       }
     }
-    
+
     // Gather requires indices to be a constant
     if (llvm::isa<ONNXGatherOp>(op)) {
       auto gatherOp = llvm::cast<ONNXGatherOp>(op);
@@ -133,7 +133,7 @@ public:
         return failure();
       }
     }
-    
+
     // Slice requires all control parameters to be constants
     if (llvm::isa<ONNXSliceOp>(op)) {
       auto sliceOp = llvm::cast<ONNXSliceOp>(op);
@@ -144,7 +144,7 @@ public:
         return failure();
       }
     }
-    
+
     InputAndOutput opIO = getDataInputOutput(op);
 
     auto dqOp = opIO.input.getDefiningOp<ONNXDequantizeLinearOp>();
