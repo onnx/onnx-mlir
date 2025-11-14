@@ -1,3 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### sessioncache.py *******###################################
+#
+# Copyright 2025 The IBM Research Authors.
+#
+################################################################################
+#
+# This file defines a SessionCache class used for caching onnx-mlir sessions.
+#
+################################################################################
+
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass
+class CacheValue:
+    tag: Any = None
+    sess: Any = None
+    example_inputs_indices: Any = None
+
+
 class SessionCache:
     def __init__(self, capacity=3):
         self.capacity = capacity
@@ -17,7 +40,7 @@ class SessionCache:
         return None
 
     # The put is assumed to be called after victim()
-    def put(self, key, value):
+    def put(self, key, value: CacheValue):
         self.cache[key] = value
         self.access_order.append(key)
         if len(self.cache) != len(self.access_order):
@@ -29,9 +52,9 @@ class SessionCache:
     def victim(self):
         if len(self.cache) >= self.capacity:
             oldest_key = self.access_order.pop()
-            cache_index, _ = self.cache[oldest_key]
+            cache_value = self.cache[oldest_key]
             del self.cache[oldest_key]
-            return cache_index
+            return cache_value.tag
         else:
             return len(self.cache)
 

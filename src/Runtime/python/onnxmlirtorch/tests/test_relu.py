@@ -32,9 +32,14 @@ print(opt_mod(input))
 
 import onnxmlirtorch
 
-# opt_mod = onnxmlirtorch.compile(mod, compiler_path="/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir", compiler_image_name=None)
+my_option = {
+    "compiler_image_name": None,
+    "compile_options": "-O3",
+    "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+}
 
-opt_mod = onnxmlirtorch.compile(mod)
+opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
+
 input = torch.randn(const_N, const_M)
 output = opt_mod(input)
 print(output)
