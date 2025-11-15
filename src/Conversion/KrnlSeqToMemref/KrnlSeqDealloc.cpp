@@ -47,16 +47,16 @@ public:
 
     auto input_sequence = operandAdaptor.getInputSequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
-    rewriter.create<scf::ForOp>(loc, create.math.constantIndex(0), dimSize,
+    scf::ForOp::create(rewriter, loc, create.math.constantIndex(0), dimSize,
         create.math.constantIndex(1), ValueRange(),
         [&](OpBuilder &bodyBuilder, Location bodyLoc, Value forInduction,
             ValueRange iterArgs) {
           MultiDialectBuilder<MathBuilder, MemRefBuilder> create(
               bodyBuilder, bodyLoc);
-          auto element = bodyBuilder.create<memref::LoadOp>(
-              bodyLoc, operandAdaptor.getInputSequence(), forInduction);
+          auto element = memref::LoadOp::create(bodyBuilder, bodyLoc,
+              operandAdaptor.getInputSequence(), forInduction);
           create.mem.dealloc(element);
-          bodyBuilder.create<scf::YieldOp>(bodyLoc);
+          scf::YieldOp::create(bodyBuilder, bodyLoc);
         });
 
     create.mem.dealloc(input_sequence);

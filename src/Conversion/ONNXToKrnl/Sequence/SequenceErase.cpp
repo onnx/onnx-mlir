@@ -46,7 +46,7 @@ struct ONNXSequenceEraseOpLowering
     SymbolIndexExpr outputBound = boundIE - 1;
     Value outputBoundVal = outputBound.getValue();
     Value alloc =
-        rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, outputBoundVal);
+        KrnlSeqAllocOp::create(rewriter, loc, outputMemRefType, outputBoundVal);
 
     // Fill the output sequence
 

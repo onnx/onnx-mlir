@@ -392,7 +392,7 @@ class insertZerosForNonPaddedDims<int extensionLength>:
                                               # extensionLength # ")">;
 
 // Create a unit constant that will be used as none input.
-def CreateUnitConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateUnitConstant : NativeCodeCall<"ONNXNoneOp::create($_builder, $_loc)">;
 
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:

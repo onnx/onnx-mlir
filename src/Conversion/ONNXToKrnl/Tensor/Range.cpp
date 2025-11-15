@@ -89,26 +89,26 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
           .Case<Float32Type>([&](Type) {
             Value elements = create.math.div(
                 create.math.sub(loadedLimit, loadedStart), loadedDelta);
-            numberOfElements = rewriter.create<arith::IndexCastOp>(loc,
+            numberOfElements = arith::IndexCastOp::create(rewriter, loc,
                 rewriter.getIndexType(),
-                rewriter.create<arith::FPToUIOp>(loc,
+                arith::FPToUIOp::create(rewriter, loc,
                     rewriter.getIntegerType(64),
-                    rewriter.create<math::CeilOp>(loc, elements)));
+                    math::CeilOp::create(rewriter, loc, elements)));
           })
           .Case<Float64Type>([&](Type) {
             Value elements = create.math.div(
                 create.math.sub(loadedLimit, loadedStart), loadedDelta);
-            numberOfElements = rewriter.create<arith::IndexCastOp>(loc,
+            numberOfElements = arith::IndexCastOp::create(rewriter, loc,
                 rewriter.getIndexType(),
-                rewriter.create<arith::FPToUIOp>(loc,
+                arith::FPToUIOp::create(rewriter, loc,
                     rewriter.getIntegerType(64),
-                    rewriter.create<math::CeilOp>(loc, elements)));
+                    math::CeilOp::create(rewriter, loc, elements)));
           })
           .Case<IntegerType>([&](Type) {
-            Value elements = rewriter.create<arith::CeilDivSIOp>(
-                loc, create.math.sub(loadedLimit, loadedStart), loadedDelta);
-            numberOfElements = rewriter.create<arith::IndexCastOp>(
-                loc, rewriter.getIndexType(), elements);
+            Value elements = arith::CeilDivSIOp::create(rewriter, loc,
+                create.math.sub(loadedLimit, loadedStart), loadedDelta);
+            numberOfElements = arith::IndexCastOp::create(
+                rewriter, loc, rewriter.getIndexType(), elements);
           });
 
       SmallVector<Value, 4> allocOperands;

@@ -48,8 +48,8 @@ struct ONNXConcatOpLoweringToStablehlo : public ConversionPattern {
     assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
 
     ValueRange inputs = operandAdaptor.getInputs();
-    Value result = rewriter.create<stablehlo::ConcatenateOp>(
-        loc, op->getResultTypes(), inputs, rewriter.getI64IntegerAttr(axis));
+    Value result = stablehlo::ConcatenateOp::create(rewriter, loc,
+        op->getResultTypes(), inputs, rewriter.getI64IntegerAttr(axis));
     rewriter.replaceOp(op, result);
     return success();
   }

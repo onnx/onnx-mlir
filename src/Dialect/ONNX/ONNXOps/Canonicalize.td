@@ -144,7 +144,7 @@ def IsIdentityReshape: Constraint<
   "Reshape is identity operation">;
 
 // Create a unit constant that will be used as none input.
-def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
+def CreateNoneValue : NativeCodeCall<"ONNXNoneOp::create($_builder, $_loc).getResult()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 

@@ -40,23 +40,23 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t> newFilterShape(filterShape.begin(), filterShape.end());
     newFilterShape[0] /= groupNum;
     newFilterShape.insert(newFilterShape.begin(), groupNum);
-    filterOperand = rewriter.create<stablehlo::ReshapeOp>(
-        loc, RankedTensorType::get(newFilterShape, elemType), filterOperand);
+    filterOperand = stablehlo::ReshapeOp::create(rewriter, loc,
+        RankedTensorType::get(newFilterShape, elemType), filterOperand);
 
     // 2. [G, IC//G, OC//G, H, W, ...] => [G, OC//G, IC//G, H, W, ...]
     llvm::SmallVector<int64_t> transposeDims(rank + 1);
     for (int64_t i = 0; i <= rank; i++)
       transposeDims[i] = i;
     std::swap(transposeDims[1], transposeDims[2]);
-    filterOperand = rewriter.create<stablehlo::TransposeOp>(
-        loc, filterOperand, rewriter.getDenseI64ArrayAttr(transposeDims));
+    filterOperand = stablehlo::TransposeOp::create(rewriter, loc, filterOperand,
+        rewriter.getDenseI64ArrayAttr(transposeDims));
 
     // 3. [G, OC//G, IC//G, H, W, ...] => [OC, IC//G, H, W, ...]
     std::swap(newFilterShape[1], newFilterShape[2]);
     newFilterShape.erase(newFilterShape.begin());
     newFilterShape[0] *= groupNum;
-    filterOperand = rewriter.create<stablehlo::ReshapeOp>(
-        loc, RankedTensorType::get(newFilterShape, elemType), filterOperand);
+    filterOperand = stablehlo::ReshapeOp::create(rewriter, loc,
+        RankedTensorType::get(newFilterShape, elemType), filterOperand);
 
     return filterOperand;
   }
@@ -125,8 +125,8 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
             spatialDimensions, 1, 0, kernelDimensions, 0, 1, spatialDimensions);
 
     // Reverse and transpose filterOperand
-    filterOperand = rewriter.create<stablehlo::ReverseOp>(
-        loc, filterOperand, rewriter.getDenseI64ArrayAttr(spatialDimensions));
+    filterOperand = stablehlo::ReverseOp::create(rewriter, loc, filterOperand,
+        rewriter.getDenseI64ArrayAttr(spatialDimensions));
     if (groupNum > 1)
       filterOperand =
           reshapeFilter(rewriter, loc, filterOperand, groupNum, rank);
@@ -136,11 +136,11 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
       for (int64_t i = 0; i < rank; i++)
         transposeDims[i] = i;
       std::swap(transposeDims[0], transposeDims[1]);
-      filterOperand = rewriter.create<stablehlo::TransposeOp>(
-          loc, filterOperand, rewriter.getDenseI64ArrayAttr(transposeDims));
+      filterOperand = stablehlo::TransposeOp::create(rewriter, loc,
+          filterOperand, rewriter.getDenseI64ArrayAttr(transposeDims));
     }
 
-    Value convResult = rewriter.create<stablehlo::ConvolutionOp>(loc,
+    Value convResult = stablehlo::ConvolutionOp::create(rewriter, loc,
         convOutputType, inputOperand, filterOperand,
         rewriter.getDenseI64ArrayAttr(SmallVector<int64_t>(spatialRank, 1)),
         DenseIntElementsAttr::get(
@@ -155,12 +155,12 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
       addBiasResult = convResult;
     } else {
       Value finalB;
-      Value resultShape = rewriter.create<shape::ShapeOfOp>(loc, convResult);
-      finalB = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
+      Value resultShape = shape::ShapeOfOp::create(rewriter, loc, convResult);
+      finalB = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
           convOutputType, biasOperand, resultShape,
           rewriter.getDenseI64ArrayAttr({1}));
       addBiasResult =
-          rewriter.create<stablehlo::AddOp>(loc, convResult, finalB);
+          stablehlo::AddOp::create(rewriter, loc, convResult, finalB);
     }
 
     rewriter.replaceOp(op, addBiasResult);

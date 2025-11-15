@@ -136,8 +136,8 @@ struct ONNXArgMinMaxOpLowering : public OpConversionPattern<ARG_OP> {
             if (i != axis)
               dstLoopIVs.push_back(loopInd[i]);
             else
-              dstLoopIVs.push_back(rewriter.create<arith::IndexCastOp>(
-                  loc, rewriter.getIndexType(), idx));
+              dstLoopIVs.push_back(arith::IndexCastOp::create(
+                  rewriter, loc, rewriter.getIndexType(), idx));
           }
           Value dstVal = createKrnl.load(data, dstLoopIVs);
 

@@ -28,15 +28,15 @@ Value getShapedZero(
   ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
   Value broadcastedZero;
   if (inpType.hasStaticShape())
-    broadcastedZero = rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getZeroAttr(inpType));
+    broadcastedZero = stablehlo::ConstantOp::create(
+        rewriter, loc, rewriter.getZeroAttr(inpType));
   else {
     Type elemType = inpType.getElementType();
-    Value zero = rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getZeroAttr(elemType));
-    Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
-    broadcastedZero = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, inpType, zero, shape, rewriter.getDenseI64ArrayAttr({}));
+    Value zero = stablehlo::ConstantOp::create(
+        rewriter, loc, rewriter.getZeroAttr(elemType));
+    Value shape = shape::ShapeOfOp::create(rewriter, loc, inp);
+    broadcastedZero = stablehlo::DynamicBroadcastInDimOp::create(
+        rewriter, loc, inpType, zero, shape, rewriter.getDenseI64ArrayAttr({}));
   }
   return broadcastedZero;
 }
@@ -60,7 +60,7 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
         mlir::dyn_cast<ShapedType>(operand.getType()).getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
-    Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
+    Value broadcast = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
         broadcastedOutputType, operand, resultExtents,
         rewriter.getDenseI64ArrayAttr(broadcastDimensions));
     broadcastedOperands.push_back(broadcast);
@@ -87,7 +87,7 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
         mlir::dyn_cast<ShapedType>(operands[0].getType()).getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
-    Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
+    Value broadcast = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
         broadcastedOutputType, operand, resultExtents,
         rewriter.getDenseI64ArrayAttr(broadcastDimensions));
     broadcastedOperands.push_back(broadcast);

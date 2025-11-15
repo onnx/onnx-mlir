@@ -46,15 +46,15 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
     Value transA = A;
     Value transB = B;
     if (gemmOp.getTransA() == 1)
-      transA = rewriter.create<stablehlo::TransposeOp>(
-          loc, A, rewriter.getDenseI64ArrayAttr({1, 0}));
+      transA = stablehlo::TransposeOp::create(
+          rewriter, loc, A, rewriter.getDenseI64ArrayAttr({1, 0}));
     if (gemmOp.getTransB() == 1)
-      transB = rewriter.create<stablehlo::TransposeOp>(
-          loc, B, rewriter.getDenseI64ArrayAttr({1, 0}));
+      transB = stablehlo::TransposeOp::create(
+          rewriter, loc, B, rewriter.getDenseI64ArrayAttr({1, 0}));
     ShapedType resultType =
         mlir::dyn_cast_or_null<ShapedType>(gemmOp.getType());
-    Value dot = rewriter.create<stablehlo::DotOp>(
-        loc, gemmOp.getType(), transA, transB, nullptr);
+    Value dot = stablehlo::DotOp::create(
+        rewriter, loc, gemmOp.getType(), transA, transB, nullptr);
     bool hasBias = shapeHelper.hasBias;
 
     // alpha * dot
@@ -63,19 +63,19 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
       dotResult = dot;
     else {
       if (resultType.hasStaticShape()) {
-        Value alphaVal = rewriter.create<stablehlo::ConstantOp>(
-            loc, DenseElementsAttr::get(
-                     resultType, rewriter.getFloatAttr(elemType, alphaLit)));
-        dotResult = rewriter.create<stablehlo::MulOp>(loc, dot, alphaVal);
+        Value alphaVal = stablehlo::ConstantOp::create(rewriter, loc,
+            DenseElementsAttr::get(
+                resultType, rewriter.getFloatAttr(elemType, alphaLit)));
+        dotResult = stablehlo::MulOp::create(rewriter, loc, dot, alphaVal);
       } else {
-        Value alphaVal = rewriter.create<stablehlo::ConstantOp>(
-            loc, rewriter.getFloatAttr(elemType, alphaLit));
-        Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
+        Value alphaVal = stablehlo::ConstantOp::create(
+            rewriter, loc, rewriter.getFloatAttr(elemType, alphaLit));
+        Value shape = shape::ShapeOfOp::create(rewriter, loc, dot);
         Value broadcastedAlpha =
-            rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, resultType,
-                alphaVal, shape, rewriter.getDenseI64ArrayAttr({}));
+            stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
+                resultType, alphaVal, shape, rewriter.getDenseI64ArrayAttr({}));
         dotResult =
-            rewriter.create<stablehlo::MulOp>(loc, dot, broadcastedAlpha);
+            stablehlo::MulOp::create(rewriter, loc, dot, broadcastedAlpha);
       }
     }
 
@@ -90,44 +90,43 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
       Value finalC;
       if (resultType.hasStaticShape()) {
         if (cRank == 1)
-          broadcastedC = rewriter.create<stablehlo::BroadcastInDimOp>(
-              loc, resultType, C, rewriter.getDenseI64ArrayAttr({1}));
+          broadcastedC = stablehlo::BroadcastInDimOp::create(
+              rewriter, loc, resultType, C, rewriter.getDenseI64ArrayAttr({1}));
         else if (cRank == 0)
-          broadcastedC = rewriter.create<stablehlo::BroadcastInDimOp>(
-              loc, resultType, C, rewriter.getDenseI64ArrayAttr({}));
+          broadcastedC = stablehlo::BroadcastInDimOp::create(
+              rewriter, loc, resultType, C, rewriter.getDenseI64ArrayAttr({}));
         else
           broadcastedC = C;
         if (!closeTo(betaLit, 1.0f)) {
-          Value betaVal = rewriter.create<stablehlo::ConstantOp>(
-              loc, DenseElementsAttr::get(
-                       resultType, rewriter.getFloatAttr(elemType, betaLit)));
+          Value betaVal = stablehlo::ConstantOp::create(rewriter, loc,
+              DenseElementsAttr::get(
+                  resultType, rewriter.getFloatAttr(elemType, betaLit)));
           finalC =
-              rewriter.create<stablehlo::MulOp>(loc, broadcastedC, betaVal);
+              stablehlo::MulOp::create(rewriter, loc, broadcastedC, betaVal);
         } else
           finalC = broadcastedC;
       } else {
-        Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
+        Value shape = shape::ShapeOfOp::create(rewriter, loc, dot);
         if (cRank == 1)
-          broadcastedC = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
+          broadcastedC = stablehlo::DynamicBroadcastInDimOp::create(rewriter,
               loc, resultType, C, shape, rewriter.getDenseI64ArrayAttr({1}));
         else if (cRank == 0)
-          broadcastedC = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
+          broadcastedC = stablehlo::DynamicBroadcastInDimOp::create(rewriter,
               loc, resultType, C, shape, rewriter.getDenseI64ArrayAttr({}));
         else
           broadcastedC = C;
         if (!closeTo(betaLit, 1.0f)) {
-          Value betaVal = rewriter.create<stablehlo::ConstantOp>(
-              loc, rewriter.getFloatAttr(elemType, gemmOp.getBeta()));
-          Value broadcastedBeta =
-              rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
-                  resultType, betaVal, shape,
-                  rewriter.getDenseI64ArrayAttr({}));
-          finalC = rewriter.create<stablehlo::MulOp>(
-              loc, broadcastedC, broadcastedBeta);
+          Value betaVal = stablehlo::ConstantOp::create(
+              rewriter, loc, rewriter.getFloatAttr(elemType, gemmOp.getBeta()));
+          Value broadcastedBeta = stablehlo::DynamicBroadcastInDimOp::create(
+              rewriter, loc, resultType, betaVal, shape,
+              rewriter.getDenseI64ArrayAttr({}));
+          finalC = stablehlo::MulOp::create(
+              rewriter, loc, broadcastedC, broadcastedBeta);
         } else
           finalC = broadcastedC;
       }
-      resultOp = rewriter.create<stablehlo::AddOp>(loc, dotResult, finalC);
+      resultOp = stablehlo::AddOp::create(rewriter, loc, dotResult, finalC);
     }
 
     rewriter.replaceOp(op, resultOp);

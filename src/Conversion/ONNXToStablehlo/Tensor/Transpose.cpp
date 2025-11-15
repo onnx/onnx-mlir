@@ -62,8 +62,8 @@ struct ONNXTransposeOpLoweringToStablehlo : public ConversionPattern {
     ONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value transposeValue = rewriter.create<stablehlo::TransposeOp>(
-        loc, outputType, data, permAxis);
+    Value transposeValue = stablehlo::TransposeOp::create(
+        rewriter, loc, outputType, data, permAxis);
     rewriter.replaceOp(op, transposeValue);
 
     return success();

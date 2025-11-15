@@ -70,49 +70,49 @@ struct ONNXOneHotOpLoweringToStablehlo
     RankedTensorType indexType =
         RankedTensorType::get(llvm::ArrayRef(outputDims), indicesElementType);
 
-    Value iota = rewriter.create<stablehlo::IotaOp>(
-        loc, indexType, IntegerAttr::get(rewriter.getIntegerType(64), axis));
-    Value broadcastIndices = rewriter.create<stablehlo::BroadcastInDimOp>(
-        loc, indexType, indices, rewriter.getDenseI64ArrayAttr(broadcastDims));
-    Value zero = rewriter.create<stablehlo::ConstantOp>(loc,
+    Value iota = stablehlo::IotaOp::create(rewriter, loc, indexType,
+        IntegerAttr::get(rewriter.getIntegerType(64), axis));
+    Value broadcastIndices = stablehlo::BroadcastInDimOp::create(rewriter, loc,
+        indexType, indices, rewriter.getDenseI64ArrayAttr(broadcastDims));
+    Value zero = stablehlo::ConstantOp::create(rewriter, loc,
         DenseIntElementsAttr::get(RankedTensorType::get({}, indicesElementType),
             ArrayRef<int64_t>{0}));
-    Value broadcastZero = rewriter.create<stablehlo::BroadcastInDimOp>(
-        loc, indexType, zero, rewriter.getDenseI64ArrayAttr({}));
+    Value broadcastZero = stablehlo::BroadcastInDimOp::create(
+        rewriter, loc, indexType, zero, rewriter.getDenseI64ArrayAttr({}));
     Value broadcastDepth;
     int64_t depthRank =
         mlir::cast<RankedTensorType>(depthValue.getType()).getRank();
     if (depthRank == 1)
-      broadcastDepth = rewriter.create<stablehlo::BroadcastInDimOp>(
-          loc, indexType, depthValue, rewriter.getDenseI64ArrayAttr({0}));
+      broadcastDepth = stablehlo::BroadcastInDimOp::create(rewriter, loc,
+          indexType, depthValue, rewriter.getDenseI64ArrayAttr({0}));
     else
-      broadcastDepth = rewriter.create<stablehlo::BroadcastInDimOp>(
-          loc, indexType, depthValue, rewriter.getDenseI64ArrayAttr({}));
-    Value compareGeZero = rewriter.create<stablehlo::CompareOp>(loc,
+      broadcastDepth = stablehlo::BroadcastInDimOp::create(rewriter, loc,
+          indexType, depthValue, rewriter.getDenseI64ArrayAttr({}));
+    Value compareGeZero = stablehlo::CompareOp::create(rewriter, loc,
         broadcastIndices, broadcastZero, stablehlo::ComparisonDirection::GE);
-    Value positiveIndices = rewriter.create<stablehlo::AddOp>(
-        loc, broadcastIndices, broadcastDepth);
-    Value normalizedIndices = rewriter.create<stablehlo::SelectOp>(
-        loc, indexType, compareGeZero, broadcastIndices, positiveIndices);
-    Value compare = rewriter.create<stablehlo::CompareOp>(
-        loc, normalizedIndices, iota, stablehlo::ComparisonDirection::EQ);
+    Value positiveIndices = stablehlo::AddOp::create(
+        rewriter, loc, broadcastIndices, broadcastDepth);
+    Value normalizedIndices = stablehlo::SelectOp::create(rewriter, loc,
+        indexType, compareGeZero, broadcastIndices, positiveIndices);
+    Value compare = stablehlo::CompareOp::create(rewriter, loc,
+        normalizedIndices, iota, stablehlo::ComparisonDirection::EQ);
     Type valueType = mlir::cast<ShapedType>(values.getType()).getElementType();
-    Value offValue = rewriter.create<stablehlo::SliceOp>(loc,
+    Value offValue = stablehlo::SliceOp::create(rewriter, loc,
         RankedTensorType::get({1}, valueType), values,
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{0}),
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}),
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
-    Value onValue = rewriter.create<stablehlo::SliceOp>(loc,
+    Value onValue = stablehlo::SliceOp::create(rewriter, loc,
         RankedTensorType::get({1}, valueType), values,
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}),
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{2}),
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
-    Value offValueBroadcast = rewriter.create<stablehlo::BroadcastInDimOp>(
-        loc, outputType, offValue, rewriter.getDenseI64ArrayAttr({0}));
-    Value onValueBroadcast = rewriter.create<stablehlo::BroadcastInDimOp>(
-        loc, outputType, onValue, rewriter.getDenseI64ArrayAttr({0}));
-    Value result = rewriter.create<stablehlo::SelectOp>(
-        loc, outputType, compare, onValueBroadcast, offValueBroadcast);
+    Value offValueBroadcast = stablehlo::BroadcastInDimOp::create(rewriter, loc,
+        outputType, offValue, rewriter.getDenseI64ArrayAttr({0}));
+    Value onValueBroadcast = stablehlo::BroadcastInDimOp::create(
+        rewriter, loc, outputType, onValue, rewriter.getDenseI64ArrayAttr({0}));
+    Value result = stablehlo::SelectOp::create(rewriter, loc, outputType,
+        compare, onValueBroadcast, offValueBroadcast);
     rewriter.replaceOp(op, {result});
     return success();
   }

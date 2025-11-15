@@ -399,7 +399,7 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
       std::advance(operandItr, map.getNumInputs());
     }
 
-    auto forOp = builder.create<AffineForOp>(iterateOp.getLoc(), lbOperands,
+    auto forOp = AffineForOp::create(builder, iterateOp.getLoc(), lbOperands,
         lbMap, ubOperands, ubMap, /*step*/ 1, inits,
         /*bodyBuilder=*/[](OpBuilder &, Location, Value, ValueRange) {
           // Make sure we don't create a default terminator in the loop body as
@@ -426,7 +426,7 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
       builder.setInsertionPointToEnd(forOp.getBody());
       auto Yield =
           mlir::cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
-      builder.create<AffineYieldOp>(iterateOp.getLoc(), Yield.getOperands());
+      AffineYieldOp::create(builder, iterateOp.getLoc(), Yield.getOperands());
 
       // replace use of iterateOp iterArgs with forOp iterArgs.
       for (auto [newIterArg, oldItArg] :
@@ -441,10 +441,10 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         llvm::cast<AffineForOp>(currentNestedForOps[i + 1].second);
     builder.setInsertionPointToEnd(forOp.getBody());
     if (forOp.getNumResults() > 0)
-      builder.create<AffineYieldOp>(
-          iterateOp.getLoc(), innerForOp.getResults());
+      AffineYieldOp::create(
+          builder, iterateOp.getLoc(), innerForOp.getResults());
     else
-      builder.create<AffineYieldOp>(iterateOp.getLoc());
+      AffineYieldOp::create(builder, iterateOp.getLoc());
   }
 
   // Replace induction variable references from those introduced by a
@@ -494,7 +494,7 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         auto oldForOp = llvm::cast<AffineForOp>(it->second);
         builder.setInsertionPointAfter(oldForOp);
         oldForOps.emplace_back(oldForOp);
-        auto forOp = builder.create<AffineForOp>(iterateOp.getLoc(),
+        auto forOp = AffineForOp::create(builder, iterateOp.getLoc(),
             oldForOp.getLowerBoundOperands(), oldForOp.getLowerBoundMap(),
             oldForOp.getUpperBoundOperands(), oldForOp.getUpperBoundMap(),
             /*step*/ 1, inits,
@@ -547,10 +547,10 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         auto innerForOp = newForOps[i + 1];
         builder.setInsertionPointToEnd(forOp.getBody());
         if (forOp.getNumResults() > 0)
-          builder.create<AffineYieldOp>(
-              iterateOp.getLoc(), innerForOp.getResults());
+          AffineYieldOp::create(
+              builder, iterateOp.getLoc(), innerForOp.getResults());
         else
-          builder.create<AffineYieldOp>(iterateOp.getLoc());
+          AffineYieldOp::create(builder, iterateOp.getLoc());
       }
       // Add yield for innermost affine.for with iterateOp yield value.
       auto innerForOp = newForOps.back();
@@ -558,7 +558,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
       builder.setInsertionPointToEnd(innerForOp.getBody());
       auto iterTerm =
           mlir::cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
-      builder.create<AffineYieldOp>(iterateOp.getLoc(), iterTerm.getOperands());
+      AffineYieldOp::create(
+          builder, iterateOp.getLoc(), iterTerm.getOperands());
       // Remove the old terminator.
       prevTerm->erase();
 
@@ -775,7 +776,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
           llvm::to_vector<4>(llvm::map_range(parallelReductions,
               [](const LoopReduction &red) { return red.kind; }));
 
-      AffineParallelOp parallelLoop = opBuilder.create<AffineParallelOp>(loc,
+      AffineParallelOp parallelLoop = AffineParallelOp::create(opBuilder, loc,
           ValueRange(reducedValues).getTypes(), reductionKinds,
           ArrayRef(lbsMap), lbsOperands, ArrayRef(ubsMap), ubsOperands,
           ArrayRef(loopToParallel.getStepAsInt()));
@@ -795,8 +796,8 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
         assert(optionalLoopIndices.size() >= 1 &&
                "expected at least one loop index");
         Value parallelLoopIndex = optionalLoopIndices[0];
-        Operation *newOp = opBuilder.create<KrnlParallelClauseOp>(
-            loc, parallelLoopIndex, numThreads, procBind);
+        Operation *newOp = KrnlParallelClauseOp::create(
+            opBuilder, loc, parallelLoopIndex, numThreads, procBind);
         newOp->moveBefore(yieldOp);
       }
       // Replace the affine.forOp with affine.parallelOp in loopRefToTop
@@ -818,7 +819,7 @@ AffineTypeConverter::AffineTypeConverter() {
     if (inputs.size() != 1)
       return Value();
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+    return UnrealizedConversionCastOp::create(builder, loc, resultType, inputs)
         .getResult(0);
   });
 
@@ -827,7 +828,7 @@ AffineTypeConverter::AffineTypeConverter() {
     if (inputs.size() != 1)
       return Value();
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+    return UnrealizedConversionCastOp::create(builder, loc, resultType, inputs)
         .getResult(0);
   });
 }

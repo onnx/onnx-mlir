@@ -42,11 +42,11 @@ struct ONNXReshapeOpLoweringToStablehlo : public ConversionPattern {
 
     Type outputShapeType = RankedTensorType::get(
         {static_cast<int64_t>(dims.size())}, rewriter.getIndexType());
-    Value shape = rewriter.create<shape::FromExtentsOp>(loc, dims);
+    Value shape = shape::FromExtentsOp::create(rewriter, loc, dims);
     shape =
-        rewriter.create<shape::ToExtentTensorOp>(loc, outputShapeType, shape);
-    Value result = rewriter.create<stablehlo::DynamicReshapeOp>(
-        loc, outputType, data, shape);
+        shape::ToExtentTensorOp::create(rewriter, loc, outputShapeType, shape);
+    Value result = stablehlo::DynamicReshapeOp::create(
+        rewriter, loc, outputType, data, shape);
     rewriter.replaceOp(op, result);
     return success();
   }

@@ -40,7 +40,7 @@ Value TosaBuilder::createConstFromRankedTensorAndVec(
   auto constAttr = DenseElementsAttr::get(constType, vec);
 
   Value constOp =
-      rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+      mlir::tosa::ConstOp::create(rewriter(), loc(), constType, constAttr);
   return constOp;
 }
 
@@ -124,7 +124,7 @@ Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp =
-      rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+      mlir::tosa::ConstOp::create(rewriter(), loc(), constType, constAttr);
   return constOp;
 }
 

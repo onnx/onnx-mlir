@@ -79,7 +79,7 @@ class Test {
 
   ONNXEinsumOp einsumOp(
       StringRef equation, const std::vector<Value> &inputs, Type elementType) {
-    return builder.create<ONNXEinsumOp>(loc,
+    return ONNXEinsumOp::create(builder, loc,
         UnrankedTensorType::get(elementType), llvm::ArrayRef(inputs), equation);
   }
 

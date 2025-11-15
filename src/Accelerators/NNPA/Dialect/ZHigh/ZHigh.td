@@ -87,24 +87,22 @@ def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
       return get(context, dataLayout, ZTensorEncodingAttr::QuantizedType::UNDEFINED);
     }
   }];
-
-  let cppNamespace = "::onnx_mlir::zhigh";
 }
 
 // Whether a ztensor type has the specified layout.
 class DataLayoutOfPred<string layout> : And<[
   CPred<"(mlir::cast<::mlir::RankedTensorType>($_self)) &&"
-        "(mlir::dyn_cast_or_null<ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding())) &&"
-        "(mlir::cast<ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding()).getDataLayout()"
-        " == ZTensorEncodingAttr::DataLayout::" # layout # ")">
+        "(mlir::dyn_cast_or_null<::onnx_mlir::zhigh::ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding())) &&"
+        "(mlir::cast<::onnx_mlir::zhigh::ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding()).getDataLayout()"
+        " == ::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::" # layout # ")">
 ]>;
 
 // Whether a ztensor type has the specified quantized type.
 class QuantizedTypeOfPred<string qtype> : And<[
   CPred<"(mlir::cast<::mlir::RankedTensorType>($_self)) &&"
-        "(mlir::dyn_cast_or_null<ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding())) &&"
-        "(mlir::cast<ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding()).getQuantizedType()"
-        " == ZTensorEncodingAttr::QuantizedType::" # qtype # ")">
+        "(mlir::dyn_cast_or_null<::onnx_mlir::zhigh::ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding())) &&"
+        "(mlir::cast<::onnx_mlir::zhigh::ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding()).getQuantizedType()"
+        " == ::onnx_mlir::zhigh::ZTensorEncodingAttr::QuantizedType::" # qtype # ")">
 ]>;
 
 // Whether a shaped type has one of the specified quantized type.

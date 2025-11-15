@@ -44,8 +44,8 @@ namespace onnx_mlir {
 // If 'A' is NoneType, return -B. Otherwise return A-B.
 Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
   if (mlir::isa<NoneType>(A.getType()))
-    return rewriter.create<ONNXNegOp>(loc, B);
-  return rewriter.create<ONNXSubOp>(loc, A, B);
+    return ONNXNegOp::create(rewriter, loc, B);
+  return ONNXSubOp::create(rewriter, loc, A, B);
 }
 
 // Create an ArrayAttr of IntegerAttr(s) of values in [N, M].
@@ -110,8 +110,8 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
   for (Value inp : inputs) {
     ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
     assert(inpType && "Type is not ShapedType");
-    ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
-        loc, UnrankedTensorType::get(inpType.getElementType()), inp, permAttr);
+    ONNXTransposeOp transposeOp = ONNXTransposeOp::create(rewriter, loc,
+        UnrankedTensorType::get(inpType.getElementType()), inp, permAttr);
     static_cast<void>(transposeOp.inferShapes([](Region &region) {}));
     transposedInputs.emplace_back(transposeOp.getResult());
   }
@@ -125,7 +125,7 @@ SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
   for (Value inp : inputs) {
     ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
     assert(inpType && "Type is not ShapedType");
-    ONNXCastOp castOp = rewriter.create<ONNXCastOp>(loc,
+    ONNXCastOp castOp = ONNXCastOp::create(rewriter, loc,
         UnrankedTensorType::get(inpType.getElementType()), inp, saturate, to);
     static_cast<void>(castOp.inferShapes([](Region &region) {}));
     castInputs.emplace_back(castOp.getResult());
@@ -150,7 +150,7 @@ Value maxOrDefault(PatternRewriter &rewriter, Location loc, Value a, Value b) {
     return a;
 
   // Otherwise, return the max of A and B
-  return rewriter.create<ONNXMaxOp>(loc, a.getType(), ValueRange{a, b});
+  return ONNXMaxOp::create(rewriter, loc, a.getType(), ValueRange{a, b});
 }
 
 Value minOrDefault(PatternRewriter &rewriter, Location loc, Value a, Value b) {
@@ -161,7 +161,7 @@ Value minOrDefault(PatternRewriter &rewriter, Location loc, Value a, Value b) {
     return a;
 
   // Otherwise, return the min of A and B
-  return rewriter.create<ONNXMinOp>(loc, a.getType(), ValueRange{a, b});
+  return ONNXMinOp::create(rewriter, loc, a.getType(), ValueRange{a, b});
 }
 
 // Create a DenseElementsAttr based on the shape of type.
@@ -551,7 +551,7 @@ public:
     reshapeInput = reshapeOp.getData();
     reshapeShape = reshapeOp.getShape();
     reshapeAZ = reshapeOp.getAllowzeroAttr();
-    Value x = rewriter.create<OP_TYPE>(loc, reshapeInput, rhs);
+    Value x = OP_TYPE::create(rewriter, loc, reshapeInput, rhs);
     Value res = create.onnx.reshape(outputType, x, reshapeShape, reshapeAZ);
 
     rewriter.replaceOp(op, res);
@@ -636,10 +636,10 @@ struct PropagateConstantScalingInAttentionLayerPattern
       // Update in place B and C of Gemm.
       rewriter.modifyOpInPlace(onnxGemmOp, [&] {
         rewriter.setInsertionPoint(onnxGemmOp);
-        onnxGemmOp.getBMutable().assign(rewriter.create<ONNXOp>(
-            onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
+        onnxGemmOp.getBMutable().assign(ONNXOp::create(
+            rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
         if (!isNoneValue(onnxGemmOp.getC()))
-          onnxGemmOp.getCMutable().assign(rewriter.create<ONNXOp>(
+          onnxGemmOp.getCMutable().assign(ONNXOp::create(rewriter,
               onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
       });
     } else {
@@ -648,14 +648,14 @@ struct PropagateConstantScalingInAttentionLayerPattern
       // Update in place MatMul and Add.
       rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
         rewriter.setInsertionPoint(onnxSubMatOp);
-        onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
+        onnxSubMatOp.getBMutable().assign(ONNXOp::create(rewriter,
             onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
       });
       rewriter.modifyOpInPlace(onnxAddOp, [&] {
         OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
         rewriter.setInsertionPoint(onnxAddOp);
-        onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
-            onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
+        onnxAddOp.getBMutable().assign(ONNXOp::create(
+            rewriter, onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
       });
     }
 
@@ -1620,7 +1620,7 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     if (merged) {
       // Create a new ONNXConcat op with the flattened inputs.
       auto newConcat =
-          rewriter.create<ONNXConcatOp>(rewriter.getFusedLoc(concatLocations),
+          ONNXConcatOp::create(rewriter, rewriter.getFusedLoc(concatLocations),
               concatOp.getResult().getType(), newInputs, axis);
       rewriter.replaceOp(concatOp, newConcat.getResult());
       return success();

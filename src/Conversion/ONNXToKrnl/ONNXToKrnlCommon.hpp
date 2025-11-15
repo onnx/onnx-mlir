@@ -250,7 +250,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarIOp<Op>>(loc, elementType, scalarsSplatted);
+      return ScalarIOp<Op>::create(rewriter, loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
@@ -262,7 +262,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarFOp<Op>>(loc, elementType, scalarsSplatted);
+      return ScalarFOp<Op>::create(rewriter, loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported float operation");
   } else {
@@ -598,7 +598,7 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
     // You may customize the krnl.call according to your library
     // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
     std::string funcName = op->getName().getStringRef().str().substr(5);
-    rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
+    mlir::KrnlCallOp::create(rewriter, loc, funcName, allocs, op, operands,
         /*keep all attributes*/ true);
     rewriter.replaceOp(op, allocs);
 

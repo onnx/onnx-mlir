@@ -360,7 +360,7 @@ void genSignatureFunction(ModuleOp &module,
 
     // Initialize an array with the addresses of the global strings.
     b.setInsertionPointToStart(block);
-    Value array = b.create<LLVM::UndefOp>(loc, arrayType);
+    Value array = LLVM::UndefOp::create(b, loc, arrayType);
 
     uint32_t index = 0;
     Value lastValue = array;

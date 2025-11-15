@@ -80,7 +80,7 @@ bool LSTMLibBuilder::build() {
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
-  Value noneVal = builder.create<ONNXNoneOp>(loc).getResult();
+  Value noneVal = ONNXNoneOp::create(builder, loc).getResult();
   auto xVal = entryBlock.getArgument(0);
   auto hVal = (isNoneH) ? noneVal : entryBlock.getArgument(1);
   auto cVal = (isNoneC) ? noneVal : entryBlock.getArgument(2);
@@ -113,7 +113,7 @@ bool LSTMLibBuilder::build() {
   auto bConstant = buildONNXConstantOp(bOmt, bType);
   auto pConstant = (isNoneP) ? noneVal : buildONNXConstantOp(pOmt, pType);
 
-  auto lstmOp = builder.create<ONNXLSTMOp>(loc,
+  auto lstmOp = ONNXLSTMOp::create(builder, loc,
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
       /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
@@ -127,7 +127,7 @@ bool LSTMLibBuilder::build() {
   lstmOp.getResults()[1].setType(yHType);
   lstmOp.getResults()[2].setType(yCType);
 
-  builder.create<func::ReturnOp>(loc, lstmOp.getResults());
+  func::ReturnOp::create(builder, loc, lstmOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -136,7 +136,7 @@ bool LSTMLibBuilder::build() {
 
 bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
-  OMTensor* list[num];
+  OMTensor *list[num];
   float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLB;
   float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUB;
   float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLB;

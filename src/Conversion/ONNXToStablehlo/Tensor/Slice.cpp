@@ -47,10 +47,10 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
     ShapedType dataType = mlir::cast<ShapedType>(data.getType());
     int64_t rank = dataType.getRank();
     Type indexElementType = rewriter.getI64Type();
-    Value zero = rewriter.create<stablehlo::ConstantOp>(loc,
+    Value zero = stablehlo::ConstantOp::create(rewriter, loc,
         DenseElementsAttr::get(RankedTensorType::get({1}, indexElementType),
             ArrayRef<int64_t>{0}));
-    Value one = rewriter.create<stablehlo::ConstantOp>(loc,
+    Value one = stablehlo::ConstantOp::create(rewriter, loc,
         DenseElementsAttr::get(RankedTensorType::get({1}, indexElementType),
             ArrayRef<int64_t>{1}));
     SmallVector<Value, 4> stepValues;
@@ -78,89 +78,89 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
       assert(false && "Axes must be known at compile time");
     }
 
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
+    Value inputShape = shape::ShapeOfOp::create(rewriter, loc, data);
 
     for (int64_t i = 0; i < rank; ++i) {
       Value dimValue;
       if (dataType.getShape()[i] != ShapedType::kDynamic)
-        dimValue = rewriter.create<stablehlo::ConstantOp>(loc,
+        dimValue = stablehlo::ConstantOp::create(rewriter, loc,
             DenseElementsAttr::get(RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{dataType.getShape()[i]}));
       else {
         Value dimIndexValue =
-            rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
-        dimValue = rewriter.create<shape::FromExtentsOp>(loc, dimIndexValue);
-        dimValue = rewriter.create<shape::ToExtentTensorOp>(
-            loc, RankedTensorType::get({1}, rewriter.getIndexType()), dimValue);
-        dimValue = rewriter.create<arith::IndexCastOp>(
-            loc, RankedTensorType::get({1}, indexElementType), dimValue);
+            shape::GetExtentOp::create(rewriter, loc, inputShape, i);
+        dimValue = shape::FromExtentsOp::create(rewriter, loc, dimIndexValue);
+        dimValue = shape::ToExtentTensorOp::create(rewriter, loc,
+            RankedTensorType::get({1}, rewriter.getIndexType()), dimValue);
+        dimValue = arith::IndexCastOp::create(rewriter, loc,
+            RankedTensorType::get({1}, indexElementType), dimValue);
       }
       if (axesIntLitToIdx[i] == -1) {
         beginValues.push_back(zero);
         stepValues.push_back(one);
         endValues.push_back(dimValue);
       } else {
-        Value beginValue = rewriter.create<stablehlo::SliceOp>(loc,
+        Value beginValue = stablehlo::SliceOp::create(rewriter, loc,
             RankedTensorType::get({1}, indexElementType), starts,
             DenseI64ArrayAttr::get(
                 context, ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseI64ArrayAttr::get(
                 context, ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
             DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
-        Value stepValue = rewriter.create<stablehlo::SliceOp>(loc,
+        Value stepValue = stablehlo::SliceOp::create(rewriter, loc,
             RankedTensorType::get({1}, indexElementType), steps,
             DenseI64ArrayAttr::get(
                 context, ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseI64ArrayAttr::get(
                 context, ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
             DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
-        Value endValue = rewriter.create<stablehlo::SliceOp>(loc,
+        Value endValue = stablehlo::SliceOp::create(rewriter, loc,
             RankedTensorType::get({1}, indexElementType), ends,
             DenseI64ArrayAttr::get(
                 context, ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseI64ArrayAttr::get(
                 context, ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
             DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
-        Value isNegativeStepValue = rewriter.create<stablehlo::CompareOp>(
-            loc, stepValue, zero, stablehlo::ComparisonDirection::LT);
+        Value isNegativeStepValue = stablehlo::CompareOp::create(
+            rewriter, loc, stepValue, zero, stablehlo::ComparisonDirection::LT);
         Value broadcastedIsNegativeValue =
-            rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
+            stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
                 RankedTensorType::get(
                     dataType.getShape(), rewriter.getI1Type()),
                 isNegativeStepValue, inputShape,
                 rewriter.getDenseI64ArrayAttr({0}));
         Value negatedStepValue =
-            rewriter.create<stablehlo::NegOp>(loc, stepValue);
+            stablehlo::NegOp::create(rewriter, loc, stepValue);
         Value negatedStartValue =
-            rewriter.create<stablehlo::AddOp>(loc, endValue, one);
+            stablehlo::AddOp::create(rewriter, loc, endValue, one);
         Value negatedEndValue =
-            rewriter.create<stablehlo::AddOp>(loc, beginValue, one);
-        Value reversedData = rewriter.create<stablehlo::ReverseOp>(
-            loc, data, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{i}));
-        beginValue = rewriter.create<stablehlo::SelectOp>(
-            loc, isNegativeStepValue, negatedStartValue, beginValue);
-        endValue = rewriter.create<stablehlo::SelectOp>(
-            loc, isNegativeStepValue, negatedEndValue, endValue);
-        stepValue = rewriter.create<stablehlo::SelectOp>(
-            loc, isNegativeStepValue, negatedStepValue, stepValue);
-        data = rewriter.create<stablehlo::SelectOp>(
-            loc, broadcastedIsNegativeValue, reversedData, data);
-        Value exceedDimValue = rewriter.create<stablehlo::CompareOp>(
-            loc, endValue, dimValue, stablehlo::ComparisonDirection::GT);
-        Value clampedEndValue = rewriter.create<stablehlo::SelectOp>(
-            loc, exceedDimValue, dimValue, endValue);
-        Value negDimValue = rewriter.create<stablehlo::CompareOp>(
-            loc, clampedEndValue, zero, stablehlo::ComparisonDirection::LT);
+            stablehlo::AddOp::create(rewriter, loc, beginValue, one);
+        Value reversedData = stablehlo::ReverseOp::create(rewriter, loc, data,
+            DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{i}));
+        beginValue = stablehlo::SelectOp::create(
+            rewriter, loc, isNegativeStepValue, negatedStartValue, beginValue);
+        endValue = stablehlo::SelectOp::create(
+            rewriter, loc, isNegativeStepValue, negatedEndValue, endValue);
+        stepValue = stablehlo::SelectOp::create(
+            rewriter, loc, isNegativeStepValue, negatedStepValue, stepValue);
+        data = stablehlo::SelectOp::create(
+            rewriter, loc, broadcastedIsNegativeValue, reversedData, data);
+        Value exceedDimValue = stablehlo::CompareOp::create(rewriter, loc,
+            endValue, dimValue, stablehlo::ComparisonDirection::GT);
+        Value clampedEndValue = stablehlo::SelectOp::create(
+            rewriter, loc, exceedDimValue, dimValue, endValue);
+        Value negDimValue = stablehlo::CompareOp::create(rewriter, loc,
+            clampedEndValue, zero, stablehlo::ComparisonDirection::LT);
         Value posDimValue =
-            rewriter.create<stablehlo::AddOp>(loc, clampedEndValue, dimValue);
-        Value resultEndValue = rewriter.create<stablehlo::SelectOp>(
-            loc, negDimValue, posDimValue, clampedEndValue);
-        Value negStartValue = rewriter.create<stablehlo::CompareOp>(
-            loc, beginValue, zero, stablehlo::ComparisonDirection::LT);
+            stablehlo::AddOp::create(rewriter, loc, clampedEndValue, dimValue);
+        Value resultEndValue = stablehlo::SelectOp::create(
+            rewriter, loc, negDimValue, posDimValue, clampedEndValue);
+        Value negStartValue = stablehlo::CompareOp::create(rewriter, loc,
+            beginValue, zero, stablehlo::ComparisonDirection::LT);
         Value posStartValue =
-            rewriter.create<stablehlo::AddOp>(loc, beginValue, dimValue);
-        Value resultBeginValue = rewriter.create<stablehlo::SelectOp>(
-            loc, negStartValue, posStartValue, beginValue);
+            stablehlo::AddOp::create(rewriter, loc, beginValue, dimValue);
+        Value resultBeginValue = stablehlo::SelectOp::create(
+            rewriter, loc, negStartValue, posStartValue, beginValue);
         beginValues.push_back(resultBeginValue);
         stepValues.push_back(stepValue);
         endValues.push_back(resultEndValue);
@@ -168,20 +168,20 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
     }
 
     Type outputType = *op->result_type_begin();
-    auto start_indices = rewriter.create<stablehlo::ConcatenateOp>(loc,
+    auto start_indices = stablehlo::ConcatenateOp::create(rewriter, loc,
         RankedTensorType::get(
             {static_cast<int64_t>(beginValues.size())}, indexElementType),
         beginValues, IntegerAttr::get(rewriter.getIntegerType(64), 0));
-    auto end_indices = rewriter.create<stablehlo::ConcatenateOp>(loc,
+    auto end_indices = stablehlo::ConcatenateOp::create(rewriter, loc,
         RankedTensorType::get(
             {static_cast<int64_t>(endValues.size())}, indexElementType),
         endValues, IntegerAttr::get(rewriter.getIntegerType(64), 0));
-    auto step_indices = rewriter.create<stablehlo::ConcatenateOp>(loc,
+    auto step_indices = stablehlo::ConcatenateOp::create(rewriter, loc,
         RankedTensorType::get(
             {static_cast<int64_t>(stepValues.size())}, indexElementType),
         stepValues, IntegerAttr::get(rewriter.getIntegerType(64), 0));
-    Value sliceValue = rewriter.create<stablehlo::RealDynamicSliceOp>(
-        loc, outputType, data, start_indices, end_indices, step_indices);
+    Value sliceValue = stablehlo::RealDynamicSliceOp::create(rewriter, loc,
+        outputType, data, start_indices, end_indices, step_indices);
     rewriter.replaceOp(op, sliceValue);
     return success();
   }

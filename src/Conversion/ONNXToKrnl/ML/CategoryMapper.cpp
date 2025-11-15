@@ -163,8 +163,8 @@ struct ONNXCategoryMapperOpLowering
             create.krnl.printf("index: ", index);
 
           // Store the final result.
-          scf::IfOp ifOp = rewriter.create<scf::IfOp>(
-              loc, isIndexValid, /*withElseRegion=*/true);
+          scf::IfOp ifOp = scf::IfOp::create(
+              rewriter, loc, isIndexValid, /*withElseRegion=*/true);
           storeResult(index, elementType, ifOp, constantForCatsInt64s,
               constantForCatsStrings, defaultInt64, defaultString, alloc,
               loopInd, createKrnl, rewriter);

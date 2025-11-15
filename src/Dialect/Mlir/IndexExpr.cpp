@@ -700,8 +700,8 @@ IndexExpr IndexExpr::compareOp(
     return PredicateIndexExpr(false);
   };
   F2 valueFct = [&](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    Value compare = aa.getRewriter().create<arith::CmpIOp>(
-        aa.getLoc(), comparePred, aa.getValue(), bb.getValue());
+    Value compare = arith::CmpIOp::create(aa.getRewriter(), aa.getLoc(),
+        comparePred, aa.getValue(), bb.getValue());
     return PredicateIndexExpr(compare);
   };
 
@@ -750,8 +750,8 @@ IndexExpr IndexExpr::compareOp(
     return PredicateIndexExpr(false);
   };
   F2 valueFloatFct = [&](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    Value compare = aa.getRewriter().create<arith::CmpFOp>(
-        aa.getLoc(), comparePred, aa.getValue(), bb.getValue());
+    Value compare = arith::CmpFOp::create(aa.getRewriter(), aa.getLoc(),
+        comparePred, aa.getValue(), bb.getValue());
     return PredicateIndexExpr(compare);
   };
 
@@ -1193,8 +1193,8 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
     scope.getDimAndSymbolList(dimAndSymList);
-    Value minVal = scope.getRewriter().create<affine::AffineMinOp>(
-        vvals[0].getLoc(), map, dimAndSymList);
+    Value minVal = affine::AffineMinOp::create(
+        scope.getRewriter(), vvals[0].getLoc(), map, dimAndSymList);
     res.getObj().initAsKind(minVal, IndexExprKind::NonAffine);
     return res;
   };
@@ -1252,8 +1252,8 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
     scope.getDimAndSymbolList(dimAndSymList);
-    Value minVal = scope.getRewriter().create<affine::AffineMaxOp>(
-        vvals[0].getLoc(), map, dimAndSymList);
+    Value minVal = affine::AffineMaxOp::create(
+        scope.getRewriter(), vvals[0].getLoc(), map, dimAndSymList);
     res.getObj().initAsKind(minVal, IndexExprKind::NonAffine);
     return res;
   };

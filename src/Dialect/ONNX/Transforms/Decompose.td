@@ -58,7 +58,7 @@ def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 def GetNullArrayAttr :  NativeCodeCall<"ArrayAttr()">;
 
 // Create a unit constant that will be used as none input.
-def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateNoneValue : NativeCodeCall<"ONNXNoneOp::create($_builder, $_loc)">;
 
 // Create a scalar DenseElementsAttr (rank 0) from a single attribute.
 // E.g return type is tensor<f32> instead of tensor<0xf32> or tensor<1xf32>
