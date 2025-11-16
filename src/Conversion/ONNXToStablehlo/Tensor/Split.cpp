@@ -84,7 +84,7 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
       endIndice += splitSizes[i];
       beginIndices[dimIndex] = beginIndice;
       endIndices[dimIndex] = endIndice;
-      slices.push_back(rewriter.create<stablehlo::SliceOp>(loc, sliceType,
+      slices.push_back(stablehlo::SliceOp::create(rewriter, loc, sliceType,
           input, DenseI64ArrayAttr::get(context, beginIndices),
           DenseI64ArrayAttr::get(context, endIndices),
           DenseI64ArrayAttr::get(context, strides)));

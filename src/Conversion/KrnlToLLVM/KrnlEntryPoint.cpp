@@ -352,7 +352,7 @@ private:
     MLIRContext *context = module.getContext();
     auto int64Ty = IntegerType::get(context, 64);
 
-    Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
+    Value memRef = LLVM::UndefOp::create(rewriter, loc, memRefTy);
 
     // Set dataPtr and alignedDataPtr;
     Value dataPtr = RuntimeAPI::callApi(

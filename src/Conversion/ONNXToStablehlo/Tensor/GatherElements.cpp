@@ -55,51 +55,51 @@ struct ONNXGatherElementsOpLoweringToStablehlo : public ConversionPattern {
 
     // make sure all index values >= 0
     Value zero = getShapedZero(loc, rewriter, indices);
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
-    Value indicesShape = rewriter.create<shape::ShapeOfOp>(loc, indices);
+    Value inputShape = shape::ShapeOfOp::create(rewriter, loc, data);
+    Value indicesShape = shape::ShapeOfOp::create(rewriter, loc, indices);
     Value broadcastedAxisDimSize, axisDimSize;
     if (inputType.hasStaticShape()) {
-      axisDimSize = rewriter.create<stablehlo::ConstantOp>(
-          loc, rewriter.getIntegerAttr(
-                   indexElemType, inputType.getDimSize(axisLit)));
+      axisDimSize = stablehlo::ConstantOp::create(rewriter, loc,
+          rewriter.getIntegerAttr(
+              indexElemType, inputType.getDimSize(axisLit)));
     } else {
       axisDimSize =
-          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+          shape::GetExtentOp::create(rewriter, loc, inputShape, axisLit);
       axisDimSize =
-          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+          shape::GetExtentOp::create(rewriter, loc, inputShape, axisLit);
       axisDimSize =
-          rewriter.create<arith::IndexCastOp>(loc, indexElemType, axisDimSize);
-      axisDimSize = rewriter.create<tensor::FromElementsOp>(loc, axisDimSize);
-      axisDimSize = rewriter.create<stablehlo::ReshapeOp>(loc,
+          arith::IndexCastOp::create(rewriter, loc, indexElemType, axisDimSize);
+      axisDimSize = tensor::FromElementsOp::create(rewriter, loc, axisDimSize);
+      axisDimSize = stablehlo::ReshapeOp::create(rewriter, loc,
           RankedTensorType::get(SmallVector<int64_t>{}, indexElemType),
           axisDimSize);
     }
     if (indicesType.hasStaticShape()) {
-      broadcastedAxisDimSize = rewriter.create<stablehlo::BroadcastInDimOp>(
+      broadcastedAxisDimSize = stablehlo::BroadcastInDimOp::create(rewriter,
           loc, indicesType, axisDimSize, rewriter.getDenseI64ArrayAttr({}));
     } else {
       broadcastedAxisDimSize =
-          rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
+          stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc, indicesType,
               axisDimSize, indicesShape, rewriter.getDenseI64ArrayAttr({}));
     }
-    Value isNegative = rewriter.create<stablehlo::CompareOp>(
-        loc, indices, zero, stablehlo::ComparisonDirection::LT);
-    Value positiveIndices = rewriter.create<stablehlo::AddOp>(
-        loc, indicesType, indices, broadcastedAxisDimSize);
-    indices = rewriter.create<stablehlo::SelectOp>(
-        loc, indicesType, isNegative, positiveIndices, indices);
+    Value isNegative = stablehlo::CompareOp::create(
+        rewriter, loc, indices, zero, stablehlo::ComparisonDirection::LT);
+    Value positiveIndices = stablehlo::AddOp::create(
+        rewriter, loc, indicesType, indices, broadcastedAxisDimSize);
+    indices = stablehlo::SelectOp::create(
+        rewriter, loc, indicesType, isNegative, positiveIndices, indices);
 
     // start indices
     Value toConcatIndexShape;
     SmallVector<Value> toConcatIndexShapeValueVec;
     for (int64_t i = 0; i < rank; i++) {
       toConcatIndexShapeValueVec.push_back(
-          rewriter.create<shape::GetExtentOp>(loc, indicesShape, i));
+          shape::GetExtentOp::create(rewriter, loc, indicesShape, i));
     }
     toConcatIndexShapeValueVec.push_back(
-        rewriter.create<arith::ConstantIndexOp>(loc, 1));
-    toConcatIndexShape = rewriter.create<tensor::FromElementsOp>(
-        loc, toConcatIndexShapeValueVec);
+        arith::ConstantIndexOp::create(rewriter, loc, 1));
+    toConcatIndexShape = tensor::FromElementsOp::create(
+        rewriter, loc, toConcatIndexShapeValueVec);
 
     ArrayRef<int64_t> indicesShapeVec = indicesType.getShape();
     SmallVector<int64_t> toConcatIndexShapeVec(
@@ -111,16 +111,16 @@ struct ONNXGatherElementsOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<Value> toConcat;
     for (int64_t i = 0; i < inputType.getRank(); ++i) {
       if (i == axisLit) {
-        toConcat.push_back(rewriter.create<stablehlo::DynamicReshapeOp>(
-            loc, toConcatIndexType, indices, toConcatIndexShape));
+        toConcat.push_back(stablehlo::DynamicReshapeOp::create(
+            rewriter, loc, toConcatIndexType, indices, toConcatIndexShape));
       } else {
         toConcat.push_back(
-            rewriter.create<stablehlo::DynamicIotaOp>(loc, toConcatIndexType,
+            stablehlo::DynamicIotaOp::create(rewriter, loc, toConcatIndexType,
                 toConcatIndexShape, rewriter.getI64IntegerAttr(i)));
       }
     }
-    auto gatherIndicies = rewriter.create<stablehlo::ConcatenateOp>(
-        loc, toConcat, static_cast<uint64_t>(inputType.getRank()));
+    auto gatherIndicies = stablehlo::ConcatenateOp::create(
+        rewriter, loc, toConcat, static_cast<uint64_t>(inputType.getRank()));
 
     // dimsAttr
     SmallVector<int64_t> collapsedDims;
@@ -139,7 +139,7 @@ struct ONNXGatherElementsOpLoweringToStablehlo : public ConversionPattern {
             /*indexVecDim=*/rank);
     SmallVector<int64_t> sliceSizes(inputType.getRank(), 1);
 
-    Value gatherValue = rewriter.create<stablehlo::GatherOp>(loc, outputType,
+    Value gatherValue = stablehlo::GatherOp::create(rewriter, loc, outputType,
         data, gatherIndicies, dimsAttr,
         rewriter.getDenseI64ArrayAttr(sliceSizes));
     rewriter.replaceOp(op, gatherValue);

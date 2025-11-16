@@ -228,7 +228,7 @@ private:
   }
 
   Value createNoneValue() {
-    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+    return ONNXNoneOp::create(builder_, UnknownLoc()).getResult();
   }
 
   Value createConstantValue(ElementsAttr value, Location loc) {
@@ -593,10 +593,10 @@ private:
     }
 
     if (useReturn)
-      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
+      ONNXReturnOp::create(builder_, UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
+      ONNXYieldOp::create(builder_, UnknownLoc(), retVals);
 
     SmallVector<llvm::StringRef> inputDimParamsRefs, outputDimParamsRefs;
     for (uint64_t i = 0; i < inputDimParams.size(); ++i)
@@ -816,7 +816,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    T op = builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
+    T op =
+        T::create(builder_, ImportLoc(node), outputTypes, inputs, attributes);
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {

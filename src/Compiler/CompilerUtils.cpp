@@ -158,7 +158,7 @@ int Command::exec(std::string wdir) const {
   llvm::SmallString<8> cur_wdir;
   llvm::SmallString<8> new_wdir(wdir);
   llvm::sys::fs::current_path(cur_wdir);
-  llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
+  llvm::sys::path::make_absolute(cur_wdir, new_wdir);
   std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
   if (ec.value()) {
     llvm::errs() << llvm::StringRef(new_wdir).str() << ": " << ec.message()

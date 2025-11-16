@@ -1080,7 +1080,7 @@ std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
 
 std::optional<Value> KrnlSeqExtractOp::buildClone(
     OpBuilder &builder, Value alloc) {
-  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+  return bufferization::CloneOp::create(builder, alloc.getLoc(), alloc)
       .getResult();
 }
 
@@ -1102,12 +1102,12 @@ std::optional<Operation *> KrnlSeqAllocOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
-  return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
+  return KrnlSeqDeallocOp::create(builder, loc, alloc).getOperation();
 }
 
 std::optional<Value> KrnlSeqAllocOp::buildClone(
     OpBuilder &builder, Value alloc) {
-  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+  return bufferization::CloneOp::create(builder, alloc.getLoc(), alloc)
       .getResult();
 }
 

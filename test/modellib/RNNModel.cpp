@@ -68,7 +68,7 @@ bool RNNLibBuilder::build() {
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
-  auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
+  auto noneVal = ONNXNoneOp::create(builder, loc).getResult();
   auto xVal = entryBlock.getArgument(0);
   auto sVal = noneVal;
   auto hVal = entryBlock.getArgument(1);
@@ -95,7 +95,7 @@ bool RNNLibBuilder::build() {
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
 
-  auto rnnOp = builder.create<ONNXRNNOp>(loc,
+  auto rnnOp = ONNXRNNOp::create(builder, loc,
       /*Y=*/yType, /*Y_h=*/yHType,
       /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
@@ -107,7 +107,7 @@ bool RNNLibBuilder::build() {
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
-  builder.create<func::ReturnOp>(loc, rnnOp.getResults());
+  func::ReturnOp::create(builder, loc, rnnOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -116,7 +116,7 @@ bool RNNLibBuilder::build() {
 
 bool RNNLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
