@@ -172,7 +172,9 @@ def generate_hash_key(
     else:
         pickler = OMFxGraphCachePickler(gm)
         details = OMFxGraphHashDetails(gm, compile_options)
-        key = "_om_" + pickler.get_hash(details)
+        key = pickler.get_hash(details)
+
+    key = "_om_" + key
     logger.info(f"Creating a cache key took {(time.time() - start)*1000} ms: {key}")
     return key
 
@@ -197,6 +199,9 @@ class ONNXMLIRTorch:
                 self.cache_key = generate_hash_key(self.gm, kwargs["options"])
         else:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
+
+        # Touch the code to materialize before exporting.
+        _ = self.gm.code
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
@@ -481,7 +486,7 @@ class ONNXMLIRTorch:
             self.onnx_model,
             input_names=input_names,
             dynamic_shapes=dynamic_shapes,
-            # external_data=False,
+            external_data=False,
         )
 
     def create_onnxmlir_session(self) -> InferenceSession:
