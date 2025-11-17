@@ -124,11 +124,11 @@ Value createSequenceConstructOp(
     PatternRewriter &rewriter, Value seq, OperandRange inputs) {
   Type resType = seq.getType();
   Location loc = seq.getLoc();
-  Value position = rewriter.create<ONNXNoneOp>(loc);
+  Value position = ONNXNoneOp::create(rewriter, loc);
 
   for (auto input : inputs)
-    seq = rewriter.create<ONNXSequenceInsertOp>(
-        loc, resType, seq, input, position);
+    seq = ONNXSequenceInsertOp::create(
+        rewriter, loc, resType, seq, input, position);
 
   return seq;
 }
@@ -671,19 +671,19 @@ struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
     RankedTensorType resultType =
         createReducedType(inputType, axisValue, /*keepDims=*/true);
-    Value maxInput = rewriter.create<ONNXReduceMaxV13Op>(
-        odsLoc, resultType, input, axisAttr, keepDimsAttr);
+    Value maxInput = ONNXReduceMaxV13Op::create(
+        rewriter, odsLoc, resultType, input, axisAttr, keepDimsAttr);
     Value subValue =
-        rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
-    Value expValue = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
+        ONNXSubOp::create(rewriter, odsLoc, inputType, input, maxInput);
+    Value expValue = ONNXExpOp::create(rewriter, odsLoc, inputType, subValue);
     Value axisOp = create.onnx.constantInt64({axisValue});
     IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 0);
-    Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
+    Value sumValue = ONNXReduceSumOp::create(rewriter, odsLoc, resultType,
         /*input=*/expValue,
         /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
     Value divValue =
-        rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
+        ONNXDivOp::create(rewriter, odsLoc, inputType, expValue, sumValue);
     rewriter.replaceOp(softmaxOp, divValue);
     return success();
   }
@@ -737,9 +737,9 @@ struct ConcatFusePattern : public OpRewritePattern<ONNXConcatOp> {
     outputTypes.emplace_back(shapeOp.getResult().getType());
     outputTypes.emplace_back(transposeOp.getResult().getType());
 
-    auto fusedV = rewriter.create<ONNXConcatShapeTransposeOp>(concatOp.getLoc(),
-        outputTypes, concatOp->getOperands(), concatOp.getAxisAttr(),
-        shapeOp.getEndAttr(), shapeOp.getStartAttr(),
+    auto fusedV = ONNXConcatShapeTransposeOp::create(rewriter,
+        concatOp.getLoc(), outputTypes, concatOp->getOperands(),
+        concatOp.getAxisAttr(), shapeOp.getEndAttr(), shapeOp.getStartAttr(),
         transposeOp.getPermAttr());
     rewriter.replaceOp(shapeOp.getOperation(), fusedV.getResults()[0]);
     rewriter.replaceOp(transposeOp.getOperation(), fusedV.getResults()[1]);
@@ -945,7 +945,7 @@ struct SoftmaxCrossEntropyPattern
     auto labelsTy = cast<ShapedType>(labels.getType());
     SmallVector<int64_t> newLabelsShape(labelsTy.getShape());
     newLabelsShape.insert(newLabelsShape.begin() + 1, scoresTy.getShape()[1]);
-    auto none = rewriter.create<ONNXNoneOp>(loc);
+    auto none = ONNXNoneOp::create(rewriter, loc);
     auto numClasses = (scoresTy.isDynamicDim(1))
                           ? create.dim(scores, 1)
                           : create.constantInt64({scoresTy.getShape()[1]});
@@ -956,7 +956,7 @@ struct SoftmaxCrossEntropyPattern
         ArrayRef<int64_t>{0, 1});
     auto oneHotVals = create.constant(oneHotValsAttr);
     auto oneHot = create.cast(
-        rewriter.create<ONNXOneHotOp>(loc,
+        ONNXOneHotOp::create(rewriter, loc,
             RankedTensorType::get(newLabelsShape, labelsTy.getElementType()),
             labels, numClasses, oneHotVals, /*axis=*/1),
         /*saturate=*/
@@ -964,9 +964,9 @@ struct SoftmaxCrossEntropyPattern
         TypeAttr::get(elemTy));
     // Compute logsoftmax of scores.
     auto softmax =
-        rewriter.create<ONNXSoftmaxOp>(loc, scoresTy, scores, /*axis=*/1);
-    auto logSoftmax = rewriter.create<ONNXLogOp>(loc, scoresTy, softmax);
-    auto prod = rewriter.create<ONNXMulOp>(loc, logSoftmax, oneHot);
+        ONNXSoftmaxOp::create(rewriter, loc, scoresTy, scores, /*axis=*/1);
+    auto logSoftmax = ONNXLogOp::create(rewriter, loc, scoresTy, softmax);
+    auto prod = ONNXMulOp::create(rewriter, loc, logSoftmax, oneHot);
     // Multiply by `weights` if not none.
     if (auto weightTy = dyn_cast<ShapedType>(weights.getType())) {
       // Unsqueeze weight from [C] to [1 x C x 1 x ... x 1] to make it
@@ -978,47 +978,48 @@ struct SoftmaxCrossEntropyPattern
       auto axes = create.constantInt64(axesList);
       auto weightsUnsqueezed = create.unsqueeze(
           RankedTensorType::get(unsqueezedShape, elemTy), weights, axes);
-      prod = rewriter.create<ONNXMulOp>(loc, prod, weightsUnsqueezed);
+      prod = ONNXMulOp::create(rewriter, loc, prod, weightsUnsqueezed);
     }
     // Reduction across `class` (dim=1) axis.
     auto axes = create.constant(onnx_mlir::createDenseArrayAttr(
         rewriter, rewriter.getI64ArrayAttr({1})));
     auto reducedType = createReducedType(scoresTy, 1, /*keepdims=*/true);
-    Value loss = rewriter.create<ONNXReduceSumOp>(loc, reducedType, prod, axes);
+    Value loss =
+        ONNXReduceSumOp::create(rewriter, loc, reducedType, prod, axes);
     // ReduceMean/ReduceSum/Squeeze if reduction = mean/sum/none respectively.
     // Set `axes=none` to indicate reducing all dims.
     auto reduction = cast<StringAttr>(sceOp.getReductionAttr()).getValue();
     if (reduction == "mean") {
       if (isa<NoneType>(weights.getType())) {
-        loss = rewriter.create<ONNXReduceMeanOp>(loc,
+        loss = ONNXReduceMeanOp::create(rewriter, loc,
             RankedTensorType::get({}, elemTy), loss, none,
             /*keepdims=*/0);
       } else {
-        auto sumL = rewriter.create<ONNXReduceSumOp>(loc,
+        auto sumL = ONNXReduceSumOp::create(rewriter, loc,
             RankedTensorType::get({}, elemTy), loss, none,
             /*keepdims=*/0);
         // Perform einsum(one_hot, weights) as a simple way of producing
         // W[n][d1][d2]...[dk] = weights[labels[i][d1][d2]...[dk]]
-        auto scatteredWeights = rewriter.create<ONNXEinsumOp>(loc,
+        auto scatteredWeights = ONNXEinsumOp::create(rewriter, loc,
             RankedTensorType::get(labelsTy.getShape(), elemTy),
             ValueRange{oneHot, weights}, "ij...,j->i...");
-        auto sumW = rewriter.create<ONNXReduceSumOp>(loc,
+        auto sumW = ONNXReduceSumOp::create(rewriter, loc,
             RankedTensorType::get({}, elemTy), scatteredWeights, none,
             /*keepdims=*/0);
-        loss = rewriter.create<ONNXDivOp>(loc, sumL, sumW);
+        loss = ONNXDivOp::create(rewriter, loc, sumL, sumW);
       }
     } else if (reduction == "sum") {
-      loss = rewriter.create<ONNXReduceSumOp>(loc,
+      loss = ONNXReduceSumOp::create(rewriter, loc,
           RankedTensorType::get({}, elemTy), loss, none,
           /*keepdims=*/0);
     } else if (reduction == "none") {
-      loss = rewriter.create<ONNXSqueezeOp>(loc,
+      loss = ONNXSqueezeOp::create(rewriter, loc,
           createReducedType(reducedType, 1, /*keepdims=*/false), loss, axes);
     } else {
       llvm_unreachable("unexpected reduction type");
     }
     // Negate.
-    loss = rewriter.create<ONNXNegOp>(loc, loss.getType(), loss);
+    loss = ONNXNegOp::create(rewriter, loc, loss.getType(), loss);
     // Second return value replacement depends if it is `none` or not.
     if (isa<NoneType>(sceOp.getLogProb().getType()))
       rewriter.replaceOp(sceOp, {loss, none});
@@ -1040,13 +1041,13 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
     if (inputs.size() > 1) {
       inputs.erase(inputs.begin());
       for (auto input : inputs) {
-        result = rewriter.create<ONNXAddOp>(sumOp.getLoc(), result, input);
+        result = ONNXAddOp::create(rewriter, sumOp.getLoc(), result, input);
       }
     }
     auto resultType = mlir::cast<ShapedType>(sumOp.getResult().getType());
     if (resultType != result.getType())
-      result = rewriter.create<ONNXCastOp>(
-          sumOp.getLoc(), resultType, result, 1, resultType.getElementType());
+      result = ONNXCastOp::create(rewriter, sumOp.getLoc(), resultType, result,
+          1, resultType.getElementType());
     rewriter.replaceOp(sumOp, result);
     return success();
   }
@@ -1123,23 +1124,23 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
 
     // Multiply input by alpha
     auto scaledInput =
-        rewriter.create<ONNXMulOp>(loc, hardswishOp.getOperand().getType(),
+        ONNXMulOp::create(rewriter, loc, hardswishOp.getOperand().getType(),
             hardswishOp.getOperand(), alphaConst);
 
     // Add beta to (input * alpha)
-    auto shiftedInput = rewriter.create<ONNXAddOp>(
-        loc, scaledInput.getType(), scaledInput, betaConst);
+    auto shiftedInput = ONNXAddOp::create(
+        rewriter, loc, scaledInput.getType(), scaledInput, betaConst);
 
     // Compute min(1.0, shiftedInput)
-    auto minOp = rewriter.create<ONNXMinOp>(
-        loc, shiftedInput.getType(), ValueRange({shiftedInput, minConst}));
+    auto minOp = ONNXMinOp::create(rewriter, loc, shiftedInput.getType(),
+        ValueRange({shiftedInput, minConst}));
 
     // Compute max(0, min(1, shiftedInput))
-    auto maxOp = rewriter.create<ONNXMaxOp>(
-        loc, minOp.getType(), ValueRange({minOp, maxConst}));
+    auto maxOp = ONNXMaxOp::create(
+        rewriter, loc, minOp.getType(), ValueRange({minOp, maxConst}));
 
     // Compute final HardSwish: input * max(0, min(1, add(mul(x, alpha), beta)))
-    auto hardswishResult = rewriter.create<ONNXMulOp>(loc,
+    auto hardswishResult = ONNXMulOp::create(rewriter, loc,
         hardswishOp.getOperand().getType(), hardswishOp.getOperand(), maxOp);
 
     // Replace the original HardSwishOp with the new computation

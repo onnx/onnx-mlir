@@ -115,7 +115,7 @@ public:
       // original memory is a multiple of the vector length.
       Value vecWidth = createIndexAttrConstant(rewriter, loc, indexType,
           mlir::cast<ShapedType>(targetType.getElementType()).getNumElements());
-      sizes.push_back(rewriter.create<LLVM::UDivOp>(loc,
+      sizes.push_back(LLVM::UDivOp::create(rewriter, loc,
           srcMemRefDesc.size(rewriter, loc, sourceType.getRank() - 1),
           vecWidth));
     }
@@ -125,8 +125,8 @@ public:
     // Compute the total number of memref elements.
     Value cumulativeSize = sizes.front();
     for (unsigned i = 1, e = sizes.size(); i < e; ++i)
-      cumulativeSize = rewriter.create<LLVM::MulOp>(
-          loc, getIndexType(), ArrayRef<Value>{cumulativeSize, sizes[i]});
+      cumulativeSize = LLVM::MulOp::create(rewriter, loc, getIndexType(),
+          ArrayRef<Value>{cumulativeSize, sizes[i]});
 
     // Calculate the strides.
     Value runningStride = nullptr;
@@ -138,7 +138,7 @@ public:
       if (strides[index] == ShapedType::kDynamic)
         // Identity layout map is enforced in the match function, so we compute:
         //   `runningStride *= sizes[index + 1]`.
-        runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,
+        runningStride = runningStride ? LLVM::MulOp::create(rewriter, loc,
                                             runningStride, sizes[index + 1])
                                       : createIndexAttrConstant(
                                             rewriter, loc, indexType, 1);

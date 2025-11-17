@@ -125,36 +125,36 @@ void createCompareOp(Value &op, ConversionPatternRewriter &rewriter,
 template <>
 void createCompareOp<ONNXEqualOp>(Value &op,
     ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
-  op = rewriter.create<stablehlo::CompareOp>(
-      loc, lhs, rhs, stablehlo::ComparisonDirection::EQ);
+  op = stablehlo::CompareOp::create(
+      rewriter, loc, lhs, rhs, stablehlo::ComparisonDirection::EQ);
 }
 
 template <>
 void createCompareOp<ONNXGreaterOp>(Value &op,
     ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
-  op = rewriter.create<stablehlo::CompareOp>(
-      loc, lhs, rhs, stablehlo::ComparisonDirection::GT);
+  op = stablehlo::CompareOp::create(
+      rewriter, loc, lhs, rhs, stablehlo::ComparisonDirection::GT);
 }
 
 template <>
 void createCompareOp<ONNXGreaterOrEqualOp>(Value &op,
     ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
-  op = rewriter.create<stablehlo::CompareOp>(
-      loc, lhs, rhs, stablehlo::ComparisonDirection::GE);
+  op = stablehlo::CompareOp::create(
+      rewriter, loc, lhs, rhs, stablehlo::ComparisonDirection::GE);
 }
 
 template <>
 void createCompareOp<ONNXLessOp>(Value &op, ConversionPatternRewriter &rewriter,
     Location loc, Value &lhs, Value &rhs) {
-  op = rewriter.create<stablehlo::CompareOp>(
-      loc, lhs, rhs, stablehlo::ComparisonDirection::LT);
+  op = stablehlo::CompareOp::create(
+      rewriter, loc, lhs, rhs, stablehlo::ComparisonDirection::LT);
 }
 
 template <>
 void createCompareOp<ONNXLessOrEqualOp>(Value &op,
     ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
-  op = rewriter.create<stablehlo::CompareOp>(
-      loc, lhs, rhs, stablehlo::ComparisonDirection::LE);
+  op = stablehlo::CompareOp::create(
+      rewriter, loc, lhs, rhs, stablehlo::ComparisonDirection::LE);
 }
 
 // Element-wise unary ops lowering to Stablehlo dialect.
@@ -166,8 +166,8 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    Value stableHloOp = rewriter.create<StablehloOp<ElementwiseUnaryOp>>(
-        loc, op->getResultTypes(), op->getOperands());
+    Value stableHloOp = StablehloOp<ElementwiseUnaryOp>::create(
+        rewriter, loc, op->getResultTypes(), op->getOperands());
     rewriter.replaceOp(op, stableHloOp);
     return success();
   }
@@ -193,14 +193,14 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXEluOp>
       return failure();
     Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
     Value oneVal = getShapedFloat(loc, rewriter, 1.0f, inp);
-    Value expVal = rewriter.create<stablehlo::ExpOp>(loc, inp);
-    Value subVal = rewriter.create<stablehlo::SubtractOp>(loc, expVal, oneVal);
-    Value mulVal = rewriter.create<stablehlo::MulOp>(loc, alphaVal, subVal);
+    Value expVal = stablehlo::ExpOp::create(rewriter, loc, inp);
+    Value subVal = stablehlo::SubtractOp::create(rewriter, loc, expVal, oneVal);
+    Value mulVal = stablehlo::MulOp::create(rewriter, loc, alphaVal, subVal);
     Value broadcastedZero = getShapedZero(loc, rewriter, inp);
-    Value compareGeZero = rewriter.create<stablehlo::CompareOp>(
-        loc, inp, broadcastedZero, stablehlo::ComparisonDirection::GE);
-    Value resultOp = rewriter.create<stablehlo::SelectOp>(
-        loc, resultType, compareGeZero, inp, mulVal);
+    Value compareGeZero = stablehlo::CompareOp::create(rewriter, loc, inp,
+        broadcastedZero, stablehlo::ComparisonDirection::GE);
+    Value resultOp = stablehlo::SelectOp::create(
+        rewriter, loc, resultType, compareGeZero, inp, mulVal);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -227,10 +227,10 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXHardSigmoidOp>
     Value betaVal = getShapedFloat(loc, rewriter, beta, inp);
     Value zeroVal = getShapedFloat(loc, rewriter, 0.0f, inp);
     Value oneVal = getShapedFloat(loc, rewriter, 1.0f, inp);
-    Value productVal = rewriter.create<stablehlo::MulOp>(loc, inp, alphaVal);
-    Value sumVal = rewriter.create<stablehlo::AddOp>(loc, productVal, betaVal);
+    Value productVal = stablehlo::MulOp::create(rewriter, loc, inp, alphaVal);
+    Value sumVal = stablehlo::AddOp::create(rewriter, loc, productVal, betaVal);
     Value resultOp =
-        rewriter.create<stablehlo::ClampOp>(loc, zeroVal, sumVal, oneVal);
+        stablehlo::ClampOp::create(rewriter, loc, zeroVal, sumVal, oneVal);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -252,8 +252,8 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXReluOp>
       return failure();
     Type resultType = *op->result_type_begin();
     Value broadcastedZero = getShapedZero(loc, rewriter, inp);
-    Value resultOp = rewriter.create<stablehlo::MaxOp>(
-        loc, resultType, inp, broadcastedZero);
+    Value resultOp = stablehlo::MaxOp::create(
+        rewriter, loc, resultType, inp, broadcastedZero);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -277,12 +277,12 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLeakyReluOp>
     Type resultType = *op->result_type_begin();
     Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
     Value leakyActivationVal =
-        rewriter.create<stablehlo::MulOp>(loc, inp, alphaVal);
+        stablehlo::MulOp::create(rewriter, loc, inp, alphaVal);
     Value broadcastedZero = getShapedZero(loc, rewriter, inp);
-    Value compareGtZero = rewriter.create<stablehlo::CompareOp>(
-        loc, inp, broadcastedZero, stablehlo::ComparisonDirection::GT);
-    Value resultOp = rewriter.create<stablehlo::SelectOp>(
-        loc, resultType, compareGtZero, inp, leakyActivationVal);
+    Value compareGtZero = stablehlo::CompareOp::create(rewriter, loc, inp,
+        broadcastedZero, stablehlo::ComparisonDirection::GT);
+    Value resultOp = stablehlo::SelectOp::create(
+        rewriter, loc, resultType, compareGtZero, inp, leakyActivationVal);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -303,7 +303,7 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXCastOp>
     if (inpType == nullptr)
       return failure();
     Value resultOp =
-        rewriter.create<stablehlo::ConvertOp>(loc, inp, elementToType);
+        stablehlo::ConvertOp::create(rewriter, loc, inp, elementToType);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -362,8 +362,8 @@ struct ONNXElementwiseBinaryOpLoweringToStablehlo : public ConversionPattern {
         getBroadcastedOperands(op, rewriter, loc, outputRank);
     Value broadcastedLHS = broadcastedOperands[0];
     Value broadcastedRHS = broadcastedOperands[1];
-    Value stableHloOp = rewriter.create<StablehloOp<ElementwiseBinaryOp>>(
-        loc, *op->result_type_begin(), broadcastedLHS, broadcastedRHS);
+    Value stableHloOp = StablehloOp<ElementwiseBinaryOp>::create(rewriter, loc,
+        *op->result_type_begin(), broadcastedLHS, broadcastedRHS);
     rewriter.replaceOp(op, stableHloOp);
     return success();
   }
@@ -392,12 +392,12 @@ struct ONNXElementwiseBinaryOpLoweringToStablehlo<ONNXPReluOp>
     Value broadcastedSlope = broadcastedOperands[1];
     Type resultType = *op->result_type_begin();
     Value PReluActivationVal =
-        rewriter.create<stablehlo::MulOp>(loc, inp, broadcastedSlope);
+        stablehlo::MulOp::create(rewriter, loc, inp, broadcastedSlope);
     Value broadcastedZero = getShapedZero(loc, rewriter, inp);
-    Value compareGtZero = rewriter.create<stablehlo::CompareOp>(
-        loc, inp, broadcastedZero, stablehlo::ComparisonDirection::GT);
-    Value resultOp = rewriter.create<stablehlo::SelectOp>(
-        loc, resultType, compareGtZero, inp, PReluActivationVal);
+    Value compareGtZero = stablehlo::CompareOp::create(rewriter, loc, inp,
+        broadcastedZero, stablehlo::ComparisonDirection::GT);
+    Value resultOp = stablehlo::SelectOp::create(
+        rewriter, loc, resultType, compareGtZero, inp, PReluActivationVal);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -423,8 +423,8 @@ struct ONNXElementwiseVariadicOpLoweringToStablehlo : public ConversionPattern {
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
         getBroadcastedOperands(op, rewriter, loc, outputRank);
-    Value stableHloOp = rewriter.create<StablehloOp<ElementwiseVariadicOp>>(
-        loc, op->getResultTypes(), broadcastedOperands);
+    Value stableHloOp = StablehloOp<ElementwiseVariadicOp>::create(
+        rewriter, loc, op->getResultTypes(), broadcastedOperands);
     rewriter.replaceOp(op, stableHloOp);
     return success();
   }

@@ -131,22 +131,6 @@ declare_compare_function(Float16, uint16_t, Descending, LoadF16AsF32)
 #endif
 // clang-format on
 
-//
-// Declare sort functions for sorting algorithms
-//
-#ifdef __APPLE__
-                            typedef void(sortFunctionType(void *base,
-                                size_t dataNum, size_t dataSize, void *dataPtr,
-                                compareFunctionType compFunc));
-#elif defined(_MSC_VER)
-                            typedef void(sortFunctionType(void *base,
-                                size_t num, size_t width,
-                                compareFunctionType compFunc, void *context));
-#else
-                            typedef void(sortFunctionType(void *base,
-                                size_t dataNum, size_t dataSize,
-                                compareFunctionType compFunc, void *dataPtr));
-#endif
 
 //
 // Custom quick sort function for environments not suppirting qsort_r (e.g. zos)

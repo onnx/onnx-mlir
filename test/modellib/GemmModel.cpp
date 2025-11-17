@@ -66,13 +66,13 @@ bool GemmLibBuilder::build() {
       IntegerAttr::get(builder.getIntegerType(64, true), aTrans);
   IntegerAttr bTransAttr =
       IntegerAttr::get(builder.getIntegerType(64, true), bTrans);
-  auto gemmOp = builder.create<ONNXGemmOp>(loc,
+  auto gemmOp = ONNXGemmOp::create(builder, loc,
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal, /*C=*/cVal, alphaAttr, betaAttr,
       aTransAttr, bTransAttr);
   gemmOp.getResult().setType(yType);
 
   llvm::SmallVector<Value, 1> results = {gemmOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -81,7 +81,7 @@ bool GemmLibBuilder::build() {
 
 bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(aShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(

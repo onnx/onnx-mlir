@@ -116,8 +116,8 @@ struct ONNXConvOpLoweringToStablehlo : public ConversionPattern {
             outputSpatialDimensions);
 
     Value convResult =
-        rewriter.create<stablehlo::ConvolutionOp>(loc, outputType, inputOperand,
-            filterOperand, rewriter.getDenseI64ArrayAttr(strides),
+        stablehlo::ConvolutionOp::create(rewriter, loc, outputType,
+            inputOperand, filterOperand, rewriter.getDenseI64ArrayAttr(strides),
             DenseIntElementsAttr::get(
                 RankedTensorType::get({spatialRank, 2}, rewriter.getI64Type()),
                 flattenPaddings),
@@ -129,11 +129,11 @@ struct ONNXConvOpLoweringToStablehlo : public ConversionPattern {
       result = convResult;
     } else {
       Value finalB;
-      Value resultShape = rewriter.create<shape::ShapeOfOp>(loc, convResult);
+      Value resultShape = shape::ShapeOfOp::create(rewriter, loc, convResult);
       finalB =
-          rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, outputType,
+          stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc, outputType,
               biasOperand, resultShape, rewriter.getDenseI64ArrayAttr({1}));
-      result = rewriter.create<stablehlo::AddOp>(loc, convResult, finalB);
+      result = stablehlo::AddOp::create(rewriter, loc, convResult, finalB);
     }
     rewriter.replaceOp(op, result);
     return success();

@@ -81,7 +81,7 @@ Type getZTensorType(
     PatternRewriter &rewriter, Location loc, Value tensor, StringAttr layout) {
   // Borrow ZHighStickOp to infer a zTensor type.
   ZHighStickOp stickOp =
-      rewriter.create<ZHighStickOp>(loc, tensor, layout, IntegerAttr());
+      ZHighStickOp::create(rewriter, loc, tensor, layout, IntegerAttr());
   (void)stickOp.inferShapes([](Region &region) {});
 
   Type returnType = stickOp.getOut().getType();
@@ -133,9 +133,9 @@ public:
     Type newOutputType = getZTensorType(rewriter, loc, output, layout);
 
     Value zOutput =
-        rewriter.create<ONNXConcatOp>(loc, newOutputType, zTensors, newAxis);
+        ONNXConcatOp::create(rewriter, loc, newOutputType, zTensors, newAxis);
     Value replacedValue =
-        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+        ZHighUnstickOp::create(rewriter, loc, output.getType(), zOutput);
     rewriter.replaceOp(genericOp, replacedValue);
     return ::mlir::success();
   };

@@ -172,8 +172,8 @@ Value getDynamicMemRefSize(PatternRewriter &rewriter, Location loc, Value val) {
     for (unsigned i = 0; i < shape.size(); i++) {
       if (ShapedType::isDynamic(shape[i])) {
         Value index = create.mem.dim(val, i);
-        Value dim = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getI64Type(), index);
+        Value dim = arith::IndexCastOp::create(
+            rewriter, loc, rewriter.getI64Type(), index);
         sizeInBytes = create.math.mul(sizeInBytes, dim);
       }
     }
@@ -207,8 +207,8 @@ Value getDynamicMemRefSizeInBytes(
     for (unsigned i = 0; i < shape.size(); i++) {
       if (ShapedType::isDynamic(shape[i])) {
         Value index = create.mem.dim(val, i);
-        Value dim = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getI64Type(), index);
+        Value dim = arith::IndexCastOp::create(
+            rewriter, loc, rewriter.getI64Type(), index);
         sizeInBytes = create.math.mul(sizeInBytes, dim);
       }
     }

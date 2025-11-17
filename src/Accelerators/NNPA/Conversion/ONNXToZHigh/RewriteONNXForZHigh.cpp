@@ -58,9 +58,9 @@ Value getSqrtResultBatchNormA(
   Value epsilonConst = create.onnx.constant(epsilonConstAttr);
 
   // sqrt(var + epsilon)
-  Value var_plus_epsilon = rewriter.create<ONNXAddOp>(loc, var, epsilonConst);
+  Value var_plus_epsilon = ONNXAddOp::create(rewriter, loc, var, epsilonConst);
   Value sqrtResult =
-      rewriter.create<ONNXSqrtOp>(loc, var.getType(), var_plus_epsilon);
+      ONNXSqrtOp::create(rewriter, loc, var.getType(), var_plus_epsilon);
 
   return sqrtResult;
 }
