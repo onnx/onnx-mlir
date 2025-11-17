@@ -20,7 +20,7 @@ if(OMP_SUPPORTED)
     CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
                              cmake -G Ninja -S ${OPENMP_SOURCE_DIR} \
                                 -B ${OMP_TOPDIR}/openmp-build \
-                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+                                -DCMAKE_BUILD_TYPE=Release \
                                 -DLIBOMP_ENABLE_SHARED=OFF"
 
     BUILD_COMMAND sh -c "cmake --build ${OMP_TOPDIR}/openmp-build --target omp"
