@@ -10,6 +10,7 @@
 #
 ################################################################################
 
+import io
 import os
 import sys
 import tempfile
@@ -18,6 +19,8 @@ import inspect
 import logging
 import types
 import functools
+import pickle
+import pickletools
 
 import numpy as np
 import torch
@@ -26,6 +29,7 @@ from torch._inductor.codecache import (
     extract_tensor_metadata_for_cache_key,
     FxGraphCachePickler,
     FxGraphHashDetails,
+    sha256_hash,
 )
 from torch._subclasses.fake_tensor import (
     FakeTensor,
@@ -138,11 +142,37 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
         self.compile_options = compile_options
 
 
-def generate_hash_key(gm: torch.fx.GraphModule, compile_options) -> str:
+def generate_hash_key(
+    gm: torch.fx.GraphModule, compile_options, use_lightweight_hashing=True
+) -> str:
     start = time.time()
-    pickler = OMFxGraphCachePickler(gm)
-    details = OMFxGraphHashDetails(gm, compile_options)
-    key = "_om_" + pickler.get_hash(details)
+    if use_lightweight_hashing:
+        # Hash the graph module.
+        # Touch the code to materialize.
+        _ = gm.code
+        # Generate a unique string to represent the graph module.
+        node_info = []
+        placeholder_counter = 0
+        for node in gm.graph.nodes:
+            # Use stable names for placeholders.
+            if node.op == "placeholder":
+                node_info.append(f"om_placeholder_{placeholder_counter}")
+                placeholder_counter += 1
+            else:
+                node_info.append(f"{node.op}_{node.target}")
+        graph_str = " ".join(node_info)
+        graph_hash = sha256_hash(graph_str.encode())
+
+        # Hash the options.
+        with io.BytesIO() as stream:
+            options_data = pickle.dumps(compile_options)
+            options_opt = pickletools.optimize(options_data)
+            options_hash = sha256_hash(options_opt)
+        key = graph_hash + options_hash
+    else:
+        pickler = OMFxGraphCachePickler(gm)
+        details = OMFxGraphHashDetails(gm, compile_options)
+        key = "_om_" + pickler.get_hash(details)
     logger.info(f"Creating a cache key took {(time.time() - start)*1000} ms: {key}")
     return key
 
@@ -162,8 +192,9 @@ class ONNXMLIRTorch:
         if self.cached_session is None:
             # Rewrite the graph for exporting to onnx.
             self.example_inputs_indices, _ = self.rewrite_gm_for_export(*args)
-            # Cache the rewritten graph module.
-            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+            if len(self.example_inputs_indices) < len(args):
+                # Cache the rewritten graph module.
+                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
         else:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
 
@@ -288,17 +319,18 @@ class ONNXMLIRTorch:
         example_inputs_indices, removed_example_inputs, constant_values = (
             self.extract_scalar_constant_args(example_inputs)
         )
+
         self.freeze_scalar_constant_args(constant_values)
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
-        self.convert_symint_args_to_tensors(self.gm)
+        self.convert_symint_args_to_tensors()
         # After rewriting the argument list of the graph module, we maintain
         # a list of un-removed arguments that are used in forward for passing
         # correct example inputs to the rewritten graph module.
         return example_inputs_indices, removed_example_inputs
 
-    def convert_symint_args_to_tensors(self, graph_module: torch.fx.GraphModule):
-        graph = graph_module.graph
+    def convert_symint_args_to_tensors(self):
+        graph = self.gm.graph
         placeholders_to_replace = []
 
         # First pass: collect SymInt placeholders.
@@ -327,9 +359,8 @@ class ONNXMLIRTorch:
             graph.erase_node(old_node)
 
         if placeholders_to_replace:
-            graph.lint()
-            graph_module.recompile()
-            return graph_module
+            self.gm.graph.lint()
+            self.gm.recompile()
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
         graph = self.gm.graph
@@ -450,7 +481,7 @@ class ONNXMLIRTorch:
             self.onnx_model,
             input_names=input_names,
             dynamic_shapes=dynamic_shapes,
-            external_data=False,
+            # external_data=False,
         )
 
     def create_onnxmlir_session(self) -> InferenceSession:
