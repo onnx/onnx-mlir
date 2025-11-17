@@ -16,7 +16,9 @@ if(OMP_SUPPORTED)
     DOWNLOAD_COMMAND ""
     # Build with LIBOMP_ENABLE_SHARED=OFF so that libomp.a can be embedded into model.so
     # Since OpenMP is not exposed in the LLVM build directory, it must be configured
-    # and built separately in its own build directory
+    # and built separately in its own build directory.
+    # We prefer having all runtime components built in Release mode; if debugging was desired,
+    # then the CMAKE_BUILD_TYPE can be changed to ${CMAKE_BUILD_TYPE} or Debug as desired.
     CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
                              cmake -G Ninja -S ${OPENMP_SOURCE_DIR} \
                                 -B ${OMP_TOPDIR}/openmp-build \
