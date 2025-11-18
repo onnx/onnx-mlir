@@ -5,7 +5,7 @@
 //====------ ConvertONNXToTOSA.cpp - ONNX dialects to TOSA lowering -------===//
 //
 // Copyright (c) 2022 Arm Limited.
-// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2025 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -120,6 +120,51 @@ public:
       llvm::cl::ZeroOrMore, llvm::cl::init(false)};
 };
 
+Value handleDynamicToStaticShapes(
+    OpBuilder &builder, TensorType type, ValueRange inputs, Location loc) {
+  if (inputs.size() != 1) {
+    // we can only handle inputs of size 1
+    return {};
+  }
+  Value out = inputs.front();
+  auto outType = dyn_cast<ShapedType>(out.getType());
+  if (!outType) {
+    // no operation as input
+    return {};
+  }
+  if (outType.hasStaticShape() || !type.hasStaticShape()) {
+    // we are looking for a dynamic to static "cast"
+    return {};
+  }
+  if (outType.getElementType() != type.getElementType()) {
+    // type is not equal
+    // this should be mostly caught by the operation validation already
+    return {};
+  }
+  if (outType.hasRank()) {
+    if (outType.getRank() != type.getRank()) {
+      // rank does not match
+      // this seems to be caught by the shape inference already
+      return {};
+    } else {
+      auto outShape = outType.getShape();
+      auto tyShape = type.getShape();
+
+      for (int i = 0; i < outType.getRank(); ++i) {
+        if (outType.isDynamicDim(i)) {
+          continue;
+        }
+        if (outShape[i] != tyShape[i]) {
+          // input and output does not match in one dimension
+          return {};
+        }
+      }
+    }
+  }
+  out.setType(type);
+  return out;
+}
+
 void FrontendToTosaLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
   // Define final conversion target
@@ -142,6 +187,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
       return type;
     return std::nullopt;
   });
+  typeConverter.addSourceMaterialization(handleDynamicToStaticShapes);
 
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
