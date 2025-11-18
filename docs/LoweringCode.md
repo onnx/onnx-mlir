@@ -13,8 +13,8 @@ Value firstIntVal, secondIntVal;
 Value firstFloatVal, secondFloatVal;
 OpBuilder rewriter; // Typically inherited from a caller context.
 Location loc; // Typically derived from an operation.
-Value intRes = rewriter.create<AddIOp>(loc, firstIntVal, secondIntVal);
-Value floatRes = rewriter.create<AddFOp>(loc, firstFloatVal, secondFloatVal);
+Value intRes = AddIOp::create(rewriter, loc, firstIntVal, secondIntVal);
+Value floatRes = AddFOp::create(rewriter, loc, firstFloatVal, secondFloatVal);
 ``` 
 ***Code: Traditional way to add numbers.***
 

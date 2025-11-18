@@ -56,7 +56,7 @@ bool CategoryMapperLibBuilder<T1, T2>::build() {
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::prepareInputs() {
   constexpr int num = 1;
-  OMTensor* list[num];
+  OMTensor *list[num];
 
   list[0] = createOMTensor<T1>(input, inputShape, inputRank,
       (std::is_same<T1, int64_t>::value) ? ONNX_TYPE_INT64 : ONNX_TYPE_STRING);
@@ -97,13 +97,13 @@ void CategoryMapperLibBuilder<T1, T2>::createCategoryMapper(
     Type outputType, const CMAttributes &attributes, func::FuncOp &funcOp) {
   Block &entryBlock = funcOp.getBody().front();
   BlockArgument input = entryBlock.getArgument(0);
-  auto categoryMapperOp = builder.create<ONNXCategoryMapperOp>(loc, outputType,
+  auto categoryMapperOp = ONNXCategoryMapperOp::create(builder, loc, outputType,
       input, builder.getI64ArrayAttr(attributes.cat_int64s),
       builder.getStrArrayAttr(attributes.cat_strings), attributes.default_int,
       builder.getStringAttr(attributes.default_string));
 
   SmallVector<Value, 1> results = {categoryMapperOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 }
 

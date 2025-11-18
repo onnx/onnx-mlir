@@ -130,8 +130,8 @@ public:
       DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
           RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()),
           {0.0F});
-      bias = rewriter.create<mlir::tosa::ConstOp>(
-          convOp->getLoc(), newBiasAttr.getType(), newBiasAttr);
+      bias = mlir::tosa::ConstOp::create(
+          rewriter, convOp->getLoc(), newBiasAttr.getType(), newBiasAttr);
     }
 
     DenseI64ArrayAttr dilations =

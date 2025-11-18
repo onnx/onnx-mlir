@@ -150,8 +150,8 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
       Value indexVal = create.math.constant(rewriter.getIndexType(), ii);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       Value repeatsLoadVal = create.krnl.load(repeats, repeatsMemRefVal);
-      auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
-          loc, rewriter.getIndexType(), repeatsLoadVal);
+      auto repeatsElementVal = arith::IndexCastOp::create(
+          rewriter, loc, rewriter.getIndexType(), repeatsLoadVal);
       pack.pushOperandBound(repeatsElementVal);
     }
 
@@ -178,7 +178,7 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
 
         auto dimMap =
             AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
-        auto dimExprVal = rewriter.create<affine::AffineApplyOp>(loc, dimMap,
+        auto dimExprVal = affine::AffineApplyOp::create(rewriter, loc, dimMap,
             ArrayRef<Value>{iterationBlock.getArguments()[2 * i],
                 iterationBlock.getArguments()[2 * i + 1], inputDimSizeVal});
         outputMemRefVal.emplace_back(dimExprVal);

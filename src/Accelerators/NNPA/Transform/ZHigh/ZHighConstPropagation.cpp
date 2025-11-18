@@ -91,7 +91,7 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
 
   // Create a ZHighStickifiedConstantOp.
   ZHighStickifiedConstantOp stickifiedConstant =
-      rewriter.create<ZHighStickifiedConstantOp>(loc, outputType,
+      ZHighStickifiedConstantOp::create(rewriter, loc, outputType,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 

@@ -103,8 +103,8 @@ public:
           // print operation after the operation.
           builder.setInsertionPointAfter(op);
           // When one node is selected, print the details of the tensor.
-          builder.create<ONNXPrintSignatureOp>(
-              loc, fullNameAttr, detail, operAndRes);
+          ONNXPrintSignatureOp::create(
+              builder, loc, fullNameAttr, detail, operAndRes);
           return true;
         }
         return false;

@@ -122,10 +122,10 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
       denominator = create.math.mul(denominator, poolDimValues[i]);
-    denominator = rewriter.create<arith::IndexCastOp>(
-        loc, rewriter.getIntegerType(64), denominator);
-    denominator =
-        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
+    denominator = arith::IndexCastOp::create(
+        rewriter, loc, rewriter.getIntegerType(64), denominator);
+    denominator = arith::SIToFPOp::create(
+        rewriter, loc, numerator.getType(), denominator);
   }
 
   Value average = create.math.div(numerator, denominator);
@@ -157,20 +157,20 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize = kernelSize * kernelShape[i];
     denominator = kernelSize.getValue();
-    denominator = rewriter.create<arith::IndexCastOp>(
-        loc, rewriter.getI64Type(), denominator);
+    denominator = arith::IndexCastOp::create(
+        rewriter, loc, rewriter.getI64Type(), denominator);
     // TODO: we are implying here that the dest type is a float.
-    denominator =
-        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
+    denominator = arith::SIToFPOp::create(
+        rewriter, loc, numerator.getType(), denominator);
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
       denominator = create.math.mul(denominator, poolDimValues[i]);
-    denominator = rewriter.create<arith::IndexCastOp>(
-        loc, rewriter.getIntegerType(64), denominator);
+    denominator = arith::IndexCastOp::create(
+        rewriter, loc, rewriter.getIntegerType(64), denominator);
     // TODO: we are implying here that the dest type is a float.
-    denominator =
-        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
+    denominator = arith::SIToFPOp::create(
+        rewriter, loc, numerator.getType(), denominator);
   }
 
   Value average = create.math.div(numerator, denominator);
@@ -394,8 +394,8 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
               Value denominator = IVExprs[i][5].getValue(); // dilations[i]
               dim = create.math.div(numerator, denominator);
               if (ceilMode) {
-                auto remainder = rewriter.create<arith::RemSIOp>(
-                    loc, numerator, denominator);
+                auto remainder = arith::RemSIOp::create(
+                    rewriter, loc, numerator, denominator);
                 Value zero = create.math.constantIndex(0);
                 Value isZero = create.math.eq(remainder, zero);
                 Value dimPlusOne = create.math.add(dim, one);
