@@ -4444,6 +4444,25 @@ func.func @test_stft_no_frame_length(%signal: tensor<1x32x1xf32>) -> tensor<*xf3
 
 // -----
 
+func.func @test_slice_step_none(%arg0: tensor<100x200xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[0, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[10, 20]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %none) : (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, none) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_slice_step_none
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x200xf32>) -> tensor<10x20xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[10, 20]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1> : tensor<2xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Slice"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_0_]], [[VAR_3_]]) : (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<10x20xf32>
+// CHECK:           return [[VAR_4_]] : tensor<10x20xf32>
+
+// -----
+
 func.func @test_slice_negative_steps(%arg0: tensor<100x200xf32>) -> tensor<*xf32> {
   %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %starts = "onnx.Constant"() {value = dense<[-10, -20]> : tensor<2xi64> } : () -> tensor<2xi64>
