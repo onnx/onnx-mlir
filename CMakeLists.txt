@@ -169,15 +169,7 @@ if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 else()
   set(pybind11_FIND_QUIETLY ON)
   add_subdirectory(third_party/onnx)
-
-  if(TARGET onnx_proto AND TARGET protobuf::libprotobuf)
-    # Link the required Abseil log libraries publicly to onnx_proto
-    target_link_libraries(onnx_proto PUBLIC
-      absl::log_internal_message
-      absl::log_internal_check_op
-    )
-  endif()
-
+  
   add_subdirectory(third_party/pybind11)
 
   add_subdirectory(third_party/rapidcheck)
