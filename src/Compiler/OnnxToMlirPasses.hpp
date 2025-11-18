@@ -21,6 +21,7 @@ struct OnnxToMlirOptions {
   bool enableRemoveDqQAroundOp = true;
   bool enableRemoveBinary = false;
   bool enableRecomposeLayernormByTranspose = false;
+  bool enableSplitToSliceDecompose = false;
 
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;

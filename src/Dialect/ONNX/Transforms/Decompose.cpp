@@ -3822,6 +3822,109 @@ struct DecomposeInstanceNormPattern
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Split to Slice Pattern
+//===----------------------------------------------------------------------===//
+
+// Converts Split operation to multiple Slice operations.
+struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+    Location loc = splitOp.getLoc();
+    Value input = splitOp.getInput();
+    Value split = splitOp.getSplit();
+
+    // Only handle ranked tensors
+    if (!onnx_mlir::isRankedShapedType(input.getType()))
+      return rewriter.notifyMatchFailure(
+          splitOp, "input must be ranked shaped type");
+
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+    uint64_t rank = inputType.getRank();
+    uint64_t outputNum = splitOp.getNumResults();
+    int64_t axis = splitOp.getAxis();
+
+    // Normalize negative axis
+    if (axis < 0)
+      axis += rank;
+
+    int64_t inputDimSize = inputType.getDimSize(axis);
+
+    // Determine split sizes
+    SmallVector<int64_t, 4> splitSizes;
+    if (auto splitAttr = onnx_mlir::getElementAttributeFromONNXValue(split)) {
+      // Split sizes are specified as a constant
+      for (IntegerAttr value : splitAttr.getValues<IntegerAttr>()) {
+        int64_t splitSize = mlir::cast<IntegerAttr>(value).getInt();
+        splitSizes.push_back(splitSize);
+      }
+    } else if (mlir::isa<NoneType>(split.getType())) {
+      // Equal split - use the actual output shapes computed by shape inference
+      // This correctly handles uneven splits (e.g., splitting 10 into 3 ->
+      // [4,3,3])
+      for (unsigned i = 0; i < outputNum; ++i) {
+        ShapedType outputType =
+            mlir::cast<ShapedType>(splitOp.getResult(i).getType());
+        int64_t outputDimSize = outputType.getDimSize(axis);
+        if (ShapedType::isDynamic(outputDimSize))
+          return rewriter.notifyMatchFailure(
+              splitOp, "dynamic split sizes not yet supported");
+        splitSizes.push_back(outputDimSize);
+      }
+    } else {
+      // Dynamic split not supported
+      return rewriter.notifyMatchFailure(
+          splitOp, "dynamic split parameter not yet supported");
+    }
+
+    // Create helper builder
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    // Create the slice operations
+    SmallVector<Value, 4> slices;
+    slices.reserve(outputNum);
+
+    // Create starts, ends, axes, steps arrays
+    SmallVector<int64_t, 4> starts(rank, 0);
+    SmallVector<int64_t, 4> ends = llvm::to_vector<4>(inputType.getShape());
+    SmallVector<int64_t, 4> axes(rank);
+    SmallVector<int64_t, 4> steps(rank, 1);
+
+    // Initialize axes array [0, 1, 2, ..., rank-1]
+    std::iota(axes.begin(), axes.end(), 0);
+
+    int64_t currentStart = 0;
+    for (uint64_t i = 0; i < outputNum; ++i) {
+      // Update start and end for the current slice along the split axis
+      starts[axis] = currentStart;
+      ends[axis] = currentStart + splitSizes[i];
+
+      // Create constant tensors for slice parameters
+      Value startsConst = create.onnx.constantInt64(starts);
+      Value endsConst = create.onnx.constantInt64(ends);
+      Value axesConst = create.onnx.constantInt64(axes);
+      Value stepsConst = create.onnx.constantInt64(steps);
+
+      // Get the output type for this slice
+      Type outputType = splitOp.getResult(i).getType();
+
+      // Create the slice operation
+      Value sliceOp = create.onnx.slice(
+          outputType, input, startsConst, endsConst, axesConst, stepsConst);
+
+      slices.push_back(sliceOp);
+      currentStart = ends[axis];
+    }
+
+    // Replace the split operation with the slice operations
+    rewriter.replaceOp(splitOp, slices);
+    return success();
+  }
+};
+
 // =============================================================================
 // Decompose Hardswish to simpler ONNX ops
 // =============================================================================
@@ -3888,7 +3991,8 @@ struct DecomposeONNXToONNXPass
       bool enableConvTransposeDecompose = false,
       bool enableConvTransposeDecomposeToPhasedConv = false,
       bool enableConvTranspose1dDecomposeToPhasedConv = false,
-      bool enableInstanceNormDecompose = true) {
+      bool enableInstanceNormDecompose = true,
+      bool enableSplitToSliceDecompose = false) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -3896,6 +4000,7 @@ struct DecomposeONNXToONNXPass
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -3908,6 +4013,8 @@ struct DecomposeONNXToONNXPass
         pass.enableConvTransposeDecomposeToPhasedConv.getValue();
     this->enableInstanceNormDecompose =
         pass.enableInstanceNormDecompose.getValue();
+    this->enableSplitToSliceDecompose =
+        pass.enableSplitToSliceDecompose.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -3943,6 +4050,10 @@ struct DecomposeONNXToONNXPass
                      "LayerNormalization"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableSplitToSliceDecompose{*this, "enable-split-to-slice",
+      llvm::cl::desc("Enable decomposition of Split to Slice operations"),
+      ::llvm::cl::init(false)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -3955,7 +4066,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose);
+      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
+      enableSplitToSliceDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -3974,7 +4086,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose) {
+    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -3985,6 +4097,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     convtranspose_1d_phased::populateWithGenerated(patterns);
   if (enableInstanceNormDecompose)
     patterns.insert<DecomposeInstanceNormPattern>(context);
+  if (enableSplitToSliceDecompose)
+    patterns.insert<SplitToSlicePattern>(context);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   patterns.insert<ConcatFusePattern>(context);
   patterns.insert<DecomposeHardSwishPattern>(context);
@@ -4007,6 +4121,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+  if (enableSplitToSliceDecompose)
+    patterns.insert<SplitToSlicePattern>(context);
 
   //   for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
   //     if (op == "HardSwish") {
@@ -4025,8 +4141,9 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose) {
+    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose);
+      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
+      enableSplitToSliceDecompose);
 }

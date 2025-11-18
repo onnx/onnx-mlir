@@ -49,6 +49,7 @@ struct ImportOptions {
   bool invokeOnnxVersionConverter = false;
   bool allowSorting = true;
   bool useOutputNameAsLocation = false;
+  bool addResultNamesAttr = false;
 
   // If true, type inference will be used to
   // infer missing output types. This is done by copying the, potential

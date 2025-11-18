@@ -68,6 +68,13 @@ bool isDefaultDomain(std::string_view domain) {
   return domain.empty() || (domain == "ai.onnx");
 }
 
+std::string canonicalizeDomain(std::string_view domain) {
+  // Handle aliasing of "ai.onnx" and "". According to the onnx documentation,
+  // the default domain is "ai.onnx", but in practice it seems like the
+  // empty-string domain is used by default.
+  return isDefaultDomain(domain) ? "" : std::string(domain);
+}
+
 /// We consider opset < 6 is old. Users will see a warning if their model
 /// contains ops of old opset.
 constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
@@ -86,7 +93,13 @@ template <class T>
 OpsetImportsMap GetOpsetImportsFromProto(const T &proto) {
   OpsetImportsMap opset_imports;
   for (const auto &opset_import : proto.opset_import()) {
-    opset_imports[opset_import.domain()] = opset_import.version();
+    const auto domain = canonicalizeDomain(opset_import.domain());
+    const auto [iter_, inserted] =
+        opset_imports.emplace(domain, opset_import.version());
+    if (!inserted) {
+      llvm::errs() << "Warning: Domain " << domain
+                   << " found multiple times in opset imports.\n";
+    }
   }
   return opset_imports;
 }
@@ -101,7 +114,8 @@ ModelLocalFunctionsMap GetModelLocalFunctions(const onnx::ModelProto &m) {
   for (const auto &function_proto : m.functions()) {
     model_local_functions_by_id.insert(
         {GetModelLocalFunctionsMapIdentifier(
-             function_proto.domain(), function_proto.name()),
+             canonicalizeDomain(function_proto.domain()),
+             function_proto.name()),
             &function_proto});
   }
   return model_local_functions_by_id;
@@ -197,12 +211,12 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
-  // onnxop: list of versions supported by onnx-mlir for dialect
-  std::map<std::string, std::vector<int>> op_dialect_version_map_;
-  // onnxop: list of versions for dialect
-  std::map<std::string, std::vector<int>> op_opsets_map_;
-  // onnxop: the top version in third_part/onnx
-  std::map<std::string, int> op_dialect_top_version_map_;
+  // onnxop: list of versions supported by onnx-mlir for dialect, op
+  std::map<std::string, std::map<std::string, std::vector<int>>>
+      dialect_op_version_map_;
+  // onnxop: list of versions for dialect, op
+  std::map<std::string, std::map<std::string, std::vector<int>>>
+      dialect_op_opsets_map_;
 
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
@@ -214,7 +228,8 @@ private:
       onnx_mlir::detail::FrontendGenImpl::*)(
       const onnx::NodeProto &, std::string & /*errorMessage*/);
 
-  std::map<std::string, ImportHandlerType> import_handler_map_;
+  std::map<std::string, std::map<std::string, ImportHandlerType>>
+      import_handler_map_;
 
   // The total number of elements in all initializers. This value is a rough
   // counter of the number of parameters in a model.
@@ -302,6 +317,12 @@ private:
     auto loc =
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
     Value initializer = createConstantValue(mlirAttr, loc);
+    if (options_.addResultNamesAttr) {
+      if (auto constOp = initializer.getDefiningOp()) {
+        constOp->setAttr(
+            "ResultNames", builder_.getStrArrayAttr({tensor.name()}));
+      }
+    }
     num_of_parameters_ += mlirAttr.getShapedType().getNumElements();
     return initializer;
   }
@@ -978,6 +999,15 @@ private:
       if (output != "")
         frontend_symbols_.AddMapping(output, op->getResult(i));
     }
+    if (options_.addResultNamesAttr) {
+      SmallVector<StringRef, 4> resultNames;
+      for (const auto &output : node.output())
+        resultNames.push_back(output);
+      // Trailing unused results don't appear in node.output(). Add empty
+      // names for them.
+      resultNames.resize(op->getNumResults(), "");
+      op->setAttr("ResultNames", builder_.getStrArrayAttr(resultNames));
+    }
     return CompilerSuccess;
   }
 
@@ -1297,25 +1327,34 @@ private:
     return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
   }
 
-  std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
-    auto current_opset_it = opset_map_.find(node.domain());
+  std::string GetImportVersionOfNode(
+      const onnx::NodeProto &node, const std::string &domain) {
+    auto current_opset_it = opset_map_.find(domain);
     if (current_opset_it == opset_map_.end())
       return "";
 
     const int current_opset = current_opset_it->second;
+
+    const auto op_version_map = dialect_op_version_map_.find(domain);
+    if (op_version_map == dialect_op_version_map_.end())
+      return "";
+
+    const auto op_opsets_map = dialect_op_opsets_map_.find(domain);
+    if (op_opsets_map == dialect_op_opsets_map_.end())
+      return "";
 
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
 
     const auto supported_opset_list_it =
-        op_dialect_version_map_.find(node.op_type());
-    const auto opset_list_it = op_opsets_map_.find(node.op_type());
+        op_version_map->second.find(node.op_type());
+    const auto opset_list_it = op_opsets_map->second.find(node.op_type());
 
-    // Custom ops may not be present in op_dialect_version_map_. If no version
+    // Custom ops may not be present in op_version_map. If no version
     // info is found, treat as unversioned (no renaming).
-    if (supported_opset_list_it == op_dialect_version_map_.end() ||
-        opset_list_it == op_opsets_map_.end())
+    if (supported_opset_list_it == op_version_map->second.end() ||
+        opset_list_it == op_opsets_map->second.end())
       return "";
 
     // To determine the opset version for a node/op:
@@ -1354,7 +1393,7 @@ private:
 
     // A new opset is added to onnx-mlir when it becomes incompatible.
     // All opset newest than the last opset should use the last opset(version)
-    if (isDefaultDomain(node.domain()) &&
+    if (isDefaultDomain(domain) &&
         upperRangeOfNewestValidOpsetVersion < supported_opset_list.back() &&
         upperRangeOfNewestValidOpsetVersion < MINIMUM_SUPPORTED_OPSET)
       llvm::errs() << "\nWarning: ONNX " << node.op_type()
@@ -1583,8 +1622,8 @@ private:
     auto mlirAttr = builder_.getStringAttr(funcName);
     auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
     attributes.push_back(funcAttr);
-    auto domainAttr = builder_.getNamedAttr(
-        "domain_name", builder_.getStringAttr(node.domain()));
+    auto domainAttr = builder_.getNamedAttr("domain_name",
+        builder_.getStringAttr(canonicalizeDomain(node.domain())));
     attributes.push_back(domainAttr);
     const int nIn = ONNXCustomOp::getNumberOfOperands();
     const int nOut = ONNXCustomOp::getNumberOfResults();
@@ -1626,13 +1665,16 @@ private:
 
   [[nodiscard]] std::error_code ImportNode(
       const onnx::NodeProto &node, std::string &errorMessage) {
-    if (isDefaultDomain(node.domain()) || (node.domain() == "ai.onnx.ml") ||
-        (node.domain() == "ai.onnx.preview.training")) {
-      std::string opName = node.op_type() + GetImportVersionOfNode(node);
-      auto handler = import_handler_map_.find(opName);
+    const std::string domain = canonicalizeDomain(node.domain());
+
+    const std::string opName =
+        node.op_type() + GetImportVersionOfNode(node, domain);
+    auto domainIt = import_handler_map_.find(domain);
+    if (domainIt != import_handler_map_.end()) {
+      auto handler = domainIt->second.find(opName);
       std::vector<std::string> funcs = options_.functionsToDecompose;
-      if (!(std::find(funcs.begin(), funcs.end(), opName) != funcs.end())) {
-        if (handler != import_handler_map_.end()) {
+      if (!llvm::is_contained(funcs, opName)) {
+        if (handler != domainIt->second.end()) {
           // It's a regular op with a registered handler.
           return (this->*(handler->second))(node, errorMessage);
         }
@@ -1648,7 +1690,7 @@ private:
     }
 
     auto model_function = in_model_functions_.find(
-        GetModelLocalFunctionsMapIdentifier(node.domain(), node.op_type()));
+        GetModelLocalFunctionsMapIdentifier(domain, node.op_type()));
     if (model_function != in_model_functions_.end()) {
       return ImportFunctionCallNode(
           node, /*schema=*/nullptr, model_function->second, errorMessage);

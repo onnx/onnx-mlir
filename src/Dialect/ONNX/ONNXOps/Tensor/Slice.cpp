@@ -78,7 +78,9 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
       return op->emitError("end input parameter could not be processed");
     // Get step.
     SymbolIndexExpr stepInput =
-        createIE->getIntFromArrayAsSymbol(operandAdaptor.getSteps(), i);
+        isNoneValue(operandAdaptor.getSteps())
+            ? LitIE(1)
+            : createIE->getIntFromArrayAsSymbol(operandAdaptor.getSteps(), i);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)

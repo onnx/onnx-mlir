@@ -1,0 +1,16 @@
+
+// RUN: onnx-mlir --EmitONNXIR --printIR %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 9, "com.amd.quark" : 1]
+>
+test (float[10, 4] in) => (float[10, 4] out) 
+{
+  out = com.amd.quark.BFPQuantizeDequantize <axis: int = 0>(in)
+}
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x4xf32> {onnx.name = "in"}) -> (tensor<10x4xf32> {onnx.name = "out"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.AMDQuarkBFPQuantizeDequantizeOp"([[PARAM_0_]]) {axis = 0 : si64, bfp_method = "to_bfp", bit_width = 16 : si64, block_size = 8 : si64, onnx_node_name = "onnx.AMDQuarkBFPQuantizeDequantizeOp_0", rounding_mode = 0 : si64, sub_block_shift_bits = 1 : si64, sub_block_size = 2 : si64} : (tensor<10x4xf32>) -> tensor<10x4xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x4xf32>
+// CHECK:         }
