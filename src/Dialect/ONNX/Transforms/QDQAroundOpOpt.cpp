@@ -87,55 +87,46 @@ public:
 
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
-    // Special handling for Resize - only support "nearest" mode
+
     if (llvm::isa<ONNXResizeOp>(op)) {
+      // Resize: only support "nearest" mode, require either scales or sizes to
+      // be constant
       auto resizeOp = llvm::cast<ONNXResizeOp>(op);
       if (resizeOp.getMode() != "nearest") {
         return failure();
       }
-
-      // Resize: require control parameters to be constants
-      if (!isConstantOrInitializer(resizeOp.getRoi()) ||
-          !isConstantOrInitializer(resizeOp.getScales()) ||
-          !isConstantOrInitializer(resizeOp.getSizes())) {
+      // At least one of scales or sizes must be from initializer
+      bool hasScales = isConstantOrInitializer(resizeOp.getScales());
+      bool hasSizes = isConstantOrInitializer(resizeOp.getSizes());
+      if (!hasScales && !hasSizes) {
         return failure();
       }
-    }
-
-    // Unsqueeze requires axes to be a constant
-    if (llvm::isa<ONNXUnsqueezeOp>(op)) {
+    } else if (llvm::isa<ONNXUnsqueezeOp>(op)) {
+      // Unsqueeze requires axes to be a constant
       auto unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
       if (!isConstantOrInitializer(unsqueezeOp.getAxes())) {
         return failure();
       }
-    }
-
-    // Squeeze requires axes to be a constant
-    if (llvm::isa<ONNXSqueezeOp>(op)) {
+    } else if (llvm::isa<ONNXSqueezeOp>(op)) {
+      // Squeeze requires axes to be a constant
       auto squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
       if (!isConstantOrInitializer(squeezeOp.getAxes())) {
         return failure();
       }
-    }
-
-    // Reshape requires shape to be a constant
-    if (llvm::isa<ONNXReshapeOp>(op)) {
+    } else if (llvm::isa<ONNXReshapeOp>(op)) {
+      // Reshape requires shape to be a constant
       auto reshapeOp = llvm::cast<ONNXReshapeOp>(op);
       if (!isConstantOrInitializer(reshapeOp.getShape())) {
         return failure();
       }
-    }
-
-    // Gather requires indices to be a constant
-    if (llvm::isa<ONNXGatherOp>(op)) {
+    } else if (llvm::isa<ONNXGatherOp>(op)) {
+      // Gather requires indices to be a constant
       auto gatherOp = llvm::cast<ONNXGatherOp>(op);
       if (!isConstantOrInitializer(gatherOp.getIndices())) {
         return failure();
       }
-    }
-
-    // Slice requires all control parameters to be constants
-    if (llvm::isa<ONNXSliceOp>(op)) {
+    } else if (llvm::isa<ONNXSliceOp>(op)) {
+      // Slice requires all control parameters to be constants
       auto sliceOp = llvm::cast<ONNXSliceOp>(op);
       if (!isConstantOrInitializer(sliceOp.getStarts()) ||
           !isConstantOrInitializer(sliceOp.getEnds()) ||

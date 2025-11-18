@@ -247,7 +247,7 @@ func.func @slice_with_dynamic_ends(%arg0: tensor<1x4xui8>, %arg1: tensor<1xi64>)
 
 // -----
 
-// Test that Resize optimization DOES NOT happen when sizes is constant, scales is NoValue, and mode is "nearest"
+// Test that Resize optimization DOES happen when sizes is constant, scales is NoValue, and mode is "nearest"
 func.func @resize_with_constant_sizes_nearest(%arg0: tensor<1x3x64x64xui8>) -> tensor<1x3x128x128xui8> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = onnx.Constant dense<1.000000e-01> : tensor<1xf32>
@@ -263,18 +263,15 @@ func.func @resize_with_constant_sizes_nearest(%arg0: tensor<1x3x64x64xui8>) -> t
 // CHECK-LABEL: func.func @resize_with_constant_sizes_nearest
 // CHECK-SAME:    (%[[ARG0:.*]]: tensor<1x3x64x64xui8>) -> tensor<1x3x128x128xui8>
 // CHECK-DAG:     %[[NONE:.*]] = "onnx.NoValue"
-// CHECK-DAG:     %[[SCALE:.*]] = onnx.Constant dense<1.000000e-01> : tensor<1xf32>
-// CHECK-DAG:     %[[ZP:.*]] = onnx.Constant dense<0> : tensor<1xui8>
 // CHECK-DAG:     %[[SIZES:.*]] = onnx.Constant dense<[1, 3, 128, 128]> : tensor<4xi64>
-// CHECK:         %[[DEQUANT:.*]] = "onnx.DequantizeLinear"(%[[ARG0]], %[[SCALE]], %[[ZP]])
-// CHECK:         %[[RESIZE:.*]] = "onnx.Resize"(%[[DEQUANT]], %[[NONE]], %[[NONE]], %[[SIZES]])
-// CHECK:         mode = "nearest"
-// CHECK:         %[[QUANT:.*]] = "onnx.QuantizeLinear"(%[[RESIZE]], %[[SCALE]], %[[ZP]])
-// CHECK:         return %[[QUANT]]
+// CHECK:         %[[RESIZE:.*]] = "onnx.Resize"(%[[ARG0]], %[[NONE]], %[[NONE]], %[[SIZES]])
+// CHECK-SAME:      mode = "nearest"
+// CHECK-SAME:      (tensor<1x3x64x64xui8>, none, none, tensor<4xi64>) -> tensor<1x3x128x128xui8>
+// CHECK:         return %[[RESIZE]] : tensor<1x3x128x128xui8>
 
 // -----
 
-// Test that Resize optimization DOES NOT happen when scales is constant, sizes is NoValue, and mode is "nearest"
+// Test that Resize optimization DOES happen when scales is constant, sizes is NoValue, and mode is "nearest"
 func.func @resize_with_constant_scales_nearest(%arg0: tensor<1x3x64x64xui8>) -> tensor<1x3x128x128xui8> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = onnx.Constant dense<[1.0, 1.0, 2.0, 2.0]> : tensor<4xf32>
@@ -291,13 +288,10 @@ func.func @resize_with_constant_scales_nearest(%arg0: tensor<1x3x64x64xui8>) -> 
 // CHECK-SAME:    (%[[ARG0:.*]]: tensor<1x3x64x64xui8>) -> tensor<1x3x128x128xui8>
 // CHECK-DAG:     %[[NONE:.*]] = "onnx.NoValue"
 // CHECK-DAG:     %[[RESIZE_SCALES:.*]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
-// CHECK-DAG:     %[[QDQ_SCALE:.*]] = onnx.Constant dense<1.000000e-01> : tensor<1xf32>
-// CHECK-DAG:     %[[ZP:.*]] = onnx.Constant dense<0> : tensor<1xui8>
-// CHECK:         %[[DEQUANT:.*]] = "onnx.DequantizeLinear"(%[[ARG0]], %[[QDQ_SCALE]], %[[ZP]])
-// CHECK:         %[[RESIZE:.*]] = "onnx.Resize"(%[[DEQUANT]], %[[NONE]], %[[RESIZE_SCALES]], %[[NONE]])
-// CHECK:         mode = "nearest"
-// CHECK:         %[[QUANT:.*]] = "onnx.QuantizeLinear"(%[[RESIZE]], %[[QDQ_SCALE]], %[[ZP]])
-// CHECK:         return %[[QUANT]]
+// CHECK:         %[[RESIZE:.*]] = "onnx.Resize"(%[[ARG0]], %[[NONE]], %[[RESIZE_SCALES]], %[[NONE]])
+// CHECK-SAME:      mode = "nearest"
+// CHECK-SAME:      (tensor<1x3x64x64xui8>, none, tensor<4xf32>, none) -> tensor<1x3x128x128xui8>
+// CHECK:         return %[[RESIZE]] : tensor<1x3x128x128xui8>
 
 // -----
 
