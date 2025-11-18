@@ -143,10 +143,10 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Experimental feature: Decompose stick/unstick into two phases: layout
-  // transform and data conversion. Do some optimizations after decomposing.
-  // Then, recompose again layout and data conversion if they are not optimized.
-  if (nnpaEnableZHighDecomposeStickUnstick) {
+  // Decompose stick/unstick into two phases: layout transform and data
+  // conversion. Do some optimizations after decomposing. Then, recompose again
+  // layout and data conversion if they are not optimized.
+  if (!nnpaDisableZHighDecomposeStickUnstick) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
     pm.addPass(mlir::createCanonicalizerPass());
