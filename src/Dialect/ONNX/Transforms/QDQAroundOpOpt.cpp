@@ -17,6 +17,39 @@
 
 using namespace mlir;
 using namespace onnx_mlir;
+
+/// Check if a value is defined by a constant operation
+/// Returns false for NoValue (NoneType)
+/// Uses recursive logic to check if all operands are constants (initializers)
+static bool isConstantOrInitializer(Value val) {
+  if (!val)
+    return false;
+
+  // Return false for NoValue (which has NoneType)
+  if (mlir::isa<NoneType>(val.getType())) {
+    return false;
+  }
+
+  Operation *definingOp = val.getDefiningOp();
+  if (!definingOp) {
+    return false;
+  }
+
+  // Check if it's a constant op
+  if (llvm::isa<ONNXConstantOp>(definingOp)) {
+    return true;
+  }
+
+  // Recursively check if all operands are initializers
+  // If all operands are constants, the result is effectively constant
+  for (Value operand : definingOp->getOperands()) {
+    if (!isConstantOrInitializer(operand)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 struct InputAndOutput {
   Value input;
   Value output;
@@ -54,12 +87,55 @@ public:
 
   LogicalResult matchAndRewrite(
       T op, PatternRewriter &rewriter) const override {
+
     if (llvm::isa<ONNXResizeOp>(op)) {
-      auto &resizeOp = llvm::cast<ONNXResizeOp>(op);
+      // Resize: only support "nearest" mode, require either scales or sizes to
+      // be constant
+      auto resizeOp = llvm::cast<ONNXResizeOp>(op);
       if (resizeOp.getMode() != "nearest") {
         return failure();
       }
+      // At least one of scales or sizes must be from initializer
+      bool hasScales = isConstantOrInitializer(resizeOp.getScales());
+      bool hasSizes = isConstantOrInitializer(resizeOp.getSizes());
+      if (!hasScales && !hasSizes) {
+        return failure();
+      }
+    } else if (llvm::isa<ONNXUnsqueezeOp>(op)) {
+      // Unsqueeze requires axes to be a constant
+      auto unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
+      if (!isConstantOrInitializer(unsqueezeOp.getAxes())) {
+        return failure();
+      }
+    } else if (llvm::isa<ONNXSqueezeOp>(op)) {
+      // Squeeze requires axes to be a constant
+      auto squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
+      if (!isConstantOrInitializer(squeezeOp.getAxes())) {
+        return failure();
+      }
+    } else if (llvm::isa<ONNXReshapeOp>(op)) {
+      // Reshape requires shape to be a constant
+      auto reshapeOp = llvm::cast<ONNXReshapeOp>(op);
+      if (!isConstantOrInitializer(reshapeOp.getShape())) {
+        return failure();
+      }
+    } else if (llvm::isa<ONNXGatherOp>(op)) {
+      // Gather requires indices to be a constant
+      auto gatherOp = llvm::cast<ONNXGatherOp>(op);
+      if (!isConstantOrInitializer(gatherOp.getIndices())) {
+        return failure();
+      }
+    } else if (llvm::isa<ONNXSliceOp>(op)) {
+      // Slice requires all control parameters to be constants
+      auto sliceOp = llvm::cast<ONNXSliceOp>(op);
+      if (!isConstantOrInitializer(sliceOp.getStarts()) ||
+          !isConstantOrInitializer(sliceOp.getEnds()) ||
+          !isConstantOrInitializer(sliceOp.getAxes()) ||
+          !isConstantOrInitializer(sliceOp.getSteps())) {
+        return failure();
+      }
     }
+
     InputAndOutput opIO = getDataInputOutput(op);
 
     auto dqOp = opIO.input.getDefiningOp<ONNXDequantizeLinearOp>();
