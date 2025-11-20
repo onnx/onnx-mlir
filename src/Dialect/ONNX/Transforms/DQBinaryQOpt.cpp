@@ -19,6 +19,7 @@
 #include "src/Pass/Passes.hpp"
 #include "llvm/ADT/STLExtras.h"
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <variant>
 
@@ -353,20 +354,23 @@ private:
   };
 
   LogicalResult match_qdq(mlir::PatternRewriter &rewriter, MatchState &state,
-      ONNXDequantizeLinearOp dq1, ONNXDequantizeLinearOp dq2) const {
+      ONNXDequantizeLinearOp dq1, ONNXDequantizeLinearOp dq2, BinOp binaryOp) const {
 
     ONNXDequantizeLinearOp constantDqOp = nullptr;
     ONNXConstantOp constantSourceOp = nullptr;
+    bool constantIsFirstOperand = false;
 
     // Case 1: Direct ConstantOp as input to the DQ.
     if (auto constOp = dq1.getX().getDefiningOp<ONNXConstantOp>()) {
       constantDqOp = dq1;
       state.dequantActivationOfBinOp = dq2;
       constantSourceOp = constOp;
+      constantIsFirstOperand = true;
     } else if (auto constOp = dq2.getX().getDefiningOp<ONNXConstantOp>()) {
       constantDqOp = dq2;
       state.dequantActivationOfBinOp = dq1;
       constantSourceOp = constOp;
+      constantIsFirstOperand = false;
     }
     // Case 2: The input to the DQ op comes from a chain whose input is a
     // constant.
@@ -378,6 +382,7 @@ private:
             constantDqOp = dq1;
             state.dequantActivationOfBinOp = dq2;
             constantSourceOp = constOp;
+            constantIsFirstOperand = true;
           }
         }
       }
@@ -388,6 +393,7 @@ private:
             constantDqOp = dq2;
             state.dequantActivationOfBinOp = dq1;
             constantSourceOp = constOp;
+            constantIsFirstOperand = false;
           }
         }
       }
@@ -395,6 +401,13 @@ private:
 
     if (!constantDqOp || !constantSourceOp || !state.dequantActivationOfBinOp) {
       return failure();
+    }
+
+    // Check: Div and Sub are not supported when weight is the first input
+    if (constantIsFirstOperand && 
+        (llvm::isa<ONNXSubOp>(binaryOp) || llvm::isa<ONNXDivOp>(binaryOp))) {
+      return rewriter.notifyMatchFailure(binaryOp,
+          "Qdq initializer: Div and Sub are not supported when weight is the first input");
     }
 
     // Find kvalue and store scale_dtype and zeroPointDtype
@@ -438,6 +451,11 @@ private:
     // -------- Case A reversed --------
     else if (auto dqOp = rhs.getDefiningOp<ONNXDequantizeLinearOp>()) {
       if (auto constOp = lhs.getDefiningOp<ONNXConstantOp>()) {
+        // Check: Div and Sub are not supported when weight is the first input
+        if (llvm::isa<ONNXSubOp>(binaryOp) || llvm::isa<ONNXDivOp>(binaryOp)) {
+          return rewriter.notifyMatchFailure(binaryOp,
+              "non-qdq initializer: Div and Sub are not supported when weight is the first input");
+        }
         state.dequantActivationOfBinOp = dqOp;
         constantOp = constOp;
       }
@@ -459,7 +477,7 @@ private:
     auto dqOp2 = rhs.getDefiningOp<ONNXDequantizeLinearOp>();
 
     if (dqOp1 && dqOp2) {
-      return match_qdq(rewriter, state, dqOp1, dqOp2);
+      return match_qdq(rewriter, state, dqOp1, dqOp2, binaryOp);
     }
     return failure();
   }
@@ -538,6 +556,134 @@ private:
     state.newZp = newZp;
 
     return true;
+  }
+
+  LogicalResult checkNewQDQParameterFits(
+      mlir::PatternRewriter &rewriter, const MatchState &state) const {
+    using namespace mlir;
+
+    if (!state.dstNode)
+      return rewriter.notifyMatchFailure(
+          state.dstNode, "dstNode is null in checkNewQDQParameterFits");
+
+    // Get scale and zero point values from destination node
+    Value scaleVal;
+    Value zpVal;
+
+    if (auto dqDst = llvm::dyn_cast<ONNXDequantizeLinearOp>(state.dstNode)) {
+      scaleVal = dqDst.getXScale();
+      zpVal = dqDst.getXZeroPoint();
+    } else if (auto qDst =
+                   llvm::dyn_cast<ONNXQuantizeLinearOp>(state.dstNode)) {
+      scaleVal = qDst.getYScale();
+      zpVal = qDst.getYZeroPoint();
+    } else {
+      return rewriter.notifyMatchFailure(
+          state.dstNode, "dstNode is neither Dequantize nor Quantize");
+    }
+
+    // Extract element types
+    auto scaleType = scaleVal.getType().dyn_cast<ShapedType>();
+    auto zpType = zpVal.getType().dyn_cast<ShapedType>();
+
+    if (!scaleType || !zpType)
+      return rewriter.notifyMatchFailure(
+          state.dstNode, "scale or zero point is not a shaped type");
+
+    Type scaleElemType = scaleType.getElementType();
+    Type zpElemType = zpType.getElementType();
+
+    // Check zero point range
+    if (auto zpIntType = zpElemType.dyn_cast<IntegerType>()) {
+      int64_t zpMin, zpMax;
+      unsigned bitWidth = zpIntType.getWidth();
+
+      // Handle special cases for int4/uint4
+      if (bitWidth == 4) {
+        if (zpIntType.isUnsigned()) {
+          zpMin = 0;
+          zpMax = 15;
+        } else {
+          zpMin = -8;
+          zpMax = 7;
+        }
+      } else {
+        // Standard integer types
+        if (zpIntType.isUnsigned()) {
+          zpMin = 0;
+          zpMax = (bitWidth == 64) ? INT64_MAX
+                                   : ((int64_t(1) << bitWidth) - 1);
+        } else {
+          zpMin = (bitWidth == 64) ? INT64_MIN : (-(int64_t(1) << (bitWidth - 1)));
+          zpMax = (bitWidth == 64) ? INT64_MAX
+                                   : ((int64_t(1) << (bitWidth - 1)) - 1);
+        }
+      }
+
+      if (state.newZp < zpMin || state.newZp > zpMax) {
+        return rewriter.notifyMatchFailure(state.dstNode,
+            ("New zero point value " + std::to_string(state.newZp) +
+                " cannot fit in " + std::to_string(bitWidth) + "-bit " +
+                (zpIntType.isUnsigned() ? "unsigned" : "signed") +
+                " integer type (range: [" + std::to_string(zpMin) + ", " +
+                std::to_string(zpMax) + "])")
+                .c_str());
+      }
+    }
+
+    // Check scale range
+    if (auto scaleFloatType = scaleElemType.dyn_cast<FloatType>()) {
+      double scaleMin, scaleMax;
+
+      // Determine range based on float type
+      if (scaleFloatType.isF16()) {
+        scaleMin = -65504.0;
+        scaleMax =  65504.0;
+    } else if (scaleFloatType.isBF16()) {
+        scaleMin = -std::numeric_limits<float>::max();  // ≈ -3.39e38
+        scaleMax =  std::numeric_limits<float>::max();  // ≈ +3.39e38
+    } else if (scaleFloatType.isF32()) {
+        scaleMin = -std::numeric_limits<float>::max();
+        scaleMax =  std::numeric_limits<float>::max();
+    } else if (scaleFloatType.isF64()) {
+        scaleMin = -std::numeric_limits<double>::max();
+        scaleMax =  std::numeric_limits<double>::max();
+    } else {
+        // Unknown float type, skip validation
+        return success();
+      }
+
+
+      // Check for NaN and infinity
+      if (std::isnan(state.newScale) || std::isinf(state.newScale)) {
+        return rewriter.notifyMatchFailure(state.dstNode,
+            ("New scale value " + std::to_string(state.newScale) +
+                " is NaN or infinity")
+                .c_str());
+      }
+
+      if (state.newScale < scaleMin || state.newScale > scaleMax) {
+        std::string floatTypeName;
+        if (scaleFloatType.isF16())
+          floatTypeName = "float16";
+        else if (scaleFloatType.isBF16())
+          floatTypeName = "bfloat16";
+        else if (scaleFloatType.isF32())
+          floatTypeName = "float32";
+        else if (scaleFloatType.isF64())
+          floatTypeName = "float64";
+        else
+          floatTypeName = "unknown float";
+
+        return rewriter.notifyMatchFailure(state.dstNode,
+            ("New scale value " + std::to_string(state.newScale) +
+                " cannot fit in " + floatTypeName + " type (range: [" +
+                std::to_string(scaleMin) + ", " + std::to_string(scaleMax) + "])")
+                .c_str());
+      }
+    }
+
+    return success();
   }
 
   LogicalResult findDestinationNode(
@@ -633,14 +779,19 @@ public:
 
     // STEP 4
     if (failed(check_needed_values(rewriter, state, op))) {
-
       return failure();
     }
 
-    // STEP 5 -Modify
+    // STEP 5: Compute new scale and zero point values
     if (!compute_new_scale_and_zp_values(state)) {
       return failure();
     }
+
+    // STEP 5.5: Check that new values fit in destination dtypes (avoid overflow/underflow)
+    if (failed(checkNewQDQParameterFits(rewriter, state))) {
+      return failure();
+    }
+
 
     // STEP 6: call initializer based on the binary op
     {
