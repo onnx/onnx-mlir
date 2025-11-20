@@ -354,7 +354,8 @@ private:
   };
 
   LogicalResult match_qdq(mlir::PatternRewriter &rewriter, MatchState &state,
-      ONNXDequantizeLinearOp dq1, ONNXDequantizeLinearOp dq2, BinOp binaryOp) const {
+      ONNXDequantizeLinearOp dq1, ONNXDequantizeLinearOp dq2,
+      BinOp binaryOp) const {
 
     ONNXDequantizeLinearOp constantDqOp = nullptr;
     ONNXConstantOp constantSourceOp = nullptr;
@@ -404,10 +405,11 @@ private:
     }
 
     // Check: Div and Sub are not supported when weight is the first input
-    if (constantIsFirstOperand && 
+    if (constantIsFirstOperand &&
         (llvm::isa<ONNXSubOp>(binaryOp) || llvm::isa<ONNXDivOp>(binaryOp))) {
-      return rewriter.notifyMatchFailure(binaryOp,
-          "Qdq initializer: Div and Sub are not supported when weight is the first input");
+      return rewriter.notifyMatchFailure(
+          binaryOp, "Qdq initializer: Div and Sub are not supported when "
+                    "weight is the first input");
     }
 
     // Find kvalue and store scale_dtype and zeroPointDtype
@@ -453,8 +455,9 @@ private:
       if (auto constOp = lhs.getDefiningOp<ONNXConstantOp>()) {
         // Check: Div and Sub are not supported when weight is the first input
         if (llvm::isa<ONNXSubOp>(binaryOp) || llvm::isa<ONNXDivOp>(binaryOp)) {
-          return rewriter.notifyMatchFailure(binaryOp,
-              "non-qdq initializer: Div and Sub are not supported when weight is the first input");
+          return rewriter.notifyMatchFailure(
+              binaryOp, "non-qdq initializer: Div and Sub are not supported "
+                        "when weight is the first input");
         }
         state.dequantActivationOfBinOp = dqOp;
         constantOp = constOp;
@@ -611,10 +614,10 @@ private:
         // Standard integer types
         if (zpIntType.isUnsigned()) {
           zpMin = 0;
-          zpMax = (bitWidth == 64) ? INT64_MAX
-                                   : ((int64_t(1) << bitWidth) - 1);
+          zpMax = (bitWidth == 64) ? INT64_MAX : ((int64_t(1) << bitWidth) - 1);
         } else {
-          zpMin = (bitWidth == 64) ? INT64_MIN : (-(int64_t(1) << (bitWidth - 1)));
+          zpMin =
+              (bitWidth == 64) ? INT64_MIN : (-(int64_t(1) << (bitWidth - 1)));
           zpMax = (bitWidth == 64) ? INT64_MAX
                                    : ((int64_t(1) << (bitWidth - 1)) - 1);
         }
@@ -638,21 +641,20 @@ private:
       // Determine range based on float type
       if (scaleFloatType.isF16()) {
         scaleMin = -65504.0;
-        scaleMax =  65504.0;
-    } else if (scaleFloatType.isBF16()) {
-        scaleMin = -std::numeric_limits<float>::max();  // ≈ -3.39e38
-        scaleMax =  std::numeric_limits<float>::max();  // ≈ +3.39e38
-    } else if (scaleFloatType.isF32()) {
+        scaleMax = 65504.0;
+      } else if (scaleFloatType.isBF16()) {
+        scaleMin = -std::numeric_limits<float>::max(); // ≈ -3.39e38
+        scaleMax = std::numeric_limits<float>::max();  // ≈ +3.39e38
+      } else if (scaleFloatType.isF32()) {
         scaleMin = -std::numeric_limits<float>::max();
-        scaleMax =  std::numeric_limits<float>::max();
-    } else if (scaleFloatType.isF64()) {
+        scaleMax = std::numeric_limits<float>::max();
+      } else if (scaleFloatType.isF64()) {
         scaleMin = -std::numeric_limits<double>::max();
-        scaleMax =  std::numeric_limits<double>::max();
-    } else {
+        scaleMax = std::numeric_limits<double>::max();
+      } else {
         // Unknown float type, skip validation
         return success();
       }
-
 
       // Check for NaN and infinity
       if (std::isnan(state.newScale) || std::isinf(state.newScale)) {
@@ -678,7 +680,8 @@ private:
         return rewriter.notifyMatchFailure(state.dstNode,
             ("New scale value " + std::to_string(state.newScale) +
                 " cannot fit in " + floatTypeName + " type (range: [" +
-                std::to_string(scaleMin) + ", " + std::to_string(scaleMax) + "])")
+                std::to_string(scaleMin) + ", " + std::to_string(scaleMax) +
+                "])")
                 .c_str());
       }
     }
@@ -787,11 +790,11 @@ public:
       return failure();
     }
 
-    // STEP 5.5: Check that new values fit in destination dtypes (avoid overflow/underflow)
+    // STEP 5.5: Check that new values fit in destination dtypes (avoid
+    // overflow/underflow)
     if (failed(checkNewQDQParameterFits(rewriter, state))) {
       return failure();
     }
-
 
     // STEP 6: call initializer based on the binary op
     {
