@@ -258,19 +258,16 @@ void flushRecordBuffer() {
 
 void updateRecordBuffer(
     const char *opName, uint64_t tag, const char *nodeName) {
-  fprintf(stderr, "hi alex, start recording with code %i\n", (int)tag);
   int64_t i = bufferIndex - 1;
   if (i >= 0 && timeRecordBuffer[i].opName == opName &&
       timeRecordBuffer[i].nodeName == nodeName) {
     // Can reuse entry, or the tags so we have bits for both.
-    fprintf(stderr, "hi alex, recording reuse i %i\n", (int)i);
     timeRecordBuffer[i].tag = timeRecordBuffer[i].tag | tag;
   } else {
     // Need a new entry; flush if full, then initialize entry.
     if (bufferIndex >= MAX_TIME_RECORD_BUFFER)
       flushRecordBuffer();
     i = bufferIndex++;
-    fprintf(stderr, "hi alex, recording new i %i\n", (int)i);
     timeRecordBuffer[i].opName = opName;
     timeRecordBuffer[i].nodeName = nodeName;
     timeRecordBuffer[i].tag = tag;
@@ -315,8 +312,6 @@ FILE *getInstrumentFile() {
 
 void OMInstrumentStart() {
   static bool initialized = false;
-  fprintf(stderr, "hi alex, instrument start\n");
-
   if (!initialized) {
     initialized = true;
     // First: read environment variables.
@@ -333,7 +328,6 @@ void OMInstrumentStart() {
     // Then handle the possible redirection of output to file, and determine if
     // buffered output is requested..
     getInstrumentFile();
-    fprintf(stderr, "hi alex, completed init\n");
   }
 
   // Init as appropriate.
@@ -344,7 +338,6 @@ void OMInstrumentStart() {
 }
 
 void OMInstrumentStop() {
-  fprintf(stderr, "hi alex, instrument stop\n");
   if (useBuffer)
     flushRecordBuffer();
 }
@@ -358,7 +351,7 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
 
   // Process init (aka start/stop instrumentation).
   uint64_t tag = iTag;
-  bool startOrStopInstrument = IS_INSTRUMENT_INIT(tag);
+  bool startOrStopInstrument = IS_INSTRUMENT_START_STOP(tag);
   if (startOrStopInstrument) {
     if ((++initCounter) % 2 == 1) {
       OMInstrumentStart();

@@ -68,9 +68,9 @@ typedef enum {
 #define IS_INSTRUMENT_REPORT_MEMORY(x)                                         \
   ((x) & (0x1ull << (unsigned int)InstrumentReportMemory))
 
-#define SET_INSTRUMENT_INIT(x)                                        \
+#define SET_INSTRUMENT_START_STOP(x)                                           \
   (x) = (x) | (0x1ull << (unsigned int)InstrumentInit)
-#define IS_INSTRUMENT_INIT(x)                                         \
+#define IS_INSTRUMENT_START_STOP(x)                                            \
   ((x) & (0x1ull << (unsigned int)InstrumentInit))
 
 /* Second - third byte. */

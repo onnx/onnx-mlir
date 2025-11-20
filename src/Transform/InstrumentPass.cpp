@@ -149,7 +149,7 @@ public:
         // Had one; add the init at the end; second init will be seen as "close"
         uint64_t tag;
         INIT_INSTRUMENT(tag);
-        SET_INSTRUMENT_INIT(tag);
+        SET_INSTRUMENT_START_STOP(tag);
         mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
         return WalkResult::advance();
       }
@@ -164,7 +164,7 @@ public:
         if (instrumentBefore) {
           uint64_t tag = beforeTag();
           if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_INIT(tag);
+            SET_INSTRUMENT_START_STOP(tag);
             hasInitializedRuntime = true;
           }
           mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
@@ -175,7 +175,7 @@ public:
           opBuilder.setInsertionPointAfter(op);
           uint64_t tag = afterTag();
           if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_INIT(tag);
+            SET_INSTRUMENT_START_STOP(tag);
             hasInitializedRuntime = true;
           }
           mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
