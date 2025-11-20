@@ -47,7 +47,8 @@ extern "C" {
  * Initialize counter and read env variables for control
  *
  */
-OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
+OM_EXTERNAL_VISIBILITY void OMInstrumentStart();
+OM_EXTERNAL_VISIBILITY void OMInstrumentStop();
 
 /**
  * Create an instrument point.

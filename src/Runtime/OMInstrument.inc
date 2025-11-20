@@ -41,6 +41,7 @@
 using namespace onnx_mlir;
 #endif
 
+// Define global time variables.
 #ifdef _WIN32
 #include "windows.h"
 // The windows.h include must go first.
@@ -57,14 +58,20 @@ static struct timeval globalTimeVal, initTimeVal;
 static pid_t mypid;
 #endif
 
+// Global variables for help.
 static bool instrumentReportDisabled = false;
 static bool instrumentReportTimeDisabled = false;
 static bool instrumentReportMemoryDisabled = false;
-static int instrumentCounter = 0;
-static int psErrorCount = 0;
+static int instrumentCounter = 0; // For ticks; default without time/mem errors.
+static int psErrorCount = 0;      // For counting memory errors.
 static char instrumentReportOpName[INSTRUMENT_OP_NAME_MASK + 1];
 static char instrumentReportNodeName[INSTRUMENT_NODE_NAME_MASK + 1];
-static FILE *fout = 0;
+static FILE *fout = 0;         // For file output; when none, stdout.
+static bool useBuffer = false; // True if ONNX_MLIR_FAST_INSTRUMENT is defined.
+static int initCounter = 0;
+
+// =============================================================================
+// Time and memory error support.
 
 // Global variable to help OMInstrumentHelper.h to keep track of nesting level
 // of timing operations.
@@ -103,12 +110,15 @@ static inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
   *resultMicroseconds =
       ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
 }
-static void ReportTime(char *instrumentReportOpName,
-    char *instrumentReportNodeName, int isBefore) {
-  LARGE_INTEGER newTime;
+static inline void GetTime(LARGE_INTEGER *newTime) {
+  QueryPerformanceCounter(newTime);
+}
+
+static inline void PrintTime(LARGE_INTEGER *newTime,
+    char *instrumentReportOpName, char *instrumentReportNodeName,
+    int isBefore) {
   LONGLONG resultSeconds1, resultMicroseconds1;
   LONGLONG resultSeconds2, resultMicroseconds2;
-  QueryPerformanceCounter(&newTime);
   WinTimerSub(newTime, globalTime, &resultSeconds1, &resultMicroseconds1);
   WinTimerSub(newTime, initTime, &resultSeconds2, &resultMicroseconds2);
   // Print header and data for time.
@@ -118,20 +128,40 @@ static void ReportTime(char *instrumentReportOpName,
       resultSeconds2, resultMicroseconds2);
   globalTime = newTime;
 }
-#else
+
 static void ReportTime(char *instrumentReportOpName,
     char *instrumentReportNodeName, int isBefore) {
-  struct timeval newTimeValue, result1, result2;
-  gettimeofday(&newTimeValue, NULL);
-  timersub(&newTimeValue, &globalTimeVal, &result1);
-  timersub(&newTimeValue, &initTimeVal, &result2);
+  LARGE_INTEGER newTime;
+  GetTime(&newTime);
+  PrintTime(
+      &newTime, instrumentReportOpName, instrumentReportNodeName, isBefore);
+}
+#else
+static inline void GetTime(struct timeval *newTimeValue) {
+  gettimeofday(newTimeValue, NULL);
+}
+
+static inline void PrintTime(struct timeval *newTimeValue,
+    char *instrumentReportOpName, char *instrumentReportNodeName,
+    int isBefore) {
+  struct timeval result1, result2;
+  timersub(newTimeValue, &globalTimeVal, &result1);
+  timersub(newTimeValue, &initTimeVal, &result2);
   // Print header and data for time.
   fprintf(fout, "==PERF-REPORT==, %s, %s, %s, %ld.%06ld, %ld.%06ld\n",
       instrumentReportOpName, instrumentReportNodeName,
       (isBefore ? "before" : "after"), (long int)result1.tv_sec,
       (long int)result1.tv_usec, (long int)result2.tv_sec,
       (long int)result2.tv_usec);
-  globalTimeVal = newTimeValue;
+  globalTimeVal = *newTimeValue;
+}
+
+static void ReportTime(char *instrumentReportOpName,
+    char *instrumentReportNodeName, int isBefore) {
+  struct timeval newTimeValue;
+  GetTime(&newTimeValue);
+  PrintTime(&newTimeValue, instrumentReportOpName, instrumentReportNodeName,
+      isBefore);
 }
 #endif
 
@@ -172,65 +202,7 @@ static void ReportMemory() {
 }
 #endif
 
-FILE *getInstrumentFile() {
-  if (fout)
-    return fout;
-  fout = stdout;
-  if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
-    char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
-    FILE *newFileHandle = fopen(fileName, "w+");
-    if (newFileHandle) {
-      fout = newFileHandle;
-    }
-  }
-  assert(fout);
-  return fout;
-}
-
-void OMInstrumentInit() {
-  // Read environment variables.
-  if (getenv("ONNX_MLIR_NO_INSTRUMENT_TIME")) {
-    instrumentReportTimeDisabled = true;
-    return;
-  }
-  if (getenv("ONNX_MLIR_NO_INSTRUMENT_MEMORY")) {
-    instrumentReportMemoryDisabled = true;
-  }
-  if (getenv("ONNX_MLIR_NO_INSTRUMENT")) {
-    instrumentReportDisabled = true;
-  }
-  // Handle redirection to file if requested.
-  getInstrumentFile();
-
-  // Init as appropriate.
-  if (!instrumentReportDisabled) {
-    TimeInit();
-  }
-
-  fprintf(fout, "==START-REPORT==\n");
-}
-
-void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
-  if (instrumentReportDisabled)
-    return;
-
-  // Detect which reporting we have to do here.
-  uint64_t tag = iTag;
-  bool initInstrument = IS_INSTRUMENT_INIT(tag);
-  bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
-  bool reportTime =
-      !instrumentReportTimeDisabled && IS_INSTRUMENT_REPORT_TIME(tag);
-  bool reportMem =
-      !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
-
-  if (initInstrument)
-    OMInstrumentInit();
-
-  if (!reportTime && !reportMem) {
-    fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
-    return;
-  }
-
+void ProcessName(const char *opName, uint64_t tag, const char *nodeName) {
   // Unfortunately, the op and node names passed at runtime have sometimes an
   // incorrect length, and as a result, garbage is printed. To avoid this, a
   // (possibly temporary) fix is to encode the string lengths in the tag
@@ -245,7 +217,176 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   instrumentReportOpName[opNameLen] = '\0';
   strncpy(instrumentReportNodeName, nodeName, nodeNameLen);
   instrumentReportNodeName[nodeNameLen] = '\0';
+}
 
+// =============================================================================
+// Buffer management
+
+struct TimeRecord {
+  const char *opName;
+  const char *nodeName;
+  uint64_t tag;
+#ifdef _WIN32
+  LARGE_INTEGER beforeTime;
+  LARGE_INTEGER afterTime;
+#else
+  struct timeval beforeTime;
+  struct timeval afterTime;
+#endif
+};
+
+#define MAX_TIME_RECORD_BUFFER (16 * 1024)
+static struct TimeRecord timeRecordBuffer[MAX_TIME_RECORD_BUFFER];
+static int64_t bufferIndex = 0;
+
+void flushRecordBuffer() {
+  for (int64_t i = 0; i < bufferIndex; ++i) {
+    uint64_t tag = timeRecordBuffer[i].tag;
+    ProcessName(timeRecordBuffer[i].opName, tag, timeRecordBuffer[i].nodeName);
+    bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+    if (isBefore)
+      PrintTime(&timeRecordBuffer[i].beforeTime, instrumentReportOpName,
+          instrumentReportNodeName, /*before*/ true);
+    bool isAfter = IS_INSTRUMENT_BEFORE_OP(tag);
+    if (isAfter)
+      PrintTime(&timeRecordBuffer[i].afterTime, instrumentReportOpName,
+          instrumentReportNodeName, /*before*/ false);
+  }
+  fflush(fout);
+  bufferIndex = 0;
+}
+
+void updateRecordBuffer(
+    const char *opName, uint64_t tag, const char *nodeName) {
+  fprintf(stderr, "hi alex, start recording with code %i\n", (int)tag);
+  int64_t i = bufferIndex - 1;
+  if (i >= 0 && timeRecordBuffer[i].opName == opName &&
+      timeRecordBuffer[i].nodeName == nodeName) {
+    // Can reuse entry, or the tags so we have bits for both.
+    fprintf(stderr, "hi alex, recording reuse i %i\n", (int)i);
+    timeRecordBuffer[i].tag = timeRecordBuffer[i].tag | tag;
+  } else {
+    // Need a new entry; flush if full, then initialize entry.
+    if (bufferIndex >= MAX_TIME_RECORD_BUFFER)
+      flushRecordBuffer();
+    i = bufferIndex++;
+    fprintf(stderr, "hi alex, recording new i %i\n", (int)i);
+    timeRecordBuffer[i].opName = opName;
+    timeRecordBuffer[i].nodeName = nodeName;
+    timeRecordBuffer[i].tag = tag;
+  }
+  // Record time.
+  bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+  if (isBefore)
+    GetTime(&timeRecordBuffer[i].beforeTime);
+  else
+    GetTime(&timeRecordBuffer[i].afterTime);
+}
+
+// =============================================================================
+// Support for initialization
+
+// Initialize fout on the first call (as fout is statically initialized to
+// null). If defined, fout will target the value in ONNX_MLIR_INSTRUMENT_FILE.
+// Otherwise, fout default to standard out.
+//
+// Now this initialization is also used by omTensorPrint, for example to print
+// each tensor's signatures (when omTensorPrint start with the %i substring).
+// Now because we want to disable signature printing when using buffers to print
+// (so as to have low overheads), we thus disable printing by returning the 0
+// value. The useBuffer variable is defined by ONNX_MLIR_FAST_INSTRUMENT.
+FILE *getInstrumentFile() {
+  if (!fout) {
+    fout = stdout;
+    if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
+      char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
+      FILE *newFileHandle = fopen(fileName, "w+");
+      if (newFileHandle) {
+        fout = newFileHandle;
+      }
+    }
+    assert(fout);
+    if (getenv("ONNX_MLIR_FAST_INSTRUMENT")) {
+      useBuffer = true;
+    }
+  }
+  return useBuffer ? 0 : fout;
+}
+
+void OMInstrumentStart() {
+  static bool initialized = false;
+  fprintf(stderr, "hi alex, instrument start\n");
+
+  if (!initialized) {
+    initialized = true;
+    // First: read environment variables.
+    if (getenv("ONNX_MLIR_NO_INSTRUMENT_TIME")) {
+      instrumentReportTimeDisabled = true;
+      return;
+    }
+    if (getenv("ONNX_MLIR_NO_INSTRUMENT_MEMORY")) {
+      instrumentReportMemoryDisabled = true;
+    }
+    if (getenv("ONNX_MLIR_NO_INSTRUMENT")) {
+      instrumentReportDisabled = true;
+    }
+    // Then handle the possible redirection of output to file, and determine if
+    // buffered output is requested..
+    getInstrumentFile();
+    fprintf(stderr, "hi alex, completed init\n");
+  }
+
+  // Init as appropriate.
+  if (!instrumentReportDisabled) {
+    TimeInit();
+  }
+  fprintf(fout, "==START-REPORT==\n");
+}
+
+void OMInstrumentStop() {
+  fprintf(stderr, "hi alex, instrument stop\n");
+  if (useBuffer)
+    flushRecordBuffer();
+}
+
+// =============================================================================
+// Support OMInstrumentPoint.
+
+void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
+  if (instrumentReportDisabled)
+    return;
+
+  // Process init (aka start/stop instrumentation).
+  uint64_t tag = iTag;
+  bool startOrStopInstrument = IS_INSTRUMENT_INIT(tag);
+  if (startOrStopInstrument) {
+    if ((++initCounter) % 2 == 1) {
+      OMInstrumentStart();
+      if (instrumentReportDisabled)
+        return;
+    } else {
+      OMInstrumentStop();
+      return;
+    }
+  }
+  // Determine if we need to report on time or memory, and quick shortcut for
+  // buffered output.
+  bool reportTime =
+      !instrumentReportTimeDisabled && IS_INSTRUMENT_REPORT_TIME(tag);
+  bool reportMem =
+      !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
+  if (useBuffer && reportTime && !reportMem) {
+    updateRecordBuffer(opName, tag, nodeName);
+    return;
+  }
+  if (!reportTime && !reportMem) {
+    fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
+    return;
+  }
+
+  // Process non-buffered reporting.
+  ProcessName(opName, tag, nodeName);
+  bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
   if (reportTime) {
     ReportTime(instrumentReportOpName, instrumentReportNodeName, isBefore);
   }
