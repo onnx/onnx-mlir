@@ -137,7 +137,8 @@ static mlir::DenseElementsAttr makeScalarDEA(
   // If target is integer, round+clamp as per 'outET' (if integer), then emit as
   // outET.
   if (auto outIT = outET.dyn_cast<IntegerType>()) {
-
+    // Decide signedness/width for clamping from outET if it's integer, else
+    // from outET.
     IntegerType clampIT =
         outET.isa<IntegerType>() ? outET.cast<IntegerType>() : outIT;
 
@@ -490,16 +491,14 @@ private:
     const bool dstIsQ = llvm::isa<ONNXQuantizeLinearOp>(state.dstNode);
 
     // scale_new = scale / k  (for Div when folding into DQ)  OR  scale_new =
-    // scale / k (for Mul when folding into Q) Avoid division by zero when k ==
-    // 0 in those cases.
+    // scale / k (for Mul when folding into Q)
+    // Avoid division by zero when k == 0 in those cases.
     if (state.kValue == 0.0) {
       if (dstIsDQ && llvm::isa<ONNXDivOp>(binaryOp)) {
-
         return rewriter.notifyMatchFailure(binaryOp,
             "when opType is Div, remove binary op only if k_value is not zero, "
             "to avoid ZeroDivisionError");
       } else if (dstIsQ && llvm::isa<ONNXMulOp>(binaryOp)) {
-
         return rewriter.notifyMatchFailure(binaryOp,
             "when opType is Mul, remove binary op only if k_value is not zero, "
             "to avoid ZeroDivisionError");
@@ -661,6 +660,12 @@ private:
             ("New scale value " + std::to_string(state.newScale) +
                 " is NaN or infinity")
                 .c_str());
+      }
+
+      // Check for zero scale (invalid for quantization)
+      if (state.newScale == 0.0) {
+        return rewriter.notifyMatchFailure(
+            state.dstNode, "New scale value cannot be zero");
       }
 
       if (state.newScale < scaleMin || state.newScale > scaleMax) {
