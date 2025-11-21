@@ -235,7 +235,7 @@ struct TimeRecord {
 #endif
 };
 
-#define MAX_TIME_RECORD_BUFFER (16 * 1024)
+#define MAX_TIME_RECORD_BUFFER (4 * 1024)
 static struct TimeRecord timeRecordBuffer[MAX_TIME_RECORD_BUFFER];
 static int64_t bufferIndex = 0;
 

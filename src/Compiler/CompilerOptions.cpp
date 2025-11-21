@@ -1448,6 +1448,7 @@ bool hasInstrumentation(InstrumentStages targetInstrumentationStage) {
 }
 
 bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
+  return false; // hi alex
   // Want it here?
   if (instrumentStage != targetInstrumentationStage)
     return false;
