@@ -299,3 +299,449 @@ func.func @cleanup_qdq_activation_pair_folded_into_q(%arg0: tensor<4xf32>) -> te
 // CHECK-NOT: "onnx.Div"
 // CHECK-NOT: "onnx.Sub
 // CHECK: return %[[DQ]] : tensor<4xf32>
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Sub with weight as first operand should NOT fold
+// ============================================================================
+
+func.func @sub_weight_first_operand_no_fold(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Constant is first operand of Sub - should NOT fold
+  %6 = onnx.Constant dense<1.000000e+01> : tensor<f32>
+  %7 = "onnx.Sub"(%6, %5) : (tensor<f32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e-01> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @sub_weight_first_operand_no_fold
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Sub"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Div with weight as first operand should NOT fold
+// ============================================================================
+
+func.func @div_weight_first_operand_no_fold(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Constant is first operand of Div - should NOT fold
+  %6 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %7 = "onnx.Div"(%6, %5) : (tensor<f32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e-01> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @div_weight_first_operand_no_fold
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Div"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point overflow for ui8 (Add causing zp > 255)
+// ============================================================================
+
+func.func @zp_overflow_ui8(%arg0: tensor<1x4xf32>) -> tensor<1x4xui8> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<255> : tensor<ui8>  // Already at max ui8
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x4xui8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<255> : tensor<ui8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x4xf32>
+  
+  // Add large constant: new_zp = 255 + (1000.0 / 0.5) = 255 + 2000 = 2255 > 255 (overflow!)
+  %6 = onnx.Constant dense<1.000000e+03> : tensor<f32>
+  %7 = "onnx.Add"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<ui8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x4xui8>
+  return %10 : tensor<1x4xui8>
+}
+
+// CHECK-LABEL: func.func @zp_overflow_ui8
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Add"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point underflow for i8 (Sub causing zp < -128)
+// ============================================================================
+
+func.func @zp_underflow_i8(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<-128> : tensor<i8>  // Already at min i8
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<-128> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Sub large constant when folding into Q: new_zp = -128 - (500.0 / 0.5) = -128 - 1000 = -1128 < -128 (underflow!)
+  %6 = onnx.Constant dense<5.000000e+02> : tensor<f32>
+  %7 = "onnx.Sub"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @zp_underflow_i8
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Sub"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Division by zero (k=0 for Div when folding into DQ)
+// ============================================================================
+
+func.func @div_by_zero_fold_into_dq(%arg0: tensor<1x4xf32>) -> tensor<1x4xf32> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Div by constant 0.0 - should NOT fold (would cause division by zero in new_scale = scale / k)
+  %6 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %7 = "onnx.Div"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %11 = "onnx.DequantizeLinear"(%10, %8, %9) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  return %11 : tensor<1x4xf32>
+}
+
+// CHECK-LABEL: func.func @div_by_zero_fold_into_dq
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Div"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Mul by zero when folding into Q (would cause division by zero)
+// ============================================================================
+
+func.func @mul_by_zero_fold_into_q(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Mul by 0.0 when folding into Q would cause: new_scale = scale / 0 (division by zero)
+  %6 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %7 = "onnx.Mul"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @mul_by_zero_fold_into_q
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Mul"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Scale too small for destination dtype (ui4 test)
+// ============================================================================
+
+func.func @zp_overflow_ui4(%arg0: tensor<1x4xf32>) -> tensor<1x4xui4> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<15> : tensor<ui4>  // Max ui4 value
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui4>) -> tensor<1x4xui4>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<15> : tensor<ui4>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xui4>, tensor<f32>, tensor<ui4>) -> tensor<1x4xf32>
+  
+  // Add causing overflow: new_zp = 15 + (100.0 / 0.1) = 15 + 1000 = 1015 > 15 (max ui4)
+  %6 = onnx.Constant dense<1.000000e+02> : tensor<f32>
+  %7 = "onnx.Add"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e-01> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<ui4>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui4>) -> tensor<1x4xui4>
+  return %10 : tensor<1x4xui4>
+}
+
+// CHECK-LABEL: func.func @zp_overflow_ui4
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Add"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: QDQ with quantized constant (should work as Case B)
+// Weight is from Q->DQ chain, not just Constant
+// ============================================================================
+
+func.func @qdq_weight_sub_first_operand(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  // Activation DQ
+  %0 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Quantized weight DQ (from Constant -> Q -> DQ)
+  %c_raw = onnx.Constant dense<10> : tensor<i8>
+  %c_s = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %c_zp = onnx.Constant dense<0> : tensor<i8>
+  %weight_dq = "onnx.DequantizeLinear"(%c_raw, %c_s, %c_zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<f32>
+  
+  // Weight is first operand - should NOT fold for Sub
+  %7 = "onnx.Sub"(%weight_dq, %5) : (tensor<f32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e-01> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @qdq_weight_sub_first_operand
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Sub"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point overflow for i8 (Add causing zp > 127)
+// ============================================================================
+
+func.func @zp_overflow_i8_add(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<100> : tensor<i8>  // Close to max i8 (127)
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<100> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Add large constant: new_zp = 100 + (500.0 / 2.0) = 100 + 250 = 350 > 127 (overflow!)
+  %6 = onnx.Constant dense<5.000000e+02> : tensor<f32>
+  %7 = "onnx.Add"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @zp_overflow_i8_add
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Add"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point underflow for i8 (Sub causing zp < -128)
+// ============================================================================
+
+func.func @zp_underflow_i8_sub(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Sub large constant when folding into Q: new_zp = -100 - (300.0 / 2.0) = -100 - 150 = -250 < -128 (underflow!)
+  %6 = onnx.Constant dense<3.000000e+02> : tensor<f32>
+  %7 = "onnx.Sub"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<-100> : tensor<i8>  // Start from -100, subtract will underflow
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @zp_underflow_i8_sub
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Sub"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point overflow for ui16 (Sub causing zp < 0)
+// ============================================================================
+
+func.func @zp_underflow_ui16_sub(%arg0: tensor<1x4xf32>) -> tensor<1x4xui16> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<10> : tensor<ui16>  // Small positive value
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x4xui16>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<10> : tensor<ui16>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x4xf32>
+  
+  // Sub large constant: new_zp = 10 - (500.0 / 1.0) = 10 - 500 = -490 < 0 (underflow for unsigned!)
+  %6 = onnx.Constant dense<5.000000e+02> : tensor<f32>
+  %7 = "onnx.Sub"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<ui16>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x4xui16>
+  return %10 : tensor<1x4xui16>
+}
+
+// CHECK-LABEL: func.func @zp_underflow_ui16_sub
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Sub"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point overflow for ui16 (Add causing zp > 65535)
+// ============================================================================
+
+func.func @zp_overflow_ui16_add(%arg0: tensor<1x4xf32>) -> tensor<1x4xui16> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<ui16>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x4xui16>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<ui16>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x4xf32>
+  
+  // Add large constant: new_zp = 60000 + (10000.0 / 1.0) = 60000 + 10000 = 70000 > 65535 (overflow!)
+  %6 = onnx.Constant dense<1.000000e+04> : tensor<f32>
+  %7 = "onnx.Add"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<60000> : tensor<ui16>  // Start from 60000, add will overflow  
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x4xui16>
+  return %10 : tensor<1x4xui16>
+}
+
+// CHECK-LABEL: func.func @zp_overflow_ui16_add
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Add"
+// CHECK: "onnx.QuantizeLinear"
+
+// -----
+
+// ============================================================================
+// NEGATIVE TEST: Zero-point overflow for i16 (Sub folding into DQ causing zp > 32767)
+// ============================================================================
+
+func.func @zp_overflow_i16_sub_into_dq(%arg0: tensor<1x4xf32>) -> tensor<1x4xf32> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<30000> : tensor<i16>  // Close to max i16 (32767)
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i16>) -> tensor<1x4xi16>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<30000> : tensor<i16>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi16>, tensor<f32>, tensor<i16>) -> tensor<1x4xf32>
+  
+  // Sub negative constant (equivalent to Add) when folding into DQ: new_zp = 30000 - (-5000/1.0) = 30000 + 5000 = 35000 > 32767 (overflow!)
+  %6 = onnx.Constant dense<-5.000000e+03> : tensor<f32>
+  %7 = "onnx.Sub"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  return %7 : tensor<1x4xf32>
+}
+
+// CHECK-LABEL: func.func @zp_overflow_i16_sub_into_dq
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.Sub"
+
+// -----
+
+// ============================================================================
+// POSITIVE TEST: Add with valid zero-point (should fold successfully)
+// ============================================================================
+
+func.func @valid_add_no_overflow(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %3 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<i8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
+  
+  // Add reasonable constant: new_zp = 0 + (50.0 / 1.0) = 50 (valid for i8: -128 to 127)
+  %6 = onnx.Constant dense<5.000000e+01> : tensor<f32>
+  %7 = "onnx.Add"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<0> : tensor<i8>
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  return %10 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: func.func @valid_add_no_overflow
+// CHECK: %[[S:.*]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK: %[[ZP:.*]] = onnx.Constant dense<50> : tensor<i8>
+// CHECK: %[[Q:.*]] = "onnx.QuantizeLinear"(%arg0, %[[S]], %[[ZP]])
+// CHECK-SAME: : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+// CHECK: return %[[Q]] : tensor<1x4xi8>
+// CHECK-NOT: "onnx.Add"
+
+// -----
+
+// ============================================================================
+// POSITIVE TEST: Sub with valid zero-point (should fold successfully)
+// ============================================================================
+
+func.func @valid_sub_no_underflow(%arg0: tensor<1x4xf32>) -> tensor<1x4xui8> {
+  %0 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<ui8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x4xui8>
+  %3 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<0> : tensor<ui8>
+  %5 = "onnx.DequantizeLinear"(%2, %3, %4) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x4xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x4xf32>
+  
+  // Sub reasonable constant: new_zp = 200 - (100.0 / 2.0) = 200 - 50 = 150 (valid for ui8: 0 to 255)
+  %6 = onnx.Constant dense<1.000000e+02> : tensor<f32>
+  %7 = "onnx.Sub"(%5, %6) : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  
+  %8 = onnx.Constant dense<2.000000e+00> : tensor<f32>
+  %9 = onnx.Constant dense<200> : tensor<ui8>  // Start from 200, subtract 50 = 150
+  %10 = "onnx.QuantizeLinear"(%7, %8, %9) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x4xui8>
+  return %10 : tensor<1x4xui8>
+}
+
+// CHECK-LABEL: func.func @valid_sub_no_underflow
+// CHECK: %[[ZP:.*]] = onnx.Constant dense<150> : tensor<ui8>
+// CHECK: %[[S:.*]] = onnx.Constant dense<2.000000e+00> : tensor<f32>
+// CHECK: %[[Q:.*]] = "onnx.QuantizeLinear"(%arg0, %[[S]], %[[ZP]])
+// CHECK-SAME: : (tensor<1x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x4xui8>
+// CHECK: return %[[Q]] : tensor<1x4xui8>
+// CHECK-NOT: "onnx.Sub"

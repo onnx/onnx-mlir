@@ -137,8 +137,7 @@ static mlir::DenseElementsAttr makeScalarDEA(
   // If target is integer, round+clamp as per 'outET' (if integer), then emit as
   // outET.
   if (auto outIT = outET.dyn_cast<IntegerType>()) {
-    // Decide signedness/width for clamping from outET if it's integer, else
-    // from outET.
+
     IntegerType clampIT =
         outET.isa<IntegerType>() ? outET.cast<IntegerType>() : outIT;
 
@@ -407,9 +406,9 @@ private:
     // Check: Div and Sub are not supported when weight is the first input
     if (constantIsFirstOperand &&
         (llvm::isa<ONNXSubOp>(binaryOp) || llvm::isa<ONNXDivOp>(binaryOp))) {
-      return rewriter.notifyMatchFailure(
-          binaryOp, "Qdq initializer: Div and Sub are not supported when "
-                    "weight is the first input");
+      return rewriter.notifyMatchFailure(binaryOp,
+          "Qdq initializer: Div and Sub are not supported when "
+          "weight is the first input");
     }
 
     // Find kvalue and store scale_dtype and zeroPointDtype
@@ -455,9 +454,9 @@ private:
       if (auto constOp = lhs.getDefiningOp<ONNXConstantOp>()) {
         // Check: Div and Sub are not supported when weight is the first input
         if (llvm::isa<ONNXSubOp>(binaryOp) || llvm::isa<ONNXDivOp>(binaryOp)) {
-          return rewriter.notifyMatchFailure(
-              binaryOp, "non-qdq initializer: Div and Sub are not supported "
-                        "when weight is the first input");
+          return rewriter.notifyMatchFailure(binaryOp,
+              "non-qdq initializer: Div and Sub are not supported "
+              "when weight is the first input");
         }
         state.dequantActivationOfBinOp = dqOp;
         constantOp = constOp;
