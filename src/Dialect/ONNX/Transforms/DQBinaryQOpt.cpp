@@ -449,9 +449,9 @@ private:
     }
 
     if (!constantDqOp || !constantSourceOp || !state.dequantActivationOfBinOp) {
-      return rewriter.notifyMatchFailure(
-          binaryOp, "Remove binary op only if one of the dequantize linear "
-                    "input has const scalar value");
+      return rewriter.notifyMatchFailure(binaryOp,
+          "Remove binary op only if one of the dequantize linear "
+          "input has const scalar value");
     }
 
     // Check: Div and Sub are not supported when weight is the first input
