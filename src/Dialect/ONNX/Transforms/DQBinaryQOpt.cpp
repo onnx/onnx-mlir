@@ -285,7 +285,7 @@ static mlir::LogicalResult tryRemoveQThenDQChain(
 }
 
 // If doRewrite=false: returns true iff *any* removable DQ user exists (no
-// mutation). If doRewrite=true : performs removals and returns true iff it
+// mutation). If doRewrite=true: performs removals and returns true iff it
 // removed at least one DQ. Also erases Q if it becomes dead after removals.
 static bool Remove_Q_Plus_DQ(
     mlir::PatternRewriter &rewriter, ONNXQuantizeLinearOp qOp, bool doRewrite) {
@@ -293,30 +293,43 @@ static bool Remove_Q_Plus_DQ(
   if (!qOp)
     return false;
 
-  int removableCount = 0;
-  int removedCount = 0;
+  if (doRewrite) {
+    // REWRITE MODE: Actually perform the removal
+    int removedCount = 0;
 
-  // Safe iteration while potentially mutating (when doRewrite==true)
-  auto users = llvm::make_early_inc_range(qOp.getY().getUsers());
-  for (Operation *user : users) {
-    if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
-      if (succeeded(
-              tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ false))) {
-        ++removableCount;
-        if (doRewrite) {
-          if (succeeded(
-                  tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ true)))
-            ++removedCount;
+    // Safe iteration while potentially mutating
+    auto users = llvm::make_early_inc_range(qOp.getY().getUsers());
+    for (Operation *user : users) {
+      if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
+        if (succeeded(
+                tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ true))) {
+          ++removedCount;
         }
       }
     }
-  }
 
-  if (doRewrite && qOp->use_empty()) {
-    rewriter.eraseOp(qOp);
-  }
+    // Remove Q if it has no remaining users
+    if (qOp->use_empty()) {
+      rewriter.eraseOp(qOp);
+    }
 
-  return doRewrite ? (removedCount > 0) : (removableCount > 0);
+    return removedCount > 0;
+
+  } else {
+    // CHECK MODE: Only check if removable without modifying
+    int removableCount = 0;
+
+    for (Operation *user : qOp.getY().getUsers()) {
+      if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
+        if (succeeded(
+                tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ false))) {
+          ++removableCount;
+        }
+      }
+    }
+
+    return removableCount > 0;
+  }
 }
 
 static bool isValuePreservingOp(mlir::Operation *op) {
@@ -328,7 +341,8 @@ static bool isValuePreservingOp(mlir::Operation *op) {
 
 template <typename BinOp>
 struct FoldBinaryThroughQDQ : public OpRewritePattern<BinOp> {
-  using OpRewritePattern<BinOp>::OpRewritePattern;
+  FoldBinaryThroughQDQ(MLIRContext *context)
+      : OpRewritePattern<BinOp>(context) {}
 
 private:
   struct MatchState {
@@ -400,8 +414,44 @@ private:
       }
     }
 
+    // Case 3: The input to the DQ op comes from a Q->DQ chain where Q's input
+    // is a constant.
+    bool isConstantFromQDQChain = false;
+    if (!constantDqOp || !constantSourceOp) {
+      // Check dq1: Constant -> Q -> DQ
+      if (auto qOp = dq1.getX().getDefiningOp<ONNXQuantizeLinearOp>()) {
+        if (succeeded(
+                tryRemoveQThenDQChain(rewriter, dq1, /*doRewrite=*/false))) {
+          if (auto constOp = qOp.getX().getDefiningOp<ONNXConstantOp>()) {
+            constantDqOp = dq1;
+            state.dequantActivationOfBinOp = dq2;
+            constantSourceOp = constOp;
+            constantIsFirstOperand = true;
+            isConstantFromQDQChain = true;
+          }
+        }
+      }
+      // Check dq2: Constant -> Q -> DQ
+      if (!constantDqOp || !constantSourceOp) {
+        if (auto qOp = dq2.getX().getDefiningOp<ONNXQuantizeLinearOp>()) {
+          if (succeeded(
+                  tryRemoveQThenDQChain(rewriter, dq2, /*doRewrite=*/false))) {
+            if (auto constOp = qOp.getX().getDefiningOp<ONNXConstantOp>()) {
+              constantDqOp = dq2;
+              state.dequantActivationOfBinOp = dq1;
+              constantSourceOp = constOp;
+              constantIsFirstOperand = false;
+              isConstantFromQDQChain = true;
+            }
+          }
+        }
+      }
+    }
+
     if (!constantDqOp || !constantSourceOp || !state.dequantActivationOfBinOp) {
-      return failure();
+      return rewriter.notifyMatchFailure(
+          binaryOp, "Remove binary op only if one of the dequantize linear "
+                    "input has const scalar value");
     }
 
     // Check: Div and Sub are not supported when weight is the first input
@@ -414,21 +464,34 @@ private:
 
     // Find kvalue and store scale_dtype and zeroPointDtype
     {
-      auto scalar_value_opt = getScalarTensorValue<int64_t>(constantSourceOp);
-      if (!scalar_value_opt) {
-        return rewriter.notifyMatchFailure(constantSourceOp,
-            " must be a scalar value or a list of same value");
+      // When constant comes from a Q->DQ chain, it's in float form
+      // When constant comes directly to DQ, it's in quantized (int) form
+      if (isConstantFromQDQChain) {
+        // Constant is in float form: just use the value directly
+        auto scalar_value_opt = getScalarTensorValue<double>(constantSourceOp);
+        if (!scalar_value_opt) {
+          return rewriter.notifyMatchFailure(constantSourceOp,
+              " must be a scalar value or a list of same value");
+        }
+        state.kValue = *scalar_value_opt;
+      } else {
+        // Constant is in quantized form: need to dequantize it
+        auto scalar_value_opt = getScalarTensorValue<int64_t>(constantSourceOp);
+        if (!scalar_value_opt) {
+          return rewriter.notifyMatchFailure(constantSourceOp,
+              " must be a scalar value or a list of same value");
+        }
+        Value scaleVal = constantDqOp.getXScale();
+        Value zpVal = constantDqOp.getXZeroPoint();
+        auto scale_value_opt = getScalarTensorValueFromVal<double>(scaleVal);
+        auto zp_value_opt = getScalarTensorValueFromVal<int64_t>(zpVal);
+        if (!scale_value_opt || !zp_value_opt) {
+          return rewriter.notifyMatchFailure(
+              constantDqOp, " must be a scalar value or a list of same value");
+        }
+        // Calculate and store kValue.
+        state.kValue = (*scalar_value_opt - *zp_value_opt) * *scale_value_opt;
       }
-      Value scaleVal = constantDqOp.getXScale();
-      Value zpVal = constantDqOp.getXZeroPoint();
-      auto scale_value_opt = getScalarTensorValueFromVal<double>(scaleVal);
-      auto zp_value_opt = getScalarTensorValueFromVal<int64_t>(zpVal);
-      if (!scale_value_opt || !zp_value_opt) {
-        return rewriter.notifyMatchFailure(
-            constantDqOp, " must be a scalar value or a list of same value");
-      }
-      // Calculate and store kValue.
-      state.kValue = (*scalar_value_opt - *zp_value_opt) * *scale_value_opt;
     }
     return success();
   }
@@ -650,22 +713,9 @@ private:
         scaleMin = -std::numeric_limits<double>::max();
         scaleMax = std::numeric_limits<double>::max();
       } else {
-        // Unknown float type, skip validation
-        return success();
-      }
-
-      // Check for NaN and infinity
-      if (std::isnan(state.newScale) || std::isinf(state.newScale)) {
-        return rewriter.notifyMatchFailure(state.dstNode,
-            ("New scale value " + std::to_string(state.newScale) +
-                " is NaN or infinity")
-                .c_str());
-      }
-
-      // Check for zero scale (invalid for quantization)
-      if (state.newScale == 0.0) {
+        // Unknown float type, cannot validate safely
         return rewriter.notifyMatchFailure(
-            state.dstNode, "New scale value cannot be zero");
+            state.dstNode, "Unsupported float type for scale validation");
       }
 
       if (state.newScale < scaleMin || state.newScale > scaleMax) {
@@ -716,8 +766,14 @@ private:
         uniq.insert(u);
       return uniq.size() > 1;
     };
-    const bool branch_after = hasBranchOnValue(dq.getY());
-    const bool branch_before = q ? hasBranchOnValue(q.getY()) : false;
+
+    // Check if DQ output has multiple readers AND DQ input is Q
+    const bool branch_after = q && hasBranchOnValue(dq.getY());
+
+    // If there is branching just above the dequant (on DQ's input), the Q/DQ
+    // removal at the end will also remove Q/DQ on other branches, so treat as
+    // branch
+    const bool branch_before = hasBranchOnValue(dq.getX());
     const bool branch_on_dequant_activation = branch_after || branch_before;
 
     // If we cannot remove Q->DQ (or there is branching), fold into DQ
@@ -880,11 +936,13 @@ struct FoldDQBinaryQPass
 
   void runOnOperation() override {
     auto function = getOperation();
+
     RewritePatternSet patterns(&getContext());
-    patterns
-        .add<FoldBinaryThroughQDQ<ONNXDivOp>, FoldBinaryThroughQDQ<ONNXSubOp>,
-            FoldBinaryThroughQDQ<ONNXMulOp>, FoldBinaryThroughQDQ<ONNXAddOp>>(
-            &getContext());
+    patterns.add<FoldBinaryThroughQDQ<ONNXDivOp>>(&getContext());
+    patterns.add<FoldBinaryThroughQDQ<ONNXSubOp>>(&getContext());
+    patterns.add<FoldBinaryThroughQDQ<ONNXMulOp>>(&getContext());
+    patterns.add<FoldBinaryThroughQDQ<ONNXAddOp>>(&getContext());
+
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
