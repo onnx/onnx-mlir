@@ -128,6 +128,19 @@ void ExecutionSession::Init(
     throw std::runtime_error(
         reportSymbolLoadingError(outputSignatureNameWithTag));
 
+    // Hi alex, new support for instrumentation printing
+#ifndef ENABLE_PYRUNTIME_LIGHT
+  _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(
+          _printInstrumentationName.c_str()));
+#else
+  _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
+      dlsym(_sharedLibraryHandle, _printInstrumentationName.c_str()));
+#endif
+  if (!_printInstrumentationFunc)
+    throw std::runtime_error(
+        reportSymbolLoadingError(_printInstrumentationName));
+
   // Set OM_CONSTANT_PATH for loading constants from file if required.
   std::size_t found = sharedLibPath.find_last_of("/\\");
   if (found != std::string::npos) {
@@ -202,6 +215,13 @@ const std::string ExecutionSession::outputSignature() const {
     throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
   errno = 0; // No errors.
   return _outputSignatureFunc(_entryPointName.c_str());
+}
+
+void ExecutionSession::printInstrumentation() {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
+  errno = 0; // No errors.
+  return _printInstrumentationFunc();
 }
 
 // =============================================================================

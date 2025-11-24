@@ -64,11 +64,30 @@ static bool instrumentReportTimeDisabled = false;
 static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0; // For ticks; default without time/mem errors.
 static int psErrorCount = 0;      // For counting memory errors.
+// For string processing
 static char instrumentReportOpName[INSTRUMENT_OP_NAME_MASK + 1];
 static char instrumentReportNodeName[INSTRUMENT_NODE_NAME_MASK + 1];
-static FILE *fout = 0; // For file output; when none, stdout.
-// hi alex, remove use Buffer.
-static bool useBuffer = true; // True if ONNX_MLIR_FAST_INSTRUMENT is defined.
+static FILE *fout = 0; // For file output; none: undef; , stdout.
+bool startReportPrinted = false;
+
+// Buffer data structure and array.
+struct TimeRecord {
+  const char *opName;
+  const char *nodeName;
+  uint64_t tag;
+#ifdef _WIN32
+  LARGE_INTEGER beforeTime;
+  LARGE_INTEGER afterTime;
+#else
+  struct timeval beforeTime;
+  struct timeval afterTime;
+#endif
+};
+
+// Granite 3.1 needs 3K entries, safe with 8K.
+#define MAX_TIME_RECORD_BUFFER (8 * 1024)
+static struct TimeRecord timeRecordBuffer[MAX_TIME_RECORD_BUFFER];
+int64_t bufferIndex = 0;
 
 // =============================================================================
 // Time and memory error support.
@@ -113,10 +132,7 @@ static inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
 static inline void GetTime(LARGE_INTEGER *newTime) {
   QueryPerformanceCounter(newTime);
 }
-
-static inline void PrintTime(LARGE_INTEGER *newTime,
-    char *instrumentReportOpName, char *instrumentReportNodeName,
-    int isBefore) {
+static inline void PrintTime(LARGE_INTEGER *newTime, int isBefore) {
   LONGLONG resultSeconds1, resultMicroseconds1;
   LONGLONG resultSeconds2, resultMicroseconds2;
   WinTimerSub(newTime, globalTime, &resultSeconds1, &resultMicroseconds1);
@@ -128,23 +144,11 @@ static inline void PrintTime(LARGE_INTEGER *newTime,
       resultSeconds2, resultMicroseconds2);
   globalTime = newTime;
 }
-
-// Use this to print without buffer.
-static void ReportTime(char *instrumentReportOpName,
-    char *instrumentReportNodeName, int isBefore) {
-  LARGE_INTEGER newTime;
-  GetTime(&newTime);
-  PrintTime(
-      &newTime, instrumentReportOpName, instrumentReportNodeName, isBefore);
-}
 #else
 static inline void GetTime(struct timeval *newTimeValue) {
   gettimeofday(newTimeValue, NULL);
 }
-
-static inline void PrintTime(struct timeval *newTimeValue,
-    char *instrumentReportOpName, char *instrumentReportNodeName,
-    int isBefore) {
+static inline void PrintTime(struct timeval *newTimeValue, int isBefore) {
   struct timeval result1, result2;
   timersub(newTimeValue, &globalTimeVal, &result1);
   timersub(newTimeValue, &initTimeVal, &result2);
@@ -155,15 +159,6 @@ static inline void PrintTime(struct timeval *newTimeValue,
       (long int)result1.tv_usec, (long int)result2.tv_sec,
       (long int)result2.tv_usec);
   globalTimeVal = *newTimeValue;
-}
-
-// Use this to print without buffer.
-static void ReportTime(char *instrumentReportOpName,
-    char *instrumentReportNodeName, int isBefore) {
-  struct timeval newTimeValue;
-  GetTime(&newTimeValue);
-  PrintTime(&newTimeValue, instrumentReportOpName, instrumentReportNodeName,
-      isBefore);
 }
 #endif
 
@@ -225,37 +220,24 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
-struct TimeRecord {
-  const char *opName;
-  const char *nodeName;
-  uint64_t tag;
-#ifdef _WIN32
-  LARGE_INTEGER beforeTime;
-  LARGE_INTEGER afterTime;
-#else
-  struct timeval beforeTime;
-  struct timeval afterTime;
-#endif
-};
-
-// Granite 3.1 needs 3K entries, safe with 8K.
-#define MAX_TIME_RECORD_BUFFER (8 * 1024)
-static struct TimeRecord timeRecordBuffer[MAX_TIME_RECORD_BUFFER];
-int64_t bufferIndex = -1;
+static void inline printStartReport() {
+  if (!startReportPrinted) {
+    fprintf(fout, "==START-REPORT==\n");
+    startReportPrinted = true;
+  }
+}
 
 static void flushRecordBuffer() {
-  fprintf(stderr, "hi alex, flush buffer with index %d\n", (int)bufferIndex);
+  printStartReport();
   for (int64_t i = 0; i < bufferIndex; ++i) {
     uint64_t tag = timeRecordBuffer[i].tag;
     ProcessName(timeRecordBuffer[i].opName, tag, timeRecordBuffer[i].nodeName);
     bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
     if (isBefore)
-      PrintTime(&timeRecordBuffer[i].beforeTime, instrumentReportOpName,
-          instrumentReportNodeName, /*before*/ true);
+      PrintTime(&timeRecordBuffer[i].beforeTime, /*before*/ true);
     bool isAfter = IS_INSTRUMENT_BEFORE_OP(tag);
     if (isAfter)
-      PrintTime(&timeRecordBuffer[i].afterTime, instrumentReportOpName,
-          instrumentReportNodeName, /*before*/ false);
+      PrintTime(&timeRecordBuffer[i].afterTime, /*before*/ false);
   }
   fflush(fout);
   bufferIndex = 0;
@@ -268,8 +250,6 @@ static void updateRecordBuffer(
       timeRecordBuffer[i].nodeName == nodeName) {
     // Can reuse entry, or the tags so we have bits for both.
     timeRecordBuffer[i].tag = timeRecordBuffer[i].tag | tag;
-    fprintf(
-        stderr, "hi alex reuse tag %d, index %d\n", (int)i, (int)bufferIndex);
   } else {
     // Need a new entry; flush if full, then initialize entry.
     if (bufferIndex >= MAX_TIME_RECORD_BUFFER)
@@ -278,8 +258,6 @@ static void updateRecordBuffer(
     timeRecordBuffer[i].opName = opName;
     timeRecordBuffer[i].nodeName = nodeName;
     timeRecordBuffer[i].tag = tag;
-    fprintf(
-        stderr, "hi alex use new tag %d, index %d\n", (int)i, (int)bufferIndex);
   }
   // Record time.
   bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
@@ -295,14 +273,7 @@ static void updateRecordBuffer(
 // Initialize fout on the first call (as fout is statically initialized to
 // null). If defined, fout will target the value in ONNX_MLIR_INSTRUMENT_FILE.
 // Otherwise, fout default to standard out.
-//
-#if 0
-// Now this initialization is also used by omTensorPrint, for example to print
-// each tensor's signatures (when omTensorPrint start with the %i substring).
-// Now because we want to disable signature printing when using buffers to print
-// (so as to have low overheads), we thus disable printing by returning the 0
-// value. The useBuffer variable is defined by ONNX_MLIR_FAST_INSTRUMENT.
-#endif
+
 FILE *getInstrumentFile() {
   if (!fout) {
     fout = stdout;
@@ -314,21 +285,18 @@ FILE *getInstrumentFile() {
       }
     }
     assert(fout);
-#if 0 // hi alex
-    if (getenv("ONNX_MLIR_FAST_INSTRUMENT")) {
-      useBuffer = true;
-    }
-#endif
   }
+  printStartReport();
   return fout;
 }
 
-// =============================================================================
-// Support OM interface.
-
-// External call, part of the OM interface.
-void OMInstrumentStart() {
+void startInstrumentation() {
   static bool initialized = false;
+
+  // New instrumentation, set printed start report to false.  Buffer is also
+  // reset between runs.
+  startReportPrinted = false;
+  bufferIndex = 0;
   if (!initialized) {
     initialized = true;
     // First: read environment variables.
@@ -341,28 +309,25 @@ void OMInstrumentStart() {
     }
     if (getenv("ONNX_MLIR_NO_INSTRUMENT")) {
       instrumentReportDisabled = true;
+      instrumentReportTimeDisabled = true;
+      instrumentReportMemoryDisabled = true;
     }
     // Then handle the possible redirection of output to file, and determine if
     // buffered output is requested..
     getInstrumentFile();
-    fprintf(stderr, "hi alex: reset index buffer in OMInstrumentStart\n");
-    bufferIndex = 0;
   }
 
   // Init as appropriate.
   if (!instrumentReportDisabled) {
     TimeInit();
   }
-  // hi alex, should become buffered.
-  fprintf(fout, "==START-REPORT==\n");
 }
 
+// =============================================================================
+// Support OM interface.
+
 // External call, part of the OM interface.
-void OMInstrumentPrint() {
-  fprintf(stderr, "hi alex before flush\n");
-  flushRecordBuffer();
-  fprintf(stderr, "hi alex after flush\n");
-}
+void omInstrumentPrint() { flushRecordBuffer(); }
 
 // External call, part of the OM interface, calls generated by compiler.
 void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
@@ -371,11 +336,9 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
 
   // Process init.
   uint64_t tag = iTag;
-  bool startOrStopInstrument = IS_INSTRUMENT_INIT(tag);
-  if (startOrStopInstrument) {
-    OMInstrumentStart();
-    if (instrumentReportDisabled)
-      return;
+  bool isInit = IS_INSTRUMENT_INIT(tag);
+  if (isInit) {
+    startInstrumentation();
   }
   // Report.
   bool reportTime =
@@ -383,19 +346,19 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   bool reportMem =
       !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
 
-  fprintf(stderr, "hi alex, OM instrument point with report time %d\n",
-      (int)reportTime);
-
   if (reportTime)
     updateRecordBuffer(opName, tag, nodeName);
   if (reportMem && psErrorCount < 20) {
     // Print header and data for memory.
+    printStartReport();
     ProcessName(opName, tag, nodeName);
     bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
     fprintf(fout, "==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
         instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportMemory();
   }
-  if (!reportTime && !reportMem)
+  if (!reportTime && !reportMem) {
+    printStartReport();
     fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
+  }
 }

@@ -349,8 +349,6 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   omTensorListDestroy(wrappedInput);
   TIMING_STOP_PRINT(delete_in_lists);
 
-  fprintf(stderr, "hi alex, calling instruction print from run env\n");
-  OMInstrumentPrint();
   return outputPyArrays;
 }
 
@@ -400,8 +398,7 @@ std::string PyExecutionSessionBase::reportPythonError(
 // Instrumentation reporting
 void PyExecutionSessionBase::pyPrintInstrumentation() {
   TIMING_INIT_START(print_instrumentation);
-  fprintf(stderr, "hi alex from py execution session base\n");
-  OMInstrumentPrint();
+  printInstrumentation();
   TIMING_STOP_PRINT(print_instrumentation);
 }
 

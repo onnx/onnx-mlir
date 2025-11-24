@@ -621,19 +621,7 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
    * instrument file instead of stdout. */
   if (len >= 2 && msg[0] == '%' && msg[1] == 'i') {
     fout = getInstrumentFile();
-#if 1 // hi alex
     assert(fout && "expected a file handle");
-#else
-    if (!fout) {
-      // We are doing fast measurements using buffered output; thus disable
-      // redirected printing here. Redirected printing is generated mainly by
-      // signature instrumentation. The calls are still in the binary, so that
-      // we may use the same binary to also print the signatures. See
-      // getInstrumentFile code for details on the environment variable that
-      // govern the usage of buffered output or not.
-      return;
-    }
-#endif
     /* Skip format. */
     msg += 2;
     len -= 2;
