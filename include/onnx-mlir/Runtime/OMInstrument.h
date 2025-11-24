@@ -48,7 +48,7 @@ extern "C" {
  *
  */
 OM_EXTERNAL_VISIBILITY void OMInstrumentStart();
-OM_EXTERNAL_VISIBILITY void OMInstrumentStop();
+OM_EXTERNAL_VISIBILITY void OMInstrumentPrint();
 
 /**
  * Create an instrument point.

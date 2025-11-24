@@ -1061,6 +1061,9 @@ class InferenceSession:
 
     def run_inference(self):
         return self.session.run(self.inputs)
+    
+    def print_instrumentation(self):
+        self.session.print_instrumentation()
 
     """
     When requested outputs are printed, verified, and/or saved.
@@ -1226,6 +1229,7 @@ class InferenceSession:
             elapsed = end - start
             perf_results += [elapsed]
             print("  {} iteration, {}, seconds".format(ordinal(i + 1), elapsed))
+            self.print_instrumentation()
 
         # Print performance results and verify output.
         self.process_perf_results(perf_results)

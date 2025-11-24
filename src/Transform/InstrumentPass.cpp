@@ -145,14 +145,16 @@ public:
       Location loc = op->getLoc();
       OpBuilder opBuilder(op);
 
+#if 0 // hi alex; no more stop
       if (llvm::dyn_cast<func::ReturnOp>(op) && hasInitializedRuntime) {
         // Had one; add the init at the end; second init will be seen as "close"
         uint64_t tag;
         INIT_INSTRUMENT(tag);
-        SET_INSTRUMENT_START_STOP(tag);
+        SET_INSTRUMENT_INIT(tag);
         mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
         return WalkResult::advance();
       }
+#endif
 
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
@@ -164,7 +166,7 @@ public:
         if (instrumentBefore) {
           uint64_t tag = beforeTag();
           if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_START_STOP(tag);
+            SET_INSTRUMENT_INIT(tag);
             hasInitializedRuntime = true;
           }
           mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
@@ -175,7 +177,7 @@ public:
           opBuilder.setInsertionPointAfter(op);
           uint64_t tag = afterTag();
           if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_START_STOP(tag);
+            SET_INSTRUMENT_INIT(tag);
             hasInitializedRuntime = true;
           }
           mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);

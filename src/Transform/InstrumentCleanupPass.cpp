@@ -83,7 +83,7 @@ public:
       uint64_t firstTag = firstInstrOp.getTag();
       // skip if not before, or if this call initializes the instrumentation.
       if (!IS_INSTRUMENT_BEFORE_OP(firstTag) ||
-          IS_INSTRUMENT_START_STOP(firstTag))
+          IS_INSTRUMENT_INIT(firstTag))
         return WalkResult::advance();
       // Check if we have a second instrumentation op with instr after.
       Operation *nextOp = op->getNextNode();
@@ -95,7 +95,7 @@ public:
       uint64_t secondTag = secondInstrOp.getTag();
       // skip if not after, or if this call initializes the instrumentation.
       if (!IS_INSTRUMENT_AFTER_OP(secondTag) ||
-          IS_INSTRUMENT_START_STOP(secondTag))
+          IS_INSTRUMENT_INIT(secondTag))
         return WalkResult::advance();
       // Could check opName but we already have a before/after pair, it can only
       // be of the same op.

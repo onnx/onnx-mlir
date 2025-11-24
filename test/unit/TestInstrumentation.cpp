@@ -24,6 +24,6 @@ int main(int argc, char *argv[]) {
   OMInstrumentPoint(op4.c_str(), 9, nodeOp4.c_str());
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   OMInstrumentPoint(opfinal.c_str(), 12, nodeOpfinal.c_str());
-  OMInstrumentStop();
+  OMInstrumentPrint();
   return 0;
 }
