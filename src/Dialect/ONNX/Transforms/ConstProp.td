@@ -189,6 +189,9 @@ def CreateNotOfConst :
 def CreateSinOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSinOp>($_builder, $0, $1)">;
 
+def CreateSigmoidOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSigmoidOp>($_builder, $0, $1)">;
+
 def CreateSqrtOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSqrtOp>($_builder, $0, $1)">;
 
@@ -554,6 +557,14 @@ def SinConstProp : NamedPat<"SinofConst",
     (ONNXSinOp:$sinOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateSinOfConst $sinOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Sigmoid
+def SigmoidConstProp : NamedPat<"SigmoidofConst",
+    // From 1 / (1 + exp(-c)).
+    (ONNXSigmoidOp:$sigmoidOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To new_c
+    (CreateSigmoidOfConst $sigmoidOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Reciprocal

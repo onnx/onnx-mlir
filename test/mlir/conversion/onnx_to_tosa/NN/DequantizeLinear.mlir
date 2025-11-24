@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Advanced Micro Devices, Inc.
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
 
 func.func @test_dequantizeLinear(%arg0 : tensor<32x3x224x224xi8>) -> tensor<32x3x224x224xf32> {
@@ -107,3 +108,64 @@ func.func @all_scalar(%arg0 : tensor<i8>) -> tensor<f32> {
 
 // CHECK-LABEL: all_scalar
 // CHECK-NOT: onnx.DequantizeLinear
+
+// -----
+
+func.func @dynamic(%arg0 : tensor<?xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<1xf32> {
+  %0 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?xi8>, tensor<f32>, tensor<i8>) -> tensor<1xf32>
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL:  func.func @dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi8>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<i8>) -> tensor<1xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.cast [[PARAM_0_]] : (tensor<?xi8>) -> tensor<?xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.reshape [[PARAM_2_]] {new_shape = array<i64: 1>} : (tensor<i8>) -> tensor<1xi8>
+// CHECK:           [[VAR_2_:%.+]] = tosa.cast [[VAR_1_]] : (tensor<1xi8>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.sub [[VAR_0_]], [[VAR_2_]] : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
+// CHECK:           [[VAR_5_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]] {shift = 0 : i8} : (tensor<?xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1xf32>
+// CHECK:         }
+// -----
+
+func.func @dynamic2(%arg0 : tensor<*xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<1xf32> {
+  %0 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<*xi8>, tensor<f32>, tensor<i8>) -> tensor<1xf32>
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL:  func.func @dynamic2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xi8>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<i8>) -> tensor<1xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.cast [[PARAM_0_]] : (tensor<*xi8>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.reshape [[PARAM_2_]] {new_shape = array<i64: 1>} : (tensor<i8>) -> tensor<1xi8>
+// CHECK:           [[VAR_2_:%.+]] = tosa.cast [[VAR_1_]] : (tensor<1xi8>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.sub [[VAR_0_]], [[VAR_2_]] : (tensor<*xf32>, tensor<1xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
+// CHECK:           [[VAR_5_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]] {shift = 0 : i8} : (tensor<*xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1xf32>
+// CHECK:         }
+// -----
+
+func.func @dynamic3(%arg0 : tensor<2x?xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<2x1xf32> {
+  %0 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<2x?xi8>, tensor<f32>, tensor<i8>) -> tensor<2x1xf32>
+  return %0 : tensor<2x1xf32>
+}
+
+// CHECK-LABEL:  func.func @dynamic3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?xi8>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<i8>) -> tensor<2x1xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = tosa.cast [[PARAM_0_]] : (tensor<2x?xi8>) -> tensor<2x?xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = tosa.reshape [[PARAM_2_]] {new_shape = array<i64: 1, 1>} : (tensor<i8>) -> tensor<1x1xi8>
+// CHECK:           [[VAR_2_:%.+]] = tosa.cast [[VAR_1_]] : (tensor<1x1xi8>) -> tensor<1x1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = tosa.sub [[VAR_0_]], [[VAR_2_]] : (tensor<2x?xf32>, tensor<1x1xf32>) -> tensor<2x?xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1, 1>} : (tensor<f32>) -> tensor<1x1xf32>
+// CHECK:           [[VAR_5_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]] {shift = 0 : i8} : (tensor<2x?xf32>, tensor<1x1xf32>) -> tensor<2x1xf32>
+// CHECK:           return [[VAR_5_]] : tensor<2x1xf32>
+// CHECK:         }
+// -----
+
+func.func @dynamic4(%arg0 : tensor<?xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<?xf32> {
+  %0 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?xi8>, tensor<f32>, tensor<i8>) -> tensor<?xf32>
+  return %0 : tensor<?xf32>
+}
+
+// CHECK-LABEL: dynamic4
+// CHECK: onnx.DequantizeLinear

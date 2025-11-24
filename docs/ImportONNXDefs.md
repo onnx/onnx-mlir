@@ -155,3 +155,9 @@ necessary.
 It is not always needed to keep the code for an older version, which may be rewritten into the new
 operation. Thus, we just need to have the dialect definition, but not the code for inference or
 lowering.
+
+# Adding Operations from not-builtin domains
+To add an operation from a not-builtin domain, it needs to be added to the `additional_op_version_dict` in gen_onnx_mlir.py. The key is the domain name and the value is the per-operation version dictionary.
+The new domain also needs to be added to the `domain_abrv_dict` in gen_onnx_mlir.py. The key is the domain name and the value is the abbreviation/prefix used in ONNX-MLIR for this domain.
+For operations from not-builtin domains, the operation definition specification needs to be manually provided.
+This can be done via custom TableGen records for the operations. See [/src/Dialect/ONNX/AdditionalONNXOps.td](../src/Dialect/ONNX/AdditionalONNXOps.td) for examples.

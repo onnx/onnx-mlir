@@ -4,7 +4,7 @@
 
 //===------------- ONNXDequantizeLinearOp.cpp - ONNXDequantizeLinearOp-----===//
 //
-// Copyright (c) 2023 Advanced Micro Devices, Inc.
+// Copyright (c) 2023-2025 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -34,6 +34,7 @@ public:
     Location loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     Value x = op.getX();
+
     auto resultType = dyn_cast_if_present<ShapedType>(
         getTypeConverter()->convertType(op.getResult().getType()));
     if (!resultType || !resultType.hasStaticShape()) {

@@ -411,6 +411,7 @@ using ONNXTanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
+using AMDQuarkBFPQuantizeDequantizeOpShapeHelper = ONNXUnaryOpShapeHelper;
 // clang-format on
 
 //===----------------------------------------------------------------------===//

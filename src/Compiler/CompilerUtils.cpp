@@ -724,6 +724,7 @@ std::string dirName(StringRef inputFilename) {
     options.runOnnxShapeInference = runOnnxShapeInference;
     options.useOnnxModelTypesForCustomOps = useOnnxModelTypesForCustomOps;
     options.useOutputNameAsLocation = useOutputNameAsLocation;
+    options.addResultNamesAttr = addResultNamesAttr;
     options.allowMissingOutputTypes = allowMissingOutputTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
@@ -747,6 +748,7 @@ std::string dirName(StringRef inputFilename) {
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.allowMissingOutputTypes = allowMissingOutputTypes;
   options.useOutputNameAsLocation = useOutputNameAsLocation;
+  options.addResultNamesAttr = addResultNamesAttr;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.allowSorting = allowSorting;
   options.shapeInformation = shapeInformation;
