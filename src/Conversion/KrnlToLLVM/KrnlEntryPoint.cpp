@@ -450,6 +450,7 @@ private:
       auto JSONItemType = JSONItem->getString("type");
       assert(JSONItemType && "failed to get type");
       Type elemTy = parseType(JSONItemType.value(), rewriter.getContext());
+      if (elemTy) {
       std::string elemTyStr;
       llvm::raw_string_ostream dstream(elemTyStr);
       dstream << elemTy;
@@ -461,6 +462,7 @@ private:
           "Wrong data type for the input " + std::to_string(i) + ": expect " +
               elemTyStr,
           false);
+       }
 
       // Verify data rank.
       auto JSONDimArray = JSONItem->getArray("dims");
