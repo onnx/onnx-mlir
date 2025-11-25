@@ -128,7 +128,6 @@ void ExecutionSession::Init(
     throw std::runtime_error(
         reportSymbolLoadingError(outputSignatureNameWithTag));
 
-    // Hi alex, new support for instrumentation printing
 #ifndef ENABLE_PYRUNTIME_LIGHT
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
