@@ -169,6 +169,7 @@ if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 else()
   set(pybind11_FIND_QUIETLY ON)
   add_subdirectory(third_party/onnx)
+  
   add_subdirectory(third_party/pybind11)
 
   add_subdirectory(third_party/rapidcheck)
