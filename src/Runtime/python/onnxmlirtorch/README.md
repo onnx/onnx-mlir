@@ -1,6 +1,6 @@
-This package provides a python interface to use onnx-mlir compiler to run inference of torch model. The basic parameters of the interface are supported with options ignored. 
+This package provides an onnxmlir-based compiler backend for torch.compile().
 
-## Description
+## Usage
 Let's start with a simple torch model:
 ```
 import torch
@@ -14,23 +14,46 @@ class AddModel(nn.Module):
         return x + y  # Element-wise addition
 
 mod = AddModel()
+
+# Compile the model.
 opt_mod = torch.compile(mod)
+
 input1=torch.randn(2)
 input2=torch.randn(2)
 print(opt_mod(input1, input2))
 
 ```
 
-With onnxmlirtorch package, the inference part can be rewritten as follows:
+With onnxmlirtorch package, `torch.compile()` can be rewritten as follows:
 ```
+import torch
+import torch.nn as nn
 import onnxmlirtorch
 
-opt_mod = onnxmlirtorch.compile(mod)
+class AddModel(nn.Module):
+    def __init__(self):
+        super(AddModel, self).__init__()
+    
+    def forward(self, x, y):
+        return x + y  # Element-wise addition
+
+mod = AddModel()
+
+# Compile the model using onnxmlir backend in the onnxmlirtorch package.
+om_option = {
+    "compiler_image_name": None,
+    "compile_options": "-O3",
+    "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+}
+opt_mod = torch.compile(mod, backend="onnxmlir", options=om_options)
+
 input1=torch.randn(2)
 input2=torch.randn(2)
 print(opt_mod(input1, input2))
 
 ```
+
+For more information about `torch.compile`, see its [document](https://docs.pytorch.org/docs/stable/generated/torch.compile.html).
 
 ## Installation
 
