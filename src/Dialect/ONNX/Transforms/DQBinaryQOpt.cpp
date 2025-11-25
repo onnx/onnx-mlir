@@ -38,13 +38,13 @@ std::optional<T> getScalarTensorValue(ONNXConstantOp constOp) {
 
   // Fast path: splat
   if (elementsAttr.isSplat()) {
-    if (elementType.isa<FloatType>()) {
+    if (mlir::isa<FloatType>(elementType)) {
       if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
         APFloat splatValue = elementsAttr.getSplatValue<APFloat>();
         return static_cast<T>(splatValue.convertToDouble());
       }
     }
-    if (auto intType = dyn_cast<IntegerType>(elementType)) {
+    if (auto intType = mlir::dyn_cast<IntegerType>(elementType)) {
       if constexpr (std::is_integral_v<T>) {
         APInt splatValue = elementsAttr.getSplatValue<APInt>();
         if (intType.isUnsigned())
@@ -57,18 +57,18 @@ std::optional<T> getScalarTensorValue(ONNXConstantOp constOp) {
   }
 
   // Non‑splat case: check rank
-  auto shapedTy = elementsAttr.getType().dyn_cast<ShapedType>();
+  auto shapedTy = mlir::dyn_cast<ShapedType>(elementsAttr.getType());
   if (!shapedTy || !shapedTy.hasStaticShape())
     return std::nullopt;
 
   // Case: rank 0 → scalar element directly
   if (shapedTy.getRank() == 0) {
     auto firstAttr = *elementsAttr.getValues<Attribute>().begin();
-    if (auto fAttr = firstAttr.dyn_cast<FloatAttr>()) {
+    if (auto fAttr = mlir::dyn_cast<FloatAttr>(firstAttr)) {
       if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>)
         return static_cast<T>(fAttr.getValueAsDouble());
     }
-    if (auto iAttr = firstAttr.dyn_cast<IntegerAttr>()) {
+    if (auto iAttr = mlir::dyn_cast<IntegerAttr>(firstAttr)) {
       if constexpr (std::is_integral_v<T>)
         return static_cast<T>(iAttr.getInt()); // signed ok
     }
@@ -79,14 +79,14 @@ std::optional<T> getScalarTensorValue(ONNXConstantOp constOp) {
   std::set<double> flattenedFP;
   std::set<int64_t> flattenedInt;
 
-  if (elementType.isa<FloatType>()) {
+  if (mlir::isa<FloatType>(elementType)) {
     if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
       for (auto a : elementsAttr.getValues<FloatAttr>())
         flattenedFP.insert(a.getValueAsDouble());
       if (flattenedFP.size() == 1)
         return static_cast<T>(*flattenedFP.begin());
     }
-  } else if (auto intType = dyn_cast<IntegerType>(elementType)) {
+  } else if (auto intType = mlir::dyn_cast<IntegerType>(elementType)) {
     if constexpr (std::is_integral_v<T>) {
       for (auto a : elementsAttr.getValues<IntegerAttr>())
         flattenedInt.insert(intType.isUnsigned() ? a.getUInt() : a.getInt());
@@ -113,17 +113,17 @@ static mlir::DenseElementsAttr makeScalarDEA(
     mlir::ShapedType likeTy, double d) {
   using namespace mlir;
 
-  auto ranked = likeTy.dyn_cast<RankedTensorType>();
+  auto ranked = mlir::dyn_cast<RankedTensorType>(likeTy);
   if (!ranked || !ranked.hasStaticShape() || ranked.getNumElements() != 1)
     return {};
 
   Type outET = ranked.getElementType();
 
   // If target is float, just create a float attr with outET semantics.
-  if (auto outFT = outET.dyn_cast<FloatType>()) {
+  if (auto outFT = mlir::dyn_cast<FloatType>(outET)) {
     // Round in the semantics of outET if it's float; otherwise just use d.
     double dv = d;
-    if (auto useFT = outET.dyn_cast<FloatType>()) {
+    if (auto useFT = mlir::dyn_cast<FloatType>(outET)) {
       // Convert through APFloat with 'outET' semantics, then to double.
       llvm::APFloat ap(d);
       bool loses = false;
@@ -136,11 +136,11 @@ static mlir::DenseElementsAttr makeScalarDEA(
 
   // If target is integer, round+clamp as per 'outET' (if integer), then emit as
   // outET.
-  if (auto outIT = outET.dyn_cast<IntegerType>()) {
+  if (auto outIT = mlir::dyn_cast<IntegerType>(outET)) {
     // Decide signedness/width for clamping from outET if it's integer, else
     // from outET.
     IntegerType clampIT =
-        outET.isa<IntegerType>() ? outET.cast<IntegerType>() : outIT;
+        mlir::isa<IntegerType>(outET) ? mlir::cast<IntegerType>(outET) : outIT;
 
     int64_t iv = static_cast<int64_t>(std::llround(d));
     const unsigned bw = clampIT.getWidth();
@@ -152,7 +152,7 @@ static mlir::DenseElementsAttr makeScalarDEA(
     iv = std::min<int64_t>(std::max<int64_t>(iv, minV), maxV);
 
     // This guarantees the result type matches `likeTy`.
-    if (auto outSigned = outIT.isSigned()) {
+    if (outIT.isSigned()) {
       // For signed out type, encode iv as signed.
       return DenseElementsAttr::get(ranked, IntegerAttr::get(outIT, iv));
     } else {
@@ -178,7 +178,7 @@ static void updateInitializer(mlir::PatternRewriter &rewriter,
   if (!oldCst)
     return;
 
-  auto likeTy = oldInit.getType().dyn_cast<ShapedType>();
+  auto likeTy = mlir::dyn_cast<ShapedType>(oldInit.getType());
   if (!likeTy || !likeTy.hasStaticShape() || likeTy.getNumElements() != 1)
     return;
 
@@ -268,8 +268,8 @@ static mlir::LogicalResult tryRemoveQThenDQChain(
   // 4) Element type parity between Q.x and DQ.y
   auto qInTypeOp = qOp.getX().getType();
   auto dqOutTypeOp = dqOp.getResult().getType();
-  auto qInT = qInTypeOp.dyn_cast<TensorType>();
-  auto dqOutT = dqOutTypeOp.dyn_cast<TensorType>();
+  auto qInT = mlir::dyn_cast<TensorType>(qInTypeOp);
+  auto dqOutT = mlir::dyn_cast<TensorType>(dqOutTypeOp);
   if (!qInT || !dqOutT)
     return failure();
   if (dqOutT.getElementType() != qInT.getElementType())
@@ -294,26 +294,33 @@ static bool Remove_Q_Plus_DQ(
     return false;
 
   if (doRewrite) {
-    // REWRITE MODE: Actually perform the removal
-    int removedCount = 0;
+    // MATCH PHASE: Collect all removable DQ nodes
+    SmallVector<ONNXDequantizeLinearOp, 4> matching_dequantize_nodes;
 
-    // Safe iteration while potentially mutating
-    auto users = llvm::make_early_inc_range(qOp.getY().getUsers());
-    for (Operation *user : users) {
+    for (Operation *user : qOp.getY().getUsers()) {
       if (auto tailDQ = llvm::dyn_cast<ONNXDequantizeLinearOp>(user)) {
         if (succeeded(
-                tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ true))) {
-          ++removedCount;
+                tryRemoveQThenDQChain(rewriter, tailDQ, /*doRewrite*/ false))) {
+          matching_dequantize_nodes.push_back(tailDQ);
         }
       }
     }
 
-    // Remove Q if it has no remaining users
+    // Early exit if nothing to remove
+    if (matching_dequantize_nodes.empty())
+      return false;
+
+    // MODIFY PHASE: Perform actual removals
+    for (auto dqOp : matching_dequantize_nodes) {
+      (void)tryRemoveQThenDQChain(rewriter, dqOp, /*doRewrite*/ true);
+    }
+
+    // CLEANUP PHASE: Remove Q if it has no remaining users
     if (qOp->use_empty()) {
       rewriter.eraseOp(qOp);
     }
 
-    return removedCount > 0;
+    return true;
 
   } else {
     // CHECK MODE: Only check if removable without modifying
@@ -356,6 +363,8 @@ private:
     mlir::Operation *srcNode = nullptr;
 
     // Current destination params (read before fold)
+    mlir::Value dstScaleValue;     // Scale Value for reuse
+    mlir::Value dstZeroPointValue; // Zero point Value for reuse
     double dstScale = 0.0;
     int64_t dstZeroPoint = 0;
 
@@ -385,7 +394,6 @@ private:
       constantDqOp = dq2;
       state.dequantActivationOfBinOp = dq1;
       constantSourceOp = constOp;
-      constantIsFirstOperand = false;
     }
     // Case 2: The input to the DQ op comes from a chain whose input is a
     // constant.
@@ -408,7 +416,6 @@ private:
             constantDqOp = dq2;
             state.dequantActivationOfBinOp = dq1;
             constantSourceOp = constOp;
-            constantIsFirstOperand = false;
           }
         }
       }
@@ -440,7 +447,6 @@ private:
               constantDqOp = dq2;
               state.dequantActivationOfBinOp = dq1;
               constantSourceOp = constOp;
-              constantIsFirstOperand = false;
               isConstantFromQDQChain = true;
             }
           }
@@ -504,7 +510,7 @@ private:
     Value rhs = binaryOp.getOperand(1);
     Value out = binaryOp->getResult(0);
     state.quantOutputOfBinOp =
-        dyn_cast<ONNXQuantizeLinearOp>(*out.getUsers().begin());
+        mlir::dyn_cast<ONNXQuantizeLinearOp>(*out.getUsers().begin());
 
     // -------- Case A: lhs is DQ, rhs is Constant --------
     if (auto dqOp = lhs.getDefiningOp<ONNXDequantizeLinearOp>()) {
@@ -630,25 +636,13 @@ private:
       return rewriter.notifyMatchFailure(
           state.dstNode, "dstNode is null in checkNewQDQParameterFits");
 
-    // Get scale and zero point values from destination node
-    Value scaleVal;
-    Value zpVal;
-
-    if (auto dqDst = llvm::dyn_cast<ONNXDequantizeLinearOp>(state.dstNode)) {
-      scaleVal = dqDst.getXScale();
-      zpVal = dqDst.getXZeroPoint();
-    } else if (auto qDst =
-                   llvm::dyn_cast<ONNXQuantizeLinearOp>(state.dstNode)) {
-      scaleVal = qDst.getYScale();
-      zpVal = qDst.getYZeroPoint();
-    } else {
-      return rewriter.notifyMatchFailure(
-          state.dstNode, "dstNode is neither Dequantize nor Quantize");
-    }
+    // Reuse scale and zero point values already stored in state
+    Value scaleVal = state.dstScaleValue;
+    Value zpVal = state.dstZeroPointValue;
 
     // Extract element types
-    auto scaleType = scaleVal.getType().dyn_cast<ShapedType>();
-    auto zpType = zpVal.getType().dyn_cast<ShapedType>();
+    auto scaleType = mlir::dyn_cast<ShapedType>(scaleVal.getType());
+    auto zpType = mlir::dyn_cast<ShapedType>(zpVal.getType());
 
     if (!scaleType || !zpType)
       return rewriter.notifyMatchFailure(
@@ -658,7 +652,7 @@ private:
     Type zpElemType = zpType.getElementType();
 
     // Check zero point range
-    if (auto zpIntType = zpElemType.dyn_cast<IntegerType>()) {
+    if (auto zpIntType = mlir::dyn_cast<IntegerType>(zpElemType)) {
       int64_t zpMin, zpMax;
       unsigned bitWidth = zpIntType.getWidth();
 
@@ -696,7 +690,7 @@ private:
     }
 
     // Check scale range
-    if (auto scaleFloatType = scaleElemType.dyn_cast<FloatType>()) {
+    if (auto scaleFloatType = mlir::dyn_cast<FloatType>(scaleElemType)) {
       double scaleMin, scaleMax;
 
       // Determine range based on float type
@@ -750,11 +744,7 @@ private:
       return rewriter.notifyMatchFailure(
           op, "dequantActivationOfBinOp not set in MatchState");
 
-    // Producer Quantize of DQ.x (may be null if DQ consumes a block arg or
-    // non-Q)
     auto q = dq.getX().template getDefiningOp<ONNXQuantizeLinearOp>();
-
-    // Non-mutating probe: removable only if Q exists and matches
     bool removableQDQ = false;
     if (q)
       removableQDQ = Remove_Q_Plus_DQ(rewriter, q, /*doRewrite=*/false);
@@ -781,8 +771,11 @@ private:
       state.dstNode = dq.getOperation();                       // DQ
       state.srcNode = state.quantOutputOfBinOp.getOperation(); // Q after binop
 
-      auto scaleOpt = getScalarTensorValueFromVal<double>(dq.getXScale());
-      auto zpOpt = getScalarTensorValueFromVal<int64_t>(dq.getXZeroPoint());
+      state.dstScaleValue = dq.getXScale();
+      state.dstZeroPointValue = dq.getXZeroPoint();
+      auto scaleOpt = getScalarTensorValueFromVal<double>(state.dstScaleValue);
+      auto zpOpt =
+          getScalarTensorValueFromVal<int64_t>(state.dstZeroPointValue);
       if (!scaleOpt || !zpOpt)
         return rewriter.notifyMatchFailure(
             dq, "DQ x_scale/x_zero_point must be scalar");
@@ -800,8 +793,10 @@ private:
     state.dstNode = qOut.getOperation();                           // Q
     state.srcNode = state.dequantActivationOfBinOp.getOperation(); // DQ
 
-    auto scaleOpt = getScalarTensorValueFromVal<double>(qOut.getYScale());
-    auto zpOpt = getScalarTensorValueFromVal<int64_t>(qOut.getYZeroPoint());
+    state.dstScaleValue = qOut.getYScale();
+    state.dstZeroPointValue = qOut.getYZeroPoint();
+    auto scaleOpt = getScalarTensorValueFromVal<double>(state.dstScaleValue);
+    auto zpOpt = getScalarTensorValueFromVal<int64_t>(state.dstZeroPointValue);
     if (!scaleOpt || !zpOpt)
       return rewriter.notifyMatchFailure(
           qOut, "Quantize y_scale/y_zero_point must be scalar");
@@ -818,7 +813,8 @@ public:
     if (!op->hasOneUse()) {
       return rewriter.notifyMatchFailure(op, "pattern requires a single user");
     }
-    auto quantOutputOfBinOp = dyn_cast<ONNXQuantizeLinearOp>(*op->user_begin());
+    auto quantOutputOfBinOp =
+        mlir::dyn_cast<ONNXQuantizeLinearOp>(*op->user_begin());
     if (!quantOutputOfBinOp) {
       return rewriter.notifyMatchFailure(
           op, "expected user to be an ONNXQuantizeLinearOp");
@@ -856,43 +852,22 @@ public:
       return failure();
     }
 
-    // STEP 6: call initializer based on the binary op
+    // STEP 6: Update initializer based on the binary op
+    // Use the scale/zero-point Values already stored in state
     {
-      auto *dst = state.dstNode;
-      if (!dst)
+      if (!state.dstNode)
         return rewriter.notifyMatchFailure(op, "dstNode not set");
 
-      if (auto dqDst = llvm::dyn_cast<ONNXDequantizeLinearOp>(dst)) {
-        if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
-                      std::is_same_v<BinOp, ONNXSubOp>) {
-          // Update zero-point at DQ.x
-          Value xZp = dqDst.getXZeroPoint();
-          updateInitializer(rewriter, dqDst.getOperation(), xZp,
-              static_cast<double>(state.newZp));
-        } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
-                             std::is_same_v<BinOp, ONNXDivOp>) {
-          // Update scale at DQ.x
-          Value xScale = dqDst.getXScale();
-          updateInitializer(
-              rewriter, dqDst.getOperation(), xScale, state.newScale);
-        }
-      } else if (auto qDst = llvm::dyn_cast<ONNXQuantizeLinearOp>(dst)) {
-        if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
-                      std::is_same_v<BinOp, ONNXSubOp>) {
-          // Update zero-point at Q.y
-          Value yZp = qDst.getYZeroPoint();
-          updateInitializer(rewriter, qDst.getOperation(), yZp,
-              static_cast<double>(state.newZp));
-        } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
-                             std::is_same_v<BinOp, ONNXDivOp>) {
-          // Update scale at Q.y
-          Value yScale = qDst.getYScale();
-          updateInitializer(
-              rewriter, qDst.getOperation(), yScale, state.newScale);
-        }
-      } else {
-        return rewriter.notifyMatchFailure(
-            op, "dstNode is neither Dequantize nor Quantize");
+      if constexpr (std::is_same_v<BinOp, ONNXAddOp> ||
+                    std::is_same_v<BinOp, ONNXSubOp>) {
+        // Update zero-point (for Add/Sub)
+        updateInitializer(rewriter, state.dstNode, state.dstZeroPointValue,
+            static_cast<double>(state.newZp));
+      } else if constexpr (std::is_same_v<BinOp, ONNXMulOp> ||
+                           std::is_same_v<BinOp, ONNXDivOp>) {
+        // Update scale (for Mul/Div)
+        updateInitializer(
+            rewriter, state.dstNode, state.dstScaleValue, state.newScale);
       }
     }
 
@@ -914,7 +889,6 @@ public:
             dqAct.getX().template getDefiningOp<ONNXQuantizeLinearOp>();
       }
     }
-
     // Run the cleanup if we found a Quantize
     if (chainStartQ) {
       (void)Remove_Q_Plus_DQ(rewriter, chainStartQ, /*doRewrite=*/true);
@@ -936,13 +910,11 @@ struct FoldDQBinaryQPass
 
   void runOnOperation() override {
     auto function = getOperation();
-
     RewritePatternSet patterns(&getContext());
     patterns.add<FoldBinaryThroughQDQ<ONNXDivOp>>(&getContext());
     patterns.add<FoldBinaryThroughQDQ<ONNXSubOp>>(&getContext());
     patterns.add<FoldBinaryThroughQDQ<ONNXMulOp>>(&getContext());
     patterns.add<FoldBinaryThroughQDQ<ONNXAddOp>>(&getContext());
-
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       signalPassFailure();
   }
