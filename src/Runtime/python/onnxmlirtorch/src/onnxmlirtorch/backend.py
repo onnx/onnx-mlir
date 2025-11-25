@@ -486,7 +486,6 @@ class ONNXMLIRTorch:
             self.onnx_model,
             input_names=input_names,
             dynamic_shapes=dynamic_shapes,
-            external_data=False,
         )
 
     def create_onnxmlir_session(self) -> InferenceSession:
