@@ -319,7 +319,7 @@ def process_line(i, line):
     # change [[-1 -> *[-1
     new_line = re.sub(r"\[\[\s*-\s*(\d)", r"{{.}}[-\g<1>", new_line)
     # change a]] -> 1]*
-    new_line = re.sub(r"(\d)\s*\]\]", "\g<1>]{{.}}", new_line)
+    new_line = re.sub(r"(\d)\s*\]\]", r"\g<1>]{{.}}", new_line)
     if re.match(r"\s+(func\.)?func", line) is not None:
         # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
