@@ -28,6 +28,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -88,6 +89,183 @@ ValueRange emitSplitByChannels(PatternRewriter &rewriter, Location loc,
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 // #include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
+
+struct CombineParallelDensePattern : public OpRewritePattern<ONNXGemmOp> {
+  using OpRewritePattern<ONNXGemmOp>::OpRewritePattern;
+
+  // Helper function to check if an gemm is mergeable
+  static bool areCompatible(ONNXGemmOp a, ONNXGemmOp b) {
+    if (a.getAlpha() != b.getAlpha() || a.getBeta() != b.getBeta() ||
+        a.getTransA() != b.getTransA() || a.getTransB() != b.getTransB())
+      return false;
+
+    auto aBShape = mlir::cast<ShapedType>(a.getB().getType()).getShape();
+    auto bBShape = mlir::cast<ShapedType>(b.getB().getType()).getShape();
+    int64_t axis = a.getTransB() ? 1 : 0;
+    if (aBShape[axis] != bBShape[axis])
+      return false;
+
+    // Check C compatibility — only allow None or 1D
+    Value aC = a.getC();
+    Value bC = b.getC();
+    if (!onnx_mlir::isNoneValue(aC) && !onnx_mlir::isNoneValue(bC)) {
+      auto aCType = mlir::cast<ShapedType>(aC.getType());
+      auto bCType = mlir::cast<ShapedType>(bC.getType());
+      auto aCShape = aCType.getShape();
+      auto bCShape = bCType.getShape();
+      if (aCShape.size() != 1 || bCShape.size() != 1)
+        return false;
+      if (aCType.isDynamicDim(0) || bCType.isDynamicDim(0))
+        return false;
+      // check output channels match
+      if (aCShape[0] == 1 && bCShape[0] == 1) {
+        auto aOutputShape =
+            mlir::cast<ShapedType>(a.getResult().getType()).getShape();
+        auto bOutputShape =
+            mlir::cast<ShapedType>(b.getResult().getType()).getShape();
+        // Output channels is the last dim
+        if (aOutputShape.back() != bOutputShape.back())
+          return false;
+      }
+      // Otherwise, shapes must be equal
+      else if (aCShape[0] != bCShape[0])
+        return false;
+    }
+    return true;
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXGemmOp gemmOp1, PatternRewriter &rewriter) const final {
+    Value input = gemmOp1.getA();
+    if (!onnx_mlir::isRankedShapedType(input.getType()) ||
+        !mlir::cast<ShapedType>(input.getType()).hasStaticShape())
+      return failure();
+
+    SmallVector<ONNXGemmOp> parallelGemms = {gemmOp1};
+
+    for (auto user : input.getUsers()) {
+      ONNXGemmOp currentGemm = dyn_cast<ONNXGemmOp>(user);
+      if (currentGemm && currentGemm != gemmOp1 &&
+          areCompatible(gemmOp1, currentGemm)) {
+        parallelGemms.push_back(currentGemm);
+      }
+    }
+    if (parallelGemms.size() < 2)
+      return failure();
+
+    Location loc = gemmOp1.getLoc();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+    Type elementType = inputType.getElementType();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    // Identify axis based on Gemm shape
+    int64_t concatWeightAxis = gemmOp1.getTransB() ? 0 : 1;
+    int64_t splitAxis = 1;
+
+    // Concatenate weights
+    SmallVector<Value> weightValues;
+
+    for (auto gemm : parallelGemms) {
+      weightValues.push_back(gemm.getB());
+    }
+    Type unrankedTensorType = mlir::UnrankedTensorType::get(elementType);
+    Type newWeightType = unrankedTensorType;
+    Value newWeight =
+        create.onnx.concat(newWeightType, weightValues, concatWeightAxis);
+
+    // Concatenate biases (create zero constants for missing biases)
+    SmallVector<Value> biasValues;
+    for (auto gemm : parallelGemms) {
+      if (!onnx_mlir::isNoneValue(gemm.getC())) {
+        biasValues.push_back(gemm.getC());
+      } else {
+        auto gemmShape =
+            mlir::cast<ShapedType>(gemm.getResult().getType()).getShape();
+        Value zeroBias = create.onnx.constant(DenseElementsAttr::get(
+            RankedTensorType::get({gemmShape[splitAxis]}, elementType), 0.0));
+        biasValues.push_back(zeroBias);
+      }
+    }
+
+    Type newBiasType = unrankedTensorType;
+    Value newBias = create.onnx.concat(newBiasType, biasValues, 0);
+
+    // Create combined Gemm operation
+    SmallVector<int64_t, 2> newOutputShape(
+        mlir::cast<ShapedType>(parallelGemms[0].getResult().getType())
+            .getShape());
+
+    // Sum output channels from parallel gemms
+    int64_t totalOutputChannels = 0;
+    for (auto gemm : parallelGemms) {
+      int64_t outCh = mlir::cast<ShapedType>(gemm.getResult().getType())
+                          .getShape()[splitAxis];
+      totalOutputChannels += outCh;
+    }
+    newOutputShape[splitAxis] = totalOutputChannels;
+    auto newOutputType = RankedTensorType::get(newOutputShape, elementType);
+
+    auto newGemm = rewriter.create<ONNXGemmOp>(loc, newOutputType, input,
+        newWeight, newBias, gemmOp1.getAlphaAttr(), gemmOp1.getBetaAttr(),
+        gemmOp1.getTransAAttr(), gemmOp1.getTransBAttr());
+
+    // Check for common ConcatOp
+    ONNXConcatOp commonConcatOp = nullptr;
+    for (auto gemm : parallelGemms) {
+      for (auto user : gemm.getResult().getUsers()) {
+        if (auto concatOp = dyn_cast<ONNXConcatOp>(user)) {
+          if (!commonConcatOp) {
+            commonConcatOp = concatOp;
+            if (concatOp.getAxis() != splitAxis)
+              return failure();
+          }
+          if (concatOp != commonConcatOp || concatOp.getAxis() != splitAxis) {
+            commonConcatOp = nullptr;
+            break;
+          }
+        } else {
+          commonConcatOp = nullptr;
+          break;
+        }
+      }
+      if (!commonConcatOp) {
+        break;
+      }
+    }
+
+    if (commonConcatOp) {
+      if (commonConcatOp.getAxis() == splitAxis) {
+        commonConcatOp.getResult().replaceAllUsesWith(newGemm.getResult());
+        rewriter.eraseOp(commonConcatOp);
+      }
+    } else {
+      SmallVector<int64_t, 4> splitSizesVec;
+      for (auto gemm : parallelGemms) {
+        int64_t outputChannels =
+            mlir::cast<ShapedType>(gemm.getResult().getType())
+                .getShape()[splitAxis];
+        splitSizesVec.push_back(outputChannels);
+      }
+
+      ArrayRef<int64_t> splitSizes(splitSizesVec);
+      ValueRange splitResults = onnx_mlir::emitSplitByChannels(
+          rewriter, loc, newGemm.getResult(), splitSizes, splitAxis);
+
+      for (size_t i = 0; i < parallelGemms.size(); ++i) {
+        parallelGemms[i].replaceAllUsesWith(splitResults[i]);
+      }
+    }
+
+    for (auto gemm : parallelGemms) {
+      if (gemm.getResult().use_empty()) {
+        rewriter.eraseOp(gemm);
+      }
+    }
+
+    return success();
+  }
+};
 
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
@@ -912,6 +1090,9 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
+  if (fuseParallelOnnxGemm) {
+    patterns.insert<CombineParallelDensePattern>(context);
+  }
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
