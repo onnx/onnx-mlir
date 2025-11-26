@@ -3662,6 +3662,13 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
     // Initialize axes array [0, 1, 2, ..., rank-1]
     std::iota(axes.begin(), axes.end(), 0);
 
+    // Initialize onnxNodeName for new ops
+    mlir::StringRef onnxNodeName = "";
+    if (auto strLoc = dyn_cast<StringAttr>(loc))
+      onnxNodeName = strLoc.getValue();
+    else if (splitOp->hasAttrOfType<StringAttr>("onnx_node_name"))
+      onnxNodeName = splitOp->getAttrOfType<StringAttr>("onnx_node_name");
+
     int64_t currentStart = 0;
     for (uint64_t i = 0; i < outputNum; ++i) {
       // Update start and end for the current slice along the split axis
@@ -3677,11 +3684,13 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
       // Get the output type for this slice
       Type outputType = splitOp.getResult(i).getType();
 
-      // Create the slice operation
-      Value sliceOp = create.onnx.slice(
+      // Create the slice operation with new location
+      auto newLoc = rewriter.getAttr<StringAttr>(
+          onnxNodeName + "_slice_" + std::to_string(i));
+      auto sliceOp = rewriter.create<ONNXSliceOp>(NameLoc::get(newLoc),
           outputType, input, startsConst, endsConst, axesConst, stepsConst);
 
-      slices.push_back(sliceOp);
+      slices.push_back(sliceOp.getResult());
       currentStart = ends[axis];
     }
 
