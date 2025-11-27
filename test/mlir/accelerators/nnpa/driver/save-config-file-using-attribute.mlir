@@ -48,4 +48,3 @@ func.func @test_save_config_file(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
 // CHECK: ]
 }
 
-
