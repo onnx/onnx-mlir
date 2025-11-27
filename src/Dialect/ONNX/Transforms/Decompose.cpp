@@ -3664,8 +3664,8 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
 
     // Initialize onnxNodeName for new ops
     mlir::StringRef onnxNodeName = "";
-    if (auto strLoc = dyn_cast<StringAttr>(loc))
-      onnxNodeName = strLoc.getValue();
+    if (auto nameLoc = dyn_cast<NameLoc>(loc))
+      onnxNodeName = nameLoc.getName().getValue();
     else if (splitOp->hasAttrOfType<StringAttr>("onnx_node_name"))
       onnxNodeName = splitOp->getAttrOfType<StringAttr>("onnx_node_name");
 
