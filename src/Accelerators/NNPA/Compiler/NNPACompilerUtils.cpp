@@ -245,6 +245,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
+  // Empty the save json config file if it exists.
+  if (!nnpaSaveConfigFile.empty()) {
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
+    OS.close();
+  }
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
