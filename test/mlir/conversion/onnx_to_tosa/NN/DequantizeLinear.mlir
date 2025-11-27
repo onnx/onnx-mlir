@@ -14,7 +14,7 @@ func.func @test_dequantizeLinear(%arg0 : tensor<32x3x224x224xi8>) -> tensor<32x3
 // CHECK-DAG:    %[[CAST_0:.*]] = tosa.cast %[[ARG_0]] : (tensor<32x3x224x224xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CASTZP:.*]] = tosa.cast %[[ZP]] : (tensor<1x1x1x1xi8>) -> tensor<1x1x1x1xf32>
 // CHECK-DAG:    %[[SUB:.*]] = tosa.sub %[[CAST_0]], %[[CASTZP]] : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
-// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[SCALE]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[SCALE]], {{.*}}: (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>, tensor<1xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    return %[[MUL]] : tensor<32x3x224x224xf32>
 
 // -----
@@ -34,7 +34,7 @@ func.func @test_dequantizeLinear_f16(%arg0 : tensor<32x3x224x224xi8>) -> tensor<
 // CHECK-DAG:    %[[CASTZP:.*]] = tosa.cast %[[ZP]] : (tensor<1x1x1x1xi8>) -> tensor<1x1x1x1xf32>
 // CHECK-DAG:    %[[SUB:.*]] = tosa.sub %[[CAST_0]], %[[CASTZP]] : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CASTSCALE:.*]] = tosa.cast %[[SCALE]] : (tensor<1x1x1x1xf16>) -> tensor<1x1x1x1xf32>
-// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[CASTSCALE]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[SUB]], %[[CASTSCALE]], {{.*}}: (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>, tensor<1xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CAST:.*]] = tosa.cast %[[MUL]] : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xf16>
 // CHECK-DAG:    return %[[CAST]] : tensor<32x3x224x224xf16>
 
@@ -77,7 +77,7 @@ func.func @no_zeropoint(%arg0: tensor<5xi8>, %arg1: tensor<f32>) -> tensor<5xf32
 // CHECK-SAME:                            %[[VAL_1:.*]]: tensor<f32>) -> tensor<5xf32> {
 // CHECK:           %[[VAL_2:.*]] = tosa.cast %[[VAL_0]] : (tensor<5xi8>) -> tensor<5xf32>
 // CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]], {{.*}}: (tensor<5xf32>, tensor<1xf32>, tensor<1xi8>) -> tensor<5xf32>
 // CHECK:           return %[[VAL_4]] : tensor<5xf32>
 
 // -----
@@ -93,7 +93,7 @@ func.func @f8E4M3FN(%arg0: tensor<5xf8E4M3FN>, %arg1: tensor<f32>) -> tensor<5xf
 // CHECK-SAME:                        %[[VAL_1:.*]]: tensor<f32>) -> tensor<5xf32> {
 // CHECK:           %[[VAL_2:.*]] = tosa.cast %[[VAL_0]] : (tensor<5xf8E4M3FN>) -> tensor<5xf32>
 // CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
-// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]], {{.*}}: (tensor<5xf32>, tensor<1xf32>, tensor<1xi8>) -> tensor<5xf32>
 // CHECK:           return %[[VAL_4]] : tensor<5xf32>
 
 // -----
@@ -123,8 +123,9 @@ func.func @dynamic(%arg0 : tensor<?xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>
 // CHECK:           [[VAR_2_:%.+]] = tosa.cast [[VAR_1_]] : (tensor<1xi8>) -> tensor<1xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = tosa.sub [[VAR_0_]], [[VAR_2_]] : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
-// CHECK:           [[VAR_5_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]] {shift = 0 : i8} : (tensor<?xf32>, tensor<1xf32>) -> tensor<1xf32>
-// CHECK:           return [[VAR_5_]] : tensor<1xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[VAR_6_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]], [[VAR_5_]] : (tensor<?xf32>, tensor<1xf32>, tensor<1xi8>) -> tensor<1xf32>
+// CHECK:           return [[VAR_6_]] : tensor<1xf32>
 // CHECK:         }
 // -----
 
@@ -140,8 +141,9 @@ func.func @dynamic2(%arg0 : tensor<*xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8
 // CHECK:           [[VAR_2_:%.+]] = tosa.cast [[VAR_1_]] : (tensor<1xi8>) -> tensor<1xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = tosa.sub [[VAR_0_]], [[VAR_2_]] : (tensor<*xf32>, tensor<1xf32>) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
-// CHECK:           [[VAR_5_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]] {shift = 0 : i8} : (tensor<*xf32>, tensor<1xf32>) -> tensor<1xf32>
-// CHECK:           return [[VAR_5_]] : tensor<1xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[VAR_6_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]], [[VAR_5_]] : (tensor<*xf32>, tensor<1xf32>, tensor<1xi8>) -> tensor<1xf32>
+// CHECK:           return [[VAR_6_]] : tensor<1xf32>
 // CHECK:         }
 // -----
 
@@ -157,8 +159,9 @@ func.func @dynamic3(%arg0 : tensor<2x?xi8>, %arg1 : tensor<f32>, %arg2 : tensor<
 // CHECK:           [[VAR_2_:%.+]] = tosa.cast [[VAR_1_]] : (tensor<1x1xi8>) -> tensor<1x1xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = tosa.sub [[VAR_0_]], [[VAR_2_]] : (tensor<2x?xf32>, tensor<1x1xf32>) -> tensor<2x?xf32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1, 1>} : (tensor<f32>) -> tensor<1x1xf32>
-// CHECK:           [[VAR_5_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]] {shift = 0 : i8} : (tensor<2x?xf32>, tensor<1x1xf32>) -> tensor<2x1xf32>
-// CHECK:           return [[VAR_5_]] : tensor<2x1xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[VAR_6_:%.+]] = tosa.mul [[VAR_3_]], [[VAR_4_]], [[VAR_5_]] : (tensor<2x?xf32>, tensor<1x1xf32>, tensor<1xi8>) -> tensor<2x1xf32>
+// CHECK:           return [[VAR_6_]] : tensor<2x1xf32>
 // CHECK:         }
 // -----
 
