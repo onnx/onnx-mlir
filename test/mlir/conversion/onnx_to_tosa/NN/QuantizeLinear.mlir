@@ -11,7 +11,7 @@ func.func @test_quantizeLinear(%arg0 : tensor<32x3x224x224xf32>) -> tensor<32x3x
 // CHECK-DAG:    %[[ZP:.*]] = "tosa.const"() <{value = dense<0> : tensor<1x1x1x1xi8>}> : () -> tensor<1x1x1x1xi8>
 // CHECK-DAG:    %[[SCALE:.*]] = "tosa.const"() <{value = dense<3.125000e-02> : tensor<1x1x1x1xf32>}> : () -> tensor<1x1x1x1xf32>
 // CHECK-DAG:    %[[REC:.*]] = tosa.reciprocal %[[SCALE]] : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
-// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[ARG_0]], %[[REC]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[ARG_0]], %[[REC]], {{.*}}: (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>, tensor<1xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[MUL_CAST:.*]] = tosa.cast %[[MUL]] : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xi32>
 // CHECK-DAG:    %[[ZPCAST:.*]] = tosa.cast %[[ZP]] : (tensor<1x1x1x1xi8>) -> tensor<1x1x1x1xi32>
 // CHECK-DAG:    %[[ADD:.*]] = tosa.add %[[MUL_CAST]], %[[ZPCAST]] : (tensor<32x3x224x224xi32>, tensor<1x1x1x1xi32>) -> tensor<32x3x224x224xi32>
@@ -32,7 +32,7 @@ func.func @test_quantizeLinear_none(%arg0 : tensor<32x3x224x224xf32>) -> tensor<
 // CHECK-SAME:    (%[[ARG_0:.*]]: tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xui8>
 // CHECK-DAG:   %[[SCALE:.*]] = "tosa.const"() <{value = dense<3.125000e-02> : tensor<1x1x1x1xf32>}> : () -> tensor<1x1x1x1xf32>
 // CHECK-DAG:   %[[REC:.*]] = tosa.reciprocal %[[SCALE]] : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
-// CHECK-DAG:   %[[MUL:.*]] = tosa.mul %[[ARG_0]], %[[REC]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:   %[[MUL:.*]] = tosa.mul %[[ARG_0]], %[[REC]], {{.*}}: (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>, tensor<1xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:   %[[MUL_CAST:.*]] = tosa.cast %[[MUL]] : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xi32>
 // CHECK-DAG:   %[[CAST:.*]] = tosa.cast %[[MUL_CAST]] : (tensor<32x3x224x224xi32>) -> tensor<32x3x224x224xui8>
 // CHECK-DAG:   return %[[CAST]] : tensor<32x3x224x224xui8>
@@ -51,7 +51,7 @@ func.func @test_quantizeLinear_per_axis(%arg0: tensor<8x2xf32>) -> tensor<8x2xi8
 // CHECK-SAME:                                            %[[VAL_0:.*]]: tensor<8x2xf32>) -> tensor<8x2xi8> {
 // CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<{{\[\[}}1.000000e+00, 2.000000e+00]]> : tensor<1x2xf32>}> : () -> tensor<1x2xf32>
 // CHECK:           %[[REC:.*]] = tosa.reciprocal %[[VAL_2]] : (tensor<1x2xf32>) -> tensor<1x2xf32>
-// CHECK:           %[[MUL:.*]] = tosa.mul %[[VAL_0]], %[[REC]] {shift = 0 : i8} : (tensor<8x2xf32>, tensor<1x2xf32>) -> tensor<8x2xf32>
+// CHECK:           %[[MUL:.*]] = tosa.mul %[[VAL_0]], %[[REC]], {{.*}}: (tensor<8x2xf32>, tensor<1x2xf32>, tensor<1xi8>) -> tensor<8x2xf32>
 // CHECK:           %[[MUL_CAST:.*]] = tosa.cast %[[MUL]] : (tensor<8x2xf32>) -> tensor<8x2xi32>
 // CHECK:           %[[ZP:.*]] = "tosa.const"() <{value = dense<{{\[\[}}0, 1]]> : tensor<1x2xi8>}> : () -> tensor<1x2xi8>
 // CHECK:           %[[ZPCAST:.*]] = tosa.cast %[[ZP]] : (tensor<1x2xi8>) -> tensor<1x2xi32>
@@ -87,7 +87,7 @@ func.func @test_quantizeLinear_ui8(%arg0 : tensor<32x3x224x224xf32>) -> tensor<3
 // CHECK-DAG:    %[[ZP:.*]] = "tosa.const"() <{value = dense<0> : tensor<1x1x1x1xui8>}> : () -> tensor<1x1x1x1xui8>
 // CHECK-DAG:    %[[SCALE:.*]] = "tosa.const"() <{value = dense<3.125000e-02> : tensor<1x1x1x1xf32>}> : () -> tensor<1x1x1x1xf32>
 // CHECK-DAG:    %[[REC:.*]] = tosa.reciprocal %[[SCALE]] : (tensor<1x1x1x1xf32>) -> tensor<1x1x1x1xf32>
-// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[ARG_0]], %[[REC]] {shift = 0 : i8} : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[MUL:.*]] = tosa.mul %[[ARG_0]], %[[REC]], {{.*}}: (tensor<32x3x224x224xf32>, tensor<1x1x1x1xf32>, tensor<1xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[MUL_CAST:.*]] = tosa.cast %[[MUL]] : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xi32>
 // CHECK-DAG:    %[[ZPCAST:.*]] = tosa.cast %[[ZP]] : (tensor<1x1x1x1xui8>) -> tensor<1x1x1x1xi32>
 // CHECK-DAG:    %[[ADD:.*]] = tosa.add %[[MUL_CAST]], %[[ZPCAST]] : (tensor<32x3x224x224xi32>, tensor<1x1x1x1xi32>) -> tensor<32x3x224x224xi32>
