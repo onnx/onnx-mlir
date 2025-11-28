@@ -20,8 +20,10 @@ func.func @test_split_constant_sizes_axis0(%arg0: tensor<10x20xf32>) -> (tensor<
 // CHECK:           [[SLICE1:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS1]], [[ENDS1]], [[AXES]], [[STEPS]]) : (tensor<10x20xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<3x20xf32> loc([[SLICE1LOC:#loc[0-9]+]])
 // CHECK:           [[SLICE2:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS2]], [[ENDS2]], [[AXES]], [[STEPS]]) : (tensor<10x20xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<7x20xf32> loc([[SLICE2LOC:#loc[0-9]+]])
 // CHECK:           return [[SLICE1]], [[SLICE2]] : tensor<3x20xf32>, tensor<7x20xf32>
-// CHECK:			[[SLICE1LOC]] = loc("Split1_slice_0")
-// CHECK:			[[SLICE2LOC]] = loc("Split1_slice_1")
+// CHECK:			[[SLICE1CHILD:#loc[0-9]+]] = loc("Split1_slice_0")
+// CHECK:			[[SLICE2CHILD:#loc[0-9]+]] = loc("Split1_slice_1")
+// CHECK:			[[SLICE1LOC]] = loc("Split1"([[SLICE1CHILD]]))
+// CHECK:			[[SLICE2LOC]] = loc("Split1"([[SLICE2CHILD]]))
 
 // DISABLED-LABEL:  func.func @test_split_constant_sizes_axis0
 // DISABLED:        "onnx.Split"
@@ -61,13 +63,20 @@ func.func @test_split_constant_sizes_axis1(%arg0: tensor<4x199x63x256xf32>) -> (
 // CHECK:           [[SLICE6:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS6]], [[ENDS6]], [[AXES]], [[STEPS]]) : (tensor<4x199x63x256xf32>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>) -> tensor<4x32x63x256xf32> loc([[SLICE6LOC:#loc[0-9]+]])
 // CHECK:           [[SLICE7:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS7]], [[ENDS7]], [[AXES]], [[STEPS]]) : (tensor<4x199x63x256xf32>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>) -> tensor<4x7x63x256xf32> loc([[SLICE7LOC:#loc[0-9]+]])
 // CHECK:           return [[SLICE1]], [[SLICE2]], [[SLICE3]], [[SLICE4]], [[SLICE5]], [[SLICE6]], [[SLICE7]]
-// CHECK:			[[SLICE1LOC]] = loc("Split2_slice_0")
-// CHECK:			[[SLICE2LOC]] = loc("Split2_slice_1")
-// CHECK:			[[SLICE3LOC]] = loc("Split2_slice_2")
-// CHECK:			[[SLICE4LOC]] = loc("Split2_slice_3")
-// CHECK:			[[SLICE5LOC]] = loc("Split2_slice_4")
-// CHECK:			[[SLICE6LOC]] = loc("Split2_slice_5")
-// CHECK:			[[SLICE7LOC]] = loc("Split2_slice_6")
+// CHECK:			[[SLICE1CHILD:#loc[0-9]+]] = loc("Split2_slice_0")
+// CHECK:			[[SLICE2CHILD:#loc[0-9]+]] = loc("Split2_slice_1")
+// CHECK:			[[SLICE3CHILD:#loc[0-9]+]] = loc("Split2_slice_2")
+// CHECK:			[[SLICE4CHILD:#loc[0-9]+]] = loc("Split2_slice_3")
+// CHECK:			[[SLICE5CHILD:#loc[0-9]+]] = loc("Split2_slice_4")
+// CHECK:			[[SLICE6CHILD:#loc[0-9]+]] = loc("Split2_slice_5")
+// CHECK:			[[SLICE7CHILD:#loc[0-9]+]] = loc("Split2_slice_6")
+// CHECK:			[[SLICE1LOC]] = loc("Split2"([[SLICE1CHILD]]))
+// CHECK:			[[SLICE2LOC]] = loc("Split2"([[SLICE2CHILD]]))
+// CHECK:			[[SLICE3LOC]] = loc("Split2"([[SLICE3CHILD]]))
+// CHECK:			[[SLICE4LOC]] = loc("Split2"([[SLICE4CHILD]]))
+// CHECK:			[[SLICE5LOC]] = loc("Split2"([[SLICE5CHILD]]))
+// CHECK:			[[SLICE6LOC]] = loc("Split2"([[SLICE6CHILD]]))
+// CHECK:			[[SLICE7LOC]] = loc("Split2"([[SLICE7CHILD]]))
 
 // DISABLED-LABEL:  func.func @test_split_constant_sizes_axis1
 // DISABLED:        "onnx.Split"
@@ -92,8 +101,10 @@ func.func @test_split_equal_sizes(%arg0: tensor<8x4xf32>) -> (tensor<4x4xf32>, t
 // CHECK:           [[SLICE1:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS1]], [[ENDS1]], [[AXES]], [[STEPS]]) : (tensor<8x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<4x4xf32> loc([[SLICE1LOC:#loc[0-9]+]])
 // CHECK:           [[SLICE2:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS2]], [[ENDS2]], [[AXES]], [[STEPS]]) : (tensor<8x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<4x4xf32> loc([[SLICE2LOC:#loc[0-9]+]])
 // CHECK:           return [[SLICE1]], [[SLICE2]] : tensor<4x4xf32>, tensor<4x4xf32>
-// CHECK:			[[SLICE1LOC]] = loc("Split3_slice_0")
-// CHECK:			[[SLICE2LOC]] = loc("Split3_slice_1")
+// CHECK:			[[SLICE1CHILD:#loc[0-9]+]] = loc("Split3_slice_0")
+// CHECK:			[[SLICE2CHILD:#loc[0-9]+]] = loc("Split3_slice_1")
+// CHECK:			[[SLICE1LOC]] = loc("Split3"([[SLICE1CHILD]]))
+// CHECK:			[[SLICE2LOC]] = loc("Split3"([[SLICE2CHILD]]))
 
 // DISABLED-LABEL:  func.func @test_split_equal_sizes
 // DISABLED:        "onnx.Split"
@@ -121,9 +132,13 @@ func.func @test_split_negative_axis(%arg0: tensor<10x20x30xf32>) -> (tensor<10x2
 // CHECK:           [[SLICE2:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS2]], [[ENDS2]], [[AXES]], [[STEPS]]) : (tensor<10x20x30xf32>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>) -> tensor<10x20x10xf32> loc([[SLICE2LOC:#loc[0-9]+]])
 // CHECK:           [[SLICE3:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS3]], [[ENDS3]], [[AXES]], [[STEPS]]) : (tensor<10x20x30xf32>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>) -> tensor<10x20x10xf32> loc([[SLICE3LOC:#loc[0-9]+]])
 // CHECK:           return [[SLICE1]], [[SLICE2]], [[SLICE3]]
-// CHECK:			[[SLICE1LOC]] = loc("Split4_slice_0")
-// CHECK:			[[SLICE2LOC]] = loc("Split4_slice_1")
-// CHECK:			[[SLICE3LOC]] = loc("Split4_slice_2")
+// CHECK:			[[SLICE1CHILD:#loc[0-9]+]] = loc("Split4_slice_0")
+// CHECK:			[[SLICE2CHILD:#loc[0-9]+]] = loc("Split4_slice_1")
+// CHECK:			[[SLICE3CHILD:#loc[0-9]+]] = loc("Split4_slice_2")
+// CHECK:			[[SLICE1LOC]] = loc("Split4"([[SLICE1CHILD]]))
+// CHECK:			[[SLICE2LOC]] = loc("Split4"([[SLICE2CHILD]]))
+// CHECK:			[[SLICE3LOC]] = loc("Split4"([[SLICE3CHILD]]))
+
 
 // DISABLED-LABEL:  func.func @test_split_negative_axis
 // DISABLED:        "onnx.Split"
@@ -148,8 +163,11 @@ func.func @test_split_2d_axis1(%arg0: tensor<1x64x256xf32>) -> (tensor<1x64x128x
 // CHECK:           [[SLICE1:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS1]], [[ENDS1]], [[AXES]], [[STEPS]]) : (tensor<1x64x256xf32>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>) -> tensor<1x64x128xf32> loc([[SLICE1LOC:#loc[0-9]+]])
 // CHECK:           [[SLICE2:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS2]], [[ENDS2]], [[AXES]], [[STEPS]]) : (tensor<1x64x256xf32>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>) -> tensor<1x64x128xf32> loc([[SLICE2LOC:#loc[0-9]+]])
 // CHECK:           return [[SLICE1]], [[SLICE2]] : tensor<1x64x128xf32>, tensor<1x64x128xf32>
-// CHECK:			[[SLICE1LOC]] = loc("Split5_slice_0")
-// CHECK:			[[SLICE2LOC]] = loc("Split5_slice_1")
+// CHECK:			[[SLICE1CHILD:#loc[0-9]+]] = loc("Split5_slice_0")
+// CHECK:			[[SLICE2CHILD:#loc[0-9]+]] = loc("Split5_slice_1")
+// CHECK:			[[SLICE1LOC]] = loc("Split5"([[SLICE1CHILD]]))
+// CHECK:			[[SLICE2LOC]] = loc("Split5"([[SLICE2CHILD]]))
+
 
 // DISABLED-LABEL:  func.func @test_split_2d_axis1
 // DISABLED:        "onnx.Split"
@@ -177,9 +195,13 @@ func.func @test_split_uneven(%arg0: tensor<10x20xf32>) -> (tensor<4x20xf32>, ten
 // CHECK:           [[SLICE2:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS2]], [[ENDS2]], [[AXES]], [[STEPS]]) : (tensor<10x20xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<3x20xf32> loc([[SLICE2LOC:#loc[0-9]+]])
 // CHECK:           [[SLICE3:%.+]] = "onnx.Slice"([[INPUT]], [[STARTS3]], [[ENDS3]], [[AXES]], [[STEPS]]) : (tensor<10x20xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<3x20xf32> loc([[SLICE3LOC:#loc[0-9]+]])
 // CHECK:           return [[SLICE1]], [[SLICE2]], [[SLICE3]] : tensor<4x20xf32>, tensor<3x20xf32>, tensor<3x20xf32>
-// CHECK:			[[SLICE1LOC]] = loc("Split6_slice_0")
-// CHECK:			[[SLICE2LOC]] = loc("Split6_slice_1")
-// CHECK:			[[SLICE3LOC]] = loc("Split6_slice_2")
+// CHECK:			[[SLICE1CHILD:#loc[0-9]+]] = loc("Split6_slice_0")
+// CHECK:			[[SLICE2CHILD:#loc[0-9]+]] = loc("Split6_slice_1")
+// CHECK:			[[SLICE3CHILD:#loc[0-9]+]] = loc("Split6_slice_2")
+// CHECK:			[[SLICE1LOC]] = loc("Split6"([[SLICE1CHILD]]))
+// CHECK:			[[SLICE2LOC]] = loc("Split6"([[SLICE2CHILD]]))
+// CHECK:			[[SLICE3LOC]] = loc("Split6"([[SLICE3CHILD]]))
+
 
 // DISABLED-LABEL:  func.func @test_split_uneven
 // DISABLED:        "onnx.Split"
