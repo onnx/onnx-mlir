@@ -941,12 +941,13 @@ void DimAnalysis::visitDim(
     Value data = reshapeOp.getData();
     Value output = reshapeOp.getReshaped();
 
-    // Special case 1: the output dimension i can be from
-    // - data[j] if
-    //    - dim j and i are the only dynamic dimension in data and output,
-    //    respectively, and
+    // Special case: when data and output have the same number of dynamic
+    // dimensions (N), the dynamic dimension output[i] must be the same as the
+    // dynamic dimension data[j] if
     //    - the products of the remaining static dimensions in data and output
-    //    are equal.
+    //    are equal, and
+    //    - the remaining N-1 dynamic dimensions in data and output are the same,
+    //    respectively.
     //
     // It's interesting that if shape[i] is arg0[ii] and data[j] is arg1[jj],
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
@@ -971,12 +972,15 @@ void DimAnalysis::visitDim(
         outputStaticSize *= outputType.getShape()[i];
       }
     }
-    // When data and output have the same number of dynamic dimensions and
-    // the products of static sizes in the data and output are equal, the
-    // dynamic dimension is potentially from one dynamic dimension in the data.
+
+    // When data and output have the same number of dynamic dimensions (N) and
+    // the products of static sizes in the data and output are equal, if N-1
+    // dynamic dimensions in data and output are the same, respectively, the
+    // remaining dynamic dimensions in data and output must be the same.
     if (dynDimsInData.size() == dynDimsInOutput.size() &&
         (dataStaticSize == outputStaticSize)) {
-      // Find the index of the dynamic dimension in the data.
+      // Find the index of the only dynamic dimension in the data that HASN'T
+      // found to be the same as any dynamic dimension in the output
       std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
       uint64_t numSameDynDims = 0;
       llvm::SmallDenseSet<uint64_t, 4> visited;
