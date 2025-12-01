@@ -239,6 +239,10 @@ public:
         conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
             weightShape, newInput, newWeight, bias, group, newPads, strides,
             dilations, accType, activation);
+        Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
+        auto *opToReplace = activation ? activation : convOp;
+        rewriter.replaceOp(opToReplace, {newOutput});
+        return success();
       } else {
         return rewriter.notifyMatchFailure(
             op, "this type of grouped Conv is not supported");
@@ -247,9 +251,7 @@ public:
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
     Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
-
-    auto *opToReplace = activation ? activation : convOp;
-    rewriter.replaceOp(opToReplace, {newOutput});
+    rewriter.replaceOp(convOp, {newOutput});
     return success();
   }
 
