@@ -978,7 +978,7 @@ void DimAnalysis::visitDim(
         (dataStaticSize == outputStaticSize)) {
       // Find the index of the dynamic dimension in the data.
       std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
-      int64_t numSameDynDims = 0;
+      uint64_t numSameDynDims = 0;
       llvm::SmallDenseSet<uint64_t, 4> visited;
       for (uint64_t i : dynDimsInData) {
         bool found = false;
@@ -999,13 +999,9 @@ void DimAnalysis::visitDim(
       }
       if (dynamicDimIndexInData.has_value() &&
           numSameDynDims == dynDimsInData.size() - 1) {
-        int64_t unknownDimIndex = -1;
-        for (uint64_t i : dynDimsInOutput) {
-          if (!visited.contains(i))
-            unknownDimIndex = i;
-        }
-
-        if (unknownDimIndex == dimIndex) {
+        // Check again to make sure the dynamic dimension in the output is the
+        // only one not visited (not having same dynamic in the data).
+        if (!visited.contains(dimIndex)) {
           if (auto d = insertDimWhenUseful(
                   reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
             LLVM_DEBUG(llvm::dbgs()
@@ -1013,38 +1009,6 @@ void DimAnalysis::visitDim(
                        << ", " << d.value().second << ")\n");
         }
       }
-    }
-
-    return;
-    // Special case 2: input and output have the same rank of 2, if one output
-    // dim is from an input dim, the other output dim must be from the remaining
-    // input dim.
-    //
-    // clang-format off
-    // ```mlir
-    // %cst_minus1 = onnx.Constant dense<-1> : tensor<1xi64>
-    // %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
-    // %1 = "onnx.Concat"(%cst_minus1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-    // %2 = "onnx.Reshape"(%arg0, %1) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
-    // ```
-    // clang-format on
-    int64_t dataRank = dataType.getRank();
-    int64_t outputRank = outputType.getRank();
-    if ((dataRank == 2) && (outputRank == 2)) {
-      // Find if the other output dim is from an input dim.
-      int64_t iDim = -1;
-      for (int64_t i = 0; i < dataRank; ++i) {
-        if (sameDim(data, i, output, 1 - dimIndex)) {
-          iDim = i;
-          break;
-        }
-      }
-      if (iDim != -1)
-        // The current output dim must be the same as the other input dim.
-        if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - Case 2: Added a new dim(" << d.value().first
-                     << ", " << d.value().second << ")\n");
     }
   }
 }
