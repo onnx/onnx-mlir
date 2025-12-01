@@ -1000,7 +1000,7 @@ void DimAnalysis::visitDim(
       if (dynamicDimIndexInData.has_value() &&
           numSameDynDims == dynDimsInData.size() - 1) {
         // Check again to make sure the dynamic dimension in the output is the
-        // only one not visited (not having same dynamic in the data).
+        // only one not visited (not having same dynamic dimension in the data).
         if (!visited.contains(dimIndex)) {
           if (auto d = insertDimWhenUseful(
                   reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
