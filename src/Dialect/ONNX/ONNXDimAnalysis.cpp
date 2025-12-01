@@ -955,39 +955,67 @@ void DimAnalysis::visitDim(
     // Get the dynamic dimension from data.
     auto dataType = mlir::cast<RankedTensorType>(data.getType());
     auto outputType = mlir::cast<RankedTensorType>(output.getType());
-    // Check if there is only one dynamic dimension in the data and output.
-    bool dataHasOneDynamicDim =
-        (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
-    bool outputHasOneDynamicDim =
-        (llvm::count(outputType.getShape(), ShapedType::kDynamic) == 1);
-    // Check if the products of static sizes in the data and output are equal.
+    SmallVector<uint64_t> dynDimsInData, dynDimsInOutput;
     int64_t dataStaticSize = 1, outputStaticSize = 1;
     for (int64_t i = 0; i < dataType.getRank(); ++i) {
-      dataStaticSize *= dataType.isDynamicDim(i) ? -1 : dataType.getShape()[i];
+      if (dataType.isDynamicDim(i)) {
+        dynDimsInData.emplace_back(i);
+      } else {
+        dataStaticSize *= dataType.getShape()[i];
+      }
     }
     for (int64_t i = 0; i < outputType.getRank(); ++i) {
-      outputStaticSize *=
-          outputType.isDynamicDim(i) ? -1 : outputType.getShape()[i];
+      if (outputType.isDynamicDim(i)) {
+        dynDimsInOutput.emplace_back(i);
+      } else {
+        outputStaticSize *= outputType.getShape()[i];
+      }
     }
-    // Conditions hold, the dynamic dimension can be from the data.
-    if (dataHasOneDynamicDim && outputHasOneDynamicDim &&
+    // When data and output have the same number of dynamic dimensions and
+    // the products of static sizes in the data and output are equal, the
+    // dynamic dimension is potentially from one dynamic dimension in the data.
+    if (dynDimsInData.size() == dynDimsInOutput.size() &&
         (dataStaticSize == outputStaticSize)) {
       // Find the index of the dynamic dimension in the data.
       std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
-      for (int64_t i = 0; i < dataType.getRank(); ++i)
-        if (dataType.isDynamicDim(i)) {
+      int64_t numSameDynDims = 0;
+      llvm::SmallDenseSet<uint64_t, 4> visited;
+      for (uint64_t i : dynDimsInData) {
+        bool found = false;
+        for (uint64_t j : dynDimsInOutput) {
+          if (visited.contains(j))
+            continue;
+          if (sameDim(data, i, output, j)) {
+            numSameDynDims++;
+            visited.insert(j);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
           dynamicDimIndexInData = i;
           break;
         }
-      assert(dynamicDimIndexInData.has_value() &&
-             "Failed to obtain the index of the dynamic dimension in the data");
-      if (auto d = insertDimWhenUseful(
-              reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  - Case 1: Added a new dim(" << d.value().first << ", "
-                   << d.value().second << ")\n");
+      }
+      if (dynamicDimIndexInData.has_value() &&
+          numSameDynDims == dynDimsInData.size() - 1) {
+        int64_t unknownDimIndex = -1;
+        for (uint64_t i : dynDimsInOutput) {
+          if (!visited.contains(i))
+            unknownDimIndex = i;
+        }
+
+        if (unknownDimIndex == dimIndex) {
+          if (auto d = insertDimWhenUseful(
+                  reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - Case 1: Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        }
+      }
     }
 
+    return;
     // Special case 2: input and output have the same rank of 2, if one output
     // dim is from an input dim, the other output dim must be from the remaining
     // input dim.
