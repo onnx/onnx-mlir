@@ -228,7 +228,7 @@ static void inline printStartReport() {
 }
 
 static void flushRecordBuffer() {
-  if (!bufferIndex)
+  if (bufferIndex<=0)
     return;
   // We have entries, print them now.
   printStartReport();
