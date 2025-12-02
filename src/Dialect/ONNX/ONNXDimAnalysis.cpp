@@ -942,18 +942,21 @@ void DimAnalysis::visitDim(
     Value output = reshapeOp.getReshaped();
 
     // Special case: when data and output have the same number of dynamic
-    // dimensions (N), the dynamic dimension output[i] must be the same as the
+    // dimensions (N), the dynamic dimension output[i] is the same as the
     // dynamic dimension data[j] if
     //    - the products of the remaining static dimensions in data and output
     //    are equal, and
-    //    - the remaining N-1 dynamic dimensions in data and output are the same,
-    //    respectively.
+    //    - the remaining N-1 dynamic dimensions in data and output are the
+    //    same, respectively.
+    //
+    // Note that output[i] is the dimension this visitDim function is working
+    // on.
     //
     // It's interesting that if shape[i] is arg0[ii] and data[j] is arg1[jj],
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
     // inputs.
 
-    // Get the dynamic dimension from data.
+    // Get the dynamic dimensions from data and output.
     auto dataType = mlir::cast<RankedTensorType>(data.getType());
     auto outputType = mlir::cast<RankedTensorType>(output.getType());
     SmallVector<uint64_t> dynDimsInData, dynDimsInOutput;
@@ -980,32 +983,30 @@ void DimAnalysis::visitDim(
     if (dynDimsInData.size() == dynDimsInOutput.size() &&
         (dataStaticSize == outputStaticSize)) {
       // Find the index of the only dynamic dimension in the data that HASN'T
-      // found to be the same as any dynamic dimension in the output
+      // found to be the same as any dynamic dimension in the output.
       std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
-      uint64_t numSameDynDims = 0;
-      llvm::SmallDenseSet<uint64_t, 4> visited;
+      llvm::SmallDenseSet<uint64_t, 4> visitedDimsInOutput;
       for (uint64_t i : dynDimsInData) {
         bool found = false;
         for (uint64_t j : dynDimsInOutput) {
-          if (visited.contains(j))
+          if (visitedDimsInOutput.contains(j))
             continue;
           if (sameDim(data, i, output, j)) {
-            numSameDynDims++;
-            visited.insert(j);
+            visitedDimsInOutput.insert(j);
             found = true;
             break;
           }
         }
-        if (!found) {
+        if (!found && !dynamicDimIndexInData.has_value())
           dynamicDimIndexInData = i;
-          break;
-        }
       }
+      // Found the target dynamic dimension in data and the remaining N-1
+      // dynamic dimensions are the same in data and output.
       if (dynamicDimIndexInData.has_value() &&
-          numSameDynDims == dynDimsInData.size() - 1) {
+          visitedDimsInOutput.size() == dynDimsInOutput.size() - 1) {
         // Check again to make sure the dynamic dimension in the output is the
         // only one not visited (not having same dynamic dimension in the data).
-        if (!visited.contains(dimIndex)) {
+        if (!visitedDimsInOutput.contains(dimIndex)) {
           if (auto d = insertDimWhenUseful(
                   reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
             LLVM_DEBUG(llvm::dbgs()
