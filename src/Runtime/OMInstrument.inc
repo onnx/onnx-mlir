@@ -223,8 +223,8 @@ static void ProcessName(
 static void inline printStartReport(int location) {
   if (!startReportPrinted) {
     fprintf(fout, "==START-REPORT==\n");
-    fprintf(fout, "==from location %d==\n", location);
-    fprintf(stderr, "hi alex, print report from location %d\n", location);
+    //fprintf(fout, "==from location %d==\n", location);
+    //fprintf(stderr, "hi alex, print report from location %d\n", location);
     startReportPrinted = true;
   }
 }
@@ -300,7 +300,7 @@ void startInstrumentation() {
 
   // New instrumentation, set printed start report to false.  Buffer is also
   // reset between runs.
-  fprintf(stderr, "hi alex, start instrumentation\n");
+  //fprintf(stderr, "hi alex, start instrumentation\n");
   startReportPrinted = false;
   bufferIndex = 0;
   if (!initialized) {
