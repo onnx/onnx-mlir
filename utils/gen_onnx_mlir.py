@@ -531,6 +531,49 @@ OpsWithResultTypeInference = [
     "SequenceEmpty",
 ]
 
+# These ops can take in and produce QuantizedType as operands and resuls.
+OpsWithQuantTypes = {
+    "Add": 2,
+    "AveragePool": 1,
+    "BatchNormalization": 3,
+    "Clip": 3,
+    "Concat": 1,
+    "Conv": 3,
+    "ConvTranspose": 3,
+    "CumSum": 1,
+    "DepthToSpace": 1,
+    "Div": 2,
+    "Flatten": 1,
+    "Gather": 1,
+    "GatherElements": 1,
+    "Gelu": 1,
+    "Gemm": 3,
+    "GlobalAveragePool": 1,
+    "InstanceNormalization": 3,
+    "LayerNormalization": 3,
+    "LeakyRelu": 1,
+    "LpNormalization": 1,
+    "MatMul": 2,
+    "MaxPool": 1,
+    "Mul": 2,
+    "Pad": 1,
+    "Pow": 2,
+    "ReduceSum": 1,
+    "Relu": 1,
+    "Reshape": 1,
+    "Resize": 1,
+    "RMSNormalization": 2,
+    "Sigmoid": 1,
+    "Slice": 1,
+    "Softmax": 1,
+    "Split": 1,
+    "SpaceToDepth": 1,
+    "Squeeze": 1,
+    "Sub": 2,
+    "Transpose": 1,
+    "Unsqueeze": 1,
+}
+
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -918,6 +961,9 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
 
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
+
+        if op_name in OpsWithQuantTypes and i < OpsWithQuantTypes[op_name]:
+            types.append("TensorOf<[quant_QuantizedType]>")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
