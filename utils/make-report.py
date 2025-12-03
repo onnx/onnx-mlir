@@ -71,6 +71,8 @@ Parameters to focus analysis:
                        the 'unsupported' keyword in its printout.
                        For SIMD/parallel statistics, this include all ops that
                        have currently no support for it.
+  -w/--warmup <num>:   If multiple runtime statistics are given, ignore the first
+                       <num> stats. Default is zero.
 
 Parameters on what to print:
   -s/--stats <name>:   Print specific statistics:
@@ -430,7 +432,9 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     print(
         "Gather stats from",
         start_count,
-        "measurement; ",
+        "measurement sets with",
+        warmup_num,
+        "warmup; ",
         reporting_msg,
         meas_num - 2 * discard_num,
         "experiment(s)",
@@ -643,13 +647,11 @@ def main(argv):
     plot_file_name = ""
     make_stats = ""
     make_legend = ""
-    # No warmup stats are gathered anymore by RunONNXModels, so set and
-    # leave at default 0 value. Option was removed too.
     warmup_num = 0
     try:
         opts, args = getopt.getopt(
             argv,
-            "c:f:hl:m:p:r:s:u:v",
+            "c:f:hl:m:p:r:s:u:vw:",
             [
                 "compile=",
                 "focus=",
@@ -664,6 +666,7 @@ def main(argv):
                 "supported",
                 "unit=",
                 "verbose",
+                "warmup=",
             ],
         )
     except getopt.GetoptError:
@@ -733,6 +736,8 @@ def main(argv):
                 print_usage("time units are 's', 'ms', or 'us'")
         elif opt in ("-v", "--verbose"):
             verbose = True
+        elif opt in ("-w", "--warmup"):
+            warmup_num = int(arg)
 
     # Default stats.
     if not make_stats:

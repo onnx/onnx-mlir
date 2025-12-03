@@ -220,11 +220,9 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
-static void inline printStartReport(int location) {
+static void inline printStartReport() {
   if (!startReportPrinted) {
     fprintf(fout, "==START-REPORT==\n");
-    //fprintf(fout, "==from location %d==\n", location);
-    //fprintf(stderr, "hi alex, print report from location %d\n", location);
     startReportPrinted = true;
   }
 }
@@ -233,7 +231,7 @@ static void flushRecordBuffer() {
   if (bufferIndex <= 0)
     return;
   // We have entries, print them now.
-  printStartReport(1);
+  printStartReport();
   for (int64_t i = 0; i < bufferIndex; ++i) {
     uint64_t tag = timeRecordBuffer[i].tag;
     ProcessName(timeRecordBuffer[i].opName, tag, timeRecordBuffer[i].nodeName);
@@ -279,7 +277,7 @@ static void updateRecordBuffer(
 // null). If defined, fout will target the value in ONNX_MLIR_INSTRUMENT_FILE.
 // Otherwise, fout default to standard out.
 
-FILE *getInstrumentFile() {
+FILE *getInstrumentFile(bool withPrintStartReport) {
   if (!fout) {
     fout = stdout;
     if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
@@ -291,7 +289,8 @@ FILE *getInstrumentFile() {
     }
     assert(fout);
   }
-  printStartReport(2);
+  if (withPrintStartReport)
+    printStartReport();
   return fout;
 }
 
@@ -300,7 +299,6 @@ void startInstrumentation() {
 
   // New instrumentation, set printed start report to false.  Buffer is also
   // reset between runs.
-  //fprintf(stderr, "hi alex, start instrumentation\n");
   startReportPrinted = false;
   bufferIndex = 0;
   if (!initialized) {
@@ -320,7 +318,7 @@ void startInstrumentation() {
     }
     // Then handle the possible redirection of output to file, and determine if
     // buffered output is requested..
-    getInstrumentFile();
+    getInstrumentFile(/*print report will be on demand in flush buffer*/ false);
   }
 
   // Init as appropriate.
@@ -361,7 +359,7 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
     updateRecordBuffer(opName, tag, nodeName);
   if (reportMem && psErrorCount < 20) {
     // Print header and data for memory.
-    printStartReport(3);
+    printStartReport();
     ProcessName(opName, tag, nodeName);
     bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
     fprintf(fout, "==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
@@ -369,7 +367,7 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
     ReportMemory();
   }
   if (!reportTime && !reportMem) {
-    printStartReport(4);
+    printStartReport();
     fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
   }
 }

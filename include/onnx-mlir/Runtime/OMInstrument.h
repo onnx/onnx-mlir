@@ -44,7 +44,7 @@ extern "C" {
 
 /**
  * Print the instrumentation information gathered during a single inference run.
- * If no information was recorded (e.g. the -profile-ir or -profile-ir-and-sig
+ * If no information was recorded (e.g. the -profile-ir or -profile-ir-with-sig
  * were not used), this call does nothing. Printing goes on standard out or in
  * the file pointed to by the ONNX_MLIR_INSTRUMENT_FILE variable. In rare cases,
  * the instrumentation buffer may overflow, in which case printing may occur

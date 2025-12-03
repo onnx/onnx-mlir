@@ -192,7 +192,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||
-      profileIRAndSig == onnx_mlir::ProfileIRs::ZHigh) {
+      profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh) {
     assert(instrumentStage == onnx_mlir::InstrumentStages::ZHigh &&
            "expected set to this");
     instrumentOps = "onnx.*,zhigh.*";
@@ -203,7 +203,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
     // Also enable instrumentation of signatures.
-    if (profileIRAndSig == onnx_mlir::ProfileIRs::ZHigh)
+    if (profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh)
       instrumentSignatures = "onnx.*,zhigh.*";
   }
 

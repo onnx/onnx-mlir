@@ -1061,7 +1061,7 @@ class InferenceSession:
 
     def run_inference(self):
         return self.session.run(self.inputs)
-    
+
     def print_instrumentation(self):
         self.session.print_instrumentation()
 
@@ -1220,6 +1220,7 @@ class InferenceSession:
             outs = self.run_inference()  # Using inputs from self.inputs.
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
+            self.print_instrumentation()
 
         perf_results = []
         for i in range(args.n_iteration):
