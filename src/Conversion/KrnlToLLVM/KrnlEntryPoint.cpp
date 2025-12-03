@@ -428,7 +428,8 @@ private:
     int64_t inputNum = JSONArray->size();
 
     // Verify the number of inputs.
-    equalOrFailed(module, rewriter, loc,
+    // In some case, there unused parameters provided.
+    noGreaterOrFailed(module, rewriter, loc,
         create.llvm.constant(int64Ty, static_cast<int64_t>(inputNum)),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
             RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {omTensorInputs}),
