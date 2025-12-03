@@ -618,7 +618,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
 
     // TODO: Use old scheme here, maybe update to new scheme.
     int64_t simdLoopStaticTripCount;
-    totVL = computeSuitableUnrollFactor(XMemRefType, lowRank, 4,
+    totVL = computeSuitableSimdUnrollFactor(XMemRefType, lowRank, 4,
         /*canOverCompute*/ false, simdLoopStaticTripCount);
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
@@ -719,7 +719,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     switch (broadcastKind) {
     case BroadcastKind::Scalar_Scalar: {
       Value scalar = create.krnl.load(memRef, {zero});
-      return create.vec.splat(vecType, scalar);
+      return create.vec.broadcast(vecType, scalar);
     }
     case BroadcastKind::Scalar_FullySpecified: {
       return create.vec.load(vecType, memRef, {j});
@@ -727,7 +727,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     case BroadcastKind::PartialSpecified_Scalar: {
       Value iii = create.math.rem(i, modFactor.getValue());
       Value scalar = create.krnl.load(memRef, {iii, zero});
-      return create.vec.splat(vecType, scalar);
+      return create.vec.broadcast(vecType, scalar);
     }
     case BroadcastKind::PartialSpecified_FullySpecified: {
       Value iii = create.math.rem(i, modFactor.getValue());
@@ -735,7 +735,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     }
     case BroadcastKind::FullySpecified_Scalar: {
       Value scalar = create.krnl.load(memRef, {i, zero});
-      return create.vec.splat(vecType, scalar);
+      return create.vec.broadcast(vecType, scalar);
     }
     case BroadcastKind::FullySpecified_FullySpecified: {
       return create.vec.load(vecType, memRef, {i, j});
@@ -766,7 +766,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     VectorType vecType = VectorType::get({totVL}, elementType);
     // Init the two reductions.
     Value init = create.math.constant(elementType, 0.0);
-    Value initVec = create.vec.splat(vecType, init);
+    Value initVec = create.vec.broadcast(vecType, init);
     Value zero = create.math.constantIndex(0);
     inlineFor(create, B, [&](int64_t d, Value o) {
       if (isTraditionalLayerNorm)
@@ -841,12 +841,12 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
             Value currX = create.vec.load(vecType, XMemRef, {ii, j});
             Value XMinusMean;
             if (isTraditionalLayerNorm) {
-              Value meanSplat = create.vec.splat(vecType, mean[d]);
+              Value meanSplat = create.vec.broadcast(vecType, mean[d]);
               XMinusMean = create.math.sub(currX, meanSplat);
             } else {
               XMinusMean = currX;
             }
-            Value invStdDevSplat = create.vec.splat(vecType, invStdDev[d]);
+            Value invStdDevSplat = create.vec.broadcast(vecType, invStdDev[d]);
             Value normalizedX = create.math.mul(XMinusMean, invStdDevSplat);
             // Process with multiplying by scale (scalar or 1D vector).
             Value scale = getScalarWithBroadcast(create, vecType, scaleMemRef,
@@ -945,18 +945,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Iterate over 1st dim by block B.
     bool useParallel = false;
     if (enableParallel) {
-      int64_t parId;
       SmallVector<IndexExpr, 1> lb(1, LitIE(0)), ub(1, XFlatDims[0]);
-      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
-              /*min iter for going parallel*/ 4)) {
+      if (tryCreateKrnlParallel(create.krnl, op, "layer-norm", {}, lb, ub, 0, 1,
+              {}, 4, /*createKrnlParallel=*/false) != -1)
         useParallel = true;
-        onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "in layer-norm");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, 0, lb[0], ub[0], "not enough work in layer-norm");
-      }
-    } else {
-      onnxToKrnlParallelReport(op, false, -1, -1, "no parallel in layer norm");
     }
     Value tmpRedMemRef, tmpRedMemRef2;
     if (!useParallel) {
@@ -994,8 +986,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                           scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                           meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
                           tmpRedMemRef2, XFlatDims[1], blockLocalInd, epsilon,
-                          1, totVL, scaleBroadcastKind, biasBroadcastKind,
-                          scaleModFactor, biasModFactor);
+                          /* B == 1 */ 1, totVL, scaleBroadcastKind,
+                          biasBroadcastKind, scaleModFactor, biasModFactor);
                     }); /* for inside blocked loop */
               },
               [&](const SCFBuilder &scf) {

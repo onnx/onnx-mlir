@@ -80,10 +80,10 @@ private:
     // or
     //  (memref<3x4x5xf64>, index, f64, f64, f64)
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    Type llvmOptionsTy = FloatType::getF32(context);
+    Type llvmOptionsTy = Float32Type::get(context);
     Type llvmOutputTy = getPointerType(context, llvmOptionsTy);
     if (inType.isF64()) {
-      llvmOptionsTy = FloatType::getF64(context);
+      llvmOptionsTy = Float64Type::get(context);
       llvmOutputTy = getPointerType(context, llvmOptionsTy);
     }
     Type llvmI64Ty = IntegerType::get(context, 64);

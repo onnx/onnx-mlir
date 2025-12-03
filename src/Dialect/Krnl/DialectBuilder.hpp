@@ -65,6 +65,16 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::ValueRange defineLoops(int64_t originalLoopNum) const;
   mlir::ValueRange block(mlir::Value loop, int64_t blockSize) const;
   void permute(mlir::ValueRange loops, mlir::ArrayRef<int64_t> map) const;
+  // Block and permute so that we have first the unblocked loops, then the
+  // blocked loops, and finally the inner-block loops. Return 2 lists of loops:
+  // outer is all the unblocked loops plus loops that are blocked; inner is all
+  // the loops going over the inside of the blocked loops.
+  void blockAndPermute(mlir::ValueRange originalLoops,
+      mlir::ArrayRef<int64_t> blockSizes, /* up to originalLoop.size() values */
+      mlir::SmallVector<mlir::Value, 4>
+          &outerLoops, /* first unblocked loops, then blocked loops */
+      mlir::SmallVector<mlir::Value, 4> &innerLoops); /* inner blocked loops */
+  void unroll(mlir::Value loop) const;
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops, mlir::Value numThreads,
@@ -82,6 +92,14 @@ struct KrnlBuilder : public DialectBuilder {
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
       KrnlLoopBodyFn bodyBuilderFn) const;
+
+  // Iterate over original loops given the original loops, optimized loops, lbs
+  // and ubs. Lambda function implement the body of the loop, and receive a KRNL
+  // builder and the original loop indices.
+  void iterateWithOrigLoop(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
+      mlir::ValueRange ubs, KrnlLoopBodyFn bodyBuilderFn) const;
+
   // Deprecated.
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
@@ -95,6 +113,10 @@ struct KrnlBuilder : public DialectBuilder {
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
+  void iterateIEWithOrigLoop(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
+      mlir::ArrayRef<IndexExpr> ubs, KrnlLoopBodyFn bodyBuilderFn) const;
+
   // Deprecated.
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,

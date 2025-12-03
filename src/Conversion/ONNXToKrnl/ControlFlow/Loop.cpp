@@ -95,8 +95,8 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     KrnlBuilder createKrnl(rewriter, loc);
 
     Value maxTripCount = createKrnl.load(adaptor.getM());
-    maxTripCount = rewriter.create<arith::IndexCastOp>(
-        loc, rewriter.getIndexType(), maxTripCount);
+    maxTripCount = arith::IndexCastOp::create(
+        rewriter, loc, rewriter.getIndexType(), maxTripCount);
     ValueRange loopDef = createKrnl.defineLoops(1);
     Value zero = create.math.constantIndex(0);
     createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
@@ -104,20 +104,19 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           OpBuilder::InsertionGuard insertGuard(rewriter);
 
           Value condReg = createKrnl.load(cond);
-          auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
+          auto ifOp = scf::IfOp::create(rewriter, loc, condReg, false);
           rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
           // Contain the ThenRegion with KrnlRegionOp
           // The krnl loop inside may use symbol computed in LoopOp body
-          KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+          KrnlRegionOp regionOp = KrnlRegionOp::create(rewriter, loc);
           rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
 
           // Create a scalar tensor out of loop iteration variable, as the first
           // argument passed to the body graph function.
           Value origIV = loopInd[0];
-          Value iv = rewriter
-                         .create<arith::IndexCastOp>(
-                             loc, rewriter.getI64Type(), origIV)
+          Value iv = arith::IndexCastOp::create(
+              rewriter, loc, rewriter.getI64Type(), origIV)
                          .getResult();
           MemRefBuilder createMemRef(rewriter, loc);
           Value ivMemRef =
@@ -198,11 +197,9 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           for (unsigned i = 0; i < bodyOutputs.size(); i++) {
             Value output = bodyOutputs[i];
             Type outputTy = output.getType();
-            bodyOutputs[i] =
-                rewriter
-                    .create<UnrealizedConversionCastOp>(
-                        loc, typeConverter->convertType(outputTy), output)
-                    .getResult(0);
+            bodyOutputs[i] = UnrealizedConversionCastOp::create(
+                rewriter, loc, typeConverter->convertType(outputTy), output)
+                                 .getResult(0);
           }
 
           // Copy the newly computed loop condition to pre-allocated buffer.
@@ -224,7 +221,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
                                    .getElementType();
             if (mlir::dyn_cast<MemRefType>(elementType)) {
               // accumulate dynamic tensor
-              rewriter.create<KrnlSeqStoreOp>(loc,
+              KrnlSeqStoreOp::create(rewriter, loc,
                   std::get<0>(scanIntermediateToFinal),
                   std::get<1>(scanIntermediateToFinal), origIV);
             } else {
@@ -306,11 +303,11 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
               [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
                 // Wrap with KrnlRegionOp because emitCopy uses the result of
                 // SeqExtract for loop bound.
-                KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+                KrnlRegionOp regionOp = KrnlRegionOp::create(rewriter, loc);
                 rewriter.setInsertionPointToStart(
                     &regionOp.getBodyRegion().front());
                 Value origIV = loopInd[0];
-                auto src = rewriter.create<KrnlSeqExtractOp>(loc,
+                auto src = KrnlSeqExtractOp::create(rewriter, loc,
                     seqElementType, output, origIV,
                     IntegerAttr::get(rewriter.getIntegerType(1, false), 0));
                 emitCopy(rewriter, loc, src, alloc, {origIV});
@@ -395,9 +392,9 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           }
           assert(!mlir::isa<NoneType>(adaptor.getM().getType()));
           Value maxTripCount =
-              rewriter.create<KrnlLoadOp>(loc, adaptor.getM()).getResult();
-          allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getIndexType(), maxTripCount));
+              KrnlLoadOp::create(rewriter, loc, adaptor.getM()).getResult();
+          allocParams.emplace_back(arith::IndexCastOp::create(
+              rewriter, loc, rewriter.getIndexType(), maxTripCount));
         }
 
         bool isDynamic = false;
@@ -574,10 +571,10 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     }
 
     // Create the skeleton of WhileOp
-    // auto whileOp = rewriter.create<scf::WhileOp>(loc, outputTypes,
+    // auto whileOp = scf::WhileOp::create(rewriter, loc, outputTypes,
     // whileInputValues);
     auto whileOp =
-        rewriter.create<scf::WhileOp>(loc, whileInputTypes, whileInputValues);
+        scf::WhileOp::create(rewriter, loc, whileInputTypes, whileInputValues);
     Block *beforeBlock =
         rewriter.createBlock(&whileOp.getBefore(), {}, whileInputTypes, locs);
     Block *afterBlock =
@@ -609,7 +606,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
         combinedV = condV;
       }
 
-      rewriter.create<scf::ConditionOp>(loc, combinedV, arguments);
+      scf::ConditionOp::create(rewriter, loc, combinedV, arguments);
     }
 
     // Construct the body of while loop
@@ -626,7 +623,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
 
       // Contain the ThenRegion with KrnlRegionOp
       // The krnl loop inside may use symbol computed in LoopOp body
-      KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+      KrnlRegionOp regionOp = KrnlRegionOp::create(rewriter, loc);
       rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
 
       SmallVector<Value, 4> params;
@@ -694,11 +691,9 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
                "Expecting loop body function output to consist of "
                "tensors/memrefs.");
         auto outputTy = mlir::cast<ShapedType>(output.getType());
-        bodyOutputs[i] = rewriter
-                             .create<UnrealizedConversionCastOp>(loc,
-                                 MemRefType::get(outputTy.getShape(),
-                                     outputTy.getElementType()),
-                                 output)
+        bodyOutputs[i] = UnrealizedConversionCastOp::create(rewriter, loc,
+            MemRefType::get(outputTy.getShape(), outputTy.getElementType()),
+            output)
                              .getResult(0);
       }
 
@@ -771,7 +766,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
       for (auto v : outputs) {
         yieldList.emplace_back(v);
       }
-      rewriter.create<scf::YieldOp>(loc, yieldList);
+      scf::YieldOp::create(rewriter, loc, yieldList);
     }
 
     rewriter.replaceOp(op, outputs);

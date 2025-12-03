@@ -1,0 +1,16 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 22]
+>
+test_random_normal_like_dtype (float[unk__a,unk__b] RandomNormalLike_in) => (float[] RandomNormalLike_out) 
+{
+   RandomNormalLike_out = RandomNormalLike<mean: float = 0.0, scale: float = 1.0, seed: float = 2.0> (RandomNormalLike_in)
+}
+
+// CHECK-LABEL:   func.func @main_graph(
+// CHECK-SAME:    %[[VAL_0:.*]]: tensor<?x?xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "RandomNormalLike_in"}) -> (tensor<?x?xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "RandomNormalLike_out"}) {
+// CHECK:           %[[VAL_1:.*]] = "onnx.RandomNormalLike"(%[[VAL_0]]) {mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           onnx.Return %[[VAL_1]] : tensor<?x?xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

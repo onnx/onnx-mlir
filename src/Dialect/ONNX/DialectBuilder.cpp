@@ -55,7 +55,7 @@ Value OnnxBuilder::cast(Type outputType, Value input, IntegerAttr saturate,
     return createTypedOpAndInferShapes<ONNXCastOp>(
         outputType, input, saturate, to);
   else
-    return b().create<ONNXCastOp>(loc(), outputType, input, saturate, to);
+    return ONNXCastOp::create(b(), loc(), outputType, input, saturate, to);
 }
 
 Value OnnxBuilder::cast(Value input, IntegerAttr saturate, TypeAttr to) const {
@@ -92,7 +92,7 @@ Value OnnxBuilder::ceil(Value input) const {
 Value OnnxBuilder::clip(
     Value input, Value min, Value max, bool scalarType) const {
   if (scalarType)
-    return b().create<ONNXClipOp>(loc(), input.getType(), input, min, max);
+    return ONNXClipOp::create(b(), loc(), input.getType(), input, min, max);
   else
     return createOpAndInferShapes<ONNXClipOp>(toTensor(input.getType()),
         toTensor(input), toTensor(min), toTensor(max));
@@ -113,6 +113,13 @@ Value OnnxBuilder::constant(Attribute denseAttr) const {
 
 Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
   Attribute denseAttr = b().getI64TensorAttr(intVals);
+  return constant(denseAttr);
+}
+
+Value OnnxBuilder::constantFloat32(const ArrayRef<float> floatVals) const {
+  auto shape = RankedTensorType::get(
+      {static_cast<int64_t>(floatVals.size())}, b().getF32Type());
+  DenseElementsAttr denseAttr = DenseElementsAttr::get(shape, floatVals);
   return constant(denseAttr);
 }
 
@@ -141,7 +148,7 @@ void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
   IntegerAttr axisAttr = getSignedInt64Attr(axis);
   IntegerAttr groupIDAttr = getSignedInt64Attr(groupID);
   // No shape needed for this one I believe.
-  b().create<ONNXDimGroupOp>(loc(), input, axisAttr, groupIDAttr);
+  ONNXDimGroupOp::create(b(), loc(), input, axisAttr, groupIDAttr);
 }
 
 Value OnnxBuilder::dequantizeLinear(
@@ -266,7 +273,7 @@ Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
       resultType, toTensor(A), toTensor(B));
 }
 
-Value OnnxBuilder::none() const { return b().create<ONNXNoneOp>(loc()); }
+Value OnnxBuilder::none() const { return ONNXNoneOp::create(b(), loc()); }
 
 Value OnnxBuilder::pad(
     Value input, Value pads, Value constantValue, std::string mode) const {
@@ -281,7 +288,11 @@ Value OnnxBuilder::pad(
 }
 
 Value OnnxBuilder::padZero(Value input, Value pads) const {
-  return pad(input, pads, b().create<ONNXNoneOp>(loc()), "constant");
+  return pad(input, pads, ONNXNoneOp::create(b(), loc()), "constant");
+}
+
+Value OnnxBuilder::pow(Value input, Value exp) const {
+  return createOpAndInferShapes<ONNXPowOp>(toTensor(input), toTensor(exp));
 }
 
 Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,
@@ -344,7 +355,7 @@ Value OnnxBuilder::reverseSequence(Type outputType, Value input,
 
 Value OnnxBuilder::round(Value input, bool scalarType) const {
   if (scalarType)
-    return b().create<ONNXRoundOp>(loc(), input.getType(), input);
+    return ONNXRoundOp::create(b(), loc(), input.getType(), input);
   else
     return createOpAndInferShapes<ONNXRoundOp>(
         toTensor(input.getType()), toTensor(input));
@@ -377,9 +388,9 @@ Value OnnxBuilder::shape(
 }
 
 // Get the shape of an input and perform a permutation on it. Perm values are
-// in the range [0, rank(input)). Type is inferred. Operation get the dimensions
-// using onnx.dim and use onnx.concat to place the right value at the right
-// position.
+// in the range [-rank(input), rank(input)). Type is inferred. Operation get the
+// dimensions using onnx.dim and use onnx.concat to place the right value at the
+// right position.
 Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
   ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   int64_t inputRank = inputType.getRank();
@@ -391,7 +402,7 @@ Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
     // Static, no need to create dims. Gather shapes into a constant array.
     llvm::SmallVector<int64_t, 4> permutedShapes;
     for (int64_t p = 0; p < permRank; ++p) {
-      int64_t d = perm[p];
+      int64_t d = perm[p] < 0 ? perm[p] + inputRank : perm[p];
       assert(d >= 0 && d < inputRank &&
              "perm values expected in [0..rank(input))");
       permutedShapes.emplace_back(inputShape[d]);
@@ -401,10 +412,61 @@ Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm) const {
   // Dynamic shape: create the dims as needed and gather values in a concat.
   llvm::SmallVector<Value, 4> permutedDims;
   for (int64_t p = 0; p < permRank; ++p) {
-    int64_t d = perm[p];
+    int64_t d = perm[p] < 0 ? perm[p] + inputRank : perm[p];
     assert(
         d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
     permutedDims.emplace_back(dim(input, d));
+  }
+  Type outputType = RankedTensorType::get({permRank}, b().getI64Type());
+  return concat(outputType, permutedDims, 0);
+}
+
+Value OnnxBuilder::shape(Value input, mlir::ArrayRef<int64_t> perm,
+    mlir::ArrayRef<int64_t> unsqueezed) const {
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+  int64_t inputRank = inputType.getRank();
+  auto inputShape = inputType.getShape();
+  int64_t permRank = perm.size();
+  int64_t unsqueezeRank = unsqueezed.size();
+  int64_t outputShapeRank = permRank + unsqueezeRank;
+  bool isStatic = llvm::none_of(
+      inputShape, [](int64_t d) { return ShapedType::isDynamic(d); });
+  if (isStatic) {
+    // Static, no need to create dims. Gather shapes into a constant array.
+    llvm::SmallVector<int64_t, 4> permutedShapes;
+    int64_t p = 0;
+    for (int64_t o = 0; o < outputShapeRank; ++o) {
+      if (std::find(unsqueezed.begin(), unsqueezed.end(), o) !=
+          unsqueezed.end()) {
+        // Has an unsqueeze axis, add dim 1.
+        permutedShapes.emplace_back(1);
+        continue;
+      }
+      // not an unsqueeze:
+      int64_t d = perm[p] < 0 ? perm[p] + inputRank : perm[p];
+      assert(d >= 0 && d < inputRank &&
+             "perm values expected in [0..rank(input))");
+      permutedShapes.emplace_back(inputShape[d]);
+      ++p;
+    }
+    assert(p == permRank && "something wrong happened");
+    return constantInt64(permutedShapes);
+  }
+  // Dynamic shape: create the dims as needed and gather values in a concat.
+  llvm::SmallVector<Value, 4> permutedDims;
+  int64_t p = 0;
+  for (int64_t o = 0; o < permRank; ++o) {
+    if (std::find(unsqueezed.begin(), unsqueezed.end(), o) !=
+        unsqueezed.end()) {
+      // Has an unsqueeze axis, add dim 1.
+      permutedDims.emplace_back(constantInt64({1}));
+      continue;
+    }
+    int64_t d = perm[p] < 0 ? perm[p] + inputRank : perm[p];
+    assert(
+        d >= 0 && d < inputRank && "perm values expected in [0..rank(input))");
+    permutedDims.emplace_back(dim(input, d));
+    ++p;
   }
   Type outputType = RankedTensorType::get({permRank}, b().getI64Type());
   return concat(outputType, permutedDims, 0);
@@ -479,8 +541,7 @@ Value OnnxBuilder::toTensor(Value input) const {
          "expect RankedMemref type when not a TensorType");
   auto aTensorTy = toTensor(input.getType());
   // No shape inference for this op.
-  return b()
-      .create<UnrealizedConversionCastOp>(loc(), aTensorTy, input)
+  return UnrealizedConversionCastOp::create(b(), loc(), aTensorTy, input)
       .getResult(0);
 }
 
@@ -497,7 +558,7 @@ TensorType OnnxBuilder::toTensor(Type input) const {
   return RankedTensorType::get(aTy.getShape(), elementTy);
 }
 
-TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
+SmallVector<Type, 4> OnnxBuilder::toTensors(TypeRange inputs) const {
   if (llvm::all_of(inputs, [](Type t) { return (mlir::isa<TensorType>(t)); }))
     return inputs;
   assert(llvm::all_of(inputs, [](Type t) {
@@ -512,7 +573,7 @@ TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
     }
     resultTypes.emplace_back(RankedTensorType::get(aTy.getShape(), elementTy));
   }
-  return TypeRange(resultTypes);
+  return resultTypes;
 }
 
 Value OnnxBuilder::toMemref(Value input) const {
@@ -523,8 +584,7 @@ Value OnnxBuilder::toMemref(Value input) const {
   auto aTy = mlir::cast<ShapedType>(input.getType());
   auto aTensorTy = MemRefType::get(aTy.getShape(), aTy.getElementType());
   // No shape inference for this op.
-  return b()
-      .create<UnrealizedConversionCastOp>(loc(), aTensorTy, input)
+  return UnrealizedConversionCastOp::create(b(), loc(), aTensorTy, input)
       .getResult(0);
 }
 
@@ -580,25 +640,49 @@ Value OnnxBuilder::reshapeToNDim(
   int64_t end = collapseMostSignificant ? rank : N - 1;      // Exclusive.
   Value keepVals =
       slice(keepShapeType, inputShapeVals, start, end, /*steps*/ 1);
-  // Concat -1 and keep vals
+  // Compute the new collapsed dim if the old dims are static.
+  // Otherwise, concat -1 and keep vals
   Value newShapeVals;
-  if (collapseMostSignificant)
+  bool isStatic = true;
+  int64_t collapsedDim = 1;
+  if (collapseMostSignificant) {
     // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
+    for (int64_t i = 0; i < start; ++i) {
+      if (ShapedType::isDynamic(inputShape[i])) {
+        isStatic = false;
+        break;
+      }
+      collapsedDim *= inputShape[i];
+    }
+    Value collapsedVal = minusOneVal;
+    if (isStatic)
+      collapsedVal = constantInt64({collapsedDim});
     newShapeVals =
-        concat(outputShapeType, ValueRange({minusOneVal, keepVals}), 0);
-  else
+        concat(outputShapeType, ValueRange({collapsedVal, keepVals}), 0);
+  } else {
     // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
+    for (int64_t i = end; i < rank; ++i) {
+      if (ShapedType::isDynamic(inputShape[i])) {
+        isStatic = false;
+        break;
+      }
+      collapsedDim *= inputShape[i];
+    }
+    Value collapsedVal = minusOneVal;
+    if (isStatic)
+      collapsedVal = constantInt64({collapsedDim});
     newShapeVals =
-        concat(outputShapeType, ValueRange({keepVals, minusOneVal}), 0);
+        concat(outputShapeType, ValueRange({keepVals, collapsedVal}), 0);
+  }
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
   llvm::SmallVector<int64_t, 4> outputDims;
   if (collapseMostSignificant)
-    outputDims.emplace_back(ShapedType::kDynamic);
+    outputDims.emplace_back(isStatic ? collapsedDim : ShapedType::kDynamic);
   for (int i = start; i < end; ++i)
     outputDims.emplace_back(inputShape[i]);
   if (!collapseMostSignificant)
-    outputDims.emplace_back(ShapedType::kDynamic);
+    outputDims.emplace_back(isStatic ? collapsedDim : ShapedType::kDynamic);
   Type outputType = RankedTensorType::get(outputDims, elementType);
   return reshape(outputType, val, newShapeVals);
 }
@@ -619,9 +703,8 @@ Value OnnxBuilder::foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter,
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
     return create.onnx.constant(squeezedElements);
   } else {
-    return rewriter
-        .create<ONNXSqueezeOp>(loc, tensorType, create.onnx.toTensor(input),
-            create.onnx.constantInt64({axis}))
+    return ONNXSqueezeOp::create(rewriter, loc, tensorType,
+        create.onnx.toTensor(input), create.onnx.constantInt64({axis}))
         .getResult();
   }
 }
@@ -639,9 +722,8 @@ Value OnnxBuilder::foldOrEmitONNXSqueezeV11Op(
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
     return create.onnx.constant(squeezedElements);
   } else {
-    return rewriter
-        .create<ONNXSqueezeV11Op>(loc, tensorType, create.onnx.toTensor(input),
-            rewriter.getI64ArrayAttr(axis))
+    return ONNXSqueezeV11Op::create(rewriter, loc, tensorType,
+        create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
         .getResult();
   }
 }
@@ -659,9 +741,8 @@ Value OnnxBuilder::foldOrEmitONNXUnsqueezeOp(
     DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
     return create.onnx.constant(unsqueezedElements);
   } else {
-    return rewriter
-        .create<ONNXUnsqueezeOp>(loc, tensorType, create.onnx.toTensor(input),
-            create.onnx.constantInt64({axis}))
+    return ONNXUnsqueezeOp::create(rewriter, loc, tensorType,
+        create.onnx.toTensor(input), create.onnx.constantInt64({axis}))
         .getResult();
   }
 }
@@ -679,9 +760,8 @@ Value OnnxBuilder::foldOrEmitONNXUnsqueezeV11Op(
     DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
     return create.onnx.constant(unsqueezedElements);
   } else {
-    return rewriter
-        .create<ONNXUnsqueezeV11Op>(loc, tensorType,
-            create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
+    return ONNXUnsqueezeV11Op::create(rewriter, loc, tensorType,
+        create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
         .getResult();
   }
 }
@@ -721,7 +801,7 @@ std::vector<Value> OnnxBuilder::foldOrEmitONNXSplitOp(
       splitSizesI64.emplace_back(mlir::cast<ShapedType>(t).getShape()[axis]);
     }
     Value splitSizes = create.onnx.constantInt64(splitSizesI64);
-    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, convertedTypes,
+    ONNXSplitOp split = ONNXSplitOp::create(rewriter, loc, convertedTypes,
         create.onnx.toTensor(input), splitSizes,
         /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
@@ -764,7 +844,7 @@ std::vector<Value> OnnxBuilder::foldOrEmitONNXSplitV11Op(
     for (auto t : resultTypes) {
       convertedTypes.emplace_back(create.onnx.toTensor(t));
     }
-    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
+    ONNXSplitV11Op split = ONNXSplitV11Op::create(rewriter, loc, convertedTypes,
         create.onnx.toTensor(input),
         /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
@@ -794,11 +874,32 @@ Value OnnxBuilder::foldOrEmitONNXTransposeOp(
         elementsBuilder.toDenseElementsAttr(transposedElements);
     return create.onnx.constant(denseTransposedElements);
   } else {
-    return rewriter
-        .create<ONNXTransposeOp>(loc, create.onnx.toTensor(resultType),
-            create.onnx.toTensor(input), permAttr)
+    return ONNXTransposeOp::create(rewriter, loc,
+        create.onnx.toTensor(resultType), create.onnx.toTensor(input), permAttr)
         .getResult();
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Helper for quantization
+//===----------------------------------------------------------------------===//
+Value OnnxBuilder::getOrCastToI8(Value val, bool simpleCast) {
+  if (!getElementType(val.getType()).isUnsignedInteger())
+    return val;
+
+  Type i8Ty = b().getI8Type();
+  if (simpleCast)
+    return cast(val, i8Ty);
+
+  // Use int16 to avoid integer overflow.
+  Type i16Ty = b().getI16Type();
+  auto cst128Attr = DenseElementsAttr::get(
+      RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
+  Value cst128 = constant(cst128Attr);
+  Value valI16 = cast(val, i16Ty);
+  valI16 = sub(valI16, cst128);
+  Value valI8 = cast(valI16, i8Ty);
+  return valI8;
 }
 
 // =============================================================================

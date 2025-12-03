@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 
+#include "mlir/Pass/Pass.h"
 #include "llvm/ADT/ArrayRef.h"
 
 namespace mlir {
@@ -45,6 +46,9 @@ std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
 
+std::unique_ptr<mlir::Pass> createReplaceOpWithItsOperandPass(
+    std::vector<std::string> nodeNameRegexList);
+
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
@@ -63,7 +67,7 @@ std::unique_ptr<mlir::Pass> createInstrumentCleanupPass();
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
-    const std::string pattern);
+    const std::string opPattern, const std::string nodePattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
@@ -128,5 +132,26 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
+// Get the function that creates the pass for pass manager.
+// This function has the name of createPassName(), created from Passes.td.
+// For buffer omploop hoisting pass, it is crateBufferOMPLoopHoisting()
+// This function is the only globally visible function for the pass, and
+// is defined at the end of the pass implementation file.
+#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTING
+#include "src/Transform/Passes.h.inc"
+
+// The function registerTransformsPasses() is generated from Passes.td and used
+// to register th pass for onnx-mlir-opt. Different Passes.td will generate the
+// same name function. They have to be put into different name space to be
+// distinguished.
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+
 } // namespace onnx_mlir
+
+/*
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+*/
+
 #endif

@@ -10,13 +10,20 @@
 # 1) script run in the onnx-mlir/build subdir. 
 # 2) llvm-project is built with all its libraries (needed to run the tool)
 
-# ask git for the onnx-mlir top level dir
-ONNX_MLIR=$(git rev-parse --show-toplevel)
-if [ $(realpath $(pwd)) != $ONNX_MLIR/build ] ; then
-  echo "Error: this script must be run from the build dir $ONNX_MLIR/build"
-  exit 1
+if [ -z $ONNX_MLIR_HOME ]; then
+  # The build path of onnx-mlir is not provided
+  # ask git for the onnx-mlir top level dir
+  ONNX_MLIR=$(git rev-parse --show-toplevel)
+  if [ $(realpath $(pwd)) != $ONNX_MLIR/build ] ; then
+    echo "Error: this script must be run from the build dir $ONNX_MLIR/build"
+    exit 1
+  fi
+  ONNX_MLIR_BIN=$ONNX_MLIR/build/Debug/bin
+else
+  # ONNX_MLIR_HOME should be onnx-mlir/build/Debug according to RunONNXModel.py
+  ONNX_MLIR_BIN=$ONNX_MLIR_HOME/bin
+  ONNX_MLIR=$ONNX_MLIR_HOME/../..
 fi
-ONNX_MLIR_BIN=$ONNX_MLIR/build/Debug/bin
 
 if [ -z $LLVM_PROJECT ] ; then
   if [ $MLIR_DIR ] ; then
@@ -30,20 +37,28 @@ fi
 
 if [ "$#" -eq 0 ] ; then
   echo "Compiling run-onnx-lib for dynamically linked models passed at runtime"
-elif  [ "$#" -eq 1 ] ; then
+  RUN_BIN=$ONNX_MLIR_BIN/run-onnx-lib
+else
+  # Check .so exists
   if [ -e $1 ] ; then
     echo "Compiling run-onnx-lib statically linked to model $1"
   else
     echo "Error: could not find model $1"
     exit 1
   fi
-else
-  echo "Error: pass either zero/one argument for dynamically/statically linked models"
-  exit 1
+  # User specified destination?
+  if  [ "$#" -eq 1 ] ; then
+    RUN_BIN=$ONNX_MLIR_BIN/run-onnx-lib
+  elif [ "$#" -eq 2] ; then
+    RUN_BIN=$2
+  else
+    echo "Error: pass either zero/one/two argument for dynamically/statically linked models and output"
+    exit 1
+  fi
+  echo "Built binary will be created at $RUN_BIN"
 fi
 
 DRIVER_NAME=$ONNX_MLIR/utils/RunONNXLib.cpp
-RUN_BIN=$ONNX_MLIR_BIN/run-onnx-lib
 RUN_BIN_RELATIVE=${RUN_BIN#$(pwd)/}
 g++ -g $DRIVER_NAME -o $RUN_BIN -std=c++17 -D LOAD_MODEL_STATICALLY=$# \
 -I $LLVM_PROJECT/llvm/include -I $LLVM_PROJECT/build/include \

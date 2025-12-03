@@ -184,8 +184,10 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
-  // onnxop: list of versions for dialect
+  // onnxop: list of versions supported by onnx-mlir for dialect
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
+  // onnxop: list of versions for dialect
+  std::map<std::string, std::vector<int>> op_opsets_map_;
   // onnxop: the top version in third_part/onnx
   std::map<std::string, int> op_dialect_top_version_map_;
 
@@ -226,7 +228,7 @@ private:
   }
 
   Value createNoneValue() {
-    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+    return ONNXNoneOp::create(builder_, UnknownLoc()).getResult();
   }
 
   Value createConstantValue(ElementsAttr value, Location loc) {
@@ -591,10 +593,10 @@ private:
     }
 
     if (useReturn)
-      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
+      ONNXReturnOp::create(builder_, UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
+      ONNXYieldOp::create(builder_, UnknownLoc(), retVals);
 
     SmallVector<llvm::StringRef> inputDimParamsRefs, outputDimParamsRefs;
     for (uint64_t i = 0; i < inputDimParams.size(); ++i)
@@ -814,7 +816,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    T op = builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
+    T op =
+        T::create(builder_, ImportLoc(node), outputTypes, inputs, attributes);
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
@@ -1130,38 +1133,74 @@ private:
     if (current_opset_it == opset_map_.end())
       return "";
 
-    int current_opset = current_opset_it->second;
+    const int current_opset = current_opset_it->second;
 
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
 
-    auto opset_list_it = op_dialect_version_map_.find(node.op_type());
+    const auto supported_opset_list_it =
+        op_dialect_version_map_.find(node.op_type());
+    const auto opset_list_it = op_opsets_map_.find(node.op_type());
 
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
-    if (opset_list_it == op_dialect_version_map_.end())
+    if (supported_opset_list_it == op_dialect_version_map_.end() ||
+        opset_list_it == op_opsets_map_.end())
       return "";
 
-    auto opset_list = opset_list_it->second;
+    // To determine the opset version for a node/op:
+    // 1: Determine the latest valid opset version. This is the newest version
+    // in this opset-version-map that is older or equal to the current graph
+    // opset. 2:_ Select the newest version from the versions supported by
+    // onnx-mlir that is equal or newer to the latest valid opset version. This
+    // allows it to skip over opset versions, that have a newer backwards
+    // compatible version.
+    // Example:
+    // Versions in onnx and supported by onnx-mlir:[3, 5].
+    // Graph opset version to node version: 3 -> 3, 4 -> 3, 5 -> 5
+    //
+    // Versions in onnx: [7, 9, 10].
+    // Version 10 is backwards compatible to version 9.
+    // Version supported by onnx-mlir: [7, 10].
+    // Graph opset version to node version: 7 -> 7, 8 -> 7, 9 -> 10, 10 -> 10
 
-    // A new opset is added to onnx-mlir when it becomes imcompactible.
-    // But the lowest opset in op_dialect_version_map_ is an exception.
-    // It is the current opset when onnx-mlir project is started.
-    // All opset lower than the last opset should use the last opset(version)
+    // Get the newest opset version for the op that is older or equal to the
+    // model opset version. Use the oldest version as fallback
+    int newestValidOpsetVersion = opset_list_it->second.back();
+    for (int opset : opset_list_it->second) {
+      if (opset <= current_opset) {
+        newestValidOpsetVersion = opset;
+        break;
+      }
+    }
+
+    const auto supported_opset_list = supported_opset_list_it->second;
+
+    // A new opset is added to onnx-mlir when it becomes incompatible.
+    // All opset newest than the last opset should use the last opset(version)
     if (node.domain().compare("ai.onnx.ml") != 0 &&
-        current_opset < opset_list.back() &&
-        current_opset < MINIMUM_SUPPORTED_OPSET)
+        newestValidOpsetVersion < supported_opset_list.back() &&
+        newestValidOpsetVersion < MINIMUM_SUPPORTED_OPSET)
       llvm::outs() << "\nWarning: ONNX " << node.op_type()
-                   << " in your model is using Opset " << current_opset
+                   << " in your model is using Opset "
+                   << newestValidOpsetVersion
                    << ", which is quite old. Please consider regenerating your "
                       "model with a newer Opset.\n\n";
 
-    for (int i = opset_list.size() - 1; i > 0; i--) {
-      if (current_opset < opset_list[i - 1]) {
-        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
-                                << opset_list[i] << "\n");
-        return "V" + std::to_string(opset_list[i]);
+    if (newestValidOpsetVersion >= supported_opset_list.front())
+      return ""; // Use the newest version
+
+    // Iterate over all supported opsets, starting with the oldest version.
+    // Select the oldest version that is the same or newer as the version the
+    // model uses. Special case: The newest supported version has no version
+    // suffix
+    for (int opset : llvm::reverse(supported_opset_list)) {
+      if (opset >= newestValidOpsetVersion &&
+          opset != supported_opset_list.front()) {
+        LLVM_DEBUG(
+            llvm::dbgs() << DEBUG_TYPE << ":   - use Opset " << opset << "\n");
+        return "V" + std::to_string(opset);
       }
     }
     return "";
@@ -1420,9 +1459,15 @@ private:
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       Type outTy = ImportType(output.type(), dim_params);
-      if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
-        outTy = UnrankedTensorType::get(
-            mlir::cast<TensorType>(outTy).getElementType());
+      if (!options_.useOnnxModelTypes ||
+          std::getenv("IMPORTER_FORCE_DYNAMIC")) {
+        // Donot use an unranked tensor type for a custom op, since
+        // shape inference for the custom op may not work.
+        ONNXCustomOp customOp = val.getDefiningOp<ONNXCustomOp>();
+        if (!customOp)
+          outTy = UnrankedTensorType::get(
+              mlir::cast<TensorType>(outTy).getElementType());
+      }
       if (output.type().tensor_type().has_shape()) {
         val.setType(outTy);
       }

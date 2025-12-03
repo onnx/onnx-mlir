@@ -8,6 +8,8 @@
 //
 // Defines ZLow Dialect operations.
 //
+// When updating, run `make onnx-mlir-docs` to update the docs.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ZLOW_OPS
@@ -132,9 +134,9 @@ def ZLowInvSqrtOp:ZLow_Op<"invsqrt", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a invsqrt.
   }];
-  let arguments = (ins ZMemRef:$X,
-                       MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+  let arguments = (ins Arg<ZMemRef, "", [MemRead]>:$X,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+                       Arg<ZMemRef, "", [MemWrite]>:$Out,
                        StrAttr:$layout);
 }
 
@@ -170,9 +172,9 @@ def ZLowLeakyReluOp:ZLow_Op<"leakyrelu", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a leakyrelu.
   }];
-  let arguments = (ins ZMemRef:$X,
-                       MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+  let arguments = (ins Arg<ZMemRef, "", [MemRead]>:$X,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+                       Arg<ZMemRef, "", [MemWrite]>:$Out,
                        DefaultValuedAttr<F32Attr, "0.01">:$alpha,
                        StrAttr:$layout);
 }
@@ -194,9 +196,9 @@ def ZLowGeluOp:ZLow_Op<"gelu", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a gelu.
   }];
-  let arguments = (ins ZMemRef:$X,
-                       MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+  let arguments = (ins Arg<ZMemRef, "", [MemRead]>:$X,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+                       Arg<ZMemRef, "", [MemWrite]>:$Out,
                        StrAttr:$layout);
 }
 
@@ -244,9 +246,9 @@ def ZLowSqrtOp:ZLow_Op<"sqrt", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a sqrt.
   }];
-  let arguments = (ins ZMemRef:$X,
-                       MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+  let arguments = (ins Arg<ZMemRef, "", [MemRead]>:$X,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+                       Arg<ZMemRef, "", [MemWrite]>:$Out,
                        StrAttr:$layout);
 }
 
@@ -255,10 +257,10 @@ def ZLowReduceMaxOp:ZLow_Op<"reducemax", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a reducemax.
   }];
-  let arguments = (ins ZMemRef:$X,
-                       MemRefOf<[I8]>:$work_area,
-                       MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+  let arguments = (ins Arg<ZMemRef, "", [MemRead]>:$X,
+                       Arg<MemRefOf<[I8]>, "", [MemRead]>:$work_area,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+                       Arg<ZMemRef, "", [MemWrite]>:$Out,
                        StrAttr:$layout);
 }
 
@@ -267,10 +269,10 @@ def ZLowReduceMinOp:ZLow_Op<"reducemin", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a reducemin.
   }];
-  let arguments = (ins ZMemRef:$X,
-                       MemRefOf<[I8]>:$work_area,
-                       MemRefOf<[I64]>:$shape,
-                       ZMemRef:$Out,
+  let arguments = (ins Arg<ZMemRef, "", [MemRead]>:$X,
+                       Arg<MemRefOf<[I8]>, "", [MemRead]>:$work_area,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+		       Arg<ZMemRef, "", [MemWrite]>:$Out,
                        StrAttr:$layout);
 }
 
@@ -335,12 +337,20 @@ def ZLowQuantizedMatMulOp:ZLow_Op<"quantizedMatmul", [MemRefsNormalizable]> {
   Values for `q_type` are "DLFLOAT16", "INT8", "WEIGHTS", "UNDEFINED".
 
   }];
-  let arguments = (ins ZQMemRef:$X, ODMemRefF32:$x_rec_scale, ODMemRefF32:$x_offset,
-                       ZQMemRef:$Y, ODMemRefF32:$y_rec_scale, ODMemRefF32:$y_offset,
-                       ZQMemRef:$Bias, ODMemRefF32:$bias_rec_scale, ODMemRefF32:$bias_offset,
-                       AnyTypeOf<[ZQMemRef, NoneType]>:$work_area,
-                       MemRefOf<[I64]>:$shape,
-                       ZQMemRef:$Out, ODMemRefF32:$out_rec_scale, ODMemRefF32:$out_offset,
+  let arguments = (ins Arg<ZQMemRef, "", [MemRead]>:$X,
+                       Arg<ODMemRefF32, "", [MemRead]>:$x_rec_scale,
+                       Arg<ODMemRefF32, "", [MemRead]>:$x_offset,
+                       Arg<ZQMemRef, "", [MemRead]>:$Y,
+                       Arg<ODMemRefF32, "", [MemRead]>:$y_rec_scale,
+                       Arg<ODMemRefF32, "", [MemRead]>:$y_offset,
+                       Arg<ZQMemRef, "", [MemRead]>:$Bias,
+                       Arg<ODMemRefF32, "", [MemRead]>:$bias_rec_scale,
+                       Arg<ODMemRefF32, "", [MemRead]>:$bias_offset,
+                       Arg<AnyTypeOf<[ZQMemRef, NoneType]>, "", [MemRead, MemWrite]>:$work_area,
+                       Arg<MemRefOf<[I64]>, "", [MemRead]>:$shape,
+                       Arg<ZQMemRef, "", [MemWrite]>:$Out, 
+                       Arg<ODMemRefF32, "", [MemWrite]>:$out_rec_scale,
+                       Arg<ODMemRefF32, "", [MemWrite]>:$out_offset,
                        StrAttr:$x_q_type,
                        StrAttr:$y_q_type,
                        StrAttr:$bias_q_type,
@@ -418,12 +428,17 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow stick operation";
   let description = [{
-  "ZLow operation to perform a stick."
+    ZLow operation to perform a stick.
+
+    Optional `no_saturation` indicates whether the CPU tensor is saturated before stickification
+    or not. If it is saturated, the dlfloat16 range would be used.
+    Saturation on if `no_saturation == 0`. Otherwise, it is off.
+    If `no_saturation` attribute is absent, default value is 0 (saturation on).
   }];
   let arguments = (ins MemRefOf<[F16, F32]>:$X,
                        ZMemRef:$Out,
                        OptionalAttr<StrAttr>:$layout,
-                       OptionalAttr<SI64Attr>:$saturation);
+                       OptionalAttr<SI64Attr>:$no_saturation);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
       build($_builder, $_state, X, Out, StringAttr(), IntegerAttr());
@@ -432,6 +447,7 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
       build($_builder, $_state, X, Out, layout, IntegerAttr());
     }]>
   ];
+  let hasCanonicalizer = 1;
 }
 
 def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable,
@@ -471,10 +487,10 @@ def ZLowQuantizedStickOp:ZLow_Op<"quantizedStick", [MemRefsNormalizable]> {
   "ZLow operation to perform a quantization stick."
   "Type is one of values: dlfloat16, int8, and weights."
   }];
-  let arguments = (ins MemRefOf<[I8, F32]>:$X,
-                       MemRefRankOf<[F32], [0]>:$rec_scale,
-                       MemRefRankOf<[F32], [0]>:$offset,
-                       ZQMemRef:$out,
+  let arguments = (ins Arg<MemRefOf<[I8, F32]>, "", [MemRead]>:$X,
+                       Arg<MemRefRankOf<[F32], [0]>, "", [MemRead]>:$rec_scale,
+                       Arg<MemRefRankOf<[F32], [0]>, "", [MemRead]>:$offset,
+                       Arg<ZQMemRef, "", [MemWrite]>:$out,
                        StrAttr:$layout,
                        StrAttr:$q_type);
   let hasVerifier = 1;
@@ -494,6 +510,7 @@ def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable,
       build($_builder, $_state, X, Out, StringAttr());
     }]>
   ];
+  let hasCanonicalizer = 1;
 }
 
 def ZLowConv2DOp:ZLow_Op<"conv2d", [MemRefsNormalizable,
@@ -695,7 +712,8 @@ def ZLowReshapeOp:ZLow_Op<"reshape", [MemRefsNormalizable]> {
   // Note that no shape is needed for this operation.
   let arguments = (ins ZMemRef:$X,
                        ZMemRef:$Out,
-                       StrAttr:$layout);
+                       StrAttr:$x_layout,
+                       StrAttr:$out_layout);
 }
 
 #endif // ZLOW_OPS

@@ -5,7 +5,7 @@
 # Copyright 2021-2024 The IBM Research Authors.
 #
 ################################################################################
-# commom class `PyOMRuntime` called by python scripts
+# Common class `PyOMRuntime` called by python scripts
 ################################################################################
 import numpy as np
 

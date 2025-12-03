@@ -432,19 +432,14 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   int64_t simdLoopStaticTripCount;
   bool simdOnly, canOverCompute = false;
   int64_t totVL =
-      computeSuitableUnrollFactor(inputType, collapsedInnermostLoops, mix,
+      computeSuitableSimdUnrollFactor(inputType, collapsedInnermostLoops, mix,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Test if loop trip count is long enough for a parallel execution.
   if (enableParallel) {
-    int64_t parId;
-    if (findSuitableParallelDimension({lb}, {ub}, 0, 1, parId, 32 * totVL)) {
-      onnxToKrnlParallelReport(
-          op, true, parId, lb, ub, "simd reduction to one element");
-    } else {
+    if (tryCreateKrnlParallel(create.krnl, op, "simd reduction to one element",
+            {}, {lb}, {ub}, 0, 1, {}, 32 * totVL,
+            /*createKrnlParallel=*/false) == -1)
       enableParallel = false;
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "not enough work in simd reduction to one element");
-    }
   }
   if (!enableParallel) {
     // Allocate temp and output memory
@@ -816,14 +811,14 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // partial vectors.
           GenOpMix mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
           bool canOverCompute = false;
-          totVL =
-              computeSuitableUnrollFactor(memRefInType, innermostLoopCollapse,
-                  mix, canOverCompute, simdLoopStaticTripCount, simdOnly);
+          totVL = computeSuitableSimdUnrollFactor(memRefInType,
+              innermostLoopCollapse, mix, canOverCompute,
+              simdLoopStaticTripCount, simdOnly);
           if (!hasHorizontalSimdSupport) {
             // When we don't have horizontal SIMD support, we use a code gen
             // scheme that relies on unrolling. So we don't want any unrollVL
             // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
-            totVL = capVLForMaxUnroll(memRefInType, totVL, 1);
+            totVL = capVLForMaxSimdUnroll(memRefInType, totVL, 1);
           }
 #if REDUCTION_MULTIPLE_OF_VL_ONLY
           // Currently fails with krnl to affine without this. Should
@@ -896,8 +891,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
                   cond, create.math.add(axe, dataDimConst), axe);
-              Value jVal = rewriter.create<arith::IndexCastOp>(
-                  loc, rewriter.getIndexType(), dim);
+              Value jVal = arith::IndexCastOp::create(
+                  rewriter, loc, rewriter.getIndexType(), dim);
               createKrnl.store(trueVal, maskVal, jVal);
             });
       } else {
@@ -910,8 +905,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value dim =
               create.math.select(cond, create.math.add(axe, dataDimConst), axe);
           create.math.select(cond, create.math.add(axe, dataDimConst), axe);
-          Value jVal = rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getIndexType(), dim);
+          Value jVal = arith::IndexCastOp::create(
+              rewriter, loc, rewriter.getIndexType(), dim);
           create.krnl.store(trueVal, maskVal, jVal);
         }
       }
@@ -1058,18 +1053,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> lbs3(outRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
-      if (enableParallel) {
-        int64_t parId;
-        if (findSuitableParallelDimension(lbs3, ubs3, 0, 1, parId,
-                /*min iter for going parallel*/ 4)) {
-          create.krnl.parallel(loop3Def[0]);
-          onnxToKrnlParallelReport(
-              op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
-        } else {
-          onnxToKrnlParallelReport(op, false, 0, lbs3[0], ubs3[0],
-              "not enough work in reduction scalar mean");
-        }
-      }
+      if (enableParallel)
+        tryCreateKrnlParallel(create.krnl, op, "reduction scalar mean",
+            loop3Def, lbs3, ubs3, 0, 1, {}, /*min iter for going parallel*/ 4);
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
           [&](const KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
@@ -1121,7 +1107,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       bool simdOnly) const {
     IndexExpr lb = LitIE(0);
     IndexExpr ub = SymIE(simdUB);
-    SmallVector<IndexExpr, 4> outputAF = SymListIE(outLoopInd);
+    SmallVector<IndexExpr, 4> outputAF = DimListIE(outLoopInd);
     SmallVector<IndexExpr, 4> inputAF = outputAF;
     inputAF.emplace_back(lb);
     SmallVector<IndexExpr, 4> tmpAF(2, lb); // tmpAlloc is 2D
@@ -1190,19 +1176,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
-    if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
-              /*min iter for going parallel*/ 128)) {
-        create.krnl.parallel(outLoopDef[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
-      } else {
-        enableParallel = false;
-        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
-            "not enough work for reduction h-simd");
-      }
-    }
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "reduction h-simd", outLoopDef,
+          lbs, flatOutDims, 0, 1, {}, /*min iter for going parallel*/ 128);
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
@@ -1210,7 +1186,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value tmpAlloc = create.mem.alignedAlloc(tmpType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
-          Value initVec = create.vec.splat(vecType, identity);
+          Value initVec = create.vec.broadcast(vecType, identity);
           genOneHorizontalSimdReduction(rewriter, create, op, elementType,
               vecType, tmpAlloc, flatInput, flatAlloc, initVec, divisorForMean,
               outLoopInd, simdUB, VL, simdOnly);
@@ -1245,11 +1221,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     IndexExpr lb = zero;
     IndexExpr ub = SymIE(simdUB);
     int64_t rank = blockedOutLoopInd.size();
-    DimsExpr inputAF = SymListIE(blockedOutLoopInd);
+    DimsExpr inputAF = DimListIE(blockedOutLoopInd);
     inputAF[rank - 1] = blockedCurrIndex;
     inputAF.emplace_back(zero);
     DimsExpr tmpAF = {zero, zero};
-    DimsExpr outputAF = SymListIE(blockedOutLoopInd);
+    DimsExpr outputAF = DimListIE(blockedOutLoopInd);
     Value identity = getIdentityValue<ONNXReductionOp>(
         rewriter, create.getLoc(), elementType);
     if (simdOnly) {
@@ -1345,17 +1321,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Iterate only over all but the inner loop of the flattened input.
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
     if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, flatOutDims, 0, flatOutRank, parId,
-              /*min iter for going parallel*/ 8 * VL)) {
-        create.krnl.parallel(optimizedOutLoopDef[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId],
-            flatOutDims[parId], "reduction shuffle h-simd");
-      } else {
-        enableParallel = false;
-        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
-            "not enough work for reduction shuffle h-simd");
-      }
+      tryCreateKrnlParallel(create.krnl, op, "reduction shuffle h-simd",
+          optimizedOutLoopDef, lbs, flatOutDims, 0, flatOutRank, {},
+          /*min iter for going parallel*/ 8 * VL);
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
@@ -1364,7 +1332,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value tmpBlockedAlloc = create.mem.alignedAlloc(tmpBlockedType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
-          Value initVec = create.vec.splat(vecType, identity);
+          Value initVec = create.vec.broadcast(vecType, identity);
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex =
               DimIE(blockedOutLoopInd[flatOutRank - 1]);

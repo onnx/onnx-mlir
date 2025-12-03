@@ -48,25 +48,22 @@
 #include "src/Support/SmallFPConversion.h"
 #endif
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__MVS__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
-// generated llvm IR, but it somehow doesn't come out of the box on MacOS.
-int *__attribute__((__weak__)) __errno_location(void) { return &errno; }
+// generated llvm IR, but it somehow doesn't come out of the box on MacOS or MVS.
+int *__errno_location(void) { return &errno; }
 #endif
 
 #ifdef ENABLE_PYRUNTIME_LIGHT
 // The implementation depends on src/Utility and llvm. Will be solved in
 // another PR. Here are just dummy definitions for compilation
-float om_f16_to_f32(uint16_t a) {
-  return (float) 0;
-}
+float om_f16_to_f32(uint16_t a) { return (float)0; }
 
-uint16_t  om_f32_to_f16(uint16_t a) {
-  return (uint16_t) 0;
-}
+uint16_t om_f32_to_f16(uint16_t a) { return (uint16_t)0; }
 #endif
 
-
+#define OM_DRIVER_TIMING 1
+#include "src/Runtime/OMInstrumentHelper.h"
 
 // On some platforms LLVM generates f16 conversion code that calls some
 // of these C runtime functions.
@@ -267,11 +264,15 @@ void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
   if (tensor->_owning) {
+    TIMING_INIT_START(tensor_destroy_ptr);
     free(tensor->_allocatedPtr);
+    TIMING_STOP_PRINT(tensor_destroy_ptr);
   }
+  TIMING_INIT_START(tensor_destroy_struct);
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
+  TIMING_STOP_PRINT(tensor_destroy_struct);
 }
 
 /* OMTensor data getter */
@@ -496,7 +497,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 /* Helper macros to print data for 1-4D tensors  */
 #define LOOP_1(INDEX, IV, UB)                                                  \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                  \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -507,7 +508,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_2(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                  \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -517,7 +518,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_3(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                  \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -527,7 +528,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_4(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                  \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -537,7 +538,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_5(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                 \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                  \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -547,7 +548,7 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 #define LOOP_6(INDEX, IV, UB, ...)                                             \
   fprintf(fout, "[");                                                          \
-  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                 \
+  for (int64_t IV = 0; (IV) < (UB); ++(IV)) {                                  \
     if (IV)                                                                    \
       fprintf(fout, ", ");                                                     \
     indexes[(INDEX)] = (IV);                                                   \
@@ -587,7 +588,8 @@ static void printData(FILE *fout, const OMTensor *tensor) {
   } break;
   case 6: {
     int64_t indexes[6];
-    LOOP_6(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3],  m, shape[4],  n, shape[5])
+    LOOP_6(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3], m, shape[4],
+        n, shape[5])
   } break;
   default:
     assert(false && "not implemented");

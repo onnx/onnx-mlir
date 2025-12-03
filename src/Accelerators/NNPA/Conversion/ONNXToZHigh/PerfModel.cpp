@@ -16,6 +16,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -121,6 +122,7 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
   assert(aType && aType.hasRank() && "expected shaped type with A rank");
   int64_t aRank = aType.getRank();
   llvm::ArrayRef<int64_t> aShape = aType.getShape();
+  // a => matrix A; B => the Batch dims (aka all but the last 2 dims).
   bool aBDynamic;
   int64_t aB = summarizeHigherDims(aShape, aRank - 2, aBDynamic);
   int64_t aNIndex = aTransposed ? aRank - 1 : aRank - 2;
@@ -132,6 +134,7 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
   assert(bType && bType.hasRank() && "expected shaped type with B rank");
   int64_t bRank = bType.getRank();
   llvm::ArrayRef<int64_t> bShape = bType.getShape();
+  // b => matrix B; B => the Batch dims (aka all but the last 2 dims).
   bool bBDynamic;
   int64_t bB = summarizeHigherDims(bShape, bRank - 2, bBDynamic);
   int64_t bMIndex = bTransposed ? bRank - 1 : bRank - 2;
@@ -202,10 +205,9 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
       msg += " Has broadcast.";
   });
 
-  // Handle case without broadcast. Right now, broadcast cases use the same
-  // method.
-  if (!hasBroadcast ||
-      hasBroadcast /* no perf measurement yet for broadcast case*/) {
+  // Handle case without broadcast (aka !hasBroadcast). Right now, broadcast
+  // cases (aka hasBroadcast) use the same method. So invoke in all cases.
+  if (/*!hasBroadcast || hasBroadcast */ true) {
     // For no broadcast, pick the largest B dimension.
     int64_t B = std::max(aB, bB);
     nnpaEstimatedTime = estimatedTimeForNNPA_MatMul_3ds(B, N, M, K);
@@ -314,6 +316,15 @@ void estimateTimeForOp<ONNXExpOp>(ONNXExpOp op, const DimAnalysis *dimAnalysis,
 }
 
 template <>
+void estimateTimeForOp<ONNXGeluOp>(ONNXGeluOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Gelu_3ds, estimatedTimeForNNPA_Gelu_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
+}
+
+template <>
 void estimateTimeForOp<ONNXLogOp>(ONNXLogOp op, const DimAnalysis *dimAnalysis,
     double &cpuEstimatedTime, double &nnpaEstimatedTime) {
   estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
@@ -402,7 +413,16 @@ double estimateTimeForStickOp(Value oper) {
   int64_t e4, e3, e2, e1;
   std::string msg;
   processDim(oper, e4, e3, e2, e1, msg);
-  return estimatedTimeForNNPA_Stick_3ds(e4 * e3, e2, e1);
+  // March 14, no NNPA support.
+  if (isLessEqualNNPALevel(NNPALevel::M14))
+    return arch14_estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+  // Else returns minimum between CPU and NNPA
+  if (isLessEqualNNPALevel(NNPALevel::M15)) {
+    double cpuTime = arch15_estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+    double nnpaTime = arch15_estimatedTimeForNNPA_Stick_3ds(e4 * e3, e2, e1);
+    return cpuTime < nnpaTime ? cpuTime : nnpaTime;
+  }
+  llvm_unreachable("add new NNPA architecture model here");
 }
 
 double estimateTimeForUnstickOp(Value oper) {
@@ -410,7 +430,16 @@ double estimateTimeForUnstickOp(Value oper) {
   int64_t e4, e3, e2, e1;
   std::string msg;
   processDim(oper, e4, e3, e2, e1, msg);
-  return estimatedTimeForNNPA_Unstick_3ds(e4 * e3, e2, e1);
+  // March 14, no NNPA support.
+  if (isLessEqualNNPALevel(NNPALevel::M14))
+    return arch14_estimatedTimeForCPU_Unstick_3ds(e4 * e3, e2, e1);
+  // Else returns minimum between CPU and NNPA
+  if (isLessEqualNNPALevel(NNPALevel::M15)) {
+    double cpuTime = arch15_estimatedTimeForCPU_Unstick_3ds(e4 * e3, e2, e1);
+    double nnpaTime = arch15_estimatedTimeForNNPA_Unstick_3ds(e4 * e3, e2, e1);
+    return cpuTime < nnpaTime ? cpuTime : nnpaTime;
+  }
+  llvm_unreachable("add new NNPA architecture model here");
 }
 
 bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
@@ -433,6 +462,8 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
   // Unary elementwise NNPA candidate ops.
   else if (auto expOp = mlir::dyn_cast<ONNXExpOp>(op))
     estimateTimeForOp(expOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto geluOp = mlir::dyn_cast<ONNXGeluOp>(op))
+    estimateTimeForOp(geluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto logOp = mlir::dyn_cast<ONNXLogOp>(op))
     estimateTimeForOp(logOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto reluOp = mlir::dyn_cast<ONNXReluOp>(op))

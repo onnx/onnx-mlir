@@ -14,10 +14,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -333,7 +335,8 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
-    Value input, int64_t axis, bool ascending) {
+    Value input, int64_t axis, bool ascending, std::optional<mlir::Value> K,
+    bool sorted) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
       MemRefBuilder>
       create(rewriter, loc);
@@ -366,8 +369,21 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending =
         create.math.constant(intType, static_cast<int64_t>(ascending));
-    SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
+
+    if (K.has_value()) {
+      // If K is provided, call omTensorTopK for partial sort (faster).
+      Value valK =
+          mlir::arith::IndexCastOp::create(rewriter, loc, intType, K.value());
+      Value valSorted =
+          create.math.constant(intType, static_cast<int64_t>(sorted));
+      SmallVector<Value, 6> operands = {
+          order, input, valAxis, valAscending, valK, valSorted};
+      KrnlCallOp::create(rewriter, loc, "omTensorTopK", 1, operands);
+    } else {
+      // Otherwise, call the original omTensorSort for a full sort.
+      SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+      KrnlCallOp::create(rewriter, loc, "omTensorSort", 1, operands);
+    }
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
@@ -410,6 +426,86 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
       });
 
   return order;
+}
+
+std::pair<mlir::Value, mlir::Value> emitTopK(
+    ConversionPatternRewriter &rewriter, Location loc, Value input,
+    MemRefType valuesMemRefType, MemRefType indicesMemRefType,
+    DimsExpr &outputDims, int64_t axis, bool ascending, Value K, bool sorted) {
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+      MemRefBuilder>
+      create(rewriter, loc);
+
+  MemRefType inputMemRefType = mlir::cast<MemRefType>(input.getType());
+  Type indexType = rewriter.getIndexType();
+  int64_t rank = inputMemRefType.getRank();
+  assert(axis >= 0 && axis < rank && "axis is out of bound");
+  LiteralIndexExpr zeroIE(0);
+
+  // This function only supports the fast path (omTensorTopK).
+  assert((rank <= 6) && (axis == (rank - 1)) &&
+         "emitTopK only supports rank <= 6 and axis == rank - 1");
+
+  // === Logic from emitArgSort ===
+
+  // Allocate the large, temporary index tensor (full input size).
+  SmallVector<IndexExpr, 4> fullLbs(rank, zeroIE);
+  SmallVector<IndexExpr, 4> fullUbs;
+  create.krnlIE.getShapeAsDims(input, fullUbs);
+  MemRefType tempOrderType =
+      MemRefType::get(inputMemRefType.getShape(), indexType);
+  Value tempOrder = create.mem.alignedAlloc(tempOrderType, fullUbs);
+
+  // Initialize the temporary tensor.
+  ValueRange initLoopDef = create.krnl.defineLoops(rank);
+  create.krnl.iterateIE(initLoopDef, initLoopDef, fullLbs, fullUbs,
+      [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+        // order[axis_0, ..., k, ...] = k
+        createKrnl.store(loopInd[axis], tempOrder, loopInd);
+      });
+
+  // Call omTensorTopK to partially sort the temporary tensor.
+  Type intType = rewriter.getIntegerType(64);
+  Value valAxis = create.math.constant(intType, axis);
+  Value valAscending =
+      create.math.constant(intType, static_cast<int64_t>(ascending));
+  Value valK = arith::IndexCastOp::create(rewriter, loc, intType, K);
+  Value valSorted = create.math.constant(intType, static_cast<int64_t>(sorted));
+  SmallVector<Value, 6> operands = {
+      tempOrder, input, valAxis, valAscending, valK, valSorted};
+  KrnlCallOp::create(rewriter, loc, "omTensorTopK", 1, operands);
+
+  // === Logic from TopK.cpp ===
+
+  // Allocate the final, small output tensors.
+  Value resMemRef = create.mem.alignedAlloc(valuesMemRefType, outputDims);
+  Value resIndexMemRef = create.mem.alignedAlloc(indicesMemRefType, outputDims);
+
+  // Perform the "gather" loop.
+  // This iterates <..., K, ...> times (using outputDims).
+  SmallVector<IndexExpr> zeroDims(rank, zeroIE);
+  ValueRange loopDef = create.krnl.defineLoops(rank);
+  create.krnl.iterateIE(loopDef, loopDef, zeroDims, outputDims,
+      [&](const KrnlBuilder &createKrnl, ValueRange resLoopInd) {
+        // Load the original index from the temporary tensor.
+        // resLoopInd is the loop index for the small tensor.
+        // where i is in [0, K). This works for loading from tempOrder.
+        Value original_index = createKrnl.load(tempOrder, resLoopInd);
+
+        // Access the original input value using the loaded index.
+        SmallVector<Value> valueAccessIndices(resLoopInd);
+        valueAccessIndices[axis] = original_index;
+        Value val = createKrnl.load(input, valueAccessIndices);
+
+        // Store value and index in the final small tensors.
+        createKrnl.store(val, resMemRef, resLoopInd);
+        Value original_index_i64 = arith::IndexCastOp::create(
+            rewriter, loc, indicesMemRefType.getElementType(), original_index);
+        createKrnl.store(original_index_i64, resIndexMemRef, resLoopInd);
+      });
+
+  // Return the final, small tensors.
+  return {resMemRef, resIndexMemRef};
 }
 
 /// This function returns a scalar of type 'dtype' from an optional value.
@@ -551,7 +647,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
     if (inputs.size() != 1)
       return Value();
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+    return UnrealizedConversionCastOp::create(builder, loc, resultType, inputs)
         .getResult(0);
   });
 
@@ -560,7 +656,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
     if (inputs.size() != 1)
       return Value();
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+    return UnrealizedConversionCastOp::create(builder, loc, resultType, inputs)
         .getResult(0);
   });
 }
@@ -606,7 +702,7 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
 // which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
 // requirement by definition. If found one, it is parDim and the function
-// returns true.
+// returns true. Otherwise parDim is unchanged.
 
 bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
@@ -618,8 +714,17 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     lastExclusiveDim = lb.size();
   for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
     IndexExpr tripCount = ub[i] - lb[i];
-    if (!tripCount.isLiteral() || tripCount.getLiteral() >= minSize) {
-      // Got one.
+    if (!tripCount.isLiteral()) {
+      // Got a dyn dim, assume will be large enough.
+      LLVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
+      parDim = i;
+      return true;
+    }
+    if (tripCount.getLiteral() >= minSize) {
+      // Got a literal dim with large enough trip count.
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Pick dim " << i << " as " << tripCount.getLiteral()
+                 << " greater than " << minSize << "\n");
       parDim = i;
       return true;
     }
@@ -627,12 +732,44 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
   return false;
 }
 
+int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
+    std::string msg, const ValueRange &loopDef, ArrayRef<IndexExpr> lbs,
+    ArrayRef<IndexExpr> ubs, int64_t firstInclusiveDim,
+    int64_t lastExclusiveDim, ArrayRef<int64_t> exclusiveDims, int64_t minSize,
+    bool createKrnlParallel) {
+  int64_t parId = -1;
+  if (findSuitableParallelDimension(
+          lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
+    if (!llvm::is_contained(exclusiveDims, parId)) {
+      if (createKrnlParallel) {
+        assert(parId <= (int64_t)loopDef.size() && "expected loop defs");
+        createKrnl.parallel(loopDef[parId]);
+      }
+      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
+      return parId;
+    }
+  }
+  onnxToKrnlParallelReport(
+      op, false, -1, -1, "no par dim with enough work in " + msg);
+  return -1;
+}
+
 //===----------------------------------------------------------------------===//
 // Support functions for simd.
 //===----------------------------------------------------------------------===//
 
+bool isOverComputeSafe(Operation *op) {
+  for (Value v : op->getOperands()) {
+    if (!v.getDefiningOp()) {
+      LLVM_DEBUG(llvm::dbgs() << "  overcompute not safe for this op\n";);
+      return false;
+    }
+  }
+  return true;
+}
+
 // New style.
-int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &genOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {
   // Default return values for no simd.
@@ -674,7 +811,7 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
                           << estimatedMaxVectorRegisterPressure << "\n");
 
   // Define a target max unroll as a function of register pressure.
-  int64_t unrollVL;
+  int64_t unrollVL = 1;
   int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
   if (estimatedMaxVectorRegisterPressure >= vrNum)
     unrollVL = 1;
@@ -693,8 +830,9 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
     totVL = archVL * unrollVL;
-    if (canOverCompute && staticSimdSize % totVL != 0) {
+    if (canOverCompute && staticSimdSize % totVL != 0 && archVL <= 16) {
       // Does not divide; since we can over compute, increase unrollVL by 1.
+      // Disable for very large archVL.
       LLVM_DEBUG(
           llvm::dbgs() << "  simd enable: can over compute, boost unrollVL\n");
       ++unrollVL;
@@ -730,7 +868,7 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
   return archVL * unrollVL;
 }
 
-int64_t capVLForMaxUnroll(
+int64_t capVLForMaxSimdUnroll(
     MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL) {
   if (totVL == 1)
     return 1; // Simd already disabled, nothing to cap.
@@ -746,7 +884,7 @@ int64_t capVLForMaxUnroll(
   return archVL * unrollVL;
 }
 
-int64_t boostVLForMinUnroll(
+int64_t boostVLForMinSimdUnroll(
     MemRefType memRefType, MemRefType convertedMemRefType, int64_t totVL) {
   if (totVL == 1)
     return 1; // Simd already disabled, nothing to cap.
@@ -790,7 +928,7 @@ int64_t capVLForSimdOnly(
 }
 
 // Old style.
-int64_t computeSuitableUnrollFactor(MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
@@ -844,6 +982,28 @@ int64_t computeSuitableUnrollFactor(MemRefType memRefType,
 }
 
 //===----------------------------------------------------------------------===//
+// Support for unrolling without leftovers.
+//===----------------------------------------------------------------------===//
+
+int64_t getNoLeftoverUnrollFactor(IndexExpr &lb, IndexExpr &ub,
+    int64_t unrollFactor, int64_t &literalTripCount) {
+  IndexExpr tripCount = ub - lb;
+  // Consider only literal trip counts.
+  if (!tripCount.isLiteral())
+    return 1;
+  literalTripCount = tripCount.getLiteral();
+  for (int64_t u = unrollFactor; u > 1; --u) {
+    if (literalTripCount % u == 0) {
+      // Found a suitable unroll factor that divides the trip count without
+      // without leftovers.
+      return u;
+    }
+  }
+  // None found;
+  return 1;
+}
+
+//===----------------------------------------------------------------------===//
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
@@ -880,6 +1040,77 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
       static_cast<long long int>(vectorLength),
       static_cast<long long int>(simdLoopTripCount));
+}
+
+// The Gather op is data dependent: the value of index should be
+// within the input data size.
+// Add runtime check if enableSafeCodeGen is set true
+// Implementation comments vs. createGenerateRuntimeVerificationPass
+// This check is according to onnx op semantics, not general bound
+// check for memref. Implementation of RuntimeVerification could be
+// borrowed. Slightly difference is that onnx semantics check is for
+// each dimension independently, not the final address is within
+// the memref bound.
+void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, Operation *op, Value data, Value indices,
+    int64_t axisLit) {
+  // Do nothing if not enabled
+  if (!enableSafeCodeGen)
+    return;
+
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+      MathBuilder>
+      create(rewriter, loc);
+
+  // Check all the element of indices
+  DimsExpr dataDims, indicesDims;
+  create.krnlIE.getShapeAsDims(data, dataDims);
+  create.krnlIE.getShapeAsDims(indices, indicesDims);
+  int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
+  ValueRange loopDef = create.krnl.defineLoops(indicesRank);
+  LiteralIndexExpr zeroIE(0);
+  DimsExpr lbs(indicesRank, zeroIE);
+  create.krnl.iterateIE(loopDef, loopDef, lbs, indicesDims,
+      [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+        IndexExprScope innerLoopScope(createKrnl);
+
+        // Access function for indices
+        DimsExpr accessFct;
+        getIndexExprList<DimIndexExpr>(loopInd, accessFct);
+        // Compute index = indices[i][j]...[n]
+        Value indexVal = createKrnl.loadIE(indices, accessFct);
+        IndexExpr index = NonAffineIndexExpr(indexVal);
+
+        // index should be in range of [-r, r-1], where r = dim size of
+        // data[axis].
+        // Assume that the index is loaded from tensor with negative value
+        // correction.
+        DimIndexExpr axisDim(dataDims[axisLit]);
+        Value errorCondition =
+            ((index < (-1) * axisDim) | (index >= axisDim)).getValue();
+        scf::IfOp::create(
+            rewriter, loc, errorCondition,
+            /*thenBuilder=*/
+            [&](OpBuilder &thenBuilder, Location thenLoc) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                  thenBuilder, loc);
+              std::string nodeNameStr = "Warning: ";
+              nodeNameStr += op->getName().getStringRef().str() + " ";
+              StringAttr nodeName =
+                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+              if (nodeName && !nodeName.getValue().empty()) {
+                nodeNameStr += nodeName.getValue().str();
+              }
+              std::string msg = nodeNameStr +
+                                ": Value of indices is out of bound. " +
+                                "The out-of-bound indices value is: ";
+              create.krnl.printf(msg, indexVal, true);
+              msg = "The out-of-bound index is replaced with zero.\n";
+              create.krnl.printf(msg);
+              scf::YieldOp::create(thenBuilder, thenLoc);
+            },
+            /*elseBuilder=*/nullptr);
+      });
 }
 
 } // namespace onnx_mlir

@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
           getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
-          customEnvFlags.c_str())) {
+          nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
   }
@@ -211,7 +211,10 @@ int main(int argc, char **argv) {
   MlirOptMainConfig config;
   config.setPassPipelineSetupFn(passManagerSetupFn)
       .splitInputFile(split_input_file ? kDefaultSplitMarker : "")
-      .verifyDiagnostics(verify_diagnostics)
+      .verifyDiagnostics(
+          verify_diagnostics
+              ? mlir::SourceMgrDiagnosticVerifierHandler::Level::All
+              : mlir::SourceMgrDiagnosticVerifierHandler::Level::None)
       .verifyPasses(verify_passes)
       .allowUnregisteredDialects(allowUnregisteredDialects)
       .emitBytecode(false)

@@ -32,6 +32,7 @@ add_onnx_mlir_library(OMInstrumentONNX
 
   LINK_LIBS PUBLIC
   OMONNXOps
+  OMKrnlOps
   MLIRPass
   OMOptionUtils
   )
@@ -107,4 +108,15 @@ add_onnx_mlir_library(OMONNXStandardFuncReturnPass
   MLIRFuncDialect
   OMONNXOps
   OMShapeInference
+  )
+
+add_onnx_mlir_library(OMReplaceOpWithItsOperand
+  ReplaceOpWithItsOperand.cpp
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
   )

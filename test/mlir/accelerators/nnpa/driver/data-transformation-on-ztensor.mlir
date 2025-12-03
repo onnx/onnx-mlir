@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --EmitMLIR --printIR -tag="test" %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-zhigh-decompose-stick-unstick --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR  %s | FileCheck %s
 
 // -----
 
@@ -12,11 +12,10 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
   %4 = "onnx.Relu" (%3) : (tensor<5x3xf32>) -> tensor<5x3xf32>
   onnx.Return %4 : tensor<5x3xf32>
 
-// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @transpose_on_ztensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5xf32>) -> memref<5x3xf32> attributes {llvm.emit_c_interface} {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "2D"} : (memref<3x5xf32>, memref<1x1x1x1x32x64xf16>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "2D", no_saturation = -1 : si64} : (memref<3x5xf32>, memref<1x1x1x1x32x64xf16>) -> ()
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_fold_std_alloc_3", shape = [2], value = dense<[3, 5]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK:           "zlow.relu"([[RES_]], [[VAR_0_]], [[RES_]]_0) {layout = "2D"} : (memref<1x1x1x1x32x64xf16>, memref<2xi64>, memref<1x1x1x1x32x64xf16>) -> ()
@@ -24,10 +23,14 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
 // CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_fold_std_alloc_2", shape = [2], value = dense<[3, 5]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK:           "zlow.relu"([[RES_1_]], [[VAR_1_]], [[RES_2_]]) {layout = "2D"} : (memref<1x1x1x1x32x64xf16>, memref<2xi64>, memref<1x1x1x1x32x64xf16>) -> ()
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
-// CHECK:           affine.for [[I_0_:%.+]] = 0 to 3 {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to 5 {
-// CHECK:               [[LOAD_RES_2_MEM_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_0_]], [[I_1_]]{{.}} : memref<1x1x1x1x32x64xf16>
-// CHECK:               affine.store [[LOAD_RES_2_MEM_]], [[RES_3_]][0, 0, 0, 0, [[I_1_]], [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 5 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 3 step 3 {
+// CHECK:               [[LOAD_RES_2_MEM_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]], [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_2_MEM_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               [[LOAD_RES_2_MEM_1_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] + 1, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_2_MEM_1_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] + 1] : memref<1x1x1x1x32x64xf16>
+// CHECK:               [[LOAD_RES_2_MEM_2_:%.+]] = affine.load [[RES_2_]][0, 0, 0, 0, [[I_1_]] + 2, [[I_0_]]{{.}} : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_2_MEM_2_]], [[RES_3_]][0, 0, 0, 0, [[I_0_]], [[I_1_]] + 2] : memref<1x1x1x1x32x64xf16>
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>

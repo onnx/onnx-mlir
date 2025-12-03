@@ -80,7 +80,7 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
   ArrayRef<int64_t> permArrayW(perms);
   ArrayAttr permAttrW = rewriter.getI64ArrayAttr(permArrayW);
   Value transposeOp =
-      rewriter.create<ONNXTransposeOp>(loc, transposeType, weight, permAttrW);
+      ONNXTransposeOp::create(rewriter, loc, transposeType, weight, permAttrW);
   SmallVector<int64_t, 3> splitShape;
   splitShape.emplace_back(direction);
   splitShape.emplace_back(feature);
@@ -90,23 +90,23 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
   Value stickForOp;
   if (isLSTM) {
     SmallVector<Type, 4> splitTypes(splitNum, splitType);
-    ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
-        loc, splitTypes, transposeOp, axis, nullptr);
+    ONNXSplitV11Op splitOp = ONNXSplitV11Op::create(
+        rewriter, loc, splitTypes, transposeOp, axis, nullptr);
     Value i_gate = splitOp.getResults()[0];
     Value o_gate = splitOp.getResults()[1];
     Value f_gate = splitOp.getResults()[2];
     Value c_gate = splitOp.getResults()[3];
-    stickForOp = rewriter.create<zhigh::ZHighStickForLSTMOp>(
-        loc, f_gate, i_gate, c_gate, o_gate);
+    stickForOp = zhigh::ZHighStickForLSTMOp::create(
+        rewriter, loc, f_gate, i_gate, c_gate, o_gate);
   } else { // GRU
     SmallVector<Type, 3> splitTypes(splitNum, splitType);
-    ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
-        loc, splitTypes, transposeOp, axis, nullptr);
+    ONNXSplitV11Op splitOp = ONNXSplitV11Op::create(
+        rewriter, loc, splitTypes, transposeOp, axis, nullptr);
     Value z_gate = splitOp.getResults()[0];
     Value r_gate = splitOp.getResults()[1];
     Value h_gate = splitOp.getResults()[2];
-    stickForOp =
-        rewriter.create<zhigh::ZHighStickForGRUOp>(loc, z_gate, r_gate, h_gate);
+    stickForOp = zhigh::ZHighStickForGRUOp::create(
+        rewriter, loc, z_gate, r_gate, h_gate);
   }
   return stickForOp;
 }
@@ -132,7 +132,7 @@ Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
     return getLSTMGRUGetY(loc, rewriter, val, resY);
 
   std::vector<Value> inputs = {val, sequenceLens, initialH};
-  return rewriter.create<zhigh::ZHighFixGRUYOp>(loc, resY.getType(), inputs);
+  return zhigh::ZHighFixGRUYOp::create(rewriter, loc, resY.getType(), inputs);
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
@@ -168,26 +168,26 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value end = directionStr.equals_insensitive("forward") ? intMax : one;
 
     Type sliceType = RankedTensorType::get({1, D, B, H}, elementType);
-    ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
-        loc, sliceType, val, start, end, axis, step);
-    return rewriter.create<ONNXSqueezeV11Op>(
-        loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
+    ONNXSliceOp sliceOp = ONNXSliceOp::create(
+        rewriter, loc, sliceType, val, start, end, axis, step);
+    return ONNXSqueezeV11Op::create(rewriter, loc, resYh.getType(),
+        sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
   } else if (directionStr.equals_insensitive("bidirectional")) {
     Type splitType = RankedTensorType::get({T, 1, B, H}, elementType);
     SmallVector<Type> splitTypes = {splitType, splitType};
-    ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
-        loc, splitTypes, val, /*splitAxis=*/1, nullptr);
+    ONNXSplitV11Op splitOp = ONNXSplitV11Op::create(
+        rewriter, loc, splitTypes, val, /*splitAxis=*/1, nullptr);
     Type sliceType = RankedTensorType::get({1, 1, B, H}, elementType);
-    Value fwdLastSlice = rewriter.create<ONNXSliceOp>(
-        loc, sliceType, splitOp.getResults()[0], minusOne, intMax, axis, step);
-    Value bkwFirstSlice = rewriter.create<ONNXSliceOp>(
-        loc, sliceType, splitOp.getResults()[1], zero, one, axis, step);
+    Value fwdLastSlice = ONNXSliceOp::create(rewriter, loc, sliceType,
+        splitOp.getResults()[0], minusOne, intMax, axis, step);
+    Value bkwFirstSlice = ONNXSliceOp::create(rewriter, loc, sliceType,
+        splitOp.getResults()[1], zero, one, axis, step);
     Type concatType = RankedTensorType::get({1, D, B, H}, elementType);
-    Value concatOp = rewriter.create<ONNXConcatOp>(loc, concatType,
+    Value concatOp = ONNXConcatOp::create(rewriter, loc, concatType,
         ValueRange({fwdLastSlice, bkwFirstSlice}), /*concatAxis=*/1);
     Type squeezeType = RankedTensorType::get({D, B, H}, elementType);
-    return rewriter.create<ONNXSqueezeV11Op>(
-        loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
+    return ONNXSqueezeV11Op::create(
+        rewriter, loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
   } else {
     llvm_unreachable("Invalid direction.");
   }
@@ -205,7 +205,7 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
     return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
 
   std::vector<Value> inputs = {val, sequenceLens};
-  return rewriter.create<zhigh::ZHighFixGRUYhOp>(loc, resYh.getType(), inputs);
+  return zhigh::ZHighFixGRUYhOp::create(rewriter, loc, resYh.getType(), inputs);
 }
 
 Value getLSTMGRUGetYc(
@@ -215,9 +215,9 @@ Value getLSTMGRUGetYc(
     return noneValue;
 
   zhigh::ZHighUnstickOp unstickOp =
-      rewriter.create<zhigh::ZHighUnstickOp>(loc, val);
-  return rewriter.create<ONNXSqueezeV11Op>(
-      loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
+      zhigh::ZHighUnstickOp::create(rewriter, loc, val);
+  return ONNXSqueezeV11Op::create(rewriter, loc, resYc.getType(),
+      unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
 }
 
 SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
@@ -240,7 +240,7 @@ SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
     outputTypes.emplace_back(RankedTensorType::get(outputShape, elementType));
   }
   ONNXSplitV11Op splitOp =
-      rewriter.create<ONNXSplitV11Op>(loc, outputTypes, input, axis, split);
+      ONNXSplitV11Op::create(rewriter, loc, outputTypes, input, axis, split);
   return splitOp.getResults();
 }
 
@@ -379,30 +379,11 @@ static void preComputeBias(MultiDialectBuilder<OnnxBuilder> &create, Value RSa,
   int64_t rank = getRank(qcF32.getType());
   StringAttr layoutAttr =
       rewriter.getStringAttr((rank == 1) ? LAYOUT_1D : LAYOUT_2DS);
-  ZHighQuantizedStickOp qcOp = rewriter.create<ZHighQuantizedStickOp>(loc,
+  ZHighQuantizedStickOp qcOp = ZHighQuantizedStickOp::create(rewriter, loc,
       qcF32, cst1, cst0, layoutAttr, rewriter.getStringAttr(QTYPE_DLFLOAT16));
   qcTilde = qcOp.getResult(0);
   RSqctilde = qcOp.getResult(1);
   Zqctilde = qcOp.getResult(2);
-}
-
-static Value getOrCastToI8(Value val, MultiDialectBuilder<OnnxBuilder> &create,
-    bool simpleCast = false) {
-  if (!getElementType(val.getType()).isUnsignedInteger())
-    return val;
-
-  Type i8Ty = create.getBuilder().getI8Type();
-  if (simpleCast)
-    return create.onnx.cast(val, i8Ty);
-
-  // Use int16 to avoid integer overflow.
-  Type i16Ty = create.getBuilder().getI16Type();
-  auto cst128Attr = DenseElementsAttr::get(
-      RankedTensorType::get({}, i16Ty), static_cast<int16_t>(128));
-  Value valI16 = create.onnx.cast(val, i16Ty);
-  valI16 = create.onnx.sub(valI16, create.onnx.constant(cst128Attr));
-  Value valI8 = create.onnx.cast(valI16, i8Ty);
-  return valI8;
 }
 
 // Dynamic quantization helper to match and rewrite values A, B, C of A*B+C.
@@ -416,6 +397,14 @@ public:
   // Check the inputs A, B, C of `A*B+C` to see if they are suitable for doing
   // dynamic quantization on NNPA.
   LogicalResult match() {
+    // Check if the attribute `quantize` is given or not.
+    BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+    if (attr && !attr.getValue()) {
+      // The op is explicitly marked as non-quantization.
+      return rewriter.notifyMatchFailure(
+          op, "The op is explictly marked as non-quantization.");
+    }
+
     // A is of f32.
     if (!mlir::isa<Float32Type>(getElementType(A.getType())))
       return rewriter.notifyMatchFailure(op, "MatMul's A is not of f32.");
@@ -522,7 +511,7 @@ public:
     IntegerAttr symModeAttr =
         rewriter.getIntegerAttr(rewriter.getI64Type(), symForA ? 1 : 0);
     ZHighQuantizedStickOp qAOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, A, none, none, aLayoutAttr,
+        ZHighQuantizedStickOp::create(rewriter, loc, A, none, none, aLayoutAttr,
             rewriter.getStringAttr(QTYPE_DLFLOAT16), symModeAttr);
     Value AI8 = qAOp.getResult(0);
     Value ARecScale = qAOp.getResult(1);
@@ -549,7 +538,7 @@ public:
         i8Ty);
     // Stickify B.
     ZHighQuantizedStickOp qBOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, BI8, BRecScale, BOffset,
+        ZHighQuantizedStickOp::create(rewriter, loc, BI8, BRecScale, BOffset,
             bLayoutAttr, rewriter.getStringAttr(QTYPE_WEIGHTS));
 
     // Output information.
@@ -573,12 +562,12 @@ public:
       assert((rankC == 1 || rankC == 2) && "Wrong rank for C");
       StringAttr cLayoutAttr =
           rewriter.getStringAttr((rankC == 1) ? LAYOUT_1D : LAYOUT_2DS);
-      Value stickC = rewriter.create<ZHighStickOp>(loc, C, cLayoutAttr);
+      Value stickC = ZHighStickOp::create(rewriter, loc, C, cLayoutAttr);
       if (symForA)
         qcTilde = stickC;
       else
-        qcTilde = rewriter.create<ZHighAddOp>(
-            loc, qcTilde.getType(), qcTilde, stickC);
+        qcTilde = ZHighAddOp::create(
+            rewriter, loc, qcTilde.getType(), qcTilde, stickC);
     }
 
     // Emit zhigh.QuantizedMatMul.
@@ -589,7 +578,7 @@ public:
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     ZHighQuantizedMatMulOp zhighQuantizedMatMulOp =
-        rewriter.create<ZHighQuantizedMatMulOp>(loc, resTypes, AI8, ARecScale,
+        ZHighQuantizedMatMulOp::create(rewriter, loc, resTypes, AI8, ARecScale,
             AOffset, qBOp.getResult(0), BRecScale, BOffset, qcTilde,
             qcTildeRecScale, qcTildeOffset,
             /*OutRecScale*/ YRecScale, /*OutOffset*/ YOffset,
@@ -598,8 +587,8 @@ public:
     (void)zhighQuantizedMatMulOp.inferShapes([](Region &region) {});
 
     // Unstickify the matmul result that is int8-as-float.
-    Value res = rewriter.create<ZHighUnstickOp>(
-        loc, zhighQuantizedMatMulOp.getResult(0));
+    Value res = ZHighUnstickOp::create(
+        rewriter, loc, zhighQuantizedMatMulOp.getResult(0));
     return res;
   }
 
@@ -798,8 +787,8 @@ public:
     // Prepare inputs for zhigh QuantizedMatMul.
 
     // I8 tensors
-    Value AI8 = getOrCastToI8(mmiOp.getA(), create, true);
-    Value BI8 = getOrCastToI8(mmiOp.getB(), create, true);
+    Value AI8 = create.onnx.getOrCastToI8(mmiOp.getA(), true);
+    Value BI8 = create.onnx.getOrCastToI8(mmiOp.getB(), true);
 
     // Zero points in f32.
     Value AZeroPointI8 = mmiOp.getAZeroPoint();
@@ -809,7 +798,7 @@ public:
           RankedTensorType::get({}, getElementType(AZeroPointI8.getType())),
           AZeroPointI8, {zeroI64});
     }
-    AZeroPointI8 = getOrCastToI8(AZeroPointI8, create, true);
+    AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPointI8, true);
     Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
     // TESTING: minus zeropoint in advance to cancel out the software part of
     // zdnn quantized matmul.
@@ -822,7 +811,7 @@ public:
           RankedTensorType::get({}, getElementType(BZeroPointI8.getType())),
           BZeroPointI8, {zeroI64});
     }
-    BZeroPointI8 = getOrCastToI8(BZeroPointI8, create, true);
+    BZeroPointI8 = create.onnx.getOrCastToI8(BZeroPointI8, true);
     Value BZeroPointF32 = create.onnx.cast(BZeroPointI8, f32Ty);
     // TESTING: minus zeropoint in advance to cancel out the software part of
     // zdnn quantized matmul.
@@ -847,7 +836,7 @@ public:
     StringAttr aLayoutAttr =
         rewriter.getStringAttr((rankA == 2) ? LAYOUT_2D : LAYOUT_3DS);
     ZHighQuantizedStickOp qAOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, AI8, ARecScale,
+        ZHighQuantizedStickOp::create(rewriter, loc, AI8, ARecScale,
             AZeroPointF32, aLayoutAttr, rewriter.getStringAttr(QTYPE_INT8));
 
     // Stickify BI8. It is potentially folded at compile time.
@@ -855,7 +844,7 @@ public:
     StringAttr bLayoutAttr =
         rewriter.getStringAttr((rankB == 2) ? LAYOUT_2D : LAYOUT_3DS);
     ZHighQuantizedStickOp qBOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, BI8, BRecScale,
+        ZHighQuantizedStickOp::create(rewriter, loc, BI8, BRecScale,
             BZeroPointF32, bLayoutAttr, rewriter.getStringAttr(QTYPE_WEIGHTS));
 
     // Bias is none or precomputed.
@@ -874,7 +863,7 @@ public:
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     ZHighQuantizedMatMulOp zhighQuantizedMatMulOp =
-        rewriter.create<ZHighQuantizedMatMulOp>(loc, resTypes,
+        ZHighQuantizedMatMulOp::create(rewriter, loc, resTypes,
             qAOp.getResult(0), qAOp.getResult(1), qAOp.getResult(2),
             qBOp.getResult(0), qBOp.getResult(1), qBOp.getResult(2),
             /*Bias*/ canPreComputeBias ? qcTilde : none,
@@ -887,8 +876,8 @@ public:
     (void)zhighQuantizedMatMulOp.inferShapes([](Region &region) {});
 
     // Unstickify the matmul result that is int8-as-float.
-    Value resI8F32 = rewriter.create<ZHighUnstickOp>(
-        loc, zhighQuantizedMatMulOp.getResult(0));
+    Value resI8F32 = ZHighUnstickOp::create(
+        rewriter, loc, zhighQuantizedMatMulOp.getResult(0));
     Value res = create.onnx.cast(resI8F32, outElemTy);
 
     rewriter.replaceOp(op, res);
@@ -964,17 +953,17 @@ public:
             RankedTensorType::get({}, getElementType(AZeroPointI8.getType())),
             AZeroPointI8, {zeroI64});
       }
-      AZeroPointI8 = getOrCastToI8(AZeroPointI8, create, true);
+      AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPointI8, true);
       Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
       Value ARecScale = create.onnx.reciprocal(AScale);
-      AI8 = getOrCastToI8(AI8, create, true);
+      AI8 = create.onnx.getOrCastToI8(AI8, true);
       // Stickify the quantized input A to ztensor format.
-      qAOp = rewriter.create<ZHighQuantizedStickOp>(loc, AI8, ARecScale,
+      qAOp = ZHighQuantizedStickOp::create(rewriter, loc, AI8, ARecScale,
           AZeroPointF32, aLayoutAttr, rewriter.getStringAttr(QTYPE_INT8));
     } else {
       // Stickify input A to dlfloat16, and it will be quantized internally by
       // the NNPA quantized matmul.
-      qAOp = rewriter.create<ZHighQuantizedStickOp>(loc, A, none, none,
+      qAOp = ZHighQuantizedStickOp::create(rewriter, loc, A, none, none,
           aLayoutAttr, rewriter.getStringAttr(QTYPE_DLFLOAT16));
     }
     Value qA = qAOp.getResult(0);
@@ -988,7 +977,7 @@ public:
     Value BRecScale = create.onnx.reciprocal(BScale);
     Value BZeroPoint = create.onnx.cast(BZeroPointI8, f32Ty);
     ZHighQuantizedStickOp qBOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, BI8, BRecScale, BZeroPoint,
+        ZHighQuantizedStickOp::create(rewriter, loc, BI8, BRecScale, BZeroPoint,
             bLayoutAttr, rewriter.getStringAttr(QTYPE_WEIGHTS));
     Value qB = qBOp.getResult(0);
 
@@ -1012,7 +1001,7 @@ public:
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     ZHighQuantizedMatMulOp zhighQuantizedMatMulOp =
-        rewriter.create<ZHighQuantizedMatMulOp>(loc, resTypes, qA, ARecScale,
+        ZHighQuantizedMatMulOp::create(rewriter, loc, resTypes, qA, ARecScale,
             AZeroPoint, qB, BRecScale, BZeroPoint,
             /*Bias*/ canPreComputeBias ? qcTilde : none,
             /*BiasRecScale*/ canPreComputeBias ? qcTildeRecScale : none,
@@ -1023,8 +1012,8 @@ public:
     (void)zhighQuantizedMatMulOp.inferShapes([](Region &region) {});
 
     // Unstickify the matmul result.
-    Value res = rewriter.create<ZHighUnstickOp>(
-        loc, zhighQuantizedMatMulOp.getResult(0));
+    Value res = ZHighUnstickOp::create(
+        rewriter, loc, zhighQuantizedMatMulOp.getResult(0));
 
     rewriter.replaceOp(op, res);
     return success();
@@ -1261,7 +1250,7 @@ public:
 
     // rewrite
     Value newBias = create.onnx.add(addInput, qstickOp.getIn());
-    ZHighQuantizedStickOp newQStickOp = rewriter.create<ZHighQuantizedStickOp>(
+    ZHighQuantizedStickOp newQStickOp = ZHighQuantizedStickOp::create(rewriter,
         loc, newBias, qstickOp.getInRecScale(), qstickOp.getInOffset(),
         qstickOp.getLayoutAttr(), qstickOp.getQuantizedTypeAttr());
 
@@ -1269,7 +1258,7 @@ public:
     resTypes.emplace_back(mmOp.getResult(0).getType());
     resTypes.emplace_back(mmOp.getResult(1).getType());
     resTypes.emplace_back(mmOp.getResult(2).getType());
-    ZHighQuantizedMatMulOp newQMMOp = rewriter.create<ZHighQuantizedMatMulOp>(
+    ZHighQuantizedMatMulOp newQMMOp = ZHighQuantizedMatMulOp::create(rewriter,
         loc, resTypes, mmOp.getX(), mmOp.getXRecScale(), mmOp.getXOffset(),
         mmOp.getY(), mmOp.getYRecScale(), mmOp.getYOffset(),
         newQStickOp.getResult(0), newQStickOp.getResult(1),
@@ -1277,7 +1266,7 @@ public:
         mmOp.getOutOffsetIn(), mmOp.getPreComputedBiasAttr(),
         mmOp.getDisableClippingAttr(), mmOp.getDequantizeOutputAttr());
     ZHighUnstickOp newUnstickOp =
-        rewriter.create<ZHighUnstickOp>(loc, newQMMOp.getResult(0));
+        ZHighUnstickOp::create(rewriter, loc, newQMMOp.getResult(0));
 
     rewriter.replaceOp(op, newUnstickOp);
     return success();
@@ -1418,19 +1407,19 @@ public:
     }
 
     // zdnn supports signed int8, convert unsigned int8 inputs to signed int8.
-    Value AI8 = getOrCastToI8(A, create);
-    Value BI8 = getOrCastToI8(B, create);
+    Value AI8 = create.onnx.getOrCastToI8(A);
+    Value BI8 = create.onnx.getOrCastToI8(B);
 
     Value ARecScale = create.onnx.reciprocal(AScale);
-    Value AZeroPointI8 = getOrCastToI8(AZeroPoint, create);
+    Value AZeroPointI8 = create.onnx.getOrCastToI8(AZeroPoint);
     Value AZeroPointF32 = create.onnx.cast(AZeroPointI8, f32Ty);
 
     Value BRecScale = create.onnx.reciprocal(BScale);
-    Value BZeroPointI8 = getOrCastToI8(BZeroPoint, create);
+    Value BZeroPointI8 = create.onnx.getOrCastToI8(BZeroPoint);
     Value BZeroPointF32 = create.onnx.cast(BZeroPointI8, f32Ty);
 
     Value YRecScale = create.onnx.reciprocal(YScale);
-    Value YZeroPointI8 = getOrCastToI8(YZeroPoint, create);
+    Value YZeroPointI8 = create.onnx.getOrCastToI8(YZeroPoint);
     Value YZeroPointF32 = create.onnx.cast(YZeroPointI8, f32Ty);
 
     // Stickify AI8, Transform AI8 into zTensor format.
@@ -1438,7 +1427,7 @@ public:
     StringAttr aLayoutAttr =
         rewriter.getStringAttr((rankA == 2) ? LAYOUT_2D : LAYOUT_3DS);
     ZHighQuantizedStickOp qAOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, AI8, ARecScale,
+        ZHighQuantizedStickOp::create(rewriter, loc, AI8, ARecScale,
             AZeroPointF32, aLayoutAttr, rewriter.getStringAttr(QTYPE_INT8));
 
     // Stickify BI8. It is potentially folded at compile time.
@@ -1446,7 +1435,7 @@ public:
     StringAttr bLayoutAttr =
         rewriter.getStringAttr((rankB == 2) ? LAYOUT_2D : LAYOUT_3DS);
     ZHighQuantizedStickOp qBOp =
-        rewriter.create<ZHighQuantizedStickOp>(loc, BI8, BRecScale,
+        ZHighQuantizedStickOp::create(rewriter, loc, BI8, BRecScale,
             BZeroPointF32, bLayoutAttr, rewriter.getStringAttr(QTYPE_WEIGHTS));
 
     // Bias is none or precomputed.
@@ -1465,7 +1454,7 @@ public:
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     resTypes.emplace_back(RankedTensorType::get({}, f32Ty));
     ZHighQuantizedMatMulOp zhighQuantizedMatMulOp =
-        rewriter.create<ZHighQuantizedMatMulOp>(loc, resTypes,
+        ZHighQuantizedMatMulOp::create(rewriter, loc, resTypes,
             qAOp.getResult(0), qAOp.getResult(1), qAOp.getResult(2),
             qBOp.getResult(0), qBOp.getResult(1), qBOp.getResult(2),
             /*Bias*/ canPreComputeBias ? qcTilde : none,
@@ -1478,8 +1467,8 @@ public:
     (void)zhighQuantizedMatMulOp.inferShapes([](Region &region) {});
 
     // Unstickify the matmul result that is int8-as-float.
-    Value resI8F32 = rewriter.create<ZHighUnstickOp>(
-        loc, zhighQuantizedMatMulOp.getResult(0));
+    Value resI8F32 = ZHighUnstickOp::create(
+        rewriter, loc, zhighQuantizedMatMulOp.getResult(0));
     Value res;
     Type outElemTy = getElementType(Y.getType());
     if (outElemTy.isUnsignedInteger(8)) {
@@ -1631,8 +1620,14 @@ void getONNXToZHighOneOpDynamicallyLegal(
 
 void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  patterns.insert<replaceONNXMatMulAddPattern1>(context);
-  patterns.insert<replaceONNXMatMulAddPattern2>(context);
+  // Matmul add patterns.
+  patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern1>(context);
+  patterns.insert<replaceONNXMatMulAddUnstackedOrBCast23Pattern2>(context);
+  patterns.insert<replaceONNXMatMulAddStackedPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddStackedPattern2>(context);
+  patterns.insert<replaceONNXMatMulAddBCast1Pattern1>(context);
+  patterns.insert<replaceONNXMatMulAddBCast1Pattern2>(context);
+  // Other patterns.
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
   patterns.insert<replaceONNXTransAMatMulPattern>(context);
@@ -1693,7 +1688,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
 
   // It's ok to fail.
-  (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
+  (void)applyPatternsGreedily(module, std::move(combinedPatterns));
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.

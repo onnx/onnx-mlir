@@ -142,9 +142,9 @@ def ReplaceONNXSoftplusPattern: Pattern<
 //   - %X should have static shape, and %alpha should be constant.
 //
 def ReplaceONNXReciprocalSqrtPattern: Pat<
-  (ZHighStickOp:$stick (ONNXReciprocalOp (ONNXSqrtOp (ZHighUnstickOp:$unstick $X))), $layout, $saturation),
+  (ZHighStickOp:$stick (ONNXReciprocalOp (ONNXSqrtOp (ZHighUnstickOp:$unstick $X))), $layout, $noSaturation),
   (ZHighExpOp (ZHighMulOp (ZHighLogOp $X, (returnType $X)),
-                          (ZHighStickOp (GetConstantOfType<"-0.5"> $unstick), $layout, $saturation),
+                          (ZHighStickOp (GetConstantOfType<"-0.5"> $unstick), $layout, $noSaturation),
                           (returnType $X))),
   [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
 >;
@@ -181,7 +181,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern1 : Pat<
           $shape1, $_),
         $perm),
       $shape2, $_),
-    $layout3DS, $saturation),
+    $layout3DS, $noSaturation),
     // Output: initial X value unchanged, but transformed with the new compatible shape.
     (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
@@ -221,7 +221,7 @@ def ReshapeTransposeReshapeRoberta3DSWPattern2 : Pat<
           $shape1, $_),
         $perm),
       $shape2, $_),
-    $layout3DS, $saturation),
+    $layout3DS, $noSaturation),
     // Output: initial X value unchanged, but transformed with the compatible shape.
     (ZHighReshapeOp $X, (CreateShapeOp $stick), (GetLayout $stick)),
     // Conditions.
@@ -265,7 +265,7 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
           $shape1, $_),
         $perm),
       $shape2, $_),
-    $layout3DS, $saturation),
+    $layout3DS, $noSaturation),
   (ZHighStickOp
     (ONNXShapeTransformOp // reshape
       (ONNXShapeTransformOp // transpose
@@ -277,7 +277,7 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
         (returnType (GetResultType $transpose))),
       (GetLeftmostCollapsing4DTo3DMap $reshape2),
       (returnType (GetResultType $reshape2))),
-    $layout3DS, $saturation),
+    $layout3DS, $noSaturation),
   [(TensorHas2DLayout $X), (Is3DSLayout $layout3DS),
    (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
    (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
@@ -297,7 +297,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
           $shape1, $_),
         $perm),
       $shape2, $_),
-    $layout2D, $saturation),
+    $layout2D, $noSaturation),
   (ZHighStickOp
     (ONNXShapeTransformOp // reshape
       (ONNXShapeTransformOp // transpose
@@ -309,7 +309,7 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
         (returnType (GetResultType $transpose))),
       (GetCollapsing4DTo2DMap $reshape2),
       (returnType (GetResultType $reshape2))),
-    $layout2D, $saturation),
+    $layout2D, $noSaturation),
   [(TensorHas3DSLayout $X), (Is2DLayout $layout2D),
    (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
    (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),

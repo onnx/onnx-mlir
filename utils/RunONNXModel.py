@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2023 The IBM Research Authors.
+# Copyright 2019-2025 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -14,7 +14,8 @@
 import os
 import sys
 import argparse
-import onnx
+
+# import onnx
 import time
 import signal
 import subprocess
@@ -25,9 +26,50 @@ import importlib.util
 import shlex
 import shutil
 
-from onnx import numpy_helper
-from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+# from onnx import numpy_helper
+# from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
+
+################################################################################
+# Test environment and set global environment variables.
+VERBOSE = os.environ.get("VERBOSE", False)
+
+
+def import_driver():
+    global ONNX_MLIR, args
+    try:
+        from onnxmlir import InferenceSession as SessionWrapper
+
+        args.use_onnxmlir = True
+    except ImportError:
+        args.use_onnxmlir = False
+        if not os.environ.get("ONNX_MLIR_HOME", None):
+            raise RuntimeError(
+                "To use native compiler, set environment variable ONNX_MLIR_HOME to the path to onnx-mlir."
+                " Typical example is `path-to-onnx-mlir/build/Debug, which is the parent folder containing the bin, lib, and etc for the compiler."
+            )
+        ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
+        ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
+        # Include runtime directory in python paths, so PyRuntime can be imported.
+        RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
+        sys.path.append(RUNTIME_DIR)
+
+        # Check and import Onnx Mlir Execution session / python interface.
+
+        try:
+            from PyRuntime import OMExecutionSession as SessionWrapper
+        except ImportError:
+            raise ImportError(
+                " To compile a model, you can either\n 1) install the onnxmlir package to use the compiler container,"
+                " or\n 2) set environment variable ONNX_MLIR_HOME to use the native compiler.\n"
+                " The execution of the two approaches just failed in your environment."
+                " For trouble shooting, please refer to docs/DebuggingNumericalError.md for details"
+            )
+    return SessionWrapper
+
+
+################################################################################
+# Support functions for parsing environment.
 
 
 def valid_onnx_input(fname):
@@ -55,21 +97,23 @@ def check_non_negative(argname, value):
     return value
 
 
+################################################################################
 # Command arguments.
+
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--log-to-file",
-    action="store",
-    nargs="?",
-    const="compilation.log",
-    default=None,
-    help="Output compilation messages to file, default compilation.log.",
-)
 parser.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
     help="Path to an ONNX model (.onnx or .mlir).",
+)
+parser.add_argument(
+    "--config-file",
+    metavar="PATH",
+    type=str,
+    help="File to the configuration, a .yaml file. This file allows user to"
+    "define their own default value for arguments."
+    "An example can be found at utils/example-cfg.yaml",
 )
 parser.add_argument(
     "-c",
@@ -80,12 +124,6 @@ parser.add_argument(
 )
 parser.add_argument(
     "-C", "--compile-only", action="store_true", help="Only compile the input model."
-)
-parser.add_argument(
-    "--compile-using-input-shape",
-    action="store_true",
-    help="Compile the model by using the shape info getting from"
-    " the inputs in the reference folder set by --load-ref",
 )
 parser.add_argument("--print-input", action="store_true", help="Print out inputs.")
 parser.add_argument(
@@ -137,27 +175,37 @@ parser.add_argument(
 parser.add_argument(
     "--atol", type=str, default="0.01", help="Absolute tolerance for verification."
 )
+parser.add_argument(
+    "-onnxmlir-args",
+    type=str,
+    default="",
+    help="Options passed to onnxmlir. Used with --use-onnxmlir",
+)
+
 
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
     "--save-model",
     metavar="PATH",
     type=str,
-    help="Path to a folder to save the compiled model.",
+    help="Path to a folder to save the compiled model."
+    "The file name for the model is determined by --default-model-name",
 )
 lib_group.add_argument(
     "--load-model",
     metavar="PATH",
     type=str,
-    help="Path to a folder to load a compiled model for "
-    "inference, and the ONNX model will not be re-compiled.",
+    help="Path to a folder to load a compiled model (.so) for "
+    "inference, and the ONNX model will not be re-compiled."
+    "The file name for the model is determined by --default-model-name",
 )
 lib_group.add_argument(
     "--cache-model",
     metavar="PATH",
     type=str,
-    help="When finding a compiled model in given path, reuse it. "
-    "Otherwise, compile model and save it into the given path.",
+    help="Path to a folder to save the load a compiled model if the compiled model exists."
+    "Otherwise, compile model and save it into this folder."
+    "This argument is the combination of --load-model and --save-model",
 )
 
 parser.add_argument(
@@ -191,7 +239,8 @@ data_group.add_argument(
     "--load-ref-from-numpy",
     metavar="PATH",
     type=str,
-    help="Path to a python script that defines variables inputs and outputs that are a list of numpy arrays. "
+    help="Path to a python script that defines variables inputs and outputs that are"
+    " a list of numpy arrays. "
     " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]."
     " Variable outputs can be omitted if --verify is not used.",
 )
@@ -238,52 +287,54 @@ parser.add_argument(
     default="42",
     help="seed to initialize the random num generator for inputs.",
 )
+parser.add_argument(
+    "--write-compile-log",
+    action="store",
+    nargs="?",
+    metavar="PATH",
+    const="compile.log",
+    default=None,
+    help="Output compilation messages to file, default compile.log.",
+)
+parser.add_argument(
+    "--write-runtime-log",
+    action="store",
+    nargs="?",
+    metavar="PATH",
+    const="runtime.log",
+    default=None,
+    help="Output runtime profile info to file, default runtime.log. "
+    "These information will be printed out if the model is compiled with --profile-ir flag",
+)
 
-args = parser.parse_args()
 
-if args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value):
-    raise RuntimeError(
-        "Choose verification mode: --verify-with-softmax or "
-        "--verify-every-value or both"
-    )
-if args.verify_with_softmax is not None and (not args.verify):
-    raise RuntimeError("Must specify --verify to use --verify-with-softmax")
-if args.verify_every_value and (not args.verify):
-    raise RuntimeError("Must specify --verify to use --verify-every-value")
-
-if not os.environ.get("ONNX_MLIR_HOME", None):
-    raise RuntimeError(
-        "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
-        "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
-        "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
-    )
-
-if args.verify and args.verify.lower() == "onnxruntime":
-    if not args.model or (args.model and not args.model.endswith(".onnx")):
+def verify_arg():
+    if (
+        args.verify
+        and (args.verify_with_softmax is None)
+        and (not args.verify_every_value)
+    ):
         raise RuntimeError(
-            "Set input onnx model using argument --model when verifying using onnxruntime."
+            "Choose verification mode: --verify-with-softmax or "
+            "--verify-every-value or both"
         )
+    if args.verify_with_softmax is not None and (not args.verify):
+        raise RuntimeError("Must specify --verify to use --verify-with-softmax")
+    if args.verify_every_value and (not args.verify):
+        raise RuntimeError("Must specify --verify to use --verify-every-value")
 
-VERBOSE = os.environ.get("VERBOSE", False)
+    if args.verify and args.verify.lower() == "onnxruntime":
+        if not args.model or (args.model and not args.model.endswith(".onnx")):
+            raise RuntimeError(
+                "Set input onnx model using argument --model when verifying"
+                " using onnxruntime."
+            )
 
-ONNX_MLIR_EXENAME = "onnx-mlir"
-if sys.platform == "win32":
-    ONNX_MLIR_EXENAME = "onnx-mlir.exe"
 
-ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
+################################################################################
+# Support functions for RunONNXModel functionality.
+# Functions are free of args (all needed parameters are passed to the function).
 
-# Include runtime directory in python paths, so PyRuntime can be imported.
-RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
-sys.path.append(RUNTIME_DIR)
-
-try:
-    from PyRuntime import OMExecutionSession
-except ImportError:
-    raise ImportError(
-        "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
-        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
-    )
 
 # A type mapping from MLIR to Numpy.
 MLIR_TYPE_TO_NP_TYPE = {
@@ -344,10 +395,8 @@ def ordinal(n):
     return str(n) + suffix
 
 
-def softmax(x):
-    return np.exp(x) / np.sum(
-        np.exp(x), axis=int(args.verify_with_softmax), keepdims=True
-    )
+def softmax(x, axis_value):
+    return np.exp(x) / np.sum(np.exp(x), axis=axis_value, keepdims=True)
 
 
 def execute_commands(cmds):
@@ -366,6 +415,8 @@ def execute_commands(cmds):
 def extend_model_output(model, intermediate_outputs):
     # Run shape inference to make sure we have valid tensor value infos for all
     # intermediate tensors available
+    import onnx
+
     model = onnx.shape_inference.infer_shapes(model)
     value_infos = {vi.name: vi for vi in model.graph.value_info}
     graph_inputs = {vi.name: vi for vi in model.graph.input}
@@ -381,7 +432,7 @@ def extend_model_output(model, intermediate_outputs):
         elif name in graph_outputs:
             new_outputs.append(graph_outputs[name])
         else:
-            raise RuntimeError(f"Unable to find value infor for {name}")
+            raise RuntimeError(f"Unable to find value infos for {name}")
 
     # Clear old graph outputs and replace by new set of intermediate outputs
     while len(model.graph.output):
@@ -400,22 +451,23 @@ def get_names_in_signature(signature):
     return names
 
 
-def read_input_from_refs(num_inputs, load_ref):
-    print("Reading inputs from {} ...".format(load_ref))
-    i = 0
+def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
+    print("Reading inputs from {} ...".format(load_ref_filename))
     inputs = []
 
-    if args.load_ref:
+    if is_load_ref:
+        import onnx
+        from onnx import numpy_helper
+
         for i in range(num_inputs):
-            input_file = load_ref + "/input_{}.pb".format(i)
+            input_file = load_ref_filename + "/input_{}.pb".format(i)
             input_ts = onnx.TensorProto()
             with open(input_file, "rb") as f:
                 input_ts.ParseFromString(f.read())
             input_np = numpy_helper.to_array(input_ts)
             inputs += [input_np]
-            i += 1
-    elif args.load_ref_from_numpy:
-        spec = importlib.util.spec_from_file_location("om_load_ref", load_ref)
+    else:
+        spec = importlib.util.spec_from_file_location("om_load_ref", load_ref_filename)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         inputs = module.inputs
@@ -434,20 +486,25 @@ def read_input_from_refs(num_inputs, load_ref):
     return inputs
 
 
-def read_output_from_refs(num_outputs, load_ref):
-    print("Reading reference outputs from {} ...".format(load_ref))
+def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
+    print("Reading reference outputs from {} ...".format(load_ref_filename))
     reference_output = []
 
-    if args.load_ref:
+    if is_load_ref:
+        import onnx
+        from onnx import numpy_helper
+
         for i in range(num_outputs):
-            output_file = load_ref + "/output_{}.pb".format(i)
+            output_file = load_ref_filename + "/output_{}.pb".format(i)
             output_ts = onnx.TensorProto()
             with open(output_file, "rb") as f:
                 output_ts.ParseFromString(f.read())
             output_np = numpy_helper.to_array(output_ts)
             reference_output += [output_np]
-    elif args.load_ref_from_numpy:
-        spec = importlib.util.spec_from_file_location("om_load_ref_output", load_ref)
+    else:
+        spec = importlib.util.spec_from_file_location(
+            "om_load_ref_output", load_ref_filename
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         reference_output = module.outputs
@@ -465,9 +522,21 @@ def read_output_from_refs(num_outputs, load_ref):
     return reference_output
 
 
-def generate_random_input(input_signature, input_shapes):
+def generate_random_input(input_signature, shape_info, seed, lower_bound, upper_bound):
+    # Load random values: first get shape info, where shape_info in the form of
+    # 'input_index:d1xd2, input_index:d1xd2'
+    input_shapes = {}
+    if shape_info:
+        for input_shape in shape_info.strip().split(","):
+            input_index_shape = input_shape.split(":")
+            input_index = input_index_shape[0]
+            assert not (input_index in input_shapes), "Duplicate input indices"
+            dims = [int(d) for d in input_index_shape[1].split("x")]
+            input_shapes[int(input_index)] = dims
+
+    # Then fill shapes with random numbers.
     # Numpy expect an int, tolerate int/float strings.
-    curr_seed = int(float(args.seed))
+    curr_seed = int(float(seed))
     print("Generating random inputs using seed", curr_seed, "...")
     # Generate random data as input.
     inputs = []
@@ -509,13 +578,13 @@ def generate_random_input(input_signature, input_shapes):
         custom_lb = {}
         custom_ub = {}
         # Get user's range if any.
-        if args.lower_bound:
-            for type_lbs in args.lower_bound.strip().split(","):
+        if lower_bound:
+            for type_lbs in lower_bound.strip().split(","):
                 type_lb = type_lbs.split(":")
                 assert not (type_lb[0] in custom_lb), "Duplicate types"
                 custom_lb[type_lb[0]] = type_lb[1]
-        if args.upper_bound:
-            for type_ubs in args.upper_bound.strip().split(","):
+        if upper_bound:
+            for type_ubs in upper_bound.strip().split(","):
                 type_ub = type_ubs.split(":")
                 assert not (type_ub[0] in custom_ub), "Duplicate types"
                 custom_ub[type_ub[0]] = type_ub[1]
@@ -567,7 +636,7 @@ def generate_random_input(input_signature, input_shapes):
             ub = 64
             random_element_type = np.dtype("int32")
         else:
-            raise AssertionError("Unsuported element type")
+            raise AssertionError("Unsupported element type")
         rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
         # For boolean, transform range into True/False using greater_equal
         if np.issubdtype(np_elem_type, np.dtype(bool).type):
@@ -587,7 +656,7 @@ def generate_random_input(input_signature, input_shapes):
     return inputs
 
 
-def verify_outs(actual_outs, ref_outs):
+def verify_outs(actual_outs, ref_outs, atol, rtol):
     total_elements = 0
     mismatched_elements = 0
     for index, actual_val in np.ndenumerate(actual_outs):
@@ -598,7 +667,7 @@ def verify_outs(actual_outs, ref_outs):
                 continue
         else:
             # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+            diff = float(atol) + float(rtol) * abs(ref_val)
             if abs(actual_val - ref_val) <= diff:
                 continue
         mismatched_elements += 1
@@ -617,10 +686,6 @@ def verify_outs(actual_outs, ref_outs):
         )
 
 
-def warning(msg):
-    print("Warning:", msg)
-
-
 def data_without_top_bottom_quartile(data, percent):
     data = np.array(sorted(data))
     trim = int(percent * data.size / 100.0)
@@ -630,31 +695,75 @@ def data_without_top_bottom_quartile(data, percent):
     return data[trim:-trim]
 
 
+def cache_string(model_name, compile_option):
+    return "model: " + model_name + "; compile option: " + compile_option
+
+
+################################################################################
+# Inference Session implementing RunONNXModel.
+#
+# Constructor: fetch the model and compile if needed, save model if requested.
+# process_inputs: initialize the inputs, which can come from various sources.
+# run_inference: run one inference using the inputs set in process_inputs.
+# process_output: verify values generated in run, save outputs,...
+# process_perf_results: compute and print performance data.
+#
+# run_performance_test: process inputs, perform several inferences (warmup and perf),
+#   process performance results and validate outputs,
+
+
 class InferenceSession:
     """
-    in onnxruntime:
-    class onnxruntime.InferenceSession(path_or_bytes: str | bytes | os.PathLike, sess_options: onnxruntime.SessionOptions | None = None, providers: Sequence[str | tuple[str, dict[Any, Any]]] | None = None, provider_options: Sequence[dict[Any, Any]] | None = None, **kwargs)[source]
-
-    In onnxmlir, session_options and provider will be merged into kwargs, and
-    ignored. onnxruntime.SessionOptions may contain some useful info,
-    but onnxruntime package is needed to interpret it. Therefore, it is ignored now.
-    Another argument, 'options' is added for onnxmlir to specify options for RunONNXModel.py
+    Init the class by loading / compiling and build an execution session.
+    model_file: the file name of the model, possibly needing compilation.
+    options: parsed and added into args.
     """
 
-    def __init__(self, model_file, **kwargs):
-        global args
-        if "options" in kwargs.keys():
-            options = kwargs["options"]
-            args = parser.parse_args(shlex.split(options))
+    # Init load the model or compile it, and build an execution session.
+    # For init, either options have been parsed because this file is executed
+    # as a main, or a model_file is expected as parameter to init.
+    # In either case, args will be parsed and thus be available.
+    #
+    # Object variables are:
+    #  default_model_name
+    #  model_dir
+    #  session
+    #  inputs (definition of inputs delayed to process_inputs).
+    #  input_names, output_names
+    #  temp_dir
 
+    def __init__(self, session_wrapper, model_file=None, **kwargs):
+        global args
+
+        self.session_wrapper = session_wrapper
+        # Get options passes, if any.
+        options = kwargs["options"] if "options" in kwargs.keys() else ""
+        # Add model file to options, if given.
         if model_file:
             if model_file.endswith(".onnx") or model_file.endswith(".mlir"):
-                args.model = model_file
+                options += " --model=" + model_file
             else:
-                args.load_model = compiled_name
+                options += " --load-model=" + model_file
+        # Parse options
+        if options:
+            args = parser.parse_args(shlex.split(options))
 
         # Default model name that will be used for the compiled model.
         # e.g. model.so, model.constants.bin, ...
+        # If the default value of default_model_name is changed to "",
+        # the original model name from --model can be used as the
+        # default model name. It's my preference.
+        # No impact if "--cache-model" and "--model" are used together
+        """ 
+        if args.default_model_name == "":
+            if args.model:
+                # Use the model name without the suffix .onnx or .mlir
+                self.default_model_name = os.path.basename(os.path.abspath(args.model)[:-5]) 
+            else:
+                self.default_model_name = "model"
+        else:
+            self.default_model_name = "model"
+        """
         self.default_model_name = args.default_model_name
 
         # Handle cache_model.
@@ -676,19 +785,17 @@ class InferenceSession:
                 args.load_model = args.cache_model
             args.cache_model = None
 
-        # Get shape information if given.
-        # args.shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
-        input_shapes = {}
-        if args.shape_info:
-            for input_shape in args.shape_info.strip().split(","):
-                input_index_shape = input_shape.split(":")
-                input_index = input_index_shape[0]
-                assert not (input_index in input_shapes), "Duplicate input indices"
-                dims = [int(d) for d in input_index_shape[1].split("x")]
-                input_shapes[int(input_index)] = dims
+        # Prepare onnx model for verifying output with onnxruntime
+        if (
+            not args.use_onnxmlir
+            and args.model
+            and args.model.endswith(".onnx")
+            and args.verify
+            and args.verify == "onnxruntime"
+            and args.verify_all_ops
+        ):
+            import onnx
 
-        # Load the onnx model.
-        if args.model and args.model.endswith(".onnx"):
             model = onnx.load(args.model)
             # Get names of all intermediate tensors and modify model such that each of
             # them will be an output of the model. If using onnxruntime for
@@ -709,23 +816,77 @@ class InferenceSession:
                     print("Saving modified onnx model to ", args.save_onnx, "\n")
                     onnx.save(model, args.save_onnx)
 
+        self.temp_dir = tempfile.TemporaryDirectory()
+        print("Temporary directory has been created at {}\n".format(self.temp_dir))
+        print("Compiling the model ...")
+        start = time.perf_counter()
+        self.model_dir = self.temp_dir.name
+        output_path = os.path.join(self.model_dir, self.default_model_name)
+        # When use onnxmlir package, use different wrapper class no matter the
+        # model is compiled or not.
+        if args.use_onnxmlir:
+            import ast
+
+            args_dict = {}
+            # Parse the additional options to onnxmlir
+            if args.onnxmlir_args:
+                for pair in args.onnxmlir_args.split():
+                    key, value_str = pair.split("=", 1)
+                    try:
+                        args_dict[key] = ast.literal_eval(value_str)
+                    except (ValueError, SyntaxError):
+                        args_dict[key] = value_str
+
+            if args.load_model:
+                model = shared_lib_path = (
+                    args.load_model + f"/{self.default_model_name}.so"
+                )
+            else:
+                # Inherit compiler option from RunONNXModel.py
+                model = args.model
+                args_dict["compile_options"] = args.compile_args + " -o " + output_path
+            session = self.session_wrapper(model, **args_dict)
+            self.session = session
+            # The compile log is needed to save the model.
+            # ToFix: the compilation message returned from container run
+            # is not passed back. Put a dummy message for now
+            msg = "Compiled with onnxmlir package"
+
         # If a shared library is given, use it without compiling the ONNX model.
         # Otherwise, compile the ONNX model.
-        if args.load_model:
+        elif args.load_model:
             self.model_dir = args.load_model
+            compiler_option_file = os.path.join(self.model_dir, "compiler_option.txt")
+            # Verify that we have the same options:
+            #  if we have saved the options in the "compiler_option.txt" file, and
+            #  if we have provided compiler options
+            if os.path.exists(compiler_option_file):
+                expected_string = cache_string(args.model, args.compile_args)
+                with open(compiler_option_file, "r") as f:
+                    options_from_file = f.read()
+                    if args.compile_args:
+                        if options_from_file != expected_string:
+                            print(
+                                "Try to load model from",
+                                args.load_model,
+                                " using different options than when saved, abort",
+                            )
+                            print('  Save options: "' + options_from_file + '"')
+                            print('  Load options: "' + expected_string + '"')
+                            exit(1)
+                    else:
+                        print('  Cached model options: "' + options_from_file + '"')
         else:
             # Compile the ONNX model.
-            self.temp_dir = tempfile.TemporaryDirectory()
-            print("Temporary directory has been created at {}\n".format(self.temp_dir))
-            print("Compiling the model ...")
-            self.model_dir = self.temp_dir.name
             # Prepare input and output paths.
-            output_path = os.path.join(self.model_dir, self.default_model_name)
+
             if args.model.endswith(".onnx"):
                 if args.verify and args.verify == "onnxruntime" and args.verify_all_ops:
                     input_model_path = os.path.join(
                         self.model_dir, f"{self.default_model_name}.onnx"
                     )
+                    import onnx
+
                     onnx.save(model, input_model_path)
                 else:
                     input_model_path = args.model
@@ -741,21 +902,6 @@ class InferenceSession:
             command_str = [ONNX_MLIR]
             if args.compile_args:
                 command_str += args.compile_args.split()
-            if args.compile_using_input_shape:
-                # Use shapes of the reference inputs to compile the model.
-                assert args.load_ref or args.load_ref_from_numpy, "No data folder given"
-                assert "shapeInformation" not in command_str, "shape info was set"
-                shape_info = "--shapeInformation="
-                for i in range(len(inputs)):
-                    shape_info += (
-                        str(i) + ":" + "x".join([str(d) for d in inputs[i].shape]) + ","
-                    )
-                shape_info = shape_info[:-1]
-                command_str += [shape_info]
-                warning(
-                    "the shapes of the model's inputs will be "
-                    "changed to the shapes of the inputs in the data folder"
-                )
             command_str += [input_model_path]
             command_str += ["-o", output_path]
 
@@ -763,11 +909,11 @@ class InferenceSession:
             start = time.perf_counter()
             ok, msg = execute_commands(command_str)
             # Dump the compilation log into a file.
-            if args.log_to_file:
+            if args.write_compile_log:
                 log_file = (
-                    args.log_to_file
-                    if args.log_to_file.startswith("/")
-                    else os.path.join(os.getcwd(), args.log_to_file)
+                    args.write_compile_log
+                    if args.write_compile_log.startswith("/")
+                    else os.path.join(os.getcwd(), args.write_compile_log)
                 )
                 print("  Compilation log is dumped into {}".format(log_file))
                 with open(log_file, "w") as f:
@@ -775,158 +921,242 @@ class InferenceSession:
             if not ok:
                 print(msg)
                 exit(1)
-            end = time.perf_counter()
-            print("  took ", end - start, " seconds.\n")
-
-            # Save the following information:
-            # - .so file,
-            # - .constants.bin file, and
-            # - compilation.log containing the compilation output.
-            if args.save_model:
-                if not os.path.exists(args.save_model):
-                    os.makedirs(args.save_model)
-                if not os.path.isdir(args.save_model):
-                    print("Path to --save-model is not a folder")
-                    exit(0)
-                # .so file.
-                shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
-                if os.path.exists(shared_lib_path):
-                    print("Saving the shared library to", args.save_model)
-                    shutil.copy2(shared_lib_path, args.save_model)
-                # .constants.bin file.
-                constants_file_path = os.path.join(
-                    self.model_dir, f"{self.default_model_name}.constants.bin"
-                )
-                if os.path.exists(constants_file_path):
-                    print("Saving the constants file to", args.save_model, "\n")
-                    shutil.copy2(constants_file_path, args.save_model)
-                # Compilation log.
-                log_file_path = os.path.join(args.save_model, "compile.log")
-                with open(log_file_path, "w") as f:
-                    print("Saving the compilation log to", args.save_model, "\n")
-                    f.write(msg)
-
-            # Exit if only compiling the model.
-            if args.compile_only:
-                exit(0)
-
-        # Use the generated shared library to create an execution session.
-        start = time.perf_counter()
-        shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
-        if not os.path.exists(shared_lib_path):
-            print(f"Input model {shared_lib_path} does not exist")
-            exit(0)
-        print("Loading the compiled model ...")
-        if args.load_model:
-            sess = OMExecutionSession(shared_lib_path, tag="None")
-        else:
-            sess = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
-        self.sess = sess
 
-    """
-    From onnxruntime API:
+        # Save the following information:
+        # - .so file,
+        # - .constants.bin file, and
+        # - compilation.log containing the compilation output.
+        if args.save_model:
+            if not os.path.exists(args.save_model):
+                os.makedirs(args.save_model)
+            if not os.path.isdir(args.save_model):
+                print("Path to --save-model is not a folder")
+                exit(0)
+            # .so file.
+            shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
+            print(shared_lib_path, args.save_model)
+            if os.path.exists(shared_lib_path):
+                print("Saving the shared library to", args.save_model)
+                shutil.copy2(shared_lib_path, args.save_model)
+            else:
+                print("file to save does not exist")
+                exit(-1)
+            # .constants.bin file.
+            constants_file_path = os.path.join(
+                self.model_dir, f"{self.default_model_name}.constants.bin"
+            )
+            if os.path.exists(constants_file_path):
+                print("Saving the constants file to", args.save_model, "\n")
+                shutil.copy2(constants_file_path, args.save_model)
+            # Compilation log.
+            log_file_path = os.path.join(args.save_model, "compile.log")
+            with open(log_file_path, "w") as f:
+                print("Saving the compilation log to", args.save_model, "\n")
+                f.write(msg)
+            compiler_option_file_path = os.path.join(
+                args.save_model, "compiler_option.txt"
+            )
+            expected_string = cache_string(args.model, args.compile_args)
+            with open(compiler_option_file_path, "w") as ff:
+                print("Saving the compilation options to", args.save_model, "\n")
+                ff.write(expected_string)
 
-    run(output_names, input_feed, run_options=None)
-    Compute the predictions.
+        # Exit if only compiling the model.
+        if args.compile_only:
+            exit(0)
 
-    PARAMETERS:
-    output_names – name of the outputs
-    input_feed – dictionary { input_name: input_value }
-    run_options – See onnxruntime.RunOptions.
-    RETURNS:
-    list of results, every result is either a numpy array, a sparse tensor, a list or a dictionary.
-    
-    For onnxmlir, the run_options is ignored. If 'input_feed' is None, the
-    input could be randomly generated or read from file, as args specified.
-    In future, add '--shape-info' here. Better than in InferenceSession to
-    allow different shape from run to run. 
-    """
+        if not args.use_onnxmlir:
+            # Use the generated shared library to create an execution session.
+            start = time.perf_counter()
+            shared_lib_path = self.model_dir + f"/{self.default_model_name}.so"
+            if not os.path.exists(shared_lib_path):
+                print(f"Input model {shared_lib_path} does not exist")
+                exit(0)
+            print("Loading the compiled model ...")
+            if args.load_model:
+                session = self.session_wrapper(shared_lib_path, tag="None")
+            else:
+                session = self.session_wrapper(shared_lib_path)
+            end = time.perf_counter()
+            print("  took ", end - start, " seconds.\n")
+            self.session = session
 
-    def run(self, outputname, input_feed, **kwargs):
-        # Get shape information if given.
-        # args.shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
-        input_shapes = {}
-        if args.shape_info:
-            for input_shape in args.shape_info.strip().split(","):
-                input_index_shape = input_shape.split(":")
-                input_index = input_index_shape[0]
-                assert not (input_index in input_shapes), "Duplicate input indices"
-                dims = [int(d) for d in input_index_shape[1].split("x")]
-                input_shapes[int(input_index)] = dims
-
-        # Get the input and output signature.
-        input_signature = self.sess.input_signature()
-        output_signature = self.sess.output_signature()
-        input_names = get_names_in_signature(input_signature)
-        output_names = get_names_in_signature(output_signature)
+        # Additional model info.
+        self.inputs = []
+        input_signature = self.session.input_signature()
+        output_signature = self.session.output_signature()
+        self.input_names = get_names_in_signature(input_signature)
+        self.output_names = get_names_in_signature(output_signature)
         if args.print_signatures:
             print("Model's input signature: ", input_signature.strip())
             print("Model's output signature: ", output_signature.strip())
 
-        inputs = []
-        # Get input from input_feed, if input_feed is provided
+        # Let onnx-mlir know where to find the constants file.
+        os.environ["OM_CONSTANT_PATH"] = self.model_dir
+
+    """
+    process_inputs: define the model inputs for the model and store them in self.inputs.
+    Print input if requested.
+    """
+
+    def process_inputs(self, input_feed=None):
+        # Define inputs.
+        self.inputs = []
         if input_feed:
+            # Get input from input_feed.
             if isinstance(input_feed, dict):
-                for name in input_names:
+                for name in self.input_names:
                     if name in input_feed:
-                        inputs.append(input_feed[name])
+                        self.inputs.append(input_feed[name])
                     else:
                         print("input name given: ", input_feed.keys())
-                        print("input name expected by model: ", input_names)
+                        print("input name expected by model: ", self.input_names)
                         print("do not match")
                         exit(1)
                 # Since Python guarantees the order of values in a dictionary,
                 # the name check could be ignored as follows:
                 # inputs = list(input_feed.values())
             else:
-                inputs = input_feed
-            args.inputs_from_arrays = inputs
-
-        # Prepare input data.
-        inputs = []
-        if args.load_ref:
-            inputs = read_input_from_refs(len(input_names), args.load_ref)
+                self.inputs = input_feed
+        elif args.load_ref:
+            # Get input from reference file.
+            self.inputs = read_input_from_refs(
+                len(self.input_names), args.load_ref, is_load_ref=True
+            )
         elif args.load_ref_from_numpy:
-            inputs = read_input_from_refs(len(input_names), args.load_ref_from_numpy)
+            # Get input from numpy.
+            self.inputs = read_input_from_refs(
+                len(self.input_names), args.load_ref_from_numpy, is_load_ref=False
+            )
         elif args.inputs_from_arrays:
-            inputs = args.inputs_from_arrays
+            # Get input from array.
+            self.inputs = args.inputs_from_arrays
         else:
-            inputs = generate_random_input(input_signature, input_shapes)
+            self.inputs = generate_random_input(
+                self.session.input_signature(),
+                args.shape_info,
+                args.seed,
+                args.lower_bound,
+                args.upper_bound,
+            )
 
         # Print the input if required.
         if args.print_input:
-            for i, inp in enumerate(inputs):
+            for i, inp in enumerate(self.inputs):
                 print(
                     "The {} input {}:[{}x{}] is: \n {} \n".format(
                         ordinal(i + 1),
-                        input_names[i],
+                        self.input_names[i],
                         "x".join([str(i) for i in inp.shape]),
                         inp.dtype,
                         inp,
                     )
                 )
 
-        # Running inference.
-        print("Running inference ...")
-        # Let onnx-mlir know where to find the constants file.
-        os.environ["OM_CONSTANT_PATH"] = self.model_dir
-        for i in range(args.warmup):
-            start = time.perf_counter()
-            outs = self.sess.run(inputs)
-            end = time.perf_counter()
-            print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
+    """
+    Perform one inference without any timing.
+    """
 
-        perf_results = []
-        for i in range(args.n_iteration):
-            start = time.perf_counter()
-            outs = self.sess.run(inputs)
-            end = time.perf_counter()
-            elapsed = end - start
-            perf_results += [elapsed]
-            print("  {} iteration, {}, seconds".format(ordinal(i + 1), elapsed))
+    def run_inference(self):
+        return self.session.run(self.inputs)
 
+    """
+    When requested outputs are printed, verified, and/or saved.
+    """
+
+    def process_outputs(self, outs):
+        # Print the output if required.
+        if args.print_output:
+            for i, out in enumerate(outs):
+                print(
+                    "The {} output {}:[{}x{}] is: \n {} \n".format(
+                        ordinal(i + 1),
+                        self.output_names[i],
+                        "x".join([str(i) for i in out.shape]),
+                        out.dtype,
+                        out,
+                    )
+                )
+
+        # Store the input and output if required.
+        if args.save_ref:
+            from onnx import numpy_helper
+
+            load_ref = args.save_ref
+            if not os.path.exists(load_ref):
+                os.mkdir(load_ref)
+            for i in range(len(self.inputs)):
+                tensor = numpy_helper.from_array(self.inputs[i])
+                tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
+                with open(tensor_path, "wb") as f:
+                    f.write(tensor.SerializeToString())
+            for i in range(len(outs)):
+                tensor = numpy_helper.from_array(outs[i])
+                tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
+                with open(tensor_path, "wb") as f:
+                    f.write(tensor.SerializeToString())
+
+        # Verify the output if required.
+        if args.verify:
+            ref_outs = []
+            if args.verify.lower() == "onnxruntime":
+                input_model_path = args.model
+                # Reference backend by using onnxruntime.
+                import onnxruntime
+
+                input_feed = dict(zip(self.input_names, self.inputs))
+                print("Running inference using onnxruntime ...")
+                start = time.perf_counter()
+                ref_session = onnxruntime.InferenceSession(input_model_path)
+                ref_outs = ref_session.run(self.output_names, input_feed)
+                end = time.perf_counter()
+                print("  took ", end - start, " seconds.\n")
+            elif args.verify.lower() == "ref":
+                # Reference output available in protobuf.
+                if args.load_ref:
+                    ref_outs = read_output_from_refs(
+                        len(self.output_names), args.load_ref, is_load_ref=True
+                    )
+                elif args.load_ref_from_numpy:
+                    ref_outs = read_output_from_refs(
+                        len(self.output_names),
+                        args.load_ref_from_numpy,
+                        is_load_ref=False,
+                    )
+            else:
+                print("Invalid verify option")
+                exit(1)
+
+            # Verify using softmax first.
+            if args.verify_with_softmax is not None:
+                axis = int(args.verify_with_softmax)
+                for i, name in enumerate(self.output_names):
+                    print(
+                        "Verifying using softmax along with "
+                        "axis {}".format(args.verify_with_softmax),
+                        "for output {}:{}".format(name, list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol),
+                    )
+                    softmax_outs = softmax(outs[i], axis)
+                    softmax_ref_outs = softmax(ref_outs[i], axis)
+                    verify_outs(softmax_outs, softmax_ref_outs, args.atol, args.rtol)
+
+            # For each output tensor, compare every value.
+            if args.verify_every_value:
+                for i, name in enumerate(self.output_names):
+                    print(
+                        "Verifying value of {}:{}".format(name, list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol),
+                    )
+                    verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+
+    """
+    Perform a short analysis of time spent in the model.
+    """
+
+    def process_perf_results(self, perf_results):
         # Print statistics info, e.g., min/max/stddev inference time.
         if args.n_iteration > 1:
             print(
@@ -949,99 +1179,114 @@ class InferenceSession:
                 )
             )
 
-        # Print the output if required.
-        if args.print_output:
-            for i, out in enumerate(outs):
-                print(
-                    "The {} output {}:[{}x{}] is: \n {} \n".format(
-                        ordinal(i + 1),
-                        output_names[i],
-                        "x".join([str(i) for i in out.shape]),
-                        out.dtype,
-                        out,
-                    )
-                )
+    """
+    From onnxruntime API:
 
-        # Store the input and output if required.
-        if args.save_ref:
-            load_ref = args.save_ref
-            if not os.path.exists(load_ref):
-                os.mkdir(load_ref)
-            for i in range(len(inputs)):
-                tensor = numpy_helper.from_array(inputs[i])
-                tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
-            for i in range(len(outs)):
-                tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
+    run_performance_test(output_names, input_feed)
+    Compute the predictions.
 
-        # Verify the output if required.
-        if args.verify:
-            ref_outs = []
-            if args.verify.lower() == "onnxruntime":
-                input_model_path = args.model
-                # Reference backend by using onnxruntime.
-                import onnxruntime
+    PARAMETERS:
+    output_names – name of the outputs (optional)
+    input_feed – dictionary { input_name: input_value }
+    RETURNS:
+    list of results, every result is either a numpy array, a sparse tensor, or
+    a list or a dictionary.
+    
+    For onnxmlir, the run_options is ignored. If 'input_feed' is None, the
+    input could be randomly generated or read from file, as args specified.
+    In future, add '--shape-info' here. Better than in InferenceSession to
+    allow different shape from run to run. 
+    """
 
-                input_feed = dict(zip(input_names, inputs))
-                print("Running inference using onnxruntime ...")
-                start = time.perf_counter()
-                ref_session = onnxruntime.InferenceSession(input_model_path)
-                ref_outs = ref_session.run(output_names, input_feed)
-                end = time.perf_counter()
-                print("  took ", end - start, " seconds.\n")
-            elif args.verify.lower() == "ref":
-                # Reference output available in protobuf.
-                if args.load_ref:
-                    ref_outs = read_output_from_refs(len(output_names), args.load_ref)
-                elif args.load_ref_from_numpy:
-                    ref_outs = read_output_from_refs(
-                        len(output_names), args.load_ref_from_numpy
-                    )
-            else:
-                print("Invalid verify option")
-                exit(1)
+    def run_performance_test(self, output_name=None, input_feed=None, **kwargs):
+        # Process inputs, saved in self.inputs.
+        self.process_inputs(input_feed)
+        # Running inference.
+        print("Running inference ...")
+        if args.write_runtime_log:
+            log_file = (
+                args.write_runtime_log
+                if args.write_runtime_log.startswith("/")
+                else os.path.join(os.getcwd(), args.write_runtime_log)
+            )
+            print("  Runtime log is dumped into {}".format(log_file))
+            os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = log_file
 
-            # Verify using softmax first.
-            if args.verify_with_softmax is not None:
-                for i, name in enumerate(output_names):
-                    print(
-                        "Verifying using softmax along with "
-                        "axis {}".format(args.verify_with_softmax),
-                        "for output {}:{}".format(name, list(outs[i].shape)),
-                        "using atol={}, rtol={} ...".format(args.atol, args.rtol),
-                    )
-                    softmax_outs = softmax(outs[i])
-                    softmax_ref_outs = softmax(ref_outs[i])
-                    verify_outs(softmax_outs, softmax_ref_outs)
+        for i in range(args.warmup):
+            start = time.perf_counter()
+            outs = self.run_inference()  # Using inputs from self.inputs.
+            end = time.perf_counter()
+            print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
 
-            # For each output tensor, compare every value.
-            if args.verify_every_value:
-                for i, name in enumerate(output_names):
-                    print(
-                        "Verifying value of {}:{}".format(name, list(outs[i].shape)),
-                        "using atol={}, rtol={} ...".format(args.atol, args.rtol),
-                    )
-                    verify_outs(outs[i], ref_outs[i])
-        if outputname:
-            res = {outputname[i]: outs[i] for i in range(len(outs))}
+        perf_results = []
+        for i in range(args.n_iteration):
+            start = time.perf_counter()
+            outs = self.run_inference()  # Using inputs from self.inputs.
+            end = time.perf_counter()
+            elapsed = end - start
+            perf_results += [elapsed]
+            print("  {} iteration, {}, seconds".format(ordinal(i + 1), elapsed))
+
+        # Print performance results and verify output.
+        self.process_perf_results(perf_results)
+        self.process_outputs(outs)
+        if output_name:
+            res = {output_name[i]: outs[i] for i in range(len(outs))}
             return res
         else:
             return outs
 
 
-# Standalone driver
-def main():
+def load_user_config(config_file):
+    config_path = os.path.expanduser(config_file)
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            try:
+                import yaml
+
+                config = yaml.safe_load(f)
+            except ImportError:
+                config = {}
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):  # empty or comment
+                        key, value = line.split(":", 1)
+                        config[key.strip()] = value.strip()
+        return config
+    else:
+        print(f"Configure file, {config_path}, does not exists")
+        exit(-1)
+
+
+def handle_args():
+    global args
+    args = parser.parse_args()
     if not (args.model or args.load_model):
         print("error: no input model, use argument --model and/or --load-model.")
         print(parser.format_usage())
         exit(1)
 
-    sess = InferenceSession(None)
-    return sess.run(None, None)
+    if args.config_file:
+        user_config = load_user_config(args.config_file)
+        parser.set_defaults(**user_config)
+        args = parser.parse_args()
+
+    # print(args)
+
+
+################################################################################
+# Standalone driver
+
+
+def main():
+    # In main mode, parse the args here.
+    handle_args()
+
+    session_wrapper = import_driver()
+    # Create inference session and perform a performance run test, which load,
+    # compute, and possibly verify data.
+    session = InferenceSession(session_wrapper=session_wrapper)
+    return session.run_performance_test()
 
 
 if __name__ == "__main__":

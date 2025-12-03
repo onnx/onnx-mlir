@@ -33,7 +33,7 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 
 void ZHighStickOp::build(OpBuilder &builder, OperationState &state, Value input,
-    StringAttr layout, IntegerAttr saturation) {
+    StringAttr layout, IntegerAttr noSaturation) {
   Type resType = builder.getNoneType();
   Type resElementType = builder.getF16Type();
   if (!mlir::isa<NoneType>(input.getType())) {
@@ -67,7 +67,7 @@ void ZHighStickOp::build(OpBuilder &builder, OperationState &state, Value input,
       resType = UnrankedTensorType::get(resElementType);
     }
   }
-  build(builder, state, resType, input, layout, saturation);
+  build(builder, state, resType, input, layout, noSaturation);
 }
 
 //===----------------------------------------------------------------------===//

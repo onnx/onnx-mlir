@@ -91,7 +91,7 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
 
   // Create a ZHighStickifiedConstantOp.
   ZHighStickifiedConstantOp stickifiedConstant =
-      rewriter.create<ZHighStickifiedConstantOp>(loc, outputType,
+      ZHighStickifiedConstantOp::create(rewriter, loc, outputType,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
@@ -227,6 +227,7 @@ ZHighStickifiedConstantOp createQuantizedConstantForStick(
   init_ztensor(&pre_tfrmd_desc, &tfrmd_desc, &ztensor);
   status = allochelper_ztensor_alloc(&ztensor);
   assert(status == ZDNN_OK);
+  memset(ztensor.buffer, 0, ztensor.buffer_size);
   status = quantized_stickify(&ztensor, rawData.data());
   assert(status == ZDNN_OK);
   // Emit a constant global in ZHigh dialect.
@@ -357,6 +358,8 @@ static void replaceOpAndGC(
     // v is consumed by only the current stick op.
     if (!v.hasOneUse())
       continue;
+    if (llvm::any_of(newValues, [&v](Value nv) { return nv == v; }))
+      continue;
     if (auto cop = v.getDefiningOp<ONNXConstantOp>()) {
       if (auto disposableAttr =
               mlir::dyn_cast<DisposableElementsAttr>(cop.getValueAttr())) {
@@ -463,8 +466,8 @@ struct ConstantQuantizedStickPattern
   LogicalResult matchAndRewrite(
       ZHighQuantizedStickOp stickOp, PatternRewriter &rewriter) const override {
     Value input = stickOp.getIn();
-    Value recscale = stickOp.getRecScale();
-    Value offset = stickOp.getOffset();
+    Value recscale = stickOp.getInRecScale();
+    Value offset = stickOp.getInOffset();
     Value output = stickOp.getOut();
     StringAttr layout = stickOp.getLayoutAttr();
     StringAttr quantizedType = stickOp.getQuantizedTypeAttr();
@@ -501,7 +504,7 @@ struct ZHighConstPropagationPass
     patterns.insert<ConstantStickPattern>(patterns.getContext());
     patterns.insert<ConstantStickForGRUPattern>(patterns.getContext());
     patterns.insert<ConstantStickForLSTMPattern>(patterns.getContext());
-    (void)applyPatternsAndFoldGreedily(moduleOp, std::move(patterns));
+    (void)applyPatternsGreedily(moduleOp, std::move(patterns));
   }
 };
 } // anonymous namespace

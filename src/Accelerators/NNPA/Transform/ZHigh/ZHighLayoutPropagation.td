@@ -63,36 +63,36 @@ def LayoutIsNot: Constraint<
 
 // Exp
 def ExpLayoutPropagatePattern : Pat<
-  (ZHighExpOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation)),
-  (ZHighStickOp (ZHighUnstickOp (ZHighExpOp $x, (returnType $x))), $prevLayout, $saturation),
+  (ZHighExpOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation)),
+  (ZHighStickOp (ZHighUnstickOp (ZHighExpOp $x, (returnType $x))), $prevLayout, $noSaturation),
   [(LayoutIsNot:$x $prevLayout)]
 >;
 
 // Log
 def LogLayoutPropagatePattern : Pat<
-  (ZHighLogOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation)),
-  (ZHighStickOp (ZHighUnstickOp (ZHighLogOp $x, (returnType $x))), $prevLayout, $saturation),
+  (ZHighLogOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation)),
+  (ZHighStickOp (ZHighUnstickOp (ZHighLogOp $x, (returnType $x))), $prevLayout, $noSaturation),
   [(LayoutIsNot:$x $prevLayout)]
 >;
 
 // Relu
 def ReluLayoutPropagatePattern : Pat<
-  (ZHighReluOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation)),
-  (ZHighStickOp (ZHighUnstickOp (ZHighReluOp $x, (returnType $x))), $prevLayout, $saturation),
+  (ZHighReluOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation)),
+  (ZHighStickOp (ZHighUnstickOp (ZHighReluOp $x, (returnType $x))), $prevLayout, $noSaturation),
   [(LayoutIsNot:$x $prevLayout)]
 >;
 
 // Sigmoid
 def SigmoidLayoutPropagatePattern : Pat<
-  (ZHighSigmoidOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation)),
-  (ZHighStickOp (ZHighUnstickOp (ZHighSigmoidOp $x, (returnType $x))), $prevLayout, $saturation),
+  (ZHighSigmoidOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation)),
+  (ZHighStickOp (ZHighUnstickOp (ZHighSigmoidOp $x, (returnType $x))), $prevLayout, $noSaturation),
   [(LayoutIsNot:$x $prevLayout)]
 >;
 
 // Tanh
 def TanhLayoutPropagatePattern : Pat<
-  (ZHighTanhOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation)),
-  (ZHighStickOp (ZHighUnstickOp (ZHighTanhOp $x, (returnType $x))), $prevLayout, $saturation),
+  (ZHighTanhOp (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation)),
+  (ZHighStickOp (ZHighUnstickOp (ZHighTanhOp $x, (returnType $x))), $prevLayout, $noSaturation),
   [(LayoutIsNot:$x $prevLayout)]
 >;
 
@@ -120,15 +120,15 @@ def TanhLayoutPropagatePattern : Pat<
 // Add
 def AddLayoutPropagatePattern1 : Pat<
   (ZHighAddOp
-     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation),
+     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighAddOp
          $x,
-         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $noSaturation),
          (returnType $x))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -137,14 +137,14 @@ def AddLayoutPropagatePattern1 : Pat<
 def AddLayoutPropagatePattern2 : Pat<
   (ZHighAddOp
      $x,
-     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $saturation)),
+     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $noSaturation)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighAddOp
          $y,
-         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $noSaturation),
          (returnType $y))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -153,15 +153,15 @@ def AddLayoutPropagatePattern2 : Pat<
 // Sub
 def SubLayoutPropagatePattern1 : Pat<
   (ZHighSubOp
-     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation),
+     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighSubOp
          $x,
-         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $noSaturation),
          (returnType $x))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -170,14 +170,14 @@ def SubLayoutPropagatePattern1 : Pat<
 def SubLayoutPropagatePattern2 : Pat<
   (ZHighSubOp
      $x,
-     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $saturation)),
+     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $noSaturation)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighSubOp
          $y,
-         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $noSaturation),
          (returnType $y))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -186,15 +186,15 @@ def SubLayoutPropagatePattern2 : Pat<
 // Mul
 def MulLayoutPropagatePattern1 : Pat<
   (ZHighMulOp
-     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation),
+     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighMulOp
          $x,
-         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $noSaturation),
          (returnType $x))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -203,14 +203,14 @@ def MulLayoutPropagatePattern1 : Pat<
 def MulLayoutPropagatePattern2 : Pat<
   (ZHighMulOp
      $x,
-     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $saturation)),
+     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $noSaturation)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighMulOp
          $y,
-         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $noSaturation),
          (returnType $y))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -219,15 +219,15 @@ def MulLayoutPropagatePattern2 : Pat<
 // Div
 def DivLayoutPropagatePattern1 : Pat<
   (ZHighDivOp
-     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $saturation),
+     (ZHighStickOp (ZHighUnstickOp $x), $prevLayout, $noSaturation),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighDivOp
          $x,
-         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $y), (GetLayout $x), $noSaturation),
          (returnType $x))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]
@@ -236,14 +236,14 @@ def DivLayoutPropagatePattern1 : Pat<
 def DivLayoutPropagatePattern2 : Pat<
   (ZHighDivOp
      $x,
-     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $saturation)),
+     (ZHighStickOp (ZHighUnstickOp $y), $prevLayout, $noSaturation)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighDivOp
          $y,
-         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $saturation),
+         (ZHighStickOp (ZHighUnstickOp $x), (GetLayout $y), $noSaturation),
          (returnType $y))),
-     $prevLayout, $saturation),
+     $prevLayout, $noSaturation),
   [(LayoutIs:$y $prevLayout),   // Two inputs must have the same layout.
    (LayoutIsNot:$x $prevLayout) // The previous layout is different.
   ]

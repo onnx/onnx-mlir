@@ -14,6 +14,7 @@
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 
+#include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
@@ -35,23 +36,24 @@ struct ScaleHelper {
 };
 
 // Adapted from TFL to TOSA.
-ScaleHelper normalize(int64_t output, int64_t input, bool pytorchHalfPixel,
-    bool alignCorners, bool halfPixel, bool isNearest,
-    bool isNearestModeFloor) {
-  int64_t numerator, denominator, offset, border;
+ScaleHelper normalize(int64_t numerator, int64_t denominator, int64_t inputSize,
+    int64_t outputSize, bool pytorchHalfPixel, bool alignCorners,
+    bool halfPixel, bool isNearest, bool isNearestModeFloor) {
+  int64_t offset, border;
   // Test if pytorch_half_pixel needs special handling
-  if (pytorchHalfPixel && output == 1) {
+  if (pytorchHalfPixel && outputSize == 1) {
     numerator = 1;
     denominator = 1;
     offset = -1;
-    border = denominator * (output - 1) - numerator * (input - 1) + offset;
+    border =
+        denominator * (outputSize - 1) - numerator * (inputSize - 1) + offset;
     return ScaleHelper(numerator, denominator, offset, border);
   }
 
   // Apply if aligned and capable to be aligned.
-  bool applyAligned = alignCorners && (output > 1);
-  numerator = applyAligned ? (output - 1) : output;
-  denominator = applyAligned ? (input - 1) : input;
+  bool applyAligned = alignCorners && (numerator > 1);
+  numerator = applyAligned ? (numerator - 1) : numerator;
+  denominator = applyAligned ? (denominator - 1) : denominator;
 
   // Simplify the scalers, make sure they are even values.
   int gcd = std::gcd(numerator, denominator);
@@ -67,7 +69,8 @@ ScaleHelper normalize(int64_t output, int64_t input, bool pytorchHalfPixel,
   }
 
   // We can compute this directly based on previous values.
-  border = denominator * (output - 1) - numerator * (input - 1) + offset;
+  border =
+      denominator * (outputSize - 1) - numerator * (inputSize - 1) + offset;
   return ScaleHelper(numerator, denominator, offset, border);
 };
 
@@ -197,7 +200,8 @@ public:
 
     // With only static dimensions, scales and sizes as inputs are not relevant
     // anymore.
-    if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3)) {
+    if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3) ||
+        resultType.isDynamicDim(2) || resultType.isDynamicDim(3)) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Only static sized tensors are supported.");
     }
@@ -217,6 +221,11 @@ public:
         (nearestMode == "ceil" || nearestMode == "round_prefer_floor")) {
       return rewriter.notifyMatchFailure(resizeOp,
           "TOSA does not support ceil and round_prefer_floor as nearestMode.");
+    }
+
+    if (mode == "linear" && isa<IntegerType>(elementType)) {
+      return rewriter.notifyMatchFailure(resizeOp,
+          "linear interpolation for integer types is not implemented");
     }
 
     // This also makes roi as an input irrelevant.
@@ -245,10 +254,15 @@ public:
     }
 
     // Set these explicitly just out of convenience.
-    int64_t inputHeight = inputShape[2];
-    int64_t inputWidth = inputShape[3];
-    int64_t outputHeight = outputShape[2];
-    int64_t outputWidth = outputShape[3];
+    const int64_t inputHeight = inputShape[2];
+    const int64_t inputWidth = inputShape[3];
+    const int64_t outputHeight = outputShape[2];
+    const int64_t outputWidth = outputShape[3];
+
+    int64_t denominatorHeight = inputHeight;
+    int64_t numeratorHeight = outputHeight;
+    int64_t denominatorWidth = inputWidth;
+    int64_t numeratorWidth = outputWidth;
 
     // Check if scales are set. We need to get those float values, because they
     // make a difference in linear interpolation.
@@ -262,10 +276,10 @@ public:
       // In TOSA the scale is a fraction of two integer numbers.
       FractionNumber height(scales[2]);
       FractionNumber width(scales[3]);
-      outputHeight = height.numerator;
-      inputHeight = height.denominator;
-      outputWidth = width.numerator;
-      inputWidth = width.denominator;
+      numeratorHeight = height.numerator;
+      denominatorHeight = height.denominator;
+      numeratorWidth = width.numerator;
+      denominatorWidth = width.denominator;
     }
 
     bool alignCorners = coordinateTransformationMode == "align_corners";
@@ -277,31 +291,36 @@ public:
     bool isBilinear = mode == "linear";
     bool isNearest = mode == "nearest";
     bool isNearestModeFloor = nearestMode == "floor";
-    StringRef resizeMode = isBilinear ? "BILINEAR" : "NEAREST_NEIGHBOR";
+    mlir::tosa::ResizeMode resizeMode =
+        isBilinear ? mlir::tosa::ResizeMode::BILINEAR
+                   : mlir::tosa::ResizeMode::NEAREST_NEIGHBOR;
 
     if (halfPixelSymmetric)
       return rewriter.notifyMatchFailure(op,
           "TOSA does not support float offsets which are required "
           "for symmetric mode.");
 
-    ScaleHelper yDimension =
-        normalize(outputHeight, inputHeight, pytorchHalfPixel, alignCorners,
-            halfPixel, isNearest, isNearestModeFloor);
-    ScaleHelper xDimension =
-        normalize(outputWidth, inputWidth, pytorchHalfPixel, alignCorners,
-            halfPixel, isNearest, isNearestModeFloor);
+    ScaleHelper yDimension = normalize(numeratorHeight, denominatorHeight,
+        inputHeight, outputHeight, pytorchHalfPixel, alignCorners, halfPixel,
+        isNearest, isNearestModeFloor);
+    ScaleHelper xDimension = normalize(numeratorWidth, denominatorWidth,
+        inputWidth, outputWidth, pytorchHalfPixel, alignCorners, halfPixel,
+        isNearest, isNearestModeFloor);
 
     // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
     Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     // Create resizeOp
-    auto scale = rewriter.getDenseI64ArrayAttr({yDimension.numerator,
-        yDimension.denominator, xDimension.numerator, xDimension.denominator});
-    auto offset =
-        rewriter.getDenseI64ArrayAttr({yDimension.offset, xDimension.offset});
-    auto border =
-        rewriter.getDenseI64ArrayAttr({yDimension.border, xDimension.border});
-    auto resizeModeAttr = rewriter.getStringAttr(resizeMode);
+    Value scale = mlir::tosa::getTosaConstShape(rewriter, loc,
+        {yDimension.numerator, yDimension.denominator, xDimension.numerator,
+            xDimension.denominator});
+    Value offset = mlir::tosa::getTosaConstShape(
+        rewriter, loc, {yDimension.offset, xDimension.offset});
+    Value border = mlir::tosa::getTosaConstShape(
+        rewriter, loc, {yDimension.border, xDimension.border});
+
+    auto resizeModeAttr =
+        mlir::tosa::ResizeModeAttr::get(rewriter.getContext(), resizeMode);
     Type newOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
                                   inputType.getRank(), ShapedType::kDynamic),

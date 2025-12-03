@@ -322,15 +322,21 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
 //===----------------------------------------------------------------------===//
 // ONNX PrintSignatureOp.
 def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
-  let summary = "ONNX Op to print type signature of its input operands";
+  let summary = "ONNX Op to print type signature or data of its input operands";
   let description = [{
-    Print type signature of the op's input operands. This operation is introduced early
-    so as to preserve the name of the original ONNX op.
+    Print type signature or data of the input operands of this op.
+    The parameter op_name specifies a string to be printed before the tensors.
+    and usually the op_name and onnx_node_name are used.
+    This operation is introduced early so as to preserve the name of the original ONNX op.
+    The argument print_data control whether the data of the tensors to be printed.
+    When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
+    The argument input specifies the tensor to be printed. They could be a list
+    of the inputs and outputs of an ONNX op.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins StrAttr:$op_name, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
 }
 
 //===----------------------------------------------------------------------===//
@@ -349,7 +355,7 @@ def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
 
   let builders = [
     OpBuilder<(ins),
-    [{ build($_builder, $_state, std::nullopt); }]>];
+    [{ build($_builder, $_state, llvm::ArrayRef<mlir::Value>()); }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
@@ -441,6 +447,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
                        OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 
+  let hasCanonicalizer = 1;
   let hasVerifier = 1;
 
   let extraClassDeclaration = [{
@@ -548,6 +555,17 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
 
 //===----------------------------------------------------------------------===//
 // ONNXRMSNormOp (Variant of LayerNormalization found in T5 model)
+
+// TODO: When upgrading ONNX to 23, it introduces RMSNormalization, which is
+// the operation listed below EXCEPT:
+// * does not have a B input
+// * does not have a InvStdDev output. 
+// This operation ONNXRMSLayerNormalizationOp should be replaced by the standard op,
+// and some care should be used in onnx-mlir/src/Conversion/ONNXToKrnl/NN/Normalization.cpp
+// to ensure we don't use a `getB()`. Can be predicated by the code below.
+//
+//     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)...
+//
 
 def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {

@@ -28,6 +28,9 @@
 
 #include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -119,8 +122,9 @@ public:
   }
 
   void runOnOperation() override {
-    if (instrumentOps == "" || instrumentOps == "NONE")
-      return;
+    assert(instrumentOps != "" && instrumentOps != "NONE" &&
+           "should only be here if we have something to instrument");
+
     allowedOps.setRegexString(instrumentOps);
     bool hasInitializedRuntime = false;
 
@@ -139,6 +143,10 @@ public:
       // ```
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
+      // Skip other instrument ops.
+      if (isa<KrnlInstrumentOp>(op) || isa<ONNXPrintSignatureOp>(op))
+        return WalkResult::advance();
+
       std::string opName = op->getName().getStringRef().str();
       if (allowedOps.isEnabled(opName)) {
         Location loc = op->getLoc();
@@ -149,7 +157,7 @@ public:
             SET_INSTRUMENT_INIT(tag);
             hasInitializedRuntime = true;
           }
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
         }
 
         // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
@@ -160,7 +168,7 @@ public:
             SET_INSTRUMENT_INIT(tag);
             hasInitializedRuntime = true;
           }
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
         }
       }
       return WalkResult::advance();

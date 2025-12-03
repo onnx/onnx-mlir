@@ -10,11 +10,7 @@ There are two approaches to using quantization in the onnx-mlir compiler, depend
 - The input model is a non-quantized model, e.g. operations operate on float32 data types. In this case, the onnx-mlir compiler provides several quantization options in order to quantize the model during compilation, then run the compiled model on NNPA. The remaining of this document describes this approach.
   - In this approach, the compiler only supports dynamic quantization.
 
-In both approaches, the following constraints are applied:
-- Only per-tensor quantization is supported, meaning `scale` and `zero_point` are computed per-tensor and are scalar values.
-- Target quantization data type is 8-bit signed-integer.
- 
-Quantization requires NNPA in IBM Telum II, meaning that the following compile flags must be specified to enable quantization: `-maccel=NNPA -march=arch15`.
+Quantization requires NNPA in IBM Telum II, meaning that the following compile flags must be specified to enable quantization: `-maccel=NNPA -march=z17`.
 
 # Dynamic quantization by the compiler
 
@@ -60,6 +56,13 @@ quantized_x = x/scale + zero_point
 
 It is often the case that symmetric quantization leads to better inference performance but poorer accuracy than asymmetric quantization.
 Users may want to experiment with different quantization schemes to find the best combination for their own model.
+
+# Limitations
+
+- Only per-tensor quantization is supported, meaning scale and zero_point are computed per-tensor and are scalar values. Per-channel quantization is not supported yet.
+- Target quantization data type is 8-bit signed-integer.
+- Asymmetric quantization for weights is not yet supported.
+- Blocked quantization is not supported.
 
 # Resources
 - [A visual guide to quantization](https://www.maartengrootendorst.com/blog/quantization/)

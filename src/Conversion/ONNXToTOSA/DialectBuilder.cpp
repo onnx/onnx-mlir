@@ -15,6 +15,7 @@
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 
+#include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -39,7 +40,7 @@ Value TosaBuilder::createConstFromRankedTensorAndVec(
   auto constAttr = DenseElementsAttr::get(constType, vec);
 
   Value constOp =
-      rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+      mlir::tosa::ConstOp::create(rewriter(), loc(), constType, constAttr);
   return constOp;
 }
 
@@ -123,7 +124,7 @@ Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp =
-      rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+      mlir::tosa::ConstOp::create(rewriter(), loc(), constType, constAttr);
   return constOp;
 }
 
@@ -132,7 +133,7 @@ Value TosaBuilder::transpose(Value &value, llvm::ArrayRef<int32_t> perm) {
   assert((valueRank == static_cast<int64_t>(perm.size())) &&
          "value and perm vector don't have the same rank");
   // Create Permutation Const
-  Value permList = this->getConst(perm, {valueRank});
+  auto permList = mlir::DenseI32ArrayAttr::get(rewriter().getContext(), perm);
   auto valueType = mlir::cast<ShapedType>(value.getType());
   // get new value type
   Type newValueType = RankedTensorType::get(
@@ -147,14 +148,16 @@ Value TosaBuilder::transpose(Value &value, llvm::ArrayRef<int32_t> perm) {
 
 Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
     llvm::ArrayRef<int64_t> start) {
-  DenseI64ArrayAttr sizeAttr = rewriter().getDenseI64ArrayAttr(size);
-  DenseI64ArrayAttr startAttr = rewriter().getDenseI64ArrayAttr(start);
+  auto startVal =
+      mlir::tosa::getTosaConstShape(rewriter(), loc(), llvm::to_vector(start));
+  auto sizeVal =
+      mlir::tosa::getTosaConstShape(rewriter(), loc(), llvm::to_vector(size));
   Value newSliceInput =
       tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(rewriter(), loc(),
           RankedTensorType::get(
               llvm::SmallVector<int64_t, 4>(size.size(), ShapedType::kDynamic),
               mlir::cast<ShapedType>(inputConst.getType()).getElementType()),
-          inputConst, startAttr, sizeAttr);
+          inputConst, startVal, sizeVal);
   return newSliceInput;
 }
 
@@ -164,11 +167,12 @@ Value TosaBuilder::reshape(Value &value, llvm::ArrayRef<int64_t> shape) {
   Type newValueType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), ShapedType::kDynamic),
       valueType.getElementType());
-  return tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(
-      rewriter(), loc(), newValueType, value, shapeAttr);
+  return tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter(), loc(),
+      newValueType, value,
+      mlir::tosa::getTosaConstShape(rewriter(), loc(), shapeAttr));
 }
 
-Value TosaBuilder::mul(Value &lhs, Value &rhs, int32_t shift) {
+Value TosaBuilder::mul(Value &lhs, Value &rhs, int8_t shift) {
   if (needsRankBroadcast({lhs, rhs})) {
     llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
     lhs = valueVec[0];
@@ -178,8 +182,12 @@ Value TosaBuilder::mul(Value &lhs, Value &rhs, int32_t shift) {
   Type newValueType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
       lhsType.getElementType());
+
+  auto int8Type = rewriter().getI8Type();
+  auto shiftValue =
+      TosaBuilder::createConst(ArrayRef<int8_t>{shift}, {1}, int8Type);
   return tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-      rewriter(), loc(), newValueType, lhs, rhs, shift);
+      rewriter(), loc(), newValueType, lhs, rhs, shiftValue);
 }
 
 Value TosaBuilder::intdiv(Value &lhs, Value &rhs) {
@@ -236,15 +244,15 @@ template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(Value &lhs, Value &rhs);
 // Return null if none is found.
 ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
   auto definingOp = value.getDefiningOp();
-  // If we have a cast between index/integer, skip it, i.e. get the defining op
-  // that is the input to the cast.
+  // If we have a cast between index/integer, skip it, i.e. get the defining
+  // op that is the input to the cast.
   if (auto castOp = dyn_cast_or_null<arith::IndexCastOp>(definingOp)) {
     Value input = castOp.getIn();
     definingOp = input.getDefiningOp();
   }
   if (auto constOp = dyn_cast_or_null<mlir::tosa::ConstOp>(definingOp)) {
-    if (constOp.getValueAttr())
-      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
+    if (constOp.getValuesAttr())
+      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValuesAttr());
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (constOp.getValue().has_value())
       return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());

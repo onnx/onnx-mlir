@@ -71,7 +71,7 @@ struct ZHighRecomposeToStickUnstickPass
     ZHighDLF16ToF32Op::getCanonicalizationPatterns(patterns, &getContext());
     ZHighF32ToDLF16Op::getCanonicalizationPatterns(patterns, &getContext());
     ONNXLayoutTransformOp::getCanonicalizationPatterns(patterns, &getContext());
-    (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
+    (void)applyPatternsGreedily(function, std::move(patterns));
   }
 };
 

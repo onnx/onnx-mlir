@@ -13,6 +13,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/STLExtras.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <string>
@@ -55,22 +56,16 @@ void ModelInputShaper::setShapeInformation(
   if (!shapeInformation.empty()) {
     std::stringstream shapeInfoString(shapeInformation);
     std::string shapeString;
-    bool hasAllInputSetting = false;
-    while (std::getline(shapeInfoString, shapeString, ',')) {
-      size_t pos = shapeString.find(':');
+    while (std::getline(shapeInfoString, shapeString, INPUT_SEP)) {
+      size_t pos = shapeString.find(INPUT_DIM_SEP);
       std::string inputString = shapeString.substr(0, pos);
       std::string dimString = shapeString.substr(pos + 1);
 
-      int64_t inputID = std::stoi(inputString);
-      assert((inputID >= 0 || inputID == kUserAllInputs) &&
-             "input_id must be -1 or >= 0");
-      if (inputID == kUserAllInputs)
-        hasAllInputSetting = true;
-
+      // Parse dimString.
       std::stringstream dimSizes(dimString);
       std::string dimStr;
       std::vector<int64_t> dims;
-      while (std::getline(dimSizes, dimStr, 'x')) {
+      while (std::getline(dimSizes, dimStr, DIM_SEP)) {
         int64_t dimSize = std::stoi(dimStr);
         assert((dimSize == ModelInputShaper::kUserDynamic || dimSize > 0) &&
                "dim must be -1 or > 0");
@@ -78,15 +73,37 @@ void ModelInputShaper::setShapeInformation(
           dimSize = ShapedType::kDynamic;
         dims.emplace_back(dimSize);
       }
-      // The semantics of c++ map.insert() makes sure that only the first
-      // setting of inputID is inserted.
-      inputs_shape_information_.insert(std::make_pair(inputID, dims));
-    }
-    if (hasAllInputSetting && (inputs_shape_information_.size() > 1)) {
-      llvm::outs()
-          << "\nWarning: Found multiple settings that includes -1:d1xd2x...xdn "
-             "for all inputs. Only the first -1:d1xd2x...xdn is effective and "
-             "the other settings are ignored.\n\n";
+
+      // Parse inputString.
+      assert(std::count(inputString.begin(), inputString.end(),
+                 INPUT_RANGE_SEP) <= 1 &&
+             "input_id is invalid");
+      // Check if users input a range or not.
+      size_t rangePos = inputString.find(INPUT_RANGE_SEP);
+      std::string startString = inputString.substr(0, rangePos);
+      std::string endString = inputString.substr(rangePos + 1);
+      assert(endString != "" && "input_id has _ at the end");
+      bool isRangeInput = (startString != "");
+      // Insert (input_id, dim_value) to the shape info.
+      SmallVector<int64_t> inputIDs;
+      if (isRangeInput) {
+        int64_t startID = std::stoi(startString);
+        int64_t endID = std::stoi(endString);
+        assert((startID >= 0) && "start_id must be >= 0");
+        assert((endID >= 0) && "end_id must be >= 0");
+        for (int64_t i = startID; i <= endID; ++i)
+          inputIDs.emplace_back(i);
+      } else {
+        int64_t inputID = std::stoi(inputString);
+        assert((inputID >= 0 || inputID == kUserAllInputs) &&
+               "input_id must be -1 or >= 0");
+        inputIDs.emplace_back(inputID);
+      }
+      for (int64_t inputID : inputIDs) {
+        // The semantics of c++ map.insert() makes sure that only the first
+        // setting of inputID is inserted.
+        inputs_shape_information_.insert(std::make_pair(inputID, dims));
+      }
     }
   }
 }
@@ -126,16 +143,18 @@ Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
     // example, if custom shape is 0:3x5, it only changes the first and second
     // dimensions though the input has 3 dimensions. In that case, the third
     // dimension is unchanged.
-    auto it = inputs_shape_information_.find(kUserAllInputs);
+
+    // Find the specific input index first.
+    auto it = inputs_shape_information_.find(inputIndex);
     if (it == inputs_shape_information_.end()) {
-      // Users do not specify same dimensions for all inputs.
-      // Find the specific input index.
-      it = inputs_shape_information_.find(inputIndex);
+      // Not found the specific input index, find in the -1: for all inputs.
+      it = inputs_shape_information_.find(kUserAllInputs);
       if (it == inputs_shape_information_.end()) {
-        // Not found the specific input index, give up.
+        // Users do not specify same dimensions for all inputs. Give up.
         return inputType;
       }
     }
+
     SmallVector<int64_t, 4> customDims;
     std::vector<int64_t> userDims = it->second;
     for (uint64_t i = 0; i < origDims.size(); ++i) {

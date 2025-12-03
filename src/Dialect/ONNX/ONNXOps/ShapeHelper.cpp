@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-20245 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -182,6 +182,58 @@ void ONNXOpShapeHelper::setOutputDims(
   if (refineShape) {
     Value output = getOutput(n);
     refineDims(op, privateOutputsDims[n], output);
+  }
+}
+
+void ONNXOpShapeHelper::updateInputDimAt(
+    Value inputVal, uint64_t dimSize, int64_t axis) {
+  auto valType = mlir::dyn_cast<RankedTensorType>(inputVal.getType());
+  if (!valType)
+    return;
+
+  // Compute a new shape by updating the dim size at axis.
+  ArrayRef<int64_t> shape = getShape(valType);
+  SmallVector<int64_t> newShape =
+      SmallVector<int64_t>(shape.begin(), shape.end());
+  if (axis < 0)
+    axis += newShape.size();
+  newShape[axis] = dimSize;
+
+  // Build a new type.
+  Attribute encoding = valType.getEncoding();
+  RankedTensorType newType;
+  if (encoding)
+    newType =
+        RankedTensorType::get(newShape, valType.getElementType(), encoding);
+  else
+    newType = RankedTensorType::get(newShape, valType.getElementType());
+
+  // Update value type.
+  inputVal.setType(newType);
+
+  // Update the function signature if the value is a BlockArgument.
+  if (auto blockArg = llvm::dyn_cast<BlockArgument>(inputVal)) {
+    // Get the block that owns the argument.
+    Block *block = blockArg.getOwner();
+    // Get the region that owns the block.
+    Region *region = block->getParent();
+    // Get the operation that owns the region.
+    Operation *op = region->getParentOp();
+    // Cast to FuncOp if possible.
+    auto funcOp = dyn_cast<func::FuncOp>(op);
+    if (funcOp) {
+      // Get the current function type.
+      FunctionType oldFuncType = funcOp.getFunctionType();
+      // Create a new input type list with the updated type.
+      SmallVector<Type, 4> newInputTypes(
+          oldFuncType.getInputs().begin(), oldFuncType.getInputs().end());
+      newInputTypes[blockArg.getArgNumber()] = newType;
+      // Create the new function type.
+      FunctionType newFuncType = FunctionType::get(
+          funcOp.getContext(), newInputTypes, oldFuncType.getResults());
+      // Update the function type.
+      funcOp.setType(newFuncType);
+    }
   }
 }
 
@@ -779,9 +831,9 @@ bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
     else
       collapsedDynamicSize = collapsedDynamicSize * output[r];
   }
-  // every input dim can be collapsed.
+  // Every input dim can be collapsed.
   collapsedInnermostLoops = outputRank;
-  return true;
+  return true; // Unary cannot have broadcast, so its always manageable.
 }
 
 LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand,
@@ -931,6 +983,20 @@ LogicalResult ONNXCustomOpShapeHelper::computeShape() {
     return ONNXBroadcastOpShapeHelper::computeShape();
   }
   return success();
+}
+
+std::vector<mlir::Type> getResultTypeForShapeCopyingOp(
+    Operation *op, std::optional<int64_t> dtype) {
+  assert(op->getNumOperands() == 1 && op->getNumResults() == 1);
+  Type elementType = getMLIRTypeFromDtypeWithFallBackToInputType(op, dtype);
+  std::vector<Type> resultTypes;
+  if (auto rankedInputType =
+          mlir::dyn_cast<RankedTensorType>(op->getOperand(0).getType())) {
+    resultTypes.push_back(rankedInputType.clone(elementType));
+  } else {
+    resultTypes.push_back(UnrankedTensorType::get(elementType));
+  }
+  return resultTypes;
 }
 
 //===----------------------------------------------------------------------===//

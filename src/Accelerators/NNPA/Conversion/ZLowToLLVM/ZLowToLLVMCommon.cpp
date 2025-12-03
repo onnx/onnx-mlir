@@ -35,7 +35,7 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto int16Ty = IntegerType::get(context, 16);
   auto int32Ty = IntegerType::get(context, 32);
   auto int64Ty = IntegerType::get(context, 64);
-  auto float32Ty = FloatType::getF32(context);
+  auto float32Ty = Float32Type::get(context);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
@@ -60,32 +60,32 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     ApiSpec(API::ZDNN_TRANSFORM_ORIGTENSOR, "zdnn_transform_origtensor", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_TRANSFORM_QUANTIZED_ZTENSOR, "zdnn_transform_quantized_ztensor", int32Ty, {opaquePtrTy, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
     // Elementwise operations
-    ApiSpec(API::ZDNN_ADD, "zdnn_add_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_SUB, "zdnn_sub_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_MUL, "zdnn_mul_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_DIV, "zdnn_div_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_MIN, "zdnn_min_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_MAX, "zdnn_max_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_LOG, "zdnn_log_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_EXP, "zdnn_exp_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_INVSQRT, "zdnn_invsqrt_ext", int32Ty, {opaquePtrTy, float32Ty, opaquePtrTy}, false),                     
-    ApiSpec(API::ZDNN_REDUCE, "zdnn_reduce_ext", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_ADD, "zdnnx_add", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_SUB, "zdnnx_sub", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MUL, "zdnnx_mul", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_DIV, "zdnnx_div", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MIN, "zdnnx_min", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MAX, "zdnnx_max", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_LOG, "zdnnx_log", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_EXP, "zdnnx_exp", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_INVSQRT, "zdnnx_invsqrt", int32Ty, {opaquePtrTy, float32Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_REDUCE, "zdnnx_reduce", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
     // Activation operations
-    ApiSpec(API::ZDNN_LEAKY_RELU, "zdnn_leaky_relu_ext", int32Ty, {opaquePtrTy, opaquePtrTy, float32Ty, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_RELU, "zdnn_relu_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_GELU, "zdnn_gelu_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_TANH, "zdnn_tanh_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_SIGMOID, "zdnn_sigmoid_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_SOFTMAX, "zdnn_softmax_ext", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_SQRT, "zdnn_sqrt_ext", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_LEAKY_RELU, "zdnnx_leaky_relu", int32Ty, {opaquePtrTy, opaquePtrTy, float32Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_RELU, "zdnnx_relu", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_GELU, "zdnnx_gelu", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_TANH, "zdnnx_tanh", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_SIGMOID, "zdnnx_sigmoid", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_SOFTMAX, "zdnnx_softmax", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_SQRT, "zdnnx_sqrt", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     // RNN operations
     ApiSpec(API::ZDNN_LSTM, "zdnn_lstm", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_GRU, "zdnn_gru", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}, false),
     // Other operations
-    ApiSpec(API::ZDNN_MATMUL_OP, "zdnn_matmul_op_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_MATMUL_BCAST_OP, "zdnn_matmul_bcast_op_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_MATMUL_TRANSPOSE_OP, "zdnn_matmul_transpose_op_ext", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API::ZDNN_QUANTIZED_MATMUL_OP, "zdnn_quantized_matmul_op", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MATMUL_OP, "zdnnx_matmul_op", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MATMUL_BCAST_OP, "zdnnx_matmul_bcast_op", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MATMUL_TRANSPOSE_OP, "zdnnx_matmul_transpose_op", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_QUANTIZED_MATMUL_OP, "zdnnx_quantized_matmul_op", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_CONV2D, "zdnn_conv2d", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_AVGPOOL2D, "zdnn_avgpool2d", int32Ty, {opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_MAXPOOL2D, "zdnn_maxpool2d", int32Ty, {opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
@@ -570,7 +570,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   Type llvmI64Ty = IntegerType::get(context, 64);
   Type llvmI1Ty = IntegerType::get(context, 1);
   Type llvmI8Ty = IntegerType::get(context, 8);
-  Type llvmF32Ty = FloatType::getF32(context);
+  Type llvmF32Ty = Float32Type::get(context);
   Type llvmArray3I8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 3);
   Type llvmArray20I8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 20);
   Type llvmI8PtrTy = krnl::getPointerType(context, llvmI8Ty);
@@ -662,7 +662,7 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
         scaleTy.isF32() && "Wrong type for zTensor's rec_scale. Must be float");
     create.llvm.store(recScale, recScalePtr);
   } else {
-    Value zero = create.llvm.constant(FloatType::getF32(context), (double)0.);
+    Value zero = create.llvm.constant(Float32Type::get(context), (double)0.);
     create.llvm.store(zero, recScalePtr);
   }
 
@@ -675,7 +675,7 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
         offsetTy.isF32() && "Wrong type for zTensor's offset. Must be float");
     create.llvm.store(offset, offsetPtr);
   } else {
-    Value zero = create.llvm.constant(FloatType::getF32(context), (double)0.);
+    Value zero = create.llvm.constant(Float32Type::get(context), (double)0.);
     create.llvm.store(zero, offsetPtr);
   }
 

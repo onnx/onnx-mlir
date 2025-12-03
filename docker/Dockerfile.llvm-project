@@ -33,7 +33,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   libtool make maven ninja-build openjdk-11-jdk-headless \
                   python3 python3-dev python3-distutils python3-numpy \
                   python3-pip python3-pytest-xdist python3-setuptools \
-                  python3-typing-extensions zlib1g-dev && \
+                  python3-typing-extensions unzip zip zlib1g-dev && \
           rm -rf /var/lib/apt/lists/* && \
           ln -sf /usr/bin/pytest-3 /usr/bin/pytest; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
@@ -48,7 +48,11 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel ninja-build \
               python39 python39-devel python39-pip python39-setuptools \
-              python39-wheel tzdata-java zlib-devel && \
+              python39-wheel tzdata-java unzip which zip zlib-devel && \
+          # Workaround broken ubi8 amd64 image installing python3.12 as
+          # dependency of clang, which also breaks the /usr/bin/pip3
+          # symlink creation
+          ([ -f /usr/bin/python3.12 ] && yum remove -y python3.12 || true) && \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
                Cython pytest==6.2.5 numpy==1.21.5 pytest-forked==1.4.0 \
@@ -57,16 +61,77 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           echo -e "/usr/local/lib" > /etc/ld.so.conf.d/local.conf; \
        fi \
     && ln -sf /usr/bin/python3 /usr/bin/python \
-    && pip3 install --upgrade pip
+    && pip3 install --upgrade pip \
+    && rm -rf ${HOME}/.cache
+
+# Install bazel
+ARG BAZEL_VERSION=6.5.0
+ARG BAZEL_URL=https://github.com/bazelbuild/bazel/releases/download
+RUN curl -sL ${BAZEL_URL}/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip \
+         -o bazel-${BAZEL_VERSION}-dist.zip \
+    && unzip -q -d bazel-${BAZEL_VERSION} bazel-${BAZEL_VERSION}-dist.zip \
+    && rm -f bazel-${BAZEL_VERSION}-dist.zip \
+    && cd bazel-${BAZEL_VERSION} \
+    && EXTRA_BAZEL_ARGS="--show_progress_rate_limit=60 \
+                         --color=no \
+                         --curses=yes \
+                         --copt=-Wno-error=implicit-fallthrough \
+                         --host_javabase=@local_jdk//:jdk \
+                         --verbose_failures" \
+       BAZEL_JAVAC_OPTS="-J-Xmx4g -J-Xms1g" ./compile.sh \
+    && cp output/bazel /usr/local/bin \
+    && cd .. && rm -rf bazel-${BAZEL_VERSION} ${HOME}/.cache
+
+# Install rust, cargo, and cargo-bazel
+ARG RUST_VERSION=1.89
+ARG CARGO_BAZEL_VERSION=0.16.0
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain none \
+    && . "${HOME}/.cargo/env" \
+    && rustup install ${RUST_VERSION} \
+    && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
+
+# Install absl for new version of protobuf
+ARG ABSL_VERSION=20240722.1
+ARG ABSL_URL=https://github.com/abseil/abseil-cpp.git
+ARG ABSL_DIR=abseil-cpp
+RUN git clone -b ${ABSL_VERSION} --recursive ${ABSL_URL} ${ABSL_DIR} \
+    && mkdir -p ${ABSL_DIR}/build \
+    && cd ${ABSL_DIR}/build \
+    && CC=clang CXX=clang++ \
+       cmake -DCMAKE_INSTALL_LIBDIR=lib \
+             -DABSL_PROPAGATE_CXX_STD=ON \
+             -DBUILD_SHARED_LIBS=ON .. \
+    && make -j${NPROC} install && ldconfig \
+    && cd ../.. && rm -rf ${ABSL_DIR} ${HOME}/.cache
 
 # Install protobuf
-ARG PROTOBUF_VERSION=21.12
-RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git \
-    && cd protobuf && ./autogen.sh \
-    && ./configure --enable-static=no \
+ARG PROTOBUF_VERSION=6.31.1
+ARG PROTOBUF_URL=https://github.com/protocolbuffers/protobuf.git
+ARG PROTOBUF_DIR=protobuf
+RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR} \
+    && mkdir -p ${PROTOBUF_DIR}/build \
+    && cd ${PROTOBUF_DIR}/build \
+    # Must specify -Dprotobuf_BUILD_TESTS=OFF otherwise find_package(absl)
+    # in onnx will fail due to missing protobuf::gmock target
+    && CC=clang CXX=clang++ \
+       cmake -DCMAKE_INSTALL_LIBDIR=lib \
+             -DBUILD_SHARED_LIBS=ON \
+             -Dprotobuf_BUILD_TESTS=OFF .. \
     && make -j${NPROC} install && ldconfig \
-    && cd python && python3 setup.py install --cpp_implementation \
-    && cd ../.. && rm -rf protobuf
+    && cd .. \
+    # New version of python protobuf can no longer be built with setup.py.
+    # Must use bazel to build. protobuf v6.31.1 is the first version using
+    # rules_rust 0.56.0 which has s390x support. rules_buf still needs a
+    # small patch.
+    && export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
+    && export CARGO_BAZEL_REPIN=true \
+    && CC=clang CXX=clang++ bazel fetch //python/dist:binary_wheel \
+    && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
+           ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl \
+    && CC=clang CXX=clang++ bazel build //python/dist:binary_wheel \
+    && pip3 install bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl \
+    && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23

@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,6 +17,7 @@
 #define ONNX_MLIR_ONNX_TO_KRNL_H
 
 #include <map>
+#include <optional>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -164,8 +165,23 @@ mlir::Value emitMemRefReinterpretCastOp(
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value input, int64_t axis,
-    bool ascending = false);
+    mlir::Location loc, mlir::Value input, int64_t axis, bool ascending = false,
+    std::optional<mlir::Value> K = std::nullopt, bool sorted = true);
+
+/// Emit krnl ops to compute TopK of a given MemRef along a given axis.
+/// This function is optimized for TopK: it allocates and returns the final
+/// (Values, Indices) memrefs with the correct output shape <..., K, ...>.
+std::pair<mlir::Value, mlir::Value> emitTopK(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Value input, mlir::MemRefType valuesMemRefType,
+    mlir::MemRefType indicesMemRefType, DimsExpr &outputDims, int64_t axis,
+    bool ascending, mlir::Value K, bool sorted);
+
+/// Allocate memref (as before) if no input buffer can be reused.
+/// Default VL=0 is used for non SIMD allocation
+mlir::Value allocOrReuse(MemRefBuilder &create, mlir::Operation *op,
+    mlir::ValueRange generatedOperands, mlir::MemRefType outputMemRefType,
+    DimsExprRef dims, int64_t alignment, int64_t VL = 0);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
@@ -234,8 +250,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarIOp<Op>>(
-          loc, elementType, scalarsSplatted, std::nullopt);
+      return ScalarIOp<Op>::create(rewriter, loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
@@ -247,13 +262,21 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarFOp<Op>>(
-          loc, elementType, scalarsSplatted, std::nullopt);
+      return ScalarFOp<Op>::create(rewriter, loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
+}
+
+// =============================================================================
+/// Emit post-processing for variadic element-wise ops.
+template <typename Op>
+mlir::Value emitPostProcessingFor(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
+    mlir::Value scalarResult) {
+  return scalarResult;
 }
 
 // =============================================================================
@@ -335,6 +358,10 @@ void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     bool enableSIMD, bool enableParallel);
 void populateLoweringONNXHardmaxOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXLpNormalizationOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXWindowOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLRNOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
@@ -342,9 +369,17 @@ void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
     bool enableTiling, bool enableSIMD, bool enableParallel);
 void populateLoweringONNXMatMulIntegerOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXMeanVarianceNormalizationOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXQLinearMatMulOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalLikeOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXRandomUniformOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXRandomUniformLikeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXReductionOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
@@ -450,8 +485,8 @@ void populateLoweringONNXScatterNDOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXSliceOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXSqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(
@@ -472,8 +507,8 @@ void populateLoweringONNXNonZeroOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXReverseSequenceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXExpandOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXExpandOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXOneHotOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXCompressOpPattern(
@@ -538,18 +573,14 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
         opsForCall(opsForCall) {}
   std::string opsForCall;
 
-  mlir::LogicalResult match(OP_TYPE onnxOp) const final {
+  mlir::LogicalResult matchAndRewrite(OP_TYPE onnxOp, ADAPTOR_TYPE adaptor,
+      mlir::ConversionPatternRewriter &rewriter) const final {
+    // Check if the op is in the list of ops to lower to krnl.Call. If not,
+    // return failure.
     mlir::Operation *op = onnxOp.getOperation();
     if (!checkOpToCall(op, opsForCall))
       return mlir::failure();
 
-    // Additional checks
-
-    return mlir::success();
-  }
-  void rewrite(OP_TYPE onnxOp, ADAPTOR_TYPE adaptor,
-      mlir::ConversionPatternRewriter &rewriter) const final {
-    mlir::Operation *op = onnxOp.getOperation();
     mlir::Location loc = onnx_mlir::ONNXLoc<OP_TYPE>(op);
     mlir::ValueRange operands = adaptor.getOperands();
 
@@ -567,9 +598,11 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
     // You may customize the krnl.call according to your library
     // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
     std::string funcName = op->getName().getStringRef().str().substr(5);
-    rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
+    mlir::KrnlCallOp::create(rewriter, loc, funcName, allocs, op, operands,
         /*keep all attributes*/ true);
     rewriter.replaceOp(op, allocs);
+
+    return mlir::success();
   }
 };
 
@@ -617,9 +650,30 @@ bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
     mlir::ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
     int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
 
+// Try to find a suitable loop index for parallelism (parId), where
+// parId >= firstInclusiveDim && parId < exlusiveDim && parId is not in
+// exclusiveDim && tripCount(parId) >= minSize when tripCount can be determined
+// at compile time.
+//
+// If found, emit krnl.parallel op for parId and return parId.
+// Otherwise, do nothing and return -1.
+//
+// When `createKrnlParallel` is set to false, only parID is returned without
+// creating krnl.parallel.
+int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
+    mlir::Operation *op, std::string msg, const mlir::ValueRange &loopDef,
+    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+    int64_t firstInclusiveDim = 0, int64_t lastExclusiveDim = 2,
+    mlir::ArrayRef<int64_t> exclusiveDims = {}, int64_t minSize = 4,
+    bool createKrnlParallel = true);
+
 //===----------------------------------------------------------------------===//
 // Support functions for determining simd unrolling.
 //===----------------------------------------------------------------------===//
+
+// Over computing is only safe if none of the inputs are function parameters.
+// Otherwise, we always allocate a bit more memory.
+bool isOverComputeSafe(mlir::Operation *op);
 
 // Compute a suitable SIMD Vector length (which may be a multiple of the
 // hardware vector length, up to maxUnrollVL times). If the dims are too
@@ -635,7 +689,7 @@ bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
 // size of the memref being collapsed for SIMD. simdLoopStaticTripCount:
 // provide an estimation of the SIMD loop trip count. If runtime, return -1;
 // if cannot simdize, return 0; otherwise, return that literal.
-int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canOverCompute,
     int64_t &simdLoopStaticTripCount);
 
@@ -657,17 +711,17 @@ int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
 //
 // Now some SIMD scheme may allow to write past the last original loop
 // iterations; in this case we may ignore the simdOnly flag .
-int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+int64_t computeSuitableSimdUnrollFactor(mlir::MemRefType memRefType,
     int64_t collapsedInnermostLoops, GenOpMix &GenOps, bool canOverCompute,
     int64_t &simdLoopStaticTripCount, bool &simdOnly);
 // Cap totVL so that it is at most maxUnrollVL * archVL.
-int64_t capVLForMaxUnroll(
+int64_t capVLForMaxSimdUnroll(
     mlir::MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL);
 // In some type conversion loops we may have a given totVL based on a given
 // memRef type and gen op mix. But the final result may be converted to a
 // different type, which may requires a minimum unroll to proceed as a single
 // SIMD operation. This call adjust the totVL for that case.
-int64_t boostVLForMinUnroll(mlir::MemRefType memRefType,
+int64_t boostVLForMinSimdUnroll(mlir::MemRefType memRefType,
     mlir::MemRefType convertedMemRefType, int64_t totVL);
 // Enabling a simdOnly code generation scheme by capping totVL so that it
 // divides simdLoopStaticTripCount. When not possible (either because
@@ -675,6 +729,13 @@ int64_t boostVLForMinUnroll(mlir::MemRefType memRefType,
 // runtime only), then disable SIMD by returning totVL = 1.
 int64_t capVLForSimdOnly(mlir::MemRefType memRefType, int64_t totVL,
     int64_t simdLoopStaticTripCount);
+
+// Unrelated to SIMD: find the largest unroll factor that divides the trip count
+// (lb -ub). When the trip count is not a compile time constant, return 1. When
+// no unroll factor can divide the trip count, also return 1.
+// literalTripCount is set when trip count is compile time constant.
+int64_t getNoLeftoverUnrollFactor(IndexExpr &lb, IndexExpr &ub,
+    int64_t unrollFactor, int64_t &literalTripCount);
 
 //===----------------------------------------------------------------------===//
 // Support functions for reporting.
@@ -769,6 +830,15 @@ void emitSymmetricQuantRecscaleToScalar(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::Operation *op, mlir::Value input, uint64_t bitWidth,
     mlir::Value &recscale, bool enableSIMD, bool enableParallel);
+
+// Generate safe code for GatherOp and GatherElementsOp.
+// Insert runtime check for the value of indices.
+// If the value is out of scope of the `axis` dimension of input data,
+// warning message will be printed and the value will be change to zero to
+// avoid crash or assertion error.
+void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Value data,
+    mlir::Value indices, int64_t axisLit);
 
 } // namespace onnx_mlir
 #endif

@@ -60,8 +60,8 @@ public:
 
     if (inputVecType) {
       // Vector of 4 elements.
-      Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
-      Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
+      Type vecTypeI32 = VectorType::get({4}, i32Ty, /*scalable=*/false);
+      Type vecTypeF32 = VectorType::get({4}, f32Ty, /*scalable=*/false);
       // Use integer as container for inputs.
       Value inputVecI32 = create.llvm.bitcast(vecTypeI32, input);
       SmallVector<Value> asmVals{inputVecI32};
@@ -69,16 +69,15 @@ public:
       // Note the spaces are required by the z/OS assembler.
       const char *asmStr = "       VFISB $0,$1,0,4         \n\t";
       const char *asmConstraints = "=v,v";
-      Value outVecI32 =
-          rewriter
-              .create<LLVM::InlineAsmOp>(loc, vecTypeI32,
-                  /*operands=*/asmVals,
-                  /*asm_string=*/asmStr,
-                  /*constraints=*/asmConstraints, /*has_side_effects=*/false,
-                  /*is_align_stack=*/false,
-                  /*asm_dialect=*/LLVM::AsmDialectAttr(),
-                  /*operand_attrs=*/ArrayAttr())
-              .getResult(0);
+      Value outVecI32 = LLVM::InlineAsmOp::create(rewriter, loc, vecTypeI32,
+          /*operands=*/asmVals,
+          /*asm_string=*/asmStr,
+          /*constraints=*/asmConstraints, /*has_side_effects=*/false,
+          /*is_align_stack=*/false,
+          /*tail_call_kind=*/LLVM::TailCallKind::None,
+          /*asm_dialect=*/LLVM::AsmDialectAttr(),
+          /*operand_attrs=*/ArrayAttr())
+                            .getResult(0);
       // Cast output back to float.
       Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVecI32);
       rewriter.replaceOp(op, {outVecF32});
@@ -91,16 +90,15 @@ public:
       // Note the spaces are required by the z/OS assembler.
       const char *asmStr = "       FIEBR $0,4,$1         \n\t";
       const char *asmConstraints = "=f,f";
-      Value outF32 =
-          rewriter
-              .create<LLVM::InlineAsmOp>(loc, typeF32,
-                  /*operands=*/asmVals,
-                  /*asm_string=*/asmStr,
-                  /*constraints=*/asmConstraints, /*has_side_effects=*/false,
-                  /*is_align_stack=*/false,
-                  /*asm_dialect=*/LLVM::AsmDialectAttr(),
-                  /*operand_attrs=*/ArrayAttr())
-              .getResult(0);
+      Value outF32 = LLVM::InlineAsmOp::create(rewriter, loc, typeF32,
+          /*operands=*/asmVals,
+          /*asm_string=*/asmStr,
+          /*constraints=*/asmConstraints, /*has_side_effects=*/false,
+          /*is_align_stack=*/false,
+          /*tail_call_kind=*/LLVM::TailCallKind::None,
+          /*asm_dialect=*/LLVM::AsmDialectAttr(),
+          /*operand_attrs=*/ArrayAttr())
+                         .getResult(0);
       rewriter.replaceOp(op, {outF32});
       return success();
     }

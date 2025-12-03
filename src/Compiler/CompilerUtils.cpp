@@ -158,7 +158,7 @@ int Command::exec(std::string wdir) const {
   llvm::SmallString<8> cur_wdir;
   llvm::SmallString<8> new_wdir(wdir);
   llvm::sys::fs::current_path(cur_wdir);
-  llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
+  llvm::sys::path::make_absolute(cur_wdir, new_wdir);
   std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
   if (ec.value()) {
     llvm::errs() << llvm::StringRef(new_wdir).str() << ": " << ec.message()
@@ -172,7 +172,8 @@ int Command::exec(std::string wdir) const {
 
   std::string errMsg;
   int rc = llvm::sys::ExecuteAndWait(_path, llvm::ArrayRef(argsRef),
-      /*Env=*/std::nullopt, /*Redirects=*/std::nullopt,
+      /*Env=*/{},
+      /*Redirects=*/{},
       /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
   if (rc != 0) {
@@ -893,9 +894,9 @@ static std::string getDataLayout(const Location &loc) {
   llvm::TargetOptions ops;
   std::string mcpuForLLVMToolchain = getTargetCPUOption(
       /*forLLVM*/ true, /*cpu only*/ true);
-  auto targetMachine =
-      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
-          mtriple, mcpuForLLVMToolchain, "" /*features*/, ops, std::nullopt)};
+  auto targetMachine = std::unique_ptr<llvm::TargetMachine>{
+      LLVMTarget.createTargetMachine(llvm::Triple(mtriple),
+          mcpuForLLVMToolchain, "" /*features*/, ops, std::nullopt)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;
@@ -993,6 +994,10 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     SET_TOTAL_COMPILE_PHASE(emissionTarget);
     TOTAL_COMPILE_PHASE--;
   }
+
+  // Print out the ONNXBasicIR if requested.
+  if (printONNXBasicIR > 0)
+    outputModule(module, llvm::outs(), /*largeElementLimit=*/printONNXBasicIR);
 
   std::string msg = "Compiling and Optimizing MLIR Module";
   showCompilePhase(msg);

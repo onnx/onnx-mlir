@@ -48,8 +48,10 @@ namespace onnx_mlir {
     else
       // Default seems to be SSE
       globalVectorMachineSupport = new SSE42x86VectorMachineSupport();
-    // Arm uses arch
-  } else if (arch.compare("aarch64") == 0 || arch.compare("arm64") == 0) {
+    // Arm uses arch, and arch=native returns apple-mXXX.
+  } else if (arch.compare("aarch64") == 0 || arch.compare("arm64") == 0 ||
+             arch.compare("apple-m1") == 0 || arch.compare("apple-m2") == 0 ||
+             arch.compare("apple-m3") == 0 || arch.compare("apple-m4") == 0) {
     // Arm arch
     globalVectorMachineSupport = new NeonVectorMachineSupport();
   } else {
@@ -195,7 +197,11 @@ int64_t ZArch14VectorMachineSupport::computeArchVectorLength(
       return UNSUPPORTED;
     }
   }
-  // Support for integer (we consider bit-wide ops as byte wide ops).
+  // Support for integer.
+  // Bit width operations not supported for SIMD.
+  if (bitWidth == 1)
+    return UNSUPPORTED;
+
   switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
@@ -278,7 +284,11 @@ int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
       return UNSUPPORTED;
     }
   }
-  // Support for integer (we consider bit-wide ops as byte wide ops).
+  // Support for integer.
+  // Bit width operations not supported for SIMD.
+  if (bitWidth == 1)
+    return UNSUPPORTED;
+
   switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */
@@ -370,7 +380,11 @@ int64_t NeonVectorMachineSupport::computeArchVectorLength(
       return UNSUPPORTED;
     }
   }
-  // Support for integer (we consider bit-wide ops as byte wide ops).
+  // Support for integer
+  // Bit width operations not supported for SIMD.
+  if (bitWidth == 1)
+    return UNSUPPORTED;
+
   switch (genOp) {
     // 1 - 16 byte operations.
   case GenericOps::ArithmeticGop: /* Add/sub,... */

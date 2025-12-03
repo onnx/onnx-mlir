@@ -21,8 +21,14 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
-  ONNXExpandOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXExpandOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXExpandOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ONNXExpandOp expandOp,
       ONNXExpandOpAdaptor adaptor,
@@ -54,8 +60,13 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
-    create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
-        shapeHelper.getOutputDims(),
+    DimsExpr ubs = shapeHelper.getOutputDims();
+
+    // Enable parallelism if required.
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "expand", outputLoopDef, lbs, ubs);
+
+    create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
           SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
@@ -71,11 +82,14 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     onnxToKrnlSimdReport(op);
     return success();
   }
+
+private:
+  bool enableParallel = false;
 };
 
 void populateLoweringONNXExpandOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXExpandOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXExpandOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

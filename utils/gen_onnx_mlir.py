@@ -146,7 +146,7 @@ version_dict = {
     "Expand": [13],
     "EyeLike": [22],
     "FeatureVectorizer": [1],
-    "Flatten": [13],
+    "Flatten": [21],
     "Floor": [13],
     "GRU": [22],
     "Gather": [13],
@@ -167,8 +167,8 @@ version_dict = {
     "HardSigmoid": [22],
     "Hardmax": [13],
     "HardSwish": [22],
-    "Identity": [19],
-    "If": [19],
+    "Identity": [21],
+    "If": [21],
     "Imputer": [1],
     "InstanceNormalization": [22],
     "IsInf": [20],
@@ -184,7 +184,7 @@ version_dict = {
     "LinearRegressor": [1],
     "Log": [13],
     "LogSoftmax": [13],
-    "Loop": [19],
+    "Loop": [21],
     "LpNormalization": [22],
     "LpPool": [22],
     "MatMul": [13],
@@ -215,7 +215,7 @@ version_dict = {
     "OptionalHasElement": [18],
     "Or": [7],
     "PRelu": [16],
-    "Pad": [19, 18, 13, 11, 2],
+    "Pad": [21, 18, 13, 11, 2],
     "Pow": [15],
     "QLinearConv": [10],
     "QLinearMatMul": [10],
@@ -238,7 +238,7 @@ version_dict = {
     "ReduceSum": [13, 11],
     "ReduceSumSquare": [18, 13],
     "Relu": [14],
-    "Reshape": [19],
+    "Reshape": [21],
     "Resize": [19, 18, 13, 11, 10],
     "ReverseSequence": [10],
     "RoiAlign": [22],
@@ -246,7 +246,7 @@ version_dict = {
     "SVMClassifier": [1],
     "SVMRegressor": [1],
     "Scaler": [1],
-    "Scan": [19],
+    "Scan": [21],
     "Scatter": [11],
     "ScatterElements": [18],
     "ScatterND": [18],
@@ -258,13 +258,13 @@ version_dict = {
     "SequenceInsert": [11],
     "SequenceLength": [11],
     "SequenceMap": [17],
-    "Shape": [19],
+    "Shape": [21],
     "Shrink": [9],
     "Sigmoid": [13],
     "Sign": [13],
     "Sin": [22],
     "Sinh": [22],
-    "Size": [19],
+    "Size": [21],
     "Slice": [13],
     "Softmax": [13, 11],
     "SoftmaxCrossEntropyLoss": [13],
@@ -274,7 +274,7 @@ version_dict = {
     "Split": [18, 13, 11],
     "SplitToSequence": [11],
     "Sqrt": [13],
-    "Squeeze": [13, 11],
+    "Squeeze": [21, 11],
     "StringNormalizer": [10],
     "STFT": [17],
     "Sub": [14],
@@ -285,13 +285,13 @@ version_dict = {
     "ThresholdedRelu": [22],
     "Tile": [13],
     "TopK": [11],
-    "Transpose": [13],
+    "Transpose": [21],
     "Trilu": [14],
     "TreeEnsembleClassifier": [1],
     "TreeEnsembleRegressor": [1],
     "Unique": [11],
-    "Unsqueeze": [13, 11],
-    "Upsample": [9, 7],
+    "Unsqueeze": [21, 11],
+    "Upsample": [10, 7],
     "Where": [16],
     "Xor": [7],
     "ZipMap": [1],
@@ -330,6 +330,8 @@ OpsWithCanonicalizer = [
     "Add",
     "And",
     "Cast",
+    "Clip",
+    "Concat",
     "Constant",
     "DepthToSpace",
     "DequantizeLinear",
@@ -339,8 +341,11 @@ OpsWithCanonicalizer = [
     "GlobalAveragePool",
     "GlobalMaxPool",
     "Greater",
+    "GroupNormalization",
+    "GroupNormalizationV18",
     "GRU",
     "Identity",
+    "InstanceNormalization",
     "Less",
     "Loop",
     "LSTM",
@@ -351,6 +356,7 @@ OpsWithCanonicalizer = [
     "Resize",
     "RNN",
     "Shape",
+    "Split",
     "Size",
     "SoftmaxV11",
     "SpaceToDepth",
@@ -372,10 +378,13 @@ OpsWithVerifier = [
     "ArgMax",
     "ArgMin",
     "AveragePool",
+    "Bernoulli",
     "BitShift",
     "BitwiseAnd",
     "BitwiseOr",
     "BitwiseXor",
+    "Cast",
+    "CastLike",
     "CategoryMapper",
     "Compress",
     "Concat",
@@ -389,6 +398,7 @@ OpsWithVerifier = [
     "Einsum",
     "Equal",
     "Expand",
+    "EyeLike",
     "Flatten",
     "Gather",
     "GatherElements",
@@ -422,7 +432,10 @@ OpsWithVerifier = [
     "PRelu",
     "Pad",
     "Pow",
+    "RandomNormal",
     "RandomNormalLike",
+    "RandomUniform",
+    "RandomUniformLike",
     "Range",
     "Reshape",
     "Resize",
@@ -439,6 +452,7 @@ OpsWithVerifier = [
     "Sub",
     "Sum",
     "TopK",
+    "Transpose",
     "Unique",
     "Upsample",
     "Where",
@@ -470,13 +484,20 @@ OpsWithHelpers = {
 # This dictionary provides special code for type inference for some Ops.
 # The type inference is used only in Builder before constant canonicalization.
 OpsWithResultTypeInference = [
+    "Bernoulli",
     "Constant",
     "Cast",
+    "CastLike",
     "ConstantOfShape",
+    "EyeLike",
     "If",
     "Loop",
     "RandomNormal",
+    "RandomNormalLike",
+    "RandomUniform",
+    "RandomUniformLike",
     "Scan",
+    "SequenceEmpty",
 ]
 
 # Add an Op in this list if the Op needs result type deduction which is required
@@ -1399,6 +1420,15 @@ def gen_op_versions(file):
     file.write(s)
 
 
+def gen_opsets(file, defined_versions_collected):
+    indent = inc_indent()
+    s = ""
+    for name, versions in defined_versions_collected.items():
+        s += indent + 'op_opsets_map_["' + name + '"] = '
+        s += "{" + "{}".format(", ".join(str(x) for x in versions)) + "};\n"
+    file.write(s)
+
+
 """
 special cases:
 * Split: attr split default value: sizeof(output1) namely 1
@@ -1463,6 +1493,10 @@ def build_operator_schemas():
         list()
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
     existing_ops = set()  # type: Set[Text]
+    # Domain, name, versions
+    opsets: dict[str, dict[str, list[int]]] = defaultdict(
+        lambda: defaultdict(list)
+    )  # type: (Dict[Text, Dict[Text, List[int]]])
     for domain, _support_map in sorted(index.items()):
         if not should_render_domain(domain):
             continue
@@ -1471,6 +1505,7 @@ def build_operator_schemas():
             processed_name_map = list()
             for n, unsorted_versions in sorted(_name_map.items()):
                 versions = sorted(unsorted_versions, key=lambda s: s.since_version)
+                opsets[domain][n].extend(reversed([s.since_version for s in versions]))
                 schema = versions[-1]
                 if schema.name in existing_ops:
                     continue
@@ -1520,7 +1555,7 @@ def build_operator_schemas():
                         sys.exit()
             processed_support_map.append((_support, processed_name_map))
         operator_schemas.append((domain, processed_support_map))
-    return operator_schemas
+    return operator_schemas, opsets
 
 
 def main(args):  # type: (Type[Args]) -> None
@@ -1548,7 +1583,8 @@ def main(args):  # type: (Type[Args]) -> None
     gen_op_versions(op_importer)
 
     new_version_dict = dict()
-    for domain, support_map in build_operator_schemas():
+    operator_schemas, operation_opsets = build_operator_schemas()
+    for domain, support_map in operator_schemas:
         for _, name_map in support_map:
             # Generate Op with version number if not the latest version.
             previous_name = ""
@@ -1560,6 +1596,16 @@ def main(args):  # type: (Type[Args]) -> None
                     r = gen_op_def(schema, with_version)
                     op_def.write(r)
                     previous_name = schema.name
+
+    opsets_collected = dict()  # type: (Dict[str, List[int]])
+    for domain, ops in operation_opsets.items():
+        for op, versions in ops.items():
+            assert (
+                op not in opsets_collected
+            ), "Operation with same name exists in multiple domains"
+            opsets_collected[op] = versions
+
+    gen_opsets(op_importer, opsets_collected)
 
     if check_operation_version:
         for key in version_dict:

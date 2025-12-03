@@ -1,9 +1,12 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+#requires = ["hatchling"]
+#build-backend = "hatchling.build"
 [project]
 name = "onnxmlir"
 version = "0.1.0"
+license = "MIT AND (Apache-2.0 OR BSD-2-Clause)"
 authors = [
   { name="Tong Chen", email="chentong@us.ibm.com" },
   { name="Alexandre Eichenberger", email="alexe@us.ibm.com" },
@@ -13,14 +16,25 @@ readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
 ]
-dependences = [
-    "numpy",
-    "docker",
+
+dependencies = [
+    "numpy"
 ]
+
+[project.optional-dependencies]
+docker = ['docker']
+podman = ['podman']
 
 [project.urls]
 Homepage = "https://github.com/onnx/onnx-mlir"
 Issues = "https://github.com/onnx/onnx-mlir/issues"
+
+[tool.setuptools]
+packages = ["onnxmlir"]
+
+[tool.setuptools.package-data]
+"onnxmlir" = ["libs/*.so"]
+#"onnxmlir" = ["libs/PyRuntimeC.cpython-310-s390x-linux-gnu.so",
+#"libs/PyRuntimeC.cpython-312-s390x-linux-gnu.so"]

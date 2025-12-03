@@ -168,6 +168,21 @@ OM_EXTERNAL_VISIBILITY void omTensorDestroy(OMTensor *tensor);
 OM_EXTERNAL_VISIBILITY void *omTensorGetDataPtr(const OMTensor *tensor);
 
 /**
+ * \brief OMTensor allocated data pointer getter.
+ *
+ * @param tensor pointer to the OMTensor
+ * @return pointer to the allocated memory buffer of the OMTensor,
+ *         This should only be used when needing to create cross-language
+ *         operation to free OMTensor buffers allocated by the model and freed
+ *         in a different language environment. NULL if the numerical data
+ *         buffer is not set. Note that depending on alignment constraints, the
+ *         allocated and the data pointers are not necessarily identical. Use
+ *         data pointer to read/write values, and allocated pointer to free the
+ *         memory.
+ */
+OM_EXTERNAL_VISIBILITY void *omTensorGetAllocatedPtr(const OMTensor *tensor);
+
+/**
  * \brief OMTensor data shape getter.
  *
  * The numerical data shape is returned as a pointer pointing to an array of

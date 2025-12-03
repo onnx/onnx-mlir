@@ -183,7 +183,7 @@ func.func @test_matmul_4(%arg0 : tensor<64x42xf32>, %arg1 : tensor<?x?x?x?xf32>)
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_matmul_4
-  // CHECK: [[RES4:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<64x42xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x64x?xf32>
+  // CHECK: [[RES4:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<64x42xf32>, tensor<?x?x42x?xf32>) -> tensor<?x?x64x?xf32>
   // CHECK: onnx.Return [[RES4]] : tensor<?x?x64x?xf32>
 }
 
@@ -267,6 +267,30 @@ func.func @test_matmul_10(%arg0 : tensor<?x42x32xf32>, %arg1 : tensor<32xf32>) -
 
 // -----
 
+// COM: update the last dimension of the 1st input.
+func.func @test_matmul_11(%arg0 : tensor<16x?x64x?xf32>, %arg1 : tensor<42x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<16x?x64x?xf32>, tensor<42x32xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_matmul_11
+  // CHECK: [[RES2:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<16x?x64x42xf32>, tensor<42x32xf32>) -> tensor<16x?x64x32xf32>
+  // CHECK: onnx.Return [[RES2]] : tensor<16x?x64x32xf32>
+}
+
+// -----
+
+// COM: update the 2nd dimension from the right of the 2nd input.
+func.func @test_matmul_12(%arg0 : tensor<16x?x64x42xf32>, %arg1 : tensor<?x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<16x?x64x42xf32>, tensor<?x32xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_matmul_12
+  // CHECK: [[RES2:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<16x?x64x42xf32>, tensor<42x32xf32>) -> tensor<16x?x64x32xf32>
+  // CHECK: onnx.Return [[RES2]] : tensor<16x?x64x32xf32>
+}
+
+// -----
+
 /// QLinearMatMul
 
 func.func @test_qlinearmatmul_1(%arg0: tensor<2x2x4xui8>, %arg1: tensor<1xf32>, %arg2: tensor<1xui8>, %arg3: tensor<2x4x3xui8>, %arg4: tensor<1xf32>, %arg5: tensor<1xui8>, %arg6: tensor<1xf32>, %arg7: tensor<1xui8>) -> tensor<*xui8> {
@@ -290,6 +314,46 @@ func.func @test_matmulinteger_1(%arg0: tensor<4x3xui8>, %arg1: tensor<3x2xui8>, 
   // CHECK-LABEL: test_matmulinteger_1
   // CHECK: [[RES1:%.+]] = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<4x2xi32>
   // CHECK: onnx.Return [[RES1]] : tensor<4x2xi32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Gemm
+//===----------------------------------------------------------------------===//
+
+// COM: update the 2nd dimension of the 1st input.
+func.func @test_gemm_1(%arg0: tensor<1x?xf32>, %arg1: tensor<5x4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Gemm"(%arg0, %arg1, %none) : (tensor<1x?xf32>, tensor<5x4xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+// COM: update the 2nd dimension of the 1st transposed input.
+func.func @test_gemm_2(%arg0: tensor<?x1xf32>, %arg1: tensor<5x4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transA = 1 :si64} : (tensor<?x1xf32>, tensor<5x4xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+// COM: update the 1st dimension of the 2nd input.
+func.func @test_gemm_3(%arg0: tensor<1x5xf32>, %arg1: tensor<?x4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Gemm"(%arg0, %arg1, %none) : (tensor<1x5xf32>, tensor<?x4xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
+
+// COM: update the 1st dimension of the 2nd transposed input.
+func.func @test_gemm_4(%arg0: tensor<1x5xf32>, %arg1: tensor<4x?xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x?xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
 }
 
 // -----
@@ -900,6 +964,102 @@ onnx.Return %0 : tensor<*xf16>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<4x?x3xf16>
 // CHECK:         }
 
+// -----
+
+func.func @test_reshape_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
+  %1 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %5 = "onnx.Concat"(%3, %4, %2, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %6 = "onnx.Reshape"(%arg0, %5) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+  return %6 : tensor<?x?x?x64xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x2048xf32>) -> tensor<?x?x32x64xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_4_]]) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x32x64xf32>
+// CHECK:           return [[VAR_5_]] : tensor<?x?x32x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_reshape_dim_bijective_at_last_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x64x?xf32> {
+  %1 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %5 = "onnx.Concat"(%4, %2, %1, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %6 = "onnx.Reshape"(%arg0, %5) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x64x?xf32>
+  return %6 : tensor<?x?x64x?xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_dim_bijective_at_last_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x2048xf32>) -> tensor<?x32x64x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_4_]]) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x32x64x?xf32>
+// CHECK:           return [[VAR_5_]] : tensor<?x32x64x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: This pattern is found in the IBM granite-3.1-2b-instruct model.
+func.func @test_reshape_matmul_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<2048x2048xf32>
+  %1 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %5 = "onnx.MatMul"(%arg0, %0) : (tensor<?x?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x?x2048xf32>
+  %6 = "onnx.Concat"(%3, %4, %2, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %7 = "onnx.Reshape"(%5, %6) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+  return %7 : tensor<?x?x?x64xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_matmul_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x2048xf32>) -> tensor<?x?x32x64xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<2048x2048xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?x2048xf32>, tensor<2048x2048xf32>) -> tensor<?x?x2048xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_2_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Reshape"([[VAR_5_]], [[VAR_6_]]) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x32x64xf32>
+// CHECK:           return [[VAR_7_]] : tensor<?x?x32x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_reshape_dim_not_bijection(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
+  %1 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%3, %3, %2, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %5 = "onnx.Reshape"(%arg0, %4) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+  return %5 : tensor<?x?x?x64xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_dim_not_bijection
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x?x?x64xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x?x?x64xf32>
+// CHECK:         }
+}
+
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
 //===----------------------------------------------------------------------===//
@@ -1020,6 +1180,19 @@ func.func @test_rnn_infer_hidden_size_from_W(%arg0: tensor<4x3x2xf32>, %arg1: te
   // CHECK-LABEL: test_rnn_infer_hidden_size_from_W
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.RNN"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<?x?x?xf32>, none, none, none) -> (tensor<4x1x3x3xf32>, tensor<1x3x3xf32>)
+  // CHECK: onnx.Return [[RES]] : tensor<1x3x3xf32>
+}
+
+// -----
+
+func.func @test_rnn_update_dynamic_input_size_from_weight(%arg0: tensor<4x3x?xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x?xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<*xf32>, tensor<*xf32>)
+  onnx.Return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: test_rnn_update_dynamic_input_size_from_weight
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.RNN"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<4x1x3x3xf32>, tensor<1x3x3xf32>)
   // CHECK: onnx.Return [[RES]] : tensor<1x3x3xf32>
 }
 
@@ -2746,6 +2919,32 @@ func.func @test_range_int_constant() -> tensor<*xi32> {
 
 // -----
 
+func.func @test_range_add_scalar_int(%start: tensor<i64>) -> tensor<*xi64> {
+  %range = onnx.Constant dense<10> : tensor<i64>
+  %delta = onnx.Constant dense<1> : tensor<i64>
+  %limit = "onnx.Add"(%start, %range) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<*xi64>
+  onnx.Return %0 : tensor<*xi64>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_int
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<10xi64>
+}
+
+// -----
+
+func.func @test_range_add_scalar_float(%start: tensor<f32>) -> tensor<*xf32> {
+  %range = onnx.Constant dense<5.0> : tensor<f32>
+  %delta = onnx.Constant dense<1.0> : tensor<f32>
+  %limit = "onnx.Add"(%start, %range) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_range_add_scalar_float
+// CHECK: "onnx.Range"({{.*}}, {{.*}}, {{.*}}) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<5xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the upsample op inference.
 //===----------------------------------------------------------------------===//
@@ -2899,12 +3098,12 @@ func.func @test_onehot_dynamic(%arg0: tensor<?x2xi64>, %arg1: tensor<i64>, %arg2
 
 // Test RandomNormal static
 
-func.func @test_random_normal_static_f16() -> tensor<*xf32> {
-  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 0 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_static_f16() -> tensor<*xf16> {
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 10 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
 
   // CHECK-LABEL: @test_random_normal_static_f16
-  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 10 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
 }
 
 // -----
@@ -2919,12 +3118,22 @@ func.func @test_random_normal_static_f32() -> tensor<*xf32> {
 
 // -----
 
-func.func @test_random_normal_static_f64() -> tensor<*xf32> {
-  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_static_f64() -> tensor<*xf64> {
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 11 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
 
   // CHECK-LABEL: @test_random_normal_static_f64
-  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 11 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+}
+
+// -----
+
+func.func @test_random_normal_static_bf16() -> tensor<*xbf16> {
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 16 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_bf16
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 16 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xbf16>
 }
 
 //===----------------------------------------------------------------------===//
@@ -2933,12 +3142,12 @@ func.func @test_random_normal_static_f64() -> tensor<*xf32> {
 
 // Test RandomNormalLike static
 
-func.func @test_random_normal_like_static_f16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
-  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_like_static_f16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 10 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: @test_random_normal_like_static_f16
-  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf16>
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 10 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf16>
 }
 
 // -----
@@ -2953,24 +3162,34 @@ func.func @test_random_normal_like_static_f32(%arg0: tensor<1x1x28x28xf32>) -> t
 
 // -----
 
-func.func @test_random_normal_like_static_f64(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
-  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_like_static_f64(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf64> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 11 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
 
   // CHECK-LABEL: @test_random_normal_like_static_f64
-  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf64>
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 11 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf64>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_bf16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xbf16> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 16 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_bf16
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 16 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xbf16>
 }
 
 // -----
 
 // Test RandomNormalLike dynamic
 
-func.func @test_random_normal_like_dynamic_f16(%arg0: tensor<1x?x28x28xf32>) -> tensor<*xf32> {
-  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x?x28x28xf32>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_like_dynamic_f16(%arg0: tensor<1x?x28x28xf32>) -> tensor<*xf16> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 10 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x?x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: @test_random_normal_like_dynamic_f16
-  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<1x?x28x28xf16>
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 10 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<1x?x28x28xf16>
 }
 
 // -----
@@ -2985,27 +3204,158 @@ func.func @test_random_normal_like_dynamic_f32(%arg0: tensor<1x1x?x28xf32>) -> t
 
 // -----
 
-func.func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> tensor<*xf32> {
-  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x?xf32>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> tensor<*xf64> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 11 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x?xf32>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
 
   // CHECK-LABEL: @test_random_normal_like_dynamic_f64
-  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<1x1x28x?xf64>
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 11 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<1x1x28x?xf64>
 }
 
 // -----
 
 // Test RandomNormalLike missing dtype
 
-func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf32> {
-  %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf64> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
 
   // CHECK-LABEL: @test_random_normal_like_type_default1
   // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
 }
 
+//==----------------------------------------------------------------------===//
+
 // -----
+
+// Test RandomUniform static
+
+func.func @test_random_normal_static_f16() -> tensor<*xf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
+}
+
+// -----
+
+func.func @test_random_normal_static_f32() -> tensor<*xf32> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf32>
+}
+
+// -----
+
+func.func @test_random_normal_static_f64() -> tensor<*xf64> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+}
+
+// -----
+
+func.func @test_random_normal_static_bf16() -> tensor<*xbf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_bf16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniform"() {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xbf16>
+}
+
+//===----------------------------------------------------------------------===//
+
+// -----
+
+// Test RandomUniformLike static
+
+func.func @test_random_normal_like_static_f16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf16>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_f32(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf32>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_f64(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf64> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf64>
+}
+
+// -----
+
+func.func @test_random_normal_like_static_bf16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xbf16> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_bf16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xbf16>
+}
+
+// -----
+
+// Test RandomUniformLike dynamic
+
+func.func @test_random_normal_like_dynamic_f16(%arg0: tensor<1x?x28x28xf32>) -> tensor<*xf16> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<1x?x28x28xf16>
+}
+
+// -----
+
+func.func @test_random_normal_like_dynamic_f32(%arg0: tensor<1x1x?x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x?x28xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x?x28xf32>) -> tensor<1x1x?x28xf32>
+}
+
+// -----
+
+func.func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> tensor<*xf64> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<1x1x28x?xf64>
+}
+
+// -----
+
+// Test RandomUniformLike missing dtype
+
+func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf64> {
+  %0 = "onnx.RandomUniformLike"(%arg0) {high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_type_default1
+  // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) {high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
+}
+
 
 //===----------------------------------------------------------------------===//
 // Test NonMaxSuppression
@@ -3835,6 +4185,8 @@ func.func @test_grid_sample_same_dims(%arg0: tensor<1x3x1152x1344xf32>, %arg1: t
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<1x6x6x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -3846,6 +4198,8 @@ func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<
 // CHECK:           return [[GRID]] : tensor<1x1x6x6xf32>
 // CHECK:         }
 }
+
+// -----
 
 func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x2x4x4x4x4xf32>, tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32>
@@ -3859,6 +4213,8 @@ func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x2xf32>) -> tensor<*xf32>
 // mlir2FileCheck.py
@@ -3869,6 +4225,8 @@ func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<
 // CHECK:         }
   return %0 : tensor<*xf32>
 }
+
+// -----
 
 func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<*xf32>
@@ -3881,6 +4239,8 @@ func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
   return %0 : tensor<*xf32>
 }
 
+// -----
+
 func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x10x20x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "linear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x10x20x2xf32>) -> tensor<*xf32>
 // mlir2FileCheck.py
@@ -3891,3 +4251,99 @@ func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
 // CHECK:         }
   return %0 : tensor<*xf32>
 }
+
+// -----
+
+// Test Binarizer Sample
+
+func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Binarizer"(%arg0) {threshold = 1.0 : f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_binarizer
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Binarizer"([[PARAM_0_]]) {threshold = 1.000000e+00 : f32} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x10xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func private @test_hammingwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.HammingWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+// CHECK-LABEL:  func.func private @test_hammingwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HammingWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func private @test_hannwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.HannWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+
+// CHECK-LABEL:  func.func private @test_hannwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HannWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func private @test_blackamanwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
+  %0 = "onnx.BlackmanWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+// CHECK-LABEL:  func.func private @test_blackamanwindow_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.BlackmanWindow"([[PARAM_0_]]) {output_datatype = 1 : si64, periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Test RandomUniform static
+
+func.func @test_random_uniform_static_f16() -> tensor<*xf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 10 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf16>
+  "onnx.Return"(%0) : (tensor<*xf16 >) -> ()
+
+// CHECK-LABEL:  func.func @test_random_uniform_static_f16
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 10 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
+}
+
+// -----
+
+func.func @test_random_uniform_static_f32() -> tensor<*xf32> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_random_uniform_static_f32
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf32>
+}
+// -----
+
+func.func @test_random_uniform_static_f64() -> tensor<*xf64> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 11 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf64>
+  "onnx.Return"(%0) : (tensor<*xf64>) -> ()
+
+// CHECK-LABEL:  func.func @test_random_uniform_static_f64
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 11 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+
+ }
+
+// -----
+
+func.func @test_random_uniform_static_bf16() -> tensor<*xbf16> {
+  %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 16 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xbf16>
+  "onnx.Return"(%0) : (tensor<*xbf16>) -> ()
+  
+// CHECK-LABEL:  func.func @test_random_uniform_static_bf16
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() {dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xbf16>
+}
+
+//===----------------------------------------------------------------------===//

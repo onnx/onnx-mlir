@@ -168,7 +168,7 @@ public:
     DenseElementsAttr dataAttr = DenseElementsAttr::get<int64_t>(
         tensorType, llvm::ArrayRef<int64_t>(data));
 
-    KrnlGlobalOp resOp = rewriter.create<KrnlGlobalOp>(loc, memRefType,
+    KrnlGlobalOp resOp = KrnlGlobalOp::create(rewriter, loc, memRefType,
         /*shape=*/
         rewriter.getI64ArrayAttr({numElements}),
         /*name=*/
@@ -211,8 +211,7 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<FoldStdAlloc>(&getContext());
 
-    static_cast<void>(
-        applyPatternsAndFoldGreedily(function, std::move(patterns)));
+    static_cast<void>(applyPatternsGreedily(function, std::move(patterns)));
   }
 };
 

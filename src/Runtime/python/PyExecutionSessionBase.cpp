@@ -28,6 +28,9 @@ SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSessionBase.hpp"
 
+#define OM_DRIVER_TIMING 1 /* 1 for timing, 0 for no timing/overheads */
+#include "src/Runtime/OMInstrumentHelper.h"
+
 namespace pybind11 {
 namespace detail {
 
@@ -71,7 +74,7 @@ namespace onnx_mlir {
 //
 // For numerical array, pybind11 can convert multi-dimensional array into
 // one-dimensional array without manual conversion, but pybind11 cannot
-// convert multi-dimentional string array into one-dimentional array
+// convert multi-dimensional string array into one-dimensional array
 // automatically.
 // This function will be rewritten when pybind fixes the issue, or
 // better way for fixing it is found.
@@ -118,6 +121,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     throw std::runtime_error(reportUndefinedEntryPointIn("run"));
 
   // 1. Process inputs.
+  TIMING_INIT_START(process_input);
   std::vector<OMTensor *> omts;
   if (inputsPyArray.size() != shapesPyArray.size())
     throw std::runtime_error(
@@ -230,16 +234,21 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     }
     omts.emplace_back(inputOMTensor);
   }
+  TIMING_STOP_PRINT(process_input);
 
   // 2. Call entry point.
+  TIMING_INIT_START(inference);
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());
+  TIMING_STOP_PRINT(inference);
 
   // 3. Process outputs.
+  TIMING_INIT_START(process_output);
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
+    TIMING_INIT_START(process_output_types);
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
@@ -300,12 +309,45 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       throw std::runtime_error(reportPythonError(errStr.str()));
     }
     }
+    TIMING_STOP_PRINT(process_output_types);
 
-    outputPyArrays.emplace_back(
-        py::array(dtype, shape, omTensorGetDataPtr(omt)));
+    TIMING_INIT_START(process_output_pyarray);
+    // Use data pointer to indicate to the numpy array where the data is, and
+    // use allocated pointer for the custom deallocator. These two pointers may
+    // be different when trying to allocate data that must be at specific
+    // boundaries. Data pointer will be at the custom boundary, but alloc will
+    // be whatever the malloc returned.
+    void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
+    void *omtDataPtr = omTensorGetDataPtr(omt);
+    // Check if the return value is a static constant, which cannot be freed and
+    // thus would have been created with the "owning" flag being false.
+    if (omTensorGetOwning(omt)) {
+      // CWe have a regular tensor which we will need to free at the right time.
+      // Create the capsule that points to the data to be freed (allocated
+      // pointer).
+      py::capsule free_data_with_allocate_ptr(
+          omtAllocPtr, [](void *ptr) { free(ptr); });
+      // Set owning to false as we migrate the ownership to python
+      omTensorSetOwning(omt, false);
+      // Pass the py::capsule to the numpy array for proper bookkeeping.
+      outputPyArrays.emplace_back(
+          py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr));
+    } else {
+      // We have a constant, its a very rare case, just do like in the past:
+      // copy.
+      outputPyArrays.emplace_back(py::array(dtype, shape, omtDataPtr));
+    }
+    TIMING_STOP_PRINT(process_output_pyarray);
   }
+  TIMING_STOP_PRINT(process_output);
+
+  TIMING_INIT_START(delete_out_lists);
   omTensorListDestroy(wrappedOutput);
+  TIMING_STOP_PRINT(delete_out_lists);
+
+  TIMING_INIT_START(delete_in_lists);
   omTensorListDestroy(wrappedInput);
+  TIMING_STOP_PRINT(delete_in_lists);
 
   return outputPyArrays;
 }

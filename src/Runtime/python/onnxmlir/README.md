@@ -1,68 +1,59 @@
-This package provides a python interface to use onnx-mlir compiler to run inference of an onnx model similar to onnxruntime interface. The basic parameters of the interface are supported with options ignored. 
-
-## Description
-Let's start with [an onnxrutime example](https://onnxruntime.ai/docs/get-started/with-python#pytorch-cv):
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+# onnx-mlir-python-driver
+This light weight python driver for onnx-mlir compiler is a python package that does not depend on the building of onnx-mlir compiler or llvm-project. It uses  onnx-mlir compiler container through docker or podman python package, or locally installed onnx-mlir compiler to compile a model, and then run the compiled model through python interface. 
+A simple example of using container can be found in [use_compiler_container.py](https://github.ibm.com/chentong/onnx-mlir-python-driver/blob/main/tests/use_compiler_container.py):
 ```
-import onnxruntime as ort
 import numpy as np
-x, y = test_data[0][0], test_data[0][1]
-ort_sess = ort.InferenceSession('fashion_mnist_model.onnx')
-outputs = ort_sess.run(None, {'input': x.numpy()})
+import onnxmlir
 
-# Print Result
-predicted, actual = classes[outputs[0][0].argmax(0)], classes[y]
-print(f'Predicted: "{predicted}", Actual: "{actual}"')
-```
+a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
+b = a + 4
 
-With onnxmlir package, onnx-mlir can be used to replace onnxrutnime as follows:
+sess = onnxmlir.InferenceSession(
+    "test_add.onnx",
+    compile_args="-O3 --parallel",
+    container_engine="docker",
+    compiler_image_name="ghcr.io/onnxmlir/onnx-mlir-dev",
+    compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+)
+# In this example, all the options for InferenceSession related to compiler
+# container are of the default value.
+# You can simply use the following sentence.
+"""
+ sess = onnxmlir.InferenceSession("test_add.onnx", compile_args="-O3 --parallel")
+"""
+r = sess.run([a, b])
+print(r)
 ```
-import onnxmlir as ort
-import numpy as np
-x, y = test_data[0][0], test_data[0][1]
-ort_sess = ort.InferenceSession('fashion_mnist_model.onnx')
-outputs = ort_sess.run(None, {'input': x.numpy()})
-
-# Print Result
-predicted, actual = classes[outputs[0][0].argmax(0)], classes[y]
-print(f'Predicted: "{predicted}", Actual: "{actual}"')
-```
-
-In current version, the onnx-mlir compiler is not contained in the python 
-package yet. Use env variable ONNX_MLIR_HOME to specify the location of the onnx-mlir compiler to be used. For example `export ONNX_MLIR_HOME=/mypath/onnx-mlir/build/Debug`. 
-
-Another way to run the onnx model is to precompile it into a static library first. 
-```
-onnx-mlir -O3 fashin_mnist_mode.onnx
-```
-
-This compilation will generate fashin_mnist_mode.so. Then the library can be used as model in the Python script as follows:
-```
-import onnxmlir as ort
-import numpy as np
-x, y = test_data[0][0], test_data[0][1]
-ort_sess = ort.InferenceSession('fashion_mnist_model.so')
-outputs = ort_sess.run(None, {'input': x.numpy()})
-
-# Print Result
-predicted, actual = classes[outputs[0][0].argmax(0)], classes[y]
-print(f'Predicted: "{predicted}", Actual: "{actual}"')
-```
-
-This package supports list or dictionary for input and output. For example, the input for run could be list of tensor.
-```
-outputs = ort_sess.run(None, [a, b, c])
-```
-
-Another extra named argment for InferenceSession is introduced to specify the extra arguments accepted by onnx-mlir/utils/RunONNXModel.py. Here is an example:
-```
-sess = onnxmlir.inferenceSession("test_add.onnx", options='--compile-args="-O3 --parallel" --print-output')
-```
-
+This test case can be run with `python3 use_compiler_container.py` in the test directory.
 ## Installation
-
-### Install from local directory
-At top of onnx-mlir: `pip3 install utils/onnxmlir`
-
-### Install from repo
-After the package is uploaded, you can install with 'pip3 install onnxmlir`
-
+### Get the source code from git
+```
+git clone git@github.ibm.com:chentong/onnx-mlir-python-driver.git
+```
+### Make sure you are allowed to install python package
+If your default environment does not allow to install python pakcage, you can use python virtual env. Here is the [reference](https://docs.python.org/3/library/venv.html):
+```
+# Create the virtual env
+python3 -m venv path/to/store/your/installation
+# Activate the virtual env
+. path/to/store/your/installation/bin/active
+```
+### Install the package
+If you want to use docker package:
+```
+pip3 install onnx-mlir-python-driver[docker]
+```
+If you want to use podman package:
+```
+pip3 install onnx-mlir-python-driver[podman]
+```
+### Verify
+Run a test case in onnx-mlir-python-driver/tests. 
+You can try the precompiled model first to just check the package with container:
+```
+cd onnx-mlir-python-driver/tests
+python3 helloworld_with_precompiled_model.py
+```
+When you try the onnx-mlir container for the first time on your machine, it may take a while to pull the container from repo.
+You can find more examples [here](https://github.ibm.com/chentong/onnx-mlir-python-driver/tree/main/tests).

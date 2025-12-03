@@ -4,7 +4,7 @@
 
 //===---------- OpHelper.hpp - Helper functions for ONNX dialects ---------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -102,6 +102,23 @@ bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 bool sameRank(mlir::Value tensorOrMemref1, mlir::Value tensorOrMemref2);
 
 //===----------------------------------------------------------------------===//
+// Support for shapes
+
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
+
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v);
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(mlir::Value val);
+bool hasShapeAndRank(mlir::Operation *op);
+
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(mlir::Value val);
+
+//===----------------------------------------------------------------------===//
 // Identity map
 
 // Identity affine map:
@@ -164,12 +181,13 @@ std::vector<onnx_mlir::IndexExpr> getIndexExprsForConvWindow(
 mlir::AffineMap getWindowAffineMap(
     mlir::Builder &builder, bool ceilMode, bool isDilated);
 
-// Helper functions to get values from attribute arrays.
+// Helper functions to get values from attribute arrays. Negative index i starts
+// from innermost.
 size_t ArrayAttrSize(mlir::ArrayAttr a);
 size_t ArrayAttrSize(std::optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(std::optional<mlir::ArrayAttr> a, int i);
-void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
+void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &vals);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
@@ -187,6 +205,14 @@ bool getI64ValuesFromONNXConstantOp(
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
 inline bool isNoneValue(mlir::Value value);
 
+// Test if the operation is a data movement ONNX operation that just shuffles
+// elements without any computation.
+bool isDataMovementONNXOp(mlir::Operation *op);
+
+// Test if the operation is a view ONNX operation that just changes the shape
+// withou data copying.
+bool isViewONNXOp(mlir::Operation *op);
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -198,20 +224,6 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
-
-/// Test if the value has the specified constant shape
-bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
-
-/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
-/// tensor<1xdtype>.
-bool isScalarConstantTensor(mlir::Value v);
-
-/// Test if 'val' has shape and rank or not.
-bool hasShapeAndRank(mlir::Value val);
-bool hasShapeAndRank(mlir::Operation *op);
-
-/// Test if a value has only one use except ONNXDimOp.
-bool hasOneUseExceptDimOp(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -253,6 +265,20 @@ bool isConstOf(mlir::Value constValue, double n);
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
+mlir::Type getMLIRTypeFromDtypeWithFallBackToInputType(
+    mlir::Operation *op, std::optional<int64_t> dtype);
+
+mlir::LogicalResult verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+    mlir::Operation *op, std::optional<int64_t> dtype);
+
+mlir::Type getMLIRTypeFromDtype(mlir::MLIRContext *ctx, int64_t dtype);
+
+mlir::LogicalResult verifyResultElementTypeEqualsDtype(
+    mlir::Operation *op, int64_t dtype);
+
+mlir::Type getMLIRTypeFromDtypeDefaultingToF32(
+    mlir::MLIRContext *ctx, std::optional<int64_t> dtype);
+
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
@@ -264,6 +290,11 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
+
+/// If the value val has only one use and that use is of type OP, return that
+/// op. Otherwise return null.
+template <typename OP>
+mlir::Operation *usedOnlyBy(mlir::Value val);
 
 /// Check the defining operation of a value.
 template <typename OP>
@@ -315,7 +346,7 @@ bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
 
 // This is to recognize a binary op, e.g. A*B where one of A and B is a constant
 // and the other one is defined by OP.
-// Note: this function can handle the communitive property of the binary op.
+// Note: this function can handle the commutative property of the binary op.
 //
 // For example, to recognize this pattern:
 // %x = "onnx.Tanh"()
@@ -332,7 +363,7 @@ bool matchConstAndOp(mlir::Value A, mlir::Value B, double cst, OP &op);
 
 // This is to recognize a binary op, e.g. A*B where one of A and B is the given
 // value and the other one is defined by OP.
-// Note: this function can handle the communitive property of the binary op.
+// Note: this function can handle the commutative property of the binary op.
 //
 // For example, to recognize this pattern where %z is one of the inputs of *,
 // and the other input of * is defined by onnx.Tanh:

@@ -55,10 +55,10 @@ Type mlirTypeOfBType(BType btype, MLIRContext *ctx) {
     case BType::FLOAT          : return b.getF32Type();
     case BType::FLOAT16        : return b.getF16Type();
     case BType::BFLOAT16       : return b.getBF16Type();
-    case BType::FLOAT8E4M3FN   : return b.getFloat8E4M3FNType();
-    case BType::FLOAT8E4M3FNUZ : return b.getFloat8E4M3FNUZType();
-    case BType::FLOAT8E5M2     : return b.getFloat8E5M2Type();
-    case BType::FLOAT8E5M2FNUZ : return b.getFloat8E5M2FNUZType();
+    case BType::FLOAT8E4M3FN   : return b.getType<Float8E4M3FNType>();
+    case BType::FLOAT8E4M3FNUZ : return b.getType<Float8E4M3FNUZType>();
+    case BType::FLOAT8E5M2     : return b.getType<Float8E5M2Type>();
+    case BType::FLOAT8E5M2FNUZ : return b.getType<Float8E5M2FNUZType>();
     default: llvm_unreachable("unsupported data type");
   }
   // clang-format on

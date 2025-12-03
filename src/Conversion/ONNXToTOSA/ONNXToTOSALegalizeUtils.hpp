@@ -37,7 +37,7 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 // Returns the value TOSA ConstOp
 template <typename T>
 T getValueFromTosaConst(mlir::Value &val) {
-  return mlir::cast<T>(val.getDefiningOp<mlir::tosa::ConstOp>().getValue());
+  return mlir::cast<T>(val.getDefiningOp<mlir::tosa::ConstOp>().getValues());
 }
 
 // Creates a TOSA operation and performs shape inference on the individual
@@ -45,7 +45,8 @@ T getValueFromTosaConst(mlir::Value &val) {
 template <typename TosaOp, typename... Args>
 TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
     mlir::Type result_ty, Args &&... args) {
-  auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
+
+  auto op = TosaOp::create(rewriter, loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
       llvm::dyn_cast<mlir::InferShapedTypeOpInterface>(op.getOperation());
@@ -64,6 +65,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   // the new result shaped type. This is because rescale can include a cast to
   // different bit-width types and does not have a TypeAttr to define the
   // target type.
+  assert(returnedShapes.size() >= 1 && "Expected at least one returned shape");
   auto predictedShape = returnedShapes[0];
   if (predictedShape.hasRank())
     updateType(nullptr, op, predictedShape.getDims(),

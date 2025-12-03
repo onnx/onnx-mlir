@@ -174,15 +174,15 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
     if (newKind != IndexExprKind::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
-      newVal = scope->getRewriter().create<arith::IndexCastOp>(
-          scope->getLoc(), scope->getRewriter().getIndexType(), newVal);
+      newVal = arith::IndexCastOp::create(scope->getRewriter(), scope->getLoc(),
+          scope->getRewriter().getIndexType(), newVal);
     }
   } else if (mlir::isa<IndexType>(type)) {
     if (newKind == IndexExprKind::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
-      newVal = scope->getRewriter().create<arith::IndexCastOp>(
-          scope->getLoc(), scope->getRewriter().getI1Type(), newVal);
+      newVal = arith::IndexCastOp::create(scope->getRewriter(), scope->getLoc(),
+          scope->getRewriter().getI1Type(), newVal);
     }
   } else if (mlir::isa<FloatType>(type)) {
     assert(newKind != IndexExprKind::Predicate && "float cannot be predicate");
@@ -467,16 +467,16 @@ Value IndexExprImpl::getValue() {
     if (isPredType()) {
       assert(!isFloatType() && "predicate literal not available for float");
       bool boolValue = (intLit != 0);
-      value = getRewriter().create<arith::ConstantOp>(getLoc(),
+      value = arith::ConstantOp::create(getRewriter(), getLoc(),
           getRewriter().getI1Type(), getRewriter().getBoolAttr(boolValue));
     } else if (isFloatType()) {
       // Treat float types as f32 as this is what we currently have in the ONNX
       // specs involving float and index calculations.
       float fval = floatLit;
-      value = getRewriter().create<arith::ConstantFloatOp>(
-          getLoc(), llvm::APFloat(fval), getRewriter().getF32Type());
+      value = arith::ConstantFloatOp::create(getRewriter(), getLoc(),
+          getRewriter().getF32Type(), llvm::APFloat(fval));
     } else {
-      value = getRewriter().create<arith::ConstantIndexOp>(getLoc(), intLit);
+      value = arith::ConstantIndexOp::create(getRewriter(), getLoc(), intLit);
     }
   } else if (hasAffineExpr()) {
     // Has an affine expression: need to build a map, and then perform an
@@ -491,7 +491,7 @@ Value IndexExprImpl::getValue() {
     // list, and then use the apply.
     SmallVector<Value, 4> list;
     getScope().getDimAndSymbolList(list);
-    value = getRewriter().create<affine::AffineApplyOp>(getLoc(), map, list);
+    value = affine::AffineApplyOp::create(getRewriter(), getLoc(), map, list);
   } else if (isQuestionmark()) {
     // There are cases where shape inference cannot determine the size even at
     // runtime before running some specialized computations. For example,

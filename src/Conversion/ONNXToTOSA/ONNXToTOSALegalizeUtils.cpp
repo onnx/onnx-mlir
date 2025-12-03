@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
 #include "mlir/Dialect/Tosa/Utils/QuantUtils.h"
 #include "mlir/Dialect/Tosa/Utils/ShapeUtils.h" // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"          // from @llvm-project
@@ -60,8 +61,8 @@ Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
   }
   tosaPads.insert(tosaPads.end(), lastVals.begin(), lastVals.end());
   TosaBuilder tosaBuilder(rewriter, loc);
-  return tosaBuilder.getConst(
-      tosaPads, {static_cast<int64_t>(tosaPads.size())});
+
+  return mlir::tosa::getTosaConstShape(rewriter, loc, tosaPads);
 }
 
 } // namespace tosa

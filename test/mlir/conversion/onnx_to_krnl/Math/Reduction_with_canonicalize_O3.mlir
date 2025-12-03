@@ -245,14 +245,11 @@ func.func private @test_reducesum1(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_1_]]#1 -> [[I_2_:%.+]] = 0 to 2, [[LOOP_1_]]#2 -> [[I_3_:%.+]] = 0 to 2){
 // CHECK-DAG:         [[VAR_2_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_1_]]{{.}} : memref<3xi1>
-// CHECK:             [[VAR_4_1_:%.+]] = arith.cmpi eq, [[LOAD_PARAM_1_MEM_1_]], [[VAR_true_]] : i1
-// CHECK-DAG:         [[VAR_5_1_:%.+]] = arith.select [[VAR_4_1_]], [[CST_0_1_]], [[VAR_2_1_]]#0 : index
+// CHECK-DAG:         [[VAR_5_1_:%.+]] = arith.select [[LOAD_PARAM_1_MEM_1_]], [[CST_0_1_]], [[VAR_2_1_]]#0 : index
 // CHECK-DAG:         [[VAR_6_1_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_1_]]{{.}} : memref<3xi1>
-// CHECK:             [[VAR_7_1_:%.+]] = arith.cmpi eq, [[VAR_6_1_]], [[VAR_true_]] : i1
-// CHECK-DAG:         [[VAR_8_:%.+]] = arith.select [[VAR_7_1_]], [[CST_0_1_]], [[VAR_2_1_]]#1 : index
-// CHECK-DAG:         [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_2_]]{{.}} : memref<3xi1>
-// CHECK:             [[VAR_10_:%.+]] = arith.cmpi eq, [[LOAD_RES_MEM_]], [[VAR_true_]] : i1
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[CST_0_1_]], [[VAR_2_1_]]#2 : index
+// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_6_1_]], [[CST_0_1_]], [[VAR_2_1_]]#1 : index
+// CHECK:             [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_2_]]{{.}} : memref<3xi1>
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[LOAD_RES_MEM_]], [[CST_0_1_]], [[VAR_2_1_]]#2 : index
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_2_1_]]#0, [[VAR_2_1_]]#1, [[VAR_2_1_]]#2] : memref<3x2x2xf32>
 // CHECK:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_5_1_]], [[VAR_8_]], [[VAR_11_]]{{.}} : memref<3x1x2xf32>
 // CHECK:             [[VAR_14_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
@@ -303,14 +300,11 @@ func.func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> te
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_1_]]#1 -> [[I_2_:%.+]] = 0 to 2, [[LOOP_1_]]#2 -> [[I_3_:%.+]] = 0 to 2){
 // CHECK-DAG:         [[VAR_3_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_1_]]{{.}} : memref<3xi1>
-// CHECK:             [[VAR_5_1_:%.+]] = arith.cmpi eq, [[LOAD_PARAM_1_MEM_1_]], [[VAR_true_]] : i1
-// CHECK-DAG:         [[VAR_6_1_:%.+]] = arith.select [[VAR_5_1_]], [[CST_0_1_]], [[VAR_3_1_]]#0 : index
+// CHECK-DAG:         [[VAR_6_1_:%.+]] = arith.select [[LOAD_PARAM_1_MEM_1_]], [[CST_0_1_]], [[VAR_3_1_]]#0 : index
 // CHECK-DAG:         [[VAR_7_1_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_1_]]{{.}} : memref<3xi1>
-// CHECK:             [[VAR_8_1_:%.+]] = arith.cmpi eq, [[VAR_7_1_]], [[VAR_true_]] : i1
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.select [[VAR_8_1_]], [[CST_0_1_]], [[VAR_3_1_]]#1 : index
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.select [[VAR_7_1_]], [[CST_0_1_]], [[VAR_3_1_]]#1 : index
 // CHECK-DAG:         [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_2_]]{{.}} : memref<3xi1>
-// CHECK:             [[VAR_11_:%.+]] = arith.cmpi eq, [[LOAD_RES_MEM_]], [[VAR_true_]] : i1
-// CHECK-DAG:         [[VAR_12_:%.+]] = arith.select [[VAR_11_]], [[CST_0_1_]], [[VAR_3_1_]]#2 : index
+// CHECK-DAG:         [[VAR_12_:%.+]] = arith.select [[LOAD_RES_MEM_]], [[CST_0_1_]], [[VAR_3_1_]]#2 : index
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#1, [[VAR_3_1_]]#2] : memref<3x2x2xf32>
 // CHECK:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_6_1_]], [[VAR_9_]], [[VAR_12_]]{{.}} : memref<3x1x2xf32>
 // CHECK:             [[VAR_15_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
@@ -426,7 +420,7 @@ func.func private @gpt2_original(%arg0 : tensor<?x?x768xf32>) -> tensor<?x?x1xf3
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[VAR_reshape_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -537,7 +531,7 @@ func.func private @gpt2_no_keepdims(%arg0 : tensor<?x?x768xf32>) -> tensor<*xf32
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[RES_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -659,7 +653,7 @@ func.func private @gpt2_reduce2(%arg0 : tensor<?x?x96x8xf32>) -> tensor<*xf32> {
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[VAR_reshape_7_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -783,7 +777,7 @@ func.func private @gpt2_one_not_multiple(%arg0 : tensor<?x?x97x8xf32>) -> tensor
 // CHECK-DAG:           [[VAR_24_:%.+]] = vector.shuffle [[VAR_19_]], [[VAR_22_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_25_:%.+]] = arith.addf [[VAR_24_]], [[VAR_23_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_26_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_26_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_27_:%.+]] = arith.divf [[VAR_25_]], [[VAR_26_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_27_]], [[VAR_reshape_7_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -933,7 +927,7 @@ func.func private @gpt2_no_simd_as_not_mult_of_VL(%arg0 : tensor<?x?x97x9xf32>) 
 // CHECK-DAG:           [[VAR_36_:%.+]] = vector.shuffle [[VAR_31_]], [[VAR_34_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[VAR_37_:%.+]] = arith.addf [[VAR_36_]], [[VAR_35_]] : vector<4xf32>
-// CHECK-DAG:           [[VAR_38_:%.+]] = vector.splat [[VAR_5_]] : vector<4xf32>
+// CHECK-DAG:           [[VAR_38_:%.+]] = vector.broadcast [[VAR_5_]] : f32 to vector<4xf32>
 // CHECK:               [[VAR_39_:%.+]] = arith.divf [[VAR_37_]], [[VAR_38_]] : vector<4xf32>
 // CHECK:               vector.store [[VAR_39_]], [[VAR_reshape_7_]]{{.}}[[VAR_7_]]#0, [[VAR_7_]]#1] : memref<?x?xf32>, vector<4xf32>
 // CHECK:             }
@@ -1226,7 +1220,7 @@ func.func private @bertsquad10_same_pattern(%arg0 : tensor<?x256x768xf32>) -> te
 // CHECK-DAG:         [[VAR_21_:%.+]] = vector.shuffle [[VAR_16_]], [[VAR_19_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_22_:%.+]] = arith.addf [[VAR_21_]], [[VAR_20_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_23_:%.+]] = vector.splat [[VAR_4_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_23_:%.+]] = vector.broadcast [[VAR_4_]] : f32 to vector<4xf32>
 // CHECK:             [[VAR_24_:%.+]] = arith.divf [[VAR_22_]], [[VAR_23_]] : vector<4xf32>
 // CHECK:             vector.store [[VAR_24_]], [[VAR_reshape_]]{{.}}[[VAR_6_]]#0, [[VAR_6_]]#1] : memref<?x256xf32>, vector<4xf32>
 // CHECK:           }

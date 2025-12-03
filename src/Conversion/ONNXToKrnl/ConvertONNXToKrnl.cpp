@@ -146,10 +146,11 @@ private:
     dString.push_back('\0'); // null terminate the input signature string
     dstream << "@[";
     comma = std::string("");
+    // Handle outputs
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
       StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
-      if (argAttrs) {
+      if (resAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
         if (dictAttrs && dictAttrs.contains("onnx.name"))
           outputName = mlir::cast<StringAttr>(
@@ -211,15 +212,21 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXWindowOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTriluOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXMatMulIntegerOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXMeanVarianceNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRandomUniformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRandomUniformLikeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLpNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQLinearMatMulOpPattern(patterns, typeConverter, ctx);
   // ML
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
@@ -248,7 +255,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSplitOpPattern(patterns, typeConverter, ctx);
@@ -260,7 +267,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);

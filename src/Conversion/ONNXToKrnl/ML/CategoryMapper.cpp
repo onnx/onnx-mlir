@@ -163,8 +163,8 @@ struct ONNXCategoryMapperOpLowering
             create.krnl.printf("index: ", index);
 
           // Store the final result.
-          scf::IfOp ifOp = rewriter.create<scf::IfOp>(
-              loc, isIndexValid, /*withElseRegion=*/true);
+          scf::IfOp ifOp = scf::IfOp::create(
+              rewriter, loc, isIndexValid, /*withElseRegion=*/true);
           storeResult(index, elementType, ifOp, constantForCatsInt64s,
               constantForCatsStrings, defaultInt64, defaultString, alloc,
               loopInd, createKrnl, rewriter);
@@ -281,11 +281,11 @@ private:
             SmallVector<int64_t, 4> strides;
             int64_t alignmentOffset; // not used, just to make the function call
                                      // completed.
-            if (getStridesAndOffset(memRefType, strides, alignmentOffset)
+            if (memRefType.getStridesAndOffset(strides, alignmentOffset)
                     .failed())
               llvm_unreachable("Failed to get strides");
             Value stringMemRef =
-                createMemRef.subView(memref, offsets, newShape, strides)
+                createMemRef.subview(memref, offsets, newShape, strides)
                     .getResult();
             inputElem = createKrnl.load(stringMemRef, loopInd);
           }

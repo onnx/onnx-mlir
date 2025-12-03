@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -72,6 +71,9 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 
+    // Check the value of indices and change it to zero if out-of-bound
+    genSafeCodeForGatherAlike(rewriter, loc, op, data, indices, axisLit);
+
     int64_t outputRank = shapeHelper.getOutputDims().size();
     int iIndexStart = 0;
     int jIndexStart = iIndexStart + axisLit;
@@ -95,18 +97,11 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     DimsExpr lbs(outputRank, zeroIE);
     DimsExpr ubs = shapeHelper.getOutputDims();
-    if (enableParallel) {
-      int64_t parId;
-      if (findSuitableParallelDimension(lbs, ubs, 0, outputRank, parId)) {
-        create.krnl.parallel(loopDef[parId]);
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "gather");
-      } else {
-        onnxToKrnlParallelReport(
-            op, false, -1, -1, "dim with not enough work in gather");
-      }
-    }
-    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
+    // Enable parallelism if required.
+    if (enableParallel)
+      tryCreateKrnlParallel(
+          create.krnl, op, "gather", loopDef, lbs, ubs, 0, outputRank);
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
@@ -123,43 +118,14 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
           Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
           // Loaded value is an index that is not affine
           IndexExpr index = NonAffineIndexExpr(indexVal);
+
           // When index may be negative, add axis Dim to it.
           if (indicesMayBeNegative)
             index = index.selectOrSelf(index < zeroIE, index + axisDim);
 
-          // The Gather op is data dependent: the value of index should be
-          // within the input data size.
-          // Add runtime check if enableSafeCodeGen is set true
-          // Implementation comments vs. createGenerateRuntimeVerificationPass
-          // This check is according to onnx op semantics, not general bound
-          // check for memref. Implementation of RuntimeVerification could be
-          // borrowed. Slightly difference is that onnx semenatics check is for
-          // each dimension independently, not the final address is within
-          // the memref bound.
           if (enableSafeCodeGen) {
-            // From onnx document:
-            // All index values are expected to be within bounds [-s, s-1]
-            // along axis of size s. It is an error if any of the index values
-            // are out of bounds.
-            // After the negative correction, the range should be [0, s-1]
-            Value upperBound = create.mem.dim(data, axisLit);
-            Value compareUpperBound =
-                create.math.slt(index.getValue(), upperBound);
-            // Report onnx_node_name if the op has the attribute
-            std::string nodeNameStr = op->getName().getStringRef().str() + " ";
-            StringAttr nodeName =
-                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-            if (nodeName && !nodeName.getValue().empty()) {
-              nodeNameStr = nodeNameStr + nodeName.getValue().str();
-            }
-            rewriter.create<cf::AssertOp>(loc, compareUpperBound,
-                nodeNameStr +
-                    " indices of GatherOp is larger than the upper bound");
-            Value compareLowerBound =
-                create.math.sge(index.getValue(), zeroIE.getValue());
-            rewriter.create<cf::AssertOp>(loc, compareLowerBound,
-                nodeNameStr +
-                    " indices of GatherOp is less than the lower bound");
+            index = index.selectOrSelf(index < 0, zeroIE);
+            index = index.selectOrSelf(index >= axisDim, axisDim - 1);
           }
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[project]
+name = "onnxmlirtorch"
+version = "0.1.0"
+authors = [
+  { name="Tong Chen", email="chentong@us.ibm.com" },
+  { name="Alexandre Eichenberger", email="alexe@us.ibm.com" },
+]
+description = "Python driver to compile/run torch model with onnx-mlir"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+]
+dependences = [
+    "numpy",
+    "docker",
+    "torch",
+]
+
+[project.urls]
+Homepage = "https://github.com/onnx/onnx-mlir"
+Issues = "https://github.com/onnx/onnx-mlir/issues"

@@ -117,6 +117,8 @@ DECLARE_DATA_LAYOUT_STR(ZDNN_BIDIR_FICO)
 // const char *DATA_FORMAT_STR_X
 DECLARE_DATA_FORMAT_STR(ZDNN_FORMAT_4DFEATURE)
 DECLARE_DATA_FORMAT_STR(ZDNN_FORMAT_4DKERNEL)
+DECLARE_DATA_FORMAT_STR(ZDNN_FORMAT_4DWEIGHTS)
+DECLARE_DATA_FORMAT_STR(ZDNN_FORMAT_4DGENERIC)
 
 static short get_data_layout_num_gates(zdnn_data_layouts layout) {
 
@@ -229,6 +231,8 @@ const char *get_data_format_str(zdnn_data_formats format) {
   switch (format) {
     CASE_RTN_STR(ZDNN_FORMAT_4DFEATURE);
     CASE_RTN_STR(ZDNN_FORMAT_4DKERNEL);
+    CASE_RTN_STR(ZDNN_FORMAT_4DWEIGHTS);
+    CASE_RTN_STR(ZDNN_FORMAT_4DGENERIC);
   }
 #undef CASE_RTN_STR
 
@@ -242,11 +246,15 @@ short get_data_type_size(zdnn_data_types type) {
     return (b);
 
   switch (type) {
+    CASE_RTN_SIZE(INT8, 1);
+    CASE_RTN_SIZE(INT32, 4);
     CASE_RTN_SIZE(BFLOAT, 2);
     CASE_RTN_SIZE(FP16, 2);
     CASE_RTN_SIZE(FP32, 4);
     CASE_RTN_SIZE(ZDNN_DLFLOAT16, 2);
-    CASE_RTN_SIZE(INT8, 1);
+    CASE_RTN_SIZE(ZDNN_BINARY_FP32, 4);
+    CASE_RTN_SIZE(ZDNN_BINARY_INT8, 1);
+    CASE_RTN_SIZE(ZDNN_BINARY_INT32, 4);
   }
 #undef CASE_RTN_SIZE
 
@@ -480,14 +488,14 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
     return ZDNN_INVALID_TYPE;
   }
 
-  const uint32_t *dims_ptr = &(tfrmd_desc->dim4);
-
   /* ToFix: the nnpa_query_result is not set up with onnx-mlir
    * Temporarily commented out.
    * Refer to issue #3034
    */
 
 #if 0
+  const uint32_t *dims_ptr = &(tfrmd_desc->dim4);
+
   // is the dimension above the limit or zero?
   // transformed layout uses all dim* entries, so we'll check them all
   for (int i = 0; i < ZDNN_MAX_DIMS; i++) {
@@ -961,7 +969,9 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
       fields_to_convert = ztensor->transformed_desc->dim2;
 
       // convert_data_format() will dump the converted entries here
-      uint16_t temp_buff[fields_to_convert];
+      uint16_t *temp_buff =
+          (uint16_t *)malloc(fields_to_convert * sizeof(uint16_t));
+      assert(temp_buff && "failed to allocate temp buff");
 
       // number of bytes to jump from the beginning of the last C-stick to the
       // next page-boundary
@@ -1049,7 +1059,8 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
         // done with all the C/H/W, go to the next n
         output_offset = out_offset_n + bytes_per_n;
       }
-    }
+      free(temp_buff);
+    } // End of if NCHW
   } else if (ztensor->transformed_desc->layout == ZDNN_HWCK) {
 
     uint64_t bytes_per_h =
@@ -1412,7 +1423,8 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
 
       // Save the gate data for slicing later.
       // (e.g., LSTM) va_arg order: F (FWD,BWD), I (FWD,BWD), C...etc.
-      void *gate_data[num_gates];
+      void **gate_data = (void **)malloc(num_gates * sizeof(void *));
+      assert(gate_data && "failed to allocate data");
       for (uint8_t i = 0; i < num_gates; i++) {
         gate_data[i] = va_arg(argptr, void *);
       }
@@ -1500,7 +1512,7 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
         // Set that the output ztensor has completed transformation.
         ztensor->is_transformed = true;
       }
-
+      free(gate_data);
     } while (false);
 
   } else {

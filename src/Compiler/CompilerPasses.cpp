@@ -83,8 +83,14 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Replace ops with its operand. This is to bypass the operations.
+  if (!replaceOpWithItsOperand.empty())
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceOpWithItsOperandPass(
+        /*nodeNameRegexList=*/replaceOpWithItsOperand));
+
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
@@ -153,8 +159,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
-  // Add instrumentation for Onnx Ops
-  // Keep this pass at the end of this function.
+  // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
+  // at the end of this function.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
@@ -165,14 +171,21 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // optionally enable the last bit by using
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
+    // Also enable instrumentation of signatures.
+    instrumentSignatures = "onnx.*";
   }
-  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
+  // Add createInstrument (timing) second so that it will guarantee not to
+  // include timing of the signature printing.
+  if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::Onnx))
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
+        instrumentSignatures, instrumentOnnxNode));
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    std::string instrumentSignatureString, std::string ONNXOpsStatFormat) {
+    std::string ONNXOpsStatFormat) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -196,12 +209,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
 
-  // Print Signatures of each op at runtime if enabled. Should not run
-  // signature and instrument passes at the same time as time may include printf
-  // overheads.
-  if (instrumentSignatureString != "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
-        instrumentSignatureString));
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
       /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
@@ -251,23 +258,22 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  if (useOldBufferization) {
-    pm.addNestedPass<func::FuncOp>(
-        mlir::bufferization::createBufferDeallocationPass());
-  } else {
-    bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
-    mlir::bufferization::buildBufferDeallocationPipeline(
-        pm, bufferDeallocOptions);
-    pm.addPass(mlir::createBufferizationToMemRefPass());
-  }
+  bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      pm, bufferDeallocOptions);
+  // This pass is necessary to move deallocation after the last user.
+  pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+  pm.addPass(mlir::createConvertBufferizationToMemRefPass());
 
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
+    // Cannot have canonicalization before OpenMP... have seen loop disappear.
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
     //  The alloca_scope ops are somewhat fragile; canonicalize remove them when
     //  redundant, which helps reliability of the compilation of these ops.
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(onnx_mlir::createProcessKrnlParallelClausePass());
+    pm.addPass(onnx_mlir::createBufferOMPLoopHoisting());
   }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
@@ -276,12 +282,16 @@ void addKrnlToLLVMPasses(
   // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
+  // This pass is required on s390x targets to ensure all vector operations
+  // are properly lowered to LLVM dialect. (e.g., vector.to_elements)
+  pm.addPass(mlir::createConvertVectorToLLVMPass());
 
   if (profileIR)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
 
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
+
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
@@ -325,8 +335,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
-          instrumentSignatures, ONNXOpStats);
+      addONNXToKrnlPasses(
+          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

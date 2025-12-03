@@ -55,6 +55,11 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   IndexExpr seqLength = batchwiseLayout ? xDims[1] : xDims[0];
   IndexExpr batchSize = batchwiseLayout ? xDims[0] : xDims[1];
 
+  // If input_size dim is dynamic in the input and static in the weight,
+  // update the input_size dim in the input to be static.
+  if (!xDims[2].isLiteral() && wDims[2].isLiteral())
+    this->updateInputDimAt(X, wDims[2].getLiteral(), 2);
+
   // Get hidden size from hidden_size attribute.
   IndexExpr hiddenSize;
   if (operandAdaptor.getHiddenSize().has_value()) {

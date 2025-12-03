@@ -26,6 +26,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -123,11 +124,11 @@ Value createSequenceConstructOp(
     PatternRewriter &rewriter, Value seq, OperandRange inputs) {
   Type resType = seq.getType();
   Location loc = seq.getLoc();
-  Value position = rewriter.create<ONNXNoneOp>(loc);
+  Value position = ONNXNoneOp::create(rewriter, loc);
 
   for (auto input : inputs)
-    seq = rewriter.create<ONNXSequenceInsertOp>(
-        loc, resType, seq, input, position);
+    seq = ONNXSequenceInsertOp::create(
+        rewriter, loc, resType, seq, input, position);
 
   return seq;
 }
@@ -606,6 +607,21 @@ Value normalizeConstantOp(
   return createONNX.constant(denseAttr);
 }
 
+ElementsAttr reshapeElementsAttrToRank0WithDefaultValue(
+    PatternRewriter &rewriter, Value shape, Attribute val) {
+  if (!val) {
+    // Default is 0.0 in float32. It is not created by default in the ONNX
+    // getValue() as the ONNX td does not define a default value. So explicitly
+    // create a dense array of 1 zero value here.
+    Type elementType = rewriter.getF32Type();
+    RankedTensorType tensorType = RankedTensorType::get({1}, elementType);
+    FloatAttr floatAttr = rewriter.getFloatAttr(elementType, 0.0);
+    val = DenseElementsAttr::get(tensorType, floatAttr.getValue());
+  }
+  return OnnxElementsAttrBuilder(shape.getContext())
+      .reshape(cast<ElementsAttr>(val), {});
+}
+
 } // namespace onnx_mlir
 
 namespace {
@@ -655,19 +671,19 @@ struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
     RankedTensorType resultType =
         createReducedType(inputType, axisValue, /*keepDims=*/true);
-    Value maxInput = rewriter.create<ONNXReduceMaxV13Op>(
-        odsLoc, resultType, input, axisAttr, keepDimsAttr);
+    Value maxInput = ONNXReduceMaxV13Op::create(
+        rewriter, odsLoc, resultType, input, axisAttr, keepDimsAttr);
     Value subValue =
-        rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
-    Value expValue = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
+        ONNXSubOp::create(rewriter, odsLoc, inputType, input, maxInput);
+    Value expValue = ONNXExpOp::create(rewriter, odsLoc, inputType, subValue);
     Value axisOp = create.onnx.constantInt64({axisValue});
     IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 0);
-    Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
+    Value sumValue = ONNXReduceSumOp::create(rewriter, odsLoc, resultType,
         /*input=*/expValue,
         /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
     Value divValue =
-        rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
+        ONNXDivOp::create(rewriter, odsLoc, inputType, expValue, sumValue);
     rewriter.replaceOp(softmaxOp, divValue);
     return success();
   }
@@ -721,9 +737,9 @@ struct ConcatFusePattern : public OpRewritePattern<ONNXConcatOp> {
     outputTypes.emplace_back(shapeOp.getResult().getType());
     outputTypes.emplace_back(transposeOp.getResult().getType());
 
-    auto fusedV = rewriter.create<ONNXConcatShapeTransposeOp>(concatOp.getLoc(),
-        outputTypes, concatOp->getOperands(), concatOp.getAxisAttr(),
-        shapeOp.getEndAttr(), shapeOp.getStartAttr(),
+    auto fusedV = ONNXConcatShapeTransposeOp::create(rewriter,
+        concatOp.getLoc(), outputTypes, concatOp->getOperands(),
+        concatOp.getAxisAttr(), shapeOp.getEndAttr(), shapeOp.getStartAttr(),
         transposeOp.getPermAttr());
     rewriter.replaceOp(shapeOp.getOperation(), fusedV.getResults()[0]);
     rewriter.replaceOp(transposeOp.getOperation(), fusedV.getResults()[1]);
@@ -901,219 +917,6 @@ public:
   }
 };
 
-// Transform InstanceNormalization into LayerNormalization
-struct InstanceNormIntoLayerNormPattern
-    : public OpRewritePattern<ONNXInstanceNormalizationOp> {
-  using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
-      PatternRewriter &rewriter) const final {
-    // Match.
-    Value input = instanceNormOp.getInput();
-    if (!onnx_mlir::isRankedShapedType(input.getType()))
-      return failure();
-
-    // Get info.
-    Value scale = instanceNormOp.getScale();
-    Value bias = instanceNormOp.getB();
-    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
-    Type elementType = inputType.getElementType();
-    auto inputShape = inputType.getShape();
-    int64_t C = inputShape[1];
-    int64_t inputRank = inputType.getRank();
-    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
-    assert(inputRank > nonSpacialRank &&
-           "expected instance norm with input ranks > 2");
-
-    // Rewrite.
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-        rewriter, instanceNormOp.getLoc());
-    int64_t axis = nonSpacialRank;
-    int64_t numInNorm = inputRank - axis;
-    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm 1s.
-    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
-    biasScaleShape.emplace_back(C);
-    for (int64_t i = 1; i <= numInNorm; ++i) {
-      biasScaleShape.emplace_back(1);
-      axesList.emplace_back(i);
-    }
-    Value axes = create.onnx.constantInt64(axesList);
-    Type biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
-    Value newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
-    Value newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
-    // Create output using layer norm.
-    Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
-        instanceNormOp.getEpsilonAttr());
-    // Set the type of the output to be the same as the output of the original
-    // operation we are trying to replace.
-    Y.setType(instanceNormOp.getResult().getType());
-    // Replace operation.
-    rewriter.replaceOp(instanceNormOp, Y);
-    return success();
-  }
-};
-
-// Transform GroupNormalization into LayerNormalization
-template <typename OP>
-constexpr bool scaleAndBiasWithNumGroupShape =
-    std::is_same_v<OP, ONNXGroupNormalizationV18Op>;
-
-template <typename OP_TYPE>
-LogicalResult ONNXGroupNormalizationCommon(
-    OP_TYPE groupNormOp, PatternRewriter &rewriter) {
-
-  // Match.
-  Value input = groupNormOp.getX();
-  if (!onnx_mlir::isRankedShapedType(input.getType()))
-    return failure();
-
-  // Get info.
-  Value scale = groupNormOp.getScale();
-  Value bias = groupNormOp.getBias();
-  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
-  Type elementType = inputType.getElementType();
-  auto inputShapeVal = inputType.getShape();
-  int64_t C = inputShapeVal[1];
-  int64_t inputRank = inputType.getRank();
-  int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
-  assert(inputRank > nonSpacialRank &&
-         "expected instance norm with input ranks > 2");
-  int64_t spacialRank = inputRank - nonSpacialRank;
-  int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
-  int64_t numGroups = groupNormOp.getNumGroups();
-
-  // Rewrite.
-  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-      rewriter, groupNormOp.getLoc());
-  int64_t axis = nonSpacialRank;
-  int64_t numInNorm = layerNormRank - axis;
-  Type biasScaleType;
-  Value axes;
-  Value newBias;
-  Value newScale;
-
-  //"numgroups" and "C" should have the same dimension index
-  llvm::SmallVector<int64_t, 4> axesList, biasScaleVal;
-
-  if constexpr (scaleAndBiasWithNumGroupShape<OP_TYPE>) {
-    // Opset18 Uses "numgroups" the number of groups of channels for the scale
-    // and bias
-    // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
-    // 1s.
-    biasScaleVal.emplace_back(numGroups);
-    for (int64_t i = 1; i <= numInNorm; ++i) {
-      biasScaleVal.emplace_back(1);
-      axesList.emplace_back(i);
-    }
-
-    axes = create.onnx.constantInt64(axesList);
-    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
-    newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
-    newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
-  } else {
-    // Opset21 Uses "C" the number of channels for the scale and bias
-    // The equivalent of "C" when split is "NG x C/NG"
-    // Reshape scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
-    // 1s.
-    biasScaleVal.emplace_back(numGroups);
-    // C can be a dynamic or static value, account for that here
-    if (C != ShapedType::kDynamic) {
-      assert(C % numGroups == 0 && "expected numGroups to divide C");
-      biasScaleVal.emplace_back(C / numGroups);
-    } else {
-      biasScaleVal.emplace_back(ShapedType::kDynamic);
-    }
-
-    for (int64_t i = 2; i <= numInNorm; ++i) {
-      biasScaleVal.emplace_back(1);
-    }
-
-    // Calculate the (possible) dynamic dimensions for biasScaleShape
-    Value NGShape = create.onnx.constantInt64({numGroups});
-    Value oneDimShape =
-        create.onnx.constantInt64(SmallVector<int64_t>(spacialRank, 1));
-    Type biasScaleShapeType =
-        RankedTensorType::get({inputRank}, rewriter.getI64Type());
-    Value biasScaleShape = create.onnx.concat(
-        biasScaleShapeType, {NGShape, NGShape, oneDimShape}, /*axis*/ 0);
-
-    // Reshape instead of unsqueeze (use biasScaleShape)
-    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
-    newScale = create.onnx.reshape(biasScaleType, scale, biasScaleShape);
-    newBias = create.onnx.reshape(biasScaleType, bias, biasScaleShape);
-  }
-
-  // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
-  // First compute the new (possible dynamic) shape.
-  Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
-  Value NShape = create.onnx.shape(
-      batchShapeType, input, /*start*/ 0, /*exclusive end*/ 1);
-  Value NGandMin1Shape = create.onnx.constantInt64({numGroups, -1});
-  Type spacialShapeType =
-      RankedTensorType::get({spacialRank}, rewriter.getI64Type());
-  Value spacialShape =
-      create.onnx.shape(spacialShapeType, input, /*start*/ nonSpacialRank);
-  Type layerNormShapeType =
-      RankedTensorType::get({layerNormRank}, rewriter.getI64Type());
-  Value layerNormShape = create.onnx.concat(layerNormShapeType,
-      {NShape, NGandMin1Shape, spacialShape}, /*axis*/
-      0);
-  // Compute type of converted input.
-  llvm::SmallVector<int64_t, 5> layerNormShapeVal;
-  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2,
-  // Dn...
-  layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
-  layerNormShapeVal.emplace_back(numGroups);        // NG
-  if (C != ShapedType::kDynamic) {
-    assert(C % numGroups == 0 && "expected numGroups to divide C");
-    layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
-  } else
-    layerNormShapeVal.emplace_back(ShapedType::kDynamic);
-  for (int64_t i = 0; i < spacialRank; ++i)
-    layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]); // Dn
-  RankedTensorType layerNormInputType =
-      RankedTensorType::get(layerNormShapeVal, elementType);
-  Value layerNormInput =
-      create.onnx.reshape(layerNormInputType, input, layerNormShape);
-  // Create output using layer norm.
-  Value layerNormY = create.onnx.layerNorm(layerNormInputType, layerNormInput,
-      newScale, newBias, axis, groupNormOp.getEpsilonAttr());
-  // Resize output to original size
-  Type inputShapeType =
-      RankedTensorType::get({inputRank}, rewriter.getI64Type());
-  Value inputShape = create.onnx.shape(inputShapeType, input);
-  Type outputType = groupNormOp.getY().getType();
-  Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
-  // Set the type of the output to be the same as the output of the original
-  // operation we are trying to replace.
-  Y.setType(groupNormOp.getResult().getType());
-  // Replace operation.
-  rewriter.replaceOp(groupNormOp, Y);
-  return success();
-}
-
-struct GroupNormIntoLayerNormPattern1
-    : public OpRewritePattern<ONNXGroupNormalizationOp> {
-  using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
-      PatternRewriter &rewriter) const final {
-    return ONNXGroupNormalizationCommon<ONNXGroupNormalizationOp>(
-        groupNormOp, rewriter);
-  }
-};
-
-struct GroupNormIntoLayerNormPattern2
-    : public OpRewritePattern<ONNXGroupNormalizationV18Op> {
-  using OpRewritePattern<ONNXGroupNormalizationV18Op>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXGroupNormalizationV18Op groupNormOp,
-      PatternRewriter &rewriter) const final {
-    return ONNXGroupNormalizationCommon<ONNXGroupNormalizationV18Op>(
-        groupNormOp, rewriter);
-  }
-};
-
 /// Decompose `onnx.SoftmaxCrossEntropyLoss` to the following sequence:
 /// In the following we assume classes is in dim=1 of scores.
 /// 1. one_hot_encoded = onnx.Castlike(onnx.OneHot(labels, dim=1), scores)
@@ -1142,7 +945,7 @@ struct SoftmaxCrossEntropyPattern
     auto labelsTy = cast<ShapedType>(labels.getType());
     SmallVector<int64_t> newLabelsShape(labelsTy.getShape());
     newLabelsShape.insert(newLabelsShape.begin() + 1, scoresTy.getShape()[1]);
-    auto none = rewriter.create<ONNXNoneOp>(loc);
+    auto none = ONNXNoneOp::create(rewriter, loc);
     auto numClasses = (scoresTy.isDynamicDim(1))
                           ? create.dim(scores, 1)
                           : create.constantInt64({scoresTy.getShape()[1]});
@@ -1153,7 +956,7 @@ struct SoftmaxCrossEntropyPattern
         ArrayRef<int64_t>{0, 1});
     auto oneHotVals = create.constant(oneHotValsAttr);
     auto oneHot = create.cast(
-        rewriter.create<ONNXOneHotOp>(loc,
+        ONNXOneHotOp::create(rewriter, loc,
             RankedTensorType::get(newLabelsShape, labelsTy.getElementType()),
             labels, numClasses, oneHotVals, /*axis=*/1),
         /*saturate=*/
@@ -1161,9 +964,9 @@ struct SoftmaxCrossEntropyPattern
         TypeAttr::get(elemTy));
     // Compute logsoftmax of scores.
     auto softmax =
-        rewriter.create<ONNXSoftmaxOp>(loc, scoresTy, scores, /*axis=*/1);
-    auto logSoftmax = rewriter.create<ONNXLogOp>(loc, scoresTy, softmax);
-    auto prod = rewriter.create<ONNXMulOp>(loc, logSoftmax, oneHot);
+        ONNXSoftmaxOp::create(rewriter, loc, scoresTy, scores, /*axis=*/1);
+    auto logSoftmax = ONNXLogOp::create(rewriter, loc, scoresTy, softmax);
+    auto prod = ONNXMulOp::create(rewriter, loc, logSoftmax, oneHot);
     // Multiply by `weights` if not none.
     if (auto weightTy = dyn_cast<ShapedType>(weights.getType())) {
       // Unsqueeze weight from [C] to [1 x C x 1 x ... x 1] to make it
@@ -1175,47 +978,48 @@ struct SoftmaxCrossEntropyPattern
       auto axes = create.constantInt64(axesList);
       auto weightsUnsqueezed = create.unsqueeze(
           RankedTensorType::get(unsqueezedShape, elemTy), weights, axes);
-      prod = rewriter.create<ONNXMulOp>(loc, prod, weightsUnsqueezed);
+      prod = ONNXMulOp::create(rewriter, loc, prod, weightsUnsqueezed);
     }
     // Reduction across `class` (dim=1) axis.
     auto axes = create.constant(onnx_mlir::createDenseArrayAttr(
         rewriter, rewriter.getI64ArrayAttr({1})));
     auto reducedType = createReducedType(scoresTy, 1, /*keepdims=*/true);
-    Value loss = rewriter.create<ONNXReduceSumOp>(loc, reducedType, prod, axes);
+    Value loss =
+        ONNXReduceSumOp::create(rewriter, loc, reducedType, prod, axes);
     // ReduceMean/ReduceSum/Squeeze if reduction = mean/sum/none respectively.
     // Set `axes=none` to indicate reducing all dims.
     auto reduction = cast<StringAttr>(sceOp.getReductionAttr()).getValue();
     if (reduction == "mean") {
       if (isa<NoneType>(weights.getType())) {
-        loss = rewriter.create<ONNXReduceMeanOp>(loc,
+        loss = ONNXReduceMeanOp::create(rewriter, loc,
             RankedTensorType::get({}, elemTy), loss, none,
             /*keepdims=*/0);
       } else {
-        auto sumL = rewriter.create<ONNXReduceSumOp>(loc,
+        auto sumL = ONNXReduceSumOp::create(rewriter, loc,
             RankedTensorType::get({}, elemTy), loss, none,
             /*keepdims=*/0);
         // Perform einsum(one_hot, weights) as a simple way of producing
         // W[n][d1][d2]...[dk] = weights[labels[i][d1][d2]...[dk]]
-        auto scatteredWeights = rewriter.create<ONNXEinsumOp>(loc,
+        auto scatteredWeights = ONNXEinsumOp::create(rewriter, loc,
             RankedTensorType::get(labelsTy.getShape(), elemTy),
             ValueRange{oneHot, weights}, "ij...,j->i...");
-        auto sumW = rewriter.create<ONNXReduceSumOp>(loc,
+        auto sumW = ONNXReduceSumOp::create(rewriter, loc,
             RankedTensorType::get({}, elemTy), scatteredWeights, none,
             /*keepdims=*/0);
-        loss = rewriter.create<ONNXDivOp>(loc, sumL, sumW);
+        loss = ONNXDivOp::create(rewriter, loc, sumL, sumW);
       }
     } else if (reduction == "sum") {
-      loss = rewriter.create<ONNXReduceSumOp>(loc,
+      loss = ONNXReduceSumOp::create(rewriter, loc,
           RankedTensorType::get({}, elemTy), loss, none,
           /*keepdims=*/0);
     } else if (reduction == "none") {
-      loss = rewriter.create<ONNXSqueezeOp>(loc,
+      loss = ONNXSqueezeOp::create(rewriter, loc,
           createReducedType(reducedType, 1, /*keepdims=*/false), loss, axes);
     } else {
       llvm_unreachable("unexpected reduction type");
     }
     // Negate.
-    loss = rewriter.create<ONNXNegOp>(loc, loss.getType(), loss);
+    loss = ONNXNegOp::create(rewriter, loc, loss.getType(), loss);
     // Second return value replacement depends if it is `none` or not.
     if (isa<NoneType>(sceOp.getLogProb().getType()))
       rewriter.replaceOp(sceOp, {loss, none});
@@ -1237,13 +1041,13 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
     if (inputs.size() > 1) {
       inputs.erase(inputs.begin());
       for (auto input : inputs) {
-        result = rewriter.create<ONNXAddOp>(sumOp.getLoc(), result, input);
+        result = ONNXAddOp::create(rewriter, sumOp.getLoc(), result, input);
       }
     }
     auto resultType = mlir::cast<ShapedType>(sumOp.getResult().getType());
     if (resultType != result.getType())
-      result = rewriter.create<ONNXCastOp>(
-          sumOp.getLoc(), resultType, result, 1, resultType.getElementType());
+      result = ONNXCastOp::create(rewriter, sumOp.getLoc(), resultType, result,
+          1, resultType.getElementType());
     rewriter.replaceOp(sumOp, result);
     return success();
   }
@@ -1284,6 +1088,63 @@ public:
                     false);
     }
     rewriter.replaceOp(castLikeOp, res);
+    return success();
+  }
+};
+
+// =============================================================================
+// Decompose Hardswish to simpler ONNX ops
+// =============================================================================
+// DecomposeHardSwishPattern replaces ONNXHardSwishOp with its equivalent
+// mathematical decomposition using basic ONNX operations:
+//
+//    HardSwish(x) = x * max(0, min(1, (x / 6) + 0.5))
+//
+// This pass:
+//  - Multiplies input by `1/6`
+//  - Adds `0.5` to the scaled input
+//  - Clamps the result between `0` and `1` using Min and Max ops
+//  - Multiplies the clamped value with the original input
+
+struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
+  using OpRewritePattern<ONNXHardSwishOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXHardSwishOp hardswishOp, PatternRewriter &rewriter) const final {
+
+    // Get location and element type
+    Location loc = hardswishOp.getLoc();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    Value alphaConst = create.onnx.constantFloat32(1.0f / 6.0f);
+    Value betaConst = create.onnx.constantFloat32(0.5f);
+    Value minConst = create.onnx.constantFloat32(1.0f);
+    Value maxConst = create.onnx.constantFloat32(0.0f);
+
+    // Multiply input by alpha
+    auto scaledInput =
+        ONNXMulOp::create(rewriter, loc, hardswishOp.getOperand().getType(),
+            hardswishOp.getOperand(), alphaConst);
+
+    // Add beta to (input * alpha)
+    auto shiftedInput = ONNXAddOp::create(
+        rewriter, loc, scaledInput.getType(), scaledInput, betaConst);
+
+    // Compute min(1.0, shiftedInput)
+    auto minOp = ONNXMinOp::create(rewriter, loc, shiftedInput.getType(),
+        ValueRange({shiftedInput, minConst}));
+
+    // Compute max(0, min(1, shiftedInput))
+    auto maxOp = ONNXMaxOp::create(
+        rewriter, loc, minOp.getType(), ValueRange({minOp, maxConst}));
+
+    // Compute final HardSwish: input * max(0, min(1, add(mul(x, alpha), beta)))
+    auto hardswishResult = ONNXMulOp::create(rewriter, loc,
+        hardswishOp.getOperand().getType(), hardswishOp.getOperand(), maxOp);
+
+    // Replace the original HardSwishOp with the new computation
+    rewriter.replaceOp(hardswishOp, hardswishResult.getResult());
     return success();
   }
 };
@@ -1331,9 +1192,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXConstantOfShapeOp>();
   target.addIllegalOp<ONNXDFTV17Op>();
   target.addIllegalOp<ONNXGridSampleV16Op>();
-  target.addIllegalOp<ONNXGroupNormalizationOp>();
-  target.addIllegalOp<ONNXGroupNormalizationV18Op>();
-  target.addIllegalOp<ONNXInstanceNormalizationOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXPadV13Op>();
@@ -1364,6 +1222,13 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
 
+  if (!onnx_mlir::decomposeOpsInONNX.empty()) {
+    for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
+      if (op == "HardSwish") {
+        target.addIllegalOp<ONNXHardSwishOp>();
+      }
+    }
+  }
   target.addDynamicallyLegalOp<ONNXEinsumOp>([](ONNXEinsumOp op) {
     return !onnx_mlir::DecomposeEinsumPattern::isDecomposable(op);
   });
@@ -1433,11 +1298,16 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
-  patterns.insert<InstanceNormIntoLayerNormPattern>(context);
-  patterns.insert<GroupNormIntoLayerNormPattern1>(context);
-  patterns.insert<GroupNormIntoLayerNormPattern2>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+
+  if (!onnx_mlir::decomposeOpsInONNX.empty()) {
+    for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
+      if (op == "HardSwish") {
+        patterns.insert<DecomposeHardSwishPattern>(context);
+      }
+    }
+  }
 
   // TODO: consider whether to include SoftmaxPattern here
 }

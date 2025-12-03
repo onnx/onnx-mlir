@@ -70,6 +70,7 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
+  mlir::Value constantFloat32(const mlir::ArrayRef<float> floatVals) const;
 
   // ONNXConvOp
   mlir::Value conv(mlir::Type Y, mlir::Value X, mlir::Value W, mlir::Value B,
@@ -105,6 +106,9 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
       mlir::Value scale, mlir::Value bias, int64_t axis,
       mlir::FloatAttr epsilon, mlir::IntegerAttr stashType) const;
+
+  // ONNXPowOp
+  mlir::Value pow(mlir::Value input, mlir::Value exp) const;
 
   // ONNXQLinearMatMulOp
   mlir::Value qlinearMatMul(mlir::Type outputType, mlir::Value a,
@@ -195,7 +199,11 @@ struct OnnxBuilder : DialectBuilder {
   // d1, d2, d3). Call to "Shape(input, {0, 1, 3, 2})" will produce a tensor
   // with "[d0, d1, d3, d2]" values. Or call to "Shape(input, {0, 2, 3})" will
   // produce a shape of reduced dimensions (4D->3D) with dims "[d0, d2, d3]".
+  // Negative values are indices counting from the end of the shape.
   mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm) const;
+  // Same as above, but output after permute is further unsqueezed.
+  mlir::Value shape(mlir::Value input, mlir::ArrayRef<int64_t> perm,
+      mlir::ArrayRef<int64_t> unsqueeze) const;
 
   // ONNXSliceOp
   mlir::Value slice(mlir::Type outputType, mlir::Value input,
@@ -227,7 +235,7 @@ struct OnnxBuilder : DialectBuilder {
   // Convert a Type to TensorType if it is of MemRefType.
   mlir::TensorType toTensor(mlir::Type input) const;
   // Convert Type to TypeRange of TensorType if it is of MemRefType.
-  mlir::TypeRange toTensors(mlir::TypeRange inputs) const;
+  mlir::SmallVector<mlir::Type, 4> toTensors(mlir::TypeRange inputs) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
 
@@ -306,6 +314,13 @@ struct OnnxBuilder : DialectBuilder {
       mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
       mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr,
       DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  // ===========================================================================
+  // Quantization support.
+  // ===========================================================================
+
+  /// Get or cast a value to i8 tensor.
+  mlir::Value getOrCastToI8(mlir::Value val, bool simpleCast = false);
 
 private:
   mlir::IntegerAttr getSignedInt64Attr(int64_t n) const;

@@ -89,6 +89,7 @@ if (WIN32)
 endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+find_package(absl REQUIRED)
 
 if(ONNX_MLIR_ENABLE_JAVA)
   # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
@@ -173,7 +174,11 @@ else()
   add_subdirectory(third_party/rapidcheck)
 
   if (ONNX_MLIR_ENABLE_STABLEHLO)
+    # Workaround for stablehlo failing to link libStablehloOptimizationPasses.so if built with shared libs
+    set(ONNX_MLIR_BUILD_SHARED_LIBS_STORE ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS OFF)
     add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
+    set(BUILD_SHARED_LIBS ${ONNX_MLIR_BUILD_SHARED_LIBS_STORE})
   endif()
 
   if (NOT TARGET benchmark)

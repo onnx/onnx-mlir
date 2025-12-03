@@ -92,7 +92,9 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 // 2. `ONNXAddOp %X, %constant` will be replaced by
 //       `ONNXAddOp %X, (ONNXExpandOp %constant, (ONNXShapeOp %X))`
 //
-//
+// Case 2 is now performed explicitly in class ExpandAddConstantPattern and
+// function processAddOnlyCase which is only called when processMatMulAddCase
+// fails. It is thus removed from the td rules below.
 //===----------------------------------------------------------------------===//
 
 // Check unidirectional broadcasting from the first to second tensor.
@@ -105,17 +107,10 @@ def IsUniBroadcastingFromFirstToSecond: Constraint<
 // For ONNXAddOp
 //===----------------------------------------------------------------------===//
 
+// Normalize "const + x to "x + const".
 def expandConstantOperandForAddOp1: Pat<
-  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp:$a (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXAddOp $x, $c),
-  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
->;
-
-def expandConstantOperandForAddOp2: Pat<
-  (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
-  (ONNXAddOp $x, (ONNXExpandOp $c,
-                               (CreateShapeOp $x),
-                               (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
 
@@ -397,7 +392,7 @@ class insertZerosForNonPaddedDims<int extensionLength>:
                                               # extensionLength # ")">;
 
 // Create a unit constant that will be used as none input.
-def CreateUnitConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateUnitConstant : NativeCodeCall<"ONNXNoneOp::create($_builder, $_loc)">;
 
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
