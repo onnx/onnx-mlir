@@ -698,7 +698,9 @@ def get_test_models():
         # ==MIN== 1
         # ==LIM== Does not support int4 and uint4.
         # By def, no dynamic shapes.
-        "test_constant_cpu": {STATIC_SHAPE: {}},
+
+        # Commented out because the model has no input but one is provided
+        #"test_constant_cpu": {STATIC_SHAPE: {}},
         # ==OP== ConstantOfShape
         # ==MIN== 9
         # ==LIM== Does not support int4 and uint4.
