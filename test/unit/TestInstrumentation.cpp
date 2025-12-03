@@ -9,9 +9,8 @@
 // Keep this in sync with
 // onnx-mlir/include/onnx-mlir/Compiler/OMCompilerRuntimeTypes.h
 #define TAG(tag, op, node)                                                     \
-  (((unsigned long long)(tag)) |                                               \
-      (((unsigned long long)strlen(op.c_str())) << 8) |                        \
-      (((unsigned long long)strlen(node.c_str())) << 24))
+  (((unsigned long long)(tag)) | (((unsigned long long)op.length()) << 8ull) | \
+      (((unsigned long long)node.length()) << 24ull))
 #define BEFORE 0x1ull
 #define AFTER 0x2ull
 #define TIME 0x4ull
