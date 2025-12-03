@@ -750,6 +750,29 @@ private:
   }
 };
 
+/*
+ * Push down the transpose after scale (mul op), so the scale can be fused to
+ * Layernorm.
+ *
+ * This means going from:
+ *   input       layernorm
+ *     |             |
+ *     |         transpose (loc1)
+ *     *---------.   /
+ *                mul (loc2)
+ *                 |
+ *
+ * to:
+ *
+ *   input        layernorm
+ *     |              |
+ *  transpose (loc1)  /
+ *     *---------.   /
+ *                mul (loc2)
+ *                 |
+ *             transpose (loc1)
+ *                 |
+ */
 struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
