@@ -222,6 +222,7 @@ static void ProcessName(
 
 static void inline printStartReport() {
   if (!startReportPrinted) {
+    assert(fout && "expected initialized fout for reporting");
     fprintf(fout, "==START-REPORT==\n");
     startReportPrinted = true;
   }
