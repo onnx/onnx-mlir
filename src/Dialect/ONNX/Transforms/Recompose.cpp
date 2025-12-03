@@ -772,16 +772,16 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
     } else {
       return rewriter.notifyMatchFailure(mulOp, "no preceding transpose found");
     }
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, mulOp->getLoc());
+    auto oldTranspose = cast<ONNXTransposeOp>(transposeOp);
+    auto transposePerm = oldTranspose.getPerm();
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, oldTranspose->getLoc());
 
     // we have a transpose that we need to move behind the multiplication
-    if (!transposeOp->hasOneUse())
+    if (!oldTranspose->hasOneUse())
       return rewriter.notifyMatchFailure(
           mulOp, "more than one use for transpose");
     // push transpose after mul
-    auto oldTranspose = cast<ONNXTransposeOp>(transposeOp);
-
-    auto transposePerm = oldTranspose.getPerm();
     if (!transposePerm.has_value())
       return rewriter.notifyMatchFailure(
           mulOp, "transpose need a fixed permutation");
@@ -792,9 +792,10 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
     auto transposedMulInput =
         create.onnx.transposeInt64(scale, invertPermutationVector(perm));
     auto newMulOp = create.onnx.mul(Y, transposedMulInput);
-    // fuseScaleInLayernorm(rewriter, newMulOp, layerNorm)
-    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
-        mulOp, transposedY.getType(), newMulOp, *transposePerm);
+    newMulOp.setLoc(mulOp->getLoc());
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(mulOp,
+        {oldTranspose->getLoc()}, transposedY.getType(), newMulOp,
+        *transposePerm);
     return llvm::success();
   }
 };
