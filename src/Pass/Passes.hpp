@@ -60,14 +60,15 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(
-    const std::string &ops, unsigned actions);
+    const std::string &ops, unsigned actions, bool profileConstantOps);
 /// Pass for instrument cleanup.
 std::unique_ptr<mlir::Pass> createInstrumentCleanupPass();
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
-    const std::string opPattern, const std::string nodePattern);
+    const std::string opPattern, const std::string nodePattern,
+    bool profileConstantOps);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
