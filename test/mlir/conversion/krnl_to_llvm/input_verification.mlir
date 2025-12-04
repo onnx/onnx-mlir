@@ -32,7 +32,7 @@ module {
 // CHECK-DAG:       [[VAR_16_1_:%.+]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr
 // CHECK-DAG:       [[VAR_17_1_:%.+]] = llvm.mlir.constant(2 : i64) : i64
 // CHECK-DAG:       [[VAR_18_1_:%.+]] = llvm.call @omTensorListGetSize([[arg0_]]) : (!llvm.ptr) -> i64
-// CHECK:           [[VAR_19_1_:%.+]] = llvm.icmp "sgt" [[VAR_17_1_]], [[VAR_18_1_]] : i64
+// CHECK:           [[VAR_19_1_:%.+]] = llvm.icmp "ne" [[VAR_17_1_]], [[VAR_18_1_]] : i64
 // CHECK:           llvm.cond_br [[VAR_19_1_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
 // CHECK:           llvm.call @printf([[VAR_16_1_]], [[VAR_18_1_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
