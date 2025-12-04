@@ -3910,11 +3910,17 @@ class EndiannessAwareExecutionSession(object):
         if -1 in input_indices:
             input_indices = range(num_of_inputs)
         # Create initializers that have the same name as inputs.
+        # Keep a list of inputs to be removed.
+        inputs_to_remove = []
         for idx in input_indices:
+            input_node = self.model.graph.input[idx]
             tensor = inputs[idx]
-            tensor = numpy_helper.from_array(tensor, self.model.graph.input[idx].name)
+            tensor = numpy_helper.from_array(tensor, input_node.name)
             self.model.graph.initializer.extend([tensor])
+            inputs_to_remove.append(input_node)
         # Remove inputs that were turned to constants.
+        for n in inputs_to_remove:
+            self.model.graph.input.remove(n)
         new_inputs = []
         for idx in range(num_of_inputs):
             if idx not in input_indices:
@@ -3930,20 +3936,14 @@ class EndiannessAwareExecutionSession(object):
             inputs = self.turn_model_input_to_constant(inputs)
             self.exec_name = compile_model(self.model, args.emit)
 
-        # Contant tests may create models that no longer expect input tensors.
-        # The input values get built into the model itself. So we create a fake
-        # input of a zero array so the test infrastructure tolerates this scenario.
-        if not inputs:
-            inputs = [np.zeros((1))]
-
         # Deduce desired endianness of output from inputs.
         # Only possible if all inputs are consistent in endiannness.
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
         endianness_is_consistent = len(set(inputs_endianness)) <= 1
         if endianness_is_consistent:
             sys_is_le = sys.byteorder == "little"
-            inp_is_le = self.is_input_le(inputs)
-            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
+            inp_is_le = self.is_input_le(inputs) if inputs else sys_is_le
+            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs) if inputs else True
             if not inp_is_not_relevant_endian and sys_is_le != inp_is_le:
                 inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
 
