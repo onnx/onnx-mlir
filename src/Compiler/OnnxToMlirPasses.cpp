@@ -57,6 +57,16 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
           opts.enableRecomposeLayernormByTranspose,
           opts.enableInstanceNormDecompose, opts.enableSplitToSliceDecompose));
     }
+    // If quark quantized legalization is enabled, do a last const prop after it
+    // so that we cover any remaining Cast -> Cast patterns that weren't covered
+    // by the pass.
+    if (opts.enableQuarkQuantizedLegalization) {
+      configureConstPropONNXToONNXPass(/*roundFPToInt=*/false,
+          /*expansionBound=*/-1, /*disabledPatterns=*/{""},
+          /*constantPropIsDisabled=*/false);
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createConstPropONNXToONNXPass());
+    }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
