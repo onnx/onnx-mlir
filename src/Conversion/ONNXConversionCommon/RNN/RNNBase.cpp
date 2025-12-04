@@ -42,28 +42,29 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 
   // Change equality to be case insensitive.
   if (activation.name.equals_insensitive("relu"))
-    res = rewriter.create<ONNXReluOp>(loc, resType, operand);
+    res = ONNXReluOp::create(rewriter, loc, resType, operand);
   else if (activation.name.equals_insensitive("tanh"))
-    res = rewriter.create<ONNXTanhOp>(loc, resType, operand);
+    res = ONNXTanhOp::create(rewriter, loc, resType, operand);
   else if (activation.name.equals_insensitive("sigmoid"))
-    res = rewriter.create<ONNXSigmoidOp>(loc, resType, operand);
+    res = ONNXSigmoidOp::create(rewriter, loc, resType, operand);
   else if (activation.name.equals_insensitive("affine"))
     llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_insensitive("leakyrelu"))
-    res = rewriter.create<ONNXLeakyReluOp>(loc, resType, operand, attributes);
+    res = ONNXLeakyReluOp::create(rewriter, loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("thresholdedrelu"))
-    res = rewriter.create<ONNXThresholdedReluOp>(
-        loc, resType, operand, attributes);
+    res = ONNXThresholdedReluOp::create(
+        rewriter, loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("scaledtanh"))
     llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_insensitive("hardsigmoid"))
-    res = rewriter.create<ONNXHardSigmoidOp>(loc, resType, operand, attributes);
+    res =
+        ONNXHardSigmoidOp::create(rewriter, loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("elu"))
-    res = rewriter.create<ONNXEluOp>(loc, resType, operand, attributes);
+    res = ONNXEluOp::create(rewriter, loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("softsign"))
-    res = rewriter.create<ONNXSoftsignOp>(loc, resType, operand);
+    res = ONNXSoftsignOp::create(rewriter, loc, resType, operand);
   else if (activation.name.equals_insensitive("softplus"))
-    res = rewriter.create<ONNXSoftplusOp>(loc, resType, operand);
+    res = ONNXSoftplusOp::create(rewriter, loc, resType, operand);
   else
     llvm_unreachable("Unsupported activation");
 

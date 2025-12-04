@@ -538,6 +538,8 @@ _Instrumentation point._
 Operation that invokes the runtime instrument utility.
 May be used for gdb.
 
+Interfaces: `MemoryEffectOpInterface`
+
 #### Attributes:
 
 <table>
@@ -1198,6 +1200,8 @@ If the input value is not specified the operator will print the format string.
 
 Traits: `MemRefsNormalizable`
 
+Interfaces: `MemoryEffectOpInterface`
+
 #### Attributes:
 
 <table>
@@ -1227,6 +1231,8 @@ When no formatting is provided, `%s%d` is used (detailed signature and data) by 
 Print operation ends with a newline, except when only requesting a compact types (`%t`).
 
 Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 

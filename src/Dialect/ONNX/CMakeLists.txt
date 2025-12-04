@@ -54,6 +54,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/RandomNormal.cpp
   ONNXOps/Math/RandomNormalLike.cpp
   ONNXOps/Math/RandomUniform.cpp
+  ONNXOps/Math/RandomUniformLike.cpp
   ONNXOps/Math/Reduction.cpp
   ONNXOps/Math/Scatter.cpp
   ONNXOps/Math/TopK.cpp
@@ -110,6 +111,7 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXCanonicalizeIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
+  OMTransformsPassIncGen
 
   LINK_LIBS PRIVATE
   OMDiagnostic

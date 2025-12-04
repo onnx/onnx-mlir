@@ -125,8 +125,8 @@ struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
     for (int64_t i = 0; i < axisValue; i++)
       firstMapArgList.emplace_back(createMemRef.dim(input, i));
 
-    auto firstDimVal = rewriter.create<affine::AffineApplyOp>(
-        loc, firstDimMap, firstMapArgList);
+    auto firstDimVal = affine::AffineApplyOp::create(
+        rewriter, loc, firstDimMap, firstMapArgList);
 
     // Generate index for second dim of output
     AffineExpr secondIndexAE = rewriter.getAffineConstantExpr(0);
@@ -149,8 +149,8 @@ struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
     for (size_t i = axisValue; i < inputRank; i++)
       secondMapArgList.emplace_back(createMemRef.dim(input, i));
 
-    auto secondDimVal = rewriter.create<affine::AffineApplyOp>(
-        loc, secondDimMap, secondMapArgList);
+    auto secondDimVal = affine::AffineApplyOp::create(
+        rewriter, loc, secondDimMap, secondMapArgList);
 
     // Create the store
     SmallVector<Value, 2> outputMemRefVal = {firstDimVal, secondDimVal};

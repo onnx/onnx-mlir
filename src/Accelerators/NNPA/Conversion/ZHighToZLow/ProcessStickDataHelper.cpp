@@ -93,14 +93,14 @@ void UnifiedStickSupport::beforeStickLoop(
     if (isStick) {
       Type f16Type = create.getBuilder().getF16Type();
       VectorType vecF16Type = VectorType::get({archVL}, f16Type);
-      Value vecF16 = create.vec.splat(vecF16Type, scalar);
+      Value vecF16 = create.vec.broadcast(vecF16Type, scalar);
       Value vecHigh, vecLow;
       create.zlow.convertDLF16ToF32(vecF16, vecHigh, vecLow);
       highVal = lowVal = vecHigh; // Splatted, low and high are the same.
     } else {
       Type f32Type = create.getBuilder().getF32Type();
       VectorType vecF32Type = VectorType::get({archVL / 2}, f32Type);
-      highVal = lowVal = create.vec.splat(vecF32Type, scalar);
+      highVal = lowVal = create.vec.broadcast(vecF32Type, scalar);
     }
   } else if (isStick) {
     // Stick data that is not broadcasted: need SIMD support.

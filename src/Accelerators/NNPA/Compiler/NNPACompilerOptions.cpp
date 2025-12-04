@@ -38,13 +38,12 @@ llvm::cl::opt<bool> nnpaDisableZHighToOnnx("disable-zhigh-to-onnx",
         "level. Use this option to disable this optimization."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
-    "enable-zhigh-decompose-stick-unstick",
+llvm::cl::opt<bool> nnpaDisableZHighDecomposeStickUnstick(
+    "disable-zhigh-decompose-stick-unstick",
     llvm::cl::desc(
-        "[Experimental feature] Enabling this will convert zhigh.Stick to "
-        "`zhigh.F32ToDLF16 -> onnx.LayoutTransform` and zhigh.Unstick to "
-        "`onnx.LayoutTransform -> zhigh.DLF16ToF32`. "
-        "Default is false."),
+        "Disable the converstion of zhigh.Stick to `zhigh.F32ToDLF16 -> "
+        "onnx.LayoutTransform` and zhigh.Unstick to `onnx.LayoutTransform -> "
+        "zhigh.DLF16ToF32`. Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 // Enabled default now, could also enable it only if parallel is on as parallel

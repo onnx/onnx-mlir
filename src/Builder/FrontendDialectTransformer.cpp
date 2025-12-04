@@ -228,7 +228,7 @@ private:
   }
 
   Value createNoneValue() {
-    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+    return ONNXNoneOp::create(builder_, UnknownLoc()).getResult();
   }
 
   Value createConstantValue(ElementsAttr value, Location loc) {
@@ -593,10 +593,10 @@ private:
     }
 
     if (useReturn)
-      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
+      ONNXReturnOp::create(builder_, UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
+      ONNXYieldOp::create(builder_, UnknownLoc(), retVals);
 
     SmallVector<llvm::StringRef> inputDimParamsRefs, outputDimParamsRefs;
     for (uint64_t i = 0; i < inputDimParams.size(); ++i)
@@ -816,7 +816,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    T op = builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
+    T op =
+        T::create(builder_, ImportLoc(node), outputTypes, inputs, attributes);
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
@@ -1458,9 +1459,15 @@ private:
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       Type outTy = ImportType(output.type(), dim_params);
-      if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
-        outTy = UnrankedTensorType::get(
-            mlir::cast<TensorType>(outTy).getElementType());
+      if (!options_.useOnnxModelTypes ||
+          std::getenv("IMPORTER_FORCE_DYNAMIC")) {
+        // Donot use an unranked tensor type for a custom op, since
+        // shape inference for the custom op may not work.
+        ONNXCustomOp customOp = val.getDefiningOp<ONNXCustomOp>();
+        if (!customOp)
+          outTy = UnrankedTensorType::get(
+              mlir::cast<TensorType>(outTy).getElementType());
+      }
       if (output.type().tensor_type().has_shape()) {
         val.setType(outTy);
       }

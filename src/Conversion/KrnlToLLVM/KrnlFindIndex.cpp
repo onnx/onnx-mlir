@@ -55,8 +55,8 @@ public:
         .Case<StringType>([&](StringType type) {
           Type i8Type = IntegerType::get(ctx, 8);
           Type i8PtrType = getPointerType(ctx, i8Type);
-          firstOperand = rewriter.create<LLVM::IntToPtrOp>(
-              loc, i8PtrType, operandAdaptor.getInput());
+          firstOperand = LLVM::IntToPtrOp::create(
+              rewriter, loc, i8PtrType, operandAdaptor.getInput());
         })
         .Default([](Type type) {
           llvm::errs() << "type: " << type << "\n";

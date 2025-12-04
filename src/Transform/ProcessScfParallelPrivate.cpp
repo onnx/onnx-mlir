@@ -69,7 +69,7 @@ struct ProcessScfParallelWithoutScopePattern
     assert(!matchParallelForWithAllocScope(parForOp) &&
            "expected par for without alloca here");
     auto newParForOp =
-        rewriter.create<scf::ParallelOp>(loc, parForOp.getLowerBound(),
+        scf::ParallelOp::create(rewriter, loc, parForOp.getLowerBound(),
             parForOp.getUpperBound(), parForOp.getStep(), parForOp.getInits());
     rewriter.eraseBlock(newParForOp.getBody());
     newParForOp.getRegion().takeBody(parForOp.getRegion());
@@ -85,8 +85,8 @@ struct ProcessScfParallelWithoutScopePattern
       // Insertion point at the top of the loop.
       rewriter.setInsertionPointToStart(&*newParForOp.getRegion().begin());
       // Create scope and scf yield.
-      auto scope = rewriter.create<memref::AllocaScopeOp>(loc, TypeRange());
-      rewriter.create<scf::ReduceOp>(loc, oldYield.getOperands());
+      auto scope = memref::AllocaScopeOp::create(rewriter, loc, TypeRange());
+      scf::ReduceOp::create(rewriter, loc, oldYield.getOperands());
       // Move the ops of the loop body into the alloca scope.
       Block *scopeBlock = rewriter.createBlock(&scope.getBodyRegion());
       rewriter.mergeBlocks(ops, scopeBlock);

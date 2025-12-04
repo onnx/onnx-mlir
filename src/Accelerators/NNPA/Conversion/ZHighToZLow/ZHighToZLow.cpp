@@ -20,6 +20,7 @@
 #include "mlir/IR/DialectResourceBlobManager.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickDataHelper.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
@@ -220,7 +221,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
 
     // Create a ZHighStickifiedConstantOp.
     ZHighStickifiedConstantOp stickifiedConstant =
-        rewriter.create<ZHighStickifiedConstantOp>(loc, resType,
+        ZHighStickifiedConstantOp::create(rewriter, loc, resType,
             /*value=*/nullptr,
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
@@ -573,7 +574,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     }
 
     // Else, emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, input, alloc, layout, noSaturation);
+    ZLowStickOp::create(rewriter, loc, input, alloc, layout, noSaturation);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -607,7 +608,7 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickForLSTMOp>(loc, operandAdaptor.getFGate(),
+    ZLowStickForLSTMOp::create(rewriter, loc, operandAdaptor.getFGate(),
         operandAdaptor.getIGate(), operandAdaptor.getCGate(),
         operandAdaptor.getOGate(), alloc);
 
@@ -644,7 +645,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickForGRUOp>(loc, operandAdaptor.getZGate(),
+    ZLowStickForGRUOp::create(rewriter, loc, operandAdaptor.getZGate(),
         operandAdaptor.getRGate(), operandAdaptor.getHGate(), alloc);
 
     rewriter.replaceOp(op, alloc);
@@ -840,7 +841,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
+    ZLowUnstickOp::create(rewriter, loc, input, alloc, layout);
     if (isNHWCLayout(layout) && !nnpaDisableCompilerStickUnstick)
       // Compiler-generated unstick hasn't supported NCHW yet.
       // Explicitly transpose NHWC to NCHW.
@@ -912,7 +913,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
 
     // Create a KrnlGlobalOp.
     KrnlGlobalOp constantGlobal =
-        rewriter.create<KrnlGlobalOp>(loc, zMemRefType.value,
+        KrnlGlobalOp::create(rewriter, loc, zMemRefType.value,
             /*shape=*/
             rewriter.getI64ArrayAttr(normalizedShape),
             /*name=*/
@@ -1002,8 +1003,8 @@ struct ZHighToZLowBinaryOpLowering : public ConversionPattern {
     create.krnlIE.getShapeAsDims(inputA, dims);
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
-    rewriter.create<typename ZLowOpFor<OP_TYPE>::Op>(
-        loc, inputA, inputB, shape, alloc, zMemRefType.layout);
+    ZLowOpFor<OP_TYPE>::Op::create(
+        rewriter, loc, inputA, inputB, shape, alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1082,8 +1083,8 @@ struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
     // Emit a ZLow operation.
-    rewriter.create<typename ZLowOpFor<OP_TYPE>::Op>(
-        loc, input, shape, alloc, zMemRefType.layout);
+    ZLowOpFor<OP_TYPE>::Op::create(
+        rewriter, loc, input, shape, alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1123,8 +1124,8 @@ struct ZHighToZLowReshapeOpLowering : public ConversionPattern {
     // into 2 equivalent shapes under their given layout.
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowReshapeOp>(
-        loc, input, /* shape,*/ alloc, zMemRefType.layout, zMemRefType.layout);
+    ZLowReshapeOp::create(rewriter, loc, input, /* shape,*/ alloc,
+        zMemRefType.layout, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1184,8 +1185,8 @@ struct ZHighToZLowReduceOpLowering : public ConversionPattern {
         MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), gAlignment);
 
     // Emit a ZLow operation.
-    rewriter.create<typename ZLowReduceOpFor<OP_TYPE>::Op>(
-        loc, data, workArea, shape, alloc, zMemRefType.layout);
+    ZLowReduceOpFor<OP_TYPE>::Op::create(
+        rewriter, loc, data, workArea, shape, alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1229,8 +1230,8 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
         MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), gAlignment);
 
     // Emit ZLow.softmax.
-    rewriter.create<ZLowSoftmaxOp>(
-        loc, input, workArea, shape, alloc, softmaxOp.getActFuncAttr());
+    ZLowSoftmaxOp::create(rewriter, loc, input, workArea, shape, alloc,
+        softmaxOp.getActFuncAttr());
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1270,7 +1271,7 @@ struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
     Value alloc = insertAllocForZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
-    rewriter.create<ZLowMeanReduce2DOp>(loc, input, shape, alloc);
+    ZLowMeanReduce2DOp::create(rewriter, loc, input, shape, alloc);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1311,7 +1312,7 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Create a zLow op.
-    rewriter.create<ZLOW_POOLOP>(loc, operandAdaptor.getInput(), shapeMemRef,
+    ZLOW_POOLOP::create(rewriter, loc, operandAdaptor.getInput(), shapeMemRef,
         alloc, pool2dOp.getKernelShapeAttr(), pool2dOp.getStridesAttr(),
         pool2dOp.getPaddingTypeAttr());
     rewriter.replaceOp(op, alloc);
@@ -1356,8 +1357,8 @@ struct ZHighToZLowLeakyReluOpLowering : public ConversionPattern {
     FloatAttr alphaVal = leakyreluOp.getAlphaAttr();
 
     // Emit zlow.leakyrelu.
-    rewriter.create<ZLowLeakyReluOp>(
-        loc, operandAdaptor.getX(), shape, alloc, alphaVal, zMemRefType.layout);
+    ZLowLeakyReluOp::create(rewriter, loc, operandAdaptor.getX(), shape, alloc,
+        alphaVal, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1451,7 +1452,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
         rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), transposeB);
 
     // Emit zlow.matmul.
-    rewriter.create<ZLowMatMulOp>(loc, operandAdaptor.getX(),
+    ZLowMatMulOp::create(rewriter, loc, operandAdaptor.getX(),
         operandAdaptor.getY(), bias, shapeMemRef, alloc, is_bcast1Attr,
         is_bcast23Attr, is_stackedAttr, transposeAAttr, transposeBAttr);
     rewriter.replaceOp(op, alloc);
@@ -1699,7 +1700,7 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
         /*isDouble=*/isDouble);
 
     // Emit zlow.lstm.
-    rewriter.create<ZLowLSTMOp>(loc, operandAdaptor.getInput(), initial_h,
+    ZLowLSTMOp::create(rewriter, loc, operandAdaptor.getInput(), initial_h,
         initial_c, operandAdaptor.getInputWeights(), input_bias,
         operandAdaptor.getHiddenWeights(), hidden_bias, workArea, shapeMemRef,
         allocHnOutput, allocCfOutput, lstmOp.getDirectionAttr(),
@@ -1776,7 +1777,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
         /*isDouble=*/isDouble);
 
     // Emit zlow.gru.
-    rewriter.create<ZLowGRUOp>(loc, operandAdaptor.getInput(), initial_h,
+    ZLowGRUOp::create(rewriter, loc, operandAdaptor.getInput(), initial_h,
         operandAdaptor.getInputWeights(), input_bias,
         operandAdaptor.getHiddenWeights(), hidden_bias, workArea, shapeMemRef,
         allocHnOutput, gruOp.getDirectionAttr(), gruOp.getReturnAllStepsAttr(),
@@ -1854,7 +1855,7 @@ struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
           yUbs.emplace_back(create.mem.dim(Y, 1));
           yUbs.emplace_back(create.mem.dim(Y, 3));
 
-          KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+          KrnlRegionOp regionOp = KrnlRegionOp::create(rewriter, loc);
           rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
           ValueRange loops = create.krnl.defineLoops(yRank - 1);
           create.krnl.iterate(loops, loops, yLbs, yUbs,
@@ -2015,7 +2016,7 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
     }
 
     // Create a zLow op.
-    rewriter.create<ZLowConv2DOp>(loc, operandAdaptor.getInput(),
+    ZLowConv2DOp::create(rewriter, loc, operandAdaptor.getInput(),
         operandAdaptor.getInputKernel(), bias, shapeMemRef, alloc,
         conv2dOp.getKernelShapeAttr(), conv2dOp.getStridesAttr(),
         conv2dOp.getPaddingTypeAttr(), conv2dOp.getActFuncAttr());
@@ -2055,7 +2056,7 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
     // Get the original shape before it is vanished by lower passes.
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
-    rewriter.create<ZLowBatchNormOp>(loc, operandAdaptor.getInput(),
+    ZLowBatchNormOp::create(rewriter, loc, operandAdaptor.getInput(),
         operandAdaptor.getA(), operandAdaptor.getB(), shape, alloc);
     rewriter.replaceOp(op, alloc);
     return success();
@@ -2255,8 +2256,8 @@ struct ZHighToZLowDataConversionLowering
               Value vecF32H = create.vec.load(vecF32Type, flatInput, {baseIdx});
               Value vecF32L =
                   create.vec.load(vecF32Type, flatInput, {baseIdxNext});
-              Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                  loc, vecF32H, vecF32L);
+              Value vecF16 = ZLowConvertF32ToDLF16VectorOp::create(
+                  rewriter, loc, vecF32H, vecF32L);
               // Store archVL f16 values back to the output.
               create.vec.store(vecF16, flatOutput, {baseIdx});
             } else {
@@ -2264,7 +2265,7 @@ struct ZHighToZLowDataConversionLowering
               // Load archVL f16 values from the input into a register.
               Value vecF16 = create.vec.load(vecF16Type, flatInput, {baseIdx});
               auto convertOp =
-                  rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
+                  ZLowConvertDLF16ToF32VectorOp::create(rewriter, loc, vecF16);
               Value vecF32H = convertOp.getResult(0);
               Value vecF32L = convertOp.getResult(1);
               // Store f32 values back to the output.
@@ -2280,9 +2281,208 @@ struct ZHighToZLowDataConversionLowering
   }
 };
 
+//===----------------------------------------------------------------------===//
+// ExtendedLayoutTransform
+//===----------------------------------------------------------------------===//
+struct ZHighToZLowExtendedLayoutTransformLowering
+    : public OpConversionPattern<ZHighExtendedLayoutTransformOp> {
+  using OpAdaptor = typename ZHighExtendedLayoutTransformOp::Adaptor;
+  bool enableParallel = false;
+  bool disableSaturation = false;
+
+  ZHighToZLowExtendedLayoutTransformLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
+      : OpConversionPattern<ZHighExtendedLayoutTransformOp>(typeConverter, ctx),
+        disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ZHighExtendedLayoutTransformOp::getOperationName());
+  }
+
+  LogicalResult matchAndRewrite(ZHighExtendedLayoutTransformOp layoutTransform,
+      OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const final {
+    Location loc = layoutTransform.getLoc();
+    MDBuilder create(rewriter, loc);
+
+    Operation *op = layoutTransform.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Value inputVal = adaptor.getSource();
+    Value outputVal = layoutTransform.getResult();
+    int64_t reshapeSplitAxis = layoutTransform.getReshapeSplitAxis();
+    int64_t factor = layoutTransform.getReshapeSplitFactor();
+    std::optional<ArrayAttr> transposePattern =
+        layoutTransform.getTransposePattern();
+    int64_t reshapeMergeAxis = layoutTransform.getReshapeMergeAxis();
+    int64_t inputRank = getRank(inputVal.getType());
+    int64_t outputRank = getRank(outputVal.getType());
+
+    // Compute output dims.
+    ZHighExtendedLayoutTransformOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
+    // IndexExprScope allocScope(create.vec, shapeHelper.getScope());
+    // getIndexExprList<SymIE>(shapeHelper.getOutputDims(), outputDims);
+
+    Value allocVal;
+    if (isZTensor(outputVal.getType())) {
+      // Convert output type to MemRef,
+      ZMemRefType zMemRefType = convertZTensorToMemRefType(outputVal.getType());
+      // Allocate output.
+      allocVal = insertAllocForZMemRef(zMemRefType, outputDims, op, rewriter);
+    } else {
+      // Convert the output type to MemRef.
+      Type outputTensorType = outputVal.getType();
+      Type convertedType = this->typeConverter->convertType(outputTensorType);
+      int64_t alignment =
+          KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+      assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
+             "Failed to convert type to MemRefType");
+      // Allocate output.
+      int64_t totVL = 64; // From data alloc's perspective.
+      MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
+      allocVal = create.mem.alignedAllocWithSimdPadding(
+          outputMemRefType, outputDims, totVL, alignment);
+    }
+
+    // We iterate over the splitted shape, so input+1 if we have a split axis.
+    // This is simpler because if we keep it combined and parallelization cut
+    // the split axis in chunks that are not friendly, then we may have issues
+    // (or have to generate much more conservative code). So the loop ubs
+    // reflect the input dimensions.
+    int64_t loopRank = (reshapeSplitAxis != -1) ? inputRank + 1 : inputRank;
+    ValueRange loopDef = create.krnl.defineLoops(loopRank);
+    DimsExpr inputDims = shapeHelper.sourceDims;
+    DimsExpr lbs(loopRank, LitIE(0));
+    DimsExpr ubs;
+    for (int64_t din = 0; din < inputRank; ++din) {
+      if (din == reshapeSplitAxis) {
+        int64_t factor = layoutTransform.getReshapeSplitFactor();
+        ubs.emplace_back(inputDims[din].ceilDiv(factor));
+        ubs.emplace_back(LitIE(factor));
+      } else {
+        ubs.emplace_back(inputDims[din]);
+      }
+    }
+    assert((int64_t)ubs.size() == loopRank && "missing ubs values");
+    // Inner dim is tiled by 64; guaranteed to be full tile.
+    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
+
+    // Handle parallelism here.
+    if (enableParallel) {
+      int maxId = std::min(loopRank - 1, (int64_t)2);
+      tryCreateKrnlParallel(create.krnl, op,
+          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
+          maxId, {}, /*min iter for going parallel*/ 4,
+          /*createKrnlParallel=*/true);
+    }
+
+    // Prepare support for conversion of dlf16 to 64, if needed.
+    UnifiedStickSupportList conversionSupportUSS;
+    if (layoutTransform.getDlf16ToF32()) {
+      assert(UnifiedStickSupport::stickLen == 64 &&
+             "used 64 in ExtendedLayoutTransform");
+      UnifiedStickSupport inputUSS(create.krnl, layoutTransform.getSource(),
+          inputVal, /*read*/ true, false, disableSaturation);
+      UnifiedStickSupport outputUSS(create.krnl, outputVal, allocVal,
+          /*write*/ false, true, disableSaturation);
+      conversionSupportUSS.list = {inputUSS, outputUSS};
+    }
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange indices) {
+          // Process 64 values here at a time.
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          // Loop indices: iterate over the iteration space with split dim.
+          DimsExpr loopIndices = DimListIE(indices);
+          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * 64;
+
+          // Since we iterate over the split iterations; create input indices
+          // merging the split dims.
+          DimsExpr inputAF;
+          for (int64_t d = 0; d < loopRank; ++d) {
+            if (d == reshapeSplitAxis) {
+              IndexExpr i = loopIndices[d] * factor;
+              inputAF.emplace_back(i + loopIndices[d + 1]);
+              ++d; // Skip next d.
+            } else {
+              inputAF.emplace_back(loopIndices[d]);
+            }
+          }
+          assert((int64_t)inputAF.size() == inputRank && "input issue");
+
+          // Now compute the output indices. LoopIndices are already split.
+          DimsExpr outputAF = loopIndices;
+          // First, perform transpose, if any.
+          if (transposePattern.has_value()) {
+            DimsExpr tmpAF = outputAF;
+            outputAF.clear();
+            for (int64_t d = 0; d < loopRank; ++d) {
+              int64_t permuteIndex = ArrayAttrIntVal(transposePattern, d);
+              outputAF.emplace_back(tmpAF[permuteIndex]);
+            }
+          }
+          // Then: perform merge, if any.
+          if (reshapeMergeAxis != -1) {
+            DimsExpr tmpAF = outputAF;
+            outputAF.clear();
+            for (int64_t d = 0; d < loopRank; ++d) {
+              if (d == reshapeMergeAxis) {
+                IndexExpr i =
+                    tmpAF[d] * DimIE(shapeHelper.transposeDims[d + 1]);
+                outputAF.emplace_back(i + tmpAF[d + 1]);
+                ++d; // Skip next d.
+              } else {
+                outputAF.emplace_back(tmpAF[d]);
+              }
+            }
+          }
+          assert((int64_t)outputAF.size() == outputRank && "output issue");
+
+          // We have now the input and output access function.
+          if (!layoutTransform.getDlf16ToF32()) {
+            // Simply have a mem copy since we don't have to convert to f32.
+            Value inputOffset =
+                create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
+            Value outputOffset =
+                create.krnl.getLinearOffsetIndexIE(allocVal, outputAF);
+            Value len = create.math.constant(rewriter.getI64Type(), 64);
+            create.krnl.memcpy(
+                allocVal, inputVal, len, outputOffset, inputOffset);
+          } else {
+            conversionSupportUSS.list[0].beforeStickLoop(create.krnl, inputAF);
+            conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
+            int64_t U = 4;
+            int64_t totVL = U * UnifiedStickSupport::archVL;
+            // Function simply copy the single input to an output.
+            UnifiedStickSupportList::IterateFctOver4xF32 fct =
+                [&](const KrnlBuilder &b,
+                    mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
+                  return inputOfF32Vals[0];
+                };
+            create.krnl.forLoopIE(LitIE(0), LitIE(64), totVL, /*par*/ false,
+                [&](const KrnlBuilder kb, ValueRange loopInd) {
+                  IndexExprScope innerScope(kb, &outerScope);
+                  MDBuilder create(ck);
+                  IndexExpr l = DimIE(loopInd[0]);
+                  for (int64_t u = 0; u < U; ++u)
+                    conversionSupportUSS.loadComputeStore(
+                        create.krnl, fct, l, u);
+                });
+          }
+        });
+    rewriter.replaceOp(layoutTransform, allocVal);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Populate all the patterns.
+//===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel) {
+    bool enableParallel, bool disableSaturation) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
@@ -2340,6 +2540,9 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowQuantizedStickOpLowering>(
       typeConverter, ctx, enableSIMD, enableParallel);
   patterns.insert<ZHighToZLowQuantizedMatMulOpLowering>(typeConverter, ctx);
+  // Extended transpose
+  patterns.insert<ZHighToZLowExtendedLayoutTransformLowering>(
+      typeConverter, ctx, enableParallel, disableSaturation);
 }
 
 } // namespace zhigh

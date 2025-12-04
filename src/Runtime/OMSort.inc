@@ -4,13 +4,15 @@
 
 //===-- OMSort.inc - OMSort C/C++ Implementation --===//
 //
-// Copyright 2023-2024 The IBM Research Authors.
+// Copyright 2023-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file contains C/C++ implementation of OMSort.
 //
 //===----------------------------------------------------------------------===//
+
+#include "OMSort.h"
 
 #ifdef __cplusplus
 #include <cassert>
@@ -62,21 +64,16 @@
     return (direction(v1, v2) || (v1 == v2 && idx1 < idx2)) ? -1 : 1;          \
   }
 #if defined(__APPLE__)
-typedef int(
-    compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
 #define declare_compare_function(fname, typeName, direction, load)             \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1p, const void *idx2p)                     \
       compareFunctionBody(typeName, direction, load, dataPtr, idx1p, idx2p)
 #elif defined(_MSC_VER)
-typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
 #define declare_compare_function(fname, typeName, direction, load)             \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1p, const void *idx2p)                     \
       compareFunctionBody(typeName, direction, load, dataPtr, idx1p, idx2p)
 #else
-typedef int(
-    compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
 #define declare_compare_function(fname, typeName, direction, load)             \
   int compare##fname##direction(                                               \
       const void *idx1p, const void *idx2p, void *dataPtr)                     \
@@ -134,22 +131,6 @@ declare_compare_function(Float16, uint16_t, Descending, LoadF16AsF32)
 #endif
 // clang-format on
 
-//
-// Declare sort functions for sorting algorithms
-//
-#ifdef __APPLE__
-                            typedef void(sortFunctionType(void *base,
-                                size_t dataNum, size_t dataSize, void *dataPtr,
-                                compareFunctionType compFunc));
-#elif defined(_MSC_VER)
-                            typedef void(sortFunctionType(void *base,
-                                size_t num, size_t width,
-                                compareFunctionType compFunc, void *context));
-#else
-                            typedef void(sortFunctionType(void *base,
-                                size_t dataNum, size_t dataSize,
-                                compareFunctionType compFunc, void *dataPtr));
-#endif
 
 //
 // Custom quick sort function for environments not suppirting qsort_r (e.g. zos)
@@ -212,6 +193,11 @@ static int64_t log2u(uint64_t n) {
 // Quick sort patition function
 static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
     compareFunctionType compFunc, int64_t begin, int64_t end) {
+
+  // Pick a random pivot and swap it to the end to avoid O(N^2)
+  int64_t pivot_rand_idx = begin + (rand() % (end - begin + 1));
+  SWAP_INDEX(idx[pivot_rand_idx], idx[end]);
+
   int64_t i = begin;
   for (int64_t j = begin; j < end; j++) {
 #if defined(__APPLE__)

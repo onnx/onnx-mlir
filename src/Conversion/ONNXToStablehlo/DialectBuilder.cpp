@@ -37,38 +37,38 @@ Value StablehloBuilder::constant(Type type, double val) const {
   TypeSwitch<Type>(elementType)
       .Case<Float16Type>([&](Type) {
         constant =
-            b().create<stablehlo::ConstantOp>(loc(), b().getF16FloatAttr(val));
+            stablehlo::ConstantOp::create(b(), loc(), b().getF16FloatAttr(val));
       })
       .Case<Float32Type>([&](Type) {
         constant =
-            b().create<stablehlo::ConstantOp>(loc(), b().getF32FloatAttr(val));
+            stablehlo::ConstantOp::create(b(), loc(), b().getF32FloatAttr(val));
       })
       .Case<Float64Type>([&](Type) {
         constant =
-            b().create<stablehlo::ConstantOp>(loc(), b().getF64FloatAttr(val));
+            stablehlo::ConstantOp::create(b(), loc(), b().getF64FloatAttr(val));
       })
       .Case<IntegerType>([&](IntegerType elementType) {
         assert(val == static_cast<int64_t>(val) && "value is ambiguous");
         unsigned width = elementType.getWidth();
 
         if (width == 1)
-          constant = b().create<stablehlo::ConstantOp>(
-              loc(), b().getBoolAttr(val != 0));
+          constant = stablehlo::ConstantOp::create(
+              b(), loc(), b().getBoolAttr(val != 0));
         else {
           if (elementType.isUnsignedInteger()) {
-            constant = b().create<stablehlo::ConstantOp>(
-                loc(), b().getIntegerAttr(elementType,
-                           APInt(width, static_cast<uint64_t>(val), false)));
+            constant = stablehlo::ConstantOp::create(b(), loc(),
+                b().getIntegerAttr(elementType,
+                    APInt(width, static_cast<uint64_t>(val), false)));
           } else {
-            constant = b().create<stablehlo::ConstantOp>(
-                loc(), b().getIntegerAttr(elementType,
-                           APInt(width, static_cast<int64_t>(val), true)));
+            constant = stablehlo::ConstantOp::create(b(), loc(),
+                b().getIntegerAttr(elementType,
+                    APInt(width, static_cast<int64_t>(val), true)));
           }
         }
       })
       .Case<IndexType>([&](Type elementType) {
-        constant = b().create<stablehlo::ConstantOp>(
-            loc(), b().getIntegerAttr(elementType, val));
+        constant = stablehlo::ConstantOp::create(
+            b(), loc(), b().getIntegerAttr(elementType, val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -78,50 +78,50 @@ Value StablehloBuilder::constant(Type type, double val) const {
 
 Value StablehloBuilder::constantI64(int64_t val) const {
   IntegerAttr constantAttr = b().getIntegerAttr(b().getI64Type(), val);
-  return b().create<stablehlo::ConstantOp>(loc(), constantAttr);
+  return stablehlo::ConstantOp::create(b(), loc(), constantAttr);
 }
 
 Value StablehloBuilder::shaped_zero(Type type) const {
-  return b().create<stablehlo::ConstantOp>(loc(), b().getZeroAttr(type));
+  return stablehlo::ConstantOp::create(b(), loc(), b().getZeroAttr(type));
 }
 
 Value StablehloBuilder::reshape(Type resultType, Value operand) const {
-  return b().create<stablehlo::ReshapeOp>(loc(), resultType, operand);
+  return stablehlo::ReshapeOp::create(b(), loc(), resultType, operand);
 }
 
 Value StablehloBuilder::dynamic_reshape(
     Type type, Value input, Value shape) const {
-  return b().create<stablehlo::DynamicReshapeOp>(loc(), type, input, shape);
+  return stablehlo::DynamicReshapeOp::create(b(), loc(), type, input, shape);
 }
 
 Value StablehloBuilder::real_dynamic_slice(Type type, Value operand,
     Value startIndices, Value limitIndices, Value strides) const {
-  return b().create<stablehlo::RealDynamicSliceOp>(
-      loc(), type, operand, startIndices, limitIndices, strides);
+  return stablehlo::RealDynamicSliceOp::create(
+      b(), loc(), type, operand, startIndices, limitIndices, strides);
 }
 
 Value StablehloBuilder::dynamic_slice(Value operand,
     SmallVector<Value> startIndices, SmallVector<int64_t> sliceSizes) const {
-  return b().create<stablehlo::DynamicSliceOp>(
-      loc(), operand, startIndices, sliceSizes);
+  return stablehlo::DynamicSliceOp::create(
+      b(), loc(), operand, startIndices, sliceSizes);
 }
 
 Value StablehloBuilder::dynamic_slice(Value operand,
     SmallVector<Value> startIndices, DenseI64ArrayAttr sliceSizes) const {
-  return b().create<stablehlo::DynamicSliceOp>(
-      loc(), operand, startIndices, sliceSizes);
+  return stablehlo::DynamicSliceOp::create(
+      b(), loc(), operand, startIndices, sliceSizes);
 }
 
 Value StablehloBuilder::slice(Value operand, SmallVector<int64_t> startIndices,
     SmallVector<int64_t> limitIndices, SmallVector<int64_t> strides) const {
-  return b().create<stablehlo::SliceOp>(
-      loc(), operand, startIndices, limitIndices, strides);
+  return stablehlo::SliceOp::create(
+      b(), loc(), operand, startIndices, limitIndices, strides);
 }
 
 Value StablehloBuilder::slice(Value operand, DenseI64ArrayAttr startIndices,
     DenseI64ArrayAttr limitIndices, DenseI64ArrayAttr strides) const {
-  return b().create<stablehlo::SliceOp>(
-      loc(), operand, startIndices, limitIndices, strides);
+  return stablehlo::SliceOp::create(
+      b(), loc(), operand, startIndices, limitIndices, strides);
 }
 
 //===----------------------------------------------------------------------===//
@@ -228,7 +228,7 @@ Value IndexExprBuilderForStablehlo::getVal(Value intArrayVal, uint64_t i) {
         mlir::cast<ShapedType>(intArrayVal.getType()).getShape(),
         b().getIndexType());
     intArrayVal =
-        b().create<arith::IndexCastOp>(loc(), indexTensorType, intArrayVal);
+        arith::IndexCastOp::create(b(), loc(), indexTensorType, intArrayVal);
   }
   ShapeBuilder createShape(*this);
   return createShape.getExtent(intArrayVal, i);

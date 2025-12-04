@@ -49,18 +49,18 @@ struct ONNXClipOpLoweringToStablehlo : public ConversionPattern {
 
     MathBuilder createMath(rewriter, loc);
     if (isNoneValue(min)) {
-      min = rewriter.create<stablehlo::ConstantOp>(
-          loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
-                   createMath.negativeInfAttr(elemType)));
+      min = stablehlo::ConstantOp::create(rewriter, loc,
+          DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
+              createMath.negativeInfAttr(elemType)));
     }
     if (isNoneValue(max)) {
-      max = rewriter.create<stablehlo::ConstantOp>(
-          loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
-                   createMath.positiveInfAttr(elemType)));
+      max = stablehlo::ConstantOp::create(rewriter, loc,
+          DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
+              createMath.positiveInfAttr(elemType)));
     }
 
     Value result =
-        rewriter.create<stablehlo::ClampOp>(loc, outputType, min, input, max);
+        stablehlo::ClampOp::create(rewriter, loc, outputType, min, input, max);
     rewriter.replaceOp(op, result);
     return success();
   }

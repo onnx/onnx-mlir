@@ -17,6 +17,7 @@
 #define ONNX_MLIR_ONNX_TO_KRNL_H
 
 #include <map>
+#include <optional>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -164,8 +165,17 @@ mlir::Value emitMemRefReinterpretCastOp(
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value input, int64_t axis,
-    bool ascending = false);
+    mlir::Location loc, mlir::Value input, int64_t axis, bool ascending = false,
+    std::optional<mlir::Value> K = std::nullopt, bool sorted = true);
+
+/// Emit krnl ops to compute TopK of a given MemRef along a given axis.
+/// This function is optimized for TopK: it allocates and returns the final
+/// (Values, Indices) memrefs with the correct output shape <..., K, ...>.
+std::pair<mlir::Value, mlir::Value> emitTopK(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Value input, mlir::MemRefType valuesMemRefType,
+    mlir::MemRefType indicesMemRefType, DimsExpr &outputDims, int64_t axis,
+    bool ascending, mlir::Value K, bool sorted);
 
 /// Allocate memref (as before) if no input buffer can be reused.
 /// Default VL=0 is used for non SIMD allocation
@@ -240,7 +250,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarIOp<Op>>(loc, elementType, scalarsSplatted);
+      return ScalarIOp<Op>::create(rewriter, loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
@@ -252,7 +262,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
       MultiDialectBuilder<MathBuilder> create(rewriter, loc);
       create.math.splatToMatch(scalarsSplatted);
-      return rewriter.create<ScalarFOp<Op>>(loc, elementType, scalarsSplatted);
+      return ScalarFOp<Op>::create(rewriter, loc, elementType, scalarsSplatted);
     }
     llvm_unreachable("unsupported float operation");
   } else {
@@ -588,7 +598,7 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
     // You may customize the krnl.call according to your library
     // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
     std::string funcName = op->getName().getStringRef().str().substr(5);
-    rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
+    mlir::KrnlCallOp::create(rewriter, loc, funcName, allocs, op, operands,
         /*keep all attributes*/ true);
     rewriter.replaceOp(op, allocs);
 

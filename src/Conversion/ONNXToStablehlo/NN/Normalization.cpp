@@ -42,7 +42,7 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
     Value variance = operandAdaptor.getVar();
     llvm::APFloat eps = operandAdaptor.getEpsilon();
 
-    Value result = rewriter.create<stablehlo::BatchNormInferenceOp>(loc,
+    Value result = stablehlo::BatchNormInferenceOp::create(rewriter, loc,
         op->getResultTypes(), operand, scale, bias, mean, variance, eps, 1);
     rewriter.replaceOp(op, result);
     return success();

@@ -46,8 +46,8 @@ struct ONNXSequenceInsertOpLowering
     SymbolIndexExpr boundIE(dimSize);
     auto outputBound = boundIE + 1;
 
-    Value alloc = rewriter.create<KrnlSeqAllocOp>(
-        loc, outputMemRefType, outputBound.getValue());
+    Value alloc = KrnlSeqAllocOp::create(
+        rewriter, loc, outputMemRefType, outputBound.getValue());
 
     // Handle Optional and negative position
     IndexExpr positionIE;
