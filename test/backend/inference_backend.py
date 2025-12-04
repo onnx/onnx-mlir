@@ -3943,7 +3943,9 @@ class EndiannessAwareExecutionSession(object):
         if endianness_is_consistent:
             sys_is_le = sys.byteorder == "little"
             inp_is_le = self.is_input_le(inputs) if inputs else sys_is_le
-            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs) if inputs else True
+            inp_is_not_relevant_endian = (
+                self.is_not_relevant_endian(inputs) if inputs else True
+            )
             if not inp_is_not_relevant_endian and sys_is_le != inp_is_le:
                 inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
 
