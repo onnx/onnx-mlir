@@ -55,6 +55,7 @@ def get_args_from_env():
     TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
     TEST_INSTRUCTION_CHECK = os.getenv("TEST_INSTRUCTION_CHECK")
     TEST_CONSTANTS_TO_FILE = os.getenv("TEST_CONSTANTS_TO_FILE")
+    TEST_DISABLE_INPUT_CHECK = os.getenv("TEST_DISABLE_INPUT_CHECK")
     TEST_NOFLOAT16 = os.getenv("TEST_NOFLOAT16")
 
     # Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
@@ -86,6 +87,14 @@ def get_args_from_env():
         action="store_true",
         default=(
             strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False
+        ),
+        help="whether store constants to file or not, passed to the compiler",
+    )
+    parser.add_argument(
+        "--disable-input-check",
+        action="store_true",
+        default=(
+            strtobool(TEST_DISABLE_INPUT_CHECK) if TEST_DISABLE_INPUT_CHECK else False
         ),
         help="whether store constants to file or not, passed to the compiler",
     )

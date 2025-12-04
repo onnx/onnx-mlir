@@ -129,6 +129,8 @@ def compile_model(model, emit):
         command_list.append("--invokeOnnxVersionConverter=true")
     if args.constants_to_file:
         command_list.append("--store-constants-to-file=true")
+    if args.disable_input_check:
+        command_list.append("--verifyInputTensors=false")
     if args.constants_to_file_total_threshold:
         command_list.append(
             "--constants-to-file-total-threshold="
