@@ -195,8 +195,8 @@ public:
         llvmOutType);
 
     // Emit function call.
-    auto funcCall = rewriter.create<func::CallOp>(
-        loc, mathFunctionRef, llvmOutType, ArrayRef<Value>({operands[0]}));
+    auto funcCall = func::CallOp::create(rewriter, loc, mathFunctionRef,
+        llvmOutType, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
   }
@@ -220,8 +220,8 @@ private:
     // Insert the unary math function into the body of the parent module.
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(
-        module.getLoc(), mathFuncName, llvmFnType);
+    LLVM::LLVMFuncOp::create(
+        rewriter, module.getLoc(), mathFuncName, llvmFnType);
     return SymbolRefAttr::get(context, mathFuncName);
   }
 };

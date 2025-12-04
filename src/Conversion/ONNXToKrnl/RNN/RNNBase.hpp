@@ -207,7 +207,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
                     : create.mem.dim(X, 0);
 
             mlir::Value reverseSequenceIV =
-                rewriter.create<mlir::affine::AffineApplyOp>(loc, reverseIVMap,
+                mlir::affine::AffineApplyOp::create(rewriter, loc, reverseIVMap,
                     std::vector<mlir::Value>{loopInd[0], sequenceSize});
             // Get a slice of X at the current timestep.
             mlir::Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);

@@ -181,12 +181,13 @@ std::vector<onnx_mlir::IndexExpr> getIndexExprsForConvWindow(
 mlir::AffineMap getWindowAffineMap(
     mlir::Builder &builder, bool ceilMode, bool isDilated);
 
-// Helper functions to get values from attribute arrays.
+// Helper functions to get values from attribute arrays. Negative index i starts
+// from innermost.
 size_t ArrayAttrSize(mlir::ArrayAttr a);
 size_t ArrayAttrSize(std::optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(std::optional<mlir::ArrayAttr> a, int i);
-void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
+void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &vals);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
@@ -203,6 +204,14 @@ bool getI64ValuesFromONNXConstantOp(
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
 inline bool isNoneValue(mlir::Value value);
+
+// Test if the operation is a data movement ONNX operation that just shuffles
+// elements without any computation.
+bool isDataMovementONNXOp(mlir::Operation *op);
+
+// Test if the operation is a view ONNX operation that just changes the shape
+// withou data copying.
+bool isViewONNXOp(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -256,6 +265,20 @@ bool isConstOf(mlir::Value constValue, double n);
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
+mlir::Type getMLIRTypeFromDtypeWithFallBackToInputType(
+    mlir::Operation *op, std::optional<int64_t> dtype);
+
+mlir::LogicalResult verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+    mlir::Operation *op, std::optional<int64_t> dtype);
+
+mlir::Type getMLIRTypeFromDtype(mlir::MLIRContext *ctx, int64_t dtype);
+
+mlir::LogicalResult verifyResultElementTypeEqualsDtype(
+    mlir::Operation *op, int64_t dtype);
+
+mlir::Type getMLIRTypeFromDtypeDefaultingToF32(
+    mlir::MLIRContext *ctx, std::optional<int64_t> dtype);
+
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
@@ -267,6 +290,11 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
+
+/// If the value val has only one use and that use is of type OP, return that
+/// op. Otherwise return null.
+template <typename OP>
+mlir::Operation *usedOnlyBy(mlir::Value val);
 
 /// Check the defining operation of a value.
 template <typename OP>

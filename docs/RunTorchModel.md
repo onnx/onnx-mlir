@@ -22,7 +22,7 @@ cd build-light
 cmake -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
       -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON \
       ..
-make OMCreatONNXMLIRTOrchPackage
+make OMCreateONNXMLIRTorchPackage
 pip3 install -e src/Runtime/python/onnxmlirtorch
 ```
 ## Install from pip repository

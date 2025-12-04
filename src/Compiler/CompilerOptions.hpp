@@ -99,6 +99,7 @@ extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
 extern bool printIR;                                          // onnx-mlir only
+extern int printONNXBasicIR;                                  // onnx-mlir only
 extern bool preserveBitcode;                                  // onnx-mlir only
 extern bool preserveLLVMIR;                                   // onnx-mlir only
 extern bool preserveMLIR;                                     // onnx-mlir only
@@ -134,6 +135,7 @@ extern std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 extern std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 extern std::string modelTag;                                  // onnx-mlir only
 extern bool enableConvOptPass;                                // onnx-mlir only
+extern std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 extern bool disableConstantProp;                              // onnx-mlir only
 extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
 extern std::vector<std::string> extraLibs;                    // onnx-mlir only

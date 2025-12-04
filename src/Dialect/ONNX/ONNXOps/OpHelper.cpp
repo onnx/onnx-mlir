@@ -366,16 +366,20 @@ size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 size_t ArrayAttrSize(std::optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+  if (i < 0)
+    i += a.size();
   return mlir::cast<IntegerAttr>(a.getValue()[i]).getInt();
 }
 
 int64_t ArrayAttrIntVal(std::optional<ArrayAttr> a, int i) {
+  if (i < 0)
+    i += a.value().size();
   return mlir::cast<IntegerAttr>(a.value().getValue()[i]).getInt();
 }
 
-void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i) {
+void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &vals) {
   for (size_t k = 0; k < a.size(); ++k)
-    i.emplace_back(mlir::cast<IntegerAttr>(a.getValue()[k]).getInt());
+    vals.emplace_back(mlir::cast<IntegerAttr>(a.getValue()[k]).getInt());
 }
 
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
@@ -401,6 +405,15 @@ bool getI64ValuesFromONNXConstantOp(
   SmallVector<int64_t, 4> iVals(elemsAttr.getValues<int64_t>());
   iRes.append(iVals);
   return true;
+}
+
+bool isDataMovementONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp,
+      ONNXSliceOp, ONNXExpandOp>(op);
+}
+
+bool isViewONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(op);
 }
 
 //===----------------------------------------------------------------------===//
@@ -597,6 +610,8 @@ WideNum asWideNum(double n, Type elemType) {
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(Value constValue, double n) {
   ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
+  if (!constElements)
+    return false;
   Type elemType = constElements.getElementType();
   assert(!elemType.isInteger(1) && "booleans are not supported");
   WideNum w = asWideNum(n, elemType);
@@ -733,6 +748,58 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   }
 
   return onnxType;
+}
+
+Type getMLIRTypeFromDtypeWithFallBackToInputType(
+    Operation *op, std::optional<int64_t> dtype) {
+  assert(op->getNumOperands() == 1 && "Expecting one input operand");
+  if (dtype) {
+    auto builder = OpBuilder(op->getContext());
+    return convertONNXTypeToMLIRType(
+        builder, static_cast<onnx::TensorProto_DataType>(*dtype));
+  }
+  return cast<ShapedType>(op->getOperand(0).getType()).getElementType();
+}
+
+LogicalResult verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+    Operation *op, std::optional<int64_t> dtype) {
+  const auto elementType =
+      getMLIRTypeFromDtypeWithFallBackToInputType(op, dtype);
+  assert(op->getNumResults() == 1 && "Expected single result");
+  const auto resultType = cast<ShapedType>(op->getResultTypes()[0]);
+  if (resultType.getElementType() != elementType) {
+    return op->emitOpError(llvm::formatv(
+        "result element type {0} does not match the expected type {1}",
+        resultType.getElementType(), elementType));
+  }
+  return success();
+}
+
+Type getMLIRTypeFromDtype(MLIRContext *ctx, int64_t dtype) {
+  auto builder = OpBuilder(ctx);
+  return convertONNXTypeToMLIRType(
+      builder, static_cast<onnx::TensorProto_DataType>(dtype));
+}
+
+LogicalResult verifyResultElementTypeEqualsDtype(Operation *op, int64_t dtype) {
+  const auto elementType = getMLIRTypeFromDtype(op->getContext(), dtype);
+  assert(op->getNumResults() == 1 && "Expected single result");
+  const auto resultType = cast<ShapedType>(op->getResultTypes()[0]);
+  if (resultType.getElementType() != elementType) {
+    return op->emitOpError(
+        llvm::formatv("result element type {0} does not match the dtype {1}",
+            resultType.getElementType(), elementType));
+  }
+  return success();
+}
+
+Type getMLIRTypeFromDtypeDefaultingToF32(
+    MLIRContext *ctx, std::optional<int64_t> dtype) {
+  auto builder = OpBuilder(ctx);
+  if (!dtype)
+    return builder.getF32Type();
+  return convertONNXTypeToMLIRType(
+      builder, static_cast<onnx::TensorProto_DataType>(*dtype));
 }
 
 bool isScalarTensor(Value v) {

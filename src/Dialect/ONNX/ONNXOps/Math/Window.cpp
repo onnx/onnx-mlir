@@ -26,8 +26,7 @@ namespace onnx_mlir {
 
 template <typename OpTy>
 LogicalResult ONNXWindowsOpShapeHelper<OpTy>::computeShape() {
-  typename OpTy::Adaptor operandAdaptor(
-      this->operands, this->op->getAttrDictionary());
+  typename OpTy::Adaptor operandAdaptor(operands);
 
   Value sizeTensor = operandAdaptor.getSize();
   IndexExpr dimSize = this->createIE->getIntAsSymbol(sizeTensor);
@@ -48,9 +47,8 @@ LogicalResult inferWindowOpShape(OpTy op) {
   Builder builder(op.getContext());
   Type elementType = convertONNXTypeToMLIRType(
       builder, static_cast<onnx::TensorProto_DataType>(outputDataTypeInt));
-
   ONNXWindowsOpShapeHelper<OpTy> shapeHelper(
-      op.getOperation(), op.getOperand());
+      op.getOperation(), op->getOperands());
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

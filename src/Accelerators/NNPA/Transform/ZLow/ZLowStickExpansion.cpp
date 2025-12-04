@@ -73,7 +73,8 @@ public:
     // Generic way to handle all formats listed below.
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
-    // Convolution filters.
+    // Convolution filters.  NHWC is supported in ZLow because ONNX->KRNL added
+    // an extra loop to go from NHWC to NCHW (default for ONNX).
     StringAttr layout = unstickOp.getLayoutAttr();
     if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
@@ -143,7 +144,8 @@ public:
     // Generic way to handle all formats listed below.
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
-    // Convolution filters.
+    // Convolution filters. NHWC is supported in ZLow because ONNX->KRNL added
+    // an extra loop to go from NHWC to NCHW (default for ONNX).
     if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
@@ -188,9 +190,9 @@ public:
     Value vecDlf16Min, vecDlf16Max;
     if (saturation) {
       Value dlf16Min = create.math.constant(f32Type, DLF16_MIN);
-      vecDlf16Min = create.vec.splat(vecF32Type, dlf16Min);
+      vecDlf16Min = create.vec.broadcast(vecF32Type, dlf16Min);
       Value dlf16Max = create.math.constant(f32Type, DLF16_MAX);
-      vecDlf16Max = create.vec.splat(vecF32Type, dlf16Max);
+      vecDlf16Max = create.vec.broadcast(vecF32Type, dlf16Max);
     }
 
     // Useful references for indexing dimensions (neg val are not used).
@@ -306,8 +308,8 @@ public:
                 }
                 // Convert f32 to dlfloat16.
                 for (int64_t u = 0; u < unrollVL; ++u) {
-                  vecF16[u] = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                      loc, vecF32H[u], vecF32L[u]);
+                  vecF16[u] = ZLowConvertF32ToDLF16VectorOp::create(
+                      rewriter, loc, vecF32H[u], vecF32L[u]);
                 }
                 // Store the dlfloat16.
                 for (int64_t u = 0; u < unrollVL; ++u) {

@@ -26,6 +26,8 @@
 
 namespace onnx_mlir {
 
+// TODO: this could be replaced by the new infra at some time.
+
 // Iterate over each stick, for an original size of dims, and cover the
 // iterations from lbs to ubs. In most cases, lbs={0...} and ubs=dims, namely we
 // cover all iterations. But we can parallelize the loops from the outside, in
@@ -171,8 +173,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           create.vec.loadIE(vecF16Type, inputAsSticks,
                               {SymIE(inputStickOffset), l + (u * archVL)});
                       auto convertOp =
-                          b.getBuilder()
-                              .create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                                   b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
@@ -210,8 +211,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           inputAsSticks, {SymIE(inputStickOffset), l});
                       // Convert back to f32.
                       auto convertOp =
-                          b.getBuilder()
-                              .create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                                   b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
@@ -227,7 +227,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                     inputAsSticks, {SymIE(inputStickOffset), lastL});
                 // Convert back to f32.
                 auto convertOp =
-                    b.getBuilder().create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                    zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                         b.getLoc(), vecOfF16);
                 mlir::Value vecF32H = convertOp.getResult(0);
                 mlir::Value vecF32L = convertOp.getResult(1);

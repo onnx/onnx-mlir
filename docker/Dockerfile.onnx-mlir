@@ -21,7 +21,18 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install .
+    # Require patching until upstreamed
+    && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
+           -e '/absl::log_initialize/a \
+          absl::log_internal_check_op\
+          absl::log_internal_message\
+          absl::log_internal_nullguard' CMakeLists.txt \
+    # Required for pip install with `--no-build-isolation` flag.
+    # setuptools >= 70.x creates conflicts with pip packaging versions.
+    && python3 -m pip install --upgrade setuptools==68.2.2 \
+    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
+       python3 -m pip install . --no-build-isolation \
+    && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -90,7 +101,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
               git libtool ninja-build python39 && \
           rm -rf /var/cache/dnf/*; \
        fi \
-    && rm -rf /tmp/* /usr/bin/python \
+    && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \
     && ([ "${KEEPSRC}" = "yes" ] || rm -rf llvm-project onnx-mlir)
 
 # Copy from onnx-mlir-test to squash removed source layer and

@@ -161,7 +161,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
   auto funcOp =
-      builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
+      func::FuncOp::create(builder, loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
@@ -180,9 +180,9 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
   auto array = std::vector<float>(arrayPtr, arrayPtr + numElems);
   auto denseAttr = DenseElementsAttr::get(resultType, llvm::ArrayRef(array));
-  return builder.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-      ArrayAttr());
+  return ONNXConstantOp::create(builder, loc, resultType, Attribute(),
+      denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
+      StringAttr(), ArrayAttr());
 }
 
 bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,

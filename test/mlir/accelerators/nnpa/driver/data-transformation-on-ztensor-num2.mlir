@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --disable-zhigh-decompose-stick-unstick --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR %s | FileCheck %s
 
 // -----
 

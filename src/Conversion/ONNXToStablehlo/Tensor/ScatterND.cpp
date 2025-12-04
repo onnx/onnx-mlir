@@ -65,8 +65,8 @@ struct ONNXScatterNDOpLoweringToStablehlo
             /*scatterDimsToOperandDims*/
             llvm::to_vector<4>(llvm::seq<int64_t>(0, partialIdxDim)),
             /*indexVectorDim=*/indicesRank - 1);
-    auto scatterOp = rewriter.create<stablehlo::ScatterOp>(
-        loc, outputType, data, indices, updates, scatter_dimension_numbers);
+    auto scatterOp = stablehlo::ScatterOp::create(rewriter, loc, outputType,
+        data, indices, updates, scatter_dimension_numbers);
     // config update computation function: just return the element from src.
     Block &block = scatterOp.getUpdateComputation().emplaceBlock();
     // add block arguments
@@ -81,7 +81,7 @@ struct ONNXScatterNDOpLoweringToStablehlo
     {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(&block);
-      rewriter.create<stablehlo::ReturnOp>(loc, *rhsArg);
+      stablehlo::ReturnOp::create(rewriter, loc, *rhsArg);
     }
 
     rewriter.replaceOp(op, scatterOp.getResults());

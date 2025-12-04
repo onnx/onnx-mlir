@@ -1,2 +1,14 @@
-from .onnxmlirtorch import ONNXMLIRTorch
-from .onnxmlirtorch import *
+# SPDX-License-Identifier: Apache-2.0
+
+##################### __init__.py *******#######################################
+#
+# Copyright 2025 The IBM Research Authors.
+#
+################################################################################
+#
+#
+################################################################################
+
+from .register import *
+
+__all__ = ["onnxmlir_backend"]

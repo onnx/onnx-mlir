@@ -83,8 +83,14 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Replace ops with its operand. This is to bypass the operations.
+  if (!replaceOpWithItsOperand.empty())
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceOpWithItsOperandPass(
+        /*nodeNameRegexList=*/replaceOpWithItsOperand));
+
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
@@ -267,6 +273,7 @@ void addKrnlToLLVMPasses(
     //  redundant, which helps reliability of the compilation of these ops.
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(onnx_mlir::createProcessKrnlParallelClausePass());
+    pm.addPass(onnx_mlir::createBufferOMPLoopHoisting());
   }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
@@ -275,12 +282,16 @@ void addKrnlToLLVMPasses(
   // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
+  // This pass is required on s390x targets to ensure all vector operations
+  // are properly lowered to LLVM dialect. (e.g., vector.to_elements)
+  pm.addPass(mlir::createConvertVectorToLLVMPass());
 
   if (profileIR)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
 
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
+
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,

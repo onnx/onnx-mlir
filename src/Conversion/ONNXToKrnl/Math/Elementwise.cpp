@@ -78,10 +78,6 @@ int whichBufferToReuse(ValueRange values, MemRefType outputType) {
 // Default VL=0 is used for non SIMD allocation
 Value allocOrReuse(MemRefBuilder &create, Operation *op,
     ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
-    int64_t alignment, int64_t VL);
-
-Value allocOrReuse(MemRefBuilder &create, Operation *op,
-    ValueRange generatedOperands, MemRefType outputMemRefType, DimsExprRef dims,
     int64_t alignment, int64_t VL) {
 
   int indexToReuse = -1;
@@ -101,7 +97,7 @@ Value allocOrReuse(MemRefBuilder &create, Operation *op,
     });
     return generatedOperands[indexToReuse];
   } else {
-    if (VL == 0)
+    if (VL <= 1)
       return create.alignedAlloc(outputMemRefType, dims, alignment);
     else
       return create.alignedAllocWithSimdPadding(
@@ -2665,7 +2661,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
             // Return lhs if cond is true else rhs.
             Value result =
-                rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+                arith::SelectOp::create(rewriter, loc, cond, lhs, rhs);
 
             // Store result in the resulting array.
             createKrnl.storeIE(result, alloc, outputAccessExprs);
@@ -2681,7 +2677,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       Value rhs = create.krnl.load(operandAdaptor.getY());
 
       // Return lhs if cond is true else rhs.
-      Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+      Value result = arith::SelectOp::create(rewriter, loc, cond, lhs, rhs);
 
       // Store result in the resulting array.
       create.krnl.store(result, alloc);

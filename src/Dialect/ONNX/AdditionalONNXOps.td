@@ -556,6 +556,17 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
 //===----------------------------------------------------------------------===//
 // ONNXRMSNormOp (Variant of LayerNormalization found in T5 model)
 
+// TODO: When upgrading ONNX to 23, it introduces RMSNormalization, which is
+// the operation listed below EXCEPT:
+// * does not have a B input
+// * does not have a InvStdDev output. 
+// This operation ONNXRMSLayerNormalizationOp should be replaced by the standard op,
+// and some care should be used in onnx-mlir/src/Conversion/ONNXToKrnl/NN/Normalization.cpp
+// to ensure we don't use a `getB()`. Can be predicated by the code below.
+//
+//     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)...
+//
+
 def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RMSLayerNormalization operation";

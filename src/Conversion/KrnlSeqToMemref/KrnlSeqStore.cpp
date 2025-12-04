@@ -53,7 +53,7 @@ public:
       }
     }
     Value alloc = create.mem.alignedAlloc(inputType, allocParams);
-    rewriter.create<memref::CopyOp>(loc, operandAdaptor.getInput(), alloc);
+    memref::CopyOp::create(rewriter, loc, operandAdaptor.getInput(), alloc);
 
     // Cast the input tensor to the element type of the sequence
     auto seq = operandAdaptor.getSeq();
@@ -62,8 +62,8 @@ public:
     auto casted = create.mem.cast(alloc, seqElementType);
 
     // Store the tensor
-    rewriter.create<memref::StoreOp>(
-        loc, casted, seq, operandAdaptor.getIndex());
+    memref::StoreOp::create(
+        rewriter, loc, casted, seq, operandAdaptor.getIndex());
 
     rewriter.eraseOp(op);
     return success();
