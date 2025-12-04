@@ -750,79 +750,6 @@ private:
   }
 };
 
-/*
- * Push down the transpose after scale (mul op), so the scale can be fused to
- * Layernorm.
- *
- * This means going from:
- *   input       layernorm
- *     |             |
- *     |         transpose (loc1)
- *     *---------.   /
- *                mul (loc2)
- *                 |
- *
- * to:
- *
- *   input        layernorm
- *     |              |
- *  transpose (loc1)  /
- *     *---------.   /
- *                mul (loc2)
- *                 |
- *             transpose (loc1)
- *                 |
- */
-struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
-  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(
-      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
-    using namespace onnx_mlir;
-    Operation *transposeOp = nullptr;
-    Operation *layerOp = nullptr;
-    Value Y;
-    Value scale;
-    Value transposedY;
-    if (operandOfOpDefinedBy<ONNXTransposeOp>(
-            transposeOp, mulOp, transposedY, scale, 0) ||
-        operandOfOpDefinedBy<ONNXTransposeOp>(
-            transposeOp, mulOp, scale, transposedY, 1)) {
-      if (!operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-              layerOp, transposeOp, Y, 0)) {
-        return rewriter.notifyMatchFailure(
-            mulOp, "transpose without preceding layernorm");
-      }
-    } else {
-      return rewriter.notifyMatchFailure(mulOp, "no preceding transpose found");
-    }
-    auto oldTranspose = cast<ONNXTransposeOp>(transposeOp);
-    auto transposePerm = oldTranspose.getPerm();
-
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, oldTranspose->getLoc());
-
-    // we have a transpose that we need to move behind the multiplication
-    if (!oldTranspose->hasOneUse())
-      return rewriter.notifyMatchFailure(
-          mulOp, "more than one use for transpose");
-    // push transpose after mul
-    if (!transposePerm.has_value())
-      return rewriter.notifyMatchFailure(
-          mulOp, "transpose need a fixed permutation");
-    SmallVector<int64_t> perm;
-    ArrayAttrIntVals(*transposePerm, perm);
-
-    scale = create.onnx.upRank(scale, getRank(Y.getType()));
-    auto transposedMulInput =
-        create.onnx.transposeInt64(scale, invertPermutationVector(perm));
-    auto newMulOp = create.onnx.mul(Y, transposedMulInput);
-    newMulOp.setLoc(mulOp->getLoc());
-    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(mulOp,
-        {oldTranspose->getLoc()}, transposedY.getType(), newMulOp,
-        *transposePerm);
-    return llvm::success();
-  }
-};
-
 struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -1613,7 +1540,6 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
     patterns.insert<RecomposeLayerNormFromDivPattern<ONNXMulOp, true>>(context);
     patterns.insert<RecomposeLayerNormFromDivPattern<ONNXPowOp, true>>(context);
   }
-  patterns.insert<PushTransposeDownScalePattern>(context);
   patterns.insert<RecomposeDepthToSpaceCRD>(context);
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it
