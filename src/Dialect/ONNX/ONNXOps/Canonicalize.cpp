@@ -22,6 +22,7 @@
 
 #include "mlir/Dialect/Traits.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -2437,7 +2438,6 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
       return rewriter.notifyMatchFailure(mulOp, "no preceding transpose found");
     }
     auto oldTranspose = cast<ONNXTransposeOp>(transposeOp);
-    auto transposePerm = oldTranspose.getPerm();
 
     MultiDialectBuilder<OnnxBuilder> create(rewriter, oldTranspose->getLoc());
 
@@ -2446,15 +2446,15 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
       return rewriter.notifyMatchFailure(
           mulOp, "more than one use for transpose");
     // push transpose after mul
+    auto transposePerm = oldTranspose.getPerm();
     if (!transposePerm.has_value())
       return rewriter.notifyMatchFailure(
-          mulOp, "transpose need a fixed permutation");
-    SmallVector<int64_t> perm;
-    ArrayAttrIntVals(*transposePerm, perm);
+          mulOp, "transpose need a constant permutation");
 
     scale = create.onnx.upRank(scale, getRank(Y.getType()));
-    auto transposedMulInput =
-        create.onnx.transposeInt64(scale, invertPermutationVector(perm));
+    auto transposedMulInput = create.onnx.transposeInt64(
+        scale, invertPermutationVector(
+                   extractFromIntegerArrayAttr<int64_t>(*transposePerm)));
     auto newMulOp = create.onnx.mul(Y, transposedMulInput);
     newMulOp.setLoc(mulOp->getLoc());
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(mulOp,
