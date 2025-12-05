@@ -326,3 +326,45 @@ func.func @multiple_ops(%arg0: tensor<?x?x?xbf16>, %arg1 : tensor<1x2xi64>, %arg
 // CHECK:           %[[VAL_13:.*]] = "onnx.Add"(%[[VAL_10]], %[[VAL_11]]) : (tensor<?x?x?x?xbf16>, tensor<?x?x?xbf16>) -> tensor<?x?x?x?xbf16>
 // CHECK:           onnx.Return %[[VAL_13]], %[[VAL_10]], %[[VAL_11]], %[[VAL_10]] : tensor<?x?x?x?xbf16>, tensor<?x?x?x?xbf16>, tensor<?x?x?xbf16>, tensor<?x?x?x?xbf16>
 // CHECK:         }
+
+// -----
+
+func.func @resize(%arg0: tensor<1x256x20x20xf32> {onnx.name = "input"}) -> (tensor<1x256x40x40xbf16> {onnx.name = "output"}) {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+    %2 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = bf16} : (tensor<1x256x20x20xf32>) -> tensor<1x256x20x20xbf16>
+    %3 = "onnx.Cast"(%2) {saturate = 1 : si64, to = f32} : (tensor<1x256x20x20xbf16>) -> tensor<1x256x20x20xf32>
+    %4 = "onnx.Resize"(%3, %0, %1, %0) {antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor", onnx_node_name = "/fpn/up/Resize"} : (tensor<1x256x20x20xf32>, none, tensor<4xf32>, none) -> tensor<1x256x40x40xf32>
+    %5 = "onnx.Cast"(%4) {saturate = 1 : si64, to = bf16} : (tensor<1x256x40x40xf32>) -> tensor<1x256x40x40xbf16>
+    onnx.Return %5 : tensor<1x256x40x40xbf16>
+}
+// CHECK-LABEL:  func.func @resize
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256x20x20xf32> {onnx.name = "input"}) -> (tensor<1x256x40x40xbf16> {onnx.name = "output"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = bf16} : (tensor<1x256x20x20xf32>) -> tensor<1x256x20x20xbf16>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Resize"([[VAR_2_]], [[VAR_0_]], [[VAR_1_]], [[VAR_0_]]) {antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor", onnx_node_name = "/fpn/up/Resize"} : (tensor<1x256x20x20xbf16>, none, tensor<4xf32>, none) -> tensor<1x256x40x40xbf16>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<1x256x40x40xbf16>
+// CHECK:         }
+
+// -----
+
+func.func @resize_not_converted_no_input_cast(%arg0: tensor<1x256x20x20xf32> {onnx.name = "input"}) -> (tensor<1x256x40x40xbf16> {onnx.name = "output"}) {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+    %2 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f16} : (tensor<1x256x20x20xf32>) -> tensor<1x256x20x20xf16>
+    %3 = "onnx.Cast"(%2) {saturate = 1 : si64, to = f32} : (tensor<1x256x20x20xf16>) -> tensor<1x256x20x20xf32>
+    %4 = "onnx.Resize"(%3, %0, %1, %0) {antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor", onnx_node_name = "/fpn/up/Resize"} : (tensor<1x256x20x20xf32>, none, tensor<4xf32>, none) -> tensor<1x256x40x40xf32>
+    %5 = "onnx.Cast"(%4) {saturate = 1 : si64, to = bf16} : (tensor<1x256x40x40xf32>) -> tensor<1x256x40x40xbf16>
+    onnx.Return %5 : tensor<1x256x40x40xbf16>
+}
+// CHECK-LABEL:  func.func @resize_not_converted_no_input_cast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256x20x20xf32> {onnx.name = "input"}) -> (tensor<1x256x40x40xbf16> {onnx.name = "output"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = f16} : (tensor<1x256x20x20xf32>) -> tensor<1x256x20x20xf16>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Cast"([[VAR_2_]]) {saturate = 1 : si64, to = f32} : (tensor<1x256x20x20xf16>) -> tensor<1x256x20x20xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Resize"([[VAR_3_]], [[VAR_0_]], [[VAR_1_]], [[VAR_0_]]) {antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor", onnx_node_name = "/fpn/up/Resize"} : (tensor<1x256x20x20xf32>, none, tensor<4xf32>, none) -> tensor<1x256x40x40xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Cast"([[VAR_4_]]) {saturate = 1 : si64, to = bf16} : (tensor<1x256x40x40xf32>) -> tensor<1x256x40x40xbf16>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<1x256x40x40xbf16>
+// CHECK:         }

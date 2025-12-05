@@ -165,6 +165,11 @@ struct ONNXHybridTransformPass
 
     if (quarkQuantizedOpsLegalization) {
       getLegalizeQuarkQuantizedOpsPatterns(cumulativePatterns);
+      // Disable CastofConst constant propagation pattern to avoid conflicts
+      // with quark quantized ops legalization which needs to consume Cast ops.
+      configureConstPropONNXToONNXPass(/*roundFPToInt=*/false,
+          /*expansionBound=*/-1, /*disabledPatterns=*/{"CastofConst"},
+          /*constantPropIsDisabled=*/false);
     }
 
     if (canonicalization) {
