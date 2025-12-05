@@ -3322,6 +3322,11 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
       return rewriter.notifyMatchFailure(
           customOp, "input 'head_sink' not supported by onnx.Attention");
 
+    auto smoothSoftmax = customOp->getAttrOfType<IntegerAttr>("smooth_softmax");
+    if (smoothSoftmax && smoothSoftmax.getSInt() != 0)
+      return rewriter.notifyMatchFailure(customOp,
+          "attribute 'smooth_softmax' not supported by onnx.Attention");
+
     auto qNumHeads = customOp->getAttrOfType<IntegerAttr>("num_heads");
     assert(qNumHeads && "Expected number of attention heads for q");
     auto kvNumHeads = customOp->getAttrOfType<IntegerAttr>("kv_num_heads");
@@ -3492,15 +3497,15 @@ struct MicrosoftRotaryEmbedding : public CustomOpToOnnxOps {
             ValueRange{input, cos_cache, sin_cache, position_ids});
 
     if (customOp->hasAttrOfType<IntegerAttr>("num_heads"))
-      rotaryEmbedding->setAttr(
-          "num_heads", customOp->getAttrOfType<IntegerAttr>("num_heads"));
+      rotaryEmbedding.setNumHeadsAttr(
+          customOp->getAttrOfType<IntegerAttr>("num_heads"));
 
     if (customOp->hasAttrOfType<IntegerAttr>("interleaved"))
-      rotaryEmbedding->setAttr(
-          "interleaved", customOp->getAttrOfType<IntegerAttr>("interleaved"));
+      rotaryEmbedding.setInterleavedAttr(
+          customOp->getAttrOfType<IntegerAttr>("interleaved"));
 
     if (customOp->hasAttrOfType<IntegerAttr>("rotary_embedding_dim"))
-      rotaryEmbedding->setAttr("rotary_embedding_dim",
+      rotaryEmbedding.setRotaryEmbeddingDimAttr(
           customOp->getAttrOfType<IntegerAttr>("rotary_embedding_dim"));
 
     if (failed(verifyOpsErasingOnError({rotaryEmbedding}, rewriter))) {
