@@ -77,16 +77,20 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
     return NULL;
 
   TIMING_INIT_START(tensor_list_create)
-  size_t omts_bytes = sizeof(OMTensor *) * n;
   list->_size = n;
-  list->_omts = (OMTensor **)malloc(omts_bytes);
+  if (n > 0) {
+    size_t omts_bytes = sizeof(OMTensor *) * n;
+    list->_omts = (OMTensor **)malloc(omts_bytes);
 
-  if (!list->_omts) {
-    free(list); // free the previously allocated memory in case of an error
-    return NULL;
+    if (!list->_omts) {
+      free(list); // free the previously allocated memory in case of an error
+      return NULL;
+    }
+    // Copy the given OMTensors pointers to an array owned by OMTensorList
+    memcpy(list->_omts, tensors, omts_bytes);
+  } else {
+    list->_omts = NULL;
   }
-  // Copy the given OMTensors pointers to an array owned by OMTensorList
-  memcpy(list->_omts, tensors, omts_bytes);
   TIMING_STOP_PRINT(tensor_list_create);
   return list;
 }
@@ -109,7 +113,8 @@ void omTensorListDestroyShallow(OMTensorList *list) {
   if (!list)
     return;
   // Free the list as well as the pointer to the OMTensor array
-  free(list->_omts);
+  if (list->_omts)
+    free(list->_omts);
   free(list);
 }
 
