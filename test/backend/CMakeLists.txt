@@ -113,7 +113,7 @@ add_custom_target(check-onnx-backend
 add_custom_target(check-onnx-backend-dynamic
   COMMAND
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic
-    TEST_DYNAMIC=true TEST_DISABLE_INPUT_CHECK=true
+    TEST_DYNAMIC=true
     ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py

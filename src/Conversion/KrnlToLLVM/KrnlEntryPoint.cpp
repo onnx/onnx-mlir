@@ -428,7 +428,6 @@ private:
     int64_t inputNum = JSONArray->size();
 
     // Verify the number of inputs.
-    // In some case, there unused parameters provided.
     equalOrFailed(module, rewriter, loc,
         create.llvm.constant(int64Ty, static_cast<int64_t>(inputNum)),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
