@@ -46,6 +46,7 @@ public:
       const std::vector<py::array> &stridesPyArray);
   std::string pyInputSignature();
   std::string pyOutputSignature();
+  void pyPrintInstrumentation(); // Print instrumentation (if any).
 
 protected:
   // Constructor that build the object without initialization (for use by

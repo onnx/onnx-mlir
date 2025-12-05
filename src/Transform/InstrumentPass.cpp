@@ -141,16 +141,17 @@ public:
       // hardware with an integrated accelerator for AI (z16 +) that supports
       // the required zDNN library version.
       // ```
+      std::string opName = op->getName().getStringRef().str();
+      Location loc = op->getLoc();
+      OpBuilder opBuilder(op);
+
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
       // Skip other instrument ops.
       if (isa<KrnlInstrumentOp>(op) || isa<ONNXPrintSignatureOp>(op))
         return WalkResult::advance();
 
-      std::string opName = op->getName().getStringRef().str();
       if (allowedOps.isEnabled(opName)) {
-        Location loc = op->getLoc();
-        OpBuilder opBuilder(op);
         if (instrumentBefore) {
           uint64_t tag = beforeTag();
           if (!hasInitializedRuntime) {

@@ -76,5 +76,8 @@ By providing certain env variable at runtime, you can disable reports from  inst
 
 Please note that the only way to enable instrumentation is to request it at compile time. If none of the detailed report (such as time and memory so far) is turned on at runtime, progress of instrument point will still be print out. This feature is thought to be useful as progress indicator. To fully disable any outputs requested at compile time, you must set `ONNX_MLIR_NO_INSTRUMENT`.
 
+To enable the printing of the instrumentation either in a file or on the standard output, one must invoke `omInstrumentPrint()` in the C/C++ interface or `print_instrumentation()` in the ExecutionSession/python interface after invoking the inference of a model. The `RunONNXModel.py` does perform this call for
+the normal (non-warmup) runs.
+
 ## Used in gdb
 The function for instrument point is called `OMInstrumentPoint`. Breakpoint can be set inside this function to kind of step through onnx ops.

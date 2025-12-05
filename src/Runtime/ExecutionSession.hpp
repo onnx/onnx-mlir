@@ -38,6 +38,7 @@ namespace onnx_mlir {
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
 using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
+using printInstrumentationFuncType = void (*)(void);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
 /* ExecutionSession
@@ -87,6 +88,7 @@ public:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
   const std::string inputSignature() const;
   const std::string outputSignature() const;
+  void printInstrumentation();
 
 protected:
   // Constructor that build the object without initialization (for use by
@@ -129,6 +131,11 @@ protected:
   const std::string _outputSignatureName = "omOutputSignature";
   signatureFuncType _inputSignatureFunc = nullptr;
   signatureFuncType _outputSignatureFunc = nullptr;
+
+  // Entry point for printing instrumentation
+  const std::string _printInstrumentationName = "omInstrumentPrint";
+  printInstrumentationFuncType _printInstrumentationFunc = nullptr;
 };
+
 } // namespace onnx_mlir
 #endif

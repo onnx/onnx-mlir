@@ -73,6 +73,8 @@ PYBIND11_MODULE(PyCompileAndRuntimeC, m) {
       .def("input_signature",
           &onnx_mlir::PyOMCompileExecutionSession::pyInputSignature)
       .def("output_signature",
-          &onnx_mlir::PyOMCompileExecutionSession::pyOutputSignature);
+          &onnx_mlir::PyOMCompileExecutionSession::pyOutputSignature)
+      .def("print_instrumentation",
+          &onnx_mlir::PyOMCompileExecutionSession::pyPrintInstrumentation);
 }
 #endif
