@@ -691,8 +691,8 @@ public:
     Value B = mmOp.getB();
 
     // Match A, B, C.
-    DynQuantI8PatternHelper dqHelper(rewriter, loc, op, A, B, C,
-        ONNXToZHighLoweringConfiguration::Quant::isActivationSym);
+    DynQuantI8PatternHelper dqHelper(rewriter, loc, mmOp.getOperation(), A, B,
+        C, ONNXToZHighLoweringConfiguration::Quant::isActivationSym);
     if (succeeded(dqHelper.match())) {
       Value res = dqHelper.rewriteSym();
       rewriter.replaceOp(op, res);
