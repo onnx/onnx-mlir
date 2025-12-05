@@ -495,7 +495,7 @@ private:
           create.llvm.ifThenElse(/*cond=*/
               [&](const LLVMBuilder &createLLVM) {
                 Value zero =
-                    createLLVM.constant(int64Ty, static_cast<int64_t>(d));
+                    createLLVM.constant(int64Ty, static_cast<int64_t>(0));
                 return createLLVM.icmp(
                     LLVM::ICmpPredicate::slt, actualDim, zero);
               }, /*then=*/
@@ -506,9 +506,9 @@ private:
                 std::string msg = "Wrong size for the dimension " +
                                   std::to_string(d) + " of the input " +
                                   std::to_string(i) +
-                                  ": expect a non-negative value\n";
+                                  ": expect a non-negative value, but %d is provided\n";
                 StringRef errorMsg(msg);
-                create.krnl.printf(errorMsg);
+                create.krnl.printf(errorMsg, actualDim);
                 // Set errno.
                 krnl::emitErrNo(module, rewriter, loc, EINVAL);
                 // Return NULL.
