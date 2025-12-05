@@ -34,7 +34,7 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
     const llvm::ArrayRef<int64_t> weightShape, Value &newInput,
     Value &newWeight, Value &bias, const int64_t groups,
     DenseI64ArrayAttr &pads, DenseI64ArrayAttr &strides,
-    DenseI64ArrayAttr &dilations, TypeAttr &accType) {
+    DenseI64ArrayAttr &dilations, TypeAttr &accType, Operation *activation) {
   // Set up constants outside of loop
   const int64_t sizeOfSliceInput = weightShape[1];
   const int64_t sizeOfSliceKernel = weightShape[0] / groups;
@@ -69,12 +69,33 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
     // Add value to vector
     sliceValues.push_back(tempConv2D);
   }
+
+  SmallVector<Value> slicesWithAct;
+  if (activation) {
+    slicesWithAct.reserve(sliceValues.size());
+    if (auto relu = dyn_cast<ONNXReluOp>(activation)) {
+      for (Value nonGroupedConv : sliceValues) {
+        auto newRelu = rewriter.create<ONNXReluOp>(
+            activation->getLoc(), nonGroupedConv.getType(), nonGroupedConv);
+        slicesWithAct.push_back(newRelu.getY());
+      }
+    } else if (auto lrelu = dyn_cast<ONNXLeakyReluOp>(activation)) {
+      for (Value nonGroupedConv : sliceValues) {
+        auto newLRelu = rewriter.create<ONNXLeakyReluOp>(activation->getLoc(),
+            nonGroupedConv.getType(), nonGroupedConv, lrelu.getAlphaAttr());
+        slicesWithAct.push_back(newLRelu.getY());
+      }
+    }
+  }
+
+  auto concatInputs = activation ? slicesWithAct : sliceValues;
+
   // Create concat op
   Type newConcatOutputType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(4, ShapedType::kDynamic),
       mlir::cast<ShapedType>(resultType).getElementType());
   Value conv2D = tosa::CreateOpAndInfer<mlir::tosa::ConcatOp>(
-      rewriter, op->getLoc(), newConcatOutputType, sliceValues, 3);
+      rewriter, op->getLoc(), newConcatOutputType, concatInputs, 3);
   return conv2D;
 }
 
@@ -90,6 +111,22 @@ public:
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto loc = op->getLoc();
     auto convOp = mlir::cast<ONNXConvOp>(op);
+
+    // If the only user of a groupedconv is an activation, then during the
+    // groupedconv decomposition we maintain the Conv->Activation sequence to
+    // open up opportunities for conv+act optimizations downstream. The current
+    // implementation is limited only to cases where the activation is a Relu or
+    // a LeakyRelu. This can also potentially be extended to rare cases where
+    // the conv has multiple users that are activations (which could
+    // *theoretically* happen).
+    Operation *activation = nullptr;
+    if (convOp->getResult(0).hasOneUse()) {
+      Operation *firstConvUser = *convOp->getResult(0).getUsers().begin();
+      if (isa<ONNXReluOp>(firstConvUser) ||
+          isa<ONNXLeakyReluOp>(firstConvUser)) {
+        activation = firstConvUser;
+      }
+    }
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
@@ -201,7 +238,11 @@ public:
 
         conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
             weightShape, newInput, newWeight, bias, group, newPads, strides,
-            dilations, accType);
+            dilations, accType, activation);
+        Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
+        auto *opToReplace = activation ? activation : convOp;
+        rewriter.replaceOp(opToReplace, {newOutput});
+        return success();
       } else {
         return rewriter.notifyMatchFailure(
             op, "this type of grouped Conv is not supported");
@@ -210,7 +251,6 @@ public:
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
     Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
-
     rewriter.replaceOp(convOp, {newOutput});
     return success();
   }
