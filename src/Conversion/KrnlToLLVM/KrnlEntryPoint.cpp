@@ -503,10 +503,10 @@ private:
                 MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(
                     createLLVM);
                 // Print an error message.
-                std::string msg = "Wrong size for the dimension " +
-                                  std::to_string(d) + " of the input " +
-                                  std::to_string(i) +
-                                  ": expect a non-negative value, but %d is provided\n";
+                std::string msg =
+                    "Wrong size for the dimension " + std::to_string(d) +
+                    " of the input " + std::to_string(i) +
+                    ": expect a non-negative value, but %d is provided\n";
                 StringRef errorMsg(msg);
                 create.krnl.printf(errorMsg, actualDim);
                 // Set errno.
