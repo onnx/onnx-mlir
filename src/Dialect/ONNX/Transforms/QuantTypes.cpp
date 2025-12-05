@@ -19,7 +19,7 @@ class Dequantize : public mlir::OpRewritePattern<mlir::ONNXDequantizeLinearOp> {
   using mlir::OpRewritePattern<mlir::ONNXDequantizeLinearOp>::OpRewritePattern;
 
   mlir::LogicalResult matchAndRewrite(mlir::ONNXDequantizeLinearOp dqOp,
-      mlir::PatternRewriter &rewriter) const final {
+      mlir::PatternRewriter &rewriter) const override {
 
     // Should not convert types when the output is used by 'return' op
     if (llvm::any_of(dqOp.getY().getUsers(), [](mlir::Operation *op) {
@@ -95,12 +95,17 @@ class Dequantize : public mlir::OpRewritePattern<mlir::ONNXDequantizeLinearOp> {
 class Quantize : public mlir::OpRewritePattern<mlir::ONNXQuantizeLinearOp> {
   using mlir::OpRewritePattern<mlir::ONNXQuantizeLinearOp>::OpRewritePattern;
 
+  mlir::LogicalResult matchAndRewrite(mlir::ONNXQuantizeLinearOp qOp,
+      mlir::PatternRewriter &rewriter) const override {
+    // Should not convert when input comes from blockArg or Cast node
+    // TODO: Fix for cast node by either of:
+    //  - Updating the cast to quantized type
+    //  - Add qcast after cast
     auto *inOp = qOp.getX().getDefiningOp();
     if (inOp == nullptr || mlir::isa<mlir::ONNXCastOp>(inOp))
-      return rewriter.notifyMatchFailure(qOp, "Not converting blockArg or Cast output");
+      return rewriter.notifyMatchFailure(
+          qOp, "Not converting blockArg or Cast output");
 
-  mlir::LogicalResult matchAndRewrite(mlir::ONNXQuantizeLinearOp qOp,
-      mlir::PatternRewriter &rewriter) const final {
     if (!mlir::isa_and_present<mlir::ONNXConstantOp>(
             qOp.getYScale().getDefiningOp()) ||
         !mlir::isa_and_present<mlir::ONNXConstantOp>(
