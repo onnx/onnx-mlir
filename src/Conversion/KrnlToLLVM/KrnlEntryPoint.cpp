@@ -506,9 +506,9 @@ private:
                 std::string msg =
                     "Wrong size for the dimension " + std::to_string(d) +
                     " of the input " + std::to_string(i) +
-                    ": expect a non-negative value, but %d is provided\n";
+                    ": expect a non-negative value\n";
                 StringRef errorMsg(msg);
-                create.krnl.printf(errorMsg, actualDim);
+                create.krnl.printf(errorMsg);
                 // Set errno.
                 krnl::emitErrNo(module, rewriter, loc, EINVAL);
                 // Return NULL.
