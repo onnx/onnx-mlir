@@ -294,7 +294,9 @@ public:
     };
 
     // Operands of this new op can be: NoValue's, constants, the operand of an
-    // input cast, or the current op's operand.
+    // input cast, or the current op's operand. We expect at least one input
+    // Cast operator.
+    bool hasAtLeastOneCastInput = false;
     SmallVector<Value> operands;
     llvm::transform(
         op->getOperands(), std::back_inserter(operands), [&](Value operand) {
@@ -305,27 +307,16 @@ public:
           if (onnx_mlir::isNoneValue(operand))
             return operand;
 
-          if (auto constOp = dyn_cast<mlir::ONNXConstantOp>(operandOp)) {
-            auto constValue = createNewConstantOp(rewriter, constOp,
-                constOp->getLoc(), fromFloatType, toFloatType);
-
-            createdOpsTrackerForFailedVerifier.push_back(
-                constValue.getDefiningOp());
-            return constValue;
-          }
-
           if (!isInputCastOp(operandOp, fromFloatType, toFloatType)) {
             return operand;
           }
 
+          hasAtLeastOneCastInput = true;
           newOpLocations.push_back(operandOp->getLoc());
           return cast<mlir::ONNXCastOp>(operandOp).getInput();
         });
 
-    if (llvm::any_of(operands, [&](auto operand) {
-          auto tensorType = dyn_cast<TensorType>(operand.getType());
-          return tensorType && tensorType.getElementType() == fromFloatType;
-        })) {
+    if (!hasAtLeastOneCastInput) {
       // Make sure to erase any additional op that was created so that the
       // rewriter doesn't trigger any changes by this pass.
       removeTrackedOps();
