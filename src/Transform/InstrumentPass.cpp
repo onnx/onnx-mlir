@@ -70,11 +70,14 @@ public:
       llvm::cl::desc("instrument runtime reports memory usage"),
       llvm::cl::init(false)};
 
+  Option<bool> skipConstants{*this, "skip-constants",
+      llvm::cl::desc("do not instrument constant ops"), llvm::cl::init(true)};
+
   InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>(),
         allowedOps(/*emptyIsNone*/ true) {}
-  InstrumentPass(const std::string &ops, unsigned actions)
+  InstrumentPass(const std::string &ops, unsigned actions, bool skipConstants)
       : allowedOps(/*emptyIsNone*/ true) {
     this->instrumentOps = ops;
     unsigned long long tag = actions;
@@ -82,6 +85,7 @@ public:
     this->instrumentAfter = IS_INSTRUMENT_AFTER_OP(tag);
     this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
     this->reportMemory = IS_INSTRUMENT_REPORT_MEMORY(tag);
+    this->skipConstants = skipConstants;
   }
 
 private:
@@ -144,7 +148,10 @@ public:
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
       // Skip other instrument ops.
-      if (isa<KrnlInstrumentOp>(op) || isa<ONNXPrintSignatureOp>(op))
+      if (isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op))
+        return WalkResult::advance();
+      if (skipConstants && isa<ONNXConstantOp, KrnlGlobalOp>(op))
+        // Asked to skip constants, do nothing.
         return WalkResult::advance();
 
       std::string opName = op->getName().getStringRef().str();
@@ -185,6 +192,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    const std::string &ops, unsigned actions) {
-  return std::make_unique<InstrumentPass>(ops, actions);
+    const std::string &ops, unsigned actions, bool profileConstantOps) {
+  return std::make_unique<InstrumentPass>(ops, actions, !profileConstantOps);
 }
