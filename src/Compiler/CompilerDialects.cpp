@@ -21,6 +21,7 @@
 #include "mlir/Dialect/MemRef/Transforms/RuntimeOpVerification.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 
 using namespace mlir;
@@ -43,6 +44,7 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   registry.insert<shape::ShapeDialect>();
   registry.insert<math::MathDialect>();
   registry.insert<memref::MemRefDialect>();
+  registry.insert<tensor::TensorDialect>();
   registry.insert<ONNXDialect>();
   registry.insert<KrnlDialect>();
   registry.insert<cf::ControlFlowDialect>();
