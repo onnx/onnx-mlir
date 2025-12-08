@@ -383,38 +383,41 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget, std::string outputNameNoExt) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
+  // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
 
+  // Step 2: Lower to Affine dialect (for EmitMLIR)
+  // Note: For Linalg path, ONNX→Linalg conversion happens in addONNXToMLIRPasses
+  //       when useLinalgPath is enabled. Then we lower Linalg→Affine.
+  //       For Krnl path, ONNX→Krnl conversion happens here, then Krnl→Affine.
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
       if (useLinalgPath) {
-        // ONNX → Linalg 변환은 이미 addONNXToMLIRPasses에서 처리됨
-        // Linalg → Affine lowering
+        // Linalg path: Lower Linalg to Affine
+        // ONNX→Linalg conversion already done in addONNXToMLIRPasses above
         addLinalgToAffinePasses(pm);
       } else {
-        // 기존 ONNX → Krnl 경로
+        // Krnl path: Convert ONNX to Krnl, then Krnl to Affine
         addONNXToKrnlPasses(
             pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
       }
     }
-    // Linalg 경로: addONNXToMLIRPasses 후 Linalg ops가 있으므로 MLIRLevel도 처리
-    if (inputIRLevel <= MLIRLevel) {
-      if (useLinalgPath) {
-        // Linalg → Affine lowering (이미 ONNXLevel에서 호출했지만 중복 호출 방지)
-        // 실제로는 ONNXLevel에서 이미 호출되었으므로 여기서는 스킵
-      } else {
-        addKrnlToAffinePasses(pm);
-      }
+    // For Krnl path: Lower Krnl to Affine (when input is already at MLIR level)
+    if (inputIRLevel <= MLIRLevel && !useLinalgPath) {
+      addKrnlToAffinePasses(pm);
     }
   }
 
-  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR) {
+  // Step 3: Lower to LLVM dialect (for EmitLLVMIR)
+  if (emissionTarget >= EmitLLVMIR) {
     if (useLinalgPath) {
-      // Linalg → LLVM lowering
+      // Linalg path: Lower remaining operations to LLVM
       addLinalgToLLVMPasses(pm);
     } else {
-      addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+      // Krnl path: Lower Krnl to LLVM
+      if (inputIRLevel <= LLVMLevel)
+        addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
     }
   }
 }
