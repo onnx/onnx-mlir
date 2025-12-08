@@ -98,6 +98,8 @@ ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
+bool useLinalgPath;                                    // onnx-mlir only
+
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -631,6 +633,11 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
         "Data type and shape are verified. Enable this may introduce overhead "
         "at runtime."),
     llvm::cl::location(verifyInputTensors), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
+    llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
+    llvm::cl::location(useLinalgPath), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> allowSortingOpt("allowSorting",

@@ -149,8 +149,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Replace ONNXReturnOp with func::ReturnOp.
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());
 
-  // ONNX to Linalg conversion pass
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
+  // ONNX to Linalg conversion pass (only if useLinalgPath is enabled)
+  if (useLinalgPath) {
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
+  }
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
@@ -377,18 +379,27 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
-      // ONNX to Linalg conversion pipeline
-      addONNXToLinalgPasses(pm);
-      // Also keep the existing Krnl pipeline for compatibility
-      addONNXToKrnlPasses(
-          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
+      if (useLinalgPath) {
+        // ONNX → Linalg 경로
+        addONNXToLinalgPasses(pm);
+      } else {
+        // 기존 ONNX → Krnl 경로
+        addONNXToKrnlPasses(
+            pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
+      }
     }
-    if (inputIRLevel <= MLIRLevel)
+    if (inputIRLevel <= MLIRLevel && !useLinalgPath)
       addKrnlToAffinePasses(pm);
   }
 
-  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR) {
+    if (useLinalgPath) {
+      // Linalg 파이프라인은 이미 addONNXToLinalgPasses에서 LLVM까지 처리됨
+      // 추가 LLVM lowering이 필요하면 여기에 추가
+    } else {
+      addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+    }
+  }
 }
 
 } // namespace onnx_mlir
