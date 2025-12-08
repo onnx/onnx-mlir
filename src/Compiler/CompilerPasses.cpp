@@ -24,6 +24,7 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
@@ -148,6 +149,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Replace ONNXReturnOp with func::ReturnOp.
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());
 
+  // ONNX to Linalg conversion pass
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 
@@ -222,6 +226,32 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
+}
+
+void addONNXToLinalgPasses(mlir::PassManager &pm) {
+  // Linalg to Loops
+  pm.addNestedPass<func::FuncOp>(mlir::createConvertLinalgToLoopsPass());
+
+  // Lower Affine operations
+  pm.addPass(mlir::createLowerAffinePass());
+
+  // Convert SCF to Control Flow
+  pm.addPass(mlir::createSCFToControlFlowPass());
+
+  // Convert Vector to LLVM
+  pm.addPass(mlir::createConvertVectorToLLVMPass());
+
+  // Convert Control Flow to LLVM
+  pm.addPass(mlir::createConvertControlFlowToLLVMPass());
+
+  // Convert MemRef to LLVM
+  pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+
+  // Convert Func to LLVM
+  pm.addPass(mlir::createConvertFuncToLLVMPass());
+
+  // Reconcile unrealized casts
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
 }
 
 void addKrnlToLLVMPasses(
@@ -334,9 +364,13 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {
-    if (inputIRLevel <= ONNXLevel)
+    if (inputIRLevel <= ONNXLevel) {
+      // ONNX to Linalg conversion pipeline
+      addONNXToLinalgPasses(pm);
+      // Also keep the existing Krnl pipeline for compatibility
       addONNXToKrnlPasses(
           pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
+    }
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
