@@ -184,7 +184,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
-
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -234,15 +233,15 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
   //   - Replace ONNXReturnOp with func::ReturnOp (createStandardFuncReturnPass)
   //   - Clean dead code (createSymbolDCEPass)
   //   - Other preprocessing passes
-  
+
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
-  
+
   // One-shot bufferization (Tensor → Memref)
   // This must be a module-level pass to handle function boundaries
   bufferization::OneShotBufferizePassOptions bufferizeOptions;
   bufferizeOptions.bufferizeFunctionBoundaries = true;
   pm.addPass(bufferization::createOneShotBufferizePass(bufferizeOptions));
-  
+
   // An additional pass of canonicalization is helpful after conversion
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -251,20 +250,23 @@ void addLinalgToAffinePasses(mlir::PassManager &pm) {
   // Convert Linalg operations to Affine/SCF loops
   // Similar to addKrnlToAffinePasses for Krnl path
   auto &funcPM = pm.nest<func::FuncOp>();
-  
-  // 1. Linalg → Loops (creates structured control-flow loops: affine.for, scf.for)
+
+  // 1. Linalg → Loops (creates structured control-flow loops: affine.for,
+  // scf.for)
   funcPM.addPass(mlir::createConvertLinalgToLoopsPass());
-  
+
   // 2. Buffer management (MUST be before convert-scf-to-cf)
   // buildBufferDeallocationPipeline requires structured control-flow loops
   // which are created by convert-linalg-to-loops above
-  // convert-scf-to-cf removes structured loops, so buffer management must come first
+  // convert-scf-to-cf removes structured loops, so buffer management must come
+  // first
   funcPM.addPass(bufferization::createBufferLoopHoistingPass());
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
-  mlir::bufferization::buildBufferDeallocationPipeline(funcPM, bufferDeallocOptions);
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      funcPM, bufferDeallocOptions);
   funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
   funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
-  
+
   // 3. Lower to Affine/SCF (after buffer management)
   funcPM.addPass(mlir::createLowerAffinePass());
   funcPM.addPass(mlir::createSCFToControlFlowPass());
@@ -273,13 +275,14 @@ void addLinalgToAffinePasses(mlir::PassManager &pm) {
 void addLinalgToLLVMPasses(mlir::PassManager &pm) {
   // Convert remaining operations to LLVM dialect
   // Similar to addKrnlToLLVMPasses for Krnl path
-  // Note: This function takes PassManager (not OpPassManager) like addKrnlToLLVMPasses
-  // but we use PassManager for consistency with the function signature
-  
+  // Note: This function takes PassManager (not OpPassManager) like
+  // addKrnlToLLVMPasses but we use PassManager for consistency with the
+  // function signature
+
   // Remove onnx.EntryPoint before LLVM conversion
-  // (Krnl path converts it to krnl.EntryPoint, but Linalg path doesn't use Krnl)
-  // We need to remove it as it cannot be converted to LLVM
-  // Use a simple pass that removes operations by name
+  // (Krnl path converts it to krnl.EntryPoint, but Linalg path doesn't use
+  // Krnl) We need to remove it as it cannot be converted to LLVM Use a simple
+  // pass that removes operations by name
   struct RemoveONNXEntryPointPass
       : public mlir::PassWrapper<RemoveONNXEntryPointPass,
             mlir::OperationPass<mlir::ModuleOp>> {
@@ -288,7 +291,8 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm) {
       mlir::ModuleOp module = getOperation();
       SmallVector<Operation *> toErase;
       module.walk([&](Operation *op) {
-        // Check if this is an onnx.EntryPoint operation by checking the operation name
+        // Check if this is an onnx.EntryPoint operation by checking the
+        // operation name
         StringRef opName = op->getName().getStringRef();
         if (opName == "onnx.EntryPoint" || opName.contains("EntryPoint")) {
           toErase.push_back(op);
@@ -304,10 +308,10 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm) {
     }
   };
   pm.addPass(std::make_unique<RemoveONNXEntryPointPass>());
-  
+
   // Vector → LLVM (if needed)
   pm.addPass(mlir::createConvertVectorToLLVMPass());
-  
+
   // Final LLVM conversion
   pm.addPass(mlir::createConvertControlFlowToLLVMPass());
   pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
@@ -421,23 +425,16 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget, std::string outputNameNoExt) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  // Debug: Log pass execution
-  if (useLinalgPath) {
-    llvm::errs() << "[DEBUG] addPasses: useLinalgPath=true, emissionTarget=" 
-                 << static_cast<int>(emissionTarget) << ", inputIRLevel=" 
-                 << static_cast<int>(inputIRLevel) << "\n";
-  }
-
   // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
   if (inputIRLevel <= ONNXLevel) {
-    // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp -> func::ReturnOp, etc.)
-    // This is needed for both Krnl and Linalg paths
-    bool shouldCallONNXToMLIR = emissionTarget >= EmitONNXIR || 
-                                 (emissionTarget >= EmitMLIR && useLinalgPath);
+    // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
+    // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
+    bool shouldCallONNXToMLIR = emissionTarget >= EmitONNXIR ||
+                                (emissionTarget >= EmitMLIR && useLinalgPath);
     if (shouldCallONNXToMLIR) {
       addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
     }
-    
+
     if (useLinalgPath) {
       // Linalg path: Convert ONNX to Linalg (after preprocessing)
       addONNXToLinalgPasses(pm);
