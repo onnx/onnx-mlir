@@ -450,17 +450,20 @@ private:
       auto JSONItemType = JSONItem->getString("type");
       assert(JSONItemType && "failed to get type");
       Type elemTy = parseType(JSONItemType.value(), rewriter.getContext());
-      std::string elemTyStr;
-      llvm::raw_string_ostream dstream(elemTyStr);
-      dstream << elemTy;
-      dstream.flush();
-      int64_t dtype = krnl::mlirTypeToOnnxType(elemTy);
-      equalOrFailed(module, rewriter, loc, create.llvm.constant(int64Ty, dtype),
-          RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-              RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}),
-          "Wrong data type for the input " + std::to_string(i) + ": expect " +
-              elemTyStr,
-          false);
+      if (elemTy) {
+        std::string elemTyStr;
+        llvm::raw_string_ostream dstream(elemTyStr);
+        dstream << elemTy;
+        dstream.flush();
+        int64_t dtype = krnl::mlirTypeToOnnxType(elemTy);
+        equalOrFailed(module, rewriter, loc,
+            create.llvm.constant(int64Ty, dtype),
+            RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+                RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}),
+            "Wrong data type for the input " + std::to_string(i) + ": expect " +
+                elemTyStr,
+            false);
+      }
 
       // Verify data rank.
       auto JSONDimArray = JSONItem->getArray("dims");
@@ -492,7 +495,7 @@ private:
           create.llvm.ifThenElse(/*cond=*/
               [&](const LLVMBuilder &createLLVM) {
                 Value zero =
-                    createLLVM.constant(int64Ty, static_cast<int64_t>(d));
+                    createLLVM.constant(int64Ty, static_cast<int64_t>(0));
                 return createLLVM.icmp(
                     LLVM::ICmpPredicate::slt, actualDim, zero);
               }, /*then=*/

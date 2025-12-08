@@ -30,28 +30,26 @@ print(opt_mod(input1, input2))
 
 import onnxmlirtorch
 
-# This option is just an example on my x86 machine
+# Use the default compiler container image to compile
 # --verifyInputTensors is for debug purpose
 my_option = {
-    "compiler_image_name": None,
     "compile_options": "--verifyInputTensors",
-    "compiler_path": "/gpfs/projects/s/stco/users/chentong/Projects/onnx-mlir-compiler/onnx-mlir/build-1/Debug/bin/onnx-mlir",
 }
 
-opt_mod = torch.compile(mod, backend=onnxmlirtorch.onnxmlir_backend, options=my_option)
+opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
 
 # First inference
 input = torch.randn(2)
 output = opt_mod(input, input)
 print("output: ", output)
 
-# Second inference: different input shapes, so recompile the model.
+
+# Second inference
 input1 = torch.randn(3)
 input2 = torch.randn(3)
 output1 = opt_mod(input1, input2)
 print("output: ", output1)
 
-# Third inference: reuse the compiled .so in the cache: no recompilation.
 input3 = torch.randn(2)
 output2 = opt_mod(input3, input3)
 print("output: ", output2)
