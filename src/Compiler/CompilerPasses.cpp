@@ -229,7 +229,19 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 }
 
 void addONNXToLinalgPasses(mlir::PassManager &pm) {
-  // Linalg to Loops
+  // Bufferization: Convert tensor to memref
+  // Hoist allocations out of loop nests to avoid stack overflow.
+  pm.addPass(bufferization::createBufferLoopHoistingPass());
+
+  // Use MLIR buffer deallocation pass to emit buffer deallocs.
+  bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      pm, bufferDeallocOptions);
+  // This pass is necessary to move deallocation after the last user.
+  pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+  pm.addPass(mlir::createConvertBufferizationToMemRefPass());
+
+  // Linalg to Loops (now works on memref instead of tensor)
   pm.addNestedPass<func::FuncOp>(mlir::createConvertLinalgToLoopsPass());
 
   // Lower Affine operations
