@@ -33,12 +33,15 @@ class Dequantize : public mlir::OpRewritePattern<mlir::ONNXDequantizeLinearOp> {
             dqOp.getXZeroPoint().getDefiningOp()))
       return rewriter.notifyMatchFailure(dqOp, "Scale/Zeropoint not constant");
 
-    auto scale = mlir::cast<mlir::DenseIntOrFPElementsAttr>(
+    auto scale = mlir::dyn_cast<mlir::DenseIntOrFPElementsAttr>(
         mlir::cast<mlir::ONNXConstantOp>(dqOp.getXScale().getDefiningOp())
             .getValueAttr());
-    auto zeropoint = mlir::cast<mlir::DenseIntOrFPElementsAttr>(
+    auto zeropoint = mlir::dyn_cast<mlir::DenseIntOrFPElementsAttr>(
         mlir::cast<mlir::ONNXConstantOp>(dqOp.getXZeroPoint().getDefiningOp())
             .getValueAttr());
+    if (scale == nullptr || zeropoint == nullptr)
+      return rewriter.notifyMatchFailure(
+          dqOp, "Scale/Zeropoint not DenseElementsAttr");
 
     // TODO: Add support for per-channel quantization
     if (scale.getNumElements() != 1 || zeropoint.getNumElements() != 1)
@@ -112,12 +115,15 @@ class Quantize : public mlir::OpRewritePattern<mlir::ONNXQuantizeLinearOp> {
             qOp.getYZeroPoint().getDefiningOp()))
       return rewriter.notifyMatchFailure(qOp, "Scale/Zeropoint not constant");
 
-    auto scale = mlir::cast<mlir::DenseIntOrFPElementsAttr>(
+    auto scale = mlir::dyn_cast<mlir::DenseIntOrFPElementsAttr>(
         mlir::cast<mlir::ONNXConstantOp>(qOp.getYScale().getDefiningOp())
             .getValueAttr());
-    auto zeropoint = mlir::cast<mlir::DenseIntOrFPElementsAttr>(
+    auto zeropoint = mlir::dyn_cast<mlir::DenseIntOrFPElementsAttr>(
         mlir::cast<mlir::ONNXConstantOp>(qOp.getYZeroPoint().getDefiningOp())
             .getValueAttr());
+    if (scale == nullptr || zeropoint == nullptr)
+      return rewriter.notifyMatchFailure(
+          qOp, "Scale/Zeropoint not DenseElementsAttr");
 
     // TODO: Add support for per-channel quantization
     if (scale.getNumElements() != 1 || zeropoint.getNumElements() != 1)
