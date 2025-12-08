@@ -14,8 +14,11 @@
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 
 #include "mlir/Dialect/Arith/Transforms/BufferDeallocationOpInterfaceImpl.h"
+#include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/Transforms/AllocationOpInterfaceImpl.h"
 #include "mlir/Dialect/MemRef/Transforms/RuntimeOpVerification.h"
@@ -61,6 +64,11 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   // Register interface needed by both old and new buffer deallocation pass.
   memref::registerAllocationOpInterfaceExternalModels(registry);
   arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  
+  // Register BufferizableOpInterface for one-shot bufferization (needed for Linalg path)
+  arith::registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::registerBufferizableOpInterfaceExternalModels(registry);
+  tensor::registerBufferizableOpInterfaceExternalModels(registry);
 
   return registry;
 }
