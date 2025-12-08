@@ -384,12 +384,18 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
-  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+  // For Linalg path: ONNX→Linalg conversion happens in addONNXToMLIRPasses
+  // For Krnl path: ONNX→Krnl conversion happens in addONNXToKrnlPasses (Step 2)
+  if (inputIRLevel <= ONNXLevel) {
+    // Always call addONNXToMLIRPasses if we need to process ONNX ops
+    // This ensures ONNX→Linalg conversion happens for Linalg path
+    if (emissionTarget >= EmitONNXIR || (emissionTarget >= EmitMLIR && useLinalgPath))
+      addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+  }
 
   // Step 2: Lower to Affine dialect (for EmitMLIR)
-  // Note: For Linalg path, ONNX→Linalg conversion happens in addONNXToMLIRPasses
-  //       when useLinalgPath is enabled. Then we lower Linalg→Affine.
+  // Note: For Linalg path, ONNX→Linalg conversion already done in Step 1.
+  //       Then we lower Linalg→Affine here.
   //       For Krnl path, ONNX→Krnl conversion happens here, then Krnl→Affine.
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
