@@ -192,27 +192,37 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding ConvertONNXToLinalgPass\n";
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
     
+    // 2. One-shot bufferization (Tensor → Memref)
+    // This must be a module-level pass to handle function boundaries
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding one-shot-bufferize pass\n";
+    bufferization::OneShotBufferizePassOptions bufferizeOptions;
+    bufferizeOptions.bufferizeFunctionBoundaries = true;
+    pm.addPass(bufferization::createOneShotBufferizePass(bufferizeOptions));
+    
     // Get nested pass manager and add Linalg lowering passes
     // Using pm.nest to get the same nested pass manager that addNestedPass uses
     auto &funcPM = pm.nest<func::FuncOp>();
     
-    // 2. Linalg → Loops (this pass handles tensor to memref conversion internally)
-    // Note: convert-linalg-to-affine-loops can work with tensor types and converts them
-    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Linalg to Loops pass (handles bufferization)\n";
+    // 3. Linalg → Loops (now works with memref types)
+    // This creates structured control-flow loops (affine.for, scf.for)
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Linalg to Loops pass\n";
     funcPM.addPass(mlir::createConvertLinalgToLoopsPass());
     
-    // 3. Lower to Affine/SCF
-    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Lower to Affine/SCF passes\n";
-    funcPM.addPass(mlir::createLowerAffinePass());
-    funcPM.addPass(mlir::createSCFToControlFlowPass());
-    
-    // 4. Buffer management (after lowering, for memref operations)
+    // 4. Buffer management (MUST be before convert-scf-to-cf)
+    // buildBufferDeallocationPipeline requires structured control-flow loops
+    // which are created by convert-linalg-to-loops above
+    // convert-scf-to-cf removes structured loops, so buffer management must come first
     llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding buffer management passes\n";
     funcPM.addPass(bufferization::createBufferLoopHoistingPass());
     bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
     mlir::bufferization::buildBufferDeallocationPipeline(funcPM, bufferDeallocOptions);
     funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
     funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
+    
+    // 5. Lower to Affine/SCF (after buffer management)
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Lower to Affine/SCF passes\n";
+    funcPM.addPass(mlir::createLowerAffinePass());
+    funcPM.addPass(mlir::createSCFToControlFlowPass());
   }
 }
 
