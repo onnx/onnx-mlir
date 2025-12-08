@@ -424,7 +424,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   // Debug: Log pass execution
   if (useLinalgPath) {
     llvm::errs() << "[DEBUG] addPasses: useLinalgPath=true, emissionTarget=" 
-                 << (int)emissionTarget << ", inputIRLevel=" << (int)inputIRLevel << "\n";
+                 << static_cast<int>(emissionTarget) << ", inputIRLevel=" 
+                 << static_cast<int>(inputIRLevel) << "\n";
   }
 
   // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
