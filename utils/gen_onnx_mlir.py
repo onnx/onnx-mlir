@@ -921,7 +921,14 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
 
-        if FloatTypes.issubset(types):
+        qType = False
+        if op_name == "DequantizeLinear":
+            qType = is_input and i == 0
+        elif op_name == "QuantizeLinear":
+            qType = not is_input and i == 0
+        else:
+            qType = FloatTypes.issubset(types)
+        if qType:
             types.append("TensorOf<[quant_QuantizedType]>")
 
         if OpSchema.FormalParameterOption.Optional == value.option:

@@ -1987,12 +1987,12 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   `zero-point` is usually not used in the case of float8 types quantization, but the dequantization formula remains the same
   for consistency, and `x_scale` still determines the output type.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[I32]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>]>:$x,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$x_scale,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[I32]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>:$x,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$x_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[I32]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, NoneType]>:$x_zero_point,
     DefaultValuedAttr<SI64Attr, "1">:$axis,
     DefaultValuedAttr<SI64Attr, "0">:$block_size);
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -6269,14 +6269,14 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
     blocking is performed. Given `x` shape `(D0, ..., Di, ..., Dn)`, `axis=i`, and block size `B`: `y_scale` shape is
     `(D0, ..., ceil(Di/B), ..., Dn)`.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>]>:$x,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>]>:$y_scale,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I32]>]>:$x,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I32]>]>:$y_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, NoneType]>:$y_zero_point,
     DefaultValuedAttr<SI64Attr, "1">:$axis,
     DefaultValuedAttr<SI64Attr, "0">:$block_size,
     DefaultValuedAttr<SI64Attr, "0">:$output_dtype,
     DefaultValuedAttr<SI64Attr, "1">:$saturate);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
