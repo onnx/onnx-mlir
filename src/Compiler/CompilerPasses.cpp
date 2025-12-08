@@ -231,6 +231,13 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 }
 
 void addONNXToLinalgPasses(mlir::PassManager &pm) {
+  // This function is kept for backward compatibility but is now split into
+  // addLinalgToAffinePasses and addLinalgToLLVMPasses
+  addLinalgToAffinePasses(pm);
+  addLinalgToLLVMPasses(pm);
+}
+
+void addLinalgToAffinePasses(mlir::PassManager &pm) {
   // Bufferization: Convert tensor to memref
   // Hoist allocations out of loop nests to avoid stack overflow.
   pm.addPass(bufferization::createBufferLoopHoistingPass());
@@ -248,7 +255,9 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
 
   // Lower Affine operations
   pm.addPass(mlir::createLowerAffinePass());
+}
 
+void addLinalgToLLVMPasses(mlir::PassManager &pm) {
   // Convert SCF to Control Flow
   pm.addPass(mlir::createSCFToControlFlowPass());
 
@@ -380,22 +389,30 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
       if (useLinalgPath) {
-        // ONNX → Linalg 경로
-        addONNXToLinalgPasses(pm);
+        // ONNX → Linalg 변환은 이미 addONNXToMLIRPasses에서 처리됨
+        // Linalg → Affine lowering
+        addLinalgToAffinePasses(pm);
       } else {
         // 기존 ONNX → Krnl 경로
         addONNXToKrnlPasses(
             pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
       }
     }
-    if (inputIRLevel <= MLIRLevel && !useLinalgPath)
-      addKrnlToAffinePasses(pm);
+    // Linalg 경로: addONNXToMLIRPasses 후 Linalg ops가 있으므로 MLIRLevel도 처리
+    if (inputIRLevel <= MLIRLevel) {
+      if (useLinalgPath) {
+        // Linalg → Affine lowering (이미 ONNXLevel에서 호출했지만 중복 호출 방지)
+        // 실제로는 ONNXLevel에서 이미 호출되었으므로 여기서는 스킵
+      } else {
+        addKrnlToAffinePasses(pm);
+      }
+    }
   }
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR) {
     if (useLinalgPath) {
-      // Linalg 파이프라인은 이미 addONNXToLinalgPasses에서 LLVM까지 처리됨
-      // 추가 LLVM lowering이 필요하면 여기에 추가
+      // Linalg → LLVM lowering
+      addLinalgToLLVMPasses(pm);
     } else {
       addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
     }
