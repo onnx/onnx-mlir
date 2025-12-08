@@ -20,8 +20,8 @@ jobs:
 
     - name: install tools that are needed for compilation
       run: |
-        brew install automake ninja protobuf@32 pybind11
-        python3 -m pip install protobuf==6.32.0
+        brew install automake ninja protobuf@33 pybind11
+        python3 -m pip install protobuf==6.33.0
 
     - name: get protobuf version
       id: get-protobuf-version
