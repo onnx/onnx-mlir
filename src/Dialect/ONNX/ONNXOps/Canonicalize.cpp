@@ -2445,21 +2445,25 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
     if (!oldTranspose->hasOneUse())
       return rewriter.notifyMatchFailure(
           mulOp, "more than one use for transpose");
-    // push transpose after mul
-    auto transposePerm = oldTranspose.getPerm();
-    if (!transposePerm.has_value())
+
+    // use shape helper to get perm (handles default transpose case)
+    IndexExprBuilderForAnalysis createIE(oldTranspose->getLoc());
+    ONNXTransposeOpShapeHelper shapeHelper(
+        oldTranspose.getOperation(), {oldTranspose.getData()}, &createIE);
+    if (shapeHelper.computeShape().failed())
       return rewriter.notifyMatchFailure(
-          mulOp, "transpose need a constant permutation");
+          mulOp, "could not compute transpose shape");
+    ArrayAttr transposePerm = oldTranspose.getPermAttr();
 
     scale = create.onnx.upRank(scale, getRank(Y.getType()));
     auto transposedMulInput = create.onnx.transposeInt64(
         scale, invertPermutationVector(
-                   extractFromIntegerArrayAttr<int64_t>(*transposePerm)));
+                   extractFromIntegerArrayAttr<int64_t>(transposePerm)));
     auto newMulOp = create.onnx.mul(Y, transposedMulInput);
     newMulOp.setLoc(mulOp->getLoc());
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(mulOp,
         {oldTranspose->getLoc()}, transposedY.getType(), newMulOp,
-        *transposePerm);
+        transposePerm);
     return llvm::success();
   }
 };
