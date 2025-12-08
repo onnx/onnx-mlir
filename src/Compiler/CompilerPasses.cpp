@@ -38,6 +38,7 @@
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -274,6 +275,35 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm) {
   // Similar to addKrnlToLLVMPasses for Krnl path
   // Note: This function takes PassManager (not OpPassManager) like addKrnlToLLVMPasses
   // but we use PassManager for consistency with the function signature
+  
+  // Remove onnx.EntryPoint before LLVM conversion
+  // (Krnl path converts it to krnl.EntryPoint, but Linalg path doesn't use Krnl)
+  // We need to remove it as it cannot be converted to LLVM
+  // Use a simple pass that removes operations by name
+  struct RemoveONNXEntryPointPass
+      : public mlir::PassWrapper<RemoveONNXEntryPointPass,
+            mlir::OperationPass<mlir::ModuleOp>> {
+    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RemoveONNXEntryPointPass)
+    void runOnOperation() override {
+      mlir::ModuleOp module = getOperation();
+      SmallVector<Operation *> toErase;
+      module.walk([&](Operation *op) {
+        // Check if this is an onnx.EntryPoint operation by checking the operation name
+        StringRef opName = op->getName().getStringRef();
+        if (opName == "onnx.EntryPoint" || opName.contains("EntryPoint")) {
+          toErase.push_back(op);
+        }
+      });
+      for (Operation *op : toErase) {
+        op->erase();
+      }
+    }
+    StringRef getArgument() const override { return "remove-onnx-entry-point"; }
+    StringRef getDescription() const override {
+      return "Remove onnx.EntryPoint operations before LLVM conversion";
+    }
+  };
+  pm.addPass(std::make_unique<RemoveONNXEntryPointPass>());
   
   // Vector → LLVM (if needed)
   pm.addPass(mlir::createConvertVectorToLLVMPass());
