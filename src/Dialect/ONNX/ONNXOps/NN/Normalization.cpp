@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -173,8 +173,6 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
   auto inputType = mlir::cast<ShapedType>(input.getType());
   auto inputShape = inputType.getShape();
   auto inputElementType = inputType.getElementType();
-  if (auto qType = mlir::dyn_cast<mlir::quant::QuantizedType>(inputElementType))
-    inputElementType = qType.getExpressedType();
   int64_t spatialRank = inputShape.size() - 2;
   // If ranked, verify ranks of inputs.
   if (spatialRank < 1)
@@ -191,10 +189,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
         inputShape[1] != ShapedType::kDynamic && bShape[0] != inputShape[1])
       return emitOpError(
           "Bias should have same dimension as the second dimension of input");
-    auto bElementType = bType.getElementType();
-    if (auto qType = mlir::dyn_cast<mlir::quant::QuantizedType>(bElementType))
-      bElementType = qType.getExpressedType();
-    if (bElementType != inputElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(inputElementType) &&
+        bType.getElementType() != inputElementType)
       return emitOpError("Bias should have same element type as input");
   }
 
@@ -209,10 +205,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
         inputShape[1] != ShapedType::kDynamic && scaleShape[0] != inputShape[1])
       return emitOpError(
           "Scale should have same dimension as the second dimension of input");
-    auto scaleElementType = scaleType.getElementType();
-    if (auto qType = mlir::dyn_cast<mlir::quant::QuantizedType>(scaleElementType))
-      scaleElementType = qType.getExpressedType();
-    if (scaleElementType != inputElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(inputElementType) &&
+        scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
 
@@ -261,8 +255,6 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
   ArrayRef<int64_t> XShape = XType.getShape();
   int64_t XRank = XShape.size();
   Type XElementType = XType.getElementType();
-  if (auto qType = mlir::dyn_cast<mlir::quant::QuantizedType>(XElementType))
-    XElementType = qType.getExpressedType();
 
   // Axis attribute (if specified) must be in the range [-r,r), where r =
   // rank(input).
@@ -281,10 +273,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (static_cast<int64_t>(BBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible B shapes "
                       "(unidirectional broadcast)");
-    auto bElementType = bType.getElementType();
-    if (auto qType = mlir::dyn_cast<mlir::quant::QuantizedType>(bElementType))
-      bElementType = qType.getExpressedType();
-    if (bElementType != XElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(XElementType) &&
+        bType.getElementType() != XElementType)
       op->emitOpError("LayerNormalization op with incompatible B type");
   }
 
@@ -301,10 +291,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (static_cast<int64_t>(scaleBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible scale shapes "
                       "(unidirectional broadcast)");
-    auto scaleElementType = scaleType.getElementType();
-    if (auto qType = mlir::dyn_cast<mlir::quant::QuantizedType>(scaleElementType))
-      scaleElementType = qType.getExpressedType();
-    if (scaleElementType != XElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(XElementType) &&
+        scaleType.getElementType() != XElementType)
       op->emitOpError("LayerNormalization op with incompatible scale type");
   }
 
