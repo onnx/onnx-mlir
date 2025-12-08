@@ -151,7 +151,29 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // ONNX to Linalg conversion pass (only if useLinalgPath is enabled)
   if (useLinalgPath) {
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding ConvertONNXToLinalgPass\n";
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
+    
+    // Get nested pass manager and add Linalg lowering passes immediately after
+    // This ensures ConvertONNXToLinalgPass runs before bufferization passes
+    auto &funcPM = pm.nest<func::FuncOp>();
+    
+    // 1. Linalg Bufferization (Tensor → Memref)
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Linalg bufferization passes\n";
+    funcPM.addPass(bufferization::createBufferLoopHoistingPass());
+    bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+    mlir::bufferization::buildBufferDeallocationPipeline(funcPM, bufferDeallocOptions);
+    funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+    funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
+    
+    // 2. Linalg → Loops
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Linalg to Loops pass\n";
+    funcPM.addPass(mlir::createConvertLinalgToLoopsPass());
+    
+    // 3. Lower to Affine/SCF
+    llvm::errs() << "[DEBUG] addONNXToMLIRPasses: Adding Lower to Affine/SCF passes\n";
+    funcPM.addPass(mlir::createLowerAffinePass());
+    funcPM.addPass(mlir::createSCFToControlFlowPass());
   }
 
   // Clean dead code.
@@ -238,43 +260,51 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
 }
 
 void addLinalgToAffinePasses(mlir::PassManager &pm) {
-  // Bufferization: Convert tensor to memref
-  // Hoist allocations out of loop nests to avoid stack overflow.
-  pm.addPass(bufferization::createBufferLoopHoistingPass());
-
-  // Use MLIR buffer deallocation pass to emit buffer deallocs.
+  llvm::errs() << "[DEBUG] addLinalgToAffinePasses: Adding Linalg to Affine passes\n";
+  
+  // Get nested pass manager to ensure passes run after ConvertONNXToLinalgPass
+  auto &funcPM = pm.nest<func::FuncOp>();
+  
+  // 1. Linalg Bufferization (Tensor → Memref)
+  llvm::errs() << "[DEBUG] addLinalgToAffinePasses: Step 1 - Bufferization\n";
+  // Note: createLinalgBufferizePass() doesn't exist in current MLIR version
+  // Using bufferization pipeline instead
+  // funcPM.addPass(mlir::createLinalgBufferizePass());  // Not available
+  funcPM.addPass(bufferization::createBufferLoopHoistingPass());
+  
+  // Buffer deallocation pipeline
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
-  mlir::bufferization::buildBufferDeallocationPipeline(
-      pm, bufferDeallocOptions);
-  // This pass is necessary to move deallocation after the last user.
-  pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
-  pm.addPass(mlir::createConvertBufferizationToMemRefPass());
-
-  // Linalg to Loops (now works on memref instead of tensor)
-  pm.addNestedPass<func::FuncOp>(mlir::createConvertLinalgToLoopsPass());
-
-  // Lower Affine operations
-  pm.addPass(mlir::createLowerAffinePass());
+  mlir::bufferization::buildBufferDeallocationPipeline(funcPM, bufferDeallocOptions);
+  funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+  funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
+  
+  // 2. Linalg → Loops
+  llvm::errs() << "[DEBUG] addLinalgToAffinePasses: Step 2 - Linalg to Loops\n";
+  funcPM.addPass(mlir::createConvertLinalgToLoopsPass());
+  
+  // 3. Lower to Affine/SCF
+  llvm::errs() << "[DEBUG] addLinalgToAffinePasses: Step 3 - Lower to Affine/SCF\n";
+  funcPM.addPass(mlir::createLowerAffinePass());
+  funcPM.addPass(mlir::createSCFToControlFlowPass());
+  
+  llvm::errs() << "[DEBUG] addLinalgToAffinePasses: All passes added to nested pass manager\n";
 }
 
 void addLinalgToLLVMPasses(mlir::PassManager &pm) {
-  // Convert SCF to Control Flow
-  pm.addPass(mlir::createSCFToControlFlowPass());
-
-  // Convert Vector to LLVM
+  llvm::errs() << "[DEBUG] addLinalgToLLVMPasses: Adding Linalg to LLVM passes (simple pm.addPass only)\n";
+  
+  // 4. Vector → LLVM (if needed)
+  llvm::errs() << "[DEBUG] addLinalgToLLVMPasses: Step 4 - Vector to LLVM\n";
   pm.addPass(mlir::createConvertVectorToLLVMPass());
-
-  // Convert Control Flow to LLVM
+  
+  // 5. Final LLVM conversion
+  llvm::errs() << "[DEBUG] addLinalgToLLVMPasses: Step 5 - Final LLVM conversion\n";
   pm.addPass(mlir::createConvertControlFlowToLLVMPass());
-
-  // Convert MemRef to LLVM
   pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-
-  // Convert Func to LLVM
   pm.addPass(mlir::createConvertFuncToLLVMPass());
-
-  // Reconcile unrealized casts
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  
+  llvm::errs() << "[DEBUG] addLinalgToLLVMPasses: All passes added\n";
 }
 
 void addKrnlToLLVMPasses(
@@ -383,26 +413,37 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget, std::string outputNameNoExt) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
+  // Debug: Log pass execution
+  if (useLinalgPath) {
+    llvm::errs() << "[DEBUG] addPasses: useLinalgPath=true, emissionTarget=" 
+                 << (int)emissionTarget << ", inputIRLevel=" << (int)inputIRLevel << "\n";
+  }
+
   // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
   // For Linalg path: ONNX→Linalg conversion happens in addONNXToMLIRPasses
   // For Krnl path: ONNX→Krnl conversion happens in addONNXToKrnlPasses (Step 2)
   if (inputIRLevel <= ONNXLevel) {
     // Always call addONNXToMLIRPasses if we need to process ONNX ops
     // This ensures ONNX→Linalg conversion happens for Linalg path
-    if (emissionTarget >= EmitONNXIR || (emissionTarget >= EmitMLIR && useLinalgPath))
+    bool shouldCallONNXToMLIR = emissionTarget >= EmitONNXIR || 
+                                 (emissionTarget >= EmitMLIR && useLinalgPath);
+    if (shouldCallONNXToMLIR) {
+      if (useLinalgPath) {
+        llvm::errs() << "[DEBUG] addPasses: Calling addONNXToMLIRPasses (Linalg path)\n";
+      }
       addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+    }
   }
 
   // Step 2: Lower to Affine dialect (for EmitMLIR)
-  // Note: For Linalg path, ONNX→Linalg conversion already done in Step 1.
-  //       Then we lower Linalg→Affine here.
+  // Note: For Linalg path, ONNX→Linalg conversion and Linalg→Affine lowering
+  //       are already done in addONNXToMLIRPasses above.
   //       For Krnl path, ONNX→Krnl conversion happens here, then Krnl→Affine.
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
       if (useLinalgPath) {
-        // Linalg path: Lower Linalg to Affine
-        // ONNX→Linalg conversion already done in addONNXToMLIRPasses above
-        addLinalgToAffinePasses(pm);
+        // Linalg path: Lowering already done in addONNXToMLIRPasses above
+        llvm::errs() << "[DEBUG] addPasses: Linalg lowering already done in addONNXToMLIRPasses\n";
       } else {
         // Krnl path: Convert ONNX to Krnl, then Krnl to Affine
         addONNXToKrnlPasses(
@@ -419,6 +460,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   if (emissionTarget >= EmitLLVMIR) {
     if (useLinalgPath) {
       // Linalg path: Lower remaining operations to LLVM
+      llvm::errs() << "[DEBUG] addPasses: Calling addLinalgToLLVMPasses\n";
       addLinalgToLLVMPasses(pm);
     } else {
       // Krnl path: Lower Krnl to LLVM
