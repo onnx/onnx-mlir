@@ -45,18 +45,28 @@ struct ConvertONNXToLinalgPass
     auto function = getOperation();
     MLIRContext *context = &getContext();
     
+    llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: Running on function " 
+                 << function.getName() << "\n";
+    
     // Debug: Check if there are any ONNX ops to convert
     bool hasONNXOps = false;
+    int onnxOpCount = 0;
     function.walk([&](Operation *op) {
       if (isa<ONNXMatMulOp>(op)) {
         hasONNXOps = true;
-        return WalkResult::interrupt();
+        onnxOpCount++;
+        llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: Found ONNXMatMulOp at " 
+                     << op->getLoc() << "\n";
       }
       return WalkResult::advance();
     });
     
+    llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: Found " << onnxOpCount 
+                 << " ONNXMatMulOp(s)\n";
+    
     if (!hasONNXOps) {
       // No ONNX ops to convert, skip this pass
+      llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: No ONNX ops found, skipping\n";
       return;
     }
     
@@ -66,11 +76,28 @@ struct ConvertONNXToLinalgPass
     // Populate lowering patterns
     populateLoweringONNXMatMulOpToLinalgPattern(patterns, typeConverter, context);
     
+    llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: Applying " 
+                 << patterns.getNativePatterns().size() << " patterns\n";
+    
     // Apply patterns greedily
     GreedyRewriteConfig config;
     if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
+      llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: Pattern application failed\n";
       signalPassFailure();
+      return;
     }
+    
+    // Debug: Check if conversion was successful
+    int linalgOpCount = 0;
+    function.walk([&](Operation *op) {
+      if (isa<linalg::MatmulOp>(op)) {
+        linalgOpCount++;
+      }
+      return WalkResult::advance();
+    });
+    
+    llvm::errs() << "[DEBUG] ConvertONNXToLinalgPass: After conversion, found " 
+                 << linalgOpCount << " linalg.matmul op(s)\n";
   }
 };
 
