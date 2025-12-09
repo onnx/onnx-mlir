@@ -4,7 +4,7 @@
 
 //===------------- ONNXDequantizeLinearOp.cpp - ONNXDequantizeLinearOp-----===//
 //
-// Copyright (c) 2023 Advanced Micro Devices, Inc.
+// Copyright (c) 2023-2025 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -34,6 +34,7 @@ public:
     Location loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     Value x = op.getX();
+
     auto resultType = dyn_cast_if_present<ShapedType>(
         getTypeConverter()->convertType(op.getResult().getType()));
     if (!resultType || !resultType.hasStaticShape()) {
@@ -95,8 +96,9 @@ public:
         rewriter, loc, adaptor.getXScale(), axis, resultType.getRank());
     Value scaleFactorCast =
         tosaBuilder.castToNewTensorElementType(scaleFactorConst, arithType);
+    Value shiftConst = tosa::createMulShiftConst(rewriter, loc, 0);
     Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-        rewriter, loc, casted.getType(), casted, scaleFactorCast, 0)
+        rewriter, loc, casted.getType(), casted, scaleFactorCast, shiftConst)
                       .getResult();
     Value castOp = tosaBuilder.castToNewTensorElementType(
         mulOp, resultType.getElementType());

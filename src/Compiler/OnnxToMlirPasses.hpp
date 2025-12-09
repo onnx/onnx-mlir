@@ -16,10 +16,14 @@ struct OnnxToMlirOptions {
   bool enableConvTransposeDecompose = false;
   bool enableConvTransposeDecomposeToPhasedConv = false;
   bool enableConvTranspose1dDecomposeToPhasedConv = false;
+  bool enableInstanceNormDecompose = true;
   bool enableRemoveDqQOp = true;
-  bool enableRemoveDqQAroundOp = true;
+  bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
+  bool enableRecomposeLayernormByTranspose = false;
+  bool enableSplitToSliceDecompose = false;
+
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;

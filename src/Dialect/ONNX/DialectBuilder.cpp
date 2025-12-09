@@ -591,6 +591,34 @@ Value OnnxBuilder::unsqueeze(Type outputType, Value data, Value axes) const {
       toTensor(outputType), toTensor(data), toTensor(axes));
 }
 
+Value OnnxBuilder::upRank(
+    mlir::Value data, int64_t toRank, bool trailing) const {
+  assert(data && "the value doesn't exist");
+
+  auto tensor = mlir::cast<mlir::ShapedType>(data.getType());
+  auto shape = getShape(tensor);
+  auto rank = getRank(tensor);
+  assert(rank <= toRank && "the rank of the tensor must be smaller");
+
+  if (rank == toRank)
+    return data;
+
+  int64_t rankDiff = toRank - rank;
+  SmallVector<int64_t> newShape;
+  if (trailing) {
+    newShape.append(shape.begin(), shape.end());
+    newShape.append(SmallVector<int64_t>(rankDiff, 1));
+  } else {
+    newShape.resize(rankDiff, 1);
+    newShape.append(shape.begin(), shape.end());
+  }
+
+  auto newType = tensor.clone(newShape);
+  auto shapeConst = constantInt64(newShape);
+  auto reshaped = reshape(newType, data, shapeConst);
+  return reshaped;
+}
+
 Value OnnxBuilder::where(
     Type outputType, Value condition, Value X, Value Y) const {
   return createTypedOpAndInferShapes<ONNXWhereOp>(

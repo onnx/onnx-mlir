@@ -91,8 +91,9 @@ public:
     Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter,
         loc, expandedScaleFactorConst.getType(), expandedScaleFactorConst)
                       .getResult();
+    Value shiftConst = tosa::createMulShiftConst(rewriter, loc, 0);
     Value scaledResult = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-        rewriter, loc, xType, x, recOp, 0)
+        rewriter, loc, xType, x, recOp, shiftConst)
                              .getResult();
 
     // Quantization to i4/i8/16/ is particular since the intermediate result of

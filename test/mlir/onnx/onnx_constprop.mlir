@@ -549,6 +549,33 @@ func.func @test_sin() -> tensor<3x2xf32> {
   // CHECK-NOT: "onnx.Sin"
 }
 
+// -----
+
+// CHECK-LABEL: @test_sigmoid_f32() -> tensor<3x2xf32>
+func.func @test_sigmoid_f32() -> tensor<3x2xf32> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[[5.0, -0.125], [0.0, 0x7FC00000], [0x7F800000, 0xFF800000]]> : tensor<3x2xf32>
+  %1 = "onnx.Sigmoid"(%0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
+  "onnx.Return"(%1) : (tensor<3x2xf32>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[0.993307173, 0.468790621], [5.000000e-01, 0xFFC00000], [1.000000e+00, 0.000000e+00]]>
+  // CHECK-NOT: "onnx.Sigmoid"
+}
+
+// -----
+
+// The computation is actually done in double.
+// If it were done in bfloat16, the result for 5.0 would be around 9.931640e-01
+
+// CHECK-LABEL: @test_sigmoid_bf16() -> tensor<3x2xbf16>
+func.func @test_sigmoid_bf16() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[[5.0, -0.125], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Sigmoid"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[9.921870e-01, 4.687500e-01], [5.000000e-01, 0xFFC0], [1.000000e+00, 0.000000e+00]]>
+  // CHECK-NOT: "onnx.Sigmoid"
+}
+
 //===----------------------------------------------------------------------===//
 /// Transpose tests.
 

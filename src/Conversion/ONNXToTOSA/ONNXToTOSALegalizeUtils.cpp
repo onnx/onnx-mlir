@@ -149,5 +149,14 @@ mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
       loc, resultTy, tensor, newShape);
 }
 
+mlir::Value createMulShiftConst(
+    mlir::PatternRewriter &rewriter, mlir::Location loc, int32_t shift) {
+  assert(shift >= -128 && shift <= 127 && "TOSA shift must fit in i8");
+  auto shiftType = RankedTensorType::get({1}, rewriter.getI8Type());
+  auto shiftAttr = DenseElementsAttr::get<int8_t>(
+      shiftType, llvm::ArrayRef<int8_t>{static_cast<int8_t>(shift)});
+  return rewriter.create<mlir::tosa::ConstOp>(loc, shiftType, shiftAttr);
+}
+
 } // namespace tosa
 } // namespace onnx_mlir

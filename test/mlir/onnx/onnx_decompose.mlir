@@ -572,14 +572,28 @@ func.func @test_concatfuse_2(%arg0: tensor<?x20xf32>, %arg1: tensor<?x30xf32>) -
 
 // -----
 
-func.func @test_constantofshape(%arg0: tensor<?xi64>) -> tensor<*xi32> {
+func.func @test_constantofshape_1(%arg0: tensor<?xi64>) -> tensor<*xi32> {
   %0 = onnx.ConstantOfShape(%arg0) {value = dense<1> : tensor<1xi32>} : (tensor<?xi64>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
-// CHECK-LABEL:  func.func @test_constantofshape
+// CHECK-LABEL:  func.func @test_constantofshape_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64>) -> tensor<*xi32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_0_]]) : (tensor<i32>, tensor<?xi64>) -> tensor<*xi32>
+// CHECK:           return [[VAR_1_]] : tensor<*xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_constantofshape_2(%arg0: tensor<?xi64>) -> tensor<*xi32> {
+  %0 = onnx.ConstantOfShape(%arg0) : (tensor<?xi64>) -> tensor<*xi32>
+  return %0 : tensor<*xi32>
+
+// CHECK-LABEL:  func.func @test_constantofshape_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64>) -> tensor<*xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_0_]]) : (tensor<f32>, tensor<?xi64>) -> tensor<*xi32>
 // CHECK:           return [[VAR_1_]] : tensor<*xi32>
 // CHECK:         }
 }
@@ -1094,4 +1108,20 @@ func.func @sce_none(%arg0: tensor<64x10x2x3xf32>, %arg1: tensor<64x2x3xi64>) -> 
   // CHECK-NEXT:     %[[SQUEEZE:.*]] = "onnx.Squeeze"(%[[SUM]], %[[REDUCE_AXIS]]) : ({{.*}}) -> tensor<64x2x3xf32>
   // CHECK-NEXT:     %[[LOSS:.*]] = "onnx.Neg"(%[[SQUEEZE]])
   // CHECK-NEXT:     onnx.Return %[[LOSS]] : tensor<64x2x3xf32>
+}
+
+// -----
+
+func.func @test_instancenorm(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
+  %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5x6xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5x6xf32>
+  onnx.Return %0 : tensor<2x3x4x5x6xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_instancenorm
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4x5x6xf32>, [[PARAM_1_:%.+]]: tensor<3xf32>, [[PARAM_2_:%.+]]: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Unsqueeze"([[PARAM_1_]], [[VAR_0_]]) : (tensor<3xf32>, tensor<3xi64>) -> tensor<3x1x1x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Unsqueeze"([[PARAM_2_]], [[VAR_0_]]) : (tensor<3xf32>, tensor<3xi64>) -> tensor<3x1x1x1xf32>
+// CHECK:           [[Y_:%.+]], [[Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {axis = 2 : si64, epsilon = 0.00999999977 : f32, stash_type = 1 : si64} : (tensor<2x3x4x5x6xf32>, tensor<3x1x1x1xf32>, tensor<3x1x1x1xf32>) -> (tensor<2x3x4x5x6xf32>, none, none)
+// CHECK:           onnx.Return [[Y_]] : tensor<2x3x4x5x6xf32>
+// CHECK:         }
 }

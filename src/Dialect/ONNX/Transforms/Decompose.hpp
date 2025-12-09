@@ -29,7 +29,8 @@ namespace onnx_mlir {
 void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv);
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose = false);
 
 } // namespace onnx_mlir
 #endif

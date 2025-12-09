@@ -59,10 +59,11 @@ func.func @test_no_cast_cast_canonicalization(%arg0: tensor<1x1x256x256xbf16>) -
     %2 = "onnx.Add"(%1, %arg0) {onnx_node_name = "/bert/Where_1"} : (tensor<1x1x256x256xbf16>, tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xbf16> loc("add")
     "onnx.Return"(%2) : (tensor<1x1x256x256xbf16>) -> ()
 }
-// CHECK-LABEL:   func.func @test_no_cast_cast_canonicalization(
-// CHECK-SAME:                                                  %[[VAL_0:.*]]: tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xbf16> {
-// CHECK:           %[[VAL_1:.*]] = "onnx.Cast"(%[[VAL_0]]) {saturate = 1 : si64, to = bf16} : (tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xbf16>
-// CHECK:           %[[VAL_2:.*]] = "onnx.Add"(%[[VAL_1]], %[[VAL_0]]) {onnx_node_name = "/bert/Where_1"} : (tensor<1x1x256x256xbf16>, tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xbf16>
-// CHECK:           onnx.Return %[[VAL_2]] : tensor<1x1x256x256xbf16>
+// CHECK-LABEL:  func.func @test_no_cast_cast_canonicalization
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xbf16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {onnx_node_name = "/bert/Sub_onnx.Cast_39", saturate = 1 : si64, to = f32} : (tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {onnx_node_name = "/bert/Cast_1", saturate = 1 : si64, to = bf16} : (tensor<1x1x256x256xf32>) -> tensor<1x1x256x256xbf16>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_0_]]) {onnx_node_name = "/bert/Where_1"} : (tensor<1x1x256x256xbf16>, tensor<1x1x256x256xbf16>) -> tensor<1x1x256x256xbf16>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<1x1x256x256xbf16>
 // CHECK:         }
 

@@ -23,6 +23,7 @@
 #include <cmath>
 #include <numeric>
 
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -46,7 +47,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/StringSet.h"
 
 #define DEBUG_TYPE "decompose"
 
@@ -2320,7 +2321,7 @@ struct DecomposeSlicePadPattern : public OpRewritePattern<ONNXPadOp> {
       // difficult, so skip for now
       return failure();
     }
-    const auto inputType = padOp.getData().getType().cast<ShapedType>();
+    const auto inputType = cast<ShapedType>(padOp.getData().getType());
     if (!inputType.hasStaticShape()) {
       // We need a static shape to calculate the ends for slice
       return failure();
@@ -2826,59 +2827,720 @@ public:
   }
 };
 
-namespace {
+static constexpr StringLiteral MicrosoftDomainName("com.microsoft");
+static constexpr StringLiteral DefaultONNXDomainName("");
 
-[[nodiscard]] bool isCustomMicrosoftOp(
-    ONNXCustomOp customOp, StringRef expectedName) {
+[[nodiscard]] bool isCustomOpWithNameAndDialect(
+    ONNXCustomOp customOp, StringRef expectedName, StringRef expectedDialect) {
   if (!customOp.getFunctionName().equals_insensitive(expectedName)) {
     return false;
   }
 
   const auto domAttr = customOp->getAttrOfType<StringAttr>("domain_name");
-  return domAttr && domAttr.getValue().equals_insensitive("com.microsoft");
+  return domAttr && domAttr.getValue().equals_insensitive(expectedDialect);
 }
 
-} // namespace
-
-template <typename OpToCreate>
-struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
-  CustomOpMicrosoftToOnnxOp(MLIRContext *context,
-      std::string operationNameToRewrite, PatternBenefit benefit = 1)
-      : OpRewritePattern<ONNXCustomOp>(context, benefit),
-        operationNameToRewrite(std::move(operationNameToRewrite)) {}
+struct CustomOpToOnnxOps : public OpRewritePattern<ONNXCustomOp> {
+  CustomOpToOnnxOps(MLIRContext *context, StringRef dialect,
+      StringRef operationNameToRewrite, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXCustomOp>(context, benefit), dialect(dialect),
+        operationNameToRewrite(operationNameToRewrite) {}
 
   LogicalResult matchAndRewrite(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
-    if (!isCustomMicrosoftOp(customOp, operationNameToRewrite)) {
+    if (!isCustomOpWithNameAndDialect(
+            customOp, operationNameToRewrite, dialect)) {
       return failure();
     }
+
+    return matchAndRewriteImpl(customOp, rewriter);
+  }
+
+  virtual LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp /*customOp*/, PatternRewriter & /*rewriter*/) const {
+    return failure();
+  }
+
+  static LogicalResult verifyOpValidity(Operation *op) {
+    assert(op);
+    onnx_mlir::IgnoreDiagnostic diag(op->getContext()->getDiagEngine());
+    if (auto info = op->getName().getRegisteredInfo()) {
+      return info->verifyInvariants(op);
+    }
+    return mlir::verify(op);
+  }
+
+  static LogicalResult verifyOpsErasingOnError(
+      ValueRange values, PatternRewriter &rewriter) {
+    if (llvm::all_of(values, [](Value value) {
+          return !value || succeeded(verifyOpValidity(value.getDefiningOp()));
+        })) {
+      return success();
+    }
+    SmallVector<Operation *> opsToErase;
+    for (auto value : values) {
+      if (value) {
+        opsToErase.push_back(value.getDefiningOp());
+      }
+    }
+    llvm::sort(opsToErase);
+    opsToErase.erase(llvm::unique(opsToErase), opsToErase.end());
+    // We need to ensure that the ops get erased in reverse topological order,
+    // as its only allowed to erase an op if it does not have an use
+    computeTopologicalSorting(opsToErase);
+    for (auto *op : llvm::reverse(opsToErase)) {
+      rewriter.eraseOp(op);
+    }
+    return failure();
+  }
+
+  static SmallVector<NamedAttribute> getFilteredAttrs(
+      ArrayRef<NamedAttribute> attrs,
+      ArrayRef<StringRef> additionalAttrNamesToFilter = {}) {
+    static const llvm::StringSet<> commonFilter{"domain_name", "function_name",
+        "output_element_type", "shape_infer_pattern", "inputs_for_infer"};
+    return SmallVector<NamedAttribute>{llvm::make_filter_range(
+        attrs, [&additionalAttrNamesToFilter](NamedAttribute attr) {
+          return !llvm::is_contained(commonFilter, attr.getName()) &&
+                 !llvm::is_contained(
+                     additionalAttrNamesToFilter, attr.getName());
+        })};
+  }
+
+  const std::string dialect;
+  const std::string operationNameToRewrite;
+};
+
+struct MicrosoftBiasGelu : public CustomOpToOnnxOps {
+  MicrosoftBiasGelu(MLIRContext *context, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(context, MicrosoftDomainName, "BiasGelu", benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    assert(customOp->getNumOperands() == 2 &&
+           "Expected two operands for BiasGelu");
+
+    auto input = customOp->getOperand(0);
+    auto bias = customOp->getOperand(1);
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+    Value biasedInput = create.onnx.add(input, bias);
+    Value gelu = create.onnx.gelu(biasedInput,
+        /*approximateAttr=*/rewriter.getStringAttr("none"));
+    if (failed(verifyOpsErasingOnError({biasedInput, gelu}, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, gelu);
+    return success();
+  }
+};
+
+struct MicrosoftFusedConv : public CustomOpToOnnxOps {
+  MicrosoftFusedConv(MLIRContext *context, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(context, MicrosoftDomainName, "FusedConv", benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    assert(customOp.getNumOperands() >= 2 && customOp.getNumOperands() <= 4 &&
+           "Expected 2 to 4 operands for FusedConv");
+    if (customOp.getNumOperands() > 3) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition does not support 'Sum/Z'");
+    }
+
+    assert(customOp->hasAttrOfType<StringAttr>("activation"));
+    assert(customOp->hasAttrOfType<ArrayAttr>("activation_params"));
+
+    const SmallVector<NamedAttribute> filteredAttrs(getFilteredAttrs(
+        customOp->getAttrs(), {"activation", "activation_params"}));
+    SmallVector<Value> convOperands{customOp.getOperands()};
+    Value noneBias;
+    if (convOperands.size() < 3) {
+      noneBias = rewriter.create<ONNXNoneOp>(customOp->getLoc())->getResult(0);
+      convOperands.push_back(noneBias);
+    }
+
+    auto conv = rewriter.create<ONNXConvOp>(customOp->getLoc(),
+        customOp->getResultTypes(), convOperands, filteredAttrs);
+    Value convOpResult = conv.getResult();
+    const auto activation =
+        customOp->getAttrOfType<StringAttr>("activation").strref();
+    auto activationParams =
+        customOp->getAttrOfType<ArrayAttr>("activation_params");
+    SmallVector<FloatAttr> activationParamsValues;
+    for (auto attr : activationParams) {
+      auto asFloatAttr = dyn_cast<FloatAttr>(attr);
+      assert(asFloatAttr && asFloatAttr.getType().isF32() &&
+             "All activation params "
+             "must be f32");
+      activationParamsValues.push_back(asFloatAttr);
+    }
+    Value activationFunc;
+    Value castMin;
+    Value castMax;
+    if (activation == "Relu") {
+      activationFunc = rewriter.create<ONNXReluOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "Tanh") {
+      activationFunc = rewriter.create<ONNXTanhOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "Sigmoid") {
+      activationFunc = rewriter.create<ONNXSigmoidOp>(
+          customOp->getLoc(), convOpResult.getType(), convOpResult);
+    } else if (activation == "LeakyRelu") {
+      assert(activationParamsValues.size() == 1 &&
+             "LeakyRelu must have exactly one parameter");
+      activationFunc = rewriter.create<ONNXLeakyReluOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, activationParamsValues[0]);
+    } else if (activation == "Clip") {
+      assert(activationParamsValues.size() == 2 &&
+             "Clip must have exactly two parameters");
+      MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+      auto scalarType = RankedTensorType::get({}, rewriter.getF32Type());
+      auto minVal = create.onnx.constant(
+          DenseElementsAttr::get(scalarType, activationParamsValues[0]));
+      auto castToType =
+          cast<ShapedType>(convOpResult.getType()).getElementType();
+      castMin = create.onnx.cast(minVal, castToType);
+      auto maxVal = create.onnx.constant(
+          DenseElementsAttr::get(scalarType, activationParamsValues[1]));
+      castMax = create.onnx.cast(maxVal, castToType);
+      activationFunc = rewriter.create<ONNXClipOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, castMin, castMax);
+    } else if (activation == "HardSigmoid") {
+      assert(activationParamsValues.size() == 2 &&
+             "HardSigmoid must have exactly two parameters");
+      activationFunc = rewriter.create<ONNXHardSigmoidOp>(customOp->getLoc(),
+          convOpResult.getType(), convOpResult, activationParamsValues[0],
+          activationParamsValues[1]);
+    } else {
+      rewriter.eraseOp(conv);
+      if (noneBias) {
+        rewriter.eraseOp(noneBias.getDefiningOp());
+      }
+      return rewriter.notifyMatchFailure(customOp,
+          "Decomposition only supports Relu, Tanh, Sigmoid, LeakyRelu, Clip, "
+          "and HardSigmoid activations");
+    }
+    if (failed(verifyOpsErasingOnError(
+            {noneBias, conv, castMin, castMax, activationFunc}, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+    rewriter.replaceOp(customOp, activationFunc);
+    return success();
+  }
+};
+
+/// Note: This is an operation in onnxruntime, which is in the ONNX instead of
+/// Microsoft domain for historic reasons.
+struct SimplifiedLayerNorm : public CustomOpToOnnxOps {
+  SimplifiedLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, DefaultONNXDomainName, "SimplifiedLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 1 && numIn <= 3) && "expects 1..3 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 3) && "expects 1..3 outputs");
+    // The onnxruntime version of RMSNorm/SimplifiedLayerNorm supports 1-3
+    // outputs, (output, mean, inv_std_var) The version in onnx and onnx-mlir
+    // only support output (and inv_std_var in case of onnx-mlir)
+    if (numOut > 1) {
+      if (!isa<NoneType>(customOp.getResultTypes()[1])) {
+        return rewriter.notifyMatchFailure(
+            customOp, "Use of mean not supported yet");
+      }
+    }
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value scale = customOp.getOperand(1);
+    Value bias = none; // layer-norm bias
+
+    if (numIn >= 3)
+      bias = customOp.getOperand(2);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    if (!epsAttr)
+      epsAttr =
+          rewriter.getF32FloatAttr(9.999999747378752e-06f); // default epsilon
+
+    auto axisAttr = customOp->getAttrOfType<IntegerAttr>("axis");
+    if (!axisAttr) {
+      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+      axisAttr = rewriter.getIntegerAttr(si64Type, -1); // default axis
+    }
+
+    auto stashTypeAttr = customOp->getAttrOfType<IntegerAttr>("stash_type");
+    if (!stashTypeAttr) {
+      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+      stashTypeAttr =
+          rewriter.getIntegerAttr(si64Type, 1); // default stash_type
+    }
+
+    SmallVector<Type, 2> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    auto rms = rewriter.create<ONNXRMSLayerNormalizationOp>(
+        loc, resultTypes, input, scale, bias, axisAttr, epsAttr, stashTypeAttr);
+
+    SmallVector<Value, 3> replace;
+    replace.push_back(rms.getResult(0));
+    if (numOut > 1)
+      replace.push_back(none);
+    if (numOut > 2)
+      replace.push_back(rms.getResult(1));
+
+    SmallVector<Value, 4> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+struct MicrosoftSkipLayerNorm : public CustomOpToOnnxOps {
+  MicrosoftSkipLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, MicrosoftDomainName, "SkipLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 3 && numIn <= 5) && "expects 3..5 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 4) && "expects 1..4 outputs");
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value skip = customOp.getOperand(1);
+    Value gamma = customOp.getOperand(2);
+    Value beta = none; // layer-norm bias
+    Value bias;        // pre-norm bias
+
+    if (numIn >= 4)
+      beta = customOp.getOperand(3);
+    if (numIn == 5)
+      bias = customOp.getOperand(4);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    if (!epsAttr)
+      epsAttr =
+          rewriter.getF32FloatAttr(9.999999747378752e-06f); // default epsilon
+
+    Value skipAdd = create.onnx.add(input, skip);
+    Value sumIS;
+    if (bias) {
+      sumIS = create.onnx.add(skipAdd, bias);
+    } else {
+      sumIS = skipAdd;
+      skipAdd = nullptr;
+    }
+
+    SmallVector<Type, 3> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 1 ? customOp->getResultTypes()[1] : rewriter.getNoneType());
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    const auto si64Type = rewriter.getIntegerType(64, /*signed*/ true);
+
+    auto rms = rewriter.create<ONNXLayerNormalizationOp>(loc, resultTypes,
+        sumIS, gamma, beta, /*axis*/
+        rewriter.getIntegerAttr(si64Type, -1), epsAttr,
+        /*stashType*/ rewriter.getIntegerAttr(si64Type, 1));
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(rms.getResult(0));
+    if (numOut >= 2)
+      replace.push_back(rms.getResult(1)); // mean
+    if (numOut >= 3)
+      replace.push_back(rms.getResult(2)); // inv_std_var
+    if (numOut == 4)
+      replace.push_back(sumIS); // input_skip_bias_sum
+
+    SmallVector<Value, 7> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+    toCheck.push_back(skipAdd);
+    toCheck.push_back(sumIS);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
+  MicrosoftSkipSimplifiedLayerNorm(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(
+            ctx, MicrosoftDomainName, "SkipSimplifiedLayerNormalization", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 3 && numIn <= 4) && "expects 3..4 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 1 && numOut <= 4) && "expects 1..4 outputs");
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, customOp->getLoc());
+
+    Value none = create.onnx.none();
+
+    Value input = customOp.getOperand(0);
+    Value skip = customOp.getOperand(1);
+    Value gamma = customOp.getOperand(2);
+    Value bias; // pre-norm bias
+
+    if (numIn >= 4)
+      bias = customOp.getOperand(3);
+
+    auto epsAttr = customOp->getAttrOfType<FloatAttr>("epsilon");
+    if (!epsAttr)
+      epsAttr =
+          rewriter.getF32FloatAttr(9.999999747378752e-06f); // default epsilon
+
+    Value skipAdd = create.onnx.add(input, skip);
+    Value sumIS;
+    if (bias) {
+      sumIS = create.onnx.add(skipAdd, bias);
+    } else {
+      sumIS = skipAdd;
+      skipAdd = nullptr;
+    }
+
+    SmallVector<Type, 3> resultTypes;
+    resultTypes.push_back(customOp->getResultTypes()[0]);
+    resultTypes.push_back(
+        numOut > 1 ? customOp->getResultTypes()[1] : rewriter.getNoneType());
+    resultTypes.push_back(
+        numOut > 2 ? customOp->getResultTypes()[2] : rewriter.getNoneType());
+
+    const auto si64Type = rewriter.getIntegerType(64, /*signed*/ true);
+
+    const SmallVector<NamedAttribute, 5> simplifiedLayerNormAttrs{
+        rewriter.getNamedAttr(
+            "domain_name", rewriter.getStringAttr(DefaultONNXDomainName)),
+        rewriter.getNamedAttr("function_name",
+            rewriter.getStringAttr("SimplifiedLayerNormalization")),
+        rewriter.getNamedAttr("axis", rewriter.getIntegerAttr(si64Type, -1)),
+        rewriter.getNamedAttr("epsilon", epsAttr),
+        rewriter.getNamedAttr(
+            "stash_type", rewriter.getIntegerAttr(si64Type, 1))};
+
+    auto skipLayerNorm = rewriter.create<ONNXCustomOp>(
+        loc, resultTypes, ValueRange{sumIS, gamma}, simplifiedLayerNormAttrs);
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(skipLayerNorm.getResult(0));
+    if (numOut >= 2)
+      replace.push_back(skipLayerNorm.getResult(1)); // mean
+    if (numOut >= 3)
+      replace.push_back(skipLayerNorm.getResult(2)); // inv_std_var
+    if (numOut == 4)
+      replace.push_back(sumIS); // input_skip_bias_sum
+
+    SmallVector<Value, 7> toCheck(replace.begin(), replace.end());
+    toCheck.push_back(none);
+    toCheck.push_back(skipAdd);
+    toCheck.push_back(sumIS);
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(customOp, "Failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+    return success();
+  }
+};
+
+struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
+  MicrosoftGroupQueryAttention(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "GroupQueryAttention", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+
+    using namespace onnx_mlir;
+    const Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 7 && numIn <= 12) && "expects 7..12 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut >= 3 && numOut <= 4) && "expects 3..4 outputs");
+
+    Value query = customOp.getOperand(0);
+    Value key = customOp.getOperand(1);
+    Value value = customOp.getOperand(2);
+    Value pastKey = customOp.getOperand(3);
+    Value pastValue = customOp.getOperand(4);
+
+    // These inputs are not needed for onnx.Attention:
+    // Value seqlens_k = customOp.getOperand(5);
+    // Value total_sequence_length = customOp.getOperand(6);
+
+    Value cosCache;
+    Value sinCache;
+    if (numIn > 7) {
+      cosCache = customOp.getOperand(7);
+      sinCache = customOp.getOperand(8);
+    }
+
+    Value positionIds;
+    if (numIn > 9)
+      positionIds = customOp.getOperand(9);
+
+    Value attentionBias;
+    if (numIn > 10)
+      attentionBias = customOp.getOperand(10);
+
+    if (numIn > 11 && !isNoneValue(customOp.getOperand(11)))
+      return rewriter.notifyMatchFailure(
+          customOp, "input 'head_sink' not supported by onnx.Attention");
+
+    auto smoothSoftmax = customOp->getAttrOfType<IntegerAttr>("smooth_softmax");
+    if (smoothSoftmax && smoothSoftmax.getSInt() != 0)
+      return rewriter.notifyMatchFailure(customOp,
+          "attribute 'smooth_softmax' not supported by onnx.Attention");
+
+    auto qNumHeads = customOp->getAttrOfType<IntegerAttr>("num_heads");
+    assert(qNumHeads && "Expected number of attention heads for q");
+    auto kvNumHeads = customOp->getAttrOfType<IntegerAttr>("kv_num_heads");
+    assert(kvNumHeads && "Expected number of attention heads for k and v");
+
+    if (!isa<ShapedType>(query.getType()))
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'query' input to have shaped type");
+    auto queryType = cast<ShapedType>(query.getType());
+    if (!queryType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'query' input to have static type");
+    assert(queryType.getRank() == 3 && "Query input must have rank 3");
+
+    auto none = rewriter.create<ONNXNoneOp>(loc);
+    auto si64Type = rewriter.getIntegerType(64, true);
+
+    SmallVector<Value, 6> toCheck = {none};
+
+    // query, key and value inputs may be packed in the same input (query). We
+    // need to split them up if this is the case.
+    ONNXConstantOp splitLens;
+    ONNXSplitOp split;
+    if (isNoneValue(key) && isNoneValue(value)) {
+      int64_t totalNumHeads = qNumHeads.getSInt() + 2 * kvNumHeads.getSInt();
+      // microsoft.GroupQueryAttention assumes the head_size is the same for q,
+      // k and v
+      int64_t headSize = queryType.getShape()[2] / totalNumHeads;
+
+      SmallVector<int64_t, 3> splitLensI64 = {headSize * qNumHeads.getSInt(),
+          headSize * kvNumHeads.getSInt(), headSize * kvNumHeads.getSInt()};
+      splitLens = getONNXConstOpFromVector(rewriter, loc, splitLensI64);
+
+      SmallVector<Type, 3> convertedTypes;
+      for (auto len : splitLensI64) {
+        SmallVector<int64_t, 3> dims(queryType.getShape());
+        dims[2] = len;
+        convertedTypes.push_back(
+            RankedTensorType::get(dims, queryType.getElementType()));
+      }
+
+      split =
+          rewriter.create<ONNXSplitOp>(loc, convertedTypes, query, splitLens,
+              /*axis=*/
+              rewriter.getIntegerAttr(si64Type, 2),
+              /*num_outputs=*/nullptr);
+
+      toCheck.push_back(splitLens);
+      toCheck.push_back(split.getResult(0));
+
+      query = split->getOpResult(0);
+      key = split->getOpResult(1);
+      value = split->getOpResult(2);
+    }
+
+    // If do_rotary = 1, query and key need to be passed through a rotary
+    // embedding op
+    auto doRotary = customOp->getAttrOfType<IntegerAttr>("do_rotary");
+    ONNXRotaryEmbeddingOp ropeQuery;
+    ONNXRotaryEmbeddingOp ropeKey;
+    if (doRotary && doRotary.getSInt() > 0) {
+      assert(numIn >= 9 && !isNoneValue(cosCache) && !isNoneValue(sinCache));
+
+      if (numIn < 10 || isNoneValue(positionIds))
+        positionIds = none;
+
+      int64_t rotaryInterleaved = 0;
+      if (customOp->hasAttrOfType<IntegerAttr>("rotary_interleaved"))
+        rotaryInterleaved =
+            customOp->getAttrOfType<IntegerAttr>("rotary_interleaved")
+                .getSInt();
+
+      ropeQuery = rewriter.create<ONNXRotaryEmbeddingOp>(loc, query.getType(),
+          query, cosCache, sinCache, positionIds, rotaryInterleaved, qNumHeads);
+      ropeKey = rewriter.create<ONNXRotaryEmbeddingOp>(loc, key.getType(), key,
+          cosCache, sinCache, positionIds, rotaryInterleaved, kvNumHeads);
+
+      toCheck.push_back(ropeQuery);
+      toCheck.push_back(ropeKey);
+
+      query = ropeQuery;
+      key = ropeKey;
+    }
+
+    // Create the onnx.Attention op
+    if (numIn < 11 || isNoneValue(attentionBias))
+      attentionBias = none;
+
+    SmallVector<Type, 4> attentionResultTypes(customOp.getResultTypes());
+    if (numOut < 4)
+      attentionResultTypes.push_back(rewriter.getNoneType());
+
+    auto attention = rewriter.create<ONNXAttentionOp>(loc, attentionResultTypes,
+        ValueRange{query, key, value, attentionBias, pastKey, pastValue});
+
+    attention.setQNumHeadsAttr(qNumHeads);
+    attention.setKvNumHeadsAttr(kvNumHeads);
+
+    if (customOp->hasAttrOfType<IntegerAttr>("qk_output")) {
+      auto qkOutput = customOp->getAttrOfType<IntegerAttr>("qk_output");
+      if (qkOutput.getSInt() == 2) {
+        attention.setQkMatmulOutputModeAttr(
+            rewriter.getIntegerAttr(si64Type, 3));
+      } else {
+        attention.setQkMatmulOutputModeAttr(
+            rewriter.getIntegerAttr(si64Type, 0));
+      }
+    }
+
+    if (customOp->hasAttrOfType<FloatAttr>("scale"))
+      attention.setScaleAttr(customOp->getAttrOfType<FloatAttr>("scale"));
+    if (customOp->hasAttrOfType<FloatAttr>("softcap"))
+      attention.setSoftcapAttr(customOp->getAttrOfType<FloatAttr>("softcap"));
+
+    SmallVector<Value, 4> replace;
+    replace.push_back(attention.getResult(0));
+    if (numOut >= 3) {
+      replace.push_back(attention.getResult(1)); // present_k
+      replace.push_back(attention.getResult(2)); // present_v
+    }
+    if (numOut == 4)
+      replace.push_back(attention.getResult(3)); // qk_output
+
+    toCheck.push_back(attention.getResult(0));
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition failed verification");
+    }
+
+    rewriter.replaceOp(customOp, replace);
+
+    return success();
+  };
+};
+
+struct MicrosoftRotaryEmbedding : public CustomOpToOnnxOps {
+  MicrosoftRotaryEmbedding(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "RotaryEmbedding", b) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+
+    const Location loc = customOp.getLoc();
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn == 4) && "expects 4 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut == 1) && "expects 1 outputs");
+
+    Value input = customOp.getOperand(0);
+    Value position_ids = customOp.getOperand(1);
+    Value cos_cache = customOp.getOperand(2);
+    Value sin_cache = customOp.getOperand(3);
+
+    if (customOp->hasAttrOfType<IntegerAttr>("is_packed_batching") &&
+        customOp->getAttrOfType<IntegerAttr>("is_packed_batching").getSInt() !=
+            0)
+      return rewriter.notifyMatchFailure(customOp,
+          "attribute 'is_packed_batching' not supported by "
+          "onnx.RotaryEmbedding");
+    if (customOp->hasAttrOfType<IntegerAttr>("scale") &&
+        customOp->getAttrOfType<FloatAttr>("scale").getValueAsDouble() != 1.0f)
+      return rewriter.notifyMatchFailure(
+          customOp, "attribute 'scale' not supported by onnx.RotaryEmbedding");
+
+    auto rotaryEmbedding =
+        rewriter.create<ONNXRotaryEmbeddingOp>(loc, customOp->getResultTypes(),
+            ValueRange{input, cos_cache, sin_cache, position_ids});
+
+    if (customOp->hasAttrOfType<IntegerAttr>("num_heads"))
+      rotaryEmbedding.setNumHeadsAttr(
+          customOp->getAttrOfType<IntegerAttr>("num_heads"));
+
+    if (customOp->hasAttrOfType<IntegerAttr>("interleaved"))
+      rotaryEmbedding.setInterleavedAttr(
+          customOp->getAttrOfType<IntegerAttr>("interleaved"));
+
+    if (customOp->hasAttrOfType<IntegerAttr>("rotary_embedding_dim"))
+      rotaryEmbedding.setRotaryEmbeddingDimAttr(
+          customOp->getAttrOfType<IntegerAttr>("rotary_embedding_dim"));
+
+    if (failed(verifyOpsErasingOnError({rotaryEmbedding}, rewriter))) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition failed verification");
+    }
+
+    rewriter.replaceOp(customOp, rotaryEmbedding);
+
+    return success();
+  };
+};
+
+template <typename OpToCreate>
+struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
+  CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
+      StringRef operationNameToRewrite, PatternBenefit benefit = 1)
+      : CustomOpToOnnxOps(
+            context, MicrosoftDomainName, operationNameToRewrite, benefit) {}
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
     if (failed(shouldBeRewritten(customOp, rewriter))) {
       return failure();
     }
 
     const SmallVector<NamedAttribute> filteredAttrs(
-        llvm::make_filter_range(customOp->getAttrs(), [](NamedAttribute attr) {
-          return attr.getName() != "domain_name" &&
-                 attr.getName() != "function_name" &&
-                 attr.getName() != "output_element_type" &&
-                 attr.getName() != "shape_infer_pattern" &&
-                 attr.getName() != "inputs_for_infer";
-        }));
+        getFilteredAttrs(customOp->getAttrs()));
 
     auto newOp = rewriter.create<OpToCreate>(customOp->getLoc(),
         customOp->getResultTypes(), customOp.getOperands(), filteredAttrs);
 
     postProcess(customOp, newOp, rewriter);
 
-    onnx_mlir::IgnoreDiagnostic diag(customOp->getContext()->getDiagEngine());
-    bool isNewOpValid;
-    if (auto info = newOp->getName().getRegisteredInfo()) {
-      isNewOpValid = succeeded(info->verifyInvariants(newOp));
-    } else {
-      isNewOpValid = succeeded(mlir::verify(newOp));
-    }
-    if (!isNewOpValid) {
-      rewriter.eraseOp(newOp);
+    if (failed(verifyOpsErasingOnError({newOp}, rewriter))) {
       return rewriter.notifyMatchFailure(customOp, "Failed verification");
     }
     rewriter.replaceOp(customOp, newOp);
@@ -2892,14 +3554,13 @@ struct CustomOpMicrosoftToOnnxOp : public OpRewritePattern<ONNXCustomOp> {
 
   virtual void postProcess(const ONNXCustomOp & /*customOp*/,
       OpToCreate & /*newOP*/, PatternRewriter & /*rewriter*/) const {}
-
-  std::string operationNameToRewrite;
 };
 
 template <typename OpToCreate>
 struct CustomOpMicrosoftQDquantizeLinear
-    : CustomOpMicrosoftToOnnxOp<OpToCreate> {
-  using CustomOpMicrosoftToOnnxOp<OpToCreate>::CustomOpMicrosoftToOnnxOp;
+    : CustomOpMicrosoftToSingleOnnxOp<OpToCreate> {
+  using CustomOpMicrosoftToSingleOnnxOp<
+      OpToCreate>::CustomOpMicrosoftToSingleOnnxOp;
 
   LogicalResult shouldBeRewritten(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const override {
@@ -3106,6 +3767,184 @@ public:
 };
 
 // =============================================================================
+// Decompose InstanceNormalization to LayerNormalization
+// =============================================================================
+struct DecomposeInstanceNormPattern
+    : public OpRewritePattern<ONNXInstanceNormalizationOp> {
+  using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
+
+  static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
+    return onnx_mlir::hasStaticShape(instanceNormOp.getInput().getType()) &&
+           onnx_mlir::hasStaticShape(instanceNormOp.getOutput().getType());
+  }
+
+  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
+      PatternRewriter &rewriter) const final {
+    // Match.
+    if (!isDecomposable(instanceNormOp)) {
+      return failure();
+    }
+
+    // Get info.
+    Value input = instanceNormOp.getInput();
+    Value scale = instanceNormOp.getScale();
+    Value bias = instanceNormOp.getB();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+    Type elementType = inputType.getElementType();
+    auto inputShape = inputType.getShape();
+    int64_t C = inputShape[1];
+    int64_t inputRank = inputType.getRank();
+    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
+    assert(inputRank > nonSpacialRank &&
+           "expected instance norm with input ranks > 2");
+
+    // Rewrite.
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, instanceNormOp.getLoc());
+    int64_t axis = nonSpacialRank;
+    int64_t numInNorm = inputRank - axis;
+    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm
+    // 1s.
+    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
+    biasScaleShape.emplace_back(C);
+    for (int64_t i = 1; i <= numInNorm; ++i) {
+      biasScaleShape.emplace_back(1);
+      axesList.emplace_back(i);
+    }
+    Value axes = create.onnx.constantInt64(axesList);
+    Type biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
+    Value newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
+    Value newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
+    // Create output using layer norm.
+    Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
+        instanceNormOp.getEpsilonAttr());
+    // Set the type of the output to be the same as the output of the original
+    // operation we are trying to replace.
+    Y.setType(instanceNormOp.getResult().getType());
+    // Replace operation.
+    rewriter.replaceOp(instanceNormOp, Y);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Split to Slice Pattern
+//===----------------------------------------------------------------------===//
+
+// Converts Split operation to multiple Slice operations.
+struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+    Location loc = splitOp.getLoc();
+    Value input = splitOp.getInput();
+    Value split = splitOp.getSplit();
+
+    // Only handle ranked tensors
+    if (!onnx_mlir::isRankedShapedType(input.getType()))
+      return rewriter.notifyMatchFailure(
+          splitOp, "input must be ranked shaped type");
+
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+    uint64_t rank = inputType.getRank();
+    uint64_t outputNum = splitOp.getNumResults();
+    int64_t axis = splitOp.getAxis();
+
+    // Normalize negative axis
+    if (axis < 0)
+      axis += rank;
+
+    int64_t inputDimSize = inputType.getDimSize(axis);
+
+    // Determine split sizes
+    SmallVector<int64_t, 4> splitSizes;
+    if (auto splitAttr = onnx_mlir::getElementAttributeFromONNXValue(split)) {
+      // Split sizes are specified as a constant
+      for (IntegerAttr value : splitAttr.getValues<IntegerAttr>()) {
+        int64_t splitSize = mlir::cast<IntegerAttr>(value).getInt();
+        splitSizes.push_back(splitSize);
+      }
+    } else if (mlir::isa<NoneType>(split.getType())) {
+      // Equal split - use the actual output shapes computed by shape inference
+      // This correctly handles uneven splits (e.g., splitting 10 into 3 ->
+      // [4,3,3])
+      for (unsigned i = 0; i < outputNum; ++i) {
+        ShapedType outputType =
+            mlir::cast<ShapedType>(splitOp.getResult(i).getType());
+        int64_t outputDimSize = outputType.getDimSize(axis);
+        if (ShapedType::isDynamic(outputDimSize))
+          return rewriter.notifyMatchFailure(
+              splitOp, "dynamic split sizes not yet supported");
+        splitSizes.push_back(outputDimSize);
+      }
+    } else {
+      // Dynamic split not supported
+      return rewriter.notifyMatchFailure(
+          splitOp, "dynamic split parameter not yet supported");
+    }
+
+    // Create helper builder
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    // Create the slice operations
+    SmallVector<Value, 4> slices;
+    slices.reserve(outputNum);
+
+    // Create starts, ends, axes, steps arrays
+    SmallVector<int64_t, 4> starts(rank, 0);
+    SmallVector<int64_t, 4> ends = llvm::to_vector<4>(inputType.getShape());
+    SmallVector<int64_t, 4> axes(rank);
+    SmallVector<int64_t, 4> steps(rank, 1);
+
+    // Initialize axes array [0, 1, 2, ..., rank-1]
+    std::iota(axes.begin(), axes.end(), 0);
+
+    // Initialize onnxNodeName for new ops
+    mlir::StringAttr onnxNodeName;
+    if (auto nameLoc = dyn_cast<NameLoc>(loc))
+      onnxNodeName = nameLoc.getName();
+    else if (splitOp->hasAttrOfType<StringAttr>("onnx_node_name"))
+      onnxNodeName = splitOp->getAttrOfType<StringAttr>("onnx_node_name");
+
+    int64_t currentStart = 0;
+    for (uint64_t i = 0; i < outputNum; ++i) {
+      // Update start and end for the current slice along the split axis
+      starts[axis] = currentStart;
+      ends[axis] = currentStart + splitSizes[i];
+
+      // Create constant tensors for slice parameters
+      Value startsConst = create.onnx.constantInt64(starts);
+      Value endsConst = create.onnx.constantInt64(ends);
+      Value axesConst = create.onnx.constantInt64(axes);
+      Value stepsConst = create.onnx.constantInt64(steps);
+
+      // Get the output type for this slice
+      Type outputType = splitOp.getResult(i).getType();
+
+      // Create the slice operation with new location
+      Location sliceLoc = loc;
+      if (onnxNodeName) {
+        auto childLocName = rewriter.getStringAttr(
+            onnxNodeName.getValue() + "_slice_" + std::to_string(i));
+        auto childLoc = mlir::NameLoc::get(childLocName);
+        sliceLoc = mlir::NameLoc::get(onnxNodeName, childLoc);
+      }
+      auto sliceOp = rewriter.create<ONNXSliceOp>(sliceLoc, outputType, input,
+          startsConst, endsConst, axesConst, stepsConst);
+
+      slices.push_back(sliceOp.getResult());
+      currentStart = ends[axis];
+    }
+
+    // Replace the split operation with the slice operations
+    rewriter.replaceOp(splitOp, slices);
+    return success();
+  }
+};
+
+// =============================================================================
 // Decompose Hardswish to simpler ONNX ops
 // =============================================================================
 // DecomposeHardSwishPattern replaces ONNXHardSwishOp with its equivalent
@@ -3170,13 +4009,17 @@ struct DecomposeONNXToONNXPass
   DecomposeONNXToONNXPass(const std::string &target,
       bool enableConvTransposeDecompose = false,
       bool enableConvTransposeDecomposeToPhasedConv = false,
-      bool enableConvTranspose1dDecomposeToPhasedConv = false) {
+      bool enableConvTranspose1dDecomposeToPhasedConv = false,
+      bool enableInstanceNormDecompose = true,
+      bool enableSplitToSliceDecompose = false) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
         enableConvTransposeDecomposeToPhasedConv;
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
+    this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -3187,6 +4030,10 @@ struct DecomposeONNXToONNXPass
         pass.enableConvTransposeDecompose.getValue();
     this->enableConvTransposeDecomposeToPhasedConv =
         pass.enableConvTransposeDecomposeToPhasedConv.getValue();
+    this->enableInstanceNormDecompose =
+        pass.enableInstanceNormDecompose.getValue();
+    this->enableSplitToSliceDecompose =
+        pass.enableSplitToSliceDecompose.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -3216,6 +4063,16 @@ struct DecomposeONNXToONNXPass
           "phased Conv"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableInstanceNormDecompose{*this,
+      "enable-instancenorm-decompose",
+      llvm::cl::desc("Enable decomposition of InstanceNormalization to "
+                     "LayerNormalization"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableSplitToSliceDecompose{*this, "enable-split-to-slice",
+      llvm::cl::desc("Enable decomposition of Split to Slice operations"),
+      ::llvm::cl::init(false)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -3228,7 +4085,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv);
+      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
+      enableSplitToSliceDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -3237,7 +4095,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+  if (failed(applyPatternsGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
@@ -3246,7 +4104,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getDecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv) {
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -3255,6 +4114,10 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     convtranspose_phased::populateWithGenerated(patterns);
   if (enableConvTranspose1dDecomposeToPhasedConv)
     convtranspose_1d_phased::populateWithGenerated(patterns);
+  if (enableInstanceNormDecompose)
+    patterns.insert<DecomposeInstanceNormPattern>(context);
+  if (enableSplitToSliceDecompose)
+    patterns.insert<SplitToSlicePattern>(context);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   patterns.insert<ConcatFusePattern>(context);
   patterns.insert<DecomposeHardSwishPattern>(context);
@@ -3265,11 +4128,20 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
       context, "QuantizeLinear");
   patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
       context, "DequantizeLinear");
-  patterns.insert<CustomOpMicrosoftToOnnxOp<ONNXGeluOp>>(context, "Gelu");
+  patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
+  patterns.insert<MicrosoftBiasGelu>(context);
+  patterns.insert<MicrosoftFusedConv>(context);
+  patterns.insert<MicrosoftSkipLayerNorm>(context);
+  patterns.insert<SimplifiedLayerNorm>(context);
+  patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  patterns.insert<MicrosoftGroupQueryAttention>(context);
+  patterns.insert<MicrosoftRotaryEmbedding>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+  if (enableSplitToSliceDecompose)
+    patterns.insert<SplitToSlicePattern>(context);
 
   //   for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
   //     if (op == "HardSwish") {
@@ -3287,8 +4159,10 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
 std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv) {
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv);
+      enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
+      enableSplitToSliceDecompose);
 }

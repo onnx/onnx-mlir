@@ -517,10 +517,18 @@ def ReduceSumSquareV13OpPattern2
 //         `ONNXExpandOp(ONNXConstantOp {value}, %shape)
 //===----------------------------------------------------------------------===//
 
-def ConstantOfShapePattern: Pat<
+def ConstantOfShapePattern1: Pat<
   (ONNXConstantOfShapeOp:$res $shape, $value),
   (ONNXExpandOp (ONNXConstantOpFromDenseAttr (ReshapeElementsAttrToRank0 $value)),
-                $shape)
+                $shape),
+  [(AttributeIsNotNull:$value)]
+>;
+
+def ConstantOfShapePattern2: Pat<
+  (ONNXConstantOfShapeOp:$res $shape, $value),
+  (ONNXExpandOp (ONNXConstantOpFromDenseAttr (ReshapeElementsAttrToRank0 (createDenseArrayAttrFromSingleAttr (GetZeroFloatAttr)))),
+                $shape),
+  [(AttributeIsNull:$value)]
 >;
 
 //===----------------------------------------------------------------------===//

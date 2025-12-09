@@ -473,6 +473,11 @@ struct ElementWiseUnaryOpImpl<ONNXNotOp, T, EnableBool<T>> {
 };
 
 template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXSigmoidOp, T, EnableFloatingPoint<T>> {
+  static T eval(T val) { return 1 / (1 + std::exp(-val)); }
+};
+
+template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXSinOp, T, EnableFloatingPoint<T>> {
   static T eval(T val) { return sin(val); }
 };

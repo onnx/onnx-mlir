@@ -246,6 +246,11 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value unsqueeze(
       mlir::Type outputType, mlir::Value data, mlir::Value axes) const;
 
+  // Up ranking of the data tensor with reshape operator. The trailing is the
+  // option to choose to add the dimension with size 1 as leading or trailing.
+  mlir::Value upRank(
+      mlir::Value data, int64_t toRank, bool trailing = false) const;
+
   // ONNXWhereOp
   mlir::Value where(mlir::Type outputType, mlir::Value condition, mlir::Value X,
       mlir::Value Y) const;

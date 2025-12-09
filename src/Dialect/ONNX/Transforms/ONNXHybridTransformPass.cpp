@@ -111,13 +111,32 @@ struct ONNXHybridTransformPass
           "phased Conv"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableInstanceNormDecompose{*this,
+      "enable-instancenorm-decompose",
+      llvm::cl::desc("Enable decomposition of InstanceNormalization to "
+                     "LayerNormalization"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> recomposeLayernormByTranspose{*this,
+      "recompose-layernorm-by-transpose",
+      llvm::cl::desc("Use transpose operator to make unsuitable axes suitable "
+                     "for matching layernorm"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableSplitToSliceDecompose{*this,
+      "enable-split-to-slice-decompose",
+      llvm::cl::desc("Enable decomposition of Split to Slice"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass(bool enableRecomposition,
       bool enableQuarkQuantizedOpsLegalization,
       bool enableConvTransposeDecompose,
       bool enableConvTransposeDecomposeToPhasedConv,
-      bool enableConvTranspose1dDecomposeToPhasedConv) {
+      bool enableConvTranspose1dDecomposeToPhasedConv,
+      bool recomposeLayernormByTranspose, bool enableInstanceNormDecompose,
+      bool enableSplitToSliceDecompose) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -125,6 +144,9 @@ struct ONNXHybridTransformPass
         enableConvTransposeDecomposeToPhasedConv;
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
+    this->recomposeLayernormByTranspose = recomposeLayernormByTranspose;
+    this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -143,6 +165,11 @@ struct ONNXHybridTransformPass
 
     if (quarkQuantizedOpsLegalization) {
       getLegalizeQuarkQuantizedOpsPatterns(cumulativePatterns);
+      // Disable CastofConst constant propagation pattern to avoid conflicts
+      // with quark quantized ops legalization which needs to consume Cast ops.
+      configureConstPropONNXToONNXPass(/*roundFPToInt=*/false,
+          /*expansionBound=*/-1, /*disabledPatterns=*/{"CastofConst"},
+          /*constantPropIsDisabled=*/false);
     }
 
     if (canonicalization) {
@@ -167,11 +194,13 @@ struct ONNXHybridTransformPass
       getDecomposeONNXToONNXPatterns(cumulativePatterns,
           enableConvTransposeDecompose,
           enableConvTransposeDecomposeToPhasedConv,
-          enableConvTranspose1dDecomposeToPhasedConv);
+          enableConvTranspose1dDecomposeToPhasedConv,
+          enableInstanceNormDecompose, enableSplitToSliceDecompose);
     }
 
     if (recomposition) {
-      getRecomposeONNXToONNXPatterns(cumulativePatterns);
+      getRecomposeONNXToONNXPatterns(
+          cumulativePatterns, recomposeLayernormByTranspose);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
@@ -210,9 +239,13 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization,
     bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
-    bool enableConvTranspose1dDecomposeToPhasedConv) {
+    bool enableConvTranspose1dDecomposeToPhasedConv,
+    bool enableRecomposeLayernormByTranspose, bool enableInstanceNormDecompose,
+    bool enableSplitToSliceDecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
-      enableConvTranspose1dDecomposeToPhasedConv);
+      enableConvTranspose1dDecomposeToPhasedConv,
+      enableRecomposeLayernormByTranspose, enableInstanceNormDecompose,
+      enableSplitToSliceDecompose);
 }

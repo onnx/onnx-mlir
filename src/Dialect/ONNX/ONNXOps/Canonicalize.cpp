@@ -20,6 +20,7 @@
 #include <numeric>
 
 #include "mlir/Dialect/Traits.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -580,6 +581,67 @@ public:
     Value res = create.onnx.reshape(outputType, x, reshapeShape, reshapeAZ);
 
     rewriter.replaceOp(op, res);
+    return success();
+  };
+};
+
+// This pattern bubbles up AddOp through transpose to keep the bias Add
+// operation right after LN_type op. This will helps the other patterns fold the
+// add into the operands of a Norm operator.
+//
+// From:
+// Norm operator
+//    |
+// Transpose
+//    |
+//   Add
+//
+// To:
+// Norm operator
+//    |
+//   Add
+//    |
+// Transpose
+template <typename LN_TYPE>
+class BubbleUpBiasForNormOpPattern : public OpRewritePattern<ONNXAddOp> {
+public:
+  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &r) const override {
+    if (!isConstLikeValue(addOp.getB()))
+      return r.notifyMatchFailure(addOp, "not a constant rhs operand");
+
+    auto transposeOp =
+        llvm::dyn_cast_or_null<ONNXTransposeOp>(addOp.getA().getDefiningOp());
+    if (!transposeOp)
+      return r.notifyMatchFailure(addOp, "the producer is not a transpose");
+
+    if (!transposeOp->hasOneUse())
+      return r.notifyMatchFailure(
+          addOp, "cannot bubble up because transpose has other user");
+
+    auto layernormResult = transposeOp.getData();
+    auto layerNorm =
+        llvm::dyn_cast_or_null<LN_TYPE>(layernormResult.getDefiningOp());
+    if (!layerNorm)
+      return r.notifyMatchFailure(
+          transposeOp, "the producer is not a layernorm");
+
+    if (!isNoneValue(layerNorm.getB()))
+      return r.notifyMatchFailure(layerNorm, "layernorm already has a bias");
+
+    OnnxBuilder create(r, addOp.getLoc());
+
+    auto perm = extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr());
+    auto invertedPerm = invertPermutationVector(perm);
+    auto cstReshaped = create.upRank(addOp.getB(), getRank(addOp.getType()));
+    auto cstTranposed = create.transposeInt64(cstReshaped, invertedPerm);
+    auto newAddOp = create.add(layernormResult, cstTranposed);
+    auto transposedBack = create.transposeInt64(newAddOp, perm);
+
+    r.replaceOp(addOp, transposedBack);
+
     return success();
   };
 };
@@ -2026,68 +2088,6 @@ public:
 };
 
 // =============================================================================
-// Rewrite pattern for Instance Normalization
-// =============================================================================
-
-struct RemoveInstanceNormPattern
-    : public OpRewritePattern<ONNXInstanceNormalizationOp> {
-  using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
-
-  static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
-    return onnx_mlir::hasStaticShape(instanceNormOp.getInput().getType()) &&
-           onnx_mlir::hasStaticShape(instanceNormOp.getOutput().getType());
-  }
-
-  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
-      PatternRewriter &rewriter) const final {
-    // Match.
-    if (!isDecomposable(instanceNormOp)) {
-      return failure();
-    }
-
-    // Get info.
-    Value input = instanceNormOp.getInput();
-    Value scale = instanceNormOp.getScale();
-    Value bias = instanceNormOp.getB();
-    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
-    Type elementType = inputType.getElementType();
-    auto inputShape = inputType.getShape();
-    int64_t C = inputShape[1];
-    int64_t inputRank = inputType.getRank();
-    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
-    assert(inputRank > nonSpacialRank &&
-           "expected instance norm with input ranks > 2");
-
-    // Rewrite.
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-        rewriter, instanceNormOp.getLoc());
-    int64_t axis = nonSpacialRank;
-    int64_t numInNorm = inputRank - axis;
-    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm
-    // 1s.
-    llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
-    biasScaleShape.emplace_back(C);
-    for (int64_t i = 1; i <= numInNorm; ++i) {
-      biasScaleShape.emplace_back(1);
-      axesList.emplace_back(i);
-    }
-    Value axes = create.onnx.constantInt64(axesList);
-    Type biasScaleType = RankedTensorType::get(biasScaleShape, elementType);
-    Value newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
-    Value newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
-    // Create output using layer norm.
-    Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
-        instanceNormOp.getEpsilonAttr());
-    // Set the type of the output to be the same as the output of the original
-    // operation we are trying to replace.
-    Y.setType(instanceNormOp.getResult().getType());
-    // Replace operation.
-    rewriter.replaceOp(instanceNormOp, Y);
-    return success();
-  }
-};
-
-// =============================================================================
 // Rewrite pattern for Group Normalization
 // =============================================================================
 
@@ -2426,6 +2426,10 @@ void ONNXAddOp::getCanonicalizationPatterns(
       PropagateBiasIntoLayerNormRewritePattern<ONNXRMSLayerNormalizationOp>>(
       context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
+  results.insert<BubbleUpBiasForNormOpPattern<ONNXLayerNormalizationOp>>(
+      context);
+  results.insert<BubbleUpBiasForNormOpPattern<ONNXRMSLayerNormalizationOp>>(
+      context);
 }
 
 /// on the ONNXAndOp.
@@ -2546,12 +2550,6 @@ void ONNXGRUOp::getCanonicalizationPatterns(
 void ONNXIdentityOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<IdentityEliminationPattern>(context);
-}
-
-/// on the ONNXInstanceNormalizationOp.
-void ONNXInstanceNormalizationOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RemoveInstanceNormPattern>(context);
 }
 
 /// on the ONNXLayoutTransformOp.
