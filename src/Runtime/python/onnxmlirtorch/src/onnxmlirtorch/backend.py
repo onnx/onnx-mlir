@@ -151,17 +151,26 @@ def generate_hash_key(
         # Touch the code to materialize.
         _ = gm.code
         # Generate a unique string to represent the graph module.
-        node_info = []
+        graph_info = []
         placeholder_counter = 0
         for node in gm.graph.nodes:
+            node_info = []
             # Use stable names for placeholders.
             if node.op == "placeholder":
                 node_info.append(f"om_placeholder_{placeholder_counter}")
                 placeholder_counter += 1
             else:
-                # node_info.append(f"{node.op}_{node.target}")
-                node_info.append(f"{node.op}")
-        graph_str = " ".join(node_info)
+                node_info.append(f"{node.op}_{torch.typename(node.target)}")
+                # Append information from input nodes.
+                for inode in node._input_nodes.keys():
+                    if inode.op == "placeholder":
+                        continue
+                    node_info.append(f"{inode.op}_{torch.typename(inode.target)}")
+                # Append information from user nodes.
+                for onode in node.users.keys():
+                    node_info.append(f"{onode.op}_{torch.typename(onode.target)}")
+            graph_info.append("_".join(node_info))
+        graph_str = " ".join(graph_info)
         graph_hash = sha256_hash(graph_str.encode())
 
         # Hash the options.
