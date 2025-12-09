@@ -18,10 +18,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -39,6 +42,7 @@
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -236,6 +240,68 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
 
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
 
+  // Convert ONNXEntryPointOp to KrnlEntryPointOp
+  // This is necessary for the runtime to query entry points and signatures
+  // Similar to how it's done in createLowerToKrnlPass
+  struct ConvertONNXEntryPointToKrnlPass
+      : public mlir::PassWrapper<ConvertONNXEntryPointToKrnlPass,
+            mlir::OperationPass<mlir::ModuleOp>> {
+    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertONNXEntryPointToKrnlPass)
+    void runOnOperation() override {
+      mlir::ModuleOp module = getOperation();
+      mlir::MLIRContext *context = &getContext();
+      mlir::RewritePatternSet patterns(context);
+
+      // Create a simple pattern to convert onnx.EntryPoint to krnl.EntryPoint
+      // This is similar to ONNXEntryPointLowering in ConvertONNXToKrnl.cpp
+      struct ONNXEntryPointLoweringPattern
+          : public mlir::OpRewritePattern<ONNXEntryPointOp> {
+        using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
+
+        mlir::LogicalResult matchAndRewrite(
+            ONNXEntryPointOp op, mlir::PatternRewriter &rewriter) const override {
+          mlir::ModuleOp module = op.getOperation()->getParentOfType<mlir::ModuleOp>();
+
+          mlir::SymbolRefAttr funcRefAttr = op->getAttrOfType<mlir::SymbolRefAttr>(
+              ONNXEntryPointOp::getEntryPointFuncAttrName());
+          llvm::StringRef entryPointName = funcRefAttr.getLeafReference().getValue();
+          mlir::Operation *entryPointOp = module.lookupSymbol(entryPointName);
+          if (!entryPointOp)
+            return rewriter.notifyMatchFailure(op, "entry point name not found");
+          mlir::func::FuncOp entryPointFunc = mlir::cast<mlir::func::FuncOp>(entryPointOp);
+
+          mlir::IntegerAttr numInputsAttr = rewriter.getI32IntegerAttr(
+              static_cast<int32_t>(entryPointFunc.getArgumentTypes().size()));
+          mlir::IntegerAttr numOutputsAttr = rewriter.getI32IntegerAttr(
+              static_cast<int32_t>(entryPointFunc.getResultTypes().size()));
+
+          // Create a simple signature string (can be enhanced later)
+          std::string sig = "[ ]@[ ]";
+          mlir::StringAttr sigAttr = rewriter.getStringAttr(sig);
+
+          rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
+              op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAttr);
+          return mlir::success();
+        }
+      };
+      patterns.insert<ONNXEntryPointLoweringPattern>(context);
+
+      // Apply patterns greedily
+      mlir::GreedyRewriteConfig config;
+      if (failed(mlir::applyPatternsGreedily(module, std::move(patterns), config))) {
+        signalPassFailure();
+      }
+    }
+    StringRef getArgument() const override {
+      return "convert-onnx-entry-point-to-krnl";
+    }
+    StringRef getDescription() const override {
+      return "Convert onnx.EntryPoint to krnl.EntryPoint for entry point "
+             "function generation";
+    }
+  };
+  pm.addPass(std::make_unique<ConvertONNXEntryPointToKrnlPass>());
+
   // One-shot bufferization (Tensor → Memref)
   // This must be a module-level pass to handle function boundaries
   bufferization::OneShotBufferizePassOptions bufferizeOptions;
@@ -272,51 +338,31 @@ void addLinalgToAffinePasses(mlir::PassManager &pm) {
   funcPM.addPass(mlir::createSCFToControlFlowPass());
 }
 
-void addLinalgToLLVMPasses(mlir::PassManager &pm) {
+void addLinalgToLLVMPasses(
+    mlir::PassManager &pm, std::string outputNameNoExt) {
   // Convert remaining operations to LLVM dialect
   // Similar to addKrnlToLLVMPasses for Krnl path
-  // Note: This function takes PassManager (not OpPassManager) like
-  // addKrnlToLLVMPasses but we use PassManager for consistency with the
-  // function signature
+  // Note: onnx.EntryPoint is already converted to krnl.EntryPoint in
+  // addONNXToLinalgPasses, so we can use createConvertKrnlToLLVMPass()
+  // to generate runtime functions (omQueryEntryPoints, omInputSignature,
+  // omOutputSignature, etc.)
 
-  // Remove onnx.EntryPoint before LLVM conversion
-  // (Krnl path converts it to krnl.EntryPoint, but Linalg path doesn't use
-  // Krnl) We need to remove it as it cannot be converted to LLVM Use a simple
-  // pass that removes operations by name
-  struct RemoveONNXEntryPointPass
-      : public mlir::PassWrapper<RemoveONNXEntryPointPass,
-            mlir::OperationPass<mlir::ModuleOp>> {
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RemoveONNXEntryPointPass)
-    void runOnOperation() override {
-      mlir::ModuleOp module = getOperation();
-      SmallVector<Operation *> toErase;
-      module.walk([&](Operation *op) {
-        // Check if this is an onnx.EntryPoint operation by checking the
-        // operation name
-        StringRef opName = op->getName().getStringRef();
-        if (opName == "onnx.EntryPoint" || opName.contains("EntryPoint")) {
-          toErase.push_back(op);
-        }
-      });
-      for (Operation *op : toErase) {
-        op->erase();
-      }
-    }
-    StringRef getArgument() const override { return "remove-onnx-entry-point"; }
-    StringRef getDescription() const override {
-      return "Remove onnx.EntryPoint operations before LLVM conversion";
-    }
-  };
-  pm.addPass(std::make_unique<RemoveONNXEntryPointPass>());
-
-  // Vector → LLVM (if needed)
-  pm.addPass(mlir::createConvertVectorToLLVMPass());
-
-  // Final LLVM conversion
-  pm.addPass(mlir::createConvertControlFlowToLLVMPass());
-  pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-  pm.addPass(mlir::createConvertFuncToLLVMPass());
+  // This pass handles:
+  // 1. Entry point preprocessing (PostfixEntrypointNames, removeUnhandledParamAttrs)
+  // 2. Runtime information collection (recordInputOutputMemRefTypes,
+  //    hasSingleEntryPoint, determineOwnershipForOutputOMTensors)
+  // 3. KrnlEntryPointOp → LLVM conversion (dynamic entry point functions,
+  //    OMTensor conversion, accelerator initialization, signature recording)
+  // 4. Runtime function generation (omQueryEntryPoints, omInputSignature,
+  //    omOutputSignature)
+  // 5. Other features (constants file storage, C wrapper, .lrodata section)
+  pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
+      /*useLRODATA=*/(modelSize == ModelSize::large),
+      /*storeConstantsToFile=*/storeConstantsToFile,
+      constantsToFileSingleThreshold, constantsToFileTotalThreshold,
+      outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToLLVMPasses(
@@ -463,7 +509,9 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   if (emissionTarget >= EmitLLVMIR) {
     if (useLinalgPath) {
       // Linalg path: Lower remaining operations to LLVM
-      addLinalgToLLVMPasses(pm);
+      // Uses createConvertKrnlToLLVMPass() to generate runtime functions
+      // since onnx.EntryPoint is already converted to krnl.EntryPoint
+      addLinalgToLLVMPasses(pm, outputNameNoExt);
     } else {
       // Krnl path: Lower Krnl to LLVM
       if (inputIRLevel <= LLVMLevel)
