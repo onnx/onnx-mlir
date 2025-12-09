@@ -8,11 +8,13 @@
 #include <mlir/Dialect/Quant/IR/QuantTypes.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/PatternMatch.h>
+#include <mlir/IR/Verifier.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 namespace onnx_mlir {
 
@@ -116,6 +118,11 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
     rewriter.modifyOpInPlace(newInputOp, [&]() {
       newInputOp->getResult(resultIdx).setType(outType.clone(quantType));
     });
+    {
+      onnx_mlir::IgnoreDiagnostic diag(rewriter.getContext()->getDiagEngine());
+      if (mlir::failed(mlir::verify(newInputOp)))
+        return rewriter.notifyMatchFailure(op, "Quant types not allowed");
+    }
 
     // Remove the Q/DQ op
     rewriter.replaceAllUsesWith(result, newInputOp->getResult(resultIdx));
