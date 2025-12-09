@@ -159,7 +159,8 @@ def generate_hash_key(
                 node_info.append(f"om_placeholder_{placeholder_counter}")
                 placeholder_counter += 1
             else:
-                node_info.append(f"{node.op}_{node.target}")
+                # node_info.append(f"{node.op}_{node.target}")
+                node_info.append(f"{node.op}")
         graph_str = " ".join(node_info)
         graph_hash = sha256_hash(graph_str.encode())
 
@@ -197,7 +198,8 @@ class ONNXMLIRTorch:
             if len(self.example_inputs_indices) < len(args):
                 # Cache the rewritten graph module.
                 self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-        else:
+                self.cached_session = global_session_cache.get(self.cache_key)
+        if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
 
         # Touch the code to materialize before exporting.
@@ -498,7 +500,7 @@ class ONNXMLIRTorch:
 
     def cleanup_onnxmlir_files(self, tag_id):
         base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
-        old_files = [base + ".onnx", base + ".so"]
+        old_files = [base + ".onnx", base + ".constants.bin", base + ".so"]
         for f in old_files:
             if os.path.exists(f):
                 os.remove(old_onnx_file)
