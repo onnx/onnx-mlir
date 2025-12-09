@@ -21,12 +21,14 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "llvm/Support/JSON.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -190,6 +192,14 @@ public:
       std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
       emitVerificationCodeForInputTensors(
           module, rewriter, loc, apiRegistry, omTensorInputs, inSigJSON);
+      // Check input tensor dimension specified with option
+      // shapeInformationUB and shapeInformationLB
+      if (!shapeInformationUB.empty())
+        emitVerificationCodeForDimensionBoundOfInputTensors(module, rewriter,
+            loc, apiRegistry, omTensorInputs, inSigJSON, shapeInformationUB, 0);
+      if (!shapeInformationLB.empty())
+        emitVerificationCodeForDimensionBoundOfInputTensors(module, rewriter,
+            loc, apiRegistry, omTensorInputs, inSigJSON, shapeInformationLB, 1);
     }
 
     // 3. Emit code to prepare MemRefs from OMTensor inputs and call
@@ -522,6 +532,86 @@ private:
               "Wrong size for the dimension " + std::to_string(d) +
                   " of the input " + std::to_string(i) + ": expect " +
                   std::to_string(dim) + ", but got ");
+        }
+      }
+    }
+  }
+
+  void emitVerificationCodeForDimensionBoundOfInputTensors(ModuleOp &module,
+      PatternRewriter &rewriter, Location loc,
+      const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,
+      StringRef inSigJSON, const std::string boundInfoString,
+      int boundType) const {
+    std::map<int64_t, std::vector<int64_t>> input_bound_information =
+        parseShapeInformation(boundInfoString);
+    MLIRContext *context = rewriter.getContext();
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
+    Type int64Ty = rewriter.getI64Type();
+    Type opaquePtrTy = getPointerType(context, rewriter.getI8Type());
+    // Get a pointer to the list of input omTensors.
+    Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+        RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
+    auto JSONInput = llvm::json::parse(inSigJSON.data());
+    assert(JSONInput && "failed to parse json");
+    auto JSONArray = JSONInput->getAsArray();
+    assert(JSONArray && "failed to parse json as array");
+    int64_t inputNum = JSONArray->size();
+    for (const auto &pair : input_bound_information) {
+      int64_t startInput = pair.first;
+      int64_t endInput = pair.first + 1;
+      // Input -1 means that this shape information is for all inputs
+      if (pair.first == -1) {
+        startInput = 0;
+        endInput = inputNum;
+      }
+      for (int64_t inputID = startInput; inputID < endInput; inputID++) {
+        Value omTensorPtrAddr = create.llvm.getElemPtr(
+            getPointerType(context, opaquePtrTy), opaquePtrTy, omTensorPtrArr,
+            ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(inputID)});
+        Value omTensorPtr = create.llvm.load(opaquePtrTy, omTensorPtrAddr);
+        Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+            RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
+
+        // Check whether the bound info is valid: no more dims than tensor
+        auto JSONItem = (*JSONArray)[inputID].getAsObject();
+        auto JSONDimArray = JSONItem->getArray("dims");
+        uint64_t rank = JSONDimArray->size();
+        assert(pair.second.size() <= rank && "invalid shapeInformation ");
+
+        // Check each dimension
+        for (uint64_t dimID = 0; dimID < pair.second.size(); ++dimID) {
+          int64_t bound = pair.second[dimID];
+          if (bound == -1) // No bound info for this dimension
+            continue;
+          Value actualDim = create.llvm.load(int64Ty,
+              create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
+                  sizesArrayPtr,
+                  ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(dimID)}));
+
+          switch (boundType) {
+          case 0: // UB
+            noLessOrFailed(module, rewriter, loc,
+                create.llvm.constant(int64Ty, static_cast<int64_t>(bound)),
+                actualDim,
+                "verifyInputTensors failed: the upper bound for the input " +
+                    std::to_string(inputID) + " of dimension " +
+                    std::to_string(dimID) +
+                    " is set by --shapeInformationLB as " +
+                    std::to_string(bound) + ", but got ");
+            break;
+          case 1: // LB
+            noGreaterOrFailed(module, rewriter, loc,
+                create.llvm.constant(int64Ty, static_cast<int64_t>(bound)),
+                actualDim,
+                "verifyInputTensors failed: the upper bound for the input " +
+                    std::to_string(inputID) + " of dimension " +
+                    std::to_string(dimID) +
+                    " is set by --shapeInformationLB as " +
+                    std::to_string(bound) + ", but got ");
+            break;
+          default:
+            assert(false && "Unknown BoundType");
+          }
         }
       }
     }
