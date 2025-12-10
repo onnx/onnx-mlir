@@ -5,6 +5,7 @@
 //===----------- ONNXRecompose.cpp - ONNX High Level Rewriting ------------===//
 //
 // Copyright 2023 The IBM Research Authors.
+// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -24,10 +25,12 @@
 
 #include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/LogicalResult.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -117,9 +120,9 @@ namespace {
 // %10 = "onnx.Transpose"(%Y)
 //      {perm = [0, 3, 1, 2]} : (<1x128x128x4xf32>) -> <1x4x128x128xf32>
 
-template <bool RecomposeLayernormByTranspose = false>
-struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
-  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+template <typename DivOperator, bool RecomposeLayernormByTranspose = false>
+struct RecomposeLayerNormFromDivPattern : public OpRewritePattern<DivOperator> {
+  using OpRewritePattern<DivOperator>::OpRewritePattern;
 
   FailureOr<mlir::Value> createScaleConstOp(const Type &xType,
       const onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &builder)
@@ -152,10 +155,10 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   }
 
   LogicalResult matchAndRewrite(
-      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+      DivOperator mulOp, PatternRewriter &rewriter) const final {
     using namespace onnx_mlir;
     // Match
-    Value x, scale;
+    Value x;
     FloatAttr epsilon;
     int64_t axis;
     bool isRMSLayerNorm;
@@ -165,8 +168,8 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // the original tensor and adapting the axis, we make unsuitable axis for
     // layer suitable.
     SmallVector<int64_t> permutation;
-    if (!matchLayerNormPattern(mulOp, x, scale, axis, epsilon,
-            layerNormLocations, isRMSLayerNorm, permutation))
+    if (!matchLayerNormPattern(mulOp, x, axis, epsilon, layerNormLocations,
+            isRMSLayerNorm, permutation))
       return failure();
 
     // Replace
@@ -176,41 +179,31 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     Value res;
 
     if constexpr (RecomposeLayernormByTranspose) {
-      if (!hasShapeAndRank(scale))
-        return rewriter.notifyMatchFailure(
-            mulOp, "the scale doesn't have shape or rank");
       // if the permutation is empty, nothing is needed to be permuted.
       // Otherwise, both input and scale must be transposed.
       if (!permutation.empty()) {
-        if (scale) {
-          // Layernorm supports broadcasting and in order to transpose, the rank
-          // should be equalized.
-          scale = create.onnx.upRank(scale, getRank(x.getType()));
-          scale = create.onnx.transposeInt64(scale, permutation);
-        }
         x = create.onnx.transposeInt64(x, permutation);
       }
     }
 
-    if (isRMSLayerNorm) {
-      if (!scale) {
-        // set scale to unity if there is no scale value present in the pattern
-        // This is required because RMSLayerNorm mandates passing a scale value
+    // set scale to unity if there is no scale value present in the pattern
+    // This is required because RMSLayerNorm and LayerNorm mandates passing a
+    // scale value
 
-        // NOTE: The scale is being passed as a tensor instead of a scalar
-        // because the pass that generates RMSNormAdf templated graph requires
-        // the scale to be a tensor of dimension same as the inner most
-        // dimension of input tensor
-        auto result = this->createScaleConstOp(x.getType(), create);
-        if (failed(result))
-          return failure();
-        scale = result.value();
-      }
+    // NOTE: The scale is being passed as a tensor instead of a scalar
+    // because the pass that generates RMSNormAdf templated graph requires
+    // the scale to be a tensor of dimension same as the inner most
+    // dimension of input tensor
+    auto scale = this->createScaleConstOp(x.getType(), create);
+    if (failed(scale))
+      return failure();
+
+    if (isRMSLayerNorm) {
       res = create.onnx.RMSLayerNorm(
-          x.getType(), x, scale, noneVal, axis, epsilon);
+          x.getType(), x, scale.value(), noneVal, axis, epsilon);
     } else {
-      res =
-          create.onnx.layerNorm(x.getType(), x, scale, noneVal, axis, epsilon);
+      res = create.onnx.layerNorm(
+          x.getType(), x, scale.value(), noneVal, axis, epsilon);
     }
 
     if constexpr (RecomposeLayernormByTranspose) {
@@ -226,6 +219,173 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     return success();
   }
 
+  struct MatchDivArgs {
+    Operation **isdRecipOp;
+    Operation **nDivOp;
+    Operation **nMulOp;
+    Operation **powOp;
+    Operation **sdSqrtOp;
+    Operation **veAddOp;
+    Value &d;
+    Value &invStdDev;
+    Value &stdDev;
+    Value &varEps;
+  };
+  /*
+  * Implement the variations around the div (see matchLayerNormPattern):
+    Since this is the last operation in the layernorm block (we match the scale
+  later and fuse it), we use templates to match all different variants.
+  */
+  template <typename InnerDivOp>
+  static bool matchLastOperator([[maybe_unused]] InnerDivOp layernormOp,
+      [[maybe_unused]] MatchDivArgs &&m) {
+    return reportFailure("RMS missing norm, div, reciprocal or pow op");
+  }
+  template <>
+  bool matchLastOperator<ONNXDivOp>(ONNXDivOp divOp, MatchDivArgs &&m) {
+    // Matched norm = d / stdDev.
+    // %norm = "onnx.Div"(%d, %stdDev)
+    // %normScaled = "onnx.Mul"(%norm, %scale)
+
+    // Now search for the sqrt.
+    // %stdDev = "onnx.Sqrt"(%varEps)
+    // %norm = "onnx.Div"(%d, %stdDev)
+    *m.nDivOp = divOp;
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSqrtOp>(
+            *m.sdSqrtOp, divOp, m.d, m.stdDev, 1))
+      return reportFailure("RMS missing std dev (via div), sqrt op");
+    return true;
+  }
+  template <>
+  bool matchLastOperator<ONNXMulOp>(ONNXMulOp mulOp, MatchDivArgs &&m) {
+    using namespace onnx_mlir;
+    // Matched norm = d * (invStdDev).
+    // %Norm = "onnx.Mul"(%d, %InvStdDev)
+    // %NormScaled = "onnx.Mul"(%Norm, %scale)
+    *m.nMulOp = mulOp;
+
+    if (operandOfOpDefinedBy<ONNXReciprocalOp>(
+            *m.isdRecipOp, *m.nMulOp, m.invStdDev, m.d, 0) ||
+        operandOfOpDefinedBy<ONNXReciprocalOp>(
+            *m.isdRecipOp, *m.nMulOp, m.d, m.invStdDev, 1)) {
+      // Now matched the reciprocal.
+      // %InvStdDev = "onnx.Reciprocal"(%StdDev)
+      // %Norm = "onnx.Mul"(%d, %InvStdDev)
+
+      // Now search for the sqrt.
+      // %StdDev = "onnx.Sqrt"(%varEps)
+      // %InvStdDev = "onnx.Reciprocal"(%StdDev)
+      if (!operandOfOpDefinedBy<ONNXSqrtOp>(
+              *m.sdSqrtOp, *m.isdRecipOp, m.stdDev)) {
+        return reportFailure("RMS missing std dev (via reciprocal), sqrt op");
+      }
+    } else if (operandOfOpDefinedBy<ONNXDivOp>(
+                   *m.isdRecipOp, *m.nMulOp, m.invStdDev, m.d, 0) ||
+               operandOfOpDefinedBy<ONNXDivOp>(
+                   *m.isdRecipOp, *m.nMulOp, m.d, m.invStdDev, 1)) {
+      // Now matched the div(1/stddev).
+      // %InvStdDev = "onnx.Div"(%one, %StdDev)
+      // %Norm = "onnx.Mul"(%d, %InvStdDev)
+
+      // Now search for the sqrt.
+      // %StdDev = "onnx.Sqrt"(%varEps)
+      // %InvStdDev = "onnx.Reciprocal"(%StdDev)
+      Value one;
+      if (operandOfOpDefinedBy<ONNXSqrtOp>(
+              *m.sdSqrtOp, *m.isdRecipOp, one, m.stdDev, 1)) {
+        // Has a match, check that the value one is a scalar/tensor of size
+        // one with value 1.
+        Location loc = mulOp.getLoc();
+        IndexExprScope scope(nullptr, loc);
+        IndexExprBuilderForAnalysis createIE(loc);
+        // we can be on a false path here and the div input is not a 1 tensor
+        // but D this should be matched by matchLastOperator<ONNXDivOp> however
+        if (one.getDefiningOp<ONNXSubOp>()) {
+          return reportFailure("false path for matching");
+        }
+        if (createIE.hasShapeAndRank(one) &&
+            createIE.getShapedTypeRank(one) < 2 &&
+            createIE.getArraySize(one, /*static only*/ true) == 1) {
+          IndexExpr floatVal = createIE.getFloatAsNonAffine(one);
+          if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != 1.0))
+            return reportFailure(
+                "RMS missing std dev (via 1/x), not div of 1.0");
+        } else {
+          return reportFailure("missing std dev (via 1/x), not div of scalar");
+        }
+      } else {
+        return reportFailure("RMS missing std dev (via 1/x), sqrt op");
+      }
+    } else if (operandOfOpDefinedBy<ONNXPowOp>(
+                   *m.powOp, mulOp, m.invStdDev, m.d, 0) ||
+               operandOfOpDefinedBy<ONNXPowOp>(
+                   *m.powOp, mulOp, m.d, m.invStdDev, 1)) {
+      // The following pattern is now matched
+      // %invStdDev = "onnx.Pow"(%varEps, %negHalf)
+      // %norm = "onnx.Mul"(%d, %invStdDev)
+
+      // Now verify the value of exponent for pow op
+      mlir::Value negHalf;
+      if (operandOfOpDefinedBy<ONNXAddOp>(
+              *m.veAddOp, *m.powOp, m.varEps, negHalf, 0)) {
+        // Verify if the exponent is floating point scalar with value -0.5
+        Location loc = (*m.powOp)->getLoc();
+        IndexExprScope scope(nullptr, loc);
+        IndexExprBuilderForAnalysis createIE(loc);
+        if (createIE.hasShapeAndRank(negHalf) &&
+            createIE.getArraySize(negHalf, /*static only*/ true) == 1) {
+          IndexExpr floatVal = createIE.getFloatAsNonAffine(negHalf);
+          if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != -0.5)) {
+            return reportFailure("RMS missing std dev (via pow(var + eps, "
+                                 "-0.5)), exp is not -0.5");
+          }
+        } else {
+          return reportFailure(
+              "missing std dev (via pow(var + eps, -0.5)), not exp of scalar");
+        }
+      } else {
+        return reportFailure("RMS missing std dev (via pow(var + eps, -0.5)), "
+                             "input to pow is not an Add");
+      }
+    } else {
+      return reportFailure("RMS missing inv std dev, reciprocal op");
+    }
+    return true;
+  }
+  template <>
+  bool matchLastOperator<ONNXPowOp>(ONNXPowOp powInputOp, MatchDivArgs &&m) {
+    using namespace onnx_mlir;
+    // The following pattern is now matched
+    // %invStdDev = "onnx.Pow"(%varEps, %negHalf)
+    // %norm = "onnx.Mul"(%d, %invStdDev)
+    *m.powOp = powInputOp;
+
+    // Now verify the value of exponent for pow op
+    mlir::Value negHalf;
+    if (operandOfOpDefinedBy<ONNXAddOp>(
+            *m.veAddOp, *m.powOp, m.varEps, negHalf, 0)) {
+      // Verify if the exponent is floating point scalar with value -0.5
+      Location loc = (*m.powOp)->getLoc();
+      IndexExprScope scope(nullptr, loc);
+      IndexExprBuilderForAnalysis createIE(loc);
+      if (createIE.hasShapeAndRank(negHalf) &&
+          createIE.getArraySize(negHalf, /*static only*/ true) == 1) {
+        IndexExpr floatVal = createIE.getFloatAsNonAffine(negHalf);
+        if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != -0.5)) {
+          return reportFailure("RMS missing std dev (via pow(var + eps, "
+                               "-0.5)), exp is not -0.5");
+        }
+      } else {
+        return reportFailure(
+            "missing std dev (via pow(var + eps, -0.5)), not exp of scalar");
+      }
+    } else {
+      return reportFailure("RMS missing std dev (via pow(var + eps, -0.5)), "
+                           "input to pow is not an Add");
+    }
+    return true;
+  }
+
   /*
    * Primary LayerNormalization pattern being matched:
 
@@ -233,14 +393,18 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
      D = X - mean
      var = reduceMean(D*D)
      stdDev = sqrt(var + eps)
-     y = mul(scale, D / stdDev)
+     normalized = D / stdDev
+
+     y = mul(scale, normalized) (not matched anymore but fused later)
 
 
   * Second pattern associated with RMSLayerNormalization:
 
     var = reduceMean(X * X)
     stdDev = sqrt(var + eps)
-    Y = mul(scale, X / stdDev)
+    normalized = X / stdDev
+
+    Y = mul(scale, normalized) (not matched anymore but fused later)
 
   * Third pattern associated with RMSLayerNormalization
 
@@ -262,8 +426,8 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   replaced by a single Pow op with exponent as -0.5. Everything other than the
   last two lines follows a logic common to primary and secondary pattern.
   */
-  static bool matchLayerNormPattern(ONNXMulOp LayerNormOp, Value &x,
-      Value &scale, int64_t &axis, FloatAttr &epsilonAttr,
+  static bool matchLayerNormPattern(DivOperator LayerNormOp, Value &x,
+      int64_t &axis, FloatAttr &epsilonAttr,
       SmallVectorImpl<Location> &layerNormLocations, bool &isRMSLayerNorm,
       SmallVectorImpl<int64_t> &perm) {
     using namespace onnx_mlir;
@@ -272,11 +436,10 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
     // 1: Start first to detect if we have the common layer norm pattern.
     // Values that will be gathered and only kept locally.
-    Value norm, invStdDev, stdDev, varEps, var, epsilon, dd, d, mean, x1;
+    Value invStdDev, stdDev, varEps, var, epsilon, dd, d, mean, x1;
     // Replicate of values, check that they are identical to originals.
     Value d1, d2;
     // Operations that will be gathered and kept locally.
-    Operation *nsMulOp = LayerNormOp.getOperation();
     Operation *ddMulOp = nullptr;
     Operation *nDivOp = nullptr;
     Operation *nMulOp = nullptr;
@@ -287,105 +450,19 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     Operation *mReduceOp = nullptr;
     Operation *dSubOp = nullptr;
     Operation *powOp = nullptr;
-    // after this group, we have defined norm, scale, d, and sdSqrtOp.
-    if (operandOfOpDefinedBy<ONNXDivOp>(nDivOp, nsMulOp, norm, scale, 0) ||
-        operandOfOpDefinedBy<ONNXDivOp>(nDivOp, nsMulOp, scale, norm, 1)) {
-      // Matched norm = d / stdDev.
-      // %norm = "onnx.Div"(%d, %stdDev)
-      // %normScaled = "onnx.Mul"(%norm, %scale)
 
-      // Now search for the sqrt.
-      // %stdDev = "onnx.Sqrt"(%varEps)
-      // %norm = "onnx.Div"(%d, %stdDev)
-      if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, nDivOp, d, stdDev, 1))
-        return reportFailure("RMS missing std dev (via div), sqrt op");
-    } else if (operandOfOpDefinedBy<ONNXMulOp>(
-                   nMulOp, nsMulOp, norm, scale, 0) ||
-               operandOfOpDefinedBy<ONNXMulOp>(
-                   nMulOp, nsMulOp, scale, norm, 1)) {
-      // Matched norm = d * (invStdDev).
-      // %Norm = "onnx.Mul"(%d, %InvStdDev)
-      // %NormScaled = "onnx.Mul"(%Norm, %scale)
-
-      if (operandOfOpDefinedBy<ONNXReciprocalOp>(
-              isdRecipOp, nMulOp, invStdDev, d, 0) ||
-          operandOfOpDefinedBy<ONNXReciprocalOp>(
-              isdRecipOp, nMulOp, d, invStdDev, 1)) {
-        // Now matched the reciprocal.
-        // %InvStdDev = "onnx.Reciprocal"(%StdDev)
-        // %Norm = "onnx.Mul"(%d, %InvStdDev)
-
-        // Now search for the sqrt.
-        // %StdDev = "onnx.Sqrt"(%varEps)
-        // %InvStdDev = "onnx.Reciprocal"(%StdDev)
-        if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, isdRecipOp, stdDev)) {
-          return reportFailure("RMS missing std dev (via reciprocal), sqrt op");
-        }
-      } else if (operandOfOpDefinedBy<ONNXDivOp>(
-                     isdRecipOp, nMulOp, invStdDev, d, 0) ||
-                 operandOfOpDefinedBy<ONNXDivOp>(
-                     isdRecipOp, nMulOp, d, invStdDev, 1)) {
-        // Now matched the div(1/stddev).
-        // %InvStdDev = "onnx.Div"(%one, %StdDev)
-        // %Norm = "onnx.Mul"(%d, %InvStdDev)
-
-        // Now search for the sqrt.
-        // %StdDev = "onnx.Sqrt"(%varEps)
-        // %InvStdDev = "onnx.Reciprocal"(%StdDev)
-        Value one;
-        if (operandOfOpDefinedBy<ONNXSqrtOp>(
-                sdSqrtOp, isdRecipOp, one, stdDev, 1)) {
-          // Has a match, check that the value one is a scalar/tensor of size
-          // one with value 1.
-          IndexExprScope scope(nullptr, loc);
-          IndexExprBuilderForAnalysis createIE(loc);
-          if (createIE.hasShapeAndRank(one) &&
-              createIE.getArraySize(one, /*static only*/ true) == 1) {
-            IndexExpr floatVal = createIE.getFloatAsNonAffine(one);
-            if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != 1.0))
-              return reportFailure(
-                  "RMS missing std dev (via 1/x), not div of 1.0");
-          } else {
-            return reportFailure(
-                "missing std dev (via 1/x), not div of scalar");
-          }
-        } else {
-          return reportFailure("RMS missing std dev (via 1/x), sqrt op");
-        }
-      } else {
-        return reportFailure("RMS missing inv std dev, reciprocal op");
-      }
-    } else if (operandOfOpDefinedBy<ONNXPowOp>(
-                   powOp, nsMulOp, invStdDev, d, 0) ||
-               operandOfOpDefinedBy<ONNXPowOp>(
-                   powOp, nsMulOp, d, invStdDev, 1)) {
-      // The following pattern is now matched
-      // %invStdDev = "onnx.Pow"(%varEps, %negHalf)
-      // %norm = "onnx.Mul"(%d, %invStdDev)
-
-      // Now verify the value of exponent for pow op
-      mlir::Value negHalf;
-      if (operandOfOpDefinedBy<ONNXAddOp>(veAddOp, powOp, varEps, negHalf, 0)) {
-        // Verify if the exponent is floating point scalar with value -0.5
-        IndexExprScope scope(nullptr, loc);
-        IndexExprBuilderForAnalysis createIE(loc);
-        if (createIE.hasShapeAndRank(negHalf) &&
-            createIE.getArraySize(negHalf, /*static only*/ true) == 1) {
-          IndexExpr floatVal = createIE.getFloatAsNonAffine(negHalf);
-          if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != -0.5)) {
-            return reportFailure("RMS missing std dev (via pow(var + eps, "
-                                 "-0.5)), exp is not -0.5");
-          }
-        } else {
-          return reportFailure(
-              "missing std dev (via pow(var + eps, -0.5)), not exp of scalar");
-        }
-      } else {
-        return reportFailure("RMS missing std dev (via pow(var + eps, -0.5)), "
-                             "input to pow is not an Add");
-      }
-    } else {
-      return reportFailure("RMS missing norm, div, reciprocal or pow op");
+    if (!matchLastOperator<DivOperator>(
+            LayerNormOp, MatchDivArgs{.isdRecipOp = &isdRecipOp,
+                             .nDivOp = &nDivOp,
+                             .nMulOp = &nMulOp,
+                             .powOp = &powOp,
+                             .sdSqrtOp = &sdSqrtOp,
+                             .veAddOp = &veAddOp,
+                             .d = d,
+                             .invStdDev = invStdDev,
+                             .stdDev = stdDev,
+                             .varEps = varEps})) {
+      return reportFailure("First operator could not be matched");
     }
 
     // extract veAddOp and varEps if sqrt pattern is present instead of pow.
@@ -393,6 +470,8 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (!powOp) {
       // %varEps = "onnx.Add"(%var, %eps)
       // %stdDev = "onnx.Sqrt"(%varEps)
+      if (!sdSqrtOp)
+        return reportFailure("Sqrt not defined, wrong path.");
       if (!operandOfOpDefinedBy<ONNXAddOp>(veAddOp, sdSqrtOp, varEps))
         return reportFailure("RMS missing var + eps, add op");
     }
@@ -427,13 +506,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return reportFailure("RMS var eps add has too many uses");
     if (sdSqrtOp && !sdSqrtOp->hasOneUse())
       return reportFailure("RMS std dev sqrt has too many uses");
-    if (powOp && !powOp->hasOneUse())
-      return reportFailure("RMS std dev pow has too many uses");
     // Gate the next 3 ops by being nonnull, as there are multiple paths.
-    if (nDivOp && !nDivOp->hasOneUse())
-      return reportFailure("RMS norm div has too many uses");
-    if (nMulOp && !nMulOp->hasOneUse())
-      return reportFailure("RMS norm mul has too many uses");
     if (isdRecipOp && !isdRecipOp->hasOneUse())
       return reportFailure("RMS norm recip has too many uses");
     // Now check values epsilon.
@@ -733,8 +806,8 @@ struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // Two associative cases depending on which Mul 0.5 belongs to:
     // - 0.5 * (a * b)
     // - (0.5 * a) * b
-    // For each case, we have four communitive cases: 2 for the outer Mul and 2
-    // for the inner Mul. In total, we handle 8 cases.
+    // For each case, we have four communitive cases: 2 for the outer Mul and
+    // 2 for the inner Mul. In total, we handle 8 cases.
     Value lhs = mulOp.getOperand(0);
     Value rhs = mulOp.getOperand(1);
 
@@ -985,8 +1058,8 @@ struct RecomposeDepthToSpace : public OpRewritePattern<ONNXReshapeOp> {
     if (!transposePred(perms))
       return std::nullopt;
 
-    // Check for concrete reshape pattern. This pattern applies to both DCR and
-    // CRD modes:
+    // Check for concrete reshape pattern. This pattern applies to both DCR
+    // and CRD modes:
     //   reshape NxC//(B*B)xHxBxWxB -> NxC//(B*B)x(HxB)x(WxB)
     auto sndReshapeInTy = cast<ShapedType>(t.getType());
     ArrayRef<int64_t> sndReshapeInShape = sndReshapeInTy.getShape();
@@ -1264,8 +1337,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       }
       return false;
     };
-    // Ensure all convolutions are really parallel, none of then can be part of
-    // the input of another convolution
+    // Ensure all convolutions are really parallel, none of then can be part
+    // of the input of another convolution
     if (llvm::any_of(parallelConvs, checkIfOtherConvsReachable)) {
       return rewriter.notifyMatchFailure(
           convOp1, "conv ops are not parallel (reachable from each other)");
@@ -1364,8 +1437,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
       for (size_t i = 0; i < parallelConvs.size(); ++i) {
         rewriter.replaceAllOpUsesWith(parallelConvs[i], splitResults[i]);
       }
-      // Sort the block topological, as the operations after the split may be in
-      // the wrong place otherwise
+      // Sort the block topological, as the operations after the split may be
+      // in the wrong place otherwise
       mlir::sortTopologically(newConv->getBlock());
     }
     for (auto conv : parallelConvs) {
@@ -1459,9 +1532,14 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool recomposeLayernormByTranspose) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<RecomposeGeluFromMulPattern>(context);
-  patterns.insert<RecomposeLayerNormFromMulPattern<false>>(context);
-  if (recomposeLayernormByTranspose)
-    patterns.insert<RecomposeLayerNormFromMulPattern<true>>(context);
+  patterns.insert<RecomposeLayerNormFromDivPattern<ONNXDivOp, false>>(context);
+  patterns.insert<RecomposeLayerNormFromDivPattern<ONNXMulOp, false>>(context);
+  patterns.insert<RecomposeLayerNormFromDivPattern<ONNXPowOp, false>>(context);
+  if (recomposeLayernormByTranspose) {
+    patterns.insert<RecomposeLayerNormFromDivPattern<ONNXDivOp, true>>(context);
+    patterns.insert<RecomposeLayerNormFromDivPattern<ONNXMulOp, true>>(context);
+    patterns.insert<RecomposeLayerNormFromDivPattern<ONNXPowOp, true>>(context);
+  }
   patterns.insert<RecomposeDepthToSpaceCRD>(context);
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   // AMD Disabled as downstream has no special support for it

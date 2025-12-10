@@ -5,6 +5,7 @@
 //===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -21,6 +22,7 @@
 
 #include "mlir/Dialect/Traits.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -2390,6 +2392,87 @@ struct PullReluLikeOpsThroughSplitPattern
   }
 };
 
+/*
+ * Push down the transpose after scale (mul op), so the scale can be fused to
+ * Layernorm.
+ *
+ * This means going from:
+ *  constant     layernorm
+ *     |             |
+ *     |         transpose (loc1)
+ *     *---------.   /
+ *                mul (loc2)
+ *                 |
+ *
+ * to:
+ *
+ *  constant      layernorm
+ *     |              |
+ *  transpose (loc1)  /
+ *     *---------.   /
+ *                mul (loc2)
+ *                 |
+ *             transpose (loc1)
+ *                 |
+ */
+struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Operation *transposeOp = nullptr;
+    Operation *layerOp = nullptr;
+    Value Y;
+    Value scale;
+    Value transposedY;
+    if (operandOfOpDefinedBy<ONNXTransposeOp>(
+            transposeOp, mulOp, transposedY, scale, 0) ||
+        operandOfOpDefinedBy<ONNXTransposeOp>(
+            transposeOp, mulOp, scale, transposedY, 1)) {
+      if (!operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+              layerOp, transposeOp, Y, 0)) {
+        return rewriter.notifyMatchFailure(
+            mulOp, "transpose without preceding layernorm");
+      }
+      auto *op = scale.getDefiningOp();
+      if (op == nullptr || !isa<ONNXConstantOp>(op)) {
+        return rewriter.notifyMatchFailure(
+            mulOp, "transpose without preceding constant");
+      }
+    } else {
+      return rewriter.notifyMatchFailure(mulOp, "no preceding transpose found");
+    }
+    auto oldTranspose = cast<ONNXTransposeOp>(transposeOp);
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, oldTranspose->getLoc());
+
+    // we have a transpose that we need to move behind the multiplication
+    if (!oldTranspose->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          mulOp, "more than one use for transpose");
+
+    // use shape helper to get perm (handles default transpose case)
+    IndexExprBuilderForAnalysis createIE(oldTranspose->getLoc());
+    ONNXTransposeOpShapeHelper shapeHelper(
+        oldTranspose.getOperation(), {oldTranspose.getData()}, &createIE);
+    if (shapeHelper.computeShape().failed())
+      return rewriter.notifyMatchFailure(
+          mulOp, "could not compute transpose shape");
+    ArrayAttr transposePerm = oldTranspose.getPermAttr();
+
+    scale = create.onnx.upRank(scale, getRank(Y.getType()));
+    auto transposedMulInput = create.onnx.transposeInt64(
+        scale, invertPermutationVector(
+                   extractFromIntegerArrayAttr<int64_t>(transposePerm)));
+    auto newMulOp = create.onnx.mul(Y, transposedMulInput);
+    newMulOp.setLoc(mulOp->getLoc());
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(mulOp,
+        {oldTranspose->getLoc()}, transposedY.getType(), newMulOp,
+        transposePerm);
+    return llvm::success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -2595,6 +2678,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
   results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
       context);
+  results.insert<PushTransposeDownScalePattern>(context);
 }
 
 /// on the ONNXOrOp.
