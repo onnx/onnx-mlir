@@ -35,7 +35,7 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
     // Should not convert when input comes from blockArg or Cast node
     // TODO: Fix for cast node by either of:
     //  - Updating the cast to quantized type
-    //  - Add qcast after cast
+    //  - Add qcast/scast after cast based on types
     mlir::Value input = op->getOperand(0);
     mlir::Operation *inputOp = input.getDefiningOp();
     if (inputOp == nullptr || mlir::isa<mlir::ONNXCastOp>(inputOp))
@@ -115,17 +115,30 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
     auto results = inputOp->getOpResults();
     unsigned int resultIdx = std::distance(
         results.begin(), std::find(results.begin(), results.end(), input));
-    rewriter.modifyOpInPlace(newInputOp, [&]() {
-      newInputOp->getResult(resultIdx).setType(outType.clone(quantType));
-    });
+    mlir::Value newResult = newInputOp->getResult(resultIdx);
+    rewriter.modifyOpInPlace(
+        newInputOp, [&]() { newResult.setType(outType.clone(quantType)); });
     {
       onnx_mlir::IgnoreDiagnostic diag(rewriter.getContext()->getDiagEngine());
       if (mlir::failed(mlir::verify(newInputOp)))
-        return rewriter.notifyMatchFailure(op, "Quant types not allowed");
+        // No need of rolling back as the newInputOp is dead and will be deleted
+        return rewriter.notifyMatchFailure(
+            op, "Quant type not allowed as result");
     }
 
     // Remove the Q/DQ op
-    rewriter.replaceAllUsesWith(result, newInputOp->getResult(resultIdx));
+    rewriter.replaceAllUsesWith(result, newResult);
+    {
+      onnx_mlir::IgnoreDiagnostic diag(rewriter.getContext()->getDiagEngine());
+      for (auto *userOp : newResult.getUsers()) {
+        if (mlir::failed(mlir::verify(userOp))) {
+          // Rollback the changes
+          rewriter.replaceAllUsesWith(newResult, result);
+          return rewriter.notifyMatchFailure(
+              op, "Quant type not allowed as operand");
+        }
+      }
+    }
     rewriter.eraseOp(op);
 
     return mlir::success();
