@@ -51,6 +51,13 @@ public:
   std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes;
   std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes;
   bool verifyInputTensors;
+  /*
+  typedef enum {
+          UB,
+          LB
+  } ShapeInfoType;
+  */
+  enum class ShapeInfoType { UB, LB };
 
   KrnlEntryPointOpLowering(LLVMTypeConverter &typeConverter, MLIRContext *ctx,
       ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
@@ -196,10 +203,12 @@ public:
       // shapeInformationUB and shapeInformationLB
       if (!shapeInformationUB.empty())
         emitVerificationCodeForDimensionBoundOfInputTensors(module, rewriter,
-            loc, apiRegistry, omTensorInputs, inSigJSON, shapeInformationUB, 0);
+            loc, apiRegistry, omTensorInputs, inSigJSON, shapeInformationUB,
+            ShapeInfoType::UB);
       if (!shapeInformationLB.empty())
         emitVerificationCodeForDimensionBoundOfInputTensors(module, rewriter,
-            loc, apiRegistry, omTensorInputs, inSigJSON, shapeInformationLB, 1);
+            loc, apiRegistry, omTensorInputs, inSigJSON, shapeInformationLB,
+            ShapeInfoType::LB);
     }
 
     // 3. Emit code to prepare MemRefs from OMTensor inputs and call
@@ -541,7 +550,7 @@ private:
       PatternRewriter &rewriter, Location loc,
       const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,
       StringRef inSigJSON, const std::string boundInfoString,
-      int boundType) const {
+      ShapeInfoType boundType) const {
     std::map<int64_t, std::vector<int64_t>> input_bound_information =
         parseShapeInformation(boundInfoString);
     MLIRContext *context = rewriter.getContext();
@@ -589,28 +598,28 @@ private:
                   ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(dimID)}));
 
           switch (boundType) {
-          case 0: // UB
+          case ShapeInfoType::UB:
             noLessOrFailed(module, rewriter, loc,
                 create.llvm.constant(int64Ty, static_cast<int64_t>(bound)),
                 actualDim,
                 "verifyInputTensors failed: the upper bound for the input " +
                     std::to_string(inputID) + " of dimension " +
                     std::to_string(dimID) +
-                    " is set by --shapeInformationLB as " +
+                    " is set by --shapeInformationUB as " +
                     std::to_string(bound) + ", but got ");
             break;
-          case 1: // LB
+          case ShapeInfoType::LB:
             noGreaterOrFailed(module, rewriter, loc,
                 create.llvm.constant(int64Ty, static_cast<int64_t>(bound)),
                 actualDim,
-                "verifyInputTensors failed: the upper bound for the input " +
+                "verifyInputTensors failed: the lower bound for the input " +
                     std::to_string(inputID) + " of dimension " +
                     std::to_string(dimID) +
                     " is set by --shapeInformationLB as " +
                     std::to_string(bound) + ", but got ");
             break;
           default:
-            assert(false && "Unknown BoundType");
+            assert(false && "Unsupported BoundType");
           }
         }
       }
