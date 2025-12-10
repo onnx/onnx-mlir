@@ -43,6 +43,7 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -241,8 +242,11 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertONNXToLinalgPass());
 
   // Convert ONNXEntryPointOp to KrnlEntryPointOp
-  // This is necessary for the runtime to query entry points and signatures
-  // Similar to how it's done in createLowerToKrnlPass
+  // This MUST be done BEFORE bufferization because getSignature() needs
+  // tensor types, not memref types. After bufferization, function signatures
+  // are converted to memref types which cannot be properly serialized.
+  // This uses the same ONNXEntryPointLowering logic as the Krnl pipeline
+  // to ensure consistent signature generation.
   struct ConvertONNXEntryPointToKrnlPass
       : public mlir::PassWrapper<ConvertONNXEntryPointToKrnlPass,
             mlir::OperationPass<mlir::ModuleOp>> {
@@ -252,11 +256,30 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
       mlir::MLIRContext *context = &getContext();
       mlir::RewritePatternSet patterns(context);
 
-      // Create a simple pattern to convert onnx.EntryPoint to krnl.EntryPoint
-      // This is similar to ONNXEntryPointLowering in ConvertONNXToKrnl.cpp
+      // Replicate ONNXEntryPointLowering pattern from ConvertONNXToKrnl.cpp
+      // This ensures identical signature generation as Krnl pipeline
+      // The original class is defined in ConvertONNXToKrnl.cpp:35-176
       struct ONNXEntryPointLoweringPattern
           : public mlir::OpRewritePattern<ONNXEntryPointOp> {
         using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
+
+        // Type mapping used to generate a signature in JSON (same as Krnl path)
+        static const std::map<std::string, std::string> &getTypeMap() {
+          static const std::map<std::string, std::string> typeMap = {
+              {std::string(" f16 "), std::string(" \"f16\" ")},
+              {std::string(" f32 "), std::string(" \"f32\" ")},
+              {std::string(" f64 "), std::string(" \"f64\" ")},
+              {std::string(" i32 "), std::string(" \"i32\" ")},
+              {std::string(" i64 "), std::string(" \"i64\" ")},
+              {std::string(" i16 "), std::string(" \"i16\" ")},
+              {std::string(" i8 "), std::string(" \"i8\" ")},
+              {std::string(" i1 "), std::string(" \"i1\" ")},
+              {std::string(" ui32 "), std::string(" \"ui32\" ")},
+              {std::string(" ui64 "), std::string(" \"ui64\" ")},
+              {std::string(" ui16 "), std::string(" \"ui16\" ")},
+              {std::string(" ui8 "), std::string(" \"ui8\" ")}};
+          return typeMap;
+        }
 
         mlir::LogicalResult matchAndRewrite(
             ONNXEntryPointOp op, mlir::PatternRewriter &rewriter) const override {
@@ -275,13 +298,129 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
           mlir::IntegerAttr numOutputsAttr = rewriter.getI32IntegerAttr(
               static_cast<int32_t>(entryPointFunc.getResultTypes().size()));
 
-          // Create a simple signature string (can be enhanced later)
-          std::string sig = "[ ]@[ ]";
+          // Generate signature using the same logic as Krnl path
+          bool sigParsingError;
+          std::string sig = getSignature(
+              entryPointFunc.getFunctionType(), entryPointOp, sigParsingError);
+          if (sigParsingError)
+            return rewriter.notifyMatchFailure(op, "signature generation failed");
           mlir::StringAttr sigAttr = rewriter.getStringAttr(sig);
 
           rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
               op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAttr);
           return mlir::success();
+        }
+
+      private:
+        // Construct JSON type from the argument type (same as Krnl path)
+        // From ConvertONNXToKrnl.cpp:77-116
+        void concatTypeString(mlir::Type argType, mlir::Attribute attr,
+            llvm::raw_ostream &dstream) const {
+          std::string comma = std::string("");
+
+          mlir::TypeSwitch<mlir::Type>(argType)
+              .Case<mlir::SeqType>([&](mlir::SeqType seqTy) {
+                auto et = seqTy.getElementType();
+                dstream << "   {\"seq\" : ";
+                concatTypeString(et, attr, dstream);
+              })
+              .Case<mlir::ShapedType>([&](mlir::ShapedType tensorTy) {
+                // Handle both tensor and memref types
+                // After bufferization, tensor types become memref types
+                auto et = tensorTy.getElementType();
+                dstream << "   { \"type\" : ";
+                if (mlir::isa<onnx_mlir::krnl::StringType>(et)) {
+                  // If use "et.print(dstream)", the output is !krnl.StringType.
+                  // The missing of quotation will fail the jason parser.
+                  // Use just "string" for brief
+                  dstream << "\"string\"";
+                } else {
+                  et.print(dstream);
+                }
+                dstream << " , \"dims\" : [";
+                if (tensorTy.hasRank()) {
+                  int64_t rank = tensorTy.getRank();
+                  for (int j = 0; j < rank; j++) {
+                    int64_t dimSize = tensorTy.getDimSize(j);
+                    if (dimSize == mlir::ShapedType::kDynamic)
+                      dimSize = ModelInputShaper::kUserDynamic;
+                    dstream << comma << dimSize;
+                    comma = std::string(" , ");
+                  }
+                }
+                dstream << "] ";
+                auto name = mlir::cast<mlir::StringAttr>(attr).getValue().str();
+                dstream << ", \"name\" : \"" << name << "\"";
+              })
+              .Default([&](mlir::Type type) {
+                llvm_unreachable("input is not a tensor or memref");
+              });
+          dstream << " }\n";
+        }
+
+        // Generate signature string (same as Krnl path)
+        // From ConvertONNXToKrnl.cpp:118-175
+        std::string getSignature(mlir::FunctionType funcType, mlir::Operation *op,
+            bool &parsingFailure) const {
+          mlir::OpBuilder b(op);
+          parsingFailure = false;
+          auto inputs = funcType.getInputs();
+          auto outputs = funcType.getResults();
+          auto funcOp = mlir::dyn_cast_or_null<mlir::func::FuncOp>(op);
+          mlir::ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
+          mlir::ArrayAttr resAttrs = funcOp.getResAttrsAttr();
+
+          std::string dString;
+          llvm::raw_string_ostream dstream(dString);
+          dstream << "[ ";
+          std::string comma = std::string("");
+          for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
+            dstream << comma;
+            mlir::StringAttr inputName = b.getStringAttr({"input_" + std::to_string(i)});
+            if (argAttrs) {
+              mlir::DictionaryAttr dictAttrs =
+                  llvm::dyn_cast<mlir::DictionaryAttr>(argAttrs[i]);
+              if (dictAttrs && dictAttrs.contains("onnx.name"))
+                inputName = mlir::cast<mlir::StringAttr>(
+                    dictAttrs.getNamed("onnx.name").value().getValue());
+            }
+            concatTypeString(inputs[i], inputName, dstream);
+            comma = std::string(" , ");
+          }
+          dstream << "\n]";
+          dstream.flush();
+          dString.push_back('\0'); // null terminate the input signature string
+          dstream << "@[";
+          comma = std::string("");
+          // Handle outputs
+          for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
+            dstream << comma;
+            mlir::StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
+            if (resAttrs) {
+              mlir::DictionaryAttr dictAttrs =
+                  llvm::dyn_cast<mlir::DictionaryAttr>(resAttrs[i]);
+              if (dictAttrs && dictAttrs.contains("onnx.name"))
+                outputName = mlir::cast<mlir::StringAttr>(
+                    dictAttrs.getNamed("onnx.name").value().getValue());
+            }
+            concatTypeString(outputs[i], outputName, dstream);
+            comma = std::string(" , ");
+          }
+          dstream << "\n]";
+          dstream.flush();
+          dString.push_back('\0'); // null terminate the output signature string
+          
+          // Apply type map replacements (same as Krnl path)
+          const auto &typeMap = getTypeMap();
+          for (auto const &x : typeMap) {
+            size_t start_pos = 0;
+            while ((start_pos = dString.find(x.first, start_pos)) != std::string::npos) {
+              dString.replace(start_pos, x.first.length(), x.second);
+              start_pos += x.first.length();
+            }
+          }
+
+          return dString;
         }
       };
       patterns.insert<ONNXEntryPointLoweringPattern>(context);
@@ -297,7 +436,7 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
     }
     StringRef getDescription() const override {
       return "Convert onnx.EntryPoint to krnl.EntryPoint for entry point "
-             "function generation";
+             "function generation (same as Krnl pipeline)";
     }
   };
   pm.addPass(std::make_unique<ConvertONNXEntryPointToKrnlPass>());

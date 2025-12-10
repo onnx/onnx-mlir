@@ -1,11 +1,11 @@
 module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", llvm.target_triple = "x86_64-unknown-linux-gnu", "onnx-mlir.symbol-postfix" = "test_linalg"} {
   llvm.func @strncmp(!llvm.ptr, !llvm.ptr, i64) -> i32
   llvm.mlir.global external constant @_entry_point_1_test_linalg("run_main_graph_test_linalg\00") {addr_space = 0 : i32}
-  llvm.mlir.global external constant @_entry_point_1_in_sig_test_linalg("[ ]") {addr_space = 0 : i32}
-  llvm.mlir.global external constant @_entry_point_1_out_sig_test_linalg("[ ]") {addr_space = 0 : i32}
+  llvm.mlir.global external constant @_entry_point_1_in_sig_test_linalg("[    { \22type\22 : \22f32\22 , \22dims\22 : [2 , 3] , \22name\22 : \22input_0\22 }\0A ,    { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4] , \22name\22 : \22input_1\22 }\0A\0A]\00") {addr_space = 0 : i32}
+  llvm.mlir.global external constant @_entry_point_1_out_sig_test_linalg("[   { \22type\22 : \22f32\22 , \22dims\22 : [2 , 4] , \22name\22 : \22output_0\22 }\0A\0A]\00") {addr_space = 0 : i32}
   llvm.mlir.global external constant @_entry_point_0_test_linalg("run_main_graph\00") {addr_space = 0 : i32}
-  llvm.mlir.global external constant @_entry_point_0_in_sig_test_linalg("[ ]") {addr_space = 0 : i32}
-  llvm.mlir.global external constant @_entry_point_0_out_sig_test_linalg("[ ]") {addr_space = 0 : i32}
+  llvm.mlir.global external constant @_entry_point_0_in_sig_test_linalg("[    { \22type\22 : \22f32\22 , \22dims\22 : [2 , 3] , \22name\22 : \22input_0\22 }\0A ,    { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4] , \22name\22 : \22input_1\22 }\0A\0A]\00") {addr_space = 0 : i32}
+  llvm.mlir.global external constant @_entry_point_0_out_sig_test_linalg("[   { \22type\22 : \22f32\22 , \22dims\22 : [2 , 4] , \22name\22 : \22output_0\22 }\0A\0A]\00") {addr_space = 0 : i32}
   llvm.func @omGetExternalConstantAddr(!llvm.ptr, !llvm.ptr, i64)
   llvm.func @omMMapBinaryFile(!llvm.ptr, !llvm.ptr, i64, i64) -> i1
   llvm.func @omTensorListGetSize(!llvm.ptr) -> i64
