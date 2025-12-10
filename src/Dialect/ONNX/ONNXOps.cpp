@@ -17,6 +17,7 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "llvm/ADT/STLExtras.h"
 

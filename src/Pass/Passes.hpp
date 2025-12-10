@@ -62,6 +62,8 @@ std::unique_ptr<mlir::Pass> createQDQAroundOpOptONNXToONNXPass();
 std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass();
 std::unique_ptr<mlir::Pass> createFoldDQBinaryQPass();
 
+std::unique_ptr<mlir::Pass> createQuantTypesPass();
+
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(
