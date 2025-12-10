@@ -176,7 +176,9 @@ def generate_hash_key(
                         else:
                             shape.append(s)
                     shape_str = ",".join(shape)
-                    node_info.append(f"om_placeholder_{placeholder_counter}_[{shape_str}]")
+                    node_info.append(
+                        f"om_placeholder_{placeholder_counter}_[{shape_str}]"
+                    )
                 else:
                     node_info.append(f"om_placeholder_{placeholder_counter}")
                 placeholder_counter += 1
@@ -392,7 +394,9 @@ class ONNXMLIRTorch:
                     new_node.meta = node.meta
                     new_node.meta["tensor_meta"] = {"shape": [1], "dtype": torch.int64}
                     if node.type is int:
-                        new_node.meta["example_value"] = torch.tensor([value], dtype=torch.int64)
+                        new_node.meta["example_value"] = torch.tensor(
+                            [value], dtype=torch.int64
+                        )
                     new_node.type = torch.Tensor
                 placeholders_to_replace.append((node, new_node))
 
