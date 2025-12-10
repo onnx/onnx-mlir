@@ -32,11 +32,11 @@ namespace {
 
 struct ConvertONNXToLinalgPass
     : public PassWrapper<ConvertONNXToLinalgPass, OperationPass<func::FuncOp>> {
-  
+
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertONNXToLinalgPass)
-  
+
   StringRef getArgument() const override { return "convert-onnx-to-linalg"; }
-  
+
   StringRef getDescription() const override {
     return "Lower ONNX operations to Linalg dialect";
   }
@@ -64,7 +64,8 @@ struct ConvertONNXToLinalgPass
     TypeConverter typeConverter;
 
     // Populate lowering patterns
-    populateLoweringONNXMatMulOpToLinalgPattern(patterns, typeConverter, context);
+    populateLoweringONNXMatMulOpToLinalgPattern(
+        patterns, typeConverter, context);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
@@ -82,4 +83,3 @@ std::unique_ptr<Pass> createConvertONNXToLinalg() {
 }
 
 } // namespace onnx_mlir
-

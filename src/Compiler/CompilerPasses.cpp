@@ -24,27 +24,27 @@
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
-#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -251,19 +251,22 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
   struct ConvertONNXEntryPointToKrnlPass
       : public mlir::PassWrapper<ConvertONNXEntryPointToKrnlPass,
             mlir::OperationPass<mlir::ModuleOp>> {
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertONNXEntryPointToKrnlPass)
+    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+        ConvertONNXEntryPointToKrnlPass)
     void runOnOperation() override {
       mlir::ModuleOp module = getOperation();
       mlir::MLIRContext *context = &getContext();
       mlir::RewritePatternSet patterns(context);
 
-      // Use the existing ONNXEntryPointLowering pattern from ConvertONNXToKrnl.cpp
-      // This ensures identical signature generation as Krnl pipeline
+      // Use the existing ONNXEntryPointLowering pattern from
+      // ConvertONNXToKrnl.cpp This ensures identical signature generation as
+      // Krnl pipeline
       populateLoweringONNXEntryPointOpPattern(patterns, context);
 
       // Apply patterns greedily
       mlir::GreedyRewriteConfig config;
-      if (failed(mlir::applyPatternsGreedily(module, std::move(patterns), config))) {
+      if (failed(mlir::applyPatternsGreedily(
+              module, std::move(patterns), config))) {
         signalPassFailure();
       }
     }
@@ -313,8 +316,7 @@ void addLinalgToAffinePasses(mlir::PassManager &pm) {
   funcPM.addPass(mlir::createSCFToControlFlowPass());
 }
 
-void addLinalgToLLVMPasses(
-    mlir::PassManager &pm, std::string outputNameNoExt) {
+void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
   // Convert remaining operations to LLVM dialect
   // Similar to addKrnlToLLVMPasses for Krnl path
   // Note: onnx.EntryPoint is already converted to krnl.EntryPoint in
@@ -323,7 +325,8 @@ void addLinalgToLLVMPasses(
   // omOutputSignature, etc.)
 
   // This pass handles:
-  // 1. Entry point preprocessing (PostfixEntrypointNames, removeUnhandledParamAttrs)
+  // 1. Entry point preprocessing (PostfixEntrypointNames,
+  // removeUnhandledParamAttrs)
   // 2. Runtime information collection (recordInputOutputMemRefTypes,
   //    hasSingleEntryPoint, determineOwnershipForOutputOMTensors)
   // 3. KrnlEntryPointOp → LLVM conversion (dynamic entry point functions,
