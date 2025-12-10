@@ -145,7 +145,7 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
 def generate_hash_key(
     gm: torch.fx.GraphModule, compile_options, use_lightweight_hashing=True
 ) -> str:
-    start = time.time()
+    start = time.perf_counter()
     if use_lightweight_hashing:
         # Hash the graph module.
         # Touch the code to materialize.
@@ -157,19 +157,20 @@ def generate_hash_key(
             node_info = []
             # Use stable names for placeholders.
             if node.op == "placeholder":
-                node_info.append(f"om_placeholder_{placeholder_counter}")
+                if "example_value" in node.meta and isinstance(
+                    node.meta["example_value"], torch.Tensor
+                ):
+                    shape = [s for s in node.meta["example_value"].shape]
+                    node_info.append(f"om_placeholder_{placeholder_counter}_{shape}")
+                else:
+                    node_info.append(f"om_placeholder_{placeholder_counter}")
                 placeholder_counter += 1
             else:
                 node_info.append(f"{node.op}_{torch.typename(node.target)}")
                 # Append information from input nodes.
                 for inode in node._input_nodes.keys():
-                    if inode.op == "placeholder":
-                        continue
-                    node_info.append(f"{inode.op}_{torch.typename(inode.target)}")
-                # Append information from user nodes.
-                for onode in node.users.keys():
-                    node_info.append(f"{onode.op}_{torch.typename(onode.target)}")
-            graph_info.append("_".join(node_info))
+                    node_info.append(f"{inode.name}")
+            graph_info.append(";".join(node_info))
         graph_str = " ".join(graph_info)
         graph_hash = sha256_hash(graph_str.encode())
 
@@ -185,7 +186,7 @@ def generate_hash_key(
         key = pickler.get_hash(details)
 
     key = "_om_" + key
-    logger.info(f"Creating a cache key took {(time.time() - start)*1000} ms: {key}")
+    logger.info(f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}")
     return key
 
 
@@ -274,9 +275,9 @@ class ONNXMLIRTorch:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
             logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
-        start = time.time()
+        start = time.perf_counter()
         om_outputs = sess.run(om_inputs)
-        logger.info(f"sess.run took {(time.time() - start)*1000} ms")
+        logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_tensor_example_inputs(self, example_inputs):
