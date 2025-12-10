@@ -440,6 +440,10 @@ void populateLoweringONNXSequenceInsertOpPattern(
 void populateLoweringONNXSequenceLengthOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
+// Entry point lowering
+void populateLoweringONNXEntryPointOpPattern(
+    mlir::RewritePatternSet &, mlir::MLIRContext *);
+
 // `Tensor` directory methods:
 void populateLoweringONNXArgMinMaxOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

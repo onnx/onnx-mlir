@@ -77,7 +77,7 @@ struct ConvertONNXToLinalgPass
 
 } // namespace
 
-std::unique_ptr<Pass> createConvertONNXToLinalgPass() {
+std::unique_ptr<Pass> createConvertONNXToLinalg() {
   return std::make_unique<ConvertONNXToLinalgPass>();
 }
 
