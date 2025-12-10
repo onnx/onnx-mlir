@@ -160,8 +160,8 @@ def generate_hash_key(
                 if "example_value" in node.meta and isinstance(
                     node.meta["example_value"], torch.Tensor
                 ):
-                    shape = [s for s in node.meta["example_value"].shape]
-                    node_info.append(f"om_placeholder_{placeholder_counter}_{shape}")
+                    rank = len(node.meta["example_value"].shape)
+                    node_info.append(f"om_placeholder_{placeholder_counter}_{rank}D")
                 else:
                     node_info.append(f"om_placeholder_{placeholder_counter}")
                 placeholder_counter += 1
@@ -186,7 +186,9 @@ def generate_hash_key(
         key = pickler.get_hash(details)
 
     key = "_om_" + key
-    logger.info(f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}")
+    logger.info(
+        f"Creating a cache key took {(time.perf_counter() - start)*1000} ms: {key}"
+    )
     return key
 
 
@@ -204,8 +206,10 @@ class ONNXMLIRTorch:
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session is None:
             # Rewrite the graph for exporting to onnx.
-            self.example_inputs_indices, _ = self.rewrite_gm_for_export(*args)
-            if len(self.example_inputs_indices) < len(args):
+            self.example_inputs_indices, removed_example_inputs_indices, placeholders_to_replace = (
+                self.rewrite_gm_for_export(*args)
+            )
+            if placeholders_to_replace or removed_example_inputs_indices:
                 # Cache the rewritten graph module.
                 self.cache_key = generate_hash_key(self.gm, kwargs["options"])
                 self.cached_session = global_session_cache.get(self.cache_key)
@@ -340,11 +344,11 @@ class ONNXMLIRTorch:
         self.freeze_scalar_constant_args(constant_values)
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
-        self.convert_symint_args_to_tensors()
+        placeholders_to_replace = self.convert_symint_args_to_tensors()
         # After rewriting the argument list of the graph module, we maintain
         # a list of un-removed arguments that are used in forward for passing
         # correct example inputs to the rewritten graph module.
-        return example_inputs_indices, removed_example_inputs
+        return example_inputs_indices, removed_example_inputs, placeholders_to_replace
 
     def convert_symint_args_to_tensors(self):
         graph = self.gm.graph
@@ -378,6 +382,7 @@ class ONNXMLIRTorch:
         if placeholders_to_replace:
             self.gm.graph.lint()
             self.gm.recompile()
+        return placeholders_to_replace
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
         graph = self.gm.graph
