@@ -84,6 +84,14 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
     } else if constexpr (std::is_same_v<QdqOp, mlir::ONNXQuantizeLinearOp>) {
       storageType = outElemType;
       expressedType = inElemType;
+    } else {
+      // Cannot directly use static_assert(false) before c++23
+      // Creating a templated lambda and invoking immediately
+      []<bool flag = false>() {
+        static_assert(
+            flag, "Only defined for DequantizeLinear & QuantizeLinear");
+      }
+      ();
     }
 
     // Get existing quantized type if available
