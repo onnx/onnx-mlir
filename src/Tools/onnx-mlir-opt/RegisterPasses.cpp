@@ -158,6 +158,8 @@ void registerOMPasses(int optLevel) {
     return createLegalizeQuarkQuantizedOpsPass();
   });
 
+  mlir::registerPass(createQuantTypesPass);
+
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToStablehloPass();

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -188,7 +189,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
         inputShape[1] != ShapedType::kDynamic && bShape[0] != inputShape[1])
       return emitOpError(
           "Bias should have same dimension as the second dimension of input");
-    if (bType.getElementType() != inputElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(inputElementType) &&
+        bType.getElementType() != inputElementType)
       return emitOpError("Bias should have same element type as input");
   }
 
@@ -203,7 +205,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
         inputShape[1] != ShapedType::kDynamic && scaleShape[0] != inputShape[1])
       return emitOpError(
           "Scale should have same dimension as the second dimension of input");
-    if (scaleType.getElementType() != inputElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(inputElementType) &&
+        scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
 
@@ -270,7 +273,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (static_cast<int64_t>(BBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible B shapes "
                       "(unidirectional broadcast)");
-    if (bType.getElementType() != XElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(XElementType) &&
+        bType.getElementType() != XElementType)
       op->emitOpError("LayerNormalization op with incompatible B type");
   }
 
@@ -287,7 +291,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (static_cast<int64_t>(scaleBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible scale shapes "
                       "(unidirectional broadcast)");
-    if (scaleType.getElementType() != XElementType)
+    if (!mlir::isa<mlir::quant::QuantizedType>(XElementType) &&
+        scaleType.getElementType() != XElementType)
       op->emitOpError("LayerNormalization op with incompatible scale type");
   }
 

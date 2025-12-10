@@ -531,6 +531,8 @@ OpsWithResultTypeInference = [
     "SequenceEmpty",
 ]
 
+FloatTypes = {"TensorOf<[F32]>", "TensorOf<[F16]>", "TensorOf<[BF16]>"}
+
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -918,6 +920,16 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
 
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
+
+        qType = False
+        if op_name == "DequantizeLinear":
+            qType = is_input and i == 0
+        elif op_name == "QuantizeLinear":
+            qType = not is_input and i == 0
+        else:
+            qType = FloatTypes.issubset(types)
+        if qType:
+            types.append("TensorOf<[quant_QuantizedType]>")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")

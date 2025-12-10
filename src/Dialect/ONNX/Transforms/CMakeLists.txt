@@ -53,6 +53,7 @@ add_onnx_mlir_library(OMONNXRewrite
   SetONNXNodeName.cpp
   Recompose.cpp
   LegalizeQuarkQuantizedOps.cpp
+  QuantTypes.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
