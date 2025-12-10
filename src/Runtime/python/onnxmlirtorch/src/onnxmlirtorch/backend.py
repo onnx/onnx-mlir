@@ -153,15 +153,30 @@ def generate_hash_key(
         # Generate a unique string to represent the graph module.
         graph_info = []
         placeholder_counter = 0
+        dim_counter = 0
+        dim_dict = {}
         for node in gm.graph.nodes:
             node_info = []
-            # Use stable names for placeholders.
+            # Use stable names for placeholders and symbolic dimensions.
             if node.op == "placeholder":
                 if "example_value" in node.meta and isinstance(
                     node.meta["example_value"], torch.Tensor
                 ):
-                    rank = len(node.meta["example_value"].shape)
-                    node_info.append(f"om_placeholder_{placeholder_counter}_{rank}D")
+                    shape = []
+                    for d in node.meta["example_value"].shape:
+                        s = str(d)
+                        if isinstance(d, torch.SymInt):
+                            if s in dim_dict:
+                                shape.append(dim_dict[s])
+                            else:
+                                dim_str = f"dim_{dim_counter}"
+                                dim_dict[s] = dim_str
+                                dim_counter += 1
+                                shape.append(dim_str)
+                        else:
+                            shape.append(s)
+                    shape_str = ",".join(shape)
+                    node_info.append(f"om_placeholder_{placeholder_counter}_[{shape_str}]")
                 else:
                     node_info.append(f"om_placeholder_{placeholder_counter}")
                 placeholder_counter += 1
@@ -197,24 +212,33 @@ class ONNXMLIRTorch:
         # Input graph module.
         self.gm = gm
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Original graph module: {self.gm}")
+            logger.debug("Original graph module")
+            self.gm.graph.print_tabular()
 
-        # Generate an unique key from the graph module.
-        self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+        # If the model was rewritten, the cache key was stored in "om_hash" in gm.meta.
+        need_rewrite = False
+        if "om_hash" not in self.gm.meta:
+            # Rewrite the graph at the first time touching the graph.
+            need_rewrite = True
+        else:
+            # Rewrite the graph if it was changed.
+            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+            if self.cache_key != self.gm.meta["om_hash"]:
+                need_rewrite = True
 
-        # Check whether there is any cached compiled model.
-        self.cached_session = global_session_cache.get(self.cache_key)
-        if self.cached_session is None:
+        if need_rewrite:
             # Rewrite the graph for exporting to onnx.
             (
                 self.example_inputs_indices,
                 removed_example_inputs_indices,
                 placeholders_to_replace,
             ) = self.rewrite_gm_for_export(*args)
-            if placeholders_to_replace or removed_example_inputs_indices:
-                # Cache the rewritten graph module.
-                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-                self.cached_session = global_session_cache.get(self.cache_key)
+            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+            self.gm.meta["om_hash"] = self.cache_key
+
+        # Cache the rewritten graph module.
+        assert self.cache_key, "cache key does not exist"
+        self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
 
@@ -353,23 +377,22 @@ class ONNXMLIRTorch:
         return example_inputs_indices, removed_example_inputs, placeholders_to_replace
 
     def convert_symint_args_to_tensors(self):
+        # Important note: do not cast SymInt to int by int(SymInt)
+        # since that concretizes symbolic dimensions in related Tensors.
+
         graph = self.gm.graph
         placeholders_to_replace = []
 
         # First pass: collect SymInt placeholders.
-        for node in list(graph.nodes):
+        for node in graph.nodes:
             if node.op == "placeholder" and node.type in [int, torch.SymInt]:
                 new_name = f"{node.name}_tensor"
-                if node.type is torch.SymInt:
-                    value = int(node.meta["example_value"])
-                else:
-                    value = node.meta["example_value"]
                 with graph.inserting_before(node):
                     new_node = graph.placeholder(new_name)
-                    new_node.meta = {
-                        "tensor_meta": {"shape": [1], "dtype": torch.int64},
-                        "example_value": torch.tensor([value], dtype=torch.int64),
-                    }
+                    new_node.meta = node.meta
+                    new_node.meta["tensor_meta"] = {"shape": [1], "dtype": torch.int64}
+                    if node.type is int:
+                        new_node.meta["example_value"] = torch.tensor([value], dtype=torch.int64)
                     new_node.type = torch.Tensor
                 placeholders_to_replace.append((node, new_node))
 
@@ -384,6 +407,7 @@ class ONNXMLIRTorch:
         if placeholders_to_replace:
             self.gm.graph.lint()
             self.gm.recompile()
+
         return placeholders_to_replace
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
