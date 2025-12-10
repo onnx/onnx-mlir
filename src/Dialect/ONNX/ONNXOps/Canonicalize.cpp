@@ -2397,7 +2397,7 @@ struct PullReluLikeOpsThroughSplitPattern
  * Layernorm.
  *
  * This means going from:
- *   input       layernorm
+ *  constant     layernorm
  *     |             |
  *     |         transpose (loc1)
  *     *---------.   /
@@ -2406,7 +2406,7 @@ struct PullReluLikeOpsThroughSplitPattern
  *
  * to:
  *
- *   input        layernorm
+ *  constant      layernorm
  *     |              |
  *  transpose (loc1)  /
  *     *---------.   /
@@ -2433,6 +2433,11 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
               layerOp, transposeOp, Y, 0)) {
         return rewriter.notifyMatchFailure(
             mulOp, "transpose without preceding layernorm");
+      }
+      auto *op = scale.getDefiningOp();
+      if (op == nullptr || !isa<ONNXConstantOp>(op)) {
+        return rewriter.notifyMatchFailure(
+            mulOp, "transpose without preceding constant");
       }
     } else {
       return rewriter.notifyMatchFailure(mulOp, "no preceding transpose found");

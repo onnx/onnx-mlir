@@ -235,3 +235,22 @@ func.func @partly_decomposition_to_layernorm_axis_1_and_3(%arg0: tensor<1x4x128x
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_Y_]]) {perm = [0, 2, 1, 3]} : (tensor<1x128x4x128xf32>) -> tensor<1x4x128x128xf32>
 // CHECK:           onnx.Return [[VAR_7_]] : tensor<1x4x128x128xf32>
 // CHECK:         }
+
+// -----
+
+func.func @partly_decomposition_to_layernorm_non_constant_mul(%arg0: tensor<1x4x128x128xf32> {onnx.name = "in0"}, %arg1: tensor<4x1x1xf32>) -> (tensor<1x4x128x128xf32> {onnx.name = "out"}) {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<128xf32>
+  %1 = onnx.Constant dense<[[[0.976699769]], [[0.380195737]], [[0.923246204]], [[0.261692435]]]> : tensor<4x1x1xf32>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.Transpose"(%arg0) {perm = [0, 2, 1, 3]} : (tensor<1x4x128x128xf32>) -> tensor<1x128x4x128xf32>
+  %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%3, %0, %2) {axis = 2 : si64, epsilon = 9.99999997E-7 : f32, stash_type = 1 : si64} : (tensor<1x128x4x128xf32>, tensor<128xf32>, none) -> (tensor<1x128x4x128xf32>, none, none)
+  %4 = "onnx.Transpose"(%Y) {perm = [0, 2, 1, 3]} : (tensor<1x128x4x128xf32>) -> tensor<1x4x128x128xf32>
+  %5 = "onnx.Mul"(%4, %arg1) : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>) -> tensor<1x4x128x128xf32>
+  %6 = "onnx.Add"(%5, %1) {onnx_node_name = "Add12"} : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>) -> tensor<1x4x128x128xf32>
+  onnx.Return %6 : tensor<1x4x128x128xf32>
+}
+// CHECK-LABEL:  func.func @partly_decomposition_to_layernorm_non_constant_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x128x128xf32> {{.*}}, [[PARAM_1_:%.+]]: tensor<4x1x1xf32>)
+// CHECK:           "onnx.LayerNormalization"
+// CHECK:           [[VAR_T_:%.+]] = "onnx.Transpose"
+// CHECK:           "onnx.Mul"([[VAR_T_]], [[PARAM_1_]]) : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>)
