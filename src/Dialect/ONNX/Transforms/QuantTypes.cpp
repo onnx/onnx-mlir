@@ -120,10 +120,12 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
         newInputOp, [&]() { newResult.setType(outType.clone(quantType)); });
     {
       onnx_mlir::IgnoreDiagnostic diag(rewriter.getContext()->getDiagEngine());
-      if (mlir::failed(mlir::verify(newInputOp)))
-        // No need of rolling back as the newInputOp is dead and will be deleted
+      if (mlir::failed(mlir::verify(newInputOp))) {
+        // Roll back the changes
+        rewriter.eraseOp(newInputOp);
         return rewriter.notifyMatchFailure(
             op, "Quant type not allowed as result");
+      }
     }
 
     // Remove the Q/DQ op
@@ -134,6 +136,7 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
         if (mlir::failed(mlir::verify(userOp))) {
           // Rollback the changes
           rewriter.replaceAllUsesWith(newResult, result);
+          rewriter.eraseOp(newInputOp);
           return rewriter.notifyMatchFailure(
               op, "Quant type not allowed as operand");
         }
