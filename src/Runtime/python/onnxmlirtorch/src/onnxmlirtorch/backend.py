@@ -206,9 +206,11 @@ class ONNXMLIRTorch:
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session is None:
             # Rewrite the graph for exporting to onnx.
-            self.example_inputs_indices, removed_example_inputs_indices, placeholders_to_replace = (
-                self.rewrite_gm_for_export(*args)
-            )
+            (
+                self.example_inputs_indices,
+                removed_example_inputs_indices,
+                placeholders_to_replace,
+            ) = self.rewrite_gm_for_export(*args)
             if placeholders_to_replace or removed_example_inputs_indices:
                 # Cache the rewritten graph module.
                 self.cache_key = generate_hash_key(self.gm, kwargs["options"])
