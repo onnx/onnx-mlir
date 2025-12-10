@@ -157,7 +157,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createConvertONNXToLinalgPass();
+    return createConvertONNXToLinalg();
   });
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
