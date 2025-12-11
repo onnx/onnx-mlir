@@ -37,6 +37,7 @@ from torch._subclasses.fake_tensor import (
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
+from . import config
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -79,12 +80,8 @@ with torch.no_grad():
 logger = logging.getLogger(__name__)
 
 
-class ONNXMLIRConfig:
-    cache_size = 3
-
-
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
-global_session_cache = SessionCache(ONNXMLIRConfig.cache_size)
+global_session_cache = SessionCache(config.session_cache_limit)
 
 
 # Backend function for torch.compile.
@@ -150,6 +147,7 @@ def generate_hash_key(
         # Hash the graph module.
         # Touch the code to materialize.
         _ = gm.code
+
         # Generate a unique string to represent the graph module.
         graph_info = []
         placeholder_counter = 0
@@ -186,7 +184,24 @@ def generate_hash_key(
                 node_info.append(f"{node.op}_{torch.typename(node.target)}")
                 # Append information from input nodes.
                 for inode in node._input_nodes.keys():
-                    node_info.append(f"{inode.name}")
+                    if inode.op == "get_attr":
+                        try:
+                            t = gm._parameters[inode.target]
+                        except KeyError:
+                            t = None
+                        if t is not None and isinstance(t, torch.nn.Parameter):
+                            sample_values = [
+                                str(s)
+                                for s in t.view(-1)[
+                                    : config.sample_parameter_values_limit
+                                ].tolist()
+                            ]
+                            sample_str = ".".join(sample_values)
+                        else:
+                            sample_str = "."
+                        node_info.append(f"{inode.name}.{sample_str}")
+                    else:
+                        node_info.append(f"{inode.name}")
             graph_info.append(";".join(node_info))
         graph_str = " ".join(graph_info)
         graph_hash = sha256_hash(graph_str.encode())
@@ -222,11 +237,17 @@ class ONNXMLIRTorch:
         if "om_hash" not in self.gm.meta:
             # Rewrite the graph at the first time touching the graph.
             need_rewrite = True
+            self.gm.meta["om_hash_counter"] = 0
         else:
-            # Rewrite the graph if it was changed.
-            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-            if self.cache_key != self.gm.meta["om_hash"]:
-                need_rewrite = True
+            hash_counter = self.gm.meta["om_hash_counter"]
+            if hash_counter < config.gm_hash_limit:
+                # Rewrite the graph if it was changed.
+                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+                self.gm.meta["om_hash_counter"] = hash_counter + 1
+                if self.cache_key != self.gm.meta["om_hash"]:
+                    need_rewrite = True
+            else:
+                self.cache_key = self.gm.meta["om_hash"]
 
         if need_rewrite:
             # Rewrite the graph for exporting to onnx.
