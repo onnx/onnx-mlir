@@ -160,6 +160,10 @@ class QuantTypesPass : public mlir::PassWrapper<QuantTypesPass,
                            mlir::OperationPass<mlir::func::FuncOp>> {
   mlir::StringRef getArgument() const override { return "quant-types"; }
 
+  void getDependentDialects(::mlir::DialectRegistry &registry) const override {
+    registry.insert<mlir::quant::QuantDialect>();
+  }
+
   void runOnOperation() override {
     auto func = getOperation();
     auto *ctx = &getContext();
