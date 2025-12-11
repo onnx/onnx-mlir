@@ -10,10 +10,10 @@
 #
 ################################################################################
 
-# Control the maximum number of hashing the graph module in order to detect if
-# the module is changed or not. This does not include the hashing at the first time
-# touching the graph module.
-gm_hash_limit = 2
+# Control the number of same consecutive hashings that trigger stoping to hash the graph module.
+# In other words, if the compiler detects that after this numer of hashing, the graph module stays
+# the same, the compiler does not hash the module in the next run.
+same_hash_size = 3
 
 # Control how many values in a constant tensor (parameters) are used for hashing
 # the graph module.

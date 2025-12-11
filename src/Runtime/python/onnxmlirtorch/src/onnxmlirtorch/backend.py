@@ -21,6 +21,7 @@ import types
 import functools
 import pickle
 import pickletools
+from collections import deque
 
 import numpy as np
 import torch
@@ -237,17 +238,24 @@ class ONNXMLIRTorch:
         if "om_hash" not in self.gm.meta:
             # Rewrite the graph at the first time touching the graph.
             need_rewrite = True
-            self.gm.meta["om_hash_counter"] = 0
+            self.gm.meta["om_same_hash_counter"] = deque([])
         else:
-            hash_counter = self.gm.meta["om_hash_counter"]
-            if hash_counter < config.gm_hash_limit:
-                # Rewrite the graph if it was changed.
-                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
-                self.gm.meta["om_hash_counter"] = hash_counter + 1
-                if self.cache_key != self.gm.meta["om_hash"]:
-                    need_rewrite = True
-            else:
+            same_hash_counter = self.gm.meta["om_same_hash_counter"]
+            if len(same_hash_counter) == config.same_hash_size and all(
+                same_hash_counter
+            ):
                 self.cache_key = self.gm.meta["om_hash"]
+            else:
+                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+                if self.cache_key == self.gm.meta["om_hash"]:
+                    same_hash_counter.append(True)
+                else:
+                    # Rewrite the graph if it was changed.
+                    same_hash_counter.append(False)
+                    need_rewrite = True
+                while len(same_hash_counter) > config.same_hash_size:
+                    same_hash_counter.popleft()
+                self.gm.meta["om_same_hash_counter"] = same_hash_counter
 
         if need_rewrite:
             # Rewrite the graph for exporting to onnx.
