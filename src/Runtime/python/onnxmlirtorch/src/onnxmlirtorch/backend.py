@@ -80,7 +80,6 @@ with torch.no_grad():
 
 logger = logging.getLogger(__name__)
 
-
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
 global_session_cache = SessionCache(config.session_cache_limit)
 
@@ -241,9 +240,8 @@ class ONNXMLIRTorch:
             self.gm.meta["om_same_hash_counter"] = deque([])
         else:
             same_hash_counter = self.gm.meta["om_same_hash_counter"]
-            if len(same_hash_counter) == config.same_hash_size and all(
-                same_hash_counter
-            ):
+            same_hash_size = max(0, config.same_hash_size)
+            if len(same_hash_counter) == same_hash_size and all(same_hash_counter):
                 self.cache_key = self.gm.meta["om_hash"]
             else:
                 self.cache_key = generate_hash_key(self.gm, kwargs["options"])
@@ -253,8 +251,9 @@ class ONNXMLIRTorch:
                     # Rewrite the graph if it was changed.
                     same_hash_counter.append(False)
                     need_rewrite = True
-                while len(same_hash_counter) > config.same_hash_size:
-                    same_hash_counter.popleft()
+                while len(same_hash_counter) > same_hash_size:
+                    if same_hash_counter:
+                        same_hash_counter.popleft()
                 self.gm.meta["om_same_hash_counter"] = same_hash_counter
 
         if need_rewrite:
