@@ -45,6 +45,21 @@ struct ConvertONNXToLinalgPass
     auto function = getOperation();
     MLIRContext *context = &getContext();
 
+    // Check if there are any ONNX ops to convert
+    bool hasONNXOps = false;
+    function.walk([&](Operation *op) {
+      if (isa<ONNXMatMulOp>(op)) {
+        hasONNXOps = true;
+        return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+    });
+
+    if (!hasONNXOps) {
+      // No ONNX ops to convert, skip this pass
+      return;
+    }
+
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
 
@@ -56,6 +71,7 @@ struct ConvertONNXToLinalgPass
     GreedyRewriteConfig config;
     if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
       signalPassFailure();
+      return;
     }
   }
 };
