@@ -3618,6 +3618,10 @@ struct SoftmaxCrossEntropyPattern
     auto weights = sceOp.getWeights();
     auto scoresTy = cast<ShapedType>(scores.getType());
     auto labelsTy = cast<ShapedType>(labels.getType());
+    if (!scoresTy.hasRank() || !labelsTy.hasRank()) {
+      return rewriter.notifyMatchFailure(
+          sceOp, "Unranked operands not supported");
+    }
     SmallVector<int64_t> newLabelsShape(labelsTy.getShape());
     newLabelsShape.insert(newLabelsShape.begin() + 1, scoresTy.getShape()[1]);
     auto none = rewriter.create<ONNXNoneOp>(loc);
@@ -3854,8 +3858,6 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
     // Normalize negative axis
     if (axis < 0)
       axis += rank;
-
-    int64_t inputDimSize = inputType.getDimSize(axis);
 
     // Determine split sizes
     SmallVector<int64_t, 4> splitSizes;
