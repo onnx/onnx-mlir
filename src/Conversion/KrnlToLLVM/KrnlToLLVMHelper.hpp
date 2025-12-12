@@ -74,6 +74,11 @@ void equalOrFailed(mlir::ModuleOp &module, mlir::OpBuilder &rewriter,
     mlir::Location loc, mlir::Value lhs, mlir::Value rhs,
     std::string errorMsg = "", bool appendRHS = true);
 
+/// Emit code for `IF lhs > rhs THEN return null ELSE do nothing`.
+void noGreaterOrFailed(mlir::ModuleOp &module, mlir::OpBuilder &rewriter,
+    mlir::Location loc, mlir::Value lhs, mlir::Value rhs,
+    std::string errorMsg = "", bool appendRHS = true);
+
 /// Emit code for `IF lhs != rhs THEN return retVal ELSE do nothing`.
 void equalOrReturn(mlir::ModuleOp &module, mlir::OpBuilder &rewriter,
     mlir::Location loc, mlir::Value lhs, mlir::Value rhs, mlir::Value retVal,

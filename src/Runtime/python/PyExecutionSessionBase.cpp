@@ -238,7 +238,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
 
   // 2. Call entry point.
   TIMING_INIT_START(inference);
-  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
+  OMTensorList *wrappedInput = omTensorListCreate(omts.data(), omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());

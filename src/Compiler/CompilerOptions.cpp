@@ -631,8 +631,8 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
     llvm::cl::desc(
         "Verify input tensors whenever the entry point function is called.\n"
         "Data type and shape are verified. Enable this may introduce overhead "
-        "at runtime."),
-    llvm::cl::location(verifyInputTensors), llvm::cl::init(false),
+        "at runtime. Default is true"),
+    llvm::cl::location(verifyInputTensors), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",

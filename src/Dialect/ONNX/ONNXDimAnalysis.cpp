@@ -941,82 +941,79 @@ void DimAnalysis::visitDim(
     Value data = reshapeOp.getData();
     Value output = reshapeOp.getReshaped();
 
-    // Special case 1: the output dimension i can be from
-    // - data[j] if
-    //    - dim j and i are the only dynamic dimension in data and output,
-    //    respectively, and
+    // Special case: when data and output have the same number of dynamic
+    // dimensions (N), the dynamic dimension output[i] is the same as the
+    // dynamic dimension data[j] if
     //    - the products of the remaining static dimensions in data and output
-    //    are equal.
+    //    are equal, and
+    //    - the remaining N-1 dynamic dimensions in data and output are the
+    //    same, respectively.
+    //
+    // Note that output[i] is the dimension this visitDim function is working
+    // on.
     //
     // It's interesting that if shape[i] is arg0[ii] and data[j] is arg1[jj],
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
     // inputs.
 
-    // Get the dynamic dimension from data.
+    // Get the dynamic dimensions from data and output.
     auto dataType = mlir::cast<RankedTensorType>(data.getType());
     auto outputType = mlir::cast<RankedTensorType>(output.getType());
-    // Check if there is only one dynamic dimension in the data and output.
-    bool dataHasOneDynamicDim =
-        (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
-    bool outputHasOneDynamicDim =
-        (llvm::count(outputType.getShape(), ShapedType::kDynamic) == 1);
-    // Check if the products of static sizes in the data and output are equal.
+    SmallVector<uint64_t> dynDimsInData, dynDimsInOutput;
     int64_t dataStaticSize = 1, outputStaticSize = 1;
     for (int64_t i = 0; i < dataType.getRank(); ++i) {
-      dataStaticSize *= dataType.isDynamicDim(i) ? -1 : dataType.getShape()[i];
+      if (dataType.isDynamicDim(i)) {
+        dynDimsInData.emplace_back(i);
+      } else {
+        dataStaticSize *= dataType.getShape()[i];
+      }
     }
     for (int64_t i = 0; i < outputType.getRank(); ++i) {
-      outputStaticSize *=
-          outputType.isDynamicDim(i) ? -1 : outputType.getShape()[i];
-    }
-    // Conditions hold, the dynamic dimension can be from the data.
-    if (dataHasOneDynamicDim && outputHasOneDynamicDim &&
-        (dataStaticSize == outputStaticSize)) {
-      // Find the index of the dynamic dimension in the data.
-      std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
-      for (int64_t i = 0; i < dataType.getRank(); ++i)
-        if (dataType.isDynamicDim(i)) {
-          dynamicDimIndexInData = i;
-          break;
-        }
-      assert(dynamicDimIndexInData.has_value() &&
-             "Failed to obtain the index of the dynamic dimension in the data");
-      if (auto d = insertDimWhenUseful(
-              reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  - Case 1: Added a new dim(" << d.value().first << ", "
-                   << d.value().second << ")\n");
+      if (outputType.isDynamicDim(i)) {
+        dynDimsInOutput.emplace_back(i);
+      } else {
+        outputStaticSize *= outputType.getShape()[i];
+      }
     }
 
-    // Special case 2: input and output have the same rank of 2, if one output
-    // dim is from an input dim, the other output dim must be from the remaining
-    // input dim.
-    //
-    // clang-format off
-    // ```mlir
-    // %cst_minus1 = onnx.Constant dense<-1> : tensor<1xi64>
-    // %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
-    // %1 = "onnx.Concat"(%cst_minus1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-    // %2 = "onnx.Reshape"(%arg0, %1) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
-    // ```
-    // clang-format on
-    int64_t dataRank = dataType.getRank();
-    int64_t outputRank = outputType.getRank();
-    if ((dataRank == 2) && (outputRank == 2)) {
-      // Find if the other output dim is from an input dim.
-      int64_t iDim = -1;
-      for (int64_t i = 0; i < dataRank; ++i) {
-        if (sameDim(data, i, output, 1 - dimIndex)) {
-          iDim = i;
-          break;
+    // When data and output have the same number of dynamic dimensions (N) and
+    // the products of static sizes in the data and output are equal, if N-1
+    // dynamic dimensions in data and output are the same, respectively, the
+    // remaining dynamic dimensions in data and output must be the same.
+    if (dynDimsInData.size() == dynDimsInOutput.size() &&
+        (dataStaticSize == outputStaticSize)) {
+      // Find the index of the only dynamic dimension in the data that HASN'T
+      // found to be the same as any dynamic dimension in the output.
+      std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
+      llvm::SmallDenseSet<uint64_t, 4> visitedDimsInOutput;
+      for (uint64_t i : dynDimsInData) {
+        bool found = false;
+        for (uint64_t j : dynDimsInOutput) {
+          if (visitedDimsInOutput.contains(j))
+            continue;
+          if (sameDim(data, i, output, j)) {
+            visitedDimsInOutput.insert(j);
+            found = true;
+            break;
+          }
+        }
+        if (!found && !dynamicDimIndexInData.has_value())
+          dynamicDimIndexInData = i;
+      }
+      // Found the target dynamic dimension in data and the remaining N-1
+      // dynamic dimensions are the same in data and output.
+      if (dynamicDimIndexInData.has_value() &&
+          visitedDimsInOutput.size() == dynDimsInOutput.size() - 1) {
+        // Check again to make sure the dynamic dimension in the output is the
+        // only one not visited (not having same dynamic dimension in the data).
+        if (!visitedDimsInOutput.contains(dimIndex)) {
+          if (auto d = insertDimWhenUseful(
+                  reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - Case 1: Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
         }
       }
-      if (iDim != -1)
-        // The current output dim must be the same as the other input dim.
-        if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - Case 2: Added a new dim(" << d.value().first
-                     << ", " << d.value().second << ")\n");
     }
   }
 }
