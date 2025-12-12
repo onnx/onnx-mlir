@@ -1112,6 +1112,16 @@ func.func @sce_none(%arg0: tensor<64x10x2x3xf32>, %arg1: tensor<64x2x3xi64>) -> 
 
 // -----
 
+func.func @sce_unranked(%arg0: tensor<*xf32>, %arg1: tensor<*xi64>) -> tensor<f32> {
+    %0 = "onnx.NoValue"() {value, weight} : () -> none
+    %output, %log_prob = "onnx.SoftmaxCrossEntropyLoss"(%arg0, %arg1, %0) {reduction = "mean"} : (tensor<*xf32>, tensor<*xi64>, none) -> (tensor<f32>, none)
+    onnx.Return %output : tensor<f32>
+  // CHECK-LABEL:  func @sce_unranked
+  // CHECK: onnx.SoftmaxCrossEntropyLoss
+}
+
+// -----
+
 func.func @test_instancenorm(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
   %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5x6xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5x6xf32>
   onnx.Return %0 : tensor<2x3x4x5x6xf32>
