@@ -3859,8 +3859,6 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
     if (axis < 0)
       axis += rank;
 
-    int64_t inputDimSize = inputType.getDimSize(axis);
-
     // Determine split sizes
     SmallVector<int64_t, 4> splitSizes;
     if (auto splitAttr = onnx_mlir::getElementAttributeFromONNXValue(split)) {
