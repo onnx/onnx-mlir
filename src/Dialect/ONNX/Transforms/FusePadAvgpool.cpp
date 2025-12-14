@@ -25,10 +25,9 @@ struct FusePadIntoAveragePoolPattern
     if (!padOp)
       return failure();
 
-    StringAttr modeAttr = padOp.getModeAttr();
-    StringRef mode = "constant";
-    if (modeAttr)
-      mode = modeAttr.getValue();
+    // Check that pad mode is "constant" (default value, so should never be
+    // null)
+    StringRef mode = padOp.getMode();
     if (mode != "constant")
       return failure();
     float padValue = 0.0f;
@@ -60,14 +59,28 @@ struct FusePadIntoAveragePoolPattern
     if (padValue != 0.0f)
       return failure();
 
+    // Only handle 4D tensors (NCHW format)
+    auto inputType = padOp.getData().getType().dyn_cast<RankedTensorType>();
+    if (!inputType || inputType.getRank() != 4)
+      return failure();
+
+    // Extract pad values (guaranteed to be integers by ONNX spec)
     SmallVector<int64_t> padsVals;
     for (auto val : padsAttr.getValues<Attribute>()) {
-      if (auto iAttr = mlir::dyn_cast<IntegerAttr>(val)) {
-        auto pad = iAttr.getInt();
-        padsVals.push_back(pad);
-      } else {
-        padsVals.push_back(0);
-      }
+      auto pad = cast<IntegerAttr>(val).getInt();
+      padsVals.push_back(pad);
+    }
+
+    // Validate pads array size (2 * rank for begin/end)
+    if (padsVals.size() != 8)
+      return failure();
+
+    // Only merge when padding is applied only to spatial dimensions (H, W)
+    // padsVals layout: [N_begin, C_begin, H_begin, W_begin, N_end, C_end,
+    // H_end, W_end]
+    if (padsVals[0] != 0 || padsVals[1] != 0 || // N_begin, C_begin
+        padsVals[4] != 0 || padsVals[5] != 0) { // N_end, C_end
+      return failure(); // Cannot merge if batch or channel dims are padded
     }
 
     SmallVector<int64_t> mergedPads;
@@ -82,30 +95,23 @@ struct FusePadIntoAveragePoolPattern
     if (mergedPads.size() != padsVals.size() / 2)
       return failure();
 
-    mergedPads[0] += padsVals[2];
-    mergedPads[1] += padsVals[3];
-    mergedPads[2] += padsVals[6];
-    mergedPads[3] += padsVals[7];
+    // Merge spatial dimension padding (H, W)
+    mergedPads[0] += padsVals[2]; // H_begin
+    mergedPads[1] += padsVals[3]; // W_begin
+    mergedPads[2] += padsVals[6]; // H_end
+    mergedPads[3] += padsVals[7]; // W_end
 
     auto mergedPadsAttr =
         rewriter.getI64ArrayAttr(llvm::ArrayRef<int64_t>(mergedPads));
 
-    SmallVector<Value, 1> operands;
-    operands.push_back(padOp.getData());
+    // Modify the AveragePool op in place instead of creating a new one
+    rewriter.modifyOpInPlace(avgOp, [&]() {
+      avgOp->setAttr(avgOp.getPadsAttrName(), mergedPadsAttr);
+      avgOp.getXMutable().assign(padOp.getData());
+      avgOp->setLoc(rewriter.getFusedLoc({padOp.getLoc(), avgOp.getLoc()}));
+    });
 
-    NamedAttrList attrs;
-    attrs.set(avgOp.getKernelShapeAttrName(), avgOp.getKernelShapeAttr());
-    attrs.set(avgOp.getPadsAttrName(), mergedPadsAttr);
-    attrs.set(avgOp.getStridesAttrName(), avgOp.getStridesAttr());
-    attrs.set(avgOp.getCeilModeAttrName(), avgOp.getCeilModeAttr());
-    attrs.set(
-        avgOp.getCountIncludePadAttrName(), avgOp.getCountIncludePadAttr());
-
-    auto newAvgOp = rewriter.create<ONNXAveragePoolOp>(
-        avgOp.getLoc(), avgOp->getResultTypes(), operands, attrs);
-
-    rewriter.replaceOp(avgOp, newAvgOp->getResults());
-    rewriter.eraseOp(padOp);
+    rewriter.replaceOp(padOp, avgOp.getResult());
 
     return success();
   }
