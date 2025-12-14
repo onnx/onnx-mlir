@@ -1,3 +1,4 @@
+// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
 // RUN: onnx-mlir-opt --recompose-onnx --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
@@ -393,6 +394,33 @@ func.func @not_a_layer_norm_with_div_by_two(%input: tensor<1x384x768xf32>, %scal
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @not_a_layer_norm_with_div_by_two
 // CHECK-NOT:       "onnx.LayerNormalization"
+// CHECK:         }
+}
+
+// -----
+
+func.func @layernorm_with_double_mul(%arg0: tensor<1x1370x384xf32>, %arg1: tensor<1x1370x384xf32>, %arg2: tensor<384xf32>, %arg3: tensor<384xf32>) -> (tensor<1x1370x384xf32>, tensor<1x1370x384xf32>) {
+  %0 = onnx.Constant dense<3.0> : tensor<f32>
+  %1 = "onnx.Add"(%arg0, %arg1) : (tensor<1x1370x384xf32>, tensor<1x1370x384xf32>) -> tensor<1x1370x384xf32>
+  %2 = "onnx.ReduceMeanV13"(%1) {axes = [-1], keepdims = 1 : si64} : (tensor<1x1370x384xf32>) -> tensor<1x1370x1xf32>
+  %3 = "onnx.Sub"(%1, %2) : (tensor<1x1370x384xf32>, tensor<1x1370x1xf32>) -> tensor<1x1370x384xf32>
+  %4 = "onnx.Mul"(%3, %3) : (tensor<1x1370x384xf32>, tensor<1x1370x384xf32>) -> tensor<1x1370x384xf32>
+  %5 = "onnx.ReduceMeanV13"(%4) {axes = [-1], keepdims = 1 : si64} : (tensor<1x1370x384xf32>) -> tensor<1x1370x1xf32>
+  %6 = "onnx.Add"(%5, %0) : (tensor<1x1370x1xf32>, tensor<f32>) -> tensor<1x1370x1xf32>
+  %7 = "onnx.Sqrt"(%6) : (tensor<1x1370x1xf32>) -> tensor<1x1370x1xf32>
+  %8 = "onnx.Div"(%3, %7) : (tensor<1x1370x384xf32>, tensor<1x1370x1xf32>) -> tensor<1x1370x384xf32>
+  %9 = "onnx.Mul"(%8, %arg2) : (tensor<1x1370x384xf32>, tensor<384xf32>) -> tensor<1x1370x384xf32>
+  %10 = "onnx.Mul"(%8, %arg3) : (tensor<1x1370x384xf32>, tensor<384xf32>) -> tensor<1x1370x384xf32>
+  return %9, %10: tensor<1x1370x384xf32>, tensor<1x1370x384xf32>
+// CHECK-LABEL:  func.func @layernorm_with_double_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1370x384xf32>, [[PARAM_1_:%.+]]: tensor<1x1370x384xf32>, [[PARAM_2_:%.+]]: tensor<384xf32>, [[PARAM_3_:%.+]]: tensor<384xf32>) -> (tensor<1x1370x384xf32>, tensor<1x1370x384xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<384xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x1370x384xf32>, tensor<1x1370x384xf32>) -> tensor<1x1370x384xf32>
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_2_]], [[VAR_0_]], [[VAR_1_]]) {axis = 2 : si64, epsilon = 3.000000e+00 : f32, stash_type = 1 : si64} : (tensor<1x1370x384xf32>, tensor<384xf32>, none) -> (tensor<1x1370x384xf32>, none, none)
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_Y_]], [[PARAM_2_]]) : (tensor<1x1370x384xf32>, tensor<384xf32>) -> tensor<1x1370x384xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Mul"([[VAR_Y_]], [[PARAM_3_]]) : (tensor<1x1370x384xf32>, tensor<384xf32>) -> tensor<1x1370x384xf32>
+// CHECK:           return [[VAR_3_]], [[VAR_4_]] : tensor<1x1370x384xf32>, tensor<1x1370x384xf32>
 // CHECK:         }
 }
 
