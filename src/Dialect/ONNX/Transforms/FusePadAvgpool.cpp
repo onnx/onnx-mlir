@@ -60,7 +60,7 @@ struct FusePadIntoAveragePoolPattern
       return failure();
 
     // Only handle 4D tensors (NCHW format)
-    auto inputType = padOp.getData().getType().dyn_cast<RankedTensorType>();
+    auto inputType = dyn_cast<RankedTensorType>(padOp.getData().getType());
     if (!inputType || inputType.getRank() != 4)
       return failure();
 
@@ -104,7 +104,6 @@ struct FusePadIntoAveragePoolPattern
     auto mergedPadsAttr =
         rewriter.getI64ArrayAttr(llvm::ArrayRef<int64_t>(mergedPads));
 
-    // Modify the AveragePool op in place instead of creating a new one
     rewriter.modifyOpInPlace(avgOp, [&]() {
       avgOp->setAttr(avgOp.getPadsAttrName(), mergedPadsAttr);
       avgOp.getXMutable().assign(padOp.getData());
