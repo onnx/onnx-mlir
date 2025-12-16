@@ -231,8 +231,7 @@ class ONNXMLIRTorch:
         self.gm.eval()
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Original graph module")
-            self.gm.graph.print_tabular()
+            logger.debug(f"Original graph module {self.gm}")
 
         # If the model was rewritten, the cache key was stored in "om_hash" in gm.meta.
         need_rewrite = False
