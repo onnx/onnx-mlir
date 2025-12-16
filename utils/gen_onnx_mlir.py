@@ -494,6 +494,47 @@ OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean", "Slice"]
 # Op with ConstantLike trait
 OpsWithConstantLike = ["Constant"]
 
+# Op with SameOperandsAndResultShape trait
+OpsWithSameOperandsAndResultShape = [
+    "Abs",
+    "Acos",
+    "Acosh",
+    "Asin",
+    "Asinh",
+    "Atan",
+    "Atanh",
+    "Cast",
+    "Ceil",
+    "Celu",
+    "Cos",
+    "Cosh",
+    "Elu",
+    "Erf",
+    "Exp",
+    "EyeLike",
+    "Floor",
+    "Gelu",
+    "HardSigmoid",
+    "HardSwish",
+    "Identity",
+    "LRN",
+    "LeakyRelu",
+    "Log",
+    "Neg",
+    "Not",
+    "Relu",
+    "Round",
+    "Selu",
+    "Sigmoid",
+    "Sign",
+    "Sin",
+    "Sinh",
+    "Sqrt",
+    "Swish",
+    "Tan",
+    "Tanh",
+]
+
 # Op with Helper functions
 OpsWithHelpers = {
     "EyeLike": """
@@ -1246,6 +1287,10 @@ def gen_op_def(schema, with_version=False):
 
     # Generate decl for op traits.
     traits = ["Pure", f"OpVersionTrait<{schema.since_version}>"]
+
+    # Generate SameOperandsAndResultShape traits.
+    if opName in OpsWithSameOperandsAndResultShape:
+        traits.append("SameOperandsAndResultShape")
 
     # Generate ConstantLike traits.
     if opName in OpsWithConstantLike:
