@@ -382,7 +382,8 @@ class ONNXMLIRTorch:
             dynamic_dims = {}
             for dim_idx, dim_size in enumerate(input_arg.shape):
                 if isinstance(dim_size, torch.SymInt):
-                    dynamic_dims[dim_idx] = "dim" + str(dim_size)
+                    if not str(dim_size).isdigit():
+                        dynamic_dims[dim_idx] = "dim" + str(dim_size)
             if dynamic_dims:
                 dynamic_shapes[input_name] = dynamic_dims
             else:
