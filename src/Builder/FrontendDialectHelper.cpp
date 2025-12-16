@@ -5,6 +5,7 @@
 //===--------------------- FrontendDialectHelper.cpp ----------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
+// Modifications Copyright 2025 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -17,6 +18,7 @@
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SwapByteOrder.h"
@@ -63,10 +65,29 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
   assert(!location.empty() && "missing external data location");
   SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
   llvm::sys::path::append(path, location);
+  const std::string pathStr(path.data(), path.size());
+
+  // Check file size before memory mapping to avoid Bus errors
+  uint64_t fileSize;
+  if (std::error_code ec = llvm::sys::fs::file_size(pathStr, fileSize)) {
+    llvm::errs() << "Error getting file size for " << pathStr << ": "
+                 << ec.message() << "\n";
+    llvm::report_fatal_error("Cannot get external data file size");
+  }
+
+  const uint64_t requiredSize = offset + length;
+  if (requiredSize > fileSize) {
+    llvm::errs() << "Error: External data file " << pathStr
+                 << " is too small.\n"
+                 << "  File size: " << fileSize << " bytes\n"
+                 << "  Required:  " << requiredSize << " bytes "
+                 << "(offset=" << offset << " + length=" << length << ")\n";
+    llvm::report_fatal_error("External data file is truncated or corrupted");
+  }
+
   auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
       path, length, offset, /*IsVolatile=*/false);
   if (std::error_code ec = bufferOrError.getError()) {
-    std::string pathStr(path.data(), path.size());
     llvm::errs() << "Error " << ec.message() << " reading from file " << pathStr
                  << ", offset=" << offset << ", length=" << length << "\n";
     llvm_unreachable("llvm::MemoryBuffer::getFileSlice failed");
