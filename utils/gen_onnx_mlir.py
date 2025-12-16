@@ -31,6 +31,7 @@ from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 
 import pprint
 import onnx
+import yaml
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -58,6 +59,12 @@ parser.add_argument(
     action="store_true",
     default=False,
 )
+parser.add_argument(
+    "--custom-ops-yaml",
+    type=str,
+    help="Path to YAML file containing custom operation schemas",
+    default=None,
+)
 
 args = parser.parse_args()
 
@@ -69,14 +76,22 @@ list_operation_version = args.list_operation_version
 current_onnx_version = "1.19.1"
 
 # Check the version of onnx package being used.
+# Allow version mismatch if only processing custom ops from YAML
 if (
     not check_operation_version and not list_operation_version
 ) and current_onnx_version != onnx.__version__:
-    print(
-        "version of expected onnx is {}, ".format(current_onnx_version)
-        + "while onnx package being used is {}".format(onnx.__version__)
-    )
-    quit()
+    if args.custom_ops_yaml and os.path.exists(args.custom_ops_yaml):
+        print(
+            "WARNING: version of expected onnx is {}, ".format(current_onnx_version)
+            + "while onnx package being used is {}".format(onnx.__version__)
+        )
+        print("Continuing with custom ops from YAML...")
+    else:
+        print(
+            "version of expected onnx is {}, ".format(current_onnx_version)
+            + "while onnx package being used is {}".format(onnx.__version__)
+        )
+        quit()
 
 # Record the version of each operation that is treated as the current version.
 # To check whether the onnx package being used has newer version operation,
@@ -316,12 +331,126 @@ domain_abrv_dict = {
     "ai.onnx.ml": "ONNX",
     "ai.onnx.preview.training": "ONNX",
     "com.amd.quark": "AMDQuark",
+    "com.amd.xfe": "XFE",
 }
 
 
 def map_op_name_to_onnx_mlir_name(op_name: str, domain: str) -> str:
-    assert domain in domain_abrv_dict
+    assert domain in domain_abrv_dict, f"Domain {domain} not found in domain_abrv_dict"
     return domain_abrv_dict[domain] + op_name + "Op"
+
+
+# Custom Op Schema class to mimic OpSchema for YAML-defined ops
+class CustomOpSchema:
+    """Wrapper class to make YAML-defined ops look like ONNX OpSchema objects."""
+
+    class FormalParameter:
+        def __init__(self, param_dict):
+            self.name = param_dict["name"]
+            self.description = param_dict.get("description", "")
+            self.type_str = param_dict.get("type_str", "")
+            self.option = OpSchema.FormalParameterOption.Single
+            self.is_homogeneous = True
+
+            if param_dict.get("optional", False):
+                self.option = OpSchema.FormalParameterOption.Optional
+            elif param_dict.get("variadic", False):
+                self.option = OpSchema.FormalParameterOption.Variadic
+                self.is_homogeneous = param_dict.get("is_homogeneous", True)
+
+    class Attribute:
+        def __init__(self, attr_dict):
+            self.name = attr_dict["name"]
+            self.description = attr_dict.get("description", "")
+            self.required = attr_dict.get("required", False)
+            self.default_value = type(
+                "obj", (object,), {"name": attr_dict.get("default_value")}
+            )()
+
+            # Map type string to OpSchema.AttrType
+            type_map = {
+                "int": OpSchema.AttrType.INT,
+                "float": OpSchema.AttrType.FLOAT,
+                "string": OpSchema.AttrType.STRING,
+                "tensor": OpSchema.AttrType.TENSOR,
+                "list(int)": OpSchema.AttrType.INTS,
+                "list(float)": OpSchema.AttrType.FLOATS,
+                "list(string)": OpSchema.AttrType.STRINGS,
+            }
+            self.type = type_map.get(
+                attr_dict.get("type", "int"), OpSchema.AttrType.INT
+            )
+
+    class TypeConstraint:
+        def __init__(self, tc_dict):
+            self.type_param_str = tc_dict["type_param"]
+            self.description = tc_dict.get("description", "")
+            self.allowed_type_strs = tc_dict.get("allowed_types", [])
+
+    def __init__(self, yaml_dict):
+        self.name = yaml_dict["name"]
+        self.domain = yaml_dict.get("domain", "")
+        self.since_version = yaml_dict.get("since_version", 1)
+        self.support_level = 1  # COMMON
+        self.doc = yaml_dict.get("description", "")
+
+        # Parse inputs
+        self.inputs = []
+        for inp in yaml_dict.get("inputs", []):
+            self.inputs.append(self.FormalParameter(inp))
+
+        # Parse outputs
+        self.outputs = []
+        for out in yaml_dict.get("outputs", []):
+            self.outputs.append(self.FormalParameter(out))
+
+        # Parse attributes
+        self.attributes = {}
+        for attr in yaml_dict.get("attributes", []):
+            attr_obj = self.Attribute(attr)
+            self.attributes[attr_obj.name] = attr_obj
+
+        # Parse type constraints
+        self.type_constraints = []
+        for tc in yaml_dict.get("type_constraints", []):
+            self.type_constraints.append(self.TypeConstraint(tc))
+
+        # Min/max counts
+        self.min_input = yaml_dict.get("min_input", len(self.inputs))
+        self.max_input = yaml_dict.get("max_input", len(self.inputs))
+        self.min_output = yaml_dict.get("min_output", len(self.outputs))
+        self.max_output = yaml_dict.get("max_output", len(self.outputs))
+
+        # Parse meta_attributes for verify, fold, etc.
+        self.meta_attributes = {}
+        for meta_attr in yaml_dict.get("meta_attributes", []):
+            if isinstance(meta_attr, dict):
+                self.meta_attributes.update(meta_attr)
+
+
+def load_custom_ops_from_yaml(yaml_path: str) -> List[CustomOpSchema]:
+    """Load custom operation schemas from a YAML file."""
+    if not yaml_path or not os.path.exists(yaml_path):
+        return []
+
+    with open(yaml_path, "r") as f:
+        yaml_content = yaml.safe_load(f)
+
+    # YAML file can contain a list of ops or a single op
+    if isinstance(yaml_content, list):
+        ops_list = yaml_content
+    else:
+        ops_list = [yaml_content]
+
+    custom_schemas = []
+    for op_dict in ops_list:
+        try:
+            schema = CustomOpSchema(op_dict)
+            custom_schemas.append(schema)
+        except Exception as e:
+            print(f"Warning: Failed to parse op {op_dict.get('name', 'unknown')}: {e}")
+
+    return custom_schemas
 
 
 # Manual specification of attribute type.
@@ -490,6 +619,10 @@ OpsWithVerifier = [
 
 # Op with fold function
 OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean", "Slice"]
+
+# Dynamic lists for custom ops with verify and fold (populated at runtime)
+CustomOpsWithVerifier = []
+CustomOpsWithFolder = []
 
 # Op with ConstantLike trait
 OpsWithConstantLike = ["Constant"]
@@ -1043,7 +1176,15 @@ def get_attrs(schema):
                     return str(value.decode("utf-8"))
                 return str(value)
 
-            default_value = helper.get_attribute_value(attr.default_value)
+            # Check if this is a CustomOpSchema attribute (from YAML)
+            # CustomOpSchema stores the default value directly in attr.default_value.name
+            if hasattr(attr.default_value, "ref_attr_name"):
+                # This is a real ONNX AttributeProto
+                default_value = helper.get_attribute_value(attr.default_value)
+            else:
+                # This is from CustomOpSchema, default value is already in .name
+                default_value = attr.default_value.name
+
             if isinstance(default_value, list):
                 default_value = [format_value(val) for val in default_value]
                 default_value_str = "{}".format(default_value)
@@ -1237,7 +1378,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
 
 
 # Generate extra class declaration for shape helper.
-def gen_shape_helper_code(s, indent, opName):
+def gen_shape_helper_code(s, indent, opName, domain=""):
     # Print getShapeHelper.
     indent = inc_indent(indent)
     s += (
@@ -1251,14 +1392,25 @@ def gen_shape_helper_code(s, indent, opName):
         + "onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {\n"
     )
     indent = dec_indent(indent)
-    s += (
-        indent
-        + "onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNX{0}OpShapeHelper(op, oper, ieb, scope);\n".format(
-            opName
+
+    # For custom domains, return nullptr as placeholder
+    # Custom ops should implement their own shape helpers
+    if domain and domain not in ["", "ai.onnx.ml", "ai.onnx.preview.training"]:
+        s += indent + "// TODO: Implement specific shape helper for this custom op\n"
+        s += (
+            indent
+            + "// For now, returning nullptr - shape inference will use default behavior\n"
         )
-    )
-    s += indent + 'assert(sh && "failed to allocate shape helper");\n'
-    s += indent + "return sh;\n"
+        s += indent + "return nullptr;\n"
+    else:
+        s += (
+            indent
+            + "onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNX{0}OpShapeHelper(op, oper, ieb, scope);\n".format(
+                opName
+            )
+        )
+        s += indent + 'assert(sh && "failed to allocate shape helper");\n'
+        s += indent + "return sh;\n"
     indent = dec_indent(indent)
     s += indent + "}\n"
     return s
@@ -1274,7 +1426,19 @@ def gen_op_name(schema, with_version):
 def gen_op_def(schema, with_version=False):
     indent = inc_indent()
     opName = gen_op_name(schema, with_version)
-    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
+    # Get domain abbreviation for the op prefix only
+    # All ops use ONNX_Op as base class regardless of domain
+    domain = schema.domain if schema.domain else ""
+    domain_abbrev = domain_abrv_dict.get(domain, "ONNX")
+
+    # For custom domains (non-empty, non-standard ONNX domains), prefix the MLIR op name
+    # This makes them appear as onnx.XFEConvChannelLast instead of onnx.ConvChannelLast
+    if domain and domain not in ["", "ai.onnx.ml", "ai.onnx.preview.training"]:
+        mlir_op_name = domain_abbrev + opName
+    else:
+        mlir_op_name = opName
+
+    s = 'def {1}{0}Op:ONNX_Op<"{2}",\n'.format(opName, domain_abbrev, mlir_op_name)
 
     regions = OrderedDict()
     for name in order_attr_names(schema.attributes.keys()):
@@ -1319,7 +1483,7 @@ def gen_op_def(schema, with_version=False):
         s += indent + "let hasCanonicalizer = 1;\n"
 
     # Generate decl for summary.
-    s += indent + 'let summary = "ONNX {} operation";\n'.format(schema.name)
+    s += indent + 'let summary = "{} operation";\n'.format(schema.name)
 
     # Generate description.
     s += indent + "let description = [{\n"
@@ -1482,7 +1646,7 @@ def gen_op_def(schema, with_version=False):
     s += indent + "let extraClassDefinition = [{\n"
 
     # Generate shape helper code
-    s = gen_shape_helper_code(s, indent, opName)
+    s = gen_shape_helper_code(s, indent, opName, schema.domain)
 
     s += indent + "}];\n"
 
@@ -1491,9 +1655,9 @@ def gen_op_def(schema, with_version=False):
 
     ###########################################
     # Generate decl for verifier.
-    if opName in OpsWithVerifier:
+    if opName in OpsWithVerifier or opName in CustomOpsWithVerifier:
         s += indent + "let hasVerifier = 1;\n"
-    if opName in OpsWithFolder:
+    if opName in OpsWithFolder or opName in CustomOpsWithFolder:
         s += indent + "let hasFolder = 1;\n"
     s += "}\n\n"
     return s
@@ -1550,13 +1714,18 @@ def gen_op_importer(domain, name, file, since_version=None):
     file.write(s)
 
 
-def build_operator_schemas():
+def build_operator_schemas(custom_ops=None):
     # domain -> support level -> name -> [schema]
     index = defaultdict(
         lambda: defaultdict(lambda: defaultdict(list))
     )  # type: Dict[Text, Dict[int, Dict[Text, List[OpSchema]]]]
     for schema in defs.get_all_schemas_with_history():
         index[schema.domain][int(schema.support_level)][schema.name].append(schema)
+
+    # Add custom ops from YAML
+    if custom_ops:
+        for schema in custom_ops:
+            index[schema.domain][int(schema.support_level)][schema.name].append(schema)
 
     # Preprocess the Operator Schemas:
     # [(domain, [(support_level, [(schema name, current schema, all versions schemas)])])]
@@ -1640,6 +1809,45 @@ def main(args):  # type: (Type[Args]) -> None
         pprint.pprint(version_dict)
         return
 
+    # Load custom ops from YAML if provided
+    custom_ops = []
+    custom_version_dict = {}
+    if hasattr(args, "custom_ops_yaml") and args.custom_ops_yaml:
+        custom_ops = load_custom_ops_from_yaml(args.custom_ops_yaml)
+        print(f"Loaded {len(custom_ops)} custom operations from {args.custom_ops_yaml}")
+
+        # Build version dict for custom ops and populate verifier/folder lists
+        for op in custom_ops:
+            if op.domain not in custom_version_dict:
+                custom_version_dict[op.domain] = {}
+            custom_version_dict[op.domain][op.name] = [op.since_version]
+
+            # Ensure domain is in domain_abrv_dict
+            if op.domain not in domain_abrv_dict:
+                # Extract abbreviation from domain (e.g., com.amd.xfe -> XFE)
+                parts = op.domain.split(".")
+                abbrev = parts[-1].upper() if parts else op.domain.upper()
+                domain_abrv_dict[op.domain] = abbrev
+                print(f"Registered new domain: {op.domain} -> {abbrev}")
+
+            # Check meta_attributes for verify and fold
+            domain_abbrev = domain_abrv_dict.get(op.domain, op.domain.upper())
+            op_name = f"{domain_abbrev}{op.name}Op"
+
+            if op.meta_attributes.get("verify", False):
+                CustomOpsWithVerifier.append(op.name)
+                print(f"  {op.name}: verify enabled")
+
+            if op.meta_attributes.get("fold", False):
+                CustomOpsWithFolder.append(op.name)
+                print(f"  {op.name}: fold enabled")
+
+        # Merge custom_version_dict into version_dict so custom ops are generated
+        for domain, ops_dict in custom_version_dict.items():
+            if domain not in version_dict:
+                version_dict[domain] = {}
+            version_dict[domain].update(ops_dict)
+
     curr_utc_time = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%m/%d/%Y, %H:%M:%S"
     )
@@ -1661,9 +1869,56 @@ def main(args):  # type: (Type[Args]) -> None
         gen_op_versions(op_importer, version_map, domain)
     for domain, version_map in additional_op_version_dict.items():
         gen_op_versions(op_importer, version_map, domain)
+    for domain, version_map in custom_version_dict.items():
+        gen_op_versions(op_importer, version_map, domain)
 
     new_version_dict = defaultdict(dict)
-    operator_schemas, operation_opsets = build_operator_schemas()
+    operator_schemas, operation_opsets = build_operator_schemas(custom_ops)
+
+    # Open separate files for custom domains
+    custom_domain_files = {}
+    if custom_ops:
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        # Group custom ops by domain
+        custom_domains = set(op.domain for op in custom_ops)
+        for domain in custom_domains:
+            if (
+                domain
+                and domain != ""
+                and domain not in ["", "ai.onnx.ml", "ai.onnx.preview.training"]
+            ):
+                domain_abbrev = domain_abrv_dict.get(
+                    domain, domain.split(".")[-1].upper()
+                )
+                if hasattr(args, "dry_run") and args.dry_run:
+                    custom_domain_files[domain] = StringIO()
+                else:
+                    filename = f"{domain_abbrev}Ops.td"
+                    filepath = os.path.join(curr_dir, filename)
+                    custom_domain_files[domain] = io.open(filepath, "w", newline="")
+                    print(f"Generating custom ops for domain '{domain}' in {filename}")
+
+                # Write header for custom domain file
+                custom_domain_files[domain].write(autogen_warning)
+                custom_domain_files[domain].write(
+                    f"//===-- {domain_abbrev}Ops.td -- {domain_abbrev} Ops -*- tablegen -===//\n"
+                )
+                custom_domain_files[domain].write(f"//\n")
+                custom_domain_files[domain].write(
+                    f"// Operations for domain: {domain}\n"
+                )
+                custom_domain_files[domain].write(f"//\n")
+                custom_domain_files[domain].write(
+                    f"//===----------------------------------------------------------------------===//\n\n"
+                )
+                custom_domain_files[domain].write(
+                    f'include "mlir/Interfaces/CallInterfaces.td"\n'
+                )
+                custom_domain_files[domain].write(
+                    f'include "mlir/IR/SymbolInterfaces.td"\n'
+                )
+                custom_domain_files[domain].write(f'include "src/IR/AttrBase.td"\n\n')
+
     for domain, support_map in operator_schemas:
         for _, name_map in support_map:
             # Generate Op with version number if not the latest version.
@@ -1675,10 +1930,417 @@ def main(args):  # type: (Type[Args]) -> None
                     since_version = schema.since_version if with_version else None
                     gen_op_importer(domain, schema.name, op_importer, since_version)
                     r = gen_op_def(schema, with_version)
-                    op_def.write(r)
+
+                    # Write to appropriate file based on domain
+                    if domain in custom_domain_files:
+                        custom_domain_files[domain].write(r)
+                    else:
+                        op_def.write(r)
                     previous_name = schema.name
 
+    # Close custom domain files and generate corresponding C++ stubs
+    for domain, file_handle in custom_domain_files.items():
+        if not (hasattr(args, "dry_run") and args.dry_run):
+            file_handle.close()
+            domain_abbrev = domain_abrv_dict.get(domain, domain.split(".")[-1].upper())
+            print(f"Generated {domain_abbrev}Ops.td for domain '{domain}'")
+
+            # Generate C++ files for shape inference in utils directory
+            hpp_filename = f"{domain_abbrev}ShapeInference.hpp"
+            cpp_stub_filename = f"{domain_abbrev}.cpp"
+            cpp_impl_filename = f"{domain_abbrev}ShapeInference.cpp"
+
+            # 1. Generate header file (.hpp) with function declarations
+            hpp_filepath = os.path.join(curr_dir, hpp_filename)
+            with io.open(hpp_filepath, "w", newline="") as hpp_file:
+                hpp_file.write(autogen_warning)
+                hpp_file.write(
+                    f"// Shape inference function declarations for {domain_abbrev} operations\n"
+                )
+                hpp_file.write(f"// This file is auto-generated - DO NOT EDIT\n\n")
+                hpp_file.write(f"#pragma once\n\n")
+                hpp_file.write(f'#include "mlir/IR/Operation.h"\n')
+                hpp_file.write(f'#include "llvm/ADT/FunctionExtras.h"\n\n')
+                hpp_file.write(f"namespace mlir {{\n\n")
+
+                for op in custom_ops:
+                    if op.domain == domain:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        hpp_file.write(f"// Shape inference for {op.name}\n")
+                        hpp_file.write(
+                            f"LogicalResult {op_class_name}ShapeInference(\n"
+                        )
+                        hpp_file.write(
+                            f"    Operation *op, std::function<void(Region &)> doShapeInference);\n\n"
+                        )
+
+                hpp_file.write(f"}} // namespace mlir\n")
+
+            # 2. Generate forwarding stubs (.cpp) - DO NOT EDIT
+            # This now includes shape inference, verify, and fold stubs all in one file
+            cpp_stub_filepath = os.path.join(curr_dir, cpp_stub_filename)
+            with io.open(cpp_stub_filepath, "w", newline="") as cpp_stub:
+                cpp_stub.write(autogen_warning)
+                cpp_stub.write(f"// DO NOT EDIT - Auto-generated forwarding stubs\n")
+                cpp_stub.write(
+                    f"// This file forwards to manual implementations in shape inference, verify, and fold files\n"
+                )
+                cpp_stub.write(
+                    f"// Copy this file to src/Dialect/ONNX/ONNXOps/Additional/{cpp_stub_filename}\n\n"
+                )
+                cpp_stub.write(f'#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"\n')
+                cpp_stub.write(f'#include "{hpp_filename}"\n')
+
+                # Check if we need verify or fold headers
+                ops_with_verify = [
+                    op
+                    for op in custom_ops
+                    if op.domain == domain and op.meta_attributes.get("verify", False)
+                ]
+                ops_with_fold = [
+                    op
+                    for op in custom_ops
+                    if op.domain == domain and op.meta_attributes.get("fold", False)
+                ]
+
+                if ops_with_verify:
+                    verify_hpp_filename = f"{domain_abbrev}Verify.hpp"
+                    cpp_stub.write(f'#include "{verify_hpp_filename}"\n')
+
+                if ops_with_fold:
+                    fold_hpp_filename = f"{domain_abbrev}Fold.hpp"
+                    cpp_stub.write(f'#include "{fold_hpp_filename}"\n')
+
+                cpp_stub.write(f"\n")
+                cpp_stub.write(f"using namespace mlir;\n")
+                cpp_stub.write(f"using namespace onnx_mlir;\n\n")
+
+                # Generate shape inference stubs
+                cpp_stub.write(
+                    f"// ============================================================\n"
+                )
+                cpp_stub.write(f"// Shape Inference\n")
+                cpp_stub.write(
+                    f"// ============================================================\n\n"
+                )
+                for op in custom_ops:
+                    if op.domain == domain:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        cpp_stub.write(f"LogicalResult {op_class_name}::inferShapes(\n")
+                        cpp_stub.write(
+                            f"    std::function<void(Region &)> doShapeInference) {{\n"
+                        )
+                        cpp_stub.write(
+                            f"  return {op_class_name}ShapeInference(this->getOperation(), doShapeInference);\n"
+                        )
+                        cpp_stub.write(f"}}\n\n")
+
+                # Generate verify stubs if needed
+                if ops_with_verify:
+                    cpp_stub.write(
+                        f"// ============================================================\n"
+                    )
+                    cpp_stub.write(f"// Verify\n")
+                    cpp_stub.write(
+                        f"// ============================================================\n\n"
+                    )
+                    for op in ops_with_verify:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        cpp_stub.write(f"LogicalResult {op_class_name}::verify() {{\n")
+                        cpp_stub.write(
+                            f"  return {op_class_name}Verify(this->getOperation());\n"
+                        )
+                        cpp_stub.write(f"}}\n\n")
+
+                # Generate fold stubs if needed
+                if ops_with_fold:
+                    cpp_stub.write(
+                        f"// ============================================================\n"
+                    )
+                    cpp_stub.write(f"// Fold\n")
+                    cpp_stub.write(
+                        f"// ============================================================\n\n"
+                    )
+                    for op in ops_with_fold:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        cpp_stub.write(
+                            f"OpFoldResult {op_class_name}::fold(FoldAdaptor adaptor) {{\n"
+                        )
+                        cpp_stub.write(
+                            f"  return {op_class_name}Fold(this->getOperation(), adaptor.getOperands());\n"
+                        )
+                        cpp_stub.write(f"}}\n\n")
+
+            # 3. Generate implementation templates - EDIT THIS FILE
+            cpp_impl_filepath = os.path.join(curr_dir, cpp_impl_filename)
+            with io.open(cpp_impl_filepath, "w", newline="") as cpp_impl:
+                cpp_impl.write(autogen_warning)
+                cpp_impl.write(f"// IMPLEMENT YOUR SHAPE INFERENCE HERE\n")
+                cpp_impl.write(
+                    f"// This file contains templates - safe to edit and customize\n"
+                )
+                cpp_impl.write(
+                    f"// Move to: src/Dialect/ONNX/ONNXOps/Additional/{cpp_impl_filename}\n"
+                )
+                cpp_impl.write(
+                    f"// and add it to the CMakeLists.txt in src/Dialect/ONNX/\n\n"
+                )
+                cpp_impl.write(f'#include "{hpp_filename}"\n')
+                cpp_impl.write(f'#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"\n')
+                cpp_impl.write(
+                    f'#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"\n\n'
+                )
+                cpp_impl.write(f"using namespace mlir;\n")
+                cpp_impl.write(f"using namespace onnx_mlir;\n\n")
+                cpp_impl.write(f"namespace mlir {{\n\n")
+
+                for op in custom_ops:
+                    if op.domain == domain:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        cpp_impl.write(
+                            f"LogicalResult {op_class_name}ShapeInference(\n"
+                        )
+                        cpp_impl.write(
+                            f"    Operation *op, std::function<void(Region &)> doShapeInference) {{\n"
+                        )
+                        cpp_impl.write(
+                            f"  // TODO: Implement shape inference for {op.name}\n"
+                        )
+                        cpp_impl.write(f"  // \n")
+                        cpp_impl.write(
+                            f"  // Cast to specific op type to access operation-specific methods:\n"
+                        )
+                        cpp_impl.write(
+                            f"  // auto customOp = dyn_cast<{op_class_name}>(op);\n"
+                        )
+                        cpp_impl.write(f"  // if (!customOp) return failure();\n")
+                        cpp_impl.write(f"  // \n")
+                        cpp_impl.write(f"  // Get operand types and shapes:\n")
+                        cpp_impl.write(
+                            f"  // auto operandType = customOp.getOperand(0).getType().dyn_cast<ShapedType>();\n"
+                        )
+                        cpp_impl.write(f"  // \n")
+                        cpp_impl.write(
+                            f"  // Compute output shape based on operation semantics\n"
+                        )
+                        cpp_impl.write(f"  // Set result type:\n")
+                        cpp_impl.write(f"  // customOp.getResult().setType(...);\n")
+                        cpp_impl.write(f"  \n")
+                        cpp_impl.write(f"  return success();\n")
+                        cpp_impl.write(f"}}\n\n")
+
+                cpp_impl.write(f"}} // namespace mlir\n")
+
+            print(
+                f"Generated {hpp_filename}, {cpp_stub_filename}, {cpp_impl_filename} for domain '{domain}'"
+            )
+
+            # Generate Verify and Fold C++ files if needed
+            ops_with_verify = [
+                op
+                for op in custom_ops
+                if op.domain == domain and op.meta_attributes.get("verify", False)
+            ]
+            ops_with_fold = [
+                op
+                for op in custom_ops
+                if op.domain == domain and op.meta_attributes.get("fold", False)
+            ]
+
+            if ops_with_verify:
+                # Generate verify header file
+                verify_hpp_filename = f"{domain_abbrev}Verify.hpp"
+                verify_hpp_filepath = os.path.join(curr_dir, verify_hpp_filename)
+                with io.open(verify_hpp_filepath, "w", newline="") as verify_hpp:
+                    verify_hpp.write(autogen_warning)
+                    verify_hpp.write(
+                        f"// Verify function declarations for {domain_abbrev} operations\n"
+                    )
+                    verify_hpp.write(
+                        f"// This file is auto-generated - DO NOT EDIT\n\n"
+                    )
+                    verify_hpp.write(f"#pragma once\n\n")
+                    verify_hpp.write(f'#include "mlir/IR/Operation.h"\n')
+                    verify_hpp.write(f'#include "mlir/Support/LogicalResult.h"\n\n')
+                    verify_hpp.write(f"namespace mlir {{\n\n")
+
+                    for op in ops_with_verify:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        verify_hpp.write(f"// Verify for {op.name}\n")
+                        verify_hpp.write(
+                            f"LogicalResult {op_class_name}Verify(Operation *op);\n\n"
+                        )
+
+                    verify_hpp.write(f"}} // namespace mlir\n")
+
+                # Generate verify implementation template
+                verify_impl_filename = f"{domain_abbrev}Verify.cpp"
+                verify_impl_filepath = os.path.join(curr_dir, verify_impl_filename)
+                with io.open(verify_impl_filepath, "w", newline="") as verify_impl:
+                    verify_impl.write(autogen_warning)
+                    verify_impl.write(f"// IMPLEMENT YOUR VERIFY LOGIC HERE\n")
+                    verify_impl.write(
+                        f"// Move to: src/Dialect/ONNX/ONNXOps/Additional/{verify_impl_filename}\n\n"
+                    )
+                    verify_impl.write(f'#include "{verify_hpp_filename}"\n')
+                    verify_impl.write(
+                        f'#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"\n\n'
+                    )
+                    verify_impl.write(f"using namespace mlir;\n")
+                    verify_impl.write(f"using namespace onnx_mlir;\n\n")
+                    verify_impl.write(f"namespace mlir {{\n\n")
+
+                    for op in ops_with_verify:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        verify_impl.write(
+                            f"LogicalResult {op_class_name}Verify(Operation *op) {{\n"
+                        )
+                        verify_impl.write(
+                            f"  // TODO: Implement verification for {op.name}\n"
+                        )
+                        verify_impl.write(f"  // \n")
+                        verify_impl.write(f"  // Cast to specific op type:\n")
+                        verify_impl.write(
+                            f"  // auto customOp = dyn_cast<{op_class_name}>(op);\n"
+                        )
+                        verify_impl.write(f"  // if (!customOp) return failure();\n")
+                        verify_impl.write(f"  // \n")
+                        verify_impl.write(
+                            f"  // Verify operand types, shapes, attributes, etc.\n"
+                        )
+                        verify_impl.write(
+                            f"  // Example: Check that input tensors have expected rank\n"
+                        )
+                        verify_impl.write(f"  // if (operandType.getRank() < 2)\n")
+                        verify_impl.write(
+                            f'  //   return op->emitError("Expected input rank >= 2");\n'
+                        )
+                        verify_impl.write(f"  \n")
+                        verify_impl.write(f"  return success();\n")
+                        verify_impl.write(f"}}\n\n")
+
+                    verify_impl.write(f"}} // namespace mlir\n")
+
+                print(
+                    f"Generated {verify_hpp_filename} and {verify_impl_filename} for verify (stubs in {cpp_stub_filename})"
+                )
+
+            if ops_with_fold:
+                # Generate fold header file
+                fold_hpp_filename = f"{domain_abbrev}Fold.hpp"
+                fold_hpp_filepath = os.path.join(curr_dir, fold_hpp_filename)
+                with io.open(fold_hpp_filepath, "w", newline="") as fold_hpp:
+                    fold_hpp.write(autogen_warning)
+                    fold_hpp.write(
+                        f"// Fold function declarations for {domain_abbrev} operations\n"
+                    )
+                    fold_hpp.write(f"// This file is auto-generated - DO NOT EDIT\n\n")
+                    fold_hpp.write(f"#pragma once\n\n")
+                    fold_hpp.write(f'#include "mlir/IR/Operation.h"\n')
+                    fold_hpp.write(f'#include "mlir/IR/OpDefinition.h"\n')
+                    fold_hpp.write(f'#include "llvm/ADT/SmallVector.h"\n\n')
+                    fold_hpp.write(f"namespace mlir {{\n\n")
+
+                    for op in ops_with_fold:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        fold_hpp.write(f"// Fold for {op.name}\n")
+                        fold_hpp.write(f"OpFoldResult {op_class_name}Fold(\n")
+                        fold_hpp.write(
+                            f"    Operation *op, ArrayRef<Attribute> operands);\n\n"
+                        )
+
+                    fold_hpp.write(f"}} // namespace mlir\n")
+
+                # Generate fold implementation template
+                fold_impl_filename = f"{domain_abbrev}Fold.cpp"
+                fold_impl_filepath = os.path.join(curr_dir, fold_impl_filename)
+                with io.open(fold_impl_filepath, "w", newline="") as fold_impl:
+                    fold_impl.write(autogen_warning)
+                    fold_impl.write(f"// IMPLEMENT YOUR FOLD LOGIC HERE\n")
+                    fold_impl.write(
+                        f"// Move to: src/Dialect/ONNX/ONNXOps/Additional/{fold_impl_filename}\n\n"
+                    )
+                    fold_impl.write(f'#include "{fold_hpp_filename}"\n')
+                    fold_impl.write(
+                        f'#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"\n\n'
+                    )
+                    fold_impl.write(f"using namespace mlir;\n")
+                    fold_impl.write(f"using namespace onnx_mlir;\n\n")
+                    fold_impl.write(f"namespace mlir {{\n\n")
+
+                    for op in ops_with_fold:
+                        domain_abbrev_for_op = domain_abrv_dict.get(
+                            domain, domain.split(".")[-1].upper()
+                        )
+                        op_class_name = f"{domain_abbrev_for_op}{op.name}Op"
+                        fold_impl.write(f"OpFoldResult {op_class_name}Fold(\n")
+                        fold_impl.write(
+                            f"    Operation *op, ArrayRef<Attribute> operands) {{\n"
+                        )
+                        fold_impl.write(
+                            f"  // TODO: Implement constant folding for {op.name}\n"
+                        )
+                        fold_impl.write(f"  // \n")
+                        fold_impl.write(f"  // Cast to specific op type:\n")
+                        fold_impl.write(
+                            f"  // auto customOp = dyn_cast<{op_class_name}>(op);\n"
+                        )
+                        fold_impl.write(f"  // if (!customOp) return {{}};\n")
+                        fold_impl.write(f"  // \n")
+                        fold_impl.write(
+                            f"  // Check if all operands are constant (attributes)\n"
+                        )
+                        fold_impl.write(
+                            f"  // If so, compute the result and return it as an attribute\n"
+                        )
+                        fold_impl.write(f"  // Example:\n")
+                        fold_impl.write(
+                            f"  // if (!operands[0] || !operands[1]) return {{}};\n"
+                        )
+                        fold_impl.write(
+                            f"  // auto result = computeConstantResult(operands[0], operands[1]);\n"
+                        )
+                        fold_impl.write(f"  // return result;\n")
+                        fold_impl.write(f"  \n")
+                        fold_impl.write(f"  return {{}}; // No folding\n")
+                        fold_impl.write(f"}}\n\n")
+
+                    fold_impl.write(f"}} // namespace mlir\n")
+
+                print(
+                    f"Generated {fold_hpp_filename} and {fold_impl_filename} for fold (stubs in {cpp_stub_filename})"
+                )
+
     for domain, version_map in additional_op_version_dict.items():
+        for op_name in version_map:
+            gen_op_importer(domain, op_name, op_importer)
+
+    # Generate importers for custom ops
+    for domain, version_map in custom_version_dict.items():
         for op_name in version_map:
             gen_op_importer(domain, op_name, op_importer)
 
@@ -1693,6 +2355,8 @@ def main(args):  # type: (Type[Args]) -> None
     for domain, collected in opsets_collected.items():
         gen_opsets(op_importer, collected, domain)
     for domain, versions_map in additional_op_version_dict.items():
+        gen_opsets(op_importer, versions_map, domain)
+    for domain, versions_map in custom_version_dict.items():
         gen_opsets(op_importer, versions_map, domain)
 
     if check_operation_version:
@@ -1715,6 +2379,7 @@ if __name__ == "__main__":
 
     class Args(object):
         dry_run = args.dry_run_onnx_ops or args.dry_run_op_build_table
+        custom_ops_yaml = args.custom_ops_yaml
 
         # If either dry_run_onnx_ops or dry_run_op_build_table is true, then treat
         # both of them as true. Otherwise, one of them runs as a dry-run and one

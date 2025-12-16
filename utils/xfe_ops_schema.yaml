@@ -1,0 +1,424 @@
+# ==============================================================================
+# MatMulBias: Matrix multiplication with optional bias addition (A * B + C)
+# ==============================================================================
+- name: MatMulBias
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Matrix multiplication with bias addition. Computes Y = A * B + C in a fused operation for improved performance.'
+  meta_attributes:
+  - onnx_opset: 13
+  - verify: True
+  - fold: False
+  inputs:
+  - name: A
+    description: N-dimensional matrix A
+    type_str: T
+  - name: B
+    description: N-dimensional matrix B
+    type_str: T
+  - name: C
+    description: 1D bias tensor
+    type_str: T
+  outputs:
+  - name: Y
+    description: Matrix multiply results from A * B + C
+    type_str: T
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float/int tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(uint32)
+    - tensor(uint64)
+    - tensor(int32)
+    - tensor(int64)
+    - tensor(bfloat16)
+  min_input: 3
+  max_input: 3
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# Conv: N-D Convolution with channel-last data layout
+# ==============================================================================
+- name: Conv
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Convolution operator with channel-last layout (channels innermost). Similar to ONNX Conv but expects input/output tensors in channel-last format instead of NCHW.'
+  meta_attributes:
+  - onnx_opset: 11
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  - name: W
+    description: Weight tensor with filter layout (spatial_dims..., input_channels/group, output_channels)
+    type_str: T
+  - name: B
+    description: Optional 1D bias tensor
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout
+    type_str: T
+  attributes:
+  - name: auto_pad
+    description: Auto padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID)
+    type: string
+    default_value: NOTSET
+  - name: dilations
+    description: Dilation value along each spatial axis
+    type: list(int)
+  - name: group
+    description: Number of groups for grouped convolution
+    type: int
+    default_value: 1
+  - name: kernel_shape
+    description: Shape of the convolution kernel
+    type: list(int)
+  - name: pads
+    description: Padding for the beginning and ending along each spatial axis
+    type: list(int)
+  - name: strides
+    description: Stride along each spatial axis
+    type: list(int)
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 2
+  max_input: 3
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# AveragePool: Average pooling with channel-last data layout
+# ==============================================================================
+- name: AveragePool
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'AveragePool with channel-last layout (channels innermost). Applies average pooling with input/output tensors in channel-last format. Equivalent to AveragePool with kernel size equal to the spatial dimensions. Supports N-D input tensors.'
+  meta_attributes:
+  - onnx_opset: 11
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout
+    type_str: T
+  attributes:
+  - name: auto_pad
+    description: Auto padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID)
+    type: string
+    default_value: NOTSET
+  - name: ceil_mode
+    description: Whether to use ceil or floor to compute output shape
+    type: int
+    default_value: 0
+  - name: count_include_pad
+    description: Whether include pad pixels when calculating values for the edges
+    type: int
+    default_value: 0
+  - name: kernel_shape
+    description: Shape of the pooling kernel
+    type: list(int)
+  - name: pads
+    description: Padding for the beginning and ending along each spatial axis
+    type: list(int)
+  - name: strides
+    description: Stride along each spatial axis
+    type: list(int)
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# MaxPool: Max pooling with channel-last data layout
+# ==============================================================================
+- name: MaxPool
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'MaxPool with channel-last layout (channels innermost). Applies max pooling with input/output tensors in channel-last format. Supports N-D input tensors.'
+  meta_attributes:
+  - onnx_opset: 12
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout
+    type_str: T
+  attributes:
+  - name: auto_pad
+    description: Auto padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID)
+    type: string
+    default_value: NOTSET
+  - name: ceil_mode
+    description: Whether to use ceil or floor to compute output shape
+    type: int
+    default_value: 0
+  - name: dilations
+    description: Dilation value along each spatial axis
+    type: list(int)
+  - name: kernel_shape
+    description: Shape of the pooling kernel
+    type: list(int)
+  - name: pads
+    description: Padding for the beginning and ending along each spatial axis
+    type: list(int)
+  - name: storage_order
+    description: The storage order of the tensor (0 for row major, 1 for column major)
+    type: int
+    default_value: 0
+  - name: strides
+    description: Stride along each spatial axis
+    type: list(int)
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# GlobalAveragePool: Global average pooling with channel-last layout
+# Pools across all spatial dimensions, reducing spatial dims to 1
+# ==============================================================================
+- name: GlobalAveragePool
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'GlobalAveragePool with channel-last layout (channels innermost). Applies average pooling across all spatial dimensions with input/output tensors in channel-last format. Equivalent to AveragePool with kernel size equal to the spatial dimensions. Supports N-D input tensors.'
+  meta_attributes:
+  - onnx_opset: 1
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout (batch, 1s..., channels) where all spatial dimensions are reduced to 1
+    type_str: T
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# GlobalMaxPool: Global max pooling with channel-last layout
+# Pools across all spatial dimensions, reducing spatial dims to 1
+# ==============================================================================
+- name: GlobalMaxPool
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'GlobalMaxPool with channel-last layout (channels innermost). Applies max pooling across all spatial dimensions with input/output tensors in channel-last format. Equivalent to MaxPool with kernel size equal to the spatial dimensions. Supports N-D input tensors.'
+  meta_attributes:
+  - onnx_opset: 1
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout (batch, 1s..., channels) where all spatial dimensions are reduced to 1
+    type_str: T
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# InstanceNormalization: Instance normalization with channel-last (NHWC) layout
+# Normalizes per instance per channel: y = scale * (x - mean) / sqrt(variance + epsilon) + B
+# ==============================================================================
+- name: InstanceNormalization
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Instance normalization with channel-last layout (channels innermost). Carries out instance normalization with input/output tensors in channel-last format instead of NCHW. Formula: y = scale * (x - mean) / sqrt(variance + epsilon) + B, where mean and variance are computed per instance per channel.'
+  meta_attributes:
+  - onnx_opset: 6
+  - verify: True
+  - fold: False
+  inputs:
+  - name: input
+    description: Input data tensor with channel-last layout (batch, height, width, channels)
+    type_str: T
+  - name: scale
+    description: 1D scale tensor of size C (number of channels)
+    type_str: T
+  - name: B
+    description: 1D bias tensor of size C (number of channels)
+    type_str: T
+  outputs:
+  - name: output
+    description: Output data tensor with channel-last layout, same shape as input
+    type_str: T
+  attributes:
+  - name: epsilon
+    description: Small value to add to variance to avoid division by zero
+    type: float
+    default_value: 1e-05
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 3
+  max_input: 3
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# DepthToSpace: Rearrange data from channels to spatial dimensions with channel-last layout
+# Inverse of SpaceToDepth - increases spatial size, decreases channel depth
+# ==============================================================================
+- name: DepthToSpace
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'DepthToSpace with channel-last layout (channels innermost). Rearranges data from the channel dimension into blocks of spatial data with input/output tensors in channel-last format instead of NCHW. This is the reverse transformation of SpaceToDepth.'
+  meta_attributes:
+  - onnx_opset: 11
+  - verify: True
+  - fold: False
+  inputs:
+  - name: input
+    description: Input data tensor with channel-last layout (batch, height, width, channels)
+    type_str: T
+  outputs:
+  - name: output
+    description: Output data tensor with channel-last layout (batch, height*blocksize, width*blocksize, channels/(blocksize^2))
+    type_str: T
+  attributes:
+  - name: blocksize
+    description: Size of the blocks to be moved. Output spatial dimensions are multiplied by this factor
+    type: int
+  - name: mode
+    description: Rearrangement mode - DCR (depth-column-row) or CRD (column-row-depth)
+    type: string
+    default_value: DCR
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to all tensor types.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(uint32)
+    - tensor(uint64)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(int32)
+    - tensor(int64)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# SpaceToDepth: Rearrange spatial data to channels with channel-last layout
+# Inverse of DepthToSpace - decreases spatial size, increases channel depth
+# ==============================================================================
+- name: SpaceToDepth
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'SpaceToDepth with channel-last layout (channels innermost). Rearranges blocks of spatial data into the channel dimension with input/output tensors in channel-last format instead of NCHW. This is the reverse transformation of DepthToSpace.'
+  meta_attributes:
+  - onnx_opset: 1
+  - verify: True
+  - fold: False
+  inputs:
+  - name: input
+    description: Input data tensor with channel-last layout (batch, height, width, channels)
+    type_str: T
+  outputs:
+  - name: output
+    description: Output data tensor with channel-last layout (batch, height/blocksize, width/blocksize, channels*(blocksize^2))
+    type_str: T
+  attributes:
+  - name: blocksize
+    description: Size of the blocks to be moved. Input spatial dimensions are divided by this factor
+    type: int
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to all tensor types.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(uint32)
+    - tensor(uint64)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(int32)
+    - tensor(int64)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1

@@ -157,7 +157,112 @@ operation. Thus, we just need to have the dialect definition, but not the code f
 lowering.
 
 # Adding Operations from not-builtin domains
-To add an operation from a not-builtin domain, it needs to be added to the `additional_op_version_dict` in gen_onnx_mlir.py. The key is the domain name and the value is the per-operation version dictionary.
-The new domain also needs to be added to the `domain_abrv_dict` in gen_onnx_mlir.py. The key is the domain name and the value is the abbreviation/prefix used in ONNX-MLIR for this domain.
+
+There are two methods to add operations from custom domains:
+
+## Method 1: YAML Schema Definition (Recommended)
+
+The easiest way to add custom domain operations is using YAML schema files with the `--custom-ops-yaml` option.
+
+### Quick Start
+
+```bash
+# Create a YAML schema file (e.g., custom_ops.yaml)
+python gen_onnx_mlir.py --custom-ops-yaml custom_ops.yaml
+
+# This generates:
+# - ONNXOps.td.inc (standard ONNX ops)
+# - OpBuildTable.inc (all import handlers)
+# - [DomainAbbrev]Ops.td (custom domain TableGen)
+# - [DomainAbbrev].cpp (shape inference stubs)
+```
+
+### YAML Schema Format
+
+```yaml
+- name: MyCustomOp
+  domain: com.mycompany.ops
+  since_version: 1
+  support_level: COMMON
+  description: 'My custom operation'
+  inputs:
+  - name: input
+    description: Input tensor
+    type_str: T
+  outputs:
+  - name: output
+    description: Output tensor
+    type_str: T
+  attributes:
+  - name: axis
+    description: Operation axis
+    type: int
+    default_value: 0
+  type_constraints:
+  - type_param: T
+    description: Supported types
+    allowed_types:
+    - tensor(float)
+    - tensor(int32)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
+```
+
+### Generated Files
+
+For each custom domain, the script generates:
+
+1. **[DomainAbbrev]Ops.td**: Complete TableGen definitions
+   - Location: `utils/[DomainAbbrev]Ops.td`
+   - Contains all operation definitions with proper traits and interfaces
+
+2. **[DomainAbbrev].cpp**: C++ shape inference stub implementations
+   - Location: `utils/[DomainAbbrev].cpp`
+   - **Action Required**: Move to `src/Dialect/ONNX/ONNXOps/Additional/`
+   - **Action Required**: Implement shape inference logic (replace TODOs)
+   - **Action Required**: Add to `src/Dialect/ONNX/CMakeLists.txt`
+
+### Domain Registration
+
+The script automatically registers new domains:
+- Extracts abbreviation from domain name (e.g., `com.amd.xfe` → `XFE`)
+- You can manually specify abbreviations in `domain_abrv_dict`
+
+```python
+domain_abrv_dict = {
+    "": "ONNX",
+    "ai.onnx.ml": "ONNX",
+    "ai.onnx.preview.training": "ONNX",
+    "com.amd.quark": "AMDQuark",
+    "com.amd.xfe": "XFE",
+    "com.mycompany.ops": "MyCompany",  # Custom abbreviation
+}
+```
+
+### Shape Inference Implementation
+
+The generated C++ stub provides a starting point:
+
+```cpp
+LogicalResult MyCompanyMyCustomOpOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // TODO: Implement shape inference for MyCustomOp
+  // Get input types, compute output shapes, set result types
+  return success();
+}
+```
+
+Implement the shape inference logic following examples in `src/Dialect/ONNX/ONNXOps/`.
+
+## Method 2: Manual TableGen Definition (Advanced)
+
+For advanced use cases, you can manually define operations:
+
+1. Add operation to `additional_op_version_dict` in `gen_onnx_mlir.py`
+2. Add domain to `domain_abrv_dict` with desired abbreviation
+3. Create custom TableGen records manually
+
 For operations from not-builtin domains, the operation definition specification needs to be manually provided.
 This can be done via custom TableGen records for the operations. See [/src/Dialect/ONNX/AdditionalONNXOps.td](../src/Dialect/ONNX/AdditionalONNXOps.td) for examples.

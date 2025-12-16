@@ -28,6 +28,9 @@ add_onnx_mlir_library(OMONNXOps
 
   # Support for shape inference and verifiers
   ONNXOps/Additional/AMDQuark.cpp
+  ONNXOps/Additional/XFE.cpp
+  ONNXOps/Additional/XFEShapeInference.cpp
+  ONNXOps/Additional/XFEVerify.cpp
   ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
