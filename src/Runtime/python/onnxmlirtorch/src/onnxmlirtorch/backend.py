@@ -228,6 +228,8 @@ class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
         # Input graph module.
         self.gm = gm
+        self.gm.eval()
+
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Original graph module")
             self.gm.graph.print_tabular()
