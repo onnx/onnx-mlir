@@ -1578,6 +1578,9 @@ private:
 struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
+  RecomposeConcatPattern(MLIRContext *context, uint64_t benefit)
+      : OpRewritePattern(context, /*benefit=*/benefit) {}
+
   // Helper function to check if an input is a mergeable Concat.
   static bool isMergeableConcat(Value input, int64_t axis) {
     ONNXConcatOp concatOp = input.getDefiningOp<ONNXConcatOp>();
@@ -1634,6 +1637,9 @@ struct RemoveDimZeroInputInConcatPattern
     : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
+  RemoveDimZeroInputInConcatPattern(MLIRContext *context, uint64_t benefit)
+      : OpRewritePattern(context, /*benefit=*/benefit) {}
+
   LogicalResult matchAndRewrite(
       ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
     ValueRange inputs = concatOp.getOperands();
@@ -1661,6 +1667,41 @@ struct RemoveDimZeroInputInConcatPattern
       for (int64_t idx : indices)
         concatOp.getOperation()->eraseOperand(idx);
     });
+    return success();
+  }
+};
+
+struct RemoveEmptyInputInConcatPattern : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  RemoveEmptyInputInConcatPattern(MLIRContext *context, uint64_t benefit)
+      : OpRewritePattern(context, /*benefit=*/benefit) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    ValueRange inputs = concatOp.getOperands();
+
+    // Collect indices of inputs whose shape is <0xdtype>.
+    SmallVector<int64_t> indices;
+    for (unsigned int i = 0; i < inputs.size(); ++i) {
+      Value inp = inputs[i];
+      if (!hasShapeAndRank(inp))
+        continue;
+      ArrayRef<int64_t> shape = getShape(inp.getType());
+      if (shape.size() == 1 && shape[0] == 0)
+        indices.emplace_back(i);
+    }
+    if (indices.empty())
+      return rewriter.notifyMatchFailure(
+          concatOp, "No operand whose shape is <0xdtype>");
+
+    // Rewrite: remove operands whose shape is <0xdtype>.
+    rewriter.modifyOpInPlace(concatOp, [&]() {
+      for (int64_t idx : indices)
+        concatOp.getOperation()->eraseOperand(idx);
+    });
+    if (concatOp.getOperands().size() == 1)
+      concatOp.getResult().replaceAllUsesWith(concatOp.getOperands()[0]);
     return success();
   }
 };
@@ -2327,8 +2368,9 @@ void ONNXCastOp::getCanonicalizationPatterns(
 /// on the ONNXConcatOp.
 void ONNXConcatOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RecomposeConcatPattern>(context);
-  results.insert<RemoveDimZeroInputInConcatPattern>(context);
+  results.insert<RecomposeConcatPattern>(context, /*benefit=*/1);
+  results.insert<RemoveDimZeroInputInConcatPattern>(context, /*benefit=*/2);
+  results.insert<RemoveEmptyInputInConcatPattern>(context, /*benefit=*/1000);
 }
 
 /// on the ONNXClipOp.
