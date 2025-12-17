@@ -76,7 +76,8 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
   }
 
   const uint64_t requiredSize = offset + length;
-  if (requiredSize > fileSize) {
+  if (offset > fileSize ||
+      (length != uint64_t(-1) && requiredSize > fileSize)) {
     llvm::errs() << "Error: External data file " << pathStr
                  << " is too small.\n"
                  << "  File size: " << fileSize << " bytes\n"
