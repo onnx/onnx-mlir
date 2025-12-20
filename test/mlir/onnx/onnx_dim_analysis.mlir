@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --onnx-dim-analysis --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // Check if dim_analysis takes into account the relationship between inputs via dim_params.
 func.func @test_dim_params_onnx_return(%arg0: tensor<?x?xf32> {onnx.dim_params = "0:M,1:N", onnx.name = "X"}, %arg1: tensor<?x?xf32> {onnx.dim_params = "0:M,1:P", onnx.name = "Y"}) -> (tensor<?x?xf32> {onnx.dim_params = "0:M,1:N", onnx.name = "Z"}) {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
@@ -11,7 +13,7 @@ func.func @test_dim_params_onnx_return(%arg0: tensor<?x?xf32> {onnx.dim_params =
 // CHECK-DAG:           "onnx.DimGroup"([[PARAM_1_]]) {axis = 1 : si64, group_id = 4 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK-DAG:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK-DAG:           "onnx.DimGroup"([[PARAM_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xf32>) -> ()
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "0:M"} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK-DAG:           "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK-DAG:           "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?xf32>
@@ -31,7 +33,7 @@ func.func @test_dim_params_std_return(%arg0: tensor<?x?xf32> {onnx.dim_params = 
 // CHECK-DAG:           "onnx.DimGroup"([[PARAM_1_]]) {axis = 1 : si64, group_id = 4 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK-DAG:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK-DAG:           "onnx.DimGroup"([[PARAM_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xf32>) -> ()
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "0:M"} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK-DAG:           "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK-DAG:           "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xf32>) -> ()
 // CHECK:           return [[VAR_0_]] : tensor<?x?xf32>

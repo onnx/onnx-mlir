@@ -159,8 +159,15 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
       IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
-      outputDims[i] = outputDims[i].selectOrSelf(
-          dimShape == -1, numOfElements.floorDiv(numOfElementsFromShape));
+      if (auto search = outputIgnoredDims.find(i);
+          search != outputIgnoredDims.end())
+        // The outputIgnoreDims are dim with symbolic value matching a dim in
+        // data. Therefore, it can not be -1. The current folding of IndexExp
+        // can not propagate the dim_param info.
+        outputDims[i] = dimShape;
+      else
+        outputDims[i] = outputDims[i].selectOrSelf(
+            dimShape == -1, numOfElements.floorDiv(numOfElementsFromShape));
     } else {
       // ToFix: can not check getAllowzero because the operandAdaptor is
       // constructed without attributes

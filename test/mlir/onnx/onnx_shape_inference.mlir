@@ -4254,7 +4254,18 @@ func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor
 
 // -----
 
-// Test Binarizer Sample
+func.func @dim_params_1(%arg0: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}, %arg1: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}) -> (tensor<?x10xf32> {onnx.name = "sum"}) {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+  %1 = "onnx.Add"(%0, %arg0) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+  onnx.Return %1 : tensor<?x10xf32>
+// CHECK-LABEL:  func.func @dim_params_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}, [[PARAM_1_:%.+]]: tensor<?x10xf32> {onnx.dim_params = "0:batch_size"}) -> (tensor<?x10xf32> {onnx.name = "sum"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) {onnx.out_dim_params_0 = "0:batch_size"} : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x10xf32>
+}
+
+// -----
 
 func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Binarizer"(%arg0) {threshold = 1.0 : f32} : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -4268,6 +4279,20 @@ func.func @test_binarizer(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
+
+
+func.func @test_matmul_2_param(%arg0 : tensor<16x?x64x42xf32> {onnx.dim_params="1:dim1"}, %arg1 : tensor<42x?xf32> {onnx.dim_params="1:dim2"}) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<16x?x64x42xf32>, tensor<42x?xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  func.func @test_matmul_2_param
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<16x?x64x42xf32> {onnx.dim_params = "1:dim1"}, [[PARAM_1_:%.+]]: tensor<42x?xf32> {onnx.dim_params = "1:dim2"}) -> tensor<16x?x64x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) {onnx.out_dim_params_0 = "1:dim1,3:dim2"} : (tensor<16x?x64x42xf32>, tensor<42x?xf32>) -> tensor<16x?x64x?xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<16x?x64x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 
 func.func private @test_hammingwindow_shape(%arg0 : tensor<1xi32>) -> tensor<?xf32> {
   %0 = "onnx.HammingWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<1xi32>) -> tensor<?xf32>
@@ -4347,3 +4372,4 @@ func.func @test_random_uniform_static_bf16() -> tensor<*xbf16> {
 }
 
 //===----------------------------------------------------------------------===//
+>>>>>>> upstream/main

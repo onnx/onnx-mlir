@@ -24,6 +24,8 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include <mutex>
 
 #define DEBUG_TYPE "index-expr"
@@ -41,7 +43,7 @@ namespace onnx_mlir {
 IndexExprImpl::IndexExprImpl()
     : defined(false), literal(false), isFloat(false),
       kind(IndexExprKind::NonAffine), intLit(0), affineExpr(nullptr),
-      value(nullptr) {
+      value(nullptr), dimParam("") {
   // Set scope from thread private global.
   scope = IndexExprScope::getCurrentScopePtr();
   assert(scope && "expected IndexExpr Scope to be defined");
@@ -66,6 +68,109 @@ void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {
       IndexExprKind::Questionmark, val, AffineExpr(nullptr), Value(nullptr));
 }
 
+std::string getDimParamFromString(std::string dimParams, int64_t index) {
+  std::stringstream shapeInfoString(dimParams);
+  std::string dimString;
+  while (std::getline(shapeInfoString, dimString, ',')) {
+    size_t pos = dimString.find(':');
+    std::string inputString = dimString.substr(0, pos);
+    std::string paramString = dimString.substr(pos + 1);
+
+    int64_t inputID = std::stoi(inputString);
+    if (inputID == index) {
+      return (paramString);
+    }
+  }
+  return std::string("");
+}
+
+// Get DimParam from the direct defining op of the tensorOrMemref
+std::string getDimParamFromDirectDefiningOpUtil(
+    Value tensorOrMemref, int64_t index) {
+  if (auto blockArg = llvm::dyn_cast<BlockArgument>(tensorOrMemref)) {
+    int64_t argIndex = blockArg.getArgNumber();
+    Block *block = blockArg.getOwner();
+    Operation *op = block->getParentOp();
+    if (op && llvm::isa<func::FuncOp>(op)) {
+      func::FuncOp funcOp = llvm::cast<func::FuncOp>(op);
+      DictionaryAttr dictAttr =
+          mlir::function_interface_impl::getArgAttrDict(funcOp, argIndex);
+      if (dictAttr && dictAttr.contains(FUNC_DIM_PARAMS)) {
+        StringAttr dimParamAttr = mlir::cast<StringAttr>(
+            dictAttr.getNamed(FUNC_DIM_PARAMS).value().getValue());
+        return getDimParamFromString(
+            std::string(dimParamAttr.getValue().str()), index);
+      }
+      return std::string("");
+    } else {
+      // ToFix, Loop, If and etc.
+      return std::string("");
+    }
+  } else {
+    Operation *op = tensorOrMemref.getDefiningOp();
+    if (!op) {
+      // func.func parameter?
+      return std::string("");
+    } else {
+      // Get the info from attribute "onnx.out_dim_param_*"
+      auto opResult = llvm::cast<OpResult>(tensorOrMemref);
+      unsigned resultIndex = opResult.getResultNumber();
+      Attribute dimParamAttr =
+          op->getAttr(OP_DIM_PARAMS + std::to_string(resultIndex));
+      if (!dimParamAttr)
+        return std::string("");
+      return getDimParamFromString(
+          std::string(llvm::cast<StringAttr>(dimParamAttr).getValue().str()),
+          index);
+    }
+  }
+}
+
+// Initialize a Questionmark with the value of val[index].
+// Assume that the existing code handles the constant case already.
+// Here a Questionmark is generated, perhaps with dimParam info.
+// To find out the info for dimParam, the definition chain of val will be
+// inspected. The possible pattern is value from ConcatOp.
+
+std::string getDimParamForDimOp(Value val) {
+  auto dimOp = val.getDefiningOp<ONNXDimOp>();
+  if (dimOp) {
+    Value dataOfDim = dimOp.getData();
+    // Get the index of onnx.Dim
+    int64_t axis = dimOp.getAxis();
+    // return std::string(std::to_string(axis));
+    return getDimParamFromDirectDefiningOpUtil(dataOfDim, axis);
+  }
+  return std::string("");
+}
+
+static std::string getDimParamForIndexedValueUtil(Value val, int64_t index) {
+  // Pattern#1: The value comes from Concat. The index can be used to trace back
+  // the particular input of Concat.
+  // Copy code from src/Dialect/ONNX/ONNXOps/Tensor/Reshape
+  if (areDimsFromConcat(val)) {
+    SmallVector<Value> shapeDimVals;
+    // Question: need to check the shape of input of Concat?
+    getDims(val, shapeDimVals);
+    return getDimParamForDimOp(shapeDimVals[index]);
+  }
+  return std::string("");
+}
+
+std::string getDimParamUtil(Value tensorOrMemref, int64_t index) {
+  if (std::string resultString =
+          getDimParamFromDirectDefiningOpUtil(tensorOrMemref, index);
+      resultString != "") {
+    return resultString;
+  } else if (std::string resultString =
+                 getDimParamForIndexedValueUtil(tensorOrMemref, index);
+             resultString != "") {
+    return resultString;
+  } else {
+    return std::string("");
+  }
+}
+
 // Used for runtime dims; integer by default.
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
@@ -78,6 +183,25 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   init(/*isDefined*/ true, /*literal*/ false,
       /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
       questionValue, AffineExpr(nullptr), Value(nullptr));
+
+  // Get the dimSymbol from the dim_params
+  // This symbol acts similar to questionValue, but predefined from onnx model
+  std::string dimSymbol = getDimParamUtil(tensorOrMemref, index);
+  if (dimSymbol != "")
+    dimParam = dimSymbol;
+}
+
+void IndexExprImpl::initAsQuestionmarkForIndexedValue(
+    Value tensorOrMemref, int64_t index) {
+  llvm::hash_code questionValue = llvm::hash_combine(
+      mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
+  init(/*isDefined*/ true, /*literal*/ false,
+      /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
+      questionValue, AffineExpr(nullptr), Value(nullptr));
+
+  std::string dimSymbol = getDimParamForIndexedValueUtil(tensorOrMemref, index);
+  if (dimSymbol != "")
+    dimParam = dimSymbol;
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
@@ -329,6 +453,11 @@ bool IndexExprImpl::hasValue() const {
   return value != nullptr;
 }
 
+bool IndexExprImpl::hasDimParam() const {
+  assert(isDefined());
+  return dimParam != "";
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExprExpr getters.
 //===----------------------------------------------------------------------===//
@@ -506,6 +635,11 @@ Value IndexExprImpl::getValue() {
     llvm_unreachable("bad path");
   }
   return value;
+}
+
+std::string IndexExprImpl::getDimParam() {
+  // Should it be only for QuestionMark?
+  return dimParam;
 }
 
 //===----------------------------------------------------------------------===//
