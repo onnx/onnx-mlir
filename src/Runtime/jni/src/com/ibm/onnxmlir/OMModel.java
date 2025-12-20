@@ -124,7 +124,23 @@ public class OMModel {
             JarFile jf = new JarFile(jar.toFile());
 	    for (Enumeration<JarEntry> e = jf.entries(); e.hasMoreElements(); ) {
 		String libFile = e.nextElement().getName();
+        //add dll load on windows
+        if (libFile.endsWith(".dll")) {
+		    try {
+			Path lib = Paths.get(tmpDir.toString(), libFile);
+			Path libDir = lib.getParent();
+			Files.createDirectories(libDir);
+			// Copy .dll to the temporary directory
+			Files.copy(jf.getInputStream(jf.getEntry(libFile)), lib,
+				   StandardCopyOption.REPLACE_EXISTING);
+			// Load the temporary .dll copy
+			System.load(lib.toString());
+			logger.finer(lib.toString() + " loaded");
 
+		    } catch (IOException e2) {
+			logger.severe(e2.getMessage());
+		    }
+		} // if
 		if (libFile.endsWith(".so")) {
 		    try {
 			Path lib = Paths.get(tmpDir.toString(), libFile);
