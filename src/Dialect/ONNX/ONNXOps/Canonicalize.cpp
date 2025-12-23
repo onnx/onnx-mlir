@@ -23,12 +23,17 @@
 #include "mlir/Dialect/Traits.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -2474,6 +2479,253 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
 };
 
 // =============================================================================
+// Fuses back-to-back maxpools (ONNXMaxPoolSingleOutOps):
+// Goes From:
+//                    │
+//        ┌───────────▼──────────┐
+//        │     Upper Maxpool    │
+//        │                      │
+//        │kernel_size = k1 x k1 │
+//        │pads = p1, p1, p1, p1 │
+//        │strides = s1 x s1     │
+//        └───────────┬──────────┘
+//        ┌───────────▼──────────┐
+//        │     Lower Maxpool    │
+//        │                      │
+//        │kernel_size = k2 x k2 │
+//        │pads = p2, p2, p2, p2 │
+//        │strides = s2 x s2     │
+//        └───────────┬──────────┘
+//                    ▼
+// To:
+//                    │
+//        ┌───────────▼──────────┐
+//        │        Maxpool       │
+//        │                      │      Where:
+//        │kernel_size = k3 x k3 │          k3 = k1 + (k2 - 1) * s1
+//        │pads = p3, p3, p3, p3 │          p3 = p1 + p2 * s1
+//        │strides = s3 x s3     │          s3 = s1 * s2
+//        └───────────┬──────────┘
+//                    ▼
+//
+// This works for 1D, 2D or 3D maxpools, but only
+// on symmetric kernels, strides, and paddings. It can be optimized further to
+// work with asymmetric cases using similar logic individually for each dim
+// that's being pooled upon.
+// =============================================================================
+struct FuseBackToBackMaxpools
+    : public OpRewritePattern<ONNXMaxPoolSingleOutOp> {
+  using OpRewritePattern<ONNXMaxPoolSingleOutOp>::OpRewritePattern;
+
+  static bool areAllSame(llvm::ArrayRef<Attribute> array, int64_t sameAs) {
+    return llvm::all_of(array, [&](Attribute elem) {
+      return cast<IntegerAttr>(elem).getInt() == sameAs;
+    });
+  }
+
+  LogicalResult matchAndRewrite(ONNXMaxPoolSingleOutOp lowerMaxpool,
+      PatternRewriter &rewriter) const final {
+
+    // Check that the lower maxpool is the second maxpool in a back-to-back
+    // chain
+    auto *upperOp = lowerMaxpool.getOperand().getDefiningOp();
+    if (!upperOp) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Cannot get defining op for the lower maxpool");
+    }
+
+    if (!isa<ONNXDequantizeLinearOp>(upperOp) &&
+        !isa<ONNXMaxPoolSingleOutOp>(upperOp)) {
+      return rewriter.notifyMatchFailure(
+          lowerMaxpool.getLoc(), "Defining op isn't a maxpool or a dequantize");
+    }
+
+    ONNXMaxPoolSingleOutOp upperMaxpool = nullptr;
+    auto upperDequant = dyn_cast<ONNXDequantizeLinearOp>(upperOp);
+
+    if (upperDequant) {
+      auto *quant = upperDequant->getOperand(0).getDefiningOp();
+      if (!quant || !isa<ONNXQuantizeLinearOp>(quant))
+        return rewriter.notifyMatchFailure(
+            lowerMaxpool->getLoc(), "No Q->Dq chain between the maxpools");
+      Operation *quantInputDef = quant->getOperand(0).getDefiningOp();
+      if (!quantInputDef)
+        return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+            "QuantizeLinear input is not produced by a MaxPool");
+      upperMaxpool = dyn_cast<ONNXMaxPoolSingleOutOp>(quantInputDef);
+    } else {
+      upperMaxpool = dyn_cast<ONNXMaxPoolSingleOutOp>(upperOp);
+    }
+
+    if (!upperMaxpool) {
+      return rewriter.notifyMatchFailure(
+          lowerMaxpool.getLoc(), "Defining op is not a maxpool");
+    }
+
+    // Check that the upper maxpool has only one user
+    if (!upperMaxpool->hasOneUse()) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Optimization only works when upper maxpool has one user");
+    }
+
+    auto upperMaxpoolKernelSizeArr = upperMaxpool.getKernelShape().getValue();
+    auto lowerMaxpoolKernelSizeArr = lowerMaxpool.getKernelShape().getValue();
+
+    auto upperMaxpoolStridesArr = upperMaxpool.getStrides()->getValue();
+    auto lowerMaxpoolStridesArr = lowerMaxpool.getStrides()->getValue();
+
+    // Check for square kernels and strides
+    if (!areAllSame(lowerMaxpoolKernelSizeArr,
+            cast<IntegerAttr>(lowerMaxpoolKernelSizeArr[0]).getInt()) ||
+        !areAllSame(upperMaxpoolKernelSizeArr,
+            cast<IntegerAttr>(upperMaxpoolKernelSizeArr[0]).getInt())) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Transformation only works on symmetric kernels");
+    }
+
+    if (!areAllSame(upperMaxpoolStridesArr,
+            cast<IntegerAttr>(upperMaxpoolStridesArr[0]).getInt()) ||
+        !areAllSame(lowerMaxpoolStridesArr,
+            cast<IntegerAttr>(lowerMaxpoolStridesArr[0]).getInt())) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Transformation only works on symmetric strides");
+    }
+
+    // Check for symmetric padding
+    auto lowerMaxpoolPads = lowerMaxpool.getPads()->getValue();
+    auto upperMaxpoolPads = upperMaxpool.getPads()->getValue();
+    if (!areAllSame(lowerMaxpoolPads,
+            cast<IntegerAttr>(lowerMaxpoolPads[0]).getInt()) ||
+        !areAllSame(upperMaxpoolPads,
+            cast<IntegerAttr>(upperMaxpoolPads[0]).getInt())) {
+      return rewriter.notifyMatchFailure(lowerMaxpool.getLoc(),
+          "Transformation only works for symmetric padings");
+    }
+
+    // Check for non-dilated maxpools (dilation = 1)
+    auto lowerMaxpoolDilations = lowerMaxpool.getDilations();
+    auto upperMaxpoolDilations = upperMaxpool.getDilations();
+    bool areLowerDilationsOne =
+        !lowerMaxpoolDilations ||
+        areAllSame(lowerMaxpoolDilations->getValue(), 1);
+    bool areUpperDilationsOne =
+        !upperMaxpoolDilations ||
+        areAllSame(upperMaxpoolDilations->getValue(), 1);
+    if (!areLowerDilationsOne || !areUpperDilationsOne) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Transformation only works for non-dilated maxpools");
+    }
+
+    // Check for same ceil-mode
+    if (lowerMaxpool.getCeilMode() != upperMaxpool.getCeilMode()) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Both maxpools must have same ceil-mode for transformation to apply");
+    }
+
+    // Make sure we're doing explicit padding
+    // This can also be extended by doing the same calculations as AUTO
+    // PAD for the padding
+    if (!(lowerMaxpool.getAutoPad() == "NOTSET") ||
+        !(upperMaxpool.getAutoPad() == "NOTSET")) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Transformation only supports explicit padding");
+    }
+
+    // Make sure both maxpools have the same storage order
+    if (lowerMaxpool.getStorageOrder() != upperMaxpool.getStorageOrder()) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Transformation applies only when both "
+          "maxpools have the same storage order");
+    }
+
+    // Check kernel size >= stride for the upper maxpool
+    auto upperMaxpoolKernelSize =
+        cast<IntegerAttr>(upperMaxpoolKernelSizeArr[0]).getInt();
+    auto upperMaxpoolStride =
+        cast<IntegerAttr>(upperMaxpool.getStrides()->getValue()[0]).getInt();
+    if (upperMaxpoolKernelSize < upperMaxpoolStride) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Transformation applies only when kernel "
+          "size >= stride for the upper maxpool");
+    }
+
+    // Finally check that the upper maxpool covers the input completely
+    auto upperMaxpoolPad = cast<IntegerAttr>(upperMaxpoolPads[0]).getInt();
+    auto inputType = cast<RankedTensorType>(upperMaxpool.getX().getType());
+    if (!inputType.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "Upper maxpool has inputs with dynamic shapes");
+    }
+
+    auto inputShape = inputType.getShape();
+
+    for (uint64_t pooledDimIdx = 2; pooledDimIdx < inputShape.size();
+         pooledDimIdx++) {
+      auto effectiveInputDim = inputShape[pooledDimIdx] + 2 * upperMaxpoolPad;
+      if ((effectiveInputDim - upperMaxpoolKernelSize) % upperMaxpoolStride !=
+          0) {
+        return rewriter.notifyMatchFailure(lowerMaxpool.getLoc(),
+            "Upper maxpool doesn't completely cover the input");
+      }
+    }
+
+    // New ceil-mode:
+    // Same ceil-mode as either maxpool
+    auto newCeilMode =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            lowerMaxpool.getCeilMode());
+
+    // New Kernel Size:
+    // k_fused = k_upper + (k_lower - 1) * stride_upper
+    auto lowerMaxpoolKernelSize =
+        cast<IntegerAttr>(lowerMaxpoolKernelSizeArr[0]).getInt();
+    auto newKSize = upperMaxpoolKernelSize +
+                    (lowerMaxpoolKernelSize - 1) * upperMaxpoolStride;
+    SmallVector<int64_t> newKSizeVec(
+        upperMaxpoolKernelSizeArr.size(), newKSize);
+    auto newKernelSize = rewriter.getI64ArrayAttr(newKSizeVec);
+
+    // New Stride:
+    // stride_fused = stride_upper * stride_lower
+    auto lowerMaxpoolStride =
+        cast<IntegerAttr>(lowerMaxpool.getStrides()->getValue()[0]).getInt();
+    SmallVector<int64_t> newStrideVec(
+        upperMaxpoolStridesArr.size(), upperMaxpoolStride * lowerMaxpoolStride);
+    auto newStride = rewriter.getI64ArrayAttr(newStrideVec);
+
+    // New Padding:
+    // padding_fused = padding_upper + padding_lower * stride_upper
+    auto newPaddingVec = llvm::to_vector(
+        llvm::map_range(llvm::zip_equal(upperMaxpoolPads, lowerMaxpoolPads),
+            [&](auto pads) -> Attribute {
+              auto [upperPad, lowerPad] = pads;
+              return rewriter.getI64IntegerAttr(
+                  cast<IntegerAttr>(upperPad).getInt() +
+                  cast<IntegerAttr>(lowerPad).getInt() * upperMaxpoolStride);
+            }));
+
+    auto newPadding = rewriter.getArrayAttr(newPaddingVec);
+
+    // Create replacement maxpool
+    MultiDialectBuilder<OnnxBuilder> b(rewriter, lowerMaxpool.getLoc());
+    auto newMaxpool =
+        b.onnx.createTypedOpAndInferShapes<ONNXMaxPoolSingleOutOp>(
+            lowerMaxpool->getResultTypes()[0], upperMaxpool.getX(),
+            /*autopad = */ rewriter.getStringAttr("NOTSET"), newCeilMode,
+            /*dilations = */ nullptr, newKernelSize, newPadding,
+            /*storage_order = */
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64, /*isSigned=*/true),
+                lowerMaxpool.getStorageOrder()),
+            newStride);
+
+    rewriter.replaceOp(lowerMaxpool, newMaxpool);
+
+    return success();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -2666,6 +2918,7 @@ void ONNXLSTMOp::getCanonicalizationPatterns(
 void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ReorderReluMaxPoolPattern>(context);
+  results.insert<FuseBackToBackMaxpools>(context);
 }
 
 /// on the ONNXMulOp.
