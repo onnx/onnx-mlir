@@ -57,10 +57,9 @@ void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
     llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
-std::unique_ptr<mlir::Pass> createQDQAroundOpOptONNXToONNXPass();
 
-std::unique_ptr<mlir::Pass> createQDQOptONNXToONNXPass();
-std::unique_ptr<mlir::Pass> createFoldDQBinaryQPass();
+std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
+    bool removeBinary = false, bool removeQDQAroundOps = false);
 
 std::unique_ptr<mlir::Pass> createQuantTypesPass();
 
