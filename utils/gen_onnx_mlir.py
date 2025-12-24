@@ -485,6 +485,7 @@ OpsWithCustomAssemblyFormat = [
 OpsWithCanonicalizer = [
     "Add",
     "And",
+    "AveragePool",
     "BatchNormalization",
     "BatchNormalizationV9",
     "Cast",
@@ -1483,7 +1484,9 @@ def gen_op_def(schema, with_version=False):
         s += indent + "let hasCanonicalizer = 1;\n"
 
     # Generate decl for summary.
-    s += indent + 'let summary = "{} operation";\n'.format(schema.name)
+    s += indent + 'let summary = "{} operation";\n'.format(
+        ("ONNX " if domain_abbrev == "ONNX" else "") + schema.name
+    )
 
     # Generate description.
     s += indent + "let description = [{\n"

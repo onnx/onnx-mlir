@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --fuse-pad-into-avgpool %s | FileCheck %s
+// RUN: onnx-mlir-opt --canonicalize %s | FileCheck %s
 
 func.func @test_fuse_pad_avgpool(%arg0: tensor<1x1x4x4xf32>) -> tensor<1x1x8x8xf32> {
     %0 = onnx.Constant dense<[0, 0, 1, 1, 0, 0, 2, 2]> : tensor<8xi64>

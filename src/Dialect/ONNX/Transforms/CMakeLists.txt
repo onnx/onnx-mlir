@@ -44,7 +44,6 @@ add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
   QDQAroundOpOpt.cpp    
   QDQOpt.cpp
-  FusePadAvgpool.cpp
   DQBinaryQOpt.cpp  
   ConvOpt.cpp
   Decompose.cpp
