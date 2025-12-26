@@ -37,6 +37,7 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/Recompose.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -1522,7 +1523,9 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   onnx_mlir::getRecomposeONNXToONNXPatterns(
       patterns, recomposeLayernormByTranspose);
 
-  if (failed(applyPatternsGreedily(function, std::move(patterns))))
+  onnx_mlir::ResultNamesUpdater rnUpdater;
+  if (failed(applyPatternsGreedily(function, std::move(patterns),
+          GreedyRewriteConfig{.listener = &rnUpdater})))
     signalPassFailure();
 }
 

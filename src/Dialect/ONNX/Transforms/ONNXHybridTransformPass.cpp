@@ -25,6 +25,7 @@
 #include "src/Dialect/ONNX/Transforms/Decompose.hpp"
 #include "src/Dialect/ONNX/Transforms/LegalizeQuarkQuantizedOps.hpp"
 #include "src/Dialect/ONNX/Transforms/Recompose.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -212,6 +213,8 @@ struct ONNXHybridTransformPass
     Region &body = f.getBody();
 
     GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
     config.useTopDownTraversal = true;
     if (maxNumRewritesOffset == -1) {
       config.maxNumRewrites = GreedyRewriteConfig::kNoLimit;
