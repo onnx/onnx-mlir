@@ -54,6 +54,7 @@ add_onnx_mlir_library(OMONNXRewrite
   LegalizeQuarkQuantizedOps.cpp
   QuantTypes.cpp
   ConvertToChannelLast.cpp
+  ResultNamesUpdater.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
