@@ -68,7 +68,7 @@ Value createInputTranspose(PatternRewriter &rewriter, Location loc, Value input,
 Value createWeightTranspose(PatternRewriter &rewriter, Location loc,
     Value weight, int64_t rank, Type elementType) {
   SmallVector<int64_t, 4> perm;
-  perm.push_back(0);   // output channels
+  perm.push_back(0); // output channels
   for (int64_t i = 2; i < rank; ++i)
     perm.push_back(i); // spatial dimensions (H, W)
   perm.push_back(1);   // input channels
@@ -88,10 +88,10 @@ Value createWeightTranspose(PatternRewriter &rewriter, Location loc,
 // Helper function to create weight transpose for ConvTranspose
 // ConvTranspose: IOHW -> OHWI (permutation [1, 2, 3, ..., N-1, 0])
 // Swaps I and O, keeps spatial dimensions, moves I to last
-Value createConvTransposeWeightTranspose(PatternRewriter &rewriter, Location loc,
-    Value weight, int64_t rank, Type elementType) {
+Value createConvTransposeWeightTranspose(PatternRewriter &rewriter,
+    Location loc, Value weight, int64_t rank, Type elementType) {
   SmallVector<int64_t, 4> perm;
-  perm.push_back(1);   // output channels (was position 1 in IOHW)
+  perm.push_back(1); // output channels (was position 1 in IOHW)
   for (int64_t i = 2; i < rank; ++i)
     perm.push_back(i); // spatial dimensions (H, W)
   perm.push_back(0);   // input channels (was position 0 in IOHW)
@@ -171,11 +171,12 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
 };
 
 // Pattern to convert ConvTranspose to XFEConvTranspose
-struct ConvTransposeToChannelLastPattern : public OpRewritePattern<ONNXConvTransposeOp> {
+struct ConvTransposeToChannelLastPattern
+    : public OpRewritePattern<ONNXConvTransposeOp> {
   using OpRewritePattern<ONNXConvTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(
-      ONNXConvTransposeOp convTransposeOp, PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(ONNXConvTransposeOp convTransposeOp,
+      PatternRewriter &rewriter) const override {
     Location loc = convTransposeOp.getLoc();
     Value input = convTransposeOp.getX();
     Value weight = convTransposeOp.getW();
@@ -206,13 +207,15 @@ struct ConvTransposeToChannelLastPattern : public OpRewritePattern<ONNXConvTrans
         UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
         weightChannelLast, bias, convTransposeOp.getAutoPadAttr(),
         convTransposeOp.getDilationsAttr(), convTransposeOp.getGroupAttr(),
-        convTransposeOp.getKernelShapeAttr(), convTransposeOp.getOutputPaddingAttr(),
+        convTransposeOp.getKernelShapeAttr(),
+        convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
         convTransposeOp.getStridesAttr());
 
     // Transpose output back to NCHW
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, convTransposeChannelLastOp.getResult(), convTransposeOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        convTransposeChannelLastOp.getResult(), convTransposeOp.getType(),
+        rank);
 
     rewriter.replaceOp(convTransposeOp, outputNCHW);
     return success();
