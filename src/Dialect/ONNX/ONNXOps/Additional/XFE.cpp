@@ -31,7 +31,8 @@ LogicalResult XFEConvOp::inferShapes(
 
 LogicalResult XFEConvTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XFEConvTransposeOpShapeInference(this->getOperation(), doShapeInference);
+  return XFEConvTransposeOpShapeInference(
+      this->getOperation(), doShapeInference);
 }
 
 LogicalResult XFEAveragePoolOp::inferShapes(

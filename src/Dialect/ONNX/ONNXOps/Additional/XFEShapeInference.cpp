@@ -91,7 +91,7 @@ LogicalResult XFEConvOpShapeInference(
   int64_t rank = xShape.size();
   int64_t numSpatialDims = rank - 2; // exclude batch and channel
   int64_t N = xShape[0];             // batch
-  int64_t C_out = wShape[0];         // output channels (first dimension in OHWI)
+  int64_t C_out = wShape[0]; // output channels (first dimension in OHWI)
 
   // Get attributes
   auto stridesAttr = convOp.getStrides();
@@ -124,7 +124,7 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -134,8 +134,9 @@ LogicalResult XFEConvOpShapeInference(
   outputShape.push_back(N); // batch
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
-    int64_t inputDim = xShape[i + 1];   // spatial dimension from input (NHWC)
-    int64_t kernelDim = wShape[i + 1];  // kernel size from weight (OHWI: skip O, then H,W,...)
+    int64_t inputDim = xShape[i + 1]; // spatial dimension from input (NHWC)
+    int64_t kernelDim =
+        wShape[i + 1]; // kernel size from weight (OHWI: skip O, then H,W,...)
     int64_t padBegin = pads[i];
     int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
@@ -179,13 +180,14 @@ LogicalResult XFEConvTransposeOpShapeInference(
   // X is channel-last (NHWC): [N, spatial_dims..., C_in]
   // W is OHWI: [C_out, spatial_dims..., C_in/group]
   if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
-    return op->emitError("ConvTransposeChannelLast requires matching rank tensors with "
-                         "at least 3 dimensions");
+    return op->emitError(
+        "ConvTransposeChannelLast requires matching rank tensors with "
+        "at least 3 dimensions");
 
   int64_t rank = xShape.size();
   int64_t numSpatialDims = rank - 2; // exclude batch and channel
   int64_t N = xShape[0];             // batch
-  int64_t C_out = wShape[0];         // output channels (first dimension in OHWI)
+  int64_t C_out = wShape[0]; // output channels (first dimension in OHWI)
 
   // Get attributes
   auto stridesAttr = convTransposeOp.getStrides();
@@ -216,26 +218,31 @@ LogicalResult XFEConvTransposeOpShapeInference(
 
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
-    for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size()); ++i) {
+    for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
 
   if (outputPaddingAttr.has_value()) {
     auto outputPaddingArray = outputPaddingAttr.value();
-    for (size_t i = 0; i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
-      outputPadding[i] = mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
+    for (size_t i = 0;
+        i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+      outputPadding[i] =
+          mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
     }
   }
 
   // Compute output spatial dimensions for ConvTranspose
-  // Formula: output_dim = (input_dim - 1) * stride - 2 * pad + (kernel - 1) * dilation + 1 + output_padding
+  // Formula: output_dim = (input_dim - 1) * stride - 2 * pad + (kernel - 1) *
+  // dilation + 1 + output_padding
   SmallVector<int64_t, 6> outputShape;
   outputShape.push_back(N); // batch
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
-    int64_t inputDim = xShape[i + 1];   // spatial dimension from input (NHWC)
-    int64_t kernelDim = wShape[i + 1];  // kernel size from weight (OHWI: skip O, then H,W,...)
+    int64_t inputDim = xShape[i + 1]; // spatial dimension from input (NHWC)
+    int64_t kernelDim =
+        wShape[i + 1]; // kernel size from weight (OHWI: skip O, then H,W,...)
     int64_t padBegin = pads[i];
     int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
@@ -245,7 +252,8 @@ LogicalResult XFEConvTransposeOpShapeInference(
     int64_t outputDim = ShapedType::kDynamic;
     if (inputDim != ShapedType::kDynamic && kernelDim != ShapedType::kDynamic) {
       int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
-      outputDim = (inputDim - 1) * stride - padBegin - padEnd + effectiveKernel + outPad;
+      outputDim = (inputDim - 1) * stride - padBegin - padEnd +
+                  effectiveKernel + outPad;
     }
     outputShape.push_back(outputDim);
   }
@@ -398,7 +406,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
   if (dilationsAttr.has_value()) {
     for (size_t i = 0; i < std::min(dilationsAttr->size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>((*dilationsAttr)[i]).getInt();
     }
   }
