@@ -68,7 +68,7 @@ LogicalResult XFEConvOpShapeInference(
   if (!convOp)
     return failure();
 
-  // Get inputs: X (channel-last), W (spatial...IO), optional B
+  // Get inputs: X (channel-last), W (OHWI), optional B
   Value X = convOp.getX();
   Value W = convOp.getW();
 
@@ -81,8 +81,8 @@ LogicalResult XFEConvOpShapeInference(
   auto xShape = xType.getShape();
   auto wShape = wType.getShape();
 
-  // X is channel-last: [N, spatial_dims..., C]
-  // W is spatial...IO: [spatial_dims..., C_in/group, C_out]
+  // X is channel-last (NHWC): [N, spatial_dims..., C_in]
+  // W is OHWI: [C_out, spatial_dims..., C_in/group]
   // Require at least 3D tensors and matching ranks
   if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
     return op->emitError("ConvChannelLast requires matching rank tensors with "
@@ -91,7 +91,7 @@ LogicalResult XFEConvOpShapeInference(
   int64_t rank = xShape.size();
   int64_t numSpatialDims = rank - 2; // exclude batch and channel
   int64_t N = xShape[0];             // batch
-  int64_t C_out = wShape[rank - 1];  // output channels
+  int64_t C_out = wShape[0];         // output channels (first dimension in OHWI)
 
   // Get attributes
   auto stridesAttr = convOp.getStrides();
@@ -134,8 +134,8 @@ LogicalResult XFEConvOpShapeInference(
   outputShape.push_back(N); // batch
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
-    int64_t inputDim = xShape[i + 1]; // spatial dimension from input
-    int64_t kernelDim = wShape[i];    // kernel size for this dimension
+    int64_t inputDim = xShape[i + 1];   // spatial dimension from input (NHWC)
+    int64_t kernelDim = wShape[i + 1];  // kernel size from weight (OHWI: skip O, then H,W,...)
     int64_t padBegin = pads[i];
     int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
@@ -152,6 +152,110 @@ LogicalResult XFEConvOpShapeInference(
   Type elementType = xType.getElementType();
   auto resultType = RankedTensorType::get(outputShape, elementType);
   convOp.getResult().setType(resultType);
+
+  return success();
+}
+
+LogicalResult XFEConvTransposeOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  // Cast to specific op type
+  auto convTransposeOp = dyn_cast<XFEConvTransposeOp>(op);
+  if (!convTransposeOp)
+    return failure();
+
+  // Get inputs: X (channel-last), W (OHWI), optional B
+  Value X = convTransposeOp.getX();
+  Value W = convTransposeOp.getW();
+
+  // Cannot infer shape if inputs don't have shape and rank
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
+    return success();
+
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  auto wType = mlir::cast<ShapedType>(W.getType());
+  auto xShape = xType.getShape();
+  auto wShape = wType.getShape();
+
+  // X is channel-last (NHWC): [N, spatial_dims..., C_in]
+  // W is OHWI: [C_out, spatial_dims..., C_in/group]
+  if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
+    return op->emitError("ConvTransposeChannelLast requires matching rank tensors with "
+                         "at least 3 dimensions");
+
+  int64_t rank = xShape.size();
+  int64_t numSpatialDims = rank - 2; // exclude batch and channel
+  int64_t N = xShape[0];             // batch
+  int64_t C_out = wShape[0];         // output channels (first dimension in OHWI)
+
+  // Get attributes
+  auto stridesAttr = convTransposeOp.getStrides();
+  auto padsAttr = convTransposeOp.getPads();
+  auto dilationsAttr = convTransposeOp.getDilations();
+  auto outputPaddingAttr = convTransposeOp.getOutputPadding();
+
+  // Default values
+  SmallVector<int64_t, 4> strides(numSpatialDims, 1);
+  SmallVector<int64_t, 8> pads(numSpatialDims * 2, 0);
+  SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
+  SmallVector<int64_t, 4> outputPadding(numSpatialDims, 0);
+
+  // Parse attributes
+  if (stridesAttr.has_value()) {
+    auto stridesArray = stridesAttr.value();
+    for (size_t i = 0; i < std::min(stridesArray.size(), strides.size()); ++i) {
+      strides[i] = mlir::cast<IntegerAttr>(stridesArray[i]).getInt();
+    }
+  }
+
+  if (padsAttr.has_value()) {
+    auto padsArray = padsAttr.value();
+    for (size_t i = 0; i < std::min(padsArray.size(), pads.size()); ++i) {
+      pads[i] = mlir::cast<IntegerAttr>(padsArray[i]).getInt();
+    }
+  }
+
+  if (dilationsAttr.has_value()) {
+    auto dilationsArray = dilationsAttr.value();
+    for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size()); ++i) {
+      dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
+    }
+  }
+
+  if (outputPaddingAttr.has_value()) {
+    auto outputPaddingArray = outputPaddingAttr.value();
+    for (size_t i = 0; i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+      outputPadding[i] = mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
+    }
+  }
+
+  // Compute output spatial dimensions for ConvTranspose
+  // Formula: output_dim = (input_dim - 1) * stride - 2 * pad + (kernel - 1) * dilation + 1 + output_padding
+  SmallVector<int64_t, 6> outputShape;
+  outputShape.push_back(N); // batch
+
+  for (int64_t i = 0; i < numSpatialDims; ++i) {
+    int64_t inputDim = xShape[i + 1];   // spatial dimension from input (NHWC)
+    int64_t kernelDim = wShape[i + 1];  // kernel size from weight (OHWI: skip O, then H,W,...)
+    int64_t padBegin = pads[i];
+    int64_t padEnd = pads[numSpatialDims + i];
+    int64_t stride = strides[i];
+    int64_t dilation = dilations[i];
+    int64_t outPad = outputPadding[i];
+
+    int64_t outputDim = ShapedType::kDynamic;
+    if (inputDim != ShapedType::kDynamic && kernelDim != ShapedType::kDynamic) {
+      int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
+      outputDim = (inputDim - 1) * stride - padBegin - padEnd + effectiveKernel + outPad;
+    }
+    outputShape.push_back(outputDim);
+  }
+
+  outputShape.push_back(C_out); // output channels
+
+  // Set the result type
+  Type elementType = xType.getElementType();
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  convTransposeOp.getResult().setType(resultType);
 
   return success();
 }

@@ -29,6 +29,11 @@ LogicalResult XFEConvOp::inferShapes(
   return XFEConvOpShapeInference(this->getOperation(), doShapeInference);
 }
 
+LogicalResult XFEConvTransposeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEConvTransposeOpShapeInference(this->getOperation(), doShapeInference);
+}
+
 LogicalResult XFEAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return XFEAveragePoolOpShapeInference(this->getOperation(), doShapeInference);
@@ -79,6 +84,10 @@ LogicalResult XFEMatMulBiasOp::verify() {
 
 LogicalResult XFEConvOp::verify() {
   return XFEConvOpVerify(this->getOperation());
+}
+
+LogicalResult XFEConvTransposeOp::verify() {
+  return XFEConvTransposeOpVerify(this->getOperation());
 }
 
 LogicalResult XFEAveragePoolOp::verify() {

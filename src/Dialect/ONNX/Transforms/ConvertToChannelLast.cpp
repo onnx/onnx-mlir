@@ -14,6 +14,7 @@
 //
 // Supported conversions:
 // - Conv -> XFEConv
+// - ConvTranspose -> XFEConvTranspose
 // - AveragePool -> XFEAveragePool
 // - MaxPool -> XFEMaxPool
 // - GlobalAveragePool -> XFEGlobalAveragePool
@@ -61,15 +62,39 @@ Value createInputTranspose(PatternRewriter &rewriter, Location loc, Value input,
       loc, transposedType, input, rewriter.getI64ArrayAttr(perm));
 }
 
-// Helper function to create weight transpose (OIHW -> channel-last weights)
-// For rank N: [2, 3, ..., N-1, 1, 0]
+// Helper function to create weight transpose for Conv
+// Conv: OIHW -> OHWI (permutation [0, 2, 3, ..., N-1, 1])
+// Keeps output channels first, moves input channels to last
 Value createWeightTranspose(PatternRewriter &rewriter, Location loc,
     Value weight, int64_t rank, Type elementType) {
   SmallVector<int64_t, 4> perm;
-  for (int64_t i = 2; i < rank; ++i)
-    perm.push_back(i); // spatial dimensions
-  perm.push_back(1);   // input channels
   perm.push_back(0);   // output channels
+  for (int64_t i = 2; i < rank; ++i)
+    perm.push_back(i); // spatial dimensions (H, W)
+  perm.push_back(1);   // input channels
+
+  auto weightType = mlir::cast<RankedTensorType>(weight.getType());
+  SmallVector<int64_t, 4> transposedShape;
+  for (int64_t p : perm) {
+    transposedShape.push_back(weightType.getDimSize(p));
+  }
+
+  auto transposedType =
+      RankedTensorType::get(transposedShape, weightType.getElementType());
+  return rewriter.create<ONNXTransposeOp>(
+      loc, transposedType, weight, rewriter.getI64ArrayAttr(perm));
+}
+
+// Helper function to create weight transpose for ConvTranspose
+// ConvTranspose: IOHW -> OHWI (permutation [1, 2, 3, ..., N-1, 0])
+// Swaps I and O, keeps spatial dimensions, moves I to last
+Value createConvTransposeWeightTranspose(PatternRewriter &rewriter, Location loc,
+    Value weight, int64_t rank, Type elementType) {
+  SmallVector<int64_t, 4> perm;
+  perm.push_back(1);   // output channels (was position 1 in IOHW)
+  for (int64_t i = 2; i < rank; ++i)
+    perm.push_back(i); // spatial dimensions (H, W)
+  perm.push_back(0);   // input channels (was position 0 in IOHW)
 
   auto weightType = mlir::cast<RankedTensorType>(weight.getType());
   SmallVector<int64_t, 4> transposedShape;
@@ -141,6 +166,55 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         rewriter, loc, convChannelLastOp.getResult(), convOp.getType(), rank);
 
     rewriter.replaceOp(convOp, outputNCHW);
+    return success();
+  }
+};
+
+// Pattern to convert ConvTranspose to XFEConvTranspose
+struct ConvTransposeToChannelLastPattern : public OpRewritePattern<ONNXConvTransposeOp> {
+  using OpRewritePattern<ONNXConvTransposeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConvTransposeOp convTransposeOp, PatternRewriter &rewriter) const override {
+    Location loc = convTransposeOp.getLoc();
+    Value input = convTransposeOp.getX();
+    Value weight = convTransposeOp.getW();
+    Value bias = convTransposeOp.getB();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
+    auto weightType = mlir::dyn_cast<RankedTensorType>(weight.getType());
+
+    if (!inputType || !weightType)
+      return failure();
+
+    // Support N-dimensional tensors (rank >= 3)
+    if (inputType.getRank() < 3 || weightType.getRank() < 3)
+      return failure();
+
+    int64_t rank = inputType.getRank();
+
+    // Transpose input to channel-last
+    Value inputChannelLast = createInputTranspose(
+        rewriter, loc, input, rank, inputType.getElementType());
+
+    // Transpose weight to channel-last (ConvTranspose uses IOHW layout -> OHWI)
+    Value weightChannelLast = createConvTransposeWeightTranspose(
+        rewriter, loc, weight, rank, weightType.getElementType());
+
+    // Create XFEConvTranspose operation
+    auto convTransposeChannelLastOp = rewriter.create<XFEConvTransposeOp>(loc,
+        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        weightChannelLast, bias, convTransposeOp.getAutoPadAttr(),
+        convTransposeOp.getDilationsAttr(), convTransposeOp.getGroupAttr(),
+        convTransposeOp.getKernelShapeAttr(), convTransposeOp.getOutputPaddingAttr(),
+        convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
+        convTransposeOp.getStridesAttr());
+
+    // Transpose output back to NCHW
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, convTransposeChannelLastOp.getResult(), convTransposeOp.getType(), rank);
+
+    rewriter.replaceOp(convTransposeOp, outputNCHW);
     return success();
   }
 };
@@ -406,6 +480,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
 
     RewritePatternSet patterns(context);
     patterns.add<ConvToChannelLastPattern>(context);
+    patterns.add<ConvTransposeToChannelLastPattern>(context);
     patterns.add<AveragePoolToChannelLastPattern>(context);
     patterns.add<MaxPoolToChannelLastPattern>(context);
     patterns.add<GlobalAveragePoolToChannelLastPattern>(context);
