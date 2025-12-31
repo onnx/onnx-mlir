@@ -154,16 +154,38 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         rewriter, loc, weight, rank, weightType.getElementType());
 
     // Create XFEConv operation
+    // CRITICAL: Use original Conv's output element type to preserve quantization
+    auto origOutputType = mlir::cast<ShapedType>(convOp.getType());
+    Type outputElementType = origOutputType.getElementType();
     auto convChannelLastOp = rewriter.create<XFEConvOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        UnrankedTensorType::get(outputElementType), inputChannelLast,
         weightChannelLast, bias, convOp.getAutoPadAttr(),
         convOp.getDilationsAttr(), convOp.getGroupAttr(),
         convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
         convOp.getStridesAttr());
+    
+    // CRITICAL: Immediately run shape inference to resolve unranked type
+    // This ensures the output has correct shape AND element type before creating Transpose
+    if (failed(convChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
+    // CRITICAL: Get element type from XFEConv's ACTUAL output (after shape inference)
+    // This ensures we preserve quantized types that were set during shape inference
+    auto xfeOutputType = mlir::cast<ShapedType>(convChannelLastOp.getResult().getType());
+    Type actualElementType = xfeOutputType.getElementType();
+    Type transposeOutputType;
+    if (origOutputType.hasRank()) {
+      // Use original Conv's shape but XFEConv's actual element type
+      transposeOutputType = RankedTensorType::get(
+          origOutputType.getShape(), actualElementType);
+    } else {
+      transposeOutputType = convOp.getType();
+    }
+    
     Value outputNCHW = createOutputTranspose(
-        rewriter, loc, convChannelLastOp.getResult(), convOp.getType(), rank);
+        rewriter, loc, convChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(convOp, outputNCHW);
     return success();
@@ -203,18 +225,38 @@ struct ConvTransposeToChannelLastPattern
         rewriter, loc, weight, rank, weightType.getElementType());
 
     // Create XFEConvTranspose operation
+    // CRITICAL: Use original ConvTranspose's output element type to preserve quantization
+    auto origOutputType = mlir::cast<ShapedType>(convTransposeOp.getType());
+    Type outputElementType = origOutputType.getElementType();
     auto convTransposeChannelLastOp = rewriter.create<XFEConvTransposeOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        UnrankedTensorType::get(outputElementType), inputChannelLast,
         weightChannelLast, bias, convTransposeOp.getAutoPadAttr(),
         convTransposeOp.getDilationsAttr(), convTransposeOp.getGroupAttr(),
         convTransposeOp.getKernelShapeAttr(),
         convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
         convTransposeOp.getStridesAttr());
+    
+    // CRITICAL: Immediately run shape inference
+    if (failed(convTransposeChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
+    // CRITICAL: Get element type from XFEConvTranspose's ACTUAL output (after shape inference)
+    auto xfeOutputType = mlir::cast<ShapedType>(convTransposeChannelLastOp.getResult().getType());
+    Type actualElementType = xfeOutputType.getElementType();
+    Type transposeOutputType;
+    if (origOutputType.hasRank()) {
+      // Use original ConvTranspose's shape but XFEConvTranspose's actual element type
+      transposeOutputType = RankedTensorType::get(
+          origOutputType.getShape(), actualElementType);
+    } else {
+      transposeOutputType = convTransposeOp.getType();
+    }
+    
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        convTransposeChannelLastOp.getResult(), convTransposeOp.getType(),
+        convTransposeChannelLastOp.getResult(), transposeOutputType,
         rank);
 
     rewriter.replaceOp(convTransposeOp, outputNCHW);
@@ -243,15 +285,27 @@ struct AveragePoolToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEAveragePool operation
+    // Use original pool's output element type to preserve quantization
+    auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
+    Type outputElementType = origOutputType.getElementType();
     auto poolChannelLastOp = rewriter.create<XFEAveragePoolOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        UnrankedTensorType::get(outputElementType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
         poolOp.getCountIncludePadAttr(), poolOp.getKernelShapeAttr(),
         poolOp.getPadsAttr(), poolOp.getStridesAttr());
+    
+    // CRITICAL: Immediately run shape inference
+    if (failed(poolChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
+    // Get actual element type from XFEAveragePool output
+    auto xfeOutputType = mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
+        rewriter, loc, poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -279,16 +333,28 @@ struct MaxPoolToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEMaxPool operation
+    // Use original pool's output element type to preserve quantization
+    auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
+    Type outputElementType = origOutputType.getElementType();
     auto poolChannelLastOp = rewriter.create<XFEMaxPoolOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        UnrankedTensorType::get(outputElementType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
         poolOp.getDilationsAttr(), poolOp.getKernelShapeAttr(),
         poolOp.getPadsAttr(), poolOp.getStorageOrderAttr(),
         poolOp.getStridesAttr());
+    
+    // CRITICAL: Immediately run shape inference
+    if (failed(poolChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
+    // Get actual element type from XFEMaxPool output
+    auto xfeOutputType = mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
+        rewriter, loc, poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -418,10 +484,21 @@ struct DepthToSpaceToChannelLastPattern
     Value inputChannelLast = createInputTranspose(
         rewriter, loc, input, rank, inputType.getElementType());
 
+    // Get the original output element type (may be quantized)
+    auto origOutputType = mlir::dyn_cast<ShapedType>(d2sOp.getType());
+    Type outputElemType = origOutputType ? origOutputType.getElementType()
+                                         : inputType.getElementType();
+
     // Create XFEDepthToSpace operation
     auto d2sChannelLastOp = rewriter.create<XFEDepthToSpaceOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        UnrankedTensorType::get(outputElemType), inputChannelLast,
         d2sOp.getBlocksizeAttr(), d2sOp.getModeAttr());
+
+    // Infer shapes to get ranked type
+    if (failed(d2sChannelLastOp.inferShapes([](Region &) {}))) {
+      return rewriter.notifyMatchFailure(
+          d2sOp, "failed to infer shapes for XFEDepthToSpace");
+    }
 
     // Transpose output back to NCHW
     Value outputNCHW = createOutputTranspose(
@@ -453,10 +530,21 @@ struct SpaceToDepthToChannelLastPattern
     Value inputChannelLast = createInputTranspose(
         rewriter, loc, input, rank, inputType.getElementType());
 
+    // Get the original output element type (may be quantized)
+    auto origOutputType = mlir::dyn_cast<ShapedType>(s2dOp.getType());
+    Type outputElemType = origOutputType ? origOutputType.getElementType()
+                                         : inputType.getElementType();
+
     // Create XFESpaceToDepth operation
     auto s2dChannelLastOp = rewriter.create<XFESpaceToDepthOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
+        UnrankedTensorType::get(outputElemType), inputChannelLast,
         s2dOp.getBlocksizeAttr());
+
+    // Infer shapes to get ranked type
+    if (failed(s2dChannelLastOp.inferShapes([](Region &) {}))) {
+      return rewriter.notifyMatchFailure(
+          s2dOp, "failed to infer shapes for XFESpaceToDepth");
+    }
 
     // Transpose output back to NCHW
     Value outputNCHW = createOutputTranspose(
