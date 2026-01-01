@@ -52,81 +52,154 @@ func.func @test_xfe_matmulbias_dynamic(%arg0: tensor<?x8xf32>, %arg1: tensor<8x?
 //===----------------------------------------------------------------------===//
 
 // COM: Test basic channel-last convolution
-func.func @test_xfe_conv_channel_last_basic(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<3x3x3x64xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+func.func @test_xfe_conv_channel_last_basic(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<64x3x3x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
   %0 = "onnx.XFEConv"(%arg0, %arg1, %arg2) {
     strides = [1, 1],
     pads = [0, 0, 0, 0],
     dilations = [1, 1]
-  } : (tensor<1x28x28x3xf32>, tensor<3x3x3x64xf32>, tensor<64xf32>) -> tensor<*xf32>
+  } : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_xfe_conv_channel_last_basic
-  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x28x28x3xf32>, tensor<3x3x3x64xf32>, tensor<64xf32>) -> tensor<1x26x26x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<1x26x26x64xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x26x26x64xf32>
 }
 
 // -----
 
 // COM: Test channel-last convolution with padding
-func.func @test_xfe_conv_channel_last_padded(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<3x3x3x64xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+func.func @test_xfe_conv_channel_last_padded(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<64x3x3x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
   %0 = "onnx.XFEConv"(%arg0, %arg1, %arg2) {
     strides = [1, 1],
     pads = [1, 1, 1, 1],
     dilations = [1, 1]
-  } : (tensor<1x28x28x3xf32>, tensor<3x3x3x64xf32>, tensor<64xf32>) -> tensor<*xf32>
+  } : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_xfe_conv_channel_last_padded
-  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x28x28x3xf32>, tensor<3x3x3x64xf32>, tensor<64xf32>) -> tensor<1x28x28x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<1x28x28x64xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x28x28x64xf32>
 }
 
 // -----
 
 // COM: Test channel-last convolution with stride=2
-func.func @test_xfe_conv_channel_last_strided(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<3x3x3x64xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+func.func @test_xfe_conv_channel_last_strided(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<64x3x3x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
   %0 = "onnx.XFEConv"(%arg0, %arg1, %arg2) {
     strides = [2, 2],
     pads = [0, 0, 0, 0],
     dilations = [1, 1]
-  } : (tensor<1x28x28x3xf32>, tensor<3x3x3x64xf32>, tensor<64xf32>) -> tensor<*xf32>
+  } : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_xfe_conv_channel_last_strided
-  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x28x28x3xf32>, tensor<3x3x3x64xf32>, tensor<64xf32>) -> tensor<1x13x13x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<1x13x13x64xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x13x13x64xf32>
 }
 
 // -----
 
 // COM: Test 3D (1D spatial) convolution
-func.func @test_xfe_conv_channel_last_1d(%arg0: tensor<2x128x16xf32>, %arg1: tensor<5x16x32xf32>, %arg2: tensor<32xf32>) -> tensor<*xf32> {
+func.func @test_xfe_conv_channel_last_1d(%arg0: tensor<2x128x16xf32>, %arg1: tensor<32x5x16xf32>, %arg2: tensor<32xf32>) -> tensor<*xf32> {
   %0 = "onnx.XFEConv"(%arg0, %arg1, %arg2) {
     strides = [1],
     pads = [0, 0],
     dilations = [1]
-  } : (tensor<2x128x16xf32>, tensor<5x16x32xf32>, tensor<32xf32>) -> tensor<*xf32>
+  } : (tensor<2x128x16xf32>, tensor<32x5x16xf32>, tensor<32xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_xfe_conv_channel_last_1d
-  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, pads = [0, 0], strides = [1]} : (tensor<2x128x16xf32>, tensor<5x16x32xf32>, tensor<32xf32>) -> tensor<2x124x32xf32>
+  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, pads = [0, 0], strides = [1]} : (tensor<2x128x16xf32>, tensor<32x5x16xf32>, tensor<32xf32>) -> tensor<2x124x32xf32>
   // CHECK: onnx.Return [[RES]] : tensor<2x124x32xf32>
 }
 
 // -----
 
 // COM: Test 5D (3D spatial) convolution
-func.func @test_xfe_conv_channel_last_3d(%arg0: tensor<1x8x16x16x3xf32>, %arg1: tensor<3x3x3x3x64xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+func.func @test_xfe_conv_channel_last_3d(%arg0: tensor<1x8x16x16x3xf32>, %arg1: tensor<64x3x3x3x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
   %0 = "onnx.XFEConv"(%arg0, %arg1, %arg2) {
     strides = [1, 1, 1],
     pads = [0, 0, 0, 0, 0, 0],
     dilations = [1, 1, 1]
-  } : (tensor<1x8x16x16x3xf32>, tensor<3x3x3x3x64xf32>, tensor<64xf32>) -> tensor<*xf32>
+  } : (tensor<1x8x16x16x3xf32>, tensor<64x3x3x3x3xf32>, tensor<64xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_xfe_conv_channel_last_3d
-  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1, 1], group = 1 : si64, pads = [0, 0, 0, 0, 0, 0], strides = [1, 1, 1]} : (tensor<1x8x16x16x3xf32>, tensor<3x3x3x3x64xf32>, tensor<64xf32>) -> tensor<1x6x14x14x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1, 1], group = 1 : si64, pads = [0, 0, 0, 0, 0, 0], strides = [1, 1, 1]} : (tensor<1x8x16x16x3xf32>, tensor<64x3x3x3x3xf32>, tensor<64xf32>) -> tensor<1x6x14x14x64xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x6x14x14x64xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// XFE ConvTranspose Tests (channel-last layout)
+//===----------------------------------------------------------------------===//
+
+// COM: Test basic 2D transposed convolution with stride=2
+func.func @test_xfe_convtranspose_channel_last_basic(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<64x4x4x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {
+    strides = [2, 2],
+    pads = [1, 1, 1, 1],
+    dilations = [1, 1],
+    kernel_shape = [4, 4]
+  } : (tensor<1x28x28x3xf32>, tensor<64x4x4x3xf32>, tensor<64xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_convtranspose_channel_last_basic
+  // CHECK: [[RES:%.+]] = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [4, 4], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<1x28x28x3xf32>, tensor<64x4x4x3xf32>, tensor<64xf32>) -> tensor<1x56x56x64xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x56x56x64xf32>
+}
+
+// -----
+
+// COM: Test transposed convolution with output_padding
+func.func @test_xfe_convtranspose_channel_last_output_padding(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<64x3x3x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {
+    strides = [2, 2],
+    pads = [1, 1, 1, 1],
+    dilations = [1, 1],
+    kernel_shape = [3, 3],
+    output_padding = [1, 1]
+  } : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_convtranspose_channel_last_output_padding
+  // CHECK: [[RES:%.+]] = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], output_padding = [1, 1], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<1x56x56x64xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x56x56x64xf32>
+}
+
+// -----
+
+// COM: Test 1D transposed convolution
+func.func @test_xfe_convtranspose_channel_last_1d(%arg0: tensor<2x28x16xf32>, %arg1: tensor<32x4x16xf32>, %arg2: tensor<32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {
+    strides = [2],
+    pads = [0, 0],
+    dilations = [1],
+    kernel_shape = [4]
+  } : (tensor<2x28x16xf32>, tensor<32x4x16xf32>, tensor<32xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_convtranspose_channel_last_1d
+  // CHECK: [[RES:%.+]] = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, kernel_shape = [4], pads = [0, 0], strides = [2]} : (tensor<2x28x16xf32>, tensor<32x4x16xf32>, tensor<32xf32>) -> tensor<2x58x32xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<2x58x32xf32>
+}
+
+// -----
+
+// COM: Test 3D transposed convolution
+func.func @test_xfe_convtranspose_channel_last_3d(%arg0: tensor<1x8x16x16x3xf32>, %arg1: tensor<64x2x2x2x3xf32>, %arg2: tensor<64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {
+    strides = [2, 2, 2],
+    pads = [0, 0, 0, 0, 0, 0],
+    dilations = [1, 1, 1],
+    kernel_shape = [2, 2, 2]
+  } : (tensor<1x8x16x16x3xf32>, tensor<64x2x2x2x3xf32>, tensor<64xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_convtranspose_channel_last_3d
+  // CHECK: [[RES:%.+]] = "onnx.XFEConvTranspose"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1, 1], group = 1 : si64, kernel_shape = [2, 2, 2], pads = [0, 0, 0, 0, 0, 0], strides = [2, 2, 2]} : (tensor<1x8x16x16x3xf32>, tensor<64x2x2x2x3xf32>, tensor<64xf32>) -> tensor<1x16x32x32x64xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x16x32x32x64xf32>
 }
 
 // -----
