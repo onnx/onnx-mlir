@@ -154,7 +154,8 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         rewriter, loc, weight, rank, weightType.getElementType());
 
     // Create XFEConv operation
-    // CRITICAL: Use original Conv's output element type to preserve quantization
+    // CRITICAL: Use original Conv's output element type to preserve
+    // quantization
     auto origOutputType = mlir::cast<ShapedType>(convOp.getType());
     Type outputElementType = origOutputType.getElementType();
     auto convChannelLastOp = rewriter.create<XFEConvOp>(loc,
@@ -165,15 +166,18 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         convOp.getStridesAttr());
     
     // CRITICAL: Immediately run shape inference to resolve unranked type
-    // This ensures the output has correct shape AND element type before creating Transpose
+    // This ensures the output has correct shape AND element type before
+    // creating Transpose
     if (failed(convChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
     // Transpose output back to NCHW
-    // CRITICAL: Get element type from XFEConv's ACTUAL output (after shape inference)
-    // This ensures we preserve quantized types that were set during shape inference
-    auto xfeOutputType = mlir::cast<ShapedType>(convChannelLastOp.getResult().getType());
+    // CRITICAL: Get element type from XFEConv's ACTUAL output (after shape
+    // inference). This ensures we preserve quantized types that were set during
+    // shape inference
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(convChannelLastOp.getResult().getType());
     Type actualElementType = xfeOutputType.getElementType();
     Type transposeOutputType;
     if (origOutputType.hasRank()) {
@@ -183,9 +187,10 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
     } else {
       transposeOutputType = convOp.getType();
     }
-    
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, convChannelLastOp.getResult(), transposeOutputType, rank);
+
+    Value outputNCHW =
+        createOutputTranspose(rewriter, loc, convChannelLastOp.getResult(),
+                              transposeOutputType, rank);
 
     rewriter.replaceOp(convOp, outputNCHW);
     return success();
@@ -225,7 +230,8 @@ struct ConvTransposeToChannelLastPattern
         rewriter, loc, weight, rank, weightType.getElementType());
 
     // Create XFEConvTranspose operation
-    // CRITICAL: Use original ConvTranspose's output element type to preserve quantization
+    // CRITICAL: Use original ConvTranspose's output element type to preserve
+    // quantization
     auto origOutputType = mlir::cast<ShapedType>(convTransposeOp.getType());
     Type outputElementType = origOutputType.getElementType();
     auto convTransposeChannelLastOp = rewriter.create<XFEConvTransposeOp>(loc,
@@ -243,12 +249,15 @@ struct ConvTransposeToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // CRITICAL: Get element type from XFEConvTranspose's ACTUAL output (after shape inference)
-    auto xfeOutputType = mlir::cast<ShapedType>(convTransposeChannelLastOp.getResult().getType());
+    // CRITICAL: Get element type from XFEConvTranspose's ACTUAL output (after
+    // shape inference)
+    auto xfeOutputType = mlir::cast<ShapedType>(
+        convTransposeChannelLastOp.getResult().getType());
     Type actualElementType = xfeOutputType.getElementType();
     Type transposeOutputType;
     if (origOutputType.hasRank()) {
-      // Use original ConvTranspose's shape but XFEConvTranspose's actual element type
+      // Use original ConvTranspose's shape but XFEConvTranspose's actual
+      // element type
       transposeOutputType = RankedTensorType::get(
           origOutputType.getShape(), actualElementType);
     } else {
@@ -301,11 +310,13 @@ struct AveragePoolToChannelLastPattern
 
     // Transpose output back to NCHW
     // Get actual element type from XFEAveragePool output
-    auto xfeOutputType = mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), transposeOutputType, rank);
+    Value outputNCHW =
+        createOutputTranspose(rewriter, loc, poolChannelLastOp.getResult(),
+                              transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -350,11 +361,13 @@ struct MaxPoolToChannelLastPattern
 
     // Transpose output back to NCHW
     // Get actual element type from XFEMaxPool output
-    auto xfeOutputType = mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), transposeOutputType, rank);
+    Value outputNCHW =
+        createOutputTranspose(rewriter, loc, poolChannelLastOp.getResult(),
+                              transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();

@@ -150,8 +150,8 @@ LogicalResult XFEConvOpShapeInference(
   outputShape.push_back(C_out); // output channels
 
   // Set the result type
-  // CRITICAL: Preserve existing element type if already set (e.g., quantized types)
-  // Only fall back to input element type if result is unranked
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types). Only fall back to input element type if result is unranked
   Type elementType = xType.getElementType();
   if (auto existingType = dyn_cast<ShapedType>(convOp.getResult().getType())) {
     elementType = existingType.getElementType();
@@ -266,9 +266,11 @@ LogicalResult XFEConvTransposeOpShapeInference(
   outputShape.push_back(C_out); // output channels
 
   // Set the result type
-  // CRITICAL: Preserve existing element type if already set (e.g., quantized types)
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types)
   Type elementType = xType.getElementType();
-  if (auto existingType = dyn_cast<ShapedType>(convTransposeOp.getResult().getType())) {
+  if (auto existingType =
+          dyn_cast<ShapedType>(convTransposeOp.getResult().getType())) {
     elementType = existingType.getElementType();
   }
   auto resultType = RankedTensorType::get(outputShape, elementType);
@@ -349,7 +351,8 @@ LogicalResult XFEAveragePoolOpShapeInference(
 
   outputShape.push_back(C); // channels
 
-  // CRITICAL: Preserve existing element type if already set (e.g., quantized types)
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types)
   Type elementType = xType.getElementType();
   if (auto existingType = dyn_cast<ShapedType>(poolOp.getResult().getType())) {
     elementType = existingType.getElementType();
@@ -443,7 +446,8 @@ LogicalResult XFEMaxPoolOpShapeInference(
 
   outputShape.push_back(C); // channels
 
-  // CRITICAL: Preserve existing element type if already set (e.g., quantized types)
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types)
   Type elementType = xType.getElementType();
   if (auto existingType = dyn_cast<ShapedType>(poolOp.getResult().getType())) {
     elementType = existingType.getElementType();
@@ -485,7 +489,8 @@ LogicalResult XFEGlobalAveragePoolOpShapeInference(
   }
   outputShape.push_back(C); // channels
 
-  // CRITICAL: Preserve existing element type if already set (e.g., quantized types)
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types)
   Type elementType = xType.getElementType();
   if (auto existingType = dyn_cast<ShapedType>(poolOp.getResult().getType())) {
     elementType = existingType.getElementType();
@@ -527,7 +532,8 @@ LogicalResult XFEGlobalMaxPoolOpShapeInference(
   }
   outputShape.push_back(C); // channels
 
-  // CRITICAL: Preserve existing element type if already set (e.g., quantized types)
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types)
   Type elementType = xType.getElementType();
   if (auto existingType = dyn_cast<ShapedType>(poolOp.getResult().getType())) {
     elementType = existingType.getElementType();

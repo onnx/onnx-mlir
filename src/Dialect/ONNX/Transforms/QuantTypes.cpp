@@ -50,20 +50,24 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
         }))
       return rewriter.notifyMatchFailure(
           op, "Not converting return value from function");
-    
+
     // Also check if this DequantizeLinear feeds into a transpose-immune op
-    // that directly feeds into return (common pattern: DQ → Transpose → Return)
-    // We do this by checking if ANY user is a transpose-like op whose users are returns
+    // that directly feeds into return (common pattern: DQ -> Transpose ->
+    // Return). We do this by checking if ANY user is a transpose-like op whose
+    // users are returns
     if constexpr (std::is_same_v<QdqOp, mlir::ONNXDequantizeLinearOp>) {
       for (mlir::Operation *user : result.getUsers()) {
         if (mlir::isa<mlir::ONNXTransposeOp, mlir::ONNXReshapeOp>(user)) {
           // Check if this transpose/reshape feeds into return
           for (mlir::Value userResult : user->getResults()) {
-            if (llvm::any_of(userResult.getUsers(), [](mlir::Operation *op) {
-                  return mlir::isa<mlir::func::ReturnOp, mlir::ONNXReturnOp>(op);
-                }))
-              return rewriter.notifyMatchFailure(
-                  op, "Not converting DequantizeLinear before output Transpose/Reshape");
+            if (llvm::any_of(userResult.getUsers(),
+                             [](mlir::Operation *op) {
+                               return mlir::isa<mlir::func::ReturnOp,
+                                                mlir::ONNXReturnOp>(op);
+                             }))
+              return rewriter.notifyMatchFailure(op,
+                  "Not converting DequantizeLinear before output "
+                  "Transpose/Reshape");
           }
         }
       }
