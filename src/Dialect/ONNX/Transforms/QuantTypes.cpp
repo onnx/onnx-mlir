@@ -60,11 +60,10 @@ class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
         if (mlir::isa<mlir::ONNXTransposeOp, mlir::ONNXReshapeOp>(user)) {
           // Check if this transpose/reshape feeds into return
           for (mlir::Value userResult : user->getResults()) {
-            if (llvm::any_of(userResult.getUsers(),
-                             [](mlir::Operation *op) {
-                               return mlir::isa<mlir::func::ReturnOp,
-                                                mlir::ONNXReturnOp>(op);
-                             }))
+            if (llvm::any_of(userResult.getUsers(), [](mlir::Operation *op) {
+                  return mlir::isa<mlir::func::ReturnOp, mlir::ONNXReturnOp>(
+                      op);
+                }))
               return rewriter.notifyMatchFailure(op,
                   "Not converting DequantizeLinear before output "
                   "Transpose/Reshape");

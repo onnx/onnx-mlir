@@ -164,7 +164,7 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         convOp.getDilationsAttr(), convOp.getGroupAttr(),
         convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
         convOp.getStridesAttr());
-    
+
     // CRITICAL: Immediately run shape inference to resolve unranked type
     // This ensures the output has correct shape AND element type before
     // creating Transpose
@@ -182,15 +182,14 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
     Type transposeOutputType;
     if (origOutputType.hasRank()) {
       // Use original Conv's shape but XFEConv's actual element type
-      transposeOutputType = RankedTensorType::get(
-          origOutputType.getShape(), actualElementType);
+      transposeOutputType =
+          RankedTensorType::get(origOutputType.getShape(), actualElementType);
     } else {
       transposeOutputType = convOp.getType();
     }
 
-    Value outputNCHW =
-        createOutputTranspose(rewriter, loc, convChannelLastOp.getResult(),
-                              transposeOutputType, rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        convChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(convOp, outputNCHW);
     return success();
@@ -242,7 +241,7 @@ struct ConvTransposeToChannelLastPattern
         convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
         convTransposeOp.getStridesAttr());
-    
+
     // CRITICAL: Immediately run shape inference
     if (failed(convTransposeChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -258,15 +257,14 @@ struct ConvTransposeToChannelLastPattern
     if (origOutputType.hasRank()) {
       // Use original ConvTranspose's shape but XFEConvTranspose's actual
       // element type
-      transposeOutputType = RankedTensorType::get(
-          origOutputType.getShape(), actualElementType);
+      transposeOutputType =
+          RankedTensorType::get(origOutputType.getShape(), actualElementType);
     } else {
       transposeOutputType = convTransposeOp.getType();
     }
-    
+
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        convTransposeChannelLastOp.getResult(), transposeOutputType,
-        rank);
+        convTransposeChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(convTransposeOp, outputNCHW);
     return success();
@@ -302,7 +300,7 @@ struct AveragePoolToChannelLastPattern
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
         poolOp.getCountIncludePadAttr(), poolOp.getKernelShapeAttr(),
         poolOp.getPadsAttr(), poolOp.getStridesAttr());
-    
+
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -314,9 +312,8 @@ struct AveragePoolToChannelLastPattern
         mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW =
-        createOutputTranspose(rewriter, loc, poolChannelLastOp.getResult(),
-                              transposeOutputType, rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -353,7 +350,7 @@ struct MaxPoolToChannelLastPattern
         poolOp.getDilationsAttr(), poolOp.getKernelShapeAttr(),
         poolOp.getPadsAttr(), poolOp.getStorageOrderAttr(),
         poolOp.getStridesAttr());
-    
+
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -365,9 +362,8 @@ struct MaxPoolToChannelLastPattern
         mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW =
-        createOutputTranspose(rewriter, loc, poolChannelLastOp.getResult(),
-                              transposeOutputType, rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();

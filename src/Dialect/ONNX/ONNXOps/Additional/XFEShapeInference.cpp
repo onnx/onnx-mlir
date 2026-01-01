@@ -124,7 +124,7 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-        ++i) {
+         ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -224,7 +224,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-        ++i) {
+         ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -232,7 +232,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (outputPaddingAttr.has_value()) {
     auto outputPaddingArray = outputPaddingAttr.value();
     for (size_t i = 0;
-        i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+         i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
       outputPadding[i] =
           mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
     }
@@ -422,7 +422,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
   if (dilationsAttr.has_value()) {
     for (size_t i = 0; i < std::min(dilationsAttr->size(), dilations.size());
-        ++i) {
+         ++i) {
       dilations[i] = mlir::cast<IntegerAttr>((*dilationsAttr)[i]).getInt();
     }
   }
