@@ -28,8 +28,7 @@ void ResultNamesUpdater::notifyOperationReplaced(
   }
 
   mlir::MLIRContext *ctx = op->getContext();
-  auto resultNames = resultNamesArray.getAsValueRange<mlir::StringAttr>();
-  for (auto [name, value] : llvm::zip_equal(resultNames, replacement)) {
+  for (auto [name, value] : llvm::zip_equal(resultNamesArray, replacement)) {
     if (mlir::OpResult replResult = mlir::dyn_cast<mlir::OpResult>(value)) {
       mlir::Operation *replOp = replResult.getOwner();
 
@@ -41,8 +40,7 @@ void ResultNamesUpdater::notifyOperationReplaced(
             mlir::SmallVector<mlir::Attribute>(existing.getValue());
 
       // Replace the ResultName of current result
-      replResultNames[replResult.getResultNumber()] =
-          mlir::StringAttr::get(ctx, name);
+      replResultNames[replResult.getResultNumber()] = name;
       replOp->setAttr(
           "ResultNames", mlir::ArrayAttr::get(ctx, replResultNames));
     }

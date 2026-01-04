@@ -58,3 +58,14 @@ func.func @qdq_canonicalize(%arg0: tensor<1x128xf32>) -> tensor<1x1x128xf32> {
 // CHECK-SAME: ResultNames = ["q1"]
 // CHECK-NOT: onnx.QuantizeLinear
 // CHECK: onnx.DequantizeLinear
+
+func.func @complex_names(%arg0: tensor<f32>) -> tensor<f32> {
+  %0 = onnx.Constant {ResultNames = ["const0"]} dense<2.000000e+00> : tensor<f32>
+  %1 = "onnx.Add"(%0, %arg0) {ResultNames = [["add0", "with", "array", [1, 2, 3, 4]]]} : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  return %1 : tensor<f32>
+}
+
+// CHECK-LABEL: @complex_names
+// CHECK: "onnx.Add"(%arg0, %0)
+// CHECK-SAME: ResultNames = [
+// CHECK-SAME: ["add0", "with", "array", [1, 2, 3, 4]]]
