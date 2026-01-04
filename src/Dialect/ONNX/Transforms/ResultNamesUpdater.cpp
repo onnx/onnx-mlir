@@ -35,7 +35,7 @@ void ResultNamesUpdater::notifyOperationReplaced(
 
       // Get new or existing ResultNames
       mlir::SmallVector<mlir::Attribute> replResultNames(
-          replOp->getNumResults(), mlir::StringAttr::get(ctx, name));
+          replOp->getNumResults(), mlir::StringAttr::get(ctx));
       if (auto existing = replOp->getAttrOfType<mlir::ArrayAttr>("ResultNames"))
         replResultNames =
             mlir::SmallVector<mlir::Attribute>(existing.getValue());
