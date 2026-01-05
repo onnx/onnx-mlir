@@ -98,13 +98,12 @@ ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
-bool split_input_file;          // onnx-mlir-opt only
-bool verify_diagnostics;        // onnx-mlir-opt only
-bool verify_passes;             // onnx-mlir-opt only
-bool allowUnregisteredDialects; // onnx-mlir-opt only
+bool split_input_file;                                 // onnx-mlir-opt only
+bool verify_diagnostics;                               // onnx-mlir-opt only
+bool verify_passes;                                    // onnx-mlir-opt only
+bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
-bool useLinalgPath;                                    // onnx-mlir only
-
+bool useLinalgPath; // onnx-mlir only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
