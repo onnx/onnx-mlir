@@ -97,25 +97,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     }
   }
 
-  if (opts.enableFusePadIntoAvgpool)
-    pm.addPass(createFusePadIntoAvgpoolPass());
-
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
       opts.enableQuarkQuantizedLegalization));
 
-  // Pass for removing binary ops if one of the inputs is fed by a Constant
-  if (opts.enableRemoveBinary)
-    pm.addPass(createFoldDQBinaryQPass());
-
-  // Pass for removing Dq and Q around data movement in Dq->op->Q Ops chain
-  if (opts.enableRemoveDqQAroundOp)
-    pm.addPass(createQDQAroundOpOptONNXToONNXPass());
-
-  // Pass for removing redundant Dq->Q Ops chain
-  // Passes for removing redundant concat, slice and cast QDQ Ops
-  if (opts.enableRemoveDqQOp)
-    pm.addPass(createQDQOptONNXToONNXPass());
+  // Canonicalizing Q-DQ related ops
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createQDQCanonicalizePass(
+      opts.enableRemoveBinary, opts.enableRemoveDqQAroundOp));
 
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.

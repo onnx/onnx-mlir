@@ -495,6 +495,7 @@ def ONNXAttentionOp:ONNX_Op<"Attention",
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
   [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX AveragePool operation";
   let description = [{
   AveragePool consumes an input tensor X and applies average pooling across

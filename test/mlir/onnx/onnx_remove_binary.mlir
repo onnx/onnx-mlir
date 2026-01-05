@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --dq-binary-q-opt-onnx-to-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --qdq-canonicalize="remove-binary=true" %s -split-input-file | FileCheck %s
 
 
   func.func @test_fold_mul_case_b_safe(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {

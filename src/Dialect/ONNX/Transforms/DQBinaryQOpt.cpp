@@ -898,31 +898,15 @@ public:
   }
 };
 
-struct FoldDQBinaryQPass
-    : public PassWrapper<FoldDQBinaryQPass, OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FoldDQBinaryQPass)
-
-  StringRef getArgument() const final { return "dq-binary-q-opt-onnx-to-onnx"; }
-  StringRef getDescription() const final {
-    return "Fold Add/Sub/Mul/Div through Q/DQ by updating scale/zero_point, "
-           "then remove trivial Q->DQ chains when safe.";
-  }
-
-  void runOnOperation() override {
-    auto function = getOperation();
-    RewritePatternSet patterns(&getContext());
-    patterns.add<FoldBinaryThroughQDQ<ONNXDivOp>>(&getContext());
-    patterns.add<FoldBinaryThroughQDQ<ONNXSubOp>>(&getContext());
-    patterns.add<FoldBinaryThroughQDQ<ONNXMulOp>>(&getContext());
-    patterns.add<FoldBinaryThroughQDQ<ONNXAddOp>>(&getContext());
-    if (failed(applyPatternsGreedily(function, std::move(patterns))))
-      signalPassFailure();
-  }
-};
 } // namespace
 
 namespace onnx_mlir {
-std::unique_ptr<mlir::Pass> createFoldDQBinaryQPass() {
-  return std::make_unique<FoldDQBinaryQPass>();
+
+void getDQBinaryQPatterns(RewritePatternSet &patterns, MLIRContext *context) {
+  patterns.add<FoldBinaryThroughQDQ<ONNXDivOp>>(context);
+  patterns.add<FoldBinaryThroughQDQ<ONNXSubOp>>(context);
+  patterns.add<FoldBinaryThroughQDQ<ONNXMulOp>>(context);
+  patterns.add<FoldBinaryThroughQDQ<ONNXAddOp>>(context);
 }
+
 } // namespace onnx_mlir
