@@ -39,6 +39,12 @@ LogicalResult XFEConvOpVerify(Operation *op) {
   return success();
 }
 
+LogicalResult XFEConvTransposeOpVerify(Operation *op) {
+  // Verification for ConvTransposeChannelLast
+  // For now, delegate to basic verification - can add custom checks later
+  return success();
+}
+
 LogicalResult XFEAveragePoolOpVerify(Operation *op) {
   // TODO: Implement verification for AveragePoolChannelLast
   //
