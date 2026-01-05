@@ -13,6 +13,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 using namespace mlir;
 
@@ -69,7 +70,9 @@ public:
   }
 
   void runOnOperation() override {
-    if (failed(applyPatternsGreedily(getOperation(), frozenPatterns)))
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    if (failed(applyPatternsGreedily(getOperation(), frozenPatterns,
+            GreedyRewriteConfig{.listener = &rnUpdater})))
       signalPassFailure();
   }
 

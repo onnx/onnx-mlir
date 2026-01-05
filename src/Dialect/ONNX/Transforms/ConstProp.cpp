@@ -31,6 +31,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/Transforms/ConstProp.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -1270,7 +1271,9 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   getConstPropONNXToONNXPatterns(patterns);
-  if (failed(applyPatternsGreedily(function, std::move(patterns))))
+  onnx_mlir::ResultNamesUpdater rnUpdater;
+  if (failed(applyPatternsGreedily(function, std::move(patterns),
+          GreedyRewriteConfig{.listener = &rnUpdater})))
     signalPassFailure();
 }
 
