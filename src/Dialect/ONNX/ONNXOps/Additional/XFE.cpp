@@ -5,12 +5,12 @@
 //********************************************************
 
 // DO NOT EDIT - Auto-generated forwarding stubs
-// This file forwards to manual implementations in shape inference, verify, and
-// fold files Copy this file to src/Dialect/ONNX/ONNXOps/Additional/XFE.cpp
+// This file forwards to manual implementations in shape inference, verify, and fold files
+// Copy this file to src/Dialect/ONNX/ONNXOps/Additional/XFE.cpp
 
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "XFEShapeInference.hpp"
 #include "XFEVerify.hpp"
-#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -47,32 +47,32 @@ LogicalResult XFEMaxPoolOp::inferShapes(
 
 LogicalResult XFEGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XFEGlobalAveragePoolOpShapeInference(
-      this->getOperation(), doShapeInference);
+  return XFEGlobalAveragePoolOpShapeInference(this->getOperation(), doShapeInference);
 }
 
 LogicalResult XFEGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XFEGlobalMaxPoolOpShapeInference(
-      this->getOperation(), doShapeInference);
+  return XFEGlobalMaxPoolOpShapeInference(this->getOperation(), doShapeInference);
 }
 
 LogicalResult XFEInstanceNormalizationOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XFEInstanceNormalizationOpShapeInference(
-      this->getOperation(), doShapeInference);
+  return XFEInstanceNormalizationOpShapeInference(this->getOperation(), doShapeInference);
 }
 
 LogicalResult XFEDepthToSpaceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XFEDepthToSpaceOpShapeInference(
-      this->getOperation(), doShapeInference);
+  return XFEDepthToSpaceOpShapeInference(this->getOperation(), doShapeInference);
 }
 
 LogicalResult XFESpaceToDepthOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XFESpaceToDepthOpShapeInference(
-      this->getOperation(), doShapeInference);
+  return XFESpaceToDepthOpShapeInference(this->getOperation(), doShapeInference);
+}
+
+LogicalResult XFEQLinearEltwiseOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEQLinearEltwiseOpShapeInference(this->getOperation(), doShapeInference);
 }
 
 LogicalResult XFEResizeOp::inferShapes(
@@ -127,3 +127,4 @@ LogicalResult XFESpaceToDepthOp::verify() {
 LogicalResult XFEResizeOp::verify() {
   return XFEResizeOpVerify(this->getOperation());
 }
+
