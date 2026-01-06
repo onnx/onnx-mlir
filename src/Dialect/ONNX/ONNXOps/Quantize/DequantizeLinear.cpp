@@ -44,8 +44,8 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
-  ONNXDequantizeLinearOpAdaptor operandAdaptor(
-      operands, op->getAttrDictionary());
+  auto dlOp = llvm::cast<ONNXDequantizeLinearOp>(op);
+  ONNXDequantizeLinearOpAdaptor operandAdaptor(operands, dlOp);
   RankedTensorType xTy =
       mlir::dyn_cast<RankedTensorType>(operandAdaptor.getX().getType());
   DimsExpr outputDims;

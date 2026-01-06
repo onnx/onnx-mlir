@@ -26,7 +26,8 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
-  ONNXGatherNDOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto gatherNDOp = llvm::cast<ONNXGatherNDOp>(op);
+  ONNXGatherNDOpAdaptor operandAdaptor(operands, gatherNDOp);
   Value data = operandAdaptor.getData();
   Value indices = operandAdaptor.getIndices();
   DimsExpr dataDims, indicesDims;

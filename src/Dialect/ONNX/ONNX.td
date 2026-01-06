@@ -39,7 +39,7 @@ def ONNX_Dialect : Dialect {
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
   let useDefaultAttributePrinterParser = 0;
-  let usePropertiesForAttributes = 0;
+  // let usePropertiesForAttributes = 0;
   let dependentDialects = ["func::FuncDialect"];
   let hasConstantMaterializer = 1;
   let extraClassDeclaration = [{

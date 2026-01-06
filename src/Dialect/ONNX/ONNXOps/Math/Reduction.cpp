@@ -27,7 +27,8 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &axes, int noopWithEmptyAxes) {
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto reductionOp = llvm::cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands, reductionOp);
   Value data = operandAdaptor.getData();
   if (!hasShapeAndRank(data)) {
     return failure();
@@ -94,7 +95,8 @@ constexpr bool isAxesInput =
 // Default generic computeShape.
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto reductionOp = llvm::cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands, reductionOp);
   DimsExpr axes;
   // Handle simple case where axes is an attribute.
   if constexpr (!isAxesInput<OP_TYPE>) {

@@ -76,7 +76,7 @@ void ZHighStickOp::build(OpBuilder &builder, OperationState &state, Value input,
 
 LogicalResult ZHighStickOpShapeHelper::computeShape() {
   auto stickOp = llvm::dyn_cast<ZHighStickOp>(op);
-  ZHighStickOp::Adaptor operandAdaptor(operands);
+  ZHighStickOp::Adaptor operandAdaptor(operands, stickOp);
   Value input = operandAdaptor.getIn();
 
   // Output dims of result.

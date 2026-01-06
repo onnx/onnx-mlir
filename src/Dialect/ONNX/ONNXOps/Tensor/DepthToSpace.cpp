@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
   ONNXDepthToSpaceOp depthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
-  ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
+  ONNXDepthToSpaceOpAdaptor operandAdaptor(operands, depthOp);
   Value input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input)) {
     return failure();

@@ -29,7 +29,8 @@ namespace onnx_mlir {
 
 template <typename OP_TYPE>
 LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
-  typename OP_TYPE::Adaptor operandAdaptor(operands);
+  auto poolOp = llvm::cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands, poolOp);
   DimsExpr xDims, outputDims;
   createIE->getShapeAsDims(operandAdaptor.getX(), xDims);
   if (xDims.size() < 3)
@@ -47,7 +48,8 @@ LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
 
 template <>
 LogicalResult ONNXMaxRoiPoolOpShapeHelper::computeShape() {
-  ONNXMaxRoiPoolOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto poolOp = llvm::cast<ONNXMaxRoiPoolOp>(op);
+  ONNXMaxRoiPoolOpAdaptor operandAdaptor(operands, poolOp);
   IndexExpr channel = createIE->getShapeAsDim(operandAdaptor.getX(), 1);
 
   const auto rois = operandAdaptor.getRois();

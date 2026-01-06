@@ -24,7 +24,8 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickForGRUOpShapeHelper::computeShape() {
-  ZHighStickForGRUOp::Adaptor operandAdaptor(operands);
+  auto stickOp = llvm::cast<ZHighStickForGRUOp>(op);
+  ZHighStickForGRUOp::Adaptor operandAdaptor(operands, stickOp);
   Value zGate = operandAdaptor.getZGate();
 
   // Output dims of result.

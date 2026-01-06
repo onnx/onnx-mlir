@@ -37,7 +37,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto maxpoolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
-    OpAdaptor adaptor(operands, op->getAttrDictionary());
+    OpAdaptor adaptor(operands, maxpoolOp);
 
     Value input = adaptor.getX();
     // The attributes storage_order and dilations are unsupported

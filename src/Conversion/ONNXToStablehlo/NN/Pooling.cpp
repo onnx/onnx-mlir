@@ -101,9 +101,9 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    PoolOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Location loc = op->getLoc();
     PoolOp poolOp = llvm::cast<PoolOp>(op);
+    PoolOpAdaptor operandAdaptor(operands, poolOp);
+    Location loc = op->getLoc();
 
     // Get shape.
     IndexExprBuilderForStablehlo createStablehloIE(rewriter, loc);
