@@ -89,6 +89,7 @@ add_onnx_mlir_library(OMCompilerPasses
   ${OMLibs}
   OMCompilerOptions
   MLIRAffineTransforms
+  MLIRArithToLLVM
   MLIRBufferizationPipelines
   MLIRBufferizationToMemRef
   MLIRIR
