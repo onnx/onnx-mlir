@@ -120,7 +120,8 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
 // Code for SplitV13Op compute shape.
 template <>
 LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
-  ONNXSplitV13OpAdaptor operandAdaptor(operands, llvm::cast<ONNXSplitV13Op>(op));
+  ONNXSplitV13OpAdaptor operandAdaptor(
+      operands, llvm::cast<ONNXSplitV13Op>(op));
   Value split = operandAdaptor.getSplit();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (isNoneValue(split)) {
@@ -136,7 +137,8 @@ LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
 // Code for SplitV11Op compute shape.
 template <>
 LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
-  ONNXSplitV11OpAdaptor operandAdaptor(operands, llvm::cast<ONNXSplitV11Op>(op));
+  ONNXSplitV11OpAdaptor operandAdaptor(
+      operands, llvm::cast<ONNXSplitV11Op>(op));
   ArrayAttr splitAttr = operandAdaptor.getSplitAttr();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (splitAttr) {
