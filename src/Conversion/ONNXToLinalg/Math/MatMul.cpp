@@ -31,6 +31,13 @@ struct ONNXMatMulOpLoweringToLinalg : public OpRewritePattern<ONNXMatMulOp> {
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matMulOp, PatternRewriter &rewriter) const final {
+    // Check if this operation should be converted to Linalg based on --linalg-ops
+    Operation *op = matMulOp.getOperation();
+    if (!shouldConvertToLinalg(op)) {
+      return rewriter.notifyMatchFailure(
+          matMulOp, "operation not selected for Linalg conversion");
+    }
+
     ONNXMatMulOpAdaptor adaptor(matMulOp);
 
     Location loc = matMulOp.getLoc();
