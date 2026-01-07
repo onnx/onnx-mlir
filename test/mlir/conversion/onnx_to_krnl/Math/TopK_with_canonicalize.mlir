@@ -21,7 +21,7 @@ func.func @top_k(%arg0: tensor<3x4xf32>, %arg1: tensor<1xi64>) -> (tensor<*xf32>
 // CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_4_]]#1, [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<3x4xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[CST_1_]], [[CST_0_]], [[LOAD_PARAM_1_MEM_]], [[CST_1_]]) {funcName = "omTensorTopK", numOfOutput = 1 : si64} : (memref<3x4xindex>, memref<3x4xf32>, i64, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[CST_1_]], [[CST_0_]], [[LOAD_PARAM_1_MEM_]], [[CST_1_]]) <{funcName = "omTensorTopK", numOfOutput = 1 : si64}> : (memref<3x4xindex>, memref<3x4xf32>, i64, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<3x?xf32>
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<3x?xi64>
 // CHECK-DAG:       [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
@@ -55,7 +55,7 @@ func.func @top_k_smallest(%arg0: tensor<3x4xf32>, %arg1: tensor<1xi64>) -> (tens
 // CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_4_]]#1, [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<3x4xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[CST_1_]], [[CST_1_]], [[LOAD_PARAM_1_MEM_]], [[CST_1_]]) {funcName = "omTensorTopK", numOfOutput = 1 : si64} : (memref<3x4xindex>, memref<3x4xf32>, i64, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[CST_1_]], [[CST_1_]], [[LOAD_PARAM_1_MEM_]], [[CST_1_]]) <{funcName = "omTensorTopK", numOfOutput = 1 : si64}> : (memref<3x4xindex>, memref<3x4xf32>, i64, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<3x?xf32>
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<3x?xi64>
 // CHECK-DAG:       [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
@@ -99,7 +99,7 @@ func.func @top_k_unknown_dims(%arg0: tensor<?x?xf32>, %arg1: tensor<1xi64>) -> (
 // CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_4_]]#1, [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<?x?xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[CST_1_]], [[CST_0_]], [[LOAD_PARAM_1_MEM_]], [[CST_1_]]) {funcName = "omTensorTopK", numOfOutput = 1 : si64} : (memref<?x?xindex>, memref<?x?xf32>, i64, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[CST_1_]], [[CST_0_]], [[LOAD_PARAM_1_MEM_]], [[CST_1_]]) <{funcName = "omTensorTopK", numOfOutput = 1 : si64}> : (memref<?x?xindex>, memref<?x?xf32>, i64, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_1_]]) {{.*}}: memref<?x?xf32>
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_1_]]) {{.*}}: memref<?x?xi64>
 // CHECK-DAG:       [[LOOP_1_:%.+]]:2 = krnl.define_loops 2

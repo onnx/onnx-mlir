@@ -143,8 +143,8 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i32>} : () -> memref<i32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<16x32xi32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 16, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 32){
@@ -158,7 +158,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:             [[VAR_57_:%.+]] = arith.extsi [[VAR_56_]] : i8 to i32
 // CHECK:             krnl.store [[VAR_57_]], [[RES_]]{{.}}[[VAR_50_]]#0, [[VAR_50_]]#1] : memref<16x32xi32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xi16>
 // CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xui8>
 // CHECK:           [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_2_MEM_]] : ui8 to i8
@@ -186,7 +186,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:             [[VAR_53_1_:%.+]] = arith.subi [[LOAD_PARAM_0_MEM_1_]], [[VAR_52_1_]] : i32
 // CHECK:             krnl.store [[VAR_53_1_]], [[RES_5_]]{{.}}[[VAR_50_1_]]#0, [[VAR_50_1_]]#1] : memref<16x32xi32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_15_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_15_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<32x64xi32>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 32, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = 0 to 64){
@@ -200,7 +200,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:             [[VAR_57_1_:%.+]] = arith.extsi [[VAR_56_1_]] : i8 to i32
 // CHECK:             krnl.store [[VAR_57_1_]], [[RES_6_]]{{.}}[[VAR_50_2_]]#0, [[VAR_50_2_]]#1] : memref<32x64xi32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_17_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_17_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_7_:%.+]] = memref.alloc() {{.*}}: memref<1xi16>
 // CHECK-DAG:       [[LOAD_PARAM_5_MEM_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xui8>
 // CHECK:           [[VAR_19_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_5_MEM_]] : ui8 to i8
@@ -228,7 +228,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:             [[VAR_53_3_:%.+]] = arith.subi [[LOAD_PARAM_0_MEM_1_1_]], [[VAR_52_2_]] : i32
 // CHECK:             krnl.store [[VAR_53_3_]], [[RES_11_]]{{.}}[[VAR_50_3_]]#0, [[VAR_50_3_]]#1] : memref<32x64xi32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_29_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_29_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_12_:%.+]] = memref.alloc() {{.*}}: memref<1xi16>
 // CHECK-DAG:       [[LOAD_PARAM_7_MEM_:%.+]] = krnl.load [[PARAM_7_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xui8>
 // CHECK:           [[VAR_31_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_7_MEM_]] : ui8 to i8

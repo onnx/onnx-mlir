@@ -357,8 +357,8 @@ func.func @lstm_no_input_and_hidden_biases(%input : tensor<?x?x7xf16, #zhigh.lay
 // CHECK:           krnl.store [[VAR_1_]], [[RES_2_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_2_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_2_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 4, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<16384xi8>} : () -> memref<1x4x1x1x32x64xf16>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 4, 1, 1, 32, 64], value = dense_resource<zhigh_1> : tensor<16384xi8>} : () -> memref<1x4x1x1x32x64xf16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() <{alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 4, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<16384xi8>}> : () -> memref<1x4x1x1x32x64xf16>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() <{alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 4, 1, 1, 32, 64], value = dense_resource<zhigh_1> : tensor<16384xi8>}> : () -> memref<1x4x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, [[MAP_0_]]>
 // CHECK-DAG:       [[VAR_dim_4_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, [[MAP_0_]]>
 // CHECK-NOT: separator of consecutive DAGs

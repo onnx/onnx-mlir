@@ -18,10 +18,10 @@ func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
 // CHECK-LABEL:  func @test_loop_tiny_yolo
 // CHECK-SAME:   () -> memref<?xi32> {
 // CHECK-DAG:       [[ZERO:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[ONE_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<1> : tensor<i32>} : () -> memref<i32>
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<7> : tensor<i64>} : () -> memref<i64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<true> : tensor<i1>} : () -> memref<i1>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<0> : tensor<i32>} : () -> memref<i32>
+// CHECK-DAG:       [[ONE_:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [], value = dense<1> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [], value = dense<7> : tensor<i64>}> : () -> memref<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [], value = dense<true> : tensor<i1>}> : () -> memref<i1>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [], value = dense<0> : tensor<i32>}> : () -> memref<i32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i32>
 // CHECK-DAG:       [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
 // CHECK-DAG:       [[VAR_5_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_]] : i64 to index
