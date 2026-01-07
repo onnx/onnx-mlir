@@ -57,11 +57,24 @@ void EnableByRegexOption::setRegexString(std::string regexString) {
   // InstrumentPass.cpp original implementation.
   // Separate multiple expressions with space.
   regexString = std::regex_replace(regexString, std::regex(","), " ");
-  // The '.' character in regex string is recognized as normal character, not
-  // regular expression.
-  regexString = std::regex_replace(regexString, std::regex("\\."), "\\.");
-  // The '*' character in regex string is recognized as '.*' pattern.
-  regexString = std::regex_replace(regexString, std::regex("\\*"), ".*");
+  
+  // Check if the string already contains regex patterns (like ".*")
+  // If it does, treat it as a proper regex and skip the simple transformations
+  bool hasRegexPattern = regexString.find(".*") != std::string::npos ||
+                         regexString.find("\\.") != std::string::npos ||
+                         regexString.find("^") != std::string::npos ||
+                         regexString.find("$") != std::string::npos ||
+                         regexString.find("[") != std::string::npos ||
+                         regexString.find("+") != std::string::npos ||
+                         regexString.find("?") != std::string::npos;
+  
+  if (!hasRegexPattern) {
+    // The '.' character in regex string is recognized as normal character, not
+    // regular expression.
+    regexString = std::regex_replace(regexString, std::regex("\\."), "\\.");
+    // The '*' character in regex string is recognized as '.*' pattern.
+    regexString = std::regex_replace(regexString, std::regex("\\*"), ".*");
+  }
   std::stringstream ss(regexString);
   std::istream_iterator<std::string> begin(ss);
   std::istream_iterator<std::string> end;
