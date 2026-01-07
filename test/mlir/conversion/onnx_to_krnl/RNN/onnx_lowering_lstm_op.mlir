@@ -32,13 +32,13 @@ func.func private @test_lstm_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:             [[LOAD_PARAM_5_MEM_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[CST_0_]], [[VAR_25_]]#0, [[VAR_25_]]#1] : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_5_MEM_]], [[RES_2_]]{{.}}[[VAR_25_]]#0, [[VAR_25_]]#1] : memref<2x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_2_]]) {axes = [0]} : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) <{axes = [0]}> : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_2_]]) <{axes = [0]}> : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [1, 0]} : (tensor<16x3xf32>) -> tensor<3x16xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0]} : (tensor<16x4xf32>) -> tensor<4x16xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_1_]]) {axes = [0]} : (tensor<1x32xf32>) -> tensor<32xf32>
-// CHECK:           [[VAR_10_:%.+]]:8 = "onnx.SplitV11"([[VAR_9_]]) {axis = 0 : si64} : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_5_]]) <{perm = [1, 0]}> : (tensor<16x3xf32>) -> tensor<3x16xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) <{perm = [1, 0]}> : (tensor<16x4xf32>) -> tensor<4x16xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_1_]]) <{axes = [0]}> : (tensor<1x32xf32>) -> tensor<32xf32>
+// CHECK:           [[VAR_10_:%.+]]:8 = "onnx.SplitV11"([[VAR_9_]]) <{axis = 0 : si64}> : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_11_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_12_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#2 : tensor<4xf32> to memref<4xf32>
@@ -47,8 +47,8 @@ func.func private @test_lstm_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK-DAG:       [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#5 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#6 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_18_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#7 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_0_]]) {axes = [0]} : (tensor<1x12xf32>) -> tensor<12xf32>
-// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) {axis = 0 : si64} : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_0_]]) <{axes = [0]}> : (tensor<1x12xf32>) -> tensor<12xf32>
+// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) <{axis = 0 : si64}> : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_21_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_23_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#2 : tensor<4xf32> to memref<4xf32>
@@ -325,13 +325,13 @@ func.func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:             [[LOAD_PARAM_5_MEM_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[CST_0_]], [[VAR_25_]]#0, [[VAR_25_]]#1] : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_5_MEM_]], [[RES_2_]]{{.}}[[VAR_25_]]#0, [[VAR_25_]]#1] : memref<2x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_2_]]) {axes = [0]} : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) <{axes = [0]}> : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_2_]]) <{axes = [0]}> : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [1, 0]} : (tensor<16x3xf32>) -> tensor<3x16xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0]} : (tensor<16x4xf32>) -> tensor<4x16xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_1_]]) {axes = [0]} : (tensor<1x32xf32>) -> tensor<32xf32>
-// CHECK:           [[VAR_10_:%.+]]:8 = "onnx.SplitV11"([[VAR_9_]]) {axis = 0 : si64} : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_5_]]) <{perm = [1, 0]}> : (tensor<16x3xf32>) -> tensor<3x16xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) <{perm = [1, 0]}> : (tensor<16x4xf32>) -> tensor<4x16xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_1_]]) <{axes = [0]}> : (tensor<1x32xf32>) -> tensor<32xf32>
+// CHECK:           [[VAR_10_:%.+]]:8 = "onnx.SplitV11"([[VAR_9_]]) <{axis = 0 : si64}> : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_11_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_12_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#2 : tensor<4xf32> to memref<4xf32>
@@ -340,8 +340,8 @@ func.func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK-DAG:       [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#5 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#6 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_18_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#7 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_0_]]) {axes = [0]} : (tensor<1x12xf32>) -> tensor<12xf32>
-// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) {axis = 0 : si64} : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_0_]]) <{axes = [0]}> : (tensor<1x12xf32>) -> tensor<12xf32>
+// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) <{axis = 0 : si64}> : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_21_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_23_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#2 : tensor<4xf32> to memref<4xf32>
@@ -482,23 +482,23 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK:             [[LOAD_PARAM_5_MEM_1_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[CST_1_]], [[VAR_50_]]#0, [[VAR_50_]]#1] : memref<2x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_5_MEM_1_]], [[RES_4_]]{{.}}[[VAR_50_]]#0, [[VAR_50_]]#1] : memref<2x4xf32>
 // CHECK:           }
-// CHECK:           [[VAR_5_:%.+]]:2 = "onnx.SplitV11"([[VAR_3_]]) {axis = 0 : si64} : (tensor<2x16x3xf32>) -> (tensor<1x16x3xf32>, tensor<1x16x3xf32>)
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_5_]]#0) {axes = [0]} : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.SqueezeV11"([[VAR_5_]]#1) {axes = [0]} : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]]:2 = "onnx.SplitV11"([[VAR_2_]]) {axis = 0 : si64} : (tensor<2x16x4xf32>) -> (tensor<1x16x4xf32>, tensor<1x16x4xf32>)
+// CHECK:           [[VAR_5_:%.+]]:2 = "onnx.SplitV11"([[VAR_3_]]) <{axis = 0 : si64}> : (tensor<2x16x3xf32>) -> (tensor<1x16x3xf32>, tensor<1x16x3xf32>)
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_5_]]#0) <{axes = [0]}> : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.SqueezeV11"([[VAR_5_]]#1) <{axes = [0]}> : (tensor<1x16x3xf32>) -> tensor<16x3xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]]:2 = "onnx.SplitV11"([[VAR_2_]]) <{axis = 0 : si64}> : (tensor<2x16x4xf32>) -> (tensor<1x16x4xf32>, tensor<1x16x4xf32>)
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_8_]]#0) {axes = [0]} : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.SqueezeV11"([[VAR_8_]]#1) {axes = [0]} : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0]} : (tensor<16x3xf32>) -> tensor<3x16xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_8_]]#0) <{axes = [0]}> : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.SqueezeV11"([[VAR_8_]]#1) <{axes = [0]}> : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Transpose"([[VAR_6_]]) <{perm = [1, 0]}> : (tensor<16x3xf32>) -> tensor<3x16xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Transpose"([[VAR_9_]]) {perm = [1, 0]} : (tensor<16x4xf32>) -> tensor<4x16xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Transpose"([[VAR_7_]]) {perm = [1, 0]} : (tensor<16x3xf32>) -> tensor<3x16xf32>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Transpose"([[VAR_10_]]) {perm = [1, 0]} : (tensor<16x4xf32>) -> tensor<4x16xf32>
-// CHECK-DAG:       [[VAR_15_:%.+]]:2 = "onnx.SplitV11"([[VAR_1_]]) {axis = 0 : si64} : (tensor<2x32xf32>) -> (tensor<1x32xf32>, tensor<1x32xf32>)
+// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Transpose"([[VAR_9_]]) <{perm = [1, 0]}> : (tensor<16x4xf32>) -> tensor<4x16xf32>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Transpose"([[VAR_7_]]) <{perm = [1, 0]}> : (tensor<16x3xf32>) -> tensor<3x16xf32>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Transpose"([[VAR_10_]]) <{perm = [1, 0]}> : (tensor<16x4xf32>) -> tensor<4x16xf32>
+// CHECK-DAG:       [[VAR_15_:%.+]]:2 = "onnx.SplitV11"([[VAR_1_]]) <{axis = 0 : si64}> : (tensor<2x32xf32>) -> (tensor<1x32xf32>, tensor<1x32xf32>)
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]#0) {axes = [0]} : (tensor<1x32xf32>) -> tensor<32xf32>
-// CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]#1) {axes = [0]} : (tensor<1x32xf32>) -> tensor<32xf32>
-// CHECK:           [[VAR_18_:%.+]]:8 = "onnx.SplitV11"([[VAR_16_]]) {axis = 0 : si64} : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]#0) <{axes = [0]}> : (tensor<1x32xf32>) -> tensor<32xf32>
+// CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]#1) <{axes = [0]}> : (tensor<1x32xf32>) -> tensor<32xf32>
+// CHECK:           [[VAR_18_:%.+]]:8 = "onnx.SplitV11"([[VAR_16_]]) <{axis = 0 : si64}> : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_19_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_20_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_21_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]]#2 : tensor<4xf32> to memref<4xf32>
@@ -507,7 +507,7 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK-DAG:       [[VAR_24_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]]#5 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_25_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]]#6 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_26_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]]#7 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_27_:%.+]]:8 = "onnx.SplitV11"([[VAR_17_]]) {axis = 0 : si64} : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_27_:%.+]]:8 = "onnx.SplitV11"([[VAR_17_]]) <{axis = 0 : si64}> : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_28_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_29_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]]#1 : tensor<4xf32> to memref<4xf32>
@@ -517,15 +517,15 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK-DAG:       [[VAR_33_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]]#5 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_34_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]]#6 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_35_:%.+]] = builtin.unrealized_conversion_cast [[VAR_27_]]#7 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_36_:%.+]]:2 = "onnx.SplitV11"([[VAR_0_]]) {axis = 0 : si64} : (tensor<2x12xf32>) -> (tensor<1x12xf32>, tensor<1x12xf32>)
+// CHECK-DAG:       [[VAR_36_:%.+]]:2 = "onnx.SplitV11"([[VAR_0_]]) <{axis = 0 : si64}> : (tensor<2x12xf32>) -> (tensor<1x12xf32>, tensor<1x12xf32>)
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_37_:%.+]] = "onnx.SqueezeV11"([[VAR_36_]]#0) {axes = [0]} : (tensor<1x12xf32>) -> tensor<12xf32>
-// CHECK-DAG:       [[VAR_38_:%.+]] = "onnx.SqueezeV11"([[VAR_36_]]#1) {axes = [0]} : (tensor<1x12xf32>) -> tensor<12xf32>
-// CHECK:           [[VAR_39_:%.+]]:3 = "onnx.SplitV11"([[VAR_37_]]) {axis = 0 : si64} : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_37_:%.+]] = "onnx.SqueezeV11"([[VAR_36_]]#0) <{axes = [0]}> : (tensor<1x12xf32>) -> tensor<12xf32>
+// CHECK-DAG:       [[VAR_38_:%.+]] = "onnx.SqueezeV11"([[VAR_36_]]#1) <{axes = [0]}> : (tensor<1x12xf32>) -> tensor<12xf32>
+// CHECK:           [[VAR_39_:%.+]]:3 = "onnx.SplitV11"([[VAR_37_]]) <{axis = 0 : si64}> : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_40_:%.+]] = builtin.unrealized_conversion_cast [[VAR_39_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_41_:%.+]] = builtin.unrealized_conversion_cast [[VAR_39_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_42_:%.+]] = builtin.unrealized_conversion_cast [[VAR_39_]]#2 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_43_:%.+]]:3 = "onnx.SplitV11"([[VAR_38_]]) {axis = 0 : si64} : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_43_:%.+]]:3 = "onnx.SplitV11"([[VAR_38_]]) <{axis = 0 : si64}> : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_44_:%.+]] = builtin.unrealized_conversion_cast [[VAR_43_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_45_:%.+]] = builtin.unrealized_conversion_cast [[VAR_43_]]#1 : tensor<4xf32> to memref<4xf32>
@@ -761,13 +761,13 @@ func.func private @test_lstm_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK:             [[LOAD_PARAM_5_MEM_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[CST_0_]], [[VAR_27_]]#0, [[VAR_27_]]#1] : memref<1x?x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_5_MEM_]], [[RES_2_]]{{.}}[[VAR_27_]]#0, [[VAR_27_]]#1] : memref<?x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<1x16x?xf32>) -> tensor<16x?xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_2_]]) {axes = [0]} : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) <{axes = [0]}> : (tensor<1x16x?xf32>) -> tensor<16x?xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_2_]]) <{axes = [0]}> : (tensor<1x16x4xf32>) -> tensor<16x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [1, 0]} : (tensor<16x?xf32>) -> tensor<?x16xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0]} : (tensor<16x4xf32>) -> tensor<4x16xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_1_]]) {axes = [0]} : (tensor<1x32xf32>) -> tensor<32xf32>
-// CHECK:           [[VAR_10_:%.+]]:8 = "onnx.SplitV11"([[VAR_9_]]) {axis = 0 : si64} : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_5_]]) <{perm = [1, 0]}> : (tensor<16x?xf32>) -> tensor<?x16xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) <{perm = [1, 0]}> : (tensor<16x4xf32>) -> tensor<4x16xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_1_]]) <{axes = [0]}> : (tensor<1x32xf32>) -> tensor<32xf32>
+// CHECK:           [[VAR_10_:%.+]]:8 = "onnx.SplitV11"([[VAR_9_]]) <{axis = 0 : si64}> : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_11_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_12_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#2 : tensor<4xf32> to memref<4xf32>
@@ -776,8 +776,8 @@ func.func private @test_lstm_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK-DAG:       [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#5 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#6 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_18_:%.+]] = builtin.unrealized_conversion_cast [[VAR_10_]]#7 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_0_]]) {axes = [0]} : (tensor<1x12xf32>) -> tensor<12xf32>
-// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) {axis = 0 : si64} : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
+// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_0_]]) <{axes = [0]}> : (tensor<1x12xf32>) -> tensor<12xf32>
+// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) <{axis = 0 : si64}> : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
 // CHECK-DAG:       [[VAR_21_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#0 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#1 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[VAR_23_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#2 : tensor<4xf32> to memref<4xf32>

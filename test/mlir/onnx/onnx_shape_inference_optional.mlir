@@ -27,8 +27,8 @@ func.func @check_optional_none() -> !onnx.Opt<tensor<*xf32>> {
   %0 = "onnx.NoValue"() {value} : () -> none
   %1 = "onnx.Optional"(%0) {type = tensor<2xf32>} : (none) -> !onnx.Opt<tensor<*xf32>>
   onnx.Return %1 : !onnx.Opt<tensor<*xf32>>
-  // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK-NEXT: [[VAR_1_:%.+]] = "onnx.Optional"([[VAR_0_]]) {type = tensor<2xf32>} : (none) -> !onnx.Opt<tensor<2xf32>>
+  // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-NEXT: [[VAR_1_:%.+]] = "onnx.Optional"([[VAR_0_]]) <{type = tensor<2xf32>}> : (none) -> !onnx.Opt<tensor<2xf32>>
   // CHECK-NEXT: onnx.Return [[VAR_1_]] : !onnx.Opt<tensor<2xf32>>
 }
 
