@@ -23,7 +23,7 @@ module  {
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
-// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) {layout = "2D"} : (memref<2x3xf16, [[MAP_0_]]>, memref<2x3xf32>) -> ()
+// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) <{layout = "2D"}> : (memref<2x3xf16, [[MAP_0_]]>, memref<2x3xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<2x3xf32>
 // CHECK:         }
 
@@ -47,7 +47,7 @@ func.func @splat_stickified_constant() -> tensor<2x3xf32> {
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
-// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) {layout = "2D"} : (memref<2x3xf16, #map>, memref<2x3xf32>) -> ()
+// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) <{layout = "2D"}> : (memref<2x3xf16, #map>, memref<2x3xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<2x3xf32>
 // CHECK:         }
 // CHECK:         dialect_resources: {

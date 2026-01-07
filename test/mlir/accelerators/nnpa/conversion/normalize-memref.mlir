@@ -22,7 +22,7 @@ func.func @test_zlow_relu_norm(%arg0: memref<129x65xf32>) -> memref<129x65xf32> 
   // CHECK: [[ALLOC3:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<1x2x1x5x32x64xf16>
   // CHECK: [[SHAPE:%.+]] = memref.alloc() : memref<2xi64>
   // CHECK: "zlow.stick"(%arg0, [[ALLOC3]]) : (memref<129x65xf32>, memref<1x2x1x5x32x64xf16>) -> ()
-  // CHECK: "zlow.relu"([[ALLOC3]], [[SHAPE]], [[ALLOC2]]) {layout = "2D"} : (memref<1x2x1x5x32x64xf16>, memref<2xi64>, memref<1x2x1x5x32x64xf16>) -> ()
+  // CHECK: "zlow.relu"([[ALLOC3]], [[SHAPE]], [[ALLOC2]]) <{layout = "2D"}> : (memref<1x2x1x5x32x64xf16>, memref<2xi64>, memref<1x2x1x5x32x64xf16>) -> ()
   // CHECK: "zlow.unstick"([[ALLOC2]], [[ALLOC1]]) : (memref<1x2x1x5x32x64xf16>, memref<129x65xf32>) -> ()
   // CHECK: memref.dealloc [[ALLOC3]] : memref<1x2x1x5x32x64xf16>
   // CHECK: memref.dealloc [[ALLOC2]] : memref<1x2x1x5x32x64xf16>

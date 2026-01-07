@@ -29,7 +29,7 @@ func.func @conv_valid_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dataLa
 // CHECK:           krnl.store [[VAR_c1_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c31_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c31_i64_]], [[RES_1_]]{{.}}[[VAR_c6_]]{{.}} : memref<7xi64>
-// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<2x2x3x1xf16, #map1>, memref<1xf16, #map2>, memref<7xi64>, memref<1x31x31x1xf16, #map>) -> ()
+// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<2x2x3x1xf16, #map1>, memref<1xf16, #map2>, memref<7xi64>, memref<1x31x31x1xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x31x31x1xf16, #map>
 // CHECK:         }
 }
@@ -64,7 +64,7 @@ func.func @conv_same_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dataLay
 // CHECK:           krnl.store [[VAR_c1_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c6_]]{{.}} : memref<7xi64>
-// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<2x2x3x1xf16, #map1>, memref<1xf16, #map2>, memref<7xi64>, memref<1x32x32x1xf16, #map>) -> ()
+// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<2x2x3x1xf16, #map1>, memref<1xf16, #map2>, memref<7xi64>, memref<1x32x32x1xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x1xf16, #map>
 // CHECK:         }
 }
@@ -111,7 +111,7 @@ func.func @conv_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.lay
 // CHECK:           krnl.store [[VAR_10_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<7xi64>
 // CHECK:           [[VAR_11_:%.+]] = arith.index_cast [[VAR_4_]] : index to i64
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]]{{.}}[[VAR_c6_]]{{.}} : memref<7xi64>
-// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<2x2x?x1xf16, #map1>, memref<?xf16, #map2>, memref<7xi64>, memref<1x?x?x1xf16, #map>) -> ()
+// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]}> : (memref<1x?x?x?xf16, #map>, memref<2x2x?x1xf16, #map1>, memref<?xf16, #map2>, memref<7xi64>, memref<1x?x?x1xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x?x1xf16, #map>
 // CHECK:         }
 }
@@ -154,7 +154,7 @@ func.func @conv_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.layo
 // CHECK:           krnl.store [[VAR_8_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<7xi64>
 // CHECK:           [[VAR_9_:%.+]] = arith.index_cast [[VAR_1_]] : index to i64
 // CHECK:           krnl.store [[VAR_9_]], [[RES_1_]]{{.}}[[VAR_c6_]]{{.}} : memref<7xi64>
-// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<2x2x?x1xf16, #map1>, memref<?xf16, #map2>, memref<7xi64>, memref<1x?x?x1xf16, #map>) -> ()
+// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x?x?x?xf16, #map>, memref<2x2x?x1xf16, #map1>, memref<?xf16, #map2>, memref<7xi64>, memref<1x?x?x1xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x?x1xf16, #map>
 // CHECK:         }
 }
@@ -190,7 +190,7 @@ func.func @conv_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf16, #
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c6_]]{{.}} : memref<7xi64>
 // CHECK:           [[VAR_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>} : () -> memref<1x1x1x1x32x64xf16>
-// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[VAR_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<2x2x3x1xf16, #map1>, memref<1x1x1x1x32x64xf16>, memref<7xi64>, memref<1x32x32x1xf16, #map>) -> ()
+// CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[VAR_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<2x2x3x1xf16, #map1>, memref<1x1x1x1x32x64xf16>, memref<7xi64>, memref<1x32x32x1xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x1xf16, #map>
 // CHECK:         }
 }
