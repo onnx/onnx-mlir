@@ -454,24 +454,25 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   // Only enable selective Linalg if --linalg-ops is set and not "NONE"
   // "NONE" means no operations should be converted to Linalg, so we should
   // use the Krnl path instead
-  bool useSelectiveLinalg = !linalgOps.empty() && 
-                            linalgOps.find("NONE") == std::string::npos;
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
 
   // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
   if (inputIRLevel <= ONNXLevel) {
-    
+
     // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
     // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
-    bool shouldCallONNXToMLIR = emissionTarget >= EmitONNXIR ||
-                                (emissionTarget >= EmitMLIR && (useLinalgPath || useSelectiveLinalg));
+    bool shouldCallONNXToMLIR =
+        emissionTarget >= EmitONNXIR ||
+        (emissionTarget >= EmitMLIR && (useLinalgPath || useSelectiveLinalg));
     if (shouldCallONNXToMLIR) {
       addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
     }
 
     if (useLinalgPath || useSelectiveLinalg) {
       // Linalg path: Convert ONNX to Linalg (after preprocessing)
-      // This is called either when --use-linalg-path is set, or when --linalg-ops
-      // is specified for selective conversion
+      // This is called either when --use-linalg-path is set, or when
+      // --linalg-ops is specified for selective conversion
       addONNXToLinalgPasses(pm);
     }
   }
@@ -481,8 +482,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     if (inputIRLevel <= ONNXLevel) {
       if (useLinalgPath || useSelectiveLinalg) {
         // Linalg path: Lower Linalg to Affine
-        // This is called either when --use-linalg-path is set, or when --linalg-ops
-        // is specified for selective conversion
+        // This is called either when --use-linalg-path is set, or when
+        // --linalg-ops is specified for selective conversion
         addLinalgToAffinePasses(pm);
       } else {
         // Krnl path: Convert ONNX to Krnl, then Krnl to Affine
@@ -502,8 +503,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       // Linalg path: Lower remaining operations to LLVM
       // Uses createConvertKrnlToLLVMPass() to generate runtime functions
       // since onnx.EntryPoint is already converted to krnl.EntryPoint
-      // This is called either when --use-linalg-path is set, or when --linalg-ops
-      // is specified for selective conversion
+      // This is called either when --use-linalg-path is set, or when
+      // --linalg-ops is specified for selective conversion
       addLinalgToLLVMPasses(pm, outputNameNoExt);
     } else {
       // Krnl path: Lower Krnl to LLVM

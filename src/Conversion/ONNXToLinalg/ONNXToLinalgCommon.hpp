@@ -36,26 +36,28 @@ inline bool shouldConvertToLinalg(mlir::Operation *op) {
   // If --linalg-ops is not specified, fall back to --use-linalg-path behavior
   extern std::string linalgOps;
   extern bool useLinalgPath;
-  
+
   if (linalgOps.empty()) {
     return useLinalgPath;
   }
-  
-  // Get operation name without dialect prefix (e.g., "MatMul" from "onnx.MatMul")
+
+  // Get operation name without dialect prefix (e.g., "MatMul" from
+  // "onnx.MatMul")
   std::string opName = op->getName().stripDialect().str();
-  
+
   // Use EnableByRegexOption to check if operation matches
   // Use static variable with lazy initialization to ensure linalgOps is set
   // emptyIsNone=false means empty string enables all (but we already checked)
   static std::string cachedLinalgOps;
   static std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
-  
-  // Reinitialize if linalgOps has changed (shouldn't happen in practice, but safe)
+
+  // Reinitialize if linalgOps has changed (shouldn't happen in practice, but
+  // safe)
   if (cachedLinalgOps != linalgOps) {
     cachedLinalgOps = linalgOps;
     linalgOpsMatcher = std::make_unique<EnableByRegexOption>(false, linalgOps);
   }
-  
+
   return linalgOpsMatcher->isEnabled(opName);
 }
 

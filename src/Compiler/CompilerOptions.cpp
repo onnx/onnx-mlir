@@ -103,7 +103,7 @@ bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
-bool useLinalgPath; // onnx-mlir only
+bool useLinalgPath;    // onnx-mlir only
 std::string linalgOps; // onnx-mlir only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
@@ -642,11 +642,14 @@ static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
-    llvm::cl::desc("Specify which operations should be lowered to Linalg dialect.\n"
-                   "Operations are specified as a comma-separated list or regex patterns.\n"
-                   "Example: --linalg-ops=MatMul,Conv or --linalg-ops=\"MatMul.*\"\n"
-                   "Special values: ALL (all operations), NONE (no operations).\n"
-                   "If not specified, uses the default behavior based on --use-linalg-path."),
+    llvm::cl::desc(
+        "Specify which operations should be lowered to Linalg dialect.\n"
+        "Operations are specified as a comma-separated list or regex "
+        "patterns.\n"
+        "Example: --linalg-ops=MatMul,Conv or --linalg-ops=\"MatMul.*\"\n"
+        "Special values: ALL (all operations), NONE (no operations).\n"
+        "If not specified, uses the default behavior based on "
+        "--use-linalg-path."),
     llvm::cl::location(linalgOps), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
