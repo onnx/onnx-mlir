@@ -31,7 +31,7 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    auto bnOp = llvm::cast<ONNXBatchNormalizationInferenceModeOp>(op);
+    auto bnOp = mlir::dyn_cast<ONNXBatchNormalizationInferenceModeOp>(op);
     ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands, bnOp);
     Location loc = op->getLoc();
 

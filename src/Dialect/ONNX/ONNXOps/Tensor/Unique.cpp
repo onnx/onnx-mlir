@@ -19,7 +19,7 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
-  auto uniqueOp = llvm::cast<ONNXUniqueOp>(op);
+  auto uniqueOp = mlir::dyn_cast<ONNXUniqueOp>(op);
   ONNXUniqueOpAdaptor operandAdaptor(operands, uniqueOp);
   // Get info about X and K operands.
   Value X = operandAdaptor.getX();

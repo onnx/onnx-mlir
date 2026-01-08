@@ -94,7 +94,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    auto convOp = llvm::cast<ONNXConvOp>(op);
+    auto convOp = mlir::dyn_cast<ONNXConvOp>(op);
     OpAdaptor adaptor(operands, convOp);
 
     TosaBuilder tosaBuilder(rewriter, loc);

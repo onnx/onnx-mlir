@@ -24,7 +24,7 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 template <typename OP_TYPE>
 LogicalResult ZHighReductionOpShapeHelper<OP_TYPE>::computeShape() {
-  auto reductionOp = llvm::cast<OP_TYPE>(op);
+  auto reductionOp = mlir::dyn_cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, reductionOp);
 
   // Get operand.

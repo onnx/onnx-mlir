@@ -175,7 +175,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    auto resizeOp = llvm::cast<ONNXResizeOp>(op);
+    auto resizeOp = mlir::dyn_cast<ONNXResizeOp>(op);
     OpAdaptor adaptor(operands, resizeOp);
 
     TosaBuilder tosaBuilder(rewriter, loc);

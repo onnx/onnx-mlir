@@ -24,7 +24,7 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
-  auto stickOp = llvm::cast<ZHighStickForLSTMOp>(op);
+  auto stickOp = mlir::dyn_cast<ZHighStickForLSTMOp>(op);
   ZHighStickForLSTMOp::Adaptor operandAdaptor(operands, stickOp);
   Value fGate = operandAdaptor.getFGate();
 

@@ -30,7 +30,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &unsqueezedDims) {
-  typename OP_TYPE::Adaptor operandAdaptor(operands, llvm::cast<OP_TYPE>(op));
+  typename OP_TYPE::Adaptor operandAdaptor(operands, mlir::dyn_cast<OP_TYPE>(op));
   DimsExpr outputDims;
   Value data = operandAdaptor.getData();
   if (!hasShapeAndRank(data)) {
@@ -86,7 +86,7 @@ void ONNXUnsqueezeOpShapeHelper::saveAxes() {
   // lowering, but since we normalize them during the first shape inference, we
   // should never encounter a "saveAxles" situation during lowering.
 
-  ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
+  ONNXUnsqueezeOp unsqueezeOp = mlir::dyn_cast<ONNXUnsqueezeOp>(op);
   SaveOnnxConstInOp(op, unsqueezeOp.getAxesMutable(), unsqueezedAxes);
 }
 
@@ -98,7 +98,7 @@ void ONNXUnsqueezeV11OpShapeHelper::saveAxes() {
 
 template <>
 LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape() {
-  auto unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
+  auto unsqueezeOp = mlir::dyn_cast<ONNXUnsqueezeOp>(op);
   ONNXUnsqueezeOpAdaptor operandAdaptor(operands, unsqueezeOp);
   Value axes = operandAdaptor.getAxes();
   SmallVector<IndexExpr, 4> unsqueezedDims;
@@ -108,7 +108,7 @@ LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape() {
 
 template <>
 LogicalResult ONNXUnsqueezeV11OpShapeHelper::computeShape() {
-  auto unsqueezeOp = llvm::cast<ONNXUnsqueezeV11Op>(op);
+  auto unsqueezeOp = mlir::dyn_cast<ONNXUnsqueezeV11Op>(op);
   ONNXUnsqueezeV11OpAdaptor operandAdaptor(operands, unsqueezeOp);
   auto axesAttr = operandAdaptor.getAxesAttr();
   assert(axesAttr && "expected axes attribute");

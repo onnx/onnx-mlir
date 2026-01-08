@@ -27,7 +27,7 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXEinsumOpShapeHelper::computeShape() {
-  ONNXEinsumOp einsumOp = llvm::cast<ONNXEinsumOp>(op);
+  ONNXEinsumOp einsumOp = mlir::dyn_cast<ONNXEinsumOp>(op);
   ONNXEinsumOpAdaptor operandAdaptor(operands, einsumOp);
 
   // Infer shape, if success, `*shape` holds the results as a

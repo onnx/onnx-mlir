@@ -82,7 +82,7 @@ void ZHighQuantizedStickOp::build(OpBuilder &builder, OperationState &state,
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighQuantizedStickOpShapeHelper::computeShape() {
-  auto stickOp = llvm::cast<ZHighQuantizedStickOp>(op);
+  auto stickOp = mlir::dyn_cast<ZHighQuantizedStickOp>(op);
   ZHighQuantizedStickOp::Adaptor operandAdaptor(operands, stickOp);
   Value input = operandAdaptor.getIn();
 

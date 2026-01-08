@@ -26,7 +26,7 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
-  auto dropoutOp = llvm::cast<ONNXDropoutOp>(op);
+  auto dropoutOp = mlir::dyn_cast<ONNXDropoutOp>(op);
   ONNXDropoutOpAdaptor operandAdaptor(operands, dropoutOp);
 
   // First dim is the same as data.

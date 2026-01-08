@@ -25,7 +25,7 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighReshapeOpShapeHelper::computeShape() {
-  auto reshapeOp = llvm::cast<ZHighReshapeOp>(op);
+  auto reshapeOp = mlir::dyn_cast<ZHighReshapeOp>(op);
   ZHighReshapeOpAdaptor operandAdaptor(operands, reshapeOp);
 
   // Shape has the dimensions of the output.

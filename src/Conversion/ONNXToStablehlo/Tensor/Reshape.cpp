@@ -29,7 +29,7 @@ struct ONNXReshapeOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    auto reshapeOp = llvm::cast<ONNXReshapeOp>(op);
+    auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(op);
     ONNXReshapeOpAdaptor operandAdaptor(operands, reshapeOp);
     Value data = operandAdaptor.getData();
     Type outputType = *op->result_type_begin();

@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &axes, int noopWithEmptyAxes) {
-  auto reductionOp = llvm::cast<OP_TYPE>(op);
+  auto reductionOp = mlir::dyn_cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, reductionOp);
   Value data = operandAdaptor.getData();
   if (!hasShapeAndRank(data)) {
@@ -95,7 +95,7 @@ constexpr bool isAxesInput =
 // Default generic computeShape.
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
-  auto reductionOp = llvm::cast<OP_TYPE>(op);
+  auto reductionOp = mlir::dyn_cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, reductionOp);
   DimsExpr axes;
   // Handle simple case where axes is an attribute.
@@ -138,7 +138,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
       // Interesting idea below, namely to reuse info from output, or if not
       // there, from input putting question mark in there. Not sure if
       // successful, if it is, it should be generalized to all ops.
-      OP_TYPE reduceOp = llvm::cast<OP_TYPE>(op);
+      OP_TYPE reduceOp = mlir::dyn_cast<OP_TYPE>(op);
       if (mlir::isa<RankedTensorType>(reduceOp.getResult().getType())) {
         // Have already some shapes, keep them in ShapeHelper
         DimsExpr outputDims;

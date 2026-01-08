@@ -29,7 +29,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
-  auto spaceToDepthOp = llvm::cast<ONNXSpaceToDepthOp>(op);
+  auto spaceToDepthOp = mlir::dyn_cast<ONNXSpaceToDepthOp>(op);
   ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, spaceToDepthOp);
   Value input = operandAdaptor.getInput();
   int64_t blocksize = operandAdaptor.getBlocksize();

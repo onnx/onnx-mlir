@@ -28,7 +28,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
     ArrayRef<IndexExpr> indexExprArray) {
-  OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
+  OP_TYPE splitOp = mlir::dyn_cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, splitOp);
 
   unsigned int numOfResults = splitOp.getNumResults();
@@ -104,7 +104,7 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
 // Code for SplitOp compute shape.
 template <>
 LogicalResult ONNXSplitOpShapeHelper::computeShape() {
-  ONNXSplitOpAdaptor operandAdaptor(operands, llvm::cast<ONNXSplitOp>(op));
+  ONNXSplitOpAdaptor operandAdaptor(operands, mlir::dyn_cast<ONNXSplitOp>(op));
   Value split = operandAdaptor.getSplit();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (isNoneValue(split)) {
@@ -121,7 +121,7 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
 template <>
 LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
   ONNXSplitV13OpAdaptor operandAdaptor(
-      operands, llvm::cast<ONNXSplitV13Op>(op));
+      operands, mlir::dyn_cast<ONNXSplitV13Op>(op));
   Value split = operandAdaptor.getSplit();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (isNoneValue(split)) {
@@ -138,7 +138,7 @@ LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
 template <>
 LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
   ONNXSplitV11OpAdaptor operandAdaptor(
-      operands, llvm::cast<ONNXSplitV11Op>(op));
+      operands, mlir::dyn_cast<ONNXSplitV11Op>(op));
   ArrayAttr splitAttr = operandAdaptor.getSplitAttr();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (splitAttr) {

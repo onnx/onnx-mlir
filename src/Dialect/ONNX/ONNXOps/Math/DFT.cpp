@@ -28,7 +28,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
     IndexExpr &axis) {
-  auto dftOp = llvm::cast<OP_TYPE>(op);
+  auto dftOp = mlir::dyn_cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, dftOp);
 
   // Get info about input data operand.
@@ -80,7 +80,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
 
 template <>
 LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTOp>::computeShape() {
-  auto dftOp = llvm::cast<ONNXDFTOp>(op);
+  auto dftOp = mlir::dyn_cast<ONNXDFTOp>(op);
   typename ONNXDFTOp::Adaptor operandAdaptor(operands, dftOp);
   IndexExpr axis = createIE->getIntAsSymbol(operandAdaptor.getAxis());
   return customComputeShape(axis);
