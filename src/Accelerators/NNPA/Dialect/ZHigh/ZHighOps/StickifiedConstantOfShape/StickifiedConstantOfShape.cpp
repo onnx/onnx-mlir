@@ -54,7 +54,7 @@ void ZHighStickifiedConstantOfShapeOp::build(OpBuilder &builder,
 
 LogicalResult ZHighStickifiedConstantOfShapeOpShapeHelper::computeShape() {
   auto stickOp = llvm::dyn_cast<ZHighStickifiedConstantOfShapeOp>(op);
-  ZHighStickifiedConstantOfShapeOp::Adaptor operandAdaptor(operands);
+  ZHighStickifiedConstantOfShapeOp::Adaptor operandAdaptor(operands, stickOp);
   Value shape = operandAdaptor.getShape();
   StringAttr layout = stickOp.getLayoutAttr();
 

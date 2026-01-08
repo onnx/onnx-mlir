@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   // Check that input and condition are ranked.
-  ONNXCompressOp compressOp = llvm::cast<ONNXCompressOp>(op);
+  ONNXCompressOp compressOp = mlir::dyn_cast<ONNXCompressOp>(op);
   ONNXCompressOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.getInput();
   Value cond = operandAdaptor.getCondition();

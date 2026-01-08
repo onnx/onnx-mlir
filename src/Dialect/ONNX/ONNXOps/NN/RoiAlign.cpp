@@ -26,7 +26,7 @@ namespace onnx_mlir {
 
 LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
   // Get input info.
-  ONNXRoiAlignOp roiAlignOp = llvm::cast<ONNXRoiAlignOp>(op);
+  ONNXRoiAlignOp roiAlignOp = mlir::dyn_cast<ONNXRoiAlignOp>(op);
   ONNXRoiAlignOpAdaptor operandAdaptor(operands);
 
   Value X = operandAdaptor.getX();

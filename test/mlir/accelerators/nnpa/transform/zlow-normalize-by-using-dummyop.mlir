@@ -14,7 +14,7 @@ module {
   // PASSED-SAME:   ([[PARAM_0_:%.+]]: memref<1x1x3x1x32x64xf16>, [[PARAM_1_:%.+]]: memref<1x1x3x1x32x64xf16>) -> memref<1x1x3x1x32x64xf16> {
   // PASSED-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x3x1x32x64xf16>
   // PASSED-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
-  // PASSED:           "zlow.add"([[PARAM_0_]], [[PARAM_0_]], [[RES_1_]], [[RES_]]) {layout = "3D"} : (memref<1x1x3x1x32x64xf16>, memref<1x1x3x1x32x64xf16>, memref<3xi64>, memref<1x1x3x1x32x64xf16>) -> ()
+  // PASSED:           "zlow.add"([[PARAM_0_]], [[PARAM_0_]], [[RES_1_]], [[RES_]]) <{layout = "3D"}> : (memref<1x1x3x1x32x64xf16>, memref<1x1x3x1x32x64xf16>, memref<3xi64>, memref<1x1x3x1x32x64xf16>) -> ()
   // PASSED:           return [[RES_]] : memref<1x1x3x1x32x64xf16>
   // PASSED:         }
 }

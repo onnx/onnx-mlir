@@ -34,7 +34,7 @@ struct ONNXConcatOpLoweringToStablehlo : public ConversionPattern {
 
     Location loc = op->getLoc();
     ONNXConcatOpAdaptor operandAdaptor(operands);
-    ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
+    ONNXConcatOp concatOp = mlir::dyn_cast<ONNXConcatOp>(op);
 
     assert(op->getNumResults() == 1 && "ONNXConcatOp shoule have 1 result");
     Type resultType = op->getResult(0).getType();
