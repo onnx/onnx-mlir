@@ -13,7 +13,7 @@ func.func @should_lower_to_zlow(%arg0: tensor<3x4x50xf16, #zhigh.layout<{dataLay
 // CHECK-LABEL:  func.func @should_lower_to_zlow
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4x50xf16, #map>) -> memref<30x4x5xf16, #map> {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<30x4x5xf16, #map>
-// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) {out_layout = "3DS", x_layout = "3DS"} : (memref<3x4x50xf16, #map>, memref<30x4x5xf16, #map>) -> ()
+// CHECK:           "zlow.reshape"([[PARAM_0_]], [[RES_]]) <{out_layout = "3DS", x_layout = "3DS"}> : (memref<3x4x50xf16, #map>, memref<30x4x5xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<30x4x5xf16, #map>
 // CHECK:         }
 }

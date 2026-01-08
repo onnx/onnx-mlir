@@ -26,8 +26,8 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   // Basic information.
-  ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
+  auto transposeOp = mlir::dyn_cast<ONNXTransposeOp>(op);
+  ONNXTransposeOpAdaptor operandAdaptor(operands, transposeOp);
 
   Value data = operandAdaptor.getData();
   if (!hasShapeAndRank(data))

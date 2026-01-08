@@ -925,7 +925,7 @@ struct ONNXRandomGeneratorShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXRandomGeneratorShapeHelper() = default;
   mlir::LogicalResult computeShape() final {
-    OP_TYPE randomOp = llvm::cast<OP_TYPE>(op);
+    OP_TYPE randomOp = mlir::dyn_cast<OP_TYPE>(op);
 
     DimsExpr outputDims;
     createIE->getIntFromArrayAsLiterals(randomOp.getShape(), outputDims);
@@ -970,7 +970,7 @@ protected:
    integer values provided in "vals".
 
    Example:
-     ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
+     ONNXUnsqueezeOp unsqueezeOp = mlir::dyn_cast<ONNXUnsqueezeOp>(op);
      SaveOnnxConstInOp(op, unsqueezeOp.axesMutable(), unsqueezedAxes);
 */
 void SaveOnnxConstInOp(mlir::Operation *op, mlir::MutableOperandRange operand,
@@ -994,7 +994,7 @@ void SaveOnnxAttrInOp(mlir::Operation *op,
   // Inlined so that we don't need template instantiation.
   mlir::OpBuilder builder(op->getContext());
   mlir::ArrayAttr newAttr = builder.getI64ArrayAttr(vals);
-  OP_TYPE specificOp = llvm::cast<OP_TYPE>(op);
+  OP_TYPE specificOp = mlir::dyn_cast<OP_TYPE>(op);
   setAttr(specificOp, newAttr);
 }
 

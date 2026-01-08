@@ -26,7 +26,7 @@ namespace zhigh {
 template <typename OP>
 LogicalResult ZHighPoolingOpShapeHelper<OP>::computeShape() {
   OP poolOp = llvm::dyn_cast<OP>(op);
-  typename OP::Adaptor operandAdaptor(operands);
+  typename OP::Adaptor operandAdaptor(operands, poolOp);
   // Get operands.
   // X: [B, HI, WI, CI]
   Value X = operandAdaptor.getInput();

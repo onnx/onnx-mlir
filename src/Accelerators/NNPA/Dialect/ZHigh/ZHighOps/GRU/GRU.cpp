@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighGRUOpShapeHelper::computeShape() {
   ZHighGRUOp gruOp = llvm::dyn_cast<ZHighGRUOp>(op);
-  ZHighGRUOp::Adaptor operandAdaptor(operands);
+  ZHighGRUOp::Adaptor operandAdaptor(operands, gruOp);
   // Get operands.
   // X: [S, B, I]
   Value X = operandAdaptor.getInput();

@@ -22,6 +22,6 @@ prims_convert_element_type <dtype>(tensor) => (return_val)
 }
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i64> {onnx.name = "slice_2"}) -> (tensor<f32> {onnx.name = "convert_element_type"}) {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = f32} : (tensor<i64>) -> tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = f32}> : (tensor<i64>) -> tensor<f32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<f32>
 // CHECK:         }
