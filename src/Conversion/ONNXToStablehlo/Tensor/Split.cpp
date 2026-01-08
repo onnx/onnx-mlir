@@ -31,7 +31,7 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXSplitOpAdaptor operandAdaptor(operands);
-    ONNXSplitOp splitOp = llvm::cast<ONNXSplitOp>(op);
+    ONNXSplitOp splitOp = mlir::dyn_cast<ONNXSplitOp>(op);
     Value input = splitOp.getInput();
     Value split = splitOp.getSplit();
     assert(isRankedShapedType(input.getType()) &&

@@ -260,13 +260,13 @@
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<f32> {onnx.name = "start"}, [[PARAM_1_:%.+]]: tensor<f32> {onnx.name = "limit"}, [[PARAM_2_:%.+]]: tensor<f32> {onnx.name = "delta"}) -> (tensor<2xf32> {onnx.name = "output"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sub"([[PARAM_1_]], [[PARAM_0_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_2_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) <{saturate = 1 : si64, to = f32}> : (tensor<f32>) -> tensor<f32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_2_]]) <{saturate = 1 : si64, to = f32}> : (tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Div"([[VAR_1_]], [[VAR_2_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Ceil"([[VAR_3_]]) : (tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_5_:%.+]] = "onnx.Relu"([[VAR_4_]]) : (tensor<f32>) -> tensor<f32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Cast"([[VAR_5_]]) {saturate = 1 : si64, to = i64} : (tensor<f32>) -> tensor<i64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Cast"([[VAR_5_]]) {saturate = 1 : si64, to = i1} : (tensor<f32>) -> tensor<i1>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Cast"([[VAR_5_]]) <{saturate = 1 : si64, to = i64}> : (tensor<f32>) -> tensor<i64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Cast"([[VAR_5_]]) <{saturate = 1 : si64, to = i1}> : (tensor<f32>) -> tensor<i1>
 // CHECK:           [[VAR_8_:%.+]]:2 = "onnx.Loop"([[VAR_6_]], [[VAR_7_]], [[PARAM_0_]]) ({
 // CHECK:           ^bb0([[PARAM_3_:%.+]]: tensor<i64>, [[PARAM_4_:%.+]]: tensor<i1>, [[PARAM_5_:%.+]]: tensor<*xf32>):
 // CHECK-DAG:         [[VAR_9_:%.+]] = "onnx.Identity"([[PARAM_4_]]) : (tensor<i1>) -> tensor<i1>

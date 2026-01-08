@@ -5,8 +5,8 @@ func.func @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> ten
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_min
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<10x10xf32>) -> tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<10x10xf32>) -> tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Min"([[VAR_0_]], [[VAR_1_]]) : (tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<10x10xf32>
 // CHECK:           return [[VAR_3_]] : tensor<10x10xf32>
@@ -22,8 +22,8 @@ func.func @test_min_3ds(%arg0 : tensor<10x10x10xf32>, %arg1 : tensor<10x10x10xf3
 
 // CHECK-LABEL:  func @test_min_3ds
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<10x10x10xf32>) -> tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<10x10x10xf32>) -> tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "3DS"}> : (tensor<10x10x10xf32>) -> tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "3DS"}> : (tensor<10x10x10xf32>) -> tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Min"([[VAR_0_]], [[VAR_1_]]) : (tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<10x10x10xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32>
 // CHECK:           return [[VAR_3_]] : tensor<10x10x10xf32>

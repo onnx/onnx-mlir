@@ -11,7 +11,7 @@ func.func @test_relu(%arg0: tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf32> {
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_relu
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "4D"} : (tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "4D"}> : (tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
 // CHECK:           [[VAR_1_:%.+]] = "zhigh.Relu"([[VAR_0_]]) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Unstick"([[VAR_1_]]) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf32>
 // CHECK:           return [[VAR_2_]] : tensor<1x3x5x?xf32>

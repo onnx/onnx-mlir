@@ -924,16 +924,15 @@ bool isSuitableForZDNN<ONNXGemmOp>(
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
 
-  ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
-  float alpha = gemmOp.getAlpha().convertToFloat();
-  float beta = gemmOp.getBeta().convertToFloat();
+  float alpha = op.getAlpha().convertToFloat();
+  float beta = op.getBeta().convertToFloat();
   if (alpha != 1.0 || beta != 1.0) {
     std::string message = "`alpha` (" + std::to_string(alpha) +
                           ")  and `beta` (" + std::to_string(beta) +
                           ") must be 1.";
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
-  auto bShape1 = gemmOp.getTransB() ? bShape[0] : bShape[1];
+  auto bShape1 = op.getTransB() ? bShape[0] : bShape[1];
   // If C's rank is 1: Only support B's second dim is the same with C's dim
   // (A(m, n) * B(n, p) + C(p))
   if (hasC && cShape.size() == 1) {

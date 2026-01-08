@@ -11,7 +11,7 @@ test_cast (int64[1] x) => (float[1] y) {
 
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi64> {onnx.name = "x"}) -> (tensor<1xf32> {onnx.name = "y"}) {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 0 : si64, to = f32} : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 0 : si64, to = f32}> : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<1xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

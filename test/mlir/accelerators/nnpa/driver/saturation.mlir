@@ -11,17 +11,17 @@ func.func @saturation(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // ZHIGH_ON-LABEL: func @saturation
-// ZHIGH_ON: "zhigh.Stick"({{.*}}) {layout = "2D"} : {{.*}} 
+// ZHIGH_ON: "zhigh.Stick"({{.*}}) <{layout = "2D"}> : {{.*}} 
 
 // ZHIGH_OFF-LABEL: func @saturation
-// ZHIGH_OFF: "zhigh.Stick"({{.*}}) {layout = "2D", no_saturation = -1 : si64} : {{.*}} 
+// ZHIGH_OFF: "zhigh.Stick"({{.*}}) <{layout = "2D", no_saturation = -1 : si64}> : {{.*}} 
 
 
 // ZLOW_ON-LABEL: func @saturation
-// ZLOW_ON:   "zlow.stick"({{.*}}, {{.*}}) {layout = "2D"} : {{.*}} 
+// ZLOW_ON:   "zlow.stick"({{.*}}, {{.*}}) <{layout = "2D"}> : {{.*}} 
 
 // ZLOW_OFF-LABEL: func @saturation
-// ZLOW_OFF:   "zlow.stick"({{.*}}, {{.*}}) {layout = "2D", no_saturation = -1 : si64} : {{.*}} 
+// ZLOW_OFF:   "zlow.stick"({{.*}}, {{.*}}) <{layout = "2D", no_saturation = -1 : si64}> : {{.*}} 
 
 // COMPILER_STICK_OFF-LABEL: func @saturation
 // COMPILER_STICK_OFF-NOT: arith.minnumf 
