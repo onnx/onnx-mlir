@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
   ZHighMatMulOp matmulOp = llvm::dyn_cast<ZHighMatMulOp>(op);
-  ZHighMatMulOp::Adaptor operandAdaptor(operands);
+  ZHighMatMulOp::Adaptor operandAdaptor(operands, matmulOp);
   // Output dims of result.
   DimsExpr outputDims;
 

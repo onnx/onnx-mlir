@@ -27,7 +27,7 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXConcatOpShapeHelper::computeShape() {
-  ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
+  ONNXConcatOp concatOp = mlir::dyn_cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
 
   // Has an empty input. Compute shape later once the empty input is removed by

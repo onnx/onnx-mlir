@@ -26,15 +26,15 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
-  ONNXDropoutOp dropout = llvm::cast<ONNXDropoutOp>(op);
-  ONNXDropoutOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto dropoutOp = mlir::dyn_cast<ONNXDropoutOp>(op);
+  ONNXDropoutOpAdaptor operandAdaptor(operands, dropoutOp);
 
   // First dim is the same as data.
   DimsExpr outputDims;
   createIE->getShapeAsDims(operandAdaptor.getData(), outputDims);
   setOutputDims(outputDims, 0);
   // Optional Mask has also the same size as data. If none, size is empty.
-  if (isNoneValue(dropout.getMask()))
+  if (isNoneValue(dropoutOp.getMask()))
     outputDims.clear();
   setOutputDims(outputDims, 1);
   return success();

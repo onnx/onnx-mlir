@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighConv2DOpShapeHelper::computeShape() {
   ZHighConv2DOp convOp = llvm::dyn_cast<ZHighConv2DOp>(op);
-  ZHighConv2DOp::Adaptor operandAdaptor(operands);
+  ZHighConv2DOp::Adaptor operandAdaptor(operands, convOp);
   // Get operands.
   // X: [B, HI, WI, CI]
   Value X = operandAdaptor.getInput();

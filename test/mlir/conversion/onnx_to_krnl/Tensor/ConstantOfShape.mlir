@@ -72,7 +72,7 @@ func.func private @test_constant_of_shape_static_dims() -> tensor<*xf32> {
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape_static_dims
-  // CHECK: [[GLOBAL_CST:%.+]] = "krnl.global"() {name = {{.*}}, shape = [3], value = dense<[3, 4, 5]> : tensor<3xi64>} : () -> memref<3xi64>
+  // CHECK: [[GLOBAL_CST:%.+]] = "krnl.global"() <{name = {{.*}}, shape = [3], value = dense<[3, 4, 5]> : tensor<3xi64>}> : () -> memref<3xi64>
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
   // CHECK: [[CST_VALUE:%.+]] = arith.constant 1.000000e+00 : f32
   // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3

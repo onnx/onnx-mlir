@@ -1700,13 +1700,13 @@ func.func @test_add_with_scalar(%arg0: tensor<256x32x1xf32>, %arg1: tensor<f32>)
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) {layout = "3DS"} : (memref<256x32x1xf32>, memref<256x32x1xf16, #map>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_]]) <{layout = "3DS"}> : (memref<256x32x1xf32>, memref<256x32x1xf16, #map>) -> ()
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK:           krnl.store [[CST_256_]], [[RES_2_]]{{.}}[[CST_0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[CST_32_]], [[RES_2_]]{{.}}[[CST_1_1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[CST_1_]], [[RES_2_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.add"([[RES_]], [[RES_]], [[RES_]]_2, [[RES_]]_1) {layout = "3DS"} : (memref<256x32x1xf16, #map>, memref<256x32x1xf16, #map>, memref<3xi64>, memref<256x32x1xf16, #map>) -> ()
+// CHECK:           "zlow.add"([[RES_]], [[RES_]], [[RES_]]_2, [[RES_]]_1) <{layout = "3DS"}> : (memref<256x32x1xf16, #map>, memref<256x32x1xf16, #map>, memref<3xi64>, memref<256x32x1xf16, #map>) -> ()
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf16, #map>
 // CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[RES_3_]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<256x32x1xf16, #map> to memref<2x64xf16>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
@@ -1747,9 +1747,9 @@ func.func @test_add_with_scalar(%arg0: tensor<256x32x1xf32>, %arg1: tensor<f32>)
 // CHECK:           krnl.store [[CST_256_]], [[RES_5_]]{{.}}[[CST_0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[CST_32_]], [[RES_5_]]{{.}}[[CST_1_1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[CST_1_]], [[RES_5_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.add"([[RES_3_]], [[RES_]], [[RES_]]_5, [[RES_]]_4) {layout = "3DS"} : (memref<256x32x1xf16, #map>, memref<256x32x1xf16, #map>, memref<3xi64>, memref<256x32x1xf16, #map>) -> ()
+// CHECK:           "zlow.add"([[RES_3_]], [[RES_]], [[RES_]]_5, [[RES_]]_4) <{layout = "3DS"}> : (memref<256x32x1xf16, #map>, memref<256x32x1xf16, #map>, memref<3xi64>, memref<256x32x1xf16, #map>) -> ()
 // CHECK:           [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<256x32x1xf32>
-// CHECK:           "zlow.unstick"([[RES_4_]], [[RES_6_]]) {layout = "3DS"} : (memref<256x32x1xf16, #map>, memref<256x32x1xf32>) -> ()
+// CHECK:           "zlow.unstick"([[RES_4_]], [[RES_6_]]) <{layout = "3DS"}> : (memref<256x32x1xf16, #map>, memref<256x32x1xf32>) -> ()
 // CHECK:           return [[RES_6_]] : memref<256x32x1xf32>
 // CHECK:         }
 }

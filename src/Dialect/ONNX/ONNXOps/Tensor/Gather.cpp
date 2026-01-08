@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXGatherOpShapeHelper::computeShape() {
   // Read data and indices shapes as dim indices.
   ONNXGatherOpAdaptor operandAdaptor(operands);
-  ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
+  ONNXGatherOp gatherOp = mlir::dyn_cast<ONNXGatherOp>(op);
   DimsExpr dataDims, indicesDims;
   createIE->getShapeAsDims(operandAdaptor.getData(), dataDims);
   createIE->getShapeAsDims(operandAdaptor.getIndices(), indicesDims);

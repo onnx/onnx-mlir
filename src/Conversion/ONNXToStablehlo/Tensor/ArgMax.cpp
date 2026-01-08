@@ -66,7 +66,7 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     // Gather info.
     Location loc = op->getLoc();
     ONNXArgMaxOpAdaptor operandAdaptor(operands);
-    ONNXArgMaxOp argMaxOp = llvm::cast<ONNXArgMaxOp>(op);
+    ONNXArgMaxOp argMaxOp = mlir::dyn_cast<ONNXArgMaxOp>(op);
 
     // Shape helper (not really used).
     IndexExprBuilderForStablehlo createIE(rewriter, loc);

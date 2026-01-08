@@ -23,7 +23,7 @@ func.func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %ar
 // CHECK-DAG:       [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_3_]] : memref<?x?x?x?xf32>
 // CHECK:           [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_1_]]{{.}}
 // CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_0_]], [[VAR_1_]]) {{.*}}: memref<?x5x?x?xf32>
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "NOTSET", funcName = "Conv", group = 1 : si64, numOfOutput = 1 : si64} : (memref<?x5x?x?xf32>, memref<?x?x?x?xf32>, memref<5x2x6x7xf32>, memref<5xf32>) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) <{funcName = "Conv", numOfOutput = 1 : si64}> {auto_pad = "NOTSET", group = 1 : si64} : (memref<?x5x?x?xf32>, memref<?x?x?x?xf32>, memref<5x2x6x7xf32>, memref<5xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<?x5x?x?xf32>
 // CHECK:         }
 }

@@ -92,8 +92,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    ONNXUniqueOp uniqueOp = llvm::cast<ONNXUniqueOp>(op);
+    ONNXUniqueOp uniqueOp = mlir::dyn_cast<ONNXUniqueOp>(op);
+    ONNXUniqueOpAdaptor operandAdaptor(operands, uniqueOp);
     Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>

@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighLSTMOpShapeHelper::computeShape() {
   ZHighLSTMOp lstmOp = llvm::dyn_cast<ZHighLSTMOp>(op);
-  ZHighLSTMOp::Adaptor operandAdaptor(operands);
+  ZHighLSTMOp::Adaptor operandAdaptor(operands, lstmOp);
   // Get operands.
   // X: [S, B, I]
   Value X = operandAdaptor.getInput();

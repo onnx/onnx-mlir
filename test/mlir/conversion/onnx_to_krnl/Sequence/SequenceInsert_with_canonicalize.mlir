@@ -21,7 +21,7 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "{{.+}}, shape = [], value = dense<0> : tensor<i64>} : () -> memref<i64>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "{{.+}}, shape = [], value = dense<0> : tensor<i64>}> : () -> memref<i64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.seqalloc"([[VAR_c1_]]) : (index) -> memref<1xmemref<?x4x5xf32>>
 // CHECK-DAG:       [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
@@ -47,7 +47,7 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
 // CHECK-DAG:       [[VAR_9_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[VAR_c0_]] : index
 // CHECK-DAG:       [[VAR_10_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_8_]]{{.}}
 // CHECK:           [[VAR_11_:%.+]] = arith.select [[VAR_9_]], [[VAR_10_]], [[VAR_8_]] : index
-// CHECK-DAG:       [[VAR_12_:%.+]] = "krnl.seqextract"([[VAR_4_]], [[VAR_11_]]) {copy = 1 : ui1} : (memref<2xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "krnl.seqextract"([[VAR_4_]], [[VAR_11_]]) <{copy = 1 : ui1}> : (memref<2xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK:           [[VAR_dim_:%.+]] = memref.dim [[VAR_12_]], [[VAR_c0_]] : memref<?x4x5xf32>
 // CHECK:           [[VAR_13_:%.+]] = arith.index_cast [[VAR_dim_]] : index to i64
