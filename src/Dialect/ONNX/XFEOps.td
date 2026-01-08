@@ -173,8 +173,6 @@ def XFEFusedEltwiseOp:ONNX_Op<"XFEFusedEltwise",
     OptionalAttr<SI64Attr>:$prelu_in,
     OptionalAttr<SI64Attr>:$prelu_shift,
     OptionalAttr<AnyAttr>:$prelu_slope,
-    F32ArrayAttr:$qscales,
-    I64ArrayAttr:$qzeropoints,
     StrAttr:$type);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
