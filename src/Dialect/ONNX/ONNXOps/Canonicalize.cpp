@@ -1058,7 +1058,8 @@ private:
     Type elType = onnx_mlir::getElementType(input.getType());
     Type unrankedType = UnrankedTensorType::get({elType}); // placeholder
     Value transposed = create.transpose(unrankedType, input, perm);
-    auto transposeOp = mlir::dyn_cast<ONNXTransposeOp>(transposed.getDefiningOp());
+    auto transposeOp =
+        mlir::dyn_cast<ONNXTransposeOp>(transposed.getDefiningOp());
     inferShapes(transposeOp); // sets transposed's shape
     return transposed;
   }

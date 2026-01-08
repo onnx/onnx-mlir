@@ -30,7 +30,8 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &unsqueezedDims) {
-  typename OP_TYPE::Adaptor operandAdaptor(operands, mlir::dyn_cast<OP_TYPE>(op));
+  typename OP_TYPE::Adaptor operandAdaptor(
+      operands, mlir::dyn_cast<OP_TYPE>(op));
   DimsExpr outputDims;
   Value data = operandAdaptor.getData();
   if (!hasShapeAndRank(data)) {
