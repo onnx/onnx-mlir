@@ -8,7 +8,7 @@ func.func @test_instrument_add_onnx(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10
 // -----
 
 // CHECK-LABEL:  func.func @test_instrument_add_onnx
-// CHECK:           "krnl.runtime_instrument"() {nodeName = "model/add1", opName = "onnx.Add", tag = 21 : i64} : () -> ()
+// CHECK:           "krnl.runtime_instrument"() <{nodeName = "model/add1", opName = "onnx.Add", tag = 21 : i64}> : () -> ()
 // CHECK:           [[RES_:%.+]] = memref.alloc()
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 10 {
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to 10 {
@@ -18,7 +18,7 @@ func.func @test_instrument_add_onnx(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10
 // CHECK:               affine.store [[VAR_3_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<10x10xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           "krnl.runtime_instrument"() {nodeName = "model/add1", opName = "onnx.Add", tag = 6 : i64} : () -> ()
+// CHECK:           "krnl.runtime_instrument"() <{nodeName = "model/add1", opName = "onnx.Add", tag = 6 : i64}> : () -> ()
 // CHECK:           return
 // CHECK:         }
 

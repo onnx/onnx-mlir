@@ -21,7 +21,7 @@ func.func @quantized_weight_int8() -> tensor<7x65xi8, #zhigh.layout<{dataLayout 
 }
 // CHECK-LABEL:  func.func @quantized_weight_int8
 // CHECK-SAME:   () -> tensor<7x65xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>> {
-// CHECK:           [[VAR_0_:%.+]] = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>} : () -> tensor<7x65xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>>
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>}> : () -> tensor<7x65xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>>
 // CHECK:           return [[VAR_0_]] : tensor<7x65xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>>
 // CHECK:         }
 // CHECK:         dialect_resources: {

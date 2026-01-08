@@ -31,7 +31,7 @@ struct ONNXUnsqueezeOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXUnsqueezeOpAdaptor operandAdaptor(operands);
-    ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
+    ONNXUnsqueezeOp unsqueezeOp = mlir::dyn_cast<ONNXUnsqueezeOp>(op);
     Location loc = op->getLoc();
     Value data = unsqueezeOp.getData();
     Value axes = unsqueezeOp.getAxes();
