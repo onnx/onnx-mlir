@@ -39,7 +39,8 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &squeezedDims, bool axesFromShape) {
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto squeezeOp = mlir::dyn_cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands, squeezeOp);
   DimsExpr outputDims;
   Value data = operandAdaptor.getData();
   if (!hasShapeAndRank(data)) {
@@ -111,7 +112,7 @@ void ONNXSqueezeOpShapeHelper::saveAxes() {
   // lowering, but since we normalize them during the first shape inference, we
   // should never encounter a "saveAxles" situation during lowering.
 
-  ONNXSqueezeOp squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
+  ONNXSqueezeOp squeezeOp = mlir::dyn_cast<ONNXSqueezeOp>(op);
   SaveOnnxConstInOp(op, squeezeOp.getAxesMutable(), squeezedAxes);
 }
 
@@ -123,7 +124,8 @@ void ONNXSqueezeV11OpShapeHelper::saveAxes() {
 
 template <>
 LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
-  ONNXSqueezeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto squeezeOp = mlir::dyn_cast<ONNXSqueezeOp>(op);
+  ONNXSqueezeOpAdaptor operandAdaptor(operands, squeezeOp);
   Value axes = operandAdaptor.getAxes();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;
@@ -136,7 +138,8 @@ LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
 
 template <>
 LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
-  ONNXSqueezeV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto squeezeOp = mlir::dyn_cast<ONNXSqueezeV11Op>(op);
+  ONNXSqueezeV11OpAdaptor operandAdaptor(operands, squeezeOp);
   auto axesAttr = operandAdaptor.getAxesAttr();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;

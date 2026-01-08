@@ -48,7 +48,7 @@ func.func @test_zhigh_quantized_stick_dlfloat16_symmetric(%arg0: tensor<1x3x5xf3
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[CST_0_dot_000000_]], [[RES_4_]][] : memref<f32>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5xf16, #map>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_5_]]) {layout = "3DS"} : (memref<1x3x5xf32>, memref<1x3x5xf16, #map>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_5_]]) <{layout = "3DS"}> : (memref<1x3x5xf32>, memref<1x3x5xf16, #map>) -> ()
 // CHECK:           return [[RES_5_]] : memref<1x3x5xf16, #map>
 // CHECK:         }
 }

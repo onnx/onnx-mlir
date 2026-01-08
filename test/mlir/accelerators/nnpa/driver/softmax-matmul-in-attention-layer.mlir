@@ -13,6 +13,6 @@ func.func @softmax_matmul(%arg0: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
 // CHECK:        "zlow.stick"
 // CHECK:        [[ALLOC:%.+]] = memref.alloc({{.*}}, {{.*}}, {{.*}}) {alignment = 4096 : i64} : memref<?x?x1x?x32x64xf16>
 // CHECK:        [[SOFTMAX_OUT:%.+]] = memref.cast [[ALLOC]] : memref<?x?x1x?x32x64xf16> to memref<?x?x1x?x?x?xf16>
-// CHECK:        "zlow.softmax"({{.*}}, {{.*}}, {{.*}}, [[SOFTMAX_OUT]]) {act_func = "ACT_NONE"} {{.*}}
+// CHECK:        "zlow.softmax"({{.*}}, {{.*}}, {{.*}}, [[SOFTMAX_OUT]]) <{act_func = "ACT_NONE"}> {{.*}}
 // CHECK:        "zlow.matmul"({{.*}}, [[SOFTMAX_OUT]], {{.*}}, {{.*}}, {{.*}}) {{.*}} 
 }

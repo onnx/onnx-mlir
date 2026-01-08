@@ -18,7 +18,7 @@ func.func @should_fold() -> memref<3xi64> {
   return %0: memref<3xi64>
 
   // CHECK-LABEL: should_fold
-  // CHECK: "krnl.global"() {name = "constant_fold_std_alloc_0", shape = [3], value = dense<[7, 8, 9]> : tensor<3xi64>} : () -> memref<3xi64>
+  // CHECK: "krnl.global"() <{name = "constant_fold_std_alloc_0", shape = [3], value = dense<[7, 8, 9]> : tensor<3xi64>}> : () -> memref<3xi64>
   // CHECK-NOT: memref.alloc
   // CHECK-NOT: krnl.store 
 }
