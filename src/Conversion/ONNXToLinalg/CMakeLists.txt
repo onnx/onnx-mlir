@@ -3,6 +3,7 @@
 add_onnx_mlir_library(OMONNXToLinalg
   ConvertONNXToLinalg.cpp
   Math/MatMul.cpp
+  ONNXBufferizableOpInterface.cpp
 
   LINK_LIBS PUBLIC
   MLIRLinalgDialect
@@ -10,6 +11,8 @@ add_onnx_mlir_library(OMONNXToLinalg
   MLIRArithDialect
   MLIRFuncDialect
   MLIRTransforms
+  MLIRBufferizationDialect
+  MLIRBufferizationTransforms
   OMONNXOps
   OMShapeInferenceOpInterface
   )

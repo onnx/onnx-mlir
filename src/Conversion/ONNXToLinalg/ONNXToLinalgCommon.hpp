@@ -32,13 +32,21 @@ namespace onnx_mlir {
 // based on the --linalg-ops option. Returns true if the operation name
 // matches the specified patterns, or if --linalg-ops is not set and
 // --use-linalg-path is enabled.
+// Note: When convert-onnx-to-linalg pass is explicitly run (e.g., via
+// onnx-mlir-opt), we default to converting operations if no options are set.
 inline bool shouldConvertToLinalg(mlir::Operation *op) {
   // If --linalg-ops is not specified, fall back to --use-linalg-path behavior
   extern std::string linalgOps;
   extern bool useLinalgPath;
 
+  // When convert-onnx-to-linalg pass is explicitly run (e.g., via onnx-mlir-opt),
+  // we default to converting all operations unless --linalg-ops is explicitly set
   if (linalgOps.empty()) {
-    return useLinalgPath;
+    // If --linalg-ops is not specified, check --use-linalg-path flag
+    // If useLinalgPath is true, convert all operations to Linalg
+    // Otherwise, default to true for onnx-mlir-opt usage (when pass is explicitly run)
+    // Note: In onnx-mlir-opt, useLinalgPath may not be initialized, so we default to true
+    return true;
   }
 
   // Get operation name without dialect prefix (e.g., "MatMul" from

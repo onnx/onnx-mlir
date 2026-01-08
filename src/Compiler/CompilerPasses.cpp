@@ -284,6 +284,9 @@ void addONNXToLinalgPasses(mlir::PassManager &pm) {
   // This must be a module-level pass to handle function boundaries
   bufferization::OneShotBufferizePassOptions bufferizeOptions;
   bufferizeOptions.bufferizeFunctionBoundaries = true;
+  // Allow operations without BufferizableOpInterface (e.g., ONNX ops that will
+  // be handled by Krnl later)
+  bufferizeOptions.allowUnknownOps = true;
   pm.addPass(bufferization::createOneShotBufferizePass(bufferizeOptions));
 
   // An additional pass of canonicalization is helpful after conversion
