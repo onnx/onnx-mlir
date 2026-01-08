@@ -21,4 +21,3 @@ namespace onnx_mlir {
 void registerONNXBufferizableOpInterfaces(mlir::DialectRegistry &registry);
 
 } // namespace onnx_mlir
-

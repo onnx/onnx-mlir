@@ -33,26 +33,26 @@ struct ONNXOpBufferizableInterface
           ONNXOpBufferizableInterface<OpTy>, OpTy> {
 
   // This operation reads from memory through its operands
-  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
-                              const AnalysisState &state) const {
+  bool bufferizesToMemoryRead(
+      Operation *op, OpOperand &opOperand, const AnalysisState &state) const {
     return true; // ONNX operations typically read their inputs
   }
 
   // This operation writes to memory through its results
-  bool bufferizesToMemoryWrite(Operation *op, OpResult opResult,
-                               const AnalysisState &state) const {
+  bool bufferizesToMemoryWrite(
+      Operation *op, OpResult opResult, const AnalysisState &state) const {
     return true; // Results need to be written to memory
   }
 
   // This operation writes to memory through its operands (for in-place ops)
-  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
-                               const AnalysisState &state) const {
+  bool bufferizesToMemoryWrite(
+      Operation *op, OpOperand &opOperand, const AnalysisState &state) const {
     return false; // ONNX ops don't write in-place through operands
   }
 
   // Conservative policy: no memory aliasing (outputs are newly allocated)
-  AliasingValueList getAliasingValues(Operation *op, OpOperand &opOperand,
-                                      const AnalysisState &state) const {
+  AliasingValueList getAliasingValues(
+      Operation *op, OpOperand &opOperand, const AnalysisState &state) const {
     return {}; // No aliasing - outputs are newly allocated
   }
 
@@ -62,8 +62,7 @@ struct ONNXOpBufferizableInterface
   // This allows One-Shot Bufferize to skip these operations and handle
   // type conversions automatically via bufferization.to_tensor casts.
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options,
-                          BufferizationState &state) const {
+      const BufferizationOptions &options, BufferizationState &state) const {
     // Return failure to indicate this operation should be treated as unknown
     // and handled by allowUnknownOps=true option
     return failure();
@@ -91,4 +90,3 @@ void onnx_mlir::registerONNXBufferizableOpInterfaces(
         ONNXOpBufferizableInterface<mlir::ONNXAddOp>>(*ctx);
   });
 }
-
