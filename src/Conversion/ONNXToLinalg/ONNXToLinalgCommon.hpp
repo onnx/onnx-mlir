@@ -39,13 +39,15 @@ inline bool shouldConvertToLinalg(mlir::Operation *op) {
   extern std::string linalgOps;
   extern bool useLinalgPath;
 
-  // When convert-onnx-to-linalg pass is explicitly run (e.g., via onnx-mlir-opt),
-  // we default to converting all operations unless --linalg-ops is explicitly set
+  // When convert-onnx-to-linalg pass is explicitly run (e.g., via
+  // onnx-mlir-opt), we default to converting all operations unless --linalg-ops
+  // is explicitly set
   if (linalgOps.empty()) {
     // If --linalg-ops is not specified, check --use-linalg-path flag
     // If useLinalgPath is true, convert all operations to Linalg
-    // Otherwise, default to true for onnx-mlir-opt usage (when pass is explicitly run)
-    // Note: In onnx-mlir-opt, useLinalgPath may not be initialized, so we default to true
+    // Otherwise, default to true for onnx-mlir-opt usage (when pass is
+    // explicitly run) Note: In onnx-mlir-opt, useLinalgPath may not be
+    // initialized, so we default to true
     return true;
   }
 
