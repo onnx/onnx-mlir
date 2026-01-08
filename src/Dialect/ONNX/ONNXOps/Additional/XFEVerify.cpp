@@ -150,4 +150,10 @@ LogicalResult XFESpaceToDepthOpVerify(Operation *op) {
   return success();
 }
 
+LogicalResult XFEResizeOpVerify(Operation *op) {
+  // Verification for ResizeChannelLast
+  // For now, delegate to basic verification - can add custom checks later
+  return success();
+}
+
 } // namespace mlir

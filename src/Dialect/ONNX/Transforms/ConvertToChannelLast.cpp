@@ -25,12 +25,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -564,6 +566,101 @@ struct SpaceToDepthToChannelLastPattern
   }
 };
 
+// Pattern to convert Resize to XFEResize
+struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp resizeOp, PatternRewriter &rewriter) const override {
+    Location loc = resizeOp.getLoc();
+    Value input = resizeOp.getX();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
+    // Resize requires at least 3D tensors for channel-last conversion
+    if (!inputType || inputType.getRank() < 3)
+      return failure();
+
+    int64_t rank = inputType.getRank();
+
+    // Transpose input to channel-last
+    Value inputChannelLast = createInputTranspose(
+        rewriter, loc, input, rank, inputType.getElementType());
+
+    // Get the original output element type (may be quantized)
+    auto origOutputType = mlir::dyn_cast<ShapedType>(resizeOp.getType());
+    Type outputElemType = origOutputType ? origOutputType.getElementType()
+                                         : inputType.getElementType();
+
+    // Handle scales and sizes - need to permute them for channel-last layout
+    // Permutation: [0, 2, 3, ..., N-1, 1] for NCHW -> NHWC
+    Value roi = resizeOp.getRoi();
+    Value scales = resizeOp.getScales();
+    Value sizes = resizeOp.getSizes();
+
+    // Helper to permute a 1D tensor from NCHW order to NHWC order
+    auto permuteForChannelLast = [&](Value tensor) -> Value {
+      if (isa<NoneType>(tensor.getType()))
+        return tensor;
+
+      auto tensorType = mlir::dyn_cast<RankedTensorType>(tensor.getType());
+      if (!tensorType || !tensorType.hasStaticShape())
+        return tensor;
+
+      int64_t numElements = tensorType.getNumElements();
+      if (numElements != rank)
+        return tensor; // Can't permute if size doesn't match rank
+
+      // Create permutation for channel-last: [0, 2, 3, ..., N-1, 1]
+      SmallVector<int64_t, 4> perm;
+      perm.push_back(0); // batch
+      for (int64_t i = 2; i < rank; ++i)
+        perm.push_back(i); // spatial dimensions
+      perm.push_back(1);   // channels
+
+      // Create gather indices
+      SmallVector<int64_t, 4> indices(perm.begin(), perm.end());
+      auto indicesType = RankedTensorType::get({rank}, rewriter.getI64Type());
+      auto indicesAttr = DenseIntElementsAttr::get(indicesType, indices);
+      Value indicesValue =
+          rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(), indicesAttr);
+
+      // Gather to permute - use si64 for axis attribute
+      auto outputType = tensorType;
+      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+      return rewriter.create<ONNXGatherOp>(loc, outputType, tensor, indicesValue,
+          rewriter.getIntegerAttr(si64Type, 0));
+    };
+
+    Value roiChannelLast = permuteForChannelLast(roi);
+    Value scalesChannelLast = permuteForChannelLast(scales);
+    Value sizesChannelLast = permuteForChannelLast(sizes);
+
+    // Create XFEResize operation
+    auto resizeChannelLastOp = rewriter.create<XFEResizeOp>(loc,
+        UnrankedTensorType::get(outputElemType), inputChannelLast,
+        roiChannelLast, scalesChannelLast, sizesChannelLast,
+        resizeOp.getAntialiasAttr(), resizeOp.getAxesAttr(),
+        resizeOp.getCoordinateTransformationModeAttr(),
+        resizeOp.getCubicCoeffAAttr(), resizeOp.getExcludeOutsideAttr(),
+        resizeOp.getExtrapolationValueAttr(),
+        resizeOp.getKeepAspectRatioPolicyAttr(), resizeOp.getModeAttr(),
+        resizeOp.getNearestModeAttr());
+
+    // Infer shapes to get ranked type
+    if (failed(resizeChannelLastOp.inferShapes([](Region &) {}))) {
+      return rewriter.notifyMatchFailure(
+          resizeOp, "failed to infer shapes for XFEResize");
+    }
+
+    // Transpose output back to NCHW
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        resizeChannelLastOp.getResult(), resizeOp.getType(), rank);
+
+    rewriter.replaceOp(resizeOp, outputNCHW);
+    return success();
+  }
+};
+
 struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
                                       OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertToChannelLastPass)
@@ -572,6 +669,11 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
 
   StringRef getDescription() const override {
     return "Convert ONNX operations to ChannelLast variants with transposes";
+  }
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<ONNXDialect>();
+    registry.insert<func::FuncDialect>();
   }
 
   void runOnOperation() override {
@@ -588,6 +690,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<InstanceNormToChannelLastPattern>(context);
     patterns.add<DepthToSpaceToChannelLastPattern>(context);
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
+    patterns.add<ResizeToChannelLastPattern>(context);
 
     if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
       signalPassFailure();

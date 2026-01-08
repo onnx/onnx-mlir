@@ -54,4 +54,8 @@ LogicalResult XFEDepthToSpaceOpShapeInference(
 LogicalResult XFESpaceToDepthOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
+// Shape inference for ResizeChannelLast
+LogicalResult XFEResizeOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
 } // namespace mlir
