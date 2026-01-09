@@ -36,8 +36,8 @@ public:
   using OpAdaptor = typename ONNXMaxPoolSingleOutOp::Adaptor;
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto maxpoolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
-    OpAdaptor adaptor(operands, op->getAttrDictionary());
+    auto maxpoolOp = mlir::dyn_cast<ONNXMaxPoolSingleOutOp>(op);
+    OpAdaptor adaptor(operands, maxpoolOp);
 
     Value input = adaptor.getX();
     // The attributes storage_order and dilations are unsupported

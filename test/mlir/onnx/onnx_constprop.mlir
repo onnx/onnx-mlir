@@ -1703,7 +1703,7 @@ func.func @test_split_axis_2(%arg0 : tensor<2x10xf32>) -> (tensor<2x5xf32>, tens
   %1, %2 = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<2x10xf32>, tensor<2xi64>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
   "onnx.Return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
 
-  // CHECK: {{.*}} = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<2x10xf32>, tensor<2xi64>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
+  // CHECK: {{.*}} = "onnx.Split"(%arg0, %0) <{axis = 1 : si64}> : (tensor<2x10xf32>, tensor<2xi64>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
 }
 
 // -----
@@ -1719,9 +1719,9 @@ func.func @test_mul_folding(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL:  func @test_mul_folding
   // CHECK-SAME:   ([[X:%.+]]: tensor<1x1x28x28xf32>) -> tensor<1x8x27x27xf32> {
-  // CHECK-DAG: [[NOBIAS:%.+]] = "onnx.NoValue"() {value} : () -> none    
+  // CHECK-DAG: [[NOBIAS:%.+]] = "onnx.NoValue"() <{value}> : () -> none    
   // CHECK-DAG: [[W:%.+]] = onnx.Constant dense<{{.*}}[-0.00378267956, -0.00368360057], [-0.00394573715, -0.00383781269]{{.*}}, {{.*}}[0.0178247672, -0.0211799927], [-7.134370e-02, 0.00868515763]{{.*}}, {{.*}}[-3.9825665E-10, 0.00232082023], [0.00341839972, 0.01514313]{{.*}}, {{.*}}[3.34836572E-4, -0.00221243338], [-9.64127597E-4, -3.94316746E-10]{{.*}}, {{.*}}[-0.00122044468, 0.00965741463], [-0.00100710022, -0.00124419201]{{.*}}, {{.*}}[-0.00233115326, 0.00203743274], [-0.003079077, 0.0361107253]{{.*}}, {{.*}}[-4.32482251E-4, 0.00191138953], [0.00277041947, -4.13662056E-4]{{.*}}, {{.*}}[2.441080e-03, -0.00233326037], [-0.0275826417, 0.0237795357]{{.*}}> : tensor<8x1x2x2xf32>
-  // CHECK: [[RES:%.+]] = "onnx.Conv"([[X]], [[W]], [[NOBIAS]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [2, 2], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x2x2xf32>, none) -> tensor<1x8x27x27xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Conv"([[X]], [[W]], [[NOBIAS]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [2, 2], strides = [1, 1]}> : (tensor<1x1x28x28xf32>, tensor<8x1x2x2xf32>, none) -> tensor<1x8x27x27xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x8x27x27xf32>
 }
 
@@ -2010,8 +2010,8 @@ func.func @test_pad_edge() -> tensor<*xf16> {
 // CHECK-SAME:   () -> tensor<3x2xf16> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3.140630e+00> : tensor<3x2xf16>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<4xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Pad"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_2_]]) {mode = "edge"} : (tensor<3x2xf16>, tensor<4xi64>, none, none) -> tensor<3x2xf16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Pad"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_2_]]) <{mode = "edge"}> : (tensor<3x2xf16>, tensor<4xi64>, none, none) -> tensor<3x2xf16>
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<3x2xf16>
 // CHECK:         }
 }
@@ -2426,7 +2426,7 @@ func.func @test_if_true(%arg0 : tensor<*xf16>, %arg1 : tensor<1xi64>, %arg2 : te
 // CHECK-LABEL:  func.func @test_if_true
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>, [[PARAM_1_:%.+]]: tensor<1xi64>, [[PARAM_2_:%.+]]: tensor<*xf16>) -> tensor<?xi64> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Squeeze"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<*xf16>, tensor<1xi64>) -> tensor<?x?x?xf16>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) {start = 0 : si64} : (tensor<?x?x?xf16>) -> tensor<?xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) <{start = 0 : si64}> : (tensor<?x?x?xf16>) -> tensor<?xi64>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?xi64>
 // CHECK:         }
 
@@ -2448,7 +2448,7 @@ func.func @test_if_false(%arg0 : tensor<*xf16>, %arg1 : tensor<1xi64>, %arg2 : t
 // CHECK-LABEL:  func.func @test_if_false
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>, [[PARAM_1_:%.+]]: tensor<1xi64>, [[PARAM_2_:%.+]]: tensor<*xf16>) -> tensor<?xi64> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Identity"([[PARAM_2_]]) : (tensor<*xf16>) -> tensor<?x?x?x?xf16>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) {start = 0 : si64} : (tensor<?x?x?x?xf16>) -> tensor<?xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) <{start = 0 : si64}> : (tensor<?x?x?x?xf16>) -> tensor<?xi64>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?xi64>
 // CHECK:         }
 

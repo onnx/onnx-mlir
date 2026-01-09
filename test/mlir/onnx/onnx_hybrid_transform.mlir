@@ -140,13 +140,13 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_35_:%.+]] = "onnx.Neg"([[VAR_5_]]) : (tensor<64xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_36_:%.+]] = "onnx.Mul"([[VAR_32_]], [[VAR_35_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_37_:%.+]] = "onnx.Add"([[VAR_36_]], [[VAR_4_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-// CHECK-DAG:       [[VAR_38_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_34_]], [[VAR_37_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+// CHECK-DAG:       [[VAR_38_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_34_]], [[VAR_37_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]}> : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
 // CHECK-DAG:       [[VAR_39_:%.+]] = "onnx.Unsqueeze"([[VAR_7_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_40_:%.+]] = "onnx.Mul"([[VAR_38_]], [[VAR_39_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
 // CHECK-DAG:       [[VAR_41_:%.+]] = "onnx.Unsqueeze"([[VAR_8_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK:           [[VAR_42_:%.+]] = "onnx.Add"([[VAR_40_]], [[VAR_41_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
-// CHECK:           [[VAR_43_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_42_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
+// CHECK:           [[VAR_43_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_42_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
 // CHECK-DAG:       [[VAR_44_:%.+]] = "onnx.Relu"([[VAR_43_]]) : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf32>
 // CHECK-DAG:       [[VAR_45_:%.+]] = "onnx.Add"([[VAR_13_]], [[VAR_1_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_46_:%.+]] = "onnx.Sqrt"([[VAR_45_]]) : (tensor<64xf32>) -> tensor<64xf32>
@@ -156,7 +156,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_50_:%.+]] = "onnx.Neg"([[VAR_12_]]) : (tensor<64xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_51_:%.+]] = "onnx.Mul"([[VAR_47_]], [[VAR_50_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_52_:%.+]] = "onnx.Add"([[VAR_51_]], [[VAR_11_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-// CHECK-DAG:       [[VAR_53_:%.+]] = "onnx.Conv"([[VAR_44_]], [[VAR_49_]], [[VAR_52_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x64x56x56xf32>, tensor<64x64x1x1xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
+// CHECK-DAG:       [[VAR_53_:%.+]] = "onnx.Conv"([[VAR_44_]], [[VAR_49_]], [[VAR_52_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x64x56x56xf32>, tensor<64x64x1x1xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
 // CHECK-DAG:       [[VAR_54_:%.+]] = "onnx.Unsqueeze"([[VAR_14_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_55_:%.+]] = "onnx.Mul"([[VAR_53_]], [[VAR_54_]]) : (tensor<1x64x56x56xf32>, tensor<64x1x1xf32>) -> tensor<1x64x56x56xf32>
@@ -171,13 +171,13 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_64_:%.+]] = "onnx.Neg"([[VAR_19_]]) : (tensor<192xf32>) -> tensor<192xf32>
 // CHECK:           [[VAR_65_:%.+]] = "onnx.Mul"([[VAR_61_]], [[VAR_64_]]) : (tensor<192xf32>, tensor<192xf32>) -> tensor<192xf32>
 // CHECK:           [[VAR_66_:%.+]] = "onnx.Add"([[VAR_65_]], [[VAR_18_]]) : (tensor<192xf32>, tensor<192xf32>) -> tensor<192xf32>
-// CHECK-DAG:       [[VAR_67_:%.+]] = "onnx.Conv"([[VAR_58_]], [[VAR_63_]], [[VAR_66_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x64x56x56xf32>, tensor<192x64x3x3xf32>, tensor<192xf32>) -> tensor<1x192x56x56xf32>
+// CHECK-DAG:       [[VAR_67_:%.+]] = "onnx.Conv"([[VAR_58_]], [[VAR_63_]], [[VAR_66_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]}> : (tensor<1x64x56x56xf32>, tensor<192x64x3x3xf32>, tensor<192xf32>) -> tensor<1x192x56x56xf32>
 // CHECK-DAG:       [[VAR_68_:%.+]] = "onnx.Unsqueeze"([[VAR_21_]], [[VAR_0_]]) : (tensor<192xf32>, tensor<2xi64>) -> tensor<192x1x1xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_69_:%.+]] = "onnx.Mul"([[VAR_67_]], [[VAR_68_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
 // CHECK-DAG:       [[VAR_70_:%.+]] = "onnx.Unsqueeze"([[VAR_22_]], [[VAR_0_]]) : (tensor<192xf32>, tensor<2xi64>) -> tensor<192x1x1xf32>
 // CHECK:           [[VAR_71_:%.+]] = "onnx.Add"([[VAR_69_]], [[VAR_70_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
-// CHECK:           [[VAR_72_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_71_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
+// CHECK:           [[VAR_72_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_71_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
 // CHECK-DAG:       [[VAR_73_:%.+]] = "onnx.Relu"([[VAR_72_]]) : (tensor<1x192x28x28xf32>) -> tensor<1x192x28x28xf32>
 // CHECK-DAG:       [[VAR_74_:%.+]] = "onnx.Add"([[VAR_27_]], [[VAR_1_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_75_:%.+]] = "onnx.Sqrt"([[VAR_74_]]) : (tensor<64xf32>) -> tensor<64xf32>
@@ -187,7 +187,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_79_:%.+]] = "onnx.Neg"([[VAR_26_]]) : (tensor<64xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_80_:%.+]] = "onnx.Mul"([[VAR_76_]], [[VAR_79_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_81_:%.+]] = "onnx.Add"([[VAR_80_]], [[VAR_25_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-// CHECK-DAG:       [[VAR_82_:%.+]] = "onnx.Conv"([[VAR_73_]], [[VAR_78_]], [[VAR_81_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x192x28x28xf32>, tensor<64x192x1x1xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
+// CHECK-DAG:       [[VAR_82_:%.+]] = "onnx.Conv"([[VAR_73_]], [[VAR_78_]], [[VAR_81_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x192x28x28xf32>, tensor<64x192x1x1xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
 // CHECK-DAG:       [[VAR_83_:%.+]] = "onnx.Unsqueeze"([[VAR_28_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_84_:%.+]] = "onnx.Mul"([[VAR_82_]], [[VAR_83_]]) : (tensor<1x64x28x28xf32>, tensor<64x1x1xf32>) -> tensor<1x64x28x28xf32>
@@ -237,13 +237,13 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // DECOMPOSE-DAG:       [[VAR_35_:%.+]] = "onnx.Neg"([[VAR_5_]]) : (tensor<64xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_36_:%.+]] = "onnx.Mul"([[VAR_32_]], [[VAR_35_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_37_:%.+]] = "onnx.Add"([[VAR_36_]], [[VAR_4_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-// DECOMPOSE-DAG:       [[VAR_38_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_34_]], [[VAR_37_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+// DECOMPOSE-DAG:       [[VAR_38_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_34_]], [[VAR_37_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]}> : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
 // DECOMPOSE-DAG:       [[VAR_39_:%.+]] = "onnx.Unsqueeze"([[VAR_7_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // DECOMPOSE-NOT: separator of consecutive DAGs
 // DECOMPOSE-DAG:       [[VAR_40_:%.+]] = "onnx.Mul"([[VAR_38_]], [[VAR_39_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
 // DECOMPOSE-DAG:       [[VAR_41_:%.+]] = "onnx.Unsqueeze"([[VAR_8_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // DECOMPOSE:           [[VAR_42_:%.+]] = "onnx.Add"([[VAR_40_]], [[VAR_41_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
-// DECOMPOSE:           [[VAR_43_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_42_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
+// DECOMPOSE:           [[VAR_43_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_42_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
 // DECOMPOSE-DAG:       [[VAR_44_:%.+]] = "onnx.Relu"([[VAR_43_]]) : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf32>
 // DECOMPOSE-DAG:       [[VAR_45_:%.+]] = "onnx.Add"([[VAR_13_]], [[VAR_1_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_46_:%.+]] = "onnx.Sqrt"([[VAR_45_]]) : (tensor<64xf32>) -> tensor<64xf32>
@@ -253,7 +253,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // DECOMPOSE-DAG:       [[VAR_50_:%.+]] = "onnx.Neg"([[VAR_12_]]) : (tensor<64xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_51_:%.+]] = "onnx.Mul"([[VAR_47_]], [[VAR_50_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_52_:%.+]] = "onnx.Add"([[VAR_51_]], [[VAR_11_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-// DECOMPOSE-DAG:       [[VAR_53_:%.+]] = "onnx.Conv"([[VAR_44_]], [[VAR_49_]], [[VAR_52_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x64x56x56xf32>, tensor<64x64x1x1xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
+// DECOMPOSE-DAG:       [[VAR_53_:%.+]] = "onnx.Conv"([[VAR_44_]], [[VAR_49_]], [[VAR_52_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x64x56x56xf32>, tensor<64x64x1x1xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
 // DECOMPOSE-DAG:       [[VAR_54_:%.+]] = "onnx.Unsqueeze"([[VAR_14_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // DECOMPOSE-NOT: separator of consecutive DAGs
 // DECOMPOSE-DAG:       [[VAR_55_:%.+]] = "onnx.Mul"([[VAR_53_]], [[VAR_54_]]) : (tensor<1x64x56x56xf32>, tensor<64x1x1xf32>) -> tensor<1x64x56x56xf32>
@@ -268,13 +268,13 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // DECOMPOSE-DAG:       [[VAR_64_:%.+]] = "onnx.Neg"([[VAR_19_]]) : (tensor<192xf32>) -> tensor<192xf32>
 // DECOMPOSE:           [[VAR_65_:%.+]] = "onnx.Mul"([[VAR_61_]], [[VAR_64_]]) : (tensor<192xf32>, tensor<192xf32>) -> tensor<192xf32>
 // DECOMPOSE:           [[VAR_66_:%.+]] = "onnx.Add"([[VAR_65_]], [[VAR_18_]]) : (tensor<192xf32>, tensor<192xf32>) -> tensor<192xf32>
-// DECOMPOSE-DAG:       [[VAR_67_:%.+]] = "onnx.Conv"([[VAR_58_]], [[VAR_63_]], [[VAR_66_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x64x56x56xf32>, tensor<192x64x3x3xf32>, tensor<192xf32>) -> tensor<1x192x56x56xf32>
+// DECOMPOSE-DAG:       [[VAR_67_:%.+]] = "onnx.Conv"([[VAR_58_]], [[VAR_63_]], [[VAR_66_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]}> : (tensor<1x64x56x56xf32>, tensor<192x64x3x3xf32>, tensor<192xf32>) -> tensor<1x192x56x56xf32>
 // DECOMPOSE-DAG:       [[VAR_68_:%.+]] = "onnx.Unsqueeze"([[VAR_21_]], [[VAR_0_]]) : (tensor<192xf32>, tensor<2xi64>) -> tensor<192x1x1xf32>
 // DECOMPOSE-NOT: separator of consecutive DAGs
 // DECOMPOSE-DAG:       [[VAR_69_:%.+]] = "onnx.Mul"([[VAR_67_]], [[VAR_68_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
 // DECOMPOSE-DAG:       [[VAR_70_:%.+]] = "onnx.Unsqueeze"([[VAR_22_]], [[VAR_0_]]) : (tensor<192xf32>, tensor<2xi64>) -> tensor<192x1x1xf32>
 // DECOMPOSE:           [[VAR_71_:%.+]] = "onnx.Add"([[VAR_69_]], [[VAR_70_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
-// DECOMPOSE:           [[VAR_72_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_71_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
+// DECOMPOSE:           [[VAR_72_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_71_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
 // DECOMPOSE-DAG:       [[VAR_73_:%.+]] = "onnx.Relu"([[VAR_72_]]) : (tensor<1x192x28x28xf32>) -> tensor<1x192x28x28xf32> 
 // DECOMPOSE-DAG:       [[VAR_74_:%.+]] = "onnx.Add"([[VAR_27_]], [[VAR_1_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_75_:%.+]] = "onnx.Sqrt"([[VAR_74_]]) : (tensor<64xf32>) -> tensor<64xf32>
@@ -284,7 +284,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // DECOMPOSE-DAG:       [[VAR_79_:%.+]] = "onnx.Neg"([[VAR_26_]]) : (tensor<64xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_80_:%.+]] = "onnx.Mul"([[VAR_76_]], [[VAR_79_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
 // DECOMPOSE:           [[VAR_81_:%.+]] = "onnx.Add"([[VAR_80_]], [[VAR_25_]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
-// DECOMPOSE-DAG:       [[VAR_82_:%.+]] = "onnx.Conv"([[VAR_73_]], [[VAR_78_]], [[VAR_81_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x192x28x28xf32>, tensor<64x192x1x1xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
+// DECOMPOSE-DAG:       [[VAR_82_:%.+]] = "onnx.Conv"([[VAR_73_]], [[VAR_78_]], [[VAR_81_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x192x28x28xf32>, tensor<64x192x1x1xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
 // DECOMPOSE-DAG:       [[VAR_83_:%.+]] = "onnx.Unsqueeze"([[VAR_28_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // DECOMPOSE-NOT: separator of consecutive DAGs
 // DECOMPOSE-DAG:       [[VAR_84_:%.+]] = "onnx.Mul"([[VAR_82_]], [[VAR_83_]]) : (tensor<1x64x28x28xf32>, tensor<64x1x1xf32>) -> tensor<1x64x28x28xf32>
@@ -313,21 +313,21 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CONSTPROP-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0.152566433> : tensor<64xf32>
 // CONSTPROP-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<0.158111915> : tensor<64x1x1x1xf32>
 // CONSTPROP:           [[VAR_16_:%.+]] = "onnx.Mul"([[PARAM_1_]], [[VAR_15_]]) : (tensor<64x3x7x7xf32>, tensor<64x1x1x1xf32>) -> tensor<64x3x7x7xf32>
-// CONSTPROP:           [[VAR_17_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_16_]], [[VAR_14_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+// CONSTPROP:           [[VAR_17_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_16_]], [[VAR_14_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]}> : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
 // CONSTPROP:           [[VAR_18_:%.+]] = "onnx.Mul"([[VAR_17_]], [[VAR_13_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
 // CONSTPROP:           [[VAR_19_:%.+]] = "onnx.Add"([[VAR_18_]], [[VAR_12_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
-// CONSTPROP:           [[VAR_20_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_19_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
+// CONSTPROP:           [[VAR_20_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_19_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
 // CONSTPROP:           [[VAR_21_:%.+]] = "onnx.Relu"([[VAR_20_]]) : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf32>
-// CONSTPROP:           [[VAR_22_:%.+]] = "onnx.Conv"([[VAR_21_]], [[VAR_11_]], [[VAR_10_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x64x56x56xf32>, tensor<64x64x1x1xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
+// CONSTPROP:           [[VAR_22_:%.+]] = "onnx.Conv"([[VAR_21_]], [[VAR_11_]], [[VAR_10_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x64x56x56xf32>, tensor<64x64x1x1xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
 // CONSTPROP:           [[VAR_23_:%.+]] = "onnx.Mul"([[VAR_22_]], [[VAR_9_]]) : (tensor<1x64x56x56xf32>, tensor<64x1x1xf32>) -> tensor<1x64x56x56xf32>
 // CONSTPROP:           [[VAR_24_:%.+]] = "onnx.Add"([[VAR_23_]], [[VAR_8_]]) : (tensor<1x64x56x56xf32>, tensor<64x1x1xf32>) -> tensor<1x64x56x56xf32>
 // CONSTPROP:           [[VAR_25_:%.+]] = "onnx.Relu"([[VAR_24_]]) : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf32>
-// CONSTPROP:           [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_6_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x64x56x56xf32>, tensor<192x64x3x3xf32>, tensor<192xf32>) -> tensor<1x192x56x56xf32>
+// CONSTPROP:           [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_6_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]}> : (tensor<1x64x56x56xf32>, tensor<192x64x3x3xf32>, tensor<192xf32>) -> tensor<1x192x56x56xf32>
 // CONSTPROP:           [[VAR_27_:%.+]] = "onnx.Mul"([[VAR_26_]], [[VAR_5_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
 // CONSTPROP:           [[VAR_28_:%.+]] = "onnx.Add"([[VAR_27_]], [[VAR_4_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
-// CONSTPROP:           [[VAR_29_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_28_]])  {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
+// CONSTPROP:           [[VAR_29_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_28_]])  <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
 // CONSTPROP:           [[VAR_30_:%.+]] = "onnx.Relu"([[VAR_29_]]) : (tensor<1x192x28x28xf32>) -> tensor<1x192x28x28xf32>
-// CONSTPROP:           [[VAR_31_:%.+]] = "onnx.Conv"([[VAR_30_]], [[VAR_3_]], [[VAR_2_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x192x28x28xf32>, tensor<64x192x1x1xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
+// CONSTPROP:           [[VAR_31_:%.+]] = "onnx.Conv"([[VAR_30_]], [[VAR_3_]], [[VAR_2_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x192x28x28xf32>, tensor<64x192x1x1xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
 // CONSTPROP:           [[VAR_32_:%.+]] = "onnx.Mul"([[VAR_31_]], [[VAR_1_]]) : (tensor<1x64x28x28xf32>, tensor<64x1x1xf32>) -> tensor<1x64x28x28xf32>
 // CONSTPROP:           [[VAR_33_:%.+]] = "onnx.Add"([[VAR_32_]], [[VAR_0_]]) : (tensor<1x64x28x28xf32>, tensor<64x1x1xf32>) -> tensor<1x64x28x28xf32>
 // CONSTPROP:           [[VAR_34_:%.+]] = "onnx.Relu"([[VAR_33_]]) : (tensor<1x64x28x28xf32>) -> tensor<1x64x28x28xf32>

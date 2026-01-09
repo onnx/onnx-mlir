@@ -27,7 +27,7 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXConcatOpShapeHelper::computeShape() {
-  ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
+  ONNXConcatOp concatOp = mlir::dyn_cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
   unsigned numInputs = op->getNumOperands();
   Value firstInput = operandAdaptor.getInputs().front();

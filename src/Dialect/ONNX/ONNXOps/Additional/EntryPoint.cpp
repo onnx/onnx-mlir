@@ -34,6 +34,6 @@ ONNXEntryPointOp ONNXEntryPointOp::create(
   OpBuilder builder(location->getContext());
   ONNXEntryPointOp::build(builder, state, func);
   Operation *op = Operation::create(state);
-  auto onnxEntryOp = llvm::cast<ONNXEntryPointOp>(op);
+  auto onnxEntryOp = mlir::dyn_cast<ONNXEntryPointOp>(op);
   return onnxEntryOp;
 }

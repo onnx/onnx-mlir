@@ -165,7 +165,7 @@ func.func @fuse_element_14(%arg0: tensor<5xf32>) -> tensor<*xf32> {
   return %1 : tensor<*xf32>
 // CHECK-LABEL:  func.func @fuse_element_14
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<5xf32>) -> memref<5xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [5], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00]> : tensor<5xf32>} : () -> memref<5xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [5], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00]> : tensor<5xf32>}> : () -> memref<5xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<5xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 5){
@@ -365,7 +365,7 @@ func.func @test_move_constant_when_fusing(%arg0: tensor<2x4xui8>) -> tensor<2x4x
 
 // CHECK-LABEL:  func.func @test_move_constant_when_fusing
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xui8>) -> memref<2x4xi8> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x4xi8>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4){

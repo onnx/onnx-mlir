@@ -82,6 +82,6 @@
 }
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x!onnx.String> {onnx.name = "x"}) -> (tensor<3x!onnx.String> {onnx.name = "y"}) {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.StringNormalizer"([[PARAM_0_]]) {case_change_action = "NONE", is_case_sensitive = 1 : si64, stopwords = ["monday"]} : (tensor<4x!onnx.String>) -> tensor<3x!onnx.String>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.StringNormalizer"([[PARAM_0_]]) <{case_change_action = "NONE", is_case_sensitive = 1 : si64, stopwords = ["monday"]}> : (tensor<4x!onnx.String>) -> tensor<3x!onnx.String>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x!onnx.String>
 // CHECK:         }

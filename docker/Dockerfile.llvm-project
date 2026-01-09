@@ -114,10 +114,12 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     && cd ${PROTOBUF_DIR}/build \
     # Must specify -Dprotobuf_BUILD_TESTS=OFF otherwise find_package(absl)
     # in onnx will fail due to missing protobuf::gmock target
+    # Must specify -Dabsl_DIR to help protobuf find the installed Abseil
     && CC=clang CXX=clang++ \
        cmake -DCMAKE_INSTALL_LIBDIR=lib \
              -DBUILD_SHARED_LIBS=ON \
-             -Dprotobuf_BUILD_TESTS=OFF .. \
+             -Dprotobuf_BUILD_TESTS=OFF \
+             -Dabsl_DIR=/usr/local/lib/cmake/absl .. \
     && make -j${NPROC} install && ldconfig \
     && cd .. \
     # New version of python protobuf can no longer be built with setup.py.

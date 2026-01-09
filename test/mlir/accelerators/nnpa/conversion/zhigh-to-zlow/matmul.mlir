@@ -19,7 +19,7 @@ func.func @matmul(%arg0: tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, %a
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c16_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64} : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<4x16xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64}> : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<4x16xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<4x16xf16, #map>
 // CHECK:         }
 }
@@ -45,7 +45,7 @@ func.func @matmul_transposeA(%arg0: tensor<4x8xf16, #zhigh.layout<{dataLayout = 
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c16_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 1 : si64, transposeB = 0 : si64} : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<8x16xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 1 : si64, transposeB = 0 : si64}> : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<8x16xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<8x16xf16, #map>
 // CHECK:         }
 }
@@ -70,7 +70,7 @@ func.func @matmul_transposeB(%arg0: tensor<4x8xf16, #zhigh.layout<{dataLayout = 
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 1 : si64} : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<4x8xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 1 : si64}> : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<4x8xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<4x8xf16, #map>
 // CHECK:         }
 }
@@ -95,7 +95,7 @@ func.func @matmul_transposeAB(%arg0: tensor<4x8xf16, #zhigh.layout<{dataLayout =
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 1 : si64, transposeB = 1 : si64} : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<8x8xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 1 : si64, transposeB = 1 : si64}> : (memref<4x8xf16, #map>, memref<8x16xf16, #map>, memref<16xf16, #map1>, memref<3xi64>, memref<8x8xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<8x8xf16, #map>
 // CHECK:         }
 }
@@ -124,7 +124,7 @@ func.func @matmul_stack(%arg0: tensor<2x4x8xf16, #zhigh.layout<{dataLayout = "3D
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<4xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<4xi64>
 // CHECK:           krnl.store [[VAR_c16_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<4xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = -1 : si64, transposeA = 0 : si64, transposeB = 0 : si64} : (memref<2x4x8xf16, #map>, memref<2x8x16xf16, #map>, memref<2x16xf16, #map1>, memref<4xi64>, memref<2x4x16xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = -1 : si64, transposeA = 0 : si64, transposeB = 0 : si64}> : (memref<2x4x8xf16, #map>, memref<2x8x16xf16, #map>, memref<2x16xf16, #map1>, memref<4xi64>, memref<2x4x16xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<2x4x16xf16, #map>
 // CHECK:         }
 }
@@ -154,7 +154,7 @@ func.func @matmul_broadcast23(%arg0: tensor<2x4x8xf16, #zhigh.layout<{dataLayout
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<4xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<4xi64>
 // CHECK:           krnl.store [[VAR_c16_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<4xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = -1 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64} : (memref<2x4x8xf16, #map>, memref<8x16xf16, #map1>, memref<16xf16, #map2>, memref<4xi64>, memref<2x4x16xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = -1 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64}> : (memref<2x4x8xf16, #map>, memref<8x16xf16, #map1>, memref<16xf16, #map2>, memref<4xi64>, memref<2x4x16xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<2x4x16xf16, #map>
 // CHECK:         }
 }
@@ -183,7 +183,7 @@ func.func @matmul_broadcast1(%arg0: tensor<8x16xf16, #zhigh.layout<{dataLayout =
 // CHECK:           krnl.store [[VAR_c16_i64_]], [[RES_0_]]{{.}}[[VAR_c1_]]{{.}} : memref<4xi64>
 // CHECK:           krnl.store [[VAR_c2_i64_]], [[RES_0_]]{{.}}[[VAR_c2_]]{{.}} : memref<4xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_0_]]{{.}}[[VAR_c3_]]{{.}} : memref<4xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_0_]], [[RES_]]) {is_bcast1 = -1 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64} : (memref<8x16xf16, #map>, memref<2x4x8xf16, #map1>, memref<2x8xf16, #map2>, memref<4xi64>, memref<2x8x8xf16, #map1>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_0_]], [[RES_]]) <{is_bcast1 = -1 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64}> : (memref<8x16xf16, #map>, memref<2x4x8xf16, #map1>, memref<2x8xf16, #map2>, memref<4xi64>, memref<2x8x8xf16, #map1>) -> ()
 // CHECK:           return [[RES_]] : memref<2x8x8xf16, #map1>
 // CHECK:         }
 }
@@ -212,7 +212,7 @@ func.func @matmul_unknown_dims(%arg0: tensor<4x8xf16, #zhigh.layout<{dataLayout 
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[VAR_0_]] : index to i64
 // CHECK:           krnl.store [[VAR_4_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64} : (memref<4x8xf16, #map>, memref<8x?xf16, #map>, memref<?xf16, #map1>, memref<3xi64>, memref<4x?xf16, #map>) -> ()
+// CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) <{is_bcast1 = 0 : si64, is_bcast23 = 0 : si64, is_stacked = 0 : si64, transposeA = 0 : si64, transposeB = 0 : si64}> : (memref<4x8xf16, #map>, memref<8x?xf16, #map>, memref<?xf16, #map1>, memref<3xi64>, memref<4x?xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<4x?xf16, #map>
 // CHECK:         }
 }

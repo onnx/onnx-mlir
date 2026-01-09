@@ -25,10 +25,10 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_if_sign
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>) -> memref<i32> {
-// CHECK-DAG:       [[CONSTANT_1_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<0> : tensor<i32>} : () -> memref<i32>
-// CHECK-DAG:       [[CONSTANT_2_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<1> : tensor<i32>} : () -> memref<i32>
-// CHECK-DAG:       [[CONSTANT_3_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<-1> : tensor<i32>} : () -> memref<i32>
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<0.000000e+00> : tensor<f32>} : () -> memref<f32>
+// CHECK-DAG:       [[CONSTANT_1_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<0> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[CONSTANT_2_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<1> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[CONSTANT_3_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<-1> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<0.000000e+00> : tensor<f32>}> : () -> memref<f32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i1>
 // CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
 // CHECK-DAG:       [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<f32>

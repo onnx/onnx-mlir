@@ -502,4 +502,4 @@
 // CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<[1, 0, 1]> : tensor<3xui64>
 // CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]], [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0, [[VAR_1_]]1 : tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

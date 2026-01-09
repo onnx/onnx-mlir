@@ -59,7 +59,8 @@ void ZHighUnstickOp::build(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighUnstickOpShapeHelper::computeShape() {
-  ZHighUnstickOp::Adaptor operandAdaptor(operands);
+  auto unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
+  ZHighUnstickOp::Adaptor operandAdaptor(operands, unstickOp);
   Value input = operandAdaptor.getIn();
 
   // Output dims of result.

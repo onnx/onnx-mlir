@@ -185,7 +185,7 @@ DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
 // Create a DenseElementsAttr from Shape Op
 DenseElementsAttr createDenseElementsAttrFromShapeOp(
     PatternRewriter &rewriter, Operation *op) {
-  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  ONNXShapeOp shapeOp = mlir::dyn_cast<ONNXShapeOp>(op);
   int64_t start, end;
   ONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
   return createDenseElementsAttrFromShape(
@@ -1058,7 +1058,8 @@ private:
     Type elType = onnx_mlir::getElementType(input.getType());
     Type unrankedType = UnrankedTensorType::get({elType}); // placeholder
     Value transposed = create.transpose(unrankedType, input, perm);
-    auto transposeOp = llvm::cast<ONNXTransposeOp>(transposed.getDefiningOp());
+    auto transposeOp =
+        mlir::dyn_cast<ONNXTransposeOp>(transposed.getDefiningOp());
     inferShapes(transposeOp); // sets transposed's shape
     return transposed;
   }

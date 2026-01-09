@@ -19,7 +19,7 @@ func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf16, #zhigh.layout<{dataLayo
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c5_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<8192xi8>
-// CHECK:           "zlow.softmax"([[PARAM_0_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE"} : (memref<3x4x5xf16, #map>, memref<8192xi8>, memref<3xi64>, memref<3x4x5xf16, #map>) -> ()
+// CHECK:           "zlow.softmax"([[PARAM_0_]], [[RES_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE"}> : (memref<3x4x5xf16, #map>, memref<8192xi8>, memref<3xi64>, memref<3x4x5xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<3x4x5xf16, #map>
 // CHECK:         }
 }
@@ -46,7 +46,7 @@ func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf16, #zhigh.lay
 // CHECK:           krnl.store [[VAR_3_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c5_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<8192xi8>
-// CHECK:           "zlow.softmax"([[PARAM_0_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE"} : (memref<3x?x5xf16, #map>, memref<8192xi8>, memref<3xi64>, memref<3x?x5xf16, #map>) -> ()
+// CHECK:           "zlow.softmax"([[PARAM_0_]], [[RES_2_]], [[RES_1_]], [[RES_]]) <{act_func = "ACT_NONE"}> : (memref<3x?x5xf16, #map>, memref<8192xi8>, memref<3xi64>, memref<3x?x5xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<3x?x5xf16, #map>
 // CHECK:         }
 }

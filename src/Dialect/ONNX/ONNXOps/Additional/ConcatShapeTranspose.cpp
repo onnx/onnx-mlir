@@ -51,7 +51,7 @@ template <>
 LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   ONNXConcatShapeTransposeOpAdaptor operandAdaptor(operands);
   ONNXConcatShapeTransposeOp concatOp =
-      llvm::cast<ONNXConcatShapeTransposeOp>(op);
+      mlir::dyn_cast<ONNXConcatShapeTransposeOp>(op);
   unsigned numInputs = concatOp.getNumOperands();
   Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =

@@ -29,9 +29,9 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-
     Location loc = op->getLoc();
-    ONNXPadOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+    auto padOp = mlir::dyn_cast<ONNXPadOp>(op);
+    ONNXPadOpAdaptor operandAdaptor(operands, padOp);
     Value data = operandAdaptor.getData();
     Value constantValue = operandAdaptor.getConstantValue();
     Value pads = operandAdaptor.getPads();

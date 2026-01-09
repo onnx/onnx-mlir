@@ -29,7 +29,8 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
-  ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  auto spaceToDepthOp = mlir::dyn_cast<ONNXSpaceToDepthOp>(op);
+  ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, spaceToDepthOp);
   Value input = operandAdaptor.getInput();
   int64_t blocksize = operandAdaptor.getBlocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
