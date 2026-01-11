@@ -88,6 +88,16 @@ struct ImportOptions {
 };
 
 /*!
+ *  Load an ONNX model proto from a file into a protobuf object.
+ *  @param model_fname file name pointing to the onnx model protobuf.
+ *  @param errorMessage error message.
+ *  @param model Out parameter: the onnx model protobuf.
+ */
+[[nodiscard]] std::error_code LoadModelProtoFromFile(
+    llvm::StringRef model_fname, std::string &errorMessage,
+    onnx::ModelProto &model);
+
+/*!
  *  Import an ONNX model array into the ONNX Dialect.
  *  @param onnxBuffer buffer containing onnx model protobuf.
  *  @param bufferSize size of buffer containing onnx model protobuf.

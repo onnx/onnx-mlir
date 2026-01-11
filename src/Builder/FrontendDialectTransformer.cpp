@@ -1951,11 +1951,9 @@ namespace {
 }
 } // namespace
 
-// Return 0 on success, error otherwise.
-[[nodiscard]] std::error_code ImportFrontendModelFile(StringRef model_fname,
-    MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    std::string &errorMessage, const ImportOptions &options) {
-  onnx::ModelProto model;
+[[nodiscard]] std::error_code LoadModelProtoFromFile(
+    llvm::StringRef model_fname, std::string &errorMessage,
+    onnx::ModelProto &model) {
   if (model_fname.ends_with(".onnxtext")) {
     std::string text;
     const auto ret = readAndStripComments(model_fname, errorMessage, text);
@@ -1999,7 +1997,17 @@ namespace {
       return InvalidOnnxFormat;
     }
   }
+  return CompilerSuccess;
+}
 
+[[nodiscard]] std::error_code ImportFrontendModelFile(StringRef model_fname,
+    MLIRContext &context, OwningOpRef<ModuleOp> &module,
+    std::string &errorMessage, const ImportOptions &options) {
+  onnx::ModelProto model;
+  if (auto ec = LoadModelProtoFromFile(model_fname, errorMessage, model)) {
+    errorMessage += "Onnx Model Load Failed for " + model_fname.str();
+    return ec;
+  }
   if (auto ec = ImportFrontendModelInternal(
           model, context, module, options, errorMessage)) {
     errorMessage += "Onnx Model Import Failed for " + model_fname.str();
