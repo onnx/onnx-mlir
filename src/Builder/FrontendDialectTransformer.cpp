@@ -1846,7 +1846,7 @@ private:
 
 } // namespace detail
 
-[[nodiscard]] std::error_code ImportFrontendModelInternal(
+[[nodiscard]] std::error_code ImportFrontendModelWithPreProcessing(
     onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, const ImportOptions &options,
     std::string &errorMessage) {
@@ -1920,7 +1920,7 @@ private:
     errorMessage += "Unable to parse onnxBuffer\n";
     return InvalidOnnxFormat;
   }
-  return ImportFrontendModelInternal(
+  return ImportFrontendModelWithPreProcessing(
       model, context, module, options, errorMessage);
 }
 
@@ -2008,7 +2008,7 @@ namespace {
     errorMessage += "Onnx Model Load Failed for " + model_fname.str();
     return ec;
   }
-  if (auto ec = ImportFrontendModelInternal(
+  if (auto ec = ImportFrontendModelWithPreProcessing(
           model, context, module, options, errorMessage)) {
     errorMessage += "Onnx Model Import Failed for " + model_fname.str();
     return ec;

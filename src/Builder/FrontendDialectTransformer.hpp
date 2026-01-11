@@ -119,6 +119,18 @@ struct ImportOptions {
     const ImportOptions &options = ImportOptions());
 
 /*!
+ *  Import an ONNX model proto with pre-processing into the ONNX Dialect.
+ *  The pre-processing depends on @param options and can involve topologically
+ *  sorting, shape inference and opset conversion.
+ *  @param model the onnx model protobuf.
+ *  @param MLIR::module generated for the ONNX model.
+ */
+[[nodiscard]] std::error_code ImportFrontendModelWithPreProcessing(
+    onnx::ModelProto &model, mlir::MLIRContext &context,
+    mlir::OwningOpRef<mlir::ModuleOp> &module, const ImportOptions &options,
+    std::string &errorMessage);
+
+/*!
  *  Import an ONNX model proto into the ONNX Dialect.
  *  @param model the onnx model protobuf.
  *  @param MLIR::module generated for the ONNX model.
