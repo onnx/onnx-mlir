@@ -51,12 +51,6 @@ public:
   std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes;
   std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes;
   bool verifyInputTensors;
-  /*
-  typedef enum {
-          UB,
-          LB
-  } ShapeInfoType;
-  */
   enum class ShapeInfoType { UB, LB };
 
   KrnlEntryPointOpLowering(LLVMTypeConverter &typeConverter, MLIRContext *ctx,
