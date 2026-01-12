@@ -31,6 +31,9 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/XFE.cpp
   ONNXOps/Additional/XFEShapeInference.cpp
   ONNXOps/Additional/XFEVerify.cpp
+  ONNXOps/Additional/XCOMPILER.cpp
+  ONNXOps/Additional/XCOMPILERShapeInference.cpp
+  ONNXOps/Additional/XCOMPILERVerify.cpp
   ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
