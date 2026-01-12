@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --qdq-around-op-opt-onnx-to-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --qdq-canonicalize="remove-qdq-around-ops=true" %s -split-input-file | FileCheck %s
 
 // -----
 

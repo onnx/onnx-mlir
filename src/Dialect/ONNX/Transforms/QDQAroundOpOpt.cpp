@@ -18,10 +18,12 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace {
+
 /// Check if a value is defined by a constant operation
 /// Returns false for NoValue (NoneType)
 /// Uses recursive logic to check if all operands are constants (initializers)
-static bool isConstantOrInitializer(Value val) {
+bool isConstantOrInitializer(Value val) {
   if (!val)
     return false;
 
@@ -79,7 +81,7 @@ InputAndOutput getDataInputOutput(ONNXResizeOp resizeOp) {
 InputAndOutput getDataInputOutput(ONNXFlattenOp flattenOp) {
   return {flattenOp.getInput(), flattenOp.getOutput()};
 }
-namespace {
+
 template <typename T>
 class RemoveQDQAroundOpPattern : public OpRewritePattern<T> {
 public:
@@ -174,40 +176,21 @@ public:
     return failure();
   };
 };
-struct QDQAroundOpOptONNXToONNXPass
-    : public PassWrapper<QDQAroundOpOptONNXToONNXPass,
-          OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(QDQAroundOpOptONNXToONNXPass)
-  [[nodiscard]] StringRef getArgument() const override {
-    return "qdq-around-op-opt-onnx-to-onnx";
-  }
-  [[nodiscard]] StringRef getDescription() const override {
-    return "Remove QDQ around ops if safe.";
-  }
 
-  void runOnOperation() override {
-    auto function = getOperation();
-    auto *ctx = &getContext();
-    RewritePatternSet patterns(ctx);
-    // ONNXReduceSumOp is expecting high precision value, it failed to compile
-    // during applying this pass, so for now there is no dq, q removal around
-    // ReduceSum
-    patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
-        RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
-        RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
-        RemoveQDQAroundOpPattern<ONNXReshapeOp>,
-        RemoveQDQAroundOpPattern<ONNXResizeOp>,
-        RemoveQDQAroundOpPattern<ONNXGatherOp>,
-        RemoveQDQAroundOpPattern<ONNXSliceOp>,
-        RemoveQDQAroundOpPattern<ONNXFlattenOp>>(patterns.getContext());
-    if (failed(applyPatternsGreedily(function, std::move(patterns))))
-      signalPassFailure();
-  }
-};
 } // namespace
 
 namespace onnx_mlir {
-std::unique_ptr<mlir::Pass> createQDQAroundOpOptONNXToONNXPass() {
-  return std::make_unique<QDQAroundOpOptONNXToONNXPass>();
+
+void getRemoveQDQAroundOpPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  patterns.add<RemoveQDQAroundOpPattern<ONNXTransposeOp>,
+      RemoveQDQAroundOpPattern<ONNXUnsqueezeOp>,
+      RemoveQDQAroundOpPattern<ONNXSqueezeOp>,
+      RemoveQDQAroundOpPattern<ONNXReshapeOp>,
+      RemoveQDQAroundOpPattern<ONNXResizeOp>,
+      RemoveQDQAroundOpPattern<ONNXGatherOp>,
+      RemoveQDQAroundOpPattern<ONNXSliceOp>,
+      RemoveQDQAroundOpPattern<ONNXFlattenOp>>(context);
 }
+
 } // namespace onnx_mlir

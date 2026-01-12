@@ -44,6 +44,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/Decompose.hpp"
 #include "src/Dialect/ONNX/Transforms/DecomposeEinsum.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "llvm/ADT/ArrayRef.h"
@@ -4097,7 +4098,9 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyPatternsGreedily(function, std::move(patterns))))
+  onnx_mlir::ResultNamesUpdater rnUpdater;
+  if (failed(applyPatternsGreedily(function, std::move(patterns),
+          GreedyRewriteConfig{.listener = &rnUpdater})))
     signalPassFailure();
 }
 
