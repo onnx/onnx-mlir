@@ -160,43 +160,6 @@ def XFEDepthToSpaceOp:ONNX_Op<"XFEDepthToSpace",
   let hasVerifier = 1;
 }
 
-def XFEFusedEltwiseOp:ONNX_Op<"XFEFusedEltwise",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let summary = "FusedEltwise operation";
-  let description = [{
-  Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: op_type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, PRELU, LEAKYRELU); qscales contains [a_scale, b_scale, y_scale] quantization scales; qzeropoints contains [a_zp, b_zp, y_zp] quantization zero points; leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU; prelu_slope is an optional PReLU slope tensor.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$A,
-    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
-    OptionalAttr<F32Attr>:$leakyrelu_alpha,
-    DefaultValuedStrAttr<StrAttr, "NONE">:$nonlinear,
-    OptionalAttr<SI64Attr>:$prelu_in,
-    OptionalAttr<SI64Attr>:$prelu_shift,
-    OptionalAttr<AnyAttr>:$prelu_slope,
-    StrAttr:$type);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {30};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      // TODO: Implement specific shape helper for this custom op
-      // For now, returning nullptr - shape inference will use default behavior
-      return nullptr;
-    }
-  }];
-  let hasVerifier = 1;
-}
-
 def XFEGlobalAveragePoolOp:ONNX_Op<"XFEGlobalAveragePool",
   [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "GlobalAveragePoolChannelLast operation";

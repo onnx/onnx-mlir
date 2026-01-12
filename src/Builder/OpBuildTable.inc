@@ -729,8 +729,8 @@ import_handler_map_["ai.onnx.preview.training"]["Gradient"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGradientOp>;
 import_handler_map_["ai.onnx.preview.training"]["Momentum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMomentumOp>;
-import_handler_map_["com.amd.xfe"]["FusedEltwise"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEFusedEltwiseOp>;
+import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
 import_handler_map_["com.amd.quark"]["BFPQuantizeDequantize"] = 
@@ -753,8 +753,8 @@ import_handler_map_["com.amd.xfe"]["DepthToSpace"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEDepthToSpaceOp>;
 import_handler_map_["com.amd.xfe"]["SpaceToDepth"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFESpaceToDepthOp>;
-import_handler_map_["com.amd.xfe"]["FusedEltwise"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEFusedEltwiseOp>;
+import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
 dialect_op_opsets_map_[""]["Abs"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["Acos"] = {22, 7};
 dialect_op_opsets_map_[""]["Acosh"] = {22, 9};

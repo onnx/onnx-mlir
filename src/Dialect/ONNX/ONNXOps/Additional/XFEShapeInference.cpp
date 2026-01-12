@@ -680,17 +680,11 @@ LogicalResult XFESpaceToDepthOpShapeInference(
   return success();
 }
 
-<<<<<<< HEAD
+
 LogicalResult XFEResizeOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference) {
   auto resizeOp = dyn_cast<XFEResizeOp>(op);
   if (!resizeOp)
-=======
-LogicalResult XFEFusedEltwiseOpShapeInference(
-    Operation *op, std::function<void(Region &)> doShapeInference) {
-  auto eltwiseOp = dyn_cast<XFEFusedEltwiseOp>(op);
-  if (!eltwiseOp)
->>>>>>> 970ad3e6 (Change name to FusedEltwise, update description and dtypes)
     return failure();
 
   Value X = resizeOp.getX();

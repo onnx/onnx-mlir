@@ -332,6 +332,7 @@ domain_abrv_dict = {
     "ai.onnx.preview.training": "ONNX",
     "com.amd.quark": "AMDQuark",
     "com.amd.xfe": "XFE",
+    "com.amd.xcompiler": "XCOMPILER",
 }
 
 
