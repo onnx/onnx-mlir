@@ -143,7 +143,7 @@ void ZHighExtendedLayoutTransformOp::build(OpBuilder &builder,
 
 LogicalResult ZHighExtendedLayoutTransformOpShapeHelper::computeShape() {
   ZHighExtendedLayoutTransformOp eLTOp =
-      llvm::cast<ZHighExtendedLayoutTransformOp>(op);
+      mlir::dyn_cast<ZHighExtendedLayoutTransformOp>(op);
   ZHighExtendedLayoutTransformOpAdaptor operandAdaptor(operands);
   DimsExpr outputDims;
 

@@ -105,6 +105,8 @@ bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
+bool useLinalgPath; // onnx-mlir only
+
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
     "These are options shared between onnx-mlir and onnx-mlir-opt.");
@@ -666,6 +668,11 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
         "Data type and shape are verified. Enable this may introduce overhead "
         "at runtime. Default is true"),
     llvm::cl::location(verifyInputTensors), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
+    llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
+    llvm::cl::location(useLinalgPath), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> allowSortingOpt("allowSorting",

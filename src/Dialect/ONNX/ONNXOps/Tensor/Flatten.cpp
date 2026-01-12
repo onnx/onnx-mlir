@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXFlattenOpShapeHelper::computeShape() {
   // Get info about input operand.
   ONNXFlattenOpAdaptor operandAdaptor(operands);
-  ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
+  ONNXFlattenOp flattenOp = mlir::dyn_cast<ONNXFlattenOp>(op);
   Value input = operandAdaptor.getInput();
   auto inputType = mlir::cast<ShapedType>(input.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();

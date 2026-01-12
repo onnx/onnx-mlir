@@ -24,12 +24,12 @@ myfun <a: float=1.0> (x) => (y) {
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "x"}) -> (tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "y"}) {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant {value_float = 2.000000e+00 : f32} : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.CastLike"([[VAR_0_]], [[PARAM_0_]]) {saturate = 1 : si64} : (tensor<f32>, tensor<?xf32>) -> tensor<f32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.CastLike"([[VAR_0_]], [[PARAM_0_]]) <{saturate = 1 : si64}> : (tensor<f32>, tensor<?xf32>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_1_]]) : (tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant {value_float = 1.000000e+00 : f32} : tensor<f32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.CastLike"([[VAR_3_]], [[PARAM_0_]]) {saturate = 1 : si64} : (tensor<f32>, tensor<?xf32>) -> tensor<f32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.CastLike"([[VAR_3_]], [[PARAM_0_]]) <{saturate = 1 : si64}> : (tensor<f32>, tensor<?xf32>) -> tensor<f32>
 // CHECK:           [[VAR_5_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_4_]]) : (tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_5_]]) : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<?xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

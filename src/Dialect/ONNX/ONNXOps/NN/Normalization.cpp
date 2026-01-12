@@ -242,7 +242,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   typename OP_TYPE::Adaptor operandAdaptor(operands);
-  OP_TYPE lnOp = llvm::cast<OP_TYPE>(op);
+  OP_TYPE lnOp = mlir::dyn_cast<OP_TYPE>(op);
 
   // Get rank and axis attribute.
   Value X = operandAdaptor.getX();

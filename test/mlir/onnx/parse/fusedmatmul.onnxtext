@@ -8,7 +8,7 @@
 //
 // onnx-mlir --EmitONNXIR --printIR fusedmatmul.onnxtext decomposes the custom op:
 //   %0 = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
-//   %1 = "onnx.Transpose"(%arg1) {perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
+//   %1 = "onnx.Transpose"(%arg1) <{perm = [1, 0]}> : (tensor<4x3xf32>) -> tensor<3x4xf32>
 //   %2 = "onnx.MatMul"(%arg0, %1) : (tensor<2x3xf32>, tensor<3x4xf32>) -> tensor<2x4xf32>
 //   %3 = "onnx.Mul"(%2, %0) : (tensor<2x4xf32>, tensor<1xf32>) -> tensor<2x4xf32>
 
@@ -22,9 +22,9 @@ fusedmatmuller (float[2,3] lhs, float[4,3] rhs) => (float[2,4] output) {
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3xf32> {onnx.name = "lhs"}, [[PARAM_1_:%.+]]: tensor<4x3xf32> {onnx.name = "rhs"}) -> (tensor<2x4xf32> {onnx.name = "output"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {onnx_node_name = "onnx.Transpose_0", perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) <{perm = [1, 0]}> {onnx_node_name = "onnx.Transpose_0"} : (tensor<4x3xf32>) -> tensor<3x4xf32>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) {onnx_node_name = "onnx.MatMul_1"} : (tensor<2x3xf32>, tensor<3x4xf32>) -> tensor<2x4xf32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_0_]]) {onnx_node_name = "onnx.Mul_2"} : (tensor<2x4xf32>, tensor<1xf32>) -> tensor<2x4xf32>
 // CHECK:           return [[VAR_3_]] : tensor<2x4xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

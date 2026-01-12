@@ -20,4 +20,4 @@ test_add (float[?,?,?] x, float[?,?,?] y) => (float[?,?,?] sum) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?x?xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

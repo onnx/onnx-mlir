@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   // Get info about input data operand.
-  OP_TYPE argOp = llvm::cast<OP_TYPE>(op);
+  OP_TYPE argOp = mlir::dyn_cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands);
   Value data = operandAdaptor.getData();
   int64_t dataRank = mlir::cast<ShapedType>(data.getType()).getRank();
