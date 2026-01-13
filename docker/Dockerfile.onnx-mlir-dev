@@ -42,7 +42,8 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
                -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON \
                .. \
       && cmake --build . \
-      && cd .. && rm -rf build-light
+      && cd .. && rm -rf build-light\
+    fi
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
