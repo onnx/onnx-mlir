@@ -269,14 +269,13 @@ static llvm::cl::opt<std::string, true> shapeInformationUBOpt(
     "shapeInformationUB",
     llvm::cl::desc(
         "Specify the upper bound (inclusive) of dimension size for the inputs "
-        "of\n"
-        "the ONNX model. A popular use case is the maximum sequence length of"
-        "encoder model.\n"
+        "of the ONNX model. A popular use case is the maximum sequence length "
+        "of encoder model.\n"
         "\"value\" is in the format of "
-        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
+        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\","
         "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (They can be an "
         "integer starting from 0, a range e.g. 5-17, or -1 for all input "
-        "indices), and\n \"D1, D2, ...\" are the UB (positive "
+        "indices), and \"D1, D2, ...\" are the UB (positive "
         "integers or -1 for unknown UB).\n"
         "Such information will be used by verifyInputTensor and optimizations"),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformationUB),
