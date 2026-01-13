@@ -104,7 +104,7 @@ bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
 bool useLinalgPath;    // onnx-mlir only
-std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
+std::string linalgOps; // onnx-mlir only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
