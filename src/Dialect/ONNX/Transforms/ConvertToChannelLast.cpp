@@ -568,141 +568,104 @@ struct SpaceToDepthToChannelLastPattern
 
 // Pattern to convert Resize to XFEResize
 // Only converts when resize is on spatial dimensions (NCHW layout assumed):
-// - Batch dimension (dim 0) must not be resized (scale=1.0 or size unchanged)
-// - Channel dimension (dim 1) must not be resized (scale=1.0 or size unchanged)
-// - Only spatial dimensions (dims 2, 3, ...) should be resized
+// - Batch dimension (dim 0) must not be resized
+// - Channel dimension (dim 1) must not be resized
+// - Only spatial dimensions (dims 2, 3) should be resized
+//
+// TODO: Currently only handles 4D tensors (NCHW/NHWC format).
+//       Future work needed to support:
+//       - 3D tensors (NCW/NWC for 1D spatial)
+//       - 5D tensors (NCDHW/NDHWC for 3D spatial)
+//       - General N-dimensional cases
 struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
   using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
 
-  // Helper to check if input is absent (None or empty tensor)
-  static bool isAbsent(Value input) {
-    if (isa<NoneType>(input.getType()))
-      return true;
-    if (auto shapedType = mlir::dyn_cast<ShapedType>(input.getType())) {
-      return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
-    }
-    return false;
-  }
+  // Check if resize is NCHW spatial-only by comparing input/output shapes
+  // For NCHW layout: dim 0 = batch, dim 1 = channel, dims 2,3 = spatial (H,W)
+  // A spatial-only resize keeps dims 0 and 1 unchanged
+  // TODO: Extend to support 3D (NCW) and 5D (NCDHW) tensors
+  static bool isNCHWSpatialResize(RankedTensorType inputType,
+      RankedTensorType outputType) {
+    if (!inputType || !outputType)
+      return false;
 
-  // Check if the input is already in channel-last layout by examining producer ops
-  // This is more definitive than heuristics based on resize patterns
-  static bool isInputAlreadyChannelLast(Value input) {
-    Operation *defOp = input.getDefiningOp();
-    if (!defOp)
-      return false; // Block argument - unknown layout
+    auto inputShape = inputType.getShape();
+    auto outputShape = outputType.getShape();
 
-    // Check if input comes from XFE operations (which output channel-last)
-    // These operations are known to produce NHWC layout
-    if (isa<XFEConvOp, XFEConvTransposeOp, XFEAveragePoolOp, XFEMaxPoolOp,
-            XFEGlobalAveragePoolOp, XFEGlobalMaxPoolOp,
-            XFEInstanceNormalizationOp, XFEDepthToSpaceOp, XFESpaceToDepthOp,
-            XFEResizeOp>(defOp)) {
-      return true;
-    }
+    // Must have same rank
+    if (inputShape.size() != outputShape.size())
+      return false;
 
-    // Check if input comes from a Transpose with NCHW->NHWC pattern
-    // perm = [0, 2, 3, 1] for 4D tensors
-    if (auto transposeOp = dyn_cast<ONNXTransposeOp>(defOp)) {
-      if (auto permAttr = transposeOp.getPerm()) {
-        auto perm = permAttr.value();
-        int64_t rank = perm.size();
-        if (rank >= 3) {
-          // Check for NCHW->NHWC pattern: [0, 2, 3, ..., N-1, 1]
-          bool isNCHWtoNHWC = true;
-          if (mlir::cast<IntegerAttr>(perm[0]).getInt() != 0)
-            isNCHWtoNHWC = false;
-          if (mlir::cast<IntegerAttr>(perm[rank - 1]).getInt() != 1)
-            isNCHWtoNHWC = false;
-          for (int64_t i = 1; i < rank - 1 && isNCHWtoNHWC; ++i) {
-            if (mlir::cast<IntegerAttr>(perm[i]).getInt() != i + 1)
-              isNCHWtoNHWC = false;
-          }
-          if (isNCHWtoNHWC)
-            return true;
-        }
-      }
-    }
+    int64_t rank = inputShape.size();
+    if (rank != 4)
+      return false; // Only support 4D tensors (NCHW)
 
-    return false;
-  }
-
-  // Check if resize is only on spatial dimensions (assuming NCHW layout)
-  // Returns true if batch (dim 0) and channel (dim 1) are not being resized
-  static bool isSpatialOnlyResizeNCHW(ONNXResizeOp resizeOp, int64_t rank) {
-    Value scales = resizeOp.getScales();
-    Value sizes = resizeOp.getSizes();
-
-    // If axes attribute is specified, check if it only includes spatial dims
-    if (resizeOp.getAxes().has_value()) {
-      auto axesAttr = resizeOp.getAxes().value();
-      for (auto axisAttr : axesAttr) {
-        int64_t axis = mlir::cast<IntegerAttr>(axisAttr).getInt();
-        // Normalize negative axis
-        if (axis < 0)
-          axis += rank;
-        // If resizing batch (0) or channel (1), not a spatial-only resize
-        if (axis == 0 || axis == 1)
-          return false;
-      }
-      return true;
-    }
-
-    // Check scales if provided
-    if (!isAbsent(scales)) {
-      // Try to get constant scales
-      if (auto defOp = scales.getDefiningOp<ONNXConstantOp>()) {
-        if (auto valueAttr = defOp.getValue()) {
-          if (auto scalesAttr =
-                  mlir::dyn_cast<DenseElementsAttr>(*valueAttr)) {
-            auto scalesValues = scalesAttr.getValues<float>();
-            if (static_cast<int64_t>(scalesValues.size()) >= 2) {
-              // Check batch dimension (index 0) - must be 1.0
-              if (std::abs(scalesValues[0] - 1.0f) > 1e-6f)
-                return false;
-              // Check channel dimension (index 1 in NCHW) - must be 1.0
-              if (std::abs(scalesValues[1] - 1.0f) > 1e-6f)
-                return false;
-              return true;
-            }
-          }
-        }
-      }
-      // Scales are not constant - cannot verify, reject conversion
+    // Check dim 0 (batch) - must be unchanged
+    // Allow dynamic dims (they match by definition for this check)
+    if (inputShape[0] != ShapedType::kDynamic &&
+        outputShape[0] != ShapedType::kDynamic &&
+        inputShape[0] != outputShape[0]) {
       return false;
     }
 
-    // Check sizes if provided
-    if (!isAbsent(sizes)) {
-      // Try to get constant sizes
-      if (auto defOp = sizes.getDefiningOp<ONNXConstantOp>()) {
-        if (auto valueAttr = defOp.getValue()) {
-          if (auto sizesAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr)) {
-            auto sizesValues = sizesAttr.getValues<int64_t>();
-            if (static_cast<int64_t>(sizesValues.size()) >= 2) {
-              // Get input shape to compare
-              Value input = resizeOp.getX();
-              auto inputType =
-                  mlir::dyn_cast<RankedTensorType>(input.getType());
-              if (inputType && inputType.hasStaticShape()) {
-                auto inputShape = inputType.getShape();
-                // Check batch dimension - must match input
-                if (sizesValues[0] != inputShape[0])
-                  return false;
-                // Check channel dimension (index 1 in NCHW) - must match input
-                if (sizesValues[1] != inputShape[1])
-                  return false;
-                return true;
-              }
-            }
-          }
-        }
-      }
-      // Sizes are not constant - cannot verify, reject conversion
+    // Check dim 1 (channel in NCHW) - must be unchanged
+    if (inputShape[1] != ShapedType::kDynamic &&
+        outputShape[1] != ShapedType::kDynamic &&
+        inputShape[1] != outputShape[1]) {
       return false;
     }
 
-    // Both scales and sizes are absent - invalid resize, let verifier handle
-    return false;
+    // Dims 0 and 1 are unchanged - this is NCHW spatial resize
+    return true;
+  }
+
+  // Check if resize appears to be NHWC spatial by comparing input/output shapes
+  // For NHWC layout: dim 0 = batch, dims 1,2 = spatial (H,W), dim 3 = channel
+  // A spatial-only NHWC resize keeps dims 0 and 3 unchanged, dims 1,2 change
+  // TODO: Extend to support 3D (NWC) and 5D (NDHWC) tensors
+  static bool isNHWCSpatialResize(RankedTensorType inputType,
+      RankedTensorType outputType) {
+    if (!inputType || !outputType)
+      return false;
+
+    auto inputShape = inputType.getShape();
+    auto outputShape = outputType.getShape();
+
+    if (inputShape.size() != outputShape.size())
+      return false;
+
+    int64_t rank = inputShape.size();
+    if (rank != 4)
+      return false; // Only support 4D tensors (NHWC)
+
+    // For NHWC [N, H, W, C]: dim 0 = batch, dims 1,2 = spatial, dim 3 = channel
+    // Check dim 0 (batch) - must be unchanged
+    if (inputShape[0] != ShapedType::kDynamic &&
+        outputShape[0] != ShapedType::kDynamic &&
+        inputShape[0] != outputShape[0]) {
+      return false;
+    }
+
+    // Check dim 3 (channel in NHWC) - must be unchanged
+    if (inputShape[3] != ShapedType::kDynamic &&
+        outputShape[3] != ShapedType::kDynamic &&
+        inputShape[3] != outputShape[3]) {
+      return false;
+    }
+
+    // Check if spatial dims (1 or 2) actually change
+    bool spatialChanges = false;
+    if ((inputShape[1] != ShapedType::kDynamic &&
+            outputShape[1] != ShapedType::kDynamic &&
+            inputShape[1] != outputShape[1]) ||
+        (inputShape[2] != ShapedType::kDynamic &&
+            outputShape[2] != ShapedType::kDynamic &&
+            inputShape[2] != outputShape[2])) {
+      spatialChanges = true;
+    }
+
+    // It's NHWC spatial resize if batch and channel unchanged, spatial changes
+    return spatialChanges;
   }
 
   LogicalResult matchAndRewrite(
@@ -711,29 +674,35 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     Value input = resizeOp.getX();
 
     auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
-    // Resize requires at least 3D tensors for channel-last conversion
-    // (batch + channel + at least 1 spatial dimension)
-    if (!inputType || inputType.getRank() < 3)
+    // TODO: Currently only supports 4D tensors (NCHW/NHWC format).
+    //       Extend to handle 3D (NCW/NWC) and 5D (NCDHW/NDHWC) in future.
+    if (!inputType || inputType.getRank() != 4)
       return failure();
 
     int64_t rank = inputType.getRank();
 
-    // CHECK 1: Is input already in channel-last layout?
-    // If input comes from XFE* ops or NCHW->NHWC transpose, it's already channel-last
-    if (isInputAlreadyChannelLast(input)) {
+    // Get output type to compare shapes
+    auto outputType = mlir::dyn_cast<RankedTensorType>(resizeOp.getType());
+    if (!outputType) {
       return rewriter.notifyMatchFailure(resizeOp,
-          "Input is already in channel-last layout (from XFE op or "
-          "NCHW->NHWC transpose). Skipping conversion.");
+          "Output type is not ranked. Cannot determine layout.");
     }
 
-    // CHECK 2: Verify resize is spatial-only for NCHW layout
-    // Batch (dim 0) and channel (dim 1) must not be resized
-    // This also implicitly rejects NHWC patterns where dim 1 (spatial) would be resized
-    if (!isSpatialOnlyResizeNCHW(resizeOp, rank)) {
+    // CHECK 1: Is this an NHWC spatial resize?
+    // If dims 0 (batch) and last (channel) are unchanged but middle dims change,
+    // the input is already in NHWC layout - don't convert
+    if (isNHWCSpatialResize(inputType, outputType)) {
       return rewriter.notifyMatchFailure(resizeOp,
-          "Resize is not spatial-only for NCHW layout (batch or channel "
-          "dimensions are being resized, or scales/sizes are not constant). "
-          "Cannot convert to channel-last layout.");
+          "Resize appears to be NHWC spatial (batch and last dim unchanged, "
+          "middle dims changed). Input is likely already channel-last.");
+    }
+
+    // CHECK 2: Is this an NCHW spatial resize?
+    // If dims 0 (batch) and 1 (channel) are unchanged, it's NCHW spatial - convert
+    if (!isNCHWSpatialResize(inputType, outputType)) {
+      return rewriter.notifyMatchFailure(resizeOp,
+          "Resize is not NCHW spatial-only (batch or channel dimensions "
+          "are being resized). Cannot convert to channel-last layout.");
     }
 
     // Transpose input to channel-last

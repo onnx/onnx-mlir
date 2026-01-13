@@ -422,3 +422,100 @@
   max_input: 1
   min_output: 1
   max_output: 1
+
+# ==============================================================================
+# Resize: Resize tensor with channel-last layout
+# Supports nearest, linear, and cubic interpolation modes
+# ==============================================================================
+- name: Resize
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Resize with channel-last layout (channels innermost). Resizes input tensor with input/output tensors in channel-last format (NHWC) instead of NCHW. Supports both scales and sizes for specifying output dimensions.'
+  meta_attributes:
+  - onnx_opset: 19
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, height, width, channels)
+    type_str: T1
+  - name: roi
+    description: Region of interest for coordinate transformation (optional, use empty tensor if not needed)
+    type_str: T2
+  - name: scales
+    description: Scale factors for each dimension (optional if sizes is provided)
+    type_str: tensor(float)
+  - name: sizes
+    description: Output sizes for each dimension (optional if scales is provided)
+    type_str: tensor(int64)
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout, resized spatial dimensions
+    type_str: T1
+  attributes:
+  - name: antialias
+    description: Whether to apply antialiasing when downsampling
+    type: int
+    default_value: 0
+  - name: axes
+    description: Axes along which to resize (if not provided, resize all axes)
+    type: list(int)
+  - name: coordinate_transformation_mode
+    description: How to transform coordinates (half_pixel, asymmetric, align_corners, etc.)
+    type: string
+    default_value: half_pixel
+  - name: cubic_coeff_a
+    description: Coefficient for cubic interpolation
+    type: float
+    default_value: -0.75
+  - name: exclude_outside
+    description: Whether to exclude values outside the image when computing interpolation
+    type: int
+    default_value: 0
+  - name: extrapolation_value
+    description: Value for extrapolation when coordinate is out of bounds
+    type: float
+    default_value: 0.0
+  - name: keep_aspect_ratio_policy
+    description: Policy for keeping aspect ratio (stretch, not_larger, not_smaller)
+    type: string
+    default_value: stretch
+  - name: mode
+    description: Interpolation mode (nearest, linear, cubic)
+    type: string
+    default_value: nearest
+  - name: nearest_mode
+    description: Rounding mode for nearest interpolation (round_prefer_floor, round_prefer_ceil, floor, ceil)
+    type: string
+    default_value: round_prefer_floor
+  type_constraints:
+  - type_param: T1
+    description: Constrain input and output types to all tensor types.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(uint32)
+    - tensor(uint64)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(int32)
+    - tensor(int64)
+    - tensor(bfloat16)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(string)
+    - tensor(bool)
+    - tensor(complex64)
+    - tensor(complex128)
+  - type_param: T2
+    description: Constrain roi type to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+  min_input: 4
+  max_input: 4
+  min_output: 1
+  max_output: 1
