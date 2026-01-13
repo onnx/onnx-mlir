@@ -225,6 +225,26 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     std::string ONNXOpsStatFormat) {
+  // Check if selective Linalg conversion is requested via --linalg-ops
+  // This check is moved here to ensure all drivers share the same logic for
+  // handling mixed IR (Linalg + ONNX operations)
+  extern std::string linalgOps;
+  extern bool useLinalgPath;
+  // Only enable selective Linalg if --linalg-ops is set and not "NONE"
+  // "NONE" means no operations should be converted to Linalg
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
+
+  // In mixed IR scenarios (useSelectiveLinalg = true), we need to handle both
+  // Linalg and ONNX operations. Lower Linalg to Affine first, then convert
+  // remaining ONNX operations to Krnl.
+  if (useLinalgPath || useSelectiveLinalg) {
+    // Linalg path: Lower Linalg to Affine
+    // This is called either when --use-linalg-path is set, or when
+    // --linalg-ops is specified for selective conversion
+    addLinalgToAffinePasses(pm);
+  }
+
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -504,16 +524,11 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   // Step 2: Lower to Affine dialect (for EmitMLIR)
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
-      if (useLinalgPath || useSelectiveLinalg) {
-        // Linalg path: Lower Linalg to Affine
-        // This is called either when --use-linalg-path is set, or when
-        // --linalg-ops is specified for selective conversion
-        addLinalgToAffinePasses(pm);
-      } else {
-        // Krnl path: Convert ONNX to Krnl, then Krnl to Affine
-        addONNXToKrnlPasses(
-            pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
-      }
+      // Convert ONNX to Krnl (and Linalg to Affine if needed)
+      // The function now handles both Linalg and ONNX operations in mixed IR
+      // scenarios, automatically calling addLinalgToAffinePasses if needed
+      addONNXToKrnlPasses(
+          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
     }
     // For Krnl path: Lower Krnl to Affine (when input is already at MLIR level)
     if (inputIRLevel <= MLIRLevel && !useLinalgPath && !useSelectiveLinalg) {
