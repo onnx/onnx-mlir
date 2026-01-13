@@ -104,7 +104,7 @@ bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
 bool useLinalgPath;    // onnx-mlir only
-std::string linalgOps; // onnx-mlir only
+std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -651,7 +651,7 @@ static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
         "If not specified, uses the default behavior based on "
         "--use-linalg-path."),
     llvm::cl::location(linalgOps), llvm::cl::init(""),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> allowSortingOpt("allowSorting",
     llvm::cl::desc("Perform topological sort on onnx graph."),
