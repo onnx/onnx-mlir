@@ -99,9 +99,11 @@ RUN git clone -b ${ABSL_VERSION} --recursive ${ABSL_URL} ${ABSL_DIR} \
     && mkdir -p ${ABSL_DIR}/build \
     && cd ${ABSL_DIR}/build \
     && CC=clang CXX=clang++ \
-       cmake -DCMAKE_INSTALL_LIBDIR=lib \
+       cmake -DCMAKE_INSTALL_PREFIX=/usr/local \
+             -DCMAKE_INSTALL_LIBDIR=lib \
              -DABSL_PROPAGATE_CXX_STD=ON \
-             -DBUILD_SHARED_LIBS=ON .. \
+             -DBUILD_SHARED_LIBS=ON \
+             -DCMAKE_POSITION_INDEPENDENT_CODE=ON .. \ 
     && make -j${NPROC} install && ldconfig \
     && cd ../.. && rm -rf ${ABSL_DIR} ${HOME}/.cache
 
