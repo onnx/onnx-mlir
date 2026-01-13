@@ -15,5 +15,6 @@ add_onnx_mlir_library(OMONNXToLinalg
   MLIRBufferizationTransforms
   OMONNXOps
   OMShapeInferenceOpInterface
+  OMOptionUtils
   )
 
