@@ -99,6 +99,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     return;
   }
 
+  // Add ONNX to MLIR preprocessing passes
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -213,6 +214,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+
+  // Convert ONNX to Linalg if requested (either --use-linalg-path or
+  // --linalg-ops is specified)
+  // This is called after preprocessing passes to ensure proper IR state
+  if (useLinalgPath || useSelectiveLinalg) {
+    addONNXToLinalgPasses(pm);
+  }
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -488,15 +496,9 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
     // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
     // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
-    // The function now handles the shouldCallONNXToMLIR check internally
+    // The function now handles the shouldCallONNXToMLIR check internally and
+    // automatically calls addONNXToLinalgPasses if needed
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
-
-    if (useLinalgPath || useSelectiveLinalg) {
-      // Linalg path: Convert ONNX to Linalg (after preprocessing)
-      // This is called either when --use-linalg-path is set, or when
-      // --linalg-ops is specified for selective conversion
-      addONNXToLinalgPasses(pm);
-    }
   }
 
   // Step 2: Lower to Affine dialect (for EmitMLIR)
