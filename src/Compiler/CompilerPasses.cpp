@@ -76,6 +76,29 @@ void configurePasses() {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr) {
+  // Check if selective Linalg conversion is requested via --linalg-ops
+  // This check is moved here to ensure all drivers (main compiler, NNPA
+  // accelerator, etc.) share the same logic for the linalg path.
+  extern std::string linalgOps;
+  extern bool useLinalgPath;
+  extern EmissionTargetType emissionTarget;
+  // Only enable selective Linalg if --linalg-ops is set and not "NONE"
+  // "NONE" means no operations should be converted to Linalg, so we should
+  // use the Krnl path instead
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
+
+  // Determine if we should call ONNX to MLIR passes
+  // This is needed for both Krnl and Linalg paths when emitting MLIR or above
+  bool shouldCallONNXToMLIR =
+      emissionTarget >= EmitONNXIR ||
+      (emissionTarget >= EmitMLIR && (useLinalgPath || useSelectiveLinalg));
+
+  // Early return if we don't need to add passes
+  if (!shouldCallONNXToMLIR) {
+    return;
+  }
+
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -465,12 +488,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
     // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
     // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
-    bool shouldCallONNXToMLIR =
-        emissionTarget >= EmitONNXIR ||
-        (emissionTarget >= EmitMLIR && (useLinalgPath || useSelectiveLinalg));
-    if (shouldCallONNXToMLIR) {
-      addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
-    }
+    // The function now handles the shouldCallONNXToMLIR check internally
+    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
 
     if (useLinalgPath || useSelectiveLinalg) {
       // Linalg path: Convert ONNX to Linalg (after preprocessing)
