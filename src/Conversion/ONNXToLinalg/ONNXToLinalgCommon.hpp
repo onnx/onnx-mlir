@@ -29,21 +29,18 @@
 namespace onnx_mlir {
 
 // Utility function to check if an operation should be converted to Linalg
-// based on the --linalg-ops option. Returns true if the operation name
-// matches the specified patterns, or if --linalg-ops is not set and
-// --use-linalg-path is enabled.
+// based on the linalg-ops option. Returns true if the operation name
+// matches the specified patterns, or if linalgOps is empty and
+// useLinalgPath is enabled.
 // Note: When convert-onnx-to-linalg pass is explicitly run (e.g., via
 // onnx-mlir-opt), we default to converting operations if no options are set.
-inline bool shouldConvertToLinalg(mlir::Operation *op) {
-  // If --linalg-ops is not specified, fall back to --use-linalg-path behavior
-  extern std::string linalgOps;
-  extern bool useLinalgPath;
-
+inline bool shouldConvertToLinalg(
+    mlir::Operation *op, const std::string &linalgOps, bool useLinalgPath) {
   // When convert-onnx-to-linalg pass is explicitly run (e.g., via
-  // onnx-mlir-opt), we default to converting all operations unless --linalg-ops
+  // onnx-mlir-opt), we default to converting all operations unless linalgOps
   // is explicitly set
   if (linalgOps.empty()) {
-    // If --linalg-ops is not specified, check --use-linalg-path flag
+    // If linalgOps is not specified, check useLinalgPath flag
     // If useLinalgPath is true, convert all operations to Linalg
     // Otherwise, default to true for onnx-mlir-opt usage (when pass is
     // explicitly run) Note: In onnx-mlir-opt, useLinalgPath may not be
@@ -81,6 +78,6 @@ inline bool shouldConvertToLinalg(mlir::Operation *op) {
 // Math operations
 void populateLoweringONNXMatMulOpToLinalgPattern(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
-    mlir::MLIRContext *ctx);
+    mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
 
 } // namespace onnx_mlir
