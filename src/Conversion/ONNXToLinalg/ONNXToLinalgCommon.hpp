@@ -51,9 +51,12 @@ inline bool shouldConvertToLinalg(mlir::Operation *op) {
     return true;
   }
 
-  // Get operation name without dialect prefix (e.g., "MatMul" from
-  // "onnx.MatMul")
-  std::string opName = op->getName().stripDialect().str();
+  // Get operation name with dialect prefix (e.g., "onnx.MatMul") for future
+  // support of other dialects (e.g., "tosa.MatMul", "stablehlo.MatMul")
+  // Also support matching without dialect prefix (e.g., "MatMul") for
+  // backward compatibility
+  std::string opNameWithDialect = op->getName().getStringRef().str();
+  std::string opNameWithoutDialect = op->getName().stripDialect().str();
 
   // Use EnableByRegexOption to check if operation matches
   // Use static variable with lazy initialization to ensure linalgOps is set
@@ -68,7 +71,11 @@ inline bool shouldConvertToLinalg(mlir::Operation *op) {
     linalgOpsMatcher = std::make_unique<EnableByRegexOption>(false, linalgOps);
   }
 
-  return linalgOpsMatcher->isEnabled(opName);
+  // Check both with and without dialect prefix to support:
+  // - "onnx.MatMul" or "MatMul" patterns
+  // - Future dialects like "tosa.MatMul", "stablehlo.MatMul"
+  return linalgOpsMatcher->isEnabled(opNameWithDialect) ||
+         linalgOpsMatcher->isEnabled(opNameWithoutDialect);
 }
 
 // Math operations
