@@ -13,6 +13,10 @@
 // #define OM_DRIVER_TIMING 1
 // #include "src/Runtime/OMInstrumentHelper.h"
 //
+// and also make sure that the macro OM_DRIVER_TIMING_DISABLE_ALL below is set
+// to zero.
+//
+//
 // When not defined, all macros are empty, aka generate no code, so no
 // overheads.
 //
