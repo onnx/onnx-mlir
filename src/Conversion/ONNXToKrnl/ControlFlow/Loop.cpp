@@ -524,7 +524,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     Value ivMemRef =
         create.mem.alloc(MemRefType::get({}, rewriter.getI64Type()));
     Value cond = create.mem.alloc(MemRefType::get({}, rewriter.getI1Type()));
-    ONNXLoopOpAdaptor adaptor(operands, op->getAttrDictionary());
+    ONNXLoopOpAdaptor adaptor(operands, loopOp);
 
     // Construct inputs for WhileOp, which should be (0, cond, v_initial)
     // The initial value for iteration should be zero

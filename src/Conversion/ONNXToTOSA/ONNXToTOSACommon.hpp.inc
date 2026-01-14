@@ -153,7 +153,7 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
     mlir::PatternRewriter &rewriter, mlir::Operation *op) {
   using OpAdaptor = typename ONNXPoolOp::Adaptor;
   mlir::Location loc = op->getLoc();
-  OpAdaptor adaptor(op->getOperands(), op->getAttrDictionary());
+  OpAdaptor adaptor(op->getOperands(), mlir::dyn_cast<ONNXPoolOp>(op));
   // Get shape.
   IndexExprBuilderForTosa createTosaIE(rewriter, loc);
   ONNXGenericPoolOpShapeHelper<ONNXPoolOp> shapeHelper(op, {}, &createTosaIE);

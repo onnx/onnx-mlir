@@ -31,7 +31,7 @@ struct ONNXFlattenOpLoweringToStablehlo : public ConversionPattern {
 
     Location loc = op->getLoc();
     ONNXFlattenOpAdaptor operandAdaptor(operands);
-    ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
+    ONNXFlattenOp flattenOp = mlir::dyn_cast<ONNXFlattenOp>(op);
 
     Value input = operandAdaptor.getInput();
     assert(isRankedShapedType(input.getType()) && "Expected Ranked ShapedType");
