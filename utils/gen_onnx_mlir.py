@@ -87,7 +87,6 @@ if (
             + "while onnx package being used is {}".format(onnx.__version__)
         )
         print("Continuing with custom ops from YAML...")
-        print(f"Custom ops from YAML: {args.custom_ops_yaml}")
     else:
         print(
             "version of expected onnx is {}, ".format(current_onnx_version)
