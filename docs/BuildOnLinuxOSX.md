@@ -89,6 +89,27 @@ The environment variable `$pythonLocation` may be used to specify the base direc
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
 
+#### Build for NNPA
+To enable compilation for accelerator NNPA, `-DONNX_MLIR_ACCELERATORS=NNPA` should be added for cmake initialization. Moreover, the code for NNPA does not support ninja because of the variable for $NPROC (To be fixed). The command to initialize cmake will be:
+```
+if [[ -z "$pythonLocation" ]]; then
+  cmake -DONNX_MLIR_ACCELERATORS=NNPA \
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DMLIR_DIR=${MLIR_DIR} \
+        ..
+else
+  cmake -DONNX_MLIR_ACCELERATORS=NNPA\
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DPython3_ROOT_DIR=$pythonLocation \
+        -DMLIR_DIR=${MLIR_DIR} \
+        ..
+fi
+```
+
 ### Enable CPU Optimizations
 
 To make the compiler run faster (without any affect on the generated code)
