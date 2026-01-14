@@ -1,5 +1,4 @@
-// RUN: onnx-mlir-opt --linalg-ops=MatMul --convert-onnx-to-linalg %s
-// -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --linalg-ops=onnx.MatMul --convert-onnx-to-linalg %s -split-input-file | FileCheck %s
 
 // -----
 

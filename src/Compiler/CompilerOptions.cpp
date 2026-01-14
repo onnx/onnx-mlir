@@ -645,8 +645,9 @@ static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
     llvm::cl::desc(
         "Specify which operations should be lowered to Linalg dialect.\n"
         "Operations are specified as a comma-separated list or regex "
-        "patterns.\n"
-        "Example: --linalg-ops=MatMul,Conv or --linalg-ops=\"MatMul.*\"\n"
+        "patterns using dialect-qualified names.\n"
+        "Example: --linalg-ops=onnx.MatMul,onnx.Conv or "
+        "--linalg-ops=\"onnx.MatMul.*\" or --linalg-ops=\"*.MatMul\"\n"
         "Special values: ALL (all operations), NONE (no operations).\n"
         "If not specified, uses the default behavior based on "
         "--use-linalg-path."),
