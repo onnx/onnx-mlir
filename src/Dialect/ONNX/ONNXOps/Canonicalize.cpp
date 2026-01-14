@@ -75,6 +75,42 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
   return rewriter.getI64TensorAttr(vals);
 }
 
+// Create a reshaped constant for fusing into Conv weight multiplication.
+// If constant has C_out elements, creates [C_out, 1, 1, ...].
+Value createReshapedConstantForWeightFusion(
+    PatternRewriter &rewriter, Location loc, Value constant, Value weight) {
+  auto constantType = mlir::cast<ShapedType>(constant.getType());
+  auto weightType = mlir::cast<ShapedType>(weight.getType());
+
+  const int64_t numElements = constantType.getNumElements();
+  const int64_t cOut = weightType.getShape()[0];
+  assert((cOut == numElements || numElements == 1) &&
+         "numElements should be either 1 or C_out element");
+  const int64_t weightRank = weightType.getRank();
+
+  SmallVector<int64_t> targetShape;
+  if (numElements == 1) {
+    // 1 element: no need to reshape
+    return constant;
+  } else {
+    // C_out elements: reshape to [C_out, 1, 1, ...]
+    targetShape.push_back(cOut);
+    for (int i = 1; i < weightRank; ++i)
+      targetShape.push_back(1);
+  }
+
+  // Create shape constant
+  Value shapeConst = rewriter.create<ONNXConstantOp>(
+      loc, nullptr, rewriter.getI64TensorAttr(targetShape));
+
+  // Create result type for reshape
+  auto elementType = constantType.getElementType();
+  auto resultType = RankedTensorType::get(targetShape, elementType);
+
+  // Create and return the reshape op
+  return rewriter.create<ONNXReshapeOp>(loc, resultType, constant, shapeConst);
+}
+
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
 Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
   ArrayRef<int64_t> aShape =
