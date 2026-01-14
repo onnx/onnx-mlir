@@ -120,8 +120,7 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     && CC=clang CXX=clang++ \
        cmake -DCMAKE_INSTALL_LIBDIR=lib \
              -DBUILD_SHARED_LIBS=ON \
-             -Dprotobuf_BUILD_TESTS=OFF \
-             -Dabsl_DIR=/usr/local/lib/cmake/absl .. \
+             -Dprotobuf_BUILD_TESTS=OFF .. \
     && make -j${NPROC} install && ldconfig \
     && cd .. \
     # New version of python protobuf can no longer be built with setup.py.
