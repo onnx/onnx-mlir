@@ -326,7 +326,10 @@ class ONNXMLIRTorch:
             if not self.export_gm_to_onnx(example_inputs):
                 logger.info("Failed to export the model. Switch to the eager mode.")
                 self.gm.meta["om_not_used"] = True
-                return self.gm(*example_inputs)
+                start = time.perf_counter()
+                results = self.gm(*example_inputs)
+                logger.info(f"  torch took {(time.perf_counter() - start)*1000} ms")
+                return results
 
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
