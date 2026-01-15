@@ -204,6 +204,8 @@ def generate_hash_key(
                         node_info.append(f"{inode.name}")
             graph_info.append(";".join(node_info))
         graph_str = " ".join(graph_info)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.info(f"Graph string for hashing: {graph_str}")
         graph_hash = sha256_hash(graph_str.encode())
 
         # Hash the options.
@@ -229,6 +231,9 @@ class ONNXMLIRTorch:
         # Input graph module.
         self.gm = gm
         self.gm.eval()
+
+        # Indice of the actual example inputs if the graph's signature is changed.
+        self.example_inputs_indices = None
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
@@ -295,6 +300,10 @@ class ONNXMLIRTorch:
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
+        # If the model is not suitable for compilation, run it with the eager mode.
+        if "om_not_used" in self.gm.meta:
+            return self.gm(*example_inputs)
+
         if self.cached_session is None:
             logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
@@ -313,7 +322,11 @@ class ONNXMLIRTorch:
             self.cleanup_onnxmlir_files(tag_id)
 
             # Export the graph module to onnx.
-            self.export_gm_to_onnx(example_inputs)
+            # If failed, use the graph as it is without compilation.
+            if not self.export_gm_to_onnx(example_inputs):
+                logger.info("Failed to export the model. Switch to the eager mode.")
+                self.gm.meta["om_not_used"] = True
+                return self.gm(*example_inputs)
 
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
@@ -342,6 +355,9 @@ class ONNXMLIRTorch:
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_tensor_example_inputs(self, example_inputs):
+        if self.example_inputs_indices is None:
+            return example_inputs
+
         tensor_inputs = []
         for i in self.example_inputs_indices:
             x = example_inputs[i]
@@ -557,13 +573,24 @@ class ONNXMLIRTorch:
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
-        torch.onnx.export(
-            self.gm,
-            example_inputs,
-            self.onnx_model,
-            input_names=input_names,
-            dynamic_shapes=dynamic_shapes,
-        )
+
+        succeeded = False
+        try:
+            torch.onnx.export(
+                self.gm,
+                example_inputs,
+                self.onnx_model,
+                #input_names=input_names,
+                #dynamic_shapes=dynamic_shapes,
+                dynamo=False,
+            )
+            succeeded = True
+        except torch.onnx.errors.UnsupportedOperatorError as e:
+            print("ONNX export unsupported:", e)
+        except Exception as e:
+            print("ONNX export failure:", e)
+
+        return succeeded
 
     def create_onnxmlir_session(self) -> InferenceSession:
         # Return a session to compile and run the onnx model.
