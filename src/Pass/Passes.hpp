@@ -134,6 +134,8 @@ std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
 /// Pass for lowering Onnx ops to Linalg dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToLinalg();
+std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
+    const std::string &linalgOps, bool useLinalgPath);
 
 // Get the function that creates the pass for pass manager.
 // This function has the name of createPassName(), created from Passes.td.
