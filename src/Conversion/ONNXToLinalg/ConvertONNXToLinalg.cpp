@@ -30,16 +30,13 @@ namespace onnx_mlir {
 
 namespace {
 
+#define GEN_PASS_DECL_CONVERTONNXTOLINALG
+#define GEN_PASS_DEF_CONVERTONNXTOLINALG
+#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
+
 struct ConvertONNXToLinalgPass
-    : public PassWrapper<ConvertONNXToLinalgPass, OperationPass<func::FuncOp>> {
-
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertONNXToLinalgPass)
-
-  StringRef getArgument() const override { return "convert-onnx-to-linalg"; }
-
-  StringRef getDescription() const override {
-    return "Lower ONNX operations to Linalg dialect";
-  }
+    : public impl::ConvertONNXToLinalgBase<ConvertONNXToLinalgPass> {
+  using ConvertONNXToLinalgBase::ConvertONNXToLinalgBase;
 
   void runOnOperation() override {
     auto function = getOperation();
