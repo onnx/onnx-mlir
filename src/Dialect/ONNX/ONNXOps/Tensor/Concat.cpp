@@ -29,6 +29,17 @@ template <>
 LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   ONNXConcatOp concatOp = mlir::dyn_cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
+
+  // Has an empty input. Compute shape later once the empty input is removed by
+  // canonicalization.
+  for (Value operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> operandShape =
+        mlir::cast<ShapedType>(operand.getType()).getShape();
+    if (operandShape.size() == 1 && operandShape[0] == 0) {
+      return success();
+    }
+  }
+
   unsigned numInputs = op->getNumOperands();
   Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =
@@ -89,8 +100,18 @@ LogicalResult ONNXConcatOp::verify() {
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  auto commonType =
-      mlir::cast<ShapedType>(operandAdaptor.getOperands().front().getType());
+  ShapedType commonType;
+  for (Value operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> operandShape =
+        mlir::cast<ShapedType>(operand.getType()).getShape();
+    if (operandShape.size() == 1 && operandShape[0] == 0) {
+      continue;
+    } else {
+      commonType = mlir::cast<ShapedType>(operand.getType());
+      break;
+    }
+  }
+
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = getAxis();
@@ -110,6 +131,10 @@ LogicalResult ONNXConcatOp::verify() {
     ArrayRef<int64_t> operandShape =
         mlir::cast<ShapedType>(operand.getType()).getShape();
     int64_t operandRank = operandShape.size();
+    // Empty tensor.
+    if (operandRank == 1 && operandShape[0] == 0)
+      continue;
+    // Non-empty tensor.
     if (operandRank != commonRank)
       return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
           *this->getOperation(), operand, operandRank,
