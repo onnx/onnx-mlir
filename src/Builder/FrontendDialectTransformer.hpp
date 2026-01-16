@@ -88,6 +88,16 @@ struct ImportOptions {
 };
 
 /*!
+ *  Load an ONNX model proto from a file into a protobuf object.
+ *  @param model_fname file name pointing to the onnx model protobuf.
+ *  @param errorMessage error message.
+ *  @param model Out parameter: the onnx model protobuf.
+ */
+[[nodiscard]] std::error_code LoadModelProtoFromFile(
+    llvm::StringRef model_fname, std::string &errorMessage,
+    onnx::ModelProto &model);
+
+/*!
  *  Import an ONNX model array into the ONNX Dialect.
  *  @param onnxBuffer buffer containing onnx model protobuf.
  *  @param bufferSize size of buffer containing onnx model protobuf.
@@ -107,6 +117,18 @@ struct ImportOptions {
     llvm::StringRef model_fname, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string &errorMessage,
     const ImportOptions &options = ImportOptions());
+
+/*!
+ *  Import an ONNX model proto with pre-processing into the ONNX Dialect.
+ *  The pre-processing depends on @param options and can involve topologically
+ *  sorting, shape inference and opset conversion.
+ *  @param model the onnx model protobuf.
+ *  @param MLIR::module generated for the ONNX model.
+ */
+[[nodiscard]] std::error_code ImportFrontendModelWithPreProcessing(
+    onnx::ModelProto &model, mlir::MLIRContext &context,
+    mlir::OwningOpRef<mlir::ModuleOp> &module, const ImportOptions &options,
+    std::string &errorMessage);
 
 /*!
  *  Import an ONNX model proto into the ONNX Dialect.
