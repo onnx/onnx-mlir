@@ -402,3 +402,111 @@ func.func @test_xfe_depth_space_roundtrip(%arg0: tensor<1x4x4x16xf32>) -> tensor
   // CHECK: onnx.Return [[S2D]] : tensor<1x4x4x16xf32>
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// XFE Resize Tests (channel-last layout)
+//===----------------------------------------------------------------------===//
+
+// COM: Test ResizeChannelLast with scales (2x upscale)
+func.func @test_xfe_resize_scales_upsample(%arg0: tensor<1x4x4x3xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 2.0, 2.0, 1.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %0 = "onnx.XFEResize"(%arg0, %none, %scales, %none) {
+    coordinate_transformation_mode = "half_pixel",
+    mode = "nearest",
+    nearest_mode = "round_prefer_floor"
+  } : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_resize_scales_upsample
+  // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %{{.*}}, %{{.*}}) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "nearest"{{.*}}nearest_mode = "round_prefer_floor"{{.*}}} : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<1x8x8x3xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x8x8x3xf32>
+}
+
+// -----
+
+// COM: Test ResizeChannelLast with scales (downsample)
+func.func @test_xfe_resize_scales_downsample(%arg0: tensor<1x32x32x64xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 0.5, 0.5, 1.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %0 = "onnx.XFEResize"(%arg0, %none, %scales, %none) {
+    coordinate_transformation_mode = "asymmetric",
+    mode = "nearest",
+    nearest_mode = "floor"
+  } : (tensor<1x32x32x64xf32>, none, tensor<4xf32>, none) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_resize_scales_downsample
+  // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %{{.*}}, %{{.*}}) {{{.*}}coordinate_transformation_mode = "asymmetric"{{.*}}mode = "nearest"{{.*}}nearest_mode = "floor"{{.*}}} : (tensor<1x32x32x64xf32>, none, tensor<4xf32>, none) -> tensor<1x16x16x64xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x16x16x64xf32>
+}
+
+// -----
+
+// COM: Test ResizeChannelLast with sizes
+func.func @test_xfe_resize_sizes(%arg0: tensor<1x4x4x3xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %sizes = "onnx.Constant"() {value = dense<[1, 8, 8, 3]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %0 = "onnx.XFEResize"(%arg0, %none, %none, %sizes) {
+    coordinate_transformation_mode = "half_pixel",
+    mode = "linear"
+  } : (tensor<1x4x4x3xf32>, none, none, tensor<4xi64>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_resize_sizes
+  // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %{{.*}}, %{{.*}}) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "linear"{{.*}}} : (tensor<1x4x4x3xf32>, none, none, tensor<4xi64>) -> tensor<1x8x8x3xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x8x8x3xf32>
+}
+
+// -----
+
+// COM: Test ResizeChannelLast with dynamic scales (output should be dynamic)
+func.func @test_xfe_resize_dynamic_scales(%arg0: tensor<1x4x4x3xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XFEResize"(%arg0, %none, %arg1, %none) {
+    coordinate_transformation_mode = "half_pixel",
+    mode = "nearest"
+  } : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_resize_dynamic_scales
+  // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %arg1, %{{.*}}) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "nearest"{{.*}}} : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<?x?x?x?xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<?x?x?x?xf32>
+}
+
+// -----
+
+// COM: Test ResizeChannelLast with 3x upscale
+func.func @test_xfe_resize_3x_upsample(%arg0: tensor<1x8x8x16xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 3.0, 3.0, 1.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %0 = "onnx.XFEResize"(%arg0, %none, %scales, %none) {
+    coordinate_transformation_mode = "asymmetric",
+    mode = "nearest",
+    nearest_mode = "ceil"
+  } : (tensor<1x8x8x16xf32>, none, tensor<4xf32>, none) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_resize_3x_upsample
+  // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %{{.*}}, %{{.*}}) {{{.*}}coordinate_transformation_mode = "asymmetric"{{.*}}mode = "nearest"{{.*}}nearest_mode = "ceil"{{.*}}} : (tensor<1x8x8x16xf32>, none, tensor<4xf32>, none) -> tensor<1x24x24x16xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x24x24x16xf32>
+}
+
+// -----
+
+// COM: Test ResizeChannelLast linear interpolation mode
+func.func @test_xfe_resize_linear(%arg0: tensor<1x4x4x3xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 2.0, 2.0, 1.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %0 = "onnx.XFEResize"(%arg0, %none, %scales, %none) {
+    coordinate_transformation_mode = "align_corners",
+    mode = "linear"
+  } : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_resize_linear
+  // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %{{.*}}, %{{.*}}) {{{.*}}coordinate_transformation_mode = "align_corners"{{.*}}mode = "linear"{{.*}}} : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<1x8x8x3xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x8x8x3xf32>
+}
+

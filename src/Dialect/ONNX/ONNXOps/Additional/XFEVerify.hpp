@@ -44,4 +44,7 @@ LogicalResult XFEDepthToSpaceOpVerify(Operation *op);
 // Verify for SpaceToDepthChannelLast
 LogicalResult XFESpaceToDepthOpVerify(Operation *op);
 
+// Verify for ResizeChannelLast
+LogicalResult XFEResizeOpVerify(Operation *op);
+
 } // namespace mlir

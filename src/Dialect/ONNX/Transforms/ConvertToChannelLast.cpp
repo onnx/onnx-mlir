@@ -25,12 +25,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -564,6 +566,225 @@ struct SpaceToDepthToChannelLastPattern
   }
 };
 
+// Pattern to convert Resize to XFEResize
+// Only converts when resize is on spatial dimensions (NCHW layout assumed):
+// - Batch dimension (dim 0) must not be resized
+// - Channel dimension (dim 1) must not be resized
+// - Only spatial dimensions (dims 2, 3) should be resized
+//
+// TODO: Currently only handles 4D tensors (NCHW/NHWC format).
+//       Future work needed to support:
+//       - 3D tensors (NCW/NWC for 1D spatial)
+//       - 5D tensors (NCDHW/NDHWC for 3D spatial)
+//       - General N-dimensional cases
+struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  // Check if resize is NCHW spatial-only by comparing input/output shapes
+  // For NCHW layout: dim 0 = batch, dim 1 = channel, dims 2,3 = spatial (H,W)
+  // A spatial-only resize keeps dims 0 and 1 unchanged
+  // TODO: Extend to support 3D (NCW) and 5D (NCDHW) tensors
+  static bool isNCHWSpatialResize(
+      RankedTensorType inputType, RankedTensorType outputType) {
+    if (!inputType || !outputType)
+      return false;
+
+    auto inputShape = inputType.getShape();
+    auto outputShape = outputType.getShape();
+
+    // Must have same rank
+    if (inputShape.size() != outputShape.size())
+      return false;
+
+    int64_t rank = inputShape.size();
+    if (rank != 4)
+      return false; // Only support 4D tensors (NCHW)
+
+    // Check dim 0 (batch) - must be unchanged
+    // Allow dynamic dims (they match by definition for this check)
+    if (inputShape[0] != ShapedType::kDynamic &&
+        outputShape[0] != ShapedType::kDynamic &&
+        inputShape[0] != outputShape[0]) {
+      return false;
+    }
+
+    // Check dim 1 (channel in NCHW) - must be unchanged
+    if (inputShape[1] != ShapedType::kDynamic &&
+        outputShape[1] != ShapedType::kDynamic &&
+        inputShape[1] != outputShape[1]) {
+      return false;
+    }
+
+    // Dims 0 and 1 are unchanged - this is NCHW spatial resize
+    return true;
+  }
+
+  // Check if resize appears to be NHWC spatial by comparing input/output shapes
+  // For NHWC layout: dim 0 = batch, dims 1,2 = spatial (H,W), dim 3 = channel
+  // A spatial-only NHWC resize keeps dims 0 and 3 unchanged, dims 1,2 change
+  // TODO: Extend to support 3D (NWC) and 5D (NDHWC) tensors
+  static bool isNHWCSpatialResize(
+      RankedTensorType inputType, RankedTensorType outputType) {
+    if (!inputType || !outputType)
+      return false;
+
+    auto inputShape = inputType.getShape();
+    auto outputShape = outputType.getShape();
+
+    if (inputShape.size() != outputShape.size())
+      return false;
+
+    int64_t rank = inputShape.size();
+    if (rank != 4)
+      return false; // Only support 4D tensors (NHWC)
+
+    // For NHWC [N, H, W, C]: dim 0 = batch, dims 1,2 = spatial, dim 3 = channel
+    // Check dim 0 (batch) - must be unchanged
+    if (inputShape[0] != ShapedType::kDynamic &&
+        outputShape[0] != ShapedType::kDynamic &&
+        inputShape[0] != outputShape[0]) {
+      return false;
+    }
+
+    // Check dim 3 (channel in NHWC) - must be unchanged
+    if (inputShape[3] != ShapedType::kDynamic &&
+        outputShape[3] != ShapedType::kDynamic &&
+        inputShape[3] != outputShape[3]) {
+      return false;
+    }
+
+    // Check if spatial dims (1 or 2) actually change
+    bool spatialChanges = false;
+    if ((inputShape[1] != ShapedType::kDynamic &&
+            outputShape[1] != ShapedType::kDynamic &&
+            inputShape[1] != outputShape[1]) ||
+        (inputShape[2] != ShapedType::kDynamic &&
+            outputShape[2] != ShapedType::kDynamic &&
+            inputShape[2] != outputShape[2])) {
+      spatialChanges = true;
+    }
+
+    // It's NHWC spatial resize if batch and channel unchanged, spatial changes
+    return spatialChanges;
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp resizeOp, PatternRewriter &rewriter) const override {
+    Location loc = resizeOp.getLoc();
+    Value input = resizeOp.getX();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
+    // TODO: Currently only supports 4D tensors (NCHW/NHWC format).
+    //       Extend to handle 3D (NCW/NWC) and 5D (NCDHW/NDHWC) in future.
+    if (!inputType || inputType.getRank() != 4)
+      return failure();
+
+    int64_t rank = inputType.getRank();
+
+    // Get output type to compare shapes
+    auto outputType = mlir::dyn_cast<RankedTensorType>(resizeOp.getType());
+    if (!outputType) {
+      return rewriter.notifyMatchFailure(
+          resizeOp, "Output type is not ranked. Cannot determine layout.");
+    }
+
+    // CHECK 1: Is this an NHWC spatial resize?
+    // If dims 0 (batch) and last (channel) are unchanged but middle dims
+    // change, the input is already in NHWC layout - don't convert
+    if (isNHWCSpatialResize(inputType, outputType)) {
+      return rewriter.notifyMatchFailure(resizeOp,
+          "Resize appears to be NHWC spatial (batch and last dim unchanged, "
+          "middle dims changed). Input is likely already channel-last.");
+    }
+
+    // CHECK 2: Is this an NCHW spatial resize?
+    // If dims 0 (batch) and 1 (channel) are unchanged, it's NCHW spatial -
+    // convert
+    if (!isNCHWSpatialResize(inputType, outputType)) {
+      return rewriter.notifyMatchFailure(resizeOp,
+          "Resize is not NCHW spatial-only (batch or channel dimensions "
+          "are being resized). Cannot convert to channel-last layout.");
+    }
+
+    // Transpose input to channel-last
+    Value inputChannelLast = createInputTranspose(
+        rewriter, loc, input, rank, inputType.getElementType());
+
+    // Get the original output element type (may be quantized)
+    auto origOutputType = mlir::dyn_cast<ShapedType>(resizeOp.getType());
+    Type outputElemType = origOutputType ? origOutputType.getElementType()
+                                         : inputType.getElementType();
+
+    // Handle scales and sizes - need to permute them for channel-last layout
+    // Permutation: [0, 2, 3, ..., N-1, 1] for NCHW -> NHWC
+    Value roi = resizeOp.getRoi();
+    Value scales = resizeOp.getScales();
+    Value sizes = resizeOp.getSizes();
+
+    // Helper to permute a 1D tensor from NCHW order to NHWC order
+    auto permuteForChannelLast = [&](Value tensor) -> Value {
+      if (isa<NoneType>(tensor.getType()))
+        return tensor;
+
+      auto tensorType = mlir::dyn_cast<RankedTensorType>(tensor.getType());
+      if (!tensorType || !tensorType.hasStaticShape())
+        return tensor;
+
+      int64_t numElements = tensorType.getNumElements();
+      if (numElements != rank)
+        return tensor; // Can't permute if size doesn't match rank
+
+      // Create permutation for channel-last: [0, 2, 3, ..., N-1, 1]
+      SmallVector<int64_t, 4> perm;
+      perm.push_back(0); // batch
+      for (int64_t i = 2; i < rank; ++i)
+        perm.push_back(i); // spatial dimensions
+      perm.push_back(1);   // channels
+
+      // Create gather indices
+      SmallVector<int64_t, 4> indices(perm.begin(), perm.end());
+      auto indicesType = RankedTensorType::get({rank}, rewriter.getI64Type());
+      auto indicesAttr = DenseIntElementsAttr::get(indicesType, indices);
+      Value indicesValue =
+          rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(), indicesAttr);
+
+      // Gather to permute - use si64 for axis attribute
+      auto outputType = tensorType;
+      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+      return rewriter.create<ONNXGatherOp>(loc, outputType, tensor,
+          indicesValue, rewriter.getIntegerAttr(si64Type, 0));
+    };
+
+    Value roiChannelLast = permuteForChannelLast(roi);
+    Value scalesChannelLast = permuteForChannelLast(scales);
+    Value sizesChannelLast = permuteForChannelLast(sizes);
+
+    // Create XFEResize operation
+    auto resizeChannelLastOp = rewriter.create<XFEResizeOp>(loc,
+        UnrankedTensorType::get(outputElemType), inputChannelLast,
+        roiChannelLast, scalesChannelLast, sizesChannelLast,
+        resizeOp.getAntialiasAttr(), resizeOp.getAxesAttr(),
+        resizeOp.getCoordinateTransformationModeAttr(),
+        resizeOp.getCubicCoeffAAttr(), resizeOp.getExcludeOutsideAttr(),
+        resizeOp.getExtrapolationValueAttr(),
+        resizeOp.getKeepAspectRatioPolicyAttr(), resizeOp.getModeAttr(),
+        resizeOp.getNearestModeAttr());
+
+    // Infer shapes to get ranked type
+    if (failed(resizeChannelLastOp.inferShapes([](Region &) {}))) {
+      return rewriter.notifyMatchFailure(
+          resizeOp, "failed to infer shapes for XFEResize");
+    }
+
+    // Transpose output back to NCHW
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        resizeChannelLastOp.getResult(), resizeOp.getType(), rank);
+
+    rewriter.replaceOp(resizeOp, outputNCHW);
+    return success();
+  }
+};
+
 struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
                                       OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertToChannelLastPass)
@@ -572,6 +793,11 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
 
   StringRef getDescription() const override {
     return "Convert ONNX operations to ChannelLast variants with transposes";
+  }
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<ONNXDialect>();
+    registry.insert<func::FuncDialect>();
   }
 
   void runOnOperation() override {
@@ -588,6 +814,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<InstanceNormToChannelLastPattern>(context);
     patterns.add<DepthToSpaceToChannelLastPattern>(context);
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
+    patterns.add<ResizeToChannelLastPattern>(context);
 
     if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
       signalPassFailure();

@@ -278,3 +278,69 @@ func.func @test_space_to_depth_to_channel_last(%arg0: tensor<1x4x8x8xf32>) -> te
   // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x16x4x4xf32>
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Resize Conversion Tests
+//===----------------------------------------------------------------------===//
+
+// COM: Test Resize with scales to XFEResize conversion
+// CHECK-LABEL: func.func @test_resize_scales_to_channel_last
+func.func @test_resize_scales_to_channel_last(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 1.0, 2.0, 2.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %0 = "onnx.Resize"(%arg0, %none, %scales, %none) {
+    coordinate_transformation_mode = "half_pixel",
+    mode = "nearest",
+    nearest_mode = "round_prefer_floor"
+  } : (tensor<1x3x4x4xf32>, none, tensor<4xf32>, none) -> tensor<1x3x8x8xf32>
+  onnx.Return %0 : tensor<1x3x8x8xf32>
+
+  // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xf32>) -> tensor<1x4x4x3xf32>
+  // CHECK: [[SCALES_PERMUTED:%.+]] = "onnx.Gather"
+  // CHECK: [[RESIZE_CHANNEL_LAST:%.+]] = "onnx.XFEResize"([[INPUT_CHANNEL_LAST]], %{{.*}}, [[SCALES_PERMUTED]], %{{.*}}) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "nearest", nearest_mode = "round_prefer_floor"{{.*}}}
+  // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[RESIZE_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]}
+  // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x3x8x8xf32>
+}
+
+// -----
+
+// COM: Test Resize with sizes to XFEResize conversion
+// CHECK-LABEL: func.func @test_resize_sizes_to_channel_last
+func.func @test_resize_sizes_to_channel_last(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %sizes = "onnx.Constant"() {value = dense<[1, 3, 8, 8]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %0 = "onnx.Resize"(%arg0, %none, %none, %sizes) {
+    coordinate_transformation_mode = "half_pixel",
+    mode = "linear"
+  } : (tensor<1x3x4x4xf32>, none, none, tensor<4xi64>) -> tensor<1x3x8x8xf32>
+  onnx.Return %0 : tensor<1x3x8x8xf32>
+
+  // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xf32>) -> tensor<1x4x4x3xf32>
+  // CHECK: [[SIZES_PERMUTED:%.+]] = "onnx.Gather"
+  // CHECK: [[RESIZE_CHANNEL_LAST:%.+]] = "onnx.XFEResize"([[INPUT_CHANNEL_LAST]], %{{.*}}, %{{.*}}, [[SIZES_PERMUTED]]) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "linear"{{.*}}}
+  // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[RESIZE_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]}
+  // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x3x8x8xf32>
+}
+
+// -----
+
+// COM: Test Resize downsample to XFEResize conversion
+// CHECK-LABEL: func.func @test_resize_downsample_to_channel_last
+func.func @test_resize_downsample_to_channel_last(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 1.0, 0.5, 0.5]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %0 = "onnx.Resize"(%arg0, %none, %scales, %none) {
+    coordinate_transformation_mode = "asymmetric",
+    mode = "nearest",
+    nearest_mode = "floor"
+  } : (tensor<1x64x32x32xf32>, none, tensor<4xf32>, none) -> tensor<1x64x16x16xf32>
+  onnx.Return %0 : tensor<1x64x16x16xf32>
+
+  // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x64x32x32xf32>) -> tensor<1x32x32x64xf32>
+  // CHECK: [[SCALES_PERMUTED:%.+]] = "onnx.Gather"
+  // CHECK: [[RESIZE_CHANNEL_LAST:%.+]] = "onnx.XFEResize"([[INPUT_CHANNEL_LAST]], %{{.*}}, [[SCALES_PERMUTED]], %{{.*}}) {{{.*}}coordinate_transformation_mode = "asymmetric"{{.*}}mode = "nearest", nearest_mode = "floor"{{.*}}}
+  // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[RESIZE_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]}
+  // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x64x16x16xf32>
+}
+

@@ -680,4 +680,113 @@ LogicalResult XFESpaceToDepthOpShapeInference(
   return success();
 }
 
+LogicalResult XFEResizeOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto resizeOp = dyn_cast<XFEResizeOp>(op);
+  if (!resizeOp)
+    return failure();
+
+  Value X = resizeOp.getX();
+  if (!hasShapeAndRank(X))
+    return success();
+
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  auto xShape = xType.getShape();
+
+  // Helper to check if input is absent (None or empty tensor)
+  auto isAbsent = [](Value input) -> bool {
+    if (isa<NoneType>(input.getType()))
+      return true;
+    if (auto shapedType = mlir::dyn_cast<ShapedType>(input.getType())) {
+      return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
+    }
+    return false;
+  };
+
+  Value scales = resizeOp.getScales();
+  Value sizes = resizeOp.getSizes();
+
+  bool scalesIsAbsent = isAbsent(scales);
+  bool sizesIsAbsent = isAbsent(sizes);
+
+  // Axes attribute is not yet supported for channel-last resize
+  if (resizeOp.getAxes().has_value())
+    return success(); // Return success but don't infer shape
+
+  SmallVector<int64_t, 6> outputShape;
+  int64_t rank = xShape.size();
+
+  if (!scalesIsAbsent) {
+    // Output shape determined by scales
+    // Try to get constant scales
+    DenseElementsAttr scalesAttr;
+    if (auto defOp = scales.getDefiningOp<ONNXConstantOp>()) {
+      if (auto valueAttr = defOp.getValue()) {
+        scalesAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
+      }
+    }
+
+    if (scalesAttr) {
+      auto scalesValues = scalesAttr.getValues<float>();
+      if (static_cast<int64_t>(scalesValues.size()) != rank)
+        return op->emitError("scales size must match input rank");
+
+      for (int64_t i = 0; i < rank; ++i) {
+        int64_t inputDim = xShape[i];
+        float scale = scalesValues[i];
+        if (inputDim == ShapedType::kDynamic) {
+          outputShape.push_back(ShapedType::kDynamic);
+        } else {
+          outputShape.push_back(
+              static_cast<int64_t>(std::floor(inputDim * scale)));
+        }
+      }
+    } else {
+      // Scales are not constant, output shape is dynamic
+      for (int64_t i = 0; i < rank; ++i) {
+        outputShape.push_back(ShapedType::kDynamic);
+      }
+    }
+  } else if (!sizesIsAbsent) {
+    // Output shape determined by sizes
+    DenseElementsAttr sizesAttr;
+    if (auto defOp = sizes.getDefiningOp<ONNXConstantOp>()) {
+      if (auto valueAttr = defOp.getValue()) {
+        sizesAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
+      }
+    }
+
+    if (sizesAttr) {
+      auto sizesValues = sizesAttr.getValues<int64_t>();
+      if (static_cast<int64_t>(sizesValues.size()) != rank)
+        return op->emitError("sizes size must match input rank");
+
+      for (int64_t i = 0; i < rank; ++i) {
+        outputShape.push_back(sizesValues[i]);
+      }
+    } else {
+      // Sizes are not constant, output shape is dynamic
+      for (int64_t i = 0; i < rank; ++i) {
+        outputShape.push_back(ShapedType::kDynamic);
+      }
+    }
+  } else {
+    // Both scales and sizes are absent - cannot infer shape
+    return success();
+  }
+
+  // Set the result type
+  // CRITICAL: Preserve existing element type if already set (e.g., quantized
+  // types)
+  Type elementType = xType.getElementType();
+  if (auto existingType =
+          dyn_cast<ShapedType>(resizeOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  resizeOp.getResult().setType(resultType);
+
+  return success();
+}
+
 } // namespace mlir

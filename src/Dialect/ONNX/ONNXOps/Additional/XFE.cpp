@@ -75,6 +75,11 @@ LogicalResult XFESpaceToDepthOp::inferShapes(
       this->getOperation(), doShapeInference);
 }
 
+LogicalResult XFEResizeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEResizeOpShapeInference(this->getOperation(), doShapeInference);
+}
+
 // ============================================================
 // Verify
 // ============================================================
@@ -117,4 +122,8 @@ LogicalResult XFEDepthToSpaceOp::verify() {
 
 LogicalResult XFESpaceToDepthOp::verify() {
   return XFESpaceToDepthOpVerify(this->getOperation());
+}
+
+LogicalResult XFEResizeOp::verify() {
+  return XFEResizeOpVerify(this->getOperation());
 }
