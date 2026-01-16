@@ -236,6 +236,11 @@ class ONNXMLIRTorch:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
 
+        if self.use_eager_mode():
+            if "om_example_inputs_indices" in self.gm.meta:
+                self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
+            return
+
         # If the model was rewritten, the cache key was stored in "om_hash" in gm.meta.
         need_rewrite = False
         if "om_hash" not in self.gm.meta:
@@ -304,6 +309,9 @@ class ONNXMLIRTorch:
     def eager_forward(self, *example_inputs):
         if "om_use_eager_mode" not in self.gm.meta:
             self.gm.meta["om_use_eager_mode"] = True
+        if "om_example_inputs_indices" not in self.gm.meta:
+            self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
+
         logger.info("Use the eager mode to run the graph.")
         start = time.perf_counter()
         results = self.gm.forward(*example_inputs)
