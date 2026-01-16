@@ -779,7 +779,8 @@ LogicalResult XFEResizeOpShapeInference(
   // CRITICAL: Preserve existing element type if already set (e.g., quantized
   // types)
   Type elementType = xType.getElementType();
-  if (auto existingType = dyn_cast<ShapedType>(resizeOp.getResult().getType())) {
+  if (auto existingType =
+          dyn_cast<ShapedType>(resizeOp.getResult().getType())) {
     elementType = existingType.getElementType();
   }
   auto resultType = RankedTensorType::get(outputShape, elementType);

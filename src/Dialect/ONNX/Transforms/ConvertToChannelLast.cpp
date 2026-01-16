@@ -584,8 +584,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
   // For NCHW layout: dim 0 = batch, dim 1 = channel, dims 2,3 = spatial (H,W)
   // A spatial-only resize keeps dims 0 and 1 unchanged
   // TODO: Extend to support 3D (NCW) and 5D (NCDHW) tensors
-  static bool isNCHWSpatialResize(RankedTensorType inputType,
-      RankedTensorType outputType) {
+  static bool isNCHWSpatialResize(
+      RankedTensorType inputType, RankedTensorType outputType) {
     if (!inputType || !outputType)
       return false;
 
@@ -623,8 +623,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
   // For NHWC layout: dim 0 = batch, dims 1,2 = spatial (H,W), dim 3 = channel
   // A spatial-only NHWC resize keeps dims 0 and 3 unchanged, dims 1,2 change
   // TODO: Extend to support 3D (NWC) and 5D (NDHWC) tensors
-  static bool isNHWCSpatialResize(RankedTensorType inputType,
-      RankedTensorType outputType) {
+  static bool isNHWCSpatialResize(
+      RankedTensorType inputType, RankedTensorType outputType) {
     if (!inputType || !outputType)
       return false;
 
@@ -684,13 +684,13 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     // Get output type to compare shapes
     auto outputType = mlir::dyn_cast<RankedTensorType>(resizeOp.getType());
     if (!outputType) {
-      return rewriter.notifyMatchFailure(resizeOp,
-          "Output type is not ranked. Cannot determine layout.");
+      return rewriter.notifyMatchFailure(
+          resizeOp, "Output type is not ranked. Cannot determine layout.");
     }
 
     // CHECK 1: Is this an NHWC spatial resize?
-    // If dims 0 (batch) and last (channel) are unchanged but middle dims change,
-    // the input is already in NHWC layout - don't convert
+    // If dims 0 (batch) and last (channel) are unchanged but middle dims
+    // change, the input is already in NHWC layout - don't convert
     if (isNHWCSpatialResize(inputType, outputType)) {
       return rewriter.notifyMatchFailure(resizeOp,
           "Resize appears to be NHWC spatial (batch and last dim unchanged, "
@@ -698,7 +698,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     }
 
     // CHECK 2: Is this an NCHW spatial resize?
-    // If dims 0 (batch) and 1 (channel) are unchanged, it's NCHW spatial - convert
+    // If dims 0 (batch) and 1 (channel) are unchanged, it's NCHW spatial -
+    // convert
     if (!isNCHWSpatialResize(inputType, outputType)) {
       return rewriter.notifyMatchFailure(resizeOp,
           "Resize is not NCHW spatial-only (batch or channel dimensions "
@@ -750,8 +751,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
       // Gather to permute - use si64 for axis attribute
       auto outputType = tensorType;
       auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
-      return rewriter.create<ONNXGatherOp>(loc, outputType, tensor, indicesValue,
-          rewriter.getIntegerAttr(si64Type, 0));
+      return rewriter.create<ONNXGatherOp>(loc, outputType, tensor,
+          indicesValue, rewriter.getIntegerAttr(si64Type, 0));
     };
 
     Value roiChannelLast = permuteForChannelLast(roi);
