@@ -204,8 +204,6 @@ def generate_hash_key(
                         node_info.append(f"{inode.name}")
             graph_info.append(";".join(node_info))
         graph_str = " ".join(graph_info)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.info(f"Graph string for hashing: {graph_str}")
         graph_hash = sha256_hash(graph_str.encode())
 
         # Hash the options.
@@ -296,14 +294,23 @@ class ONNXMLIRTorch:
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
+        if self.use_eager_mode():
+            fn = self.eager_forward
+        else:
+            fn = self.compile_forward
         tensor_example_inputs = self.get_tensor_example_inputs(example_inputs)
-        return self.forward(*tensor_example_inputs)
+        return fn(*tensor_example_inputs)
 
-    def forward(self, *example_inputs):
-        # If the model is not suitable for compilation, run it with the eager mode.
-        if "om_not_used" in self.gm.meta:
-            return self.gm(*example_inputs)
+    def eager_forward(self, *example_inputs):
+        if "om_use_eager_mode" not in self.gm.meta:
+            self.gm.meta["om_use_eager_mode"] = True
+        logger.info("Use the eager mode to run the graph.")
+        start = time.perf_counter()
+        results = self.gm.forward(*example_inputs)
+        logger.info(f"  torch took {(time.perf_counter() - start)*1000} ms")
+        return results
 
+    def compile_forward(self, *example_inputs):
         if self.cached_session is None:
             logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
@@ -325,11 +332,7 @@ class ONNXMLIRTorch:
             # If failed, use the graph as it is without compilation.
             if not self.export_gm_to_onnx(example_inputs):
                 logger.info("Failed to export the model. Switch to the eager mode.")
-                self.gm.meta["om_not_used"] = True
-                start = time.perf_counter()
-                results = self.gm(*example_inputs)
-                logger.info(f"  torch took {(time.perf_counter() - start)*1000} ms")
-                return results
+                return self.eager_forward(*example_inputs)
 
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
@@ -356,6 +359,23 @@ class ONNXMLIRTorch:
         om_outputs = sess.run(om_inputs)
         logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
         return [torch.from_numpy(output) for output in om_outputs]
+
+    def use_eager_mode(self):
+        if "om_use_eager_mode" in self.gm.meta:
+            return True
+
+        # Detect unsupported ops.
+        for n in self.gm.graph.nodes:
+            # copy op
+            if n.op == "call_method" and n.target == "copy_":
+                return True
+            if n.op == "call_function" and n.target in (
+                torch.ops.aten.copy_.default,
+                torch.ops.aten.copy.default,
+            ):
+                return True
+
+        return False
 
     def get_tensor_example_inputs(self, example_inputs):
         if self.example_inputs_indices is None:
@@ -583,9 +603,11 @@ class ONNXMLIRTorch:
                 self.gm,
                 example_inputs,
                 self.onnx_model,
-                #input_names=input_names,
-                #dynamic_shapes=dynamic_shapes,
-                dynamo=False,
+                input_names=input_names,
+                dynamic_shapes=dynamic_shapes,
+                dynamo=True,
+                # dynamic_axes=dynamic_shapes,
+                # dynamo=False,
             )
             succeeded = True
         except torch.onnx.errors.UnsupportedOperatorError as e:
