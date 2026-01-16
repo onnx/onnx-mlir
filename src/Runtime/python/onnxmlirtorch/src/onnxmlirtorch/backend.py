@@ -390,10 +390,12 @@ class ONNXMLIRTorch:
 
     def get_tensor_example_inputs(self, example_inputs):
         if self.example_inputs_indices is None:
-            return example_inputs
+            indices = range(len(example_inputs))
+        else:
+            indices = self.example_inputs_indices
 
         tensor_inputs = []
-        for i in self.example_inputs_indices:
+        for i in indices:
             x = example_inputs[i]
             if isinstance(x, int):
                 tensor_inputs.append(torch.tensor(x, dtype=torch.int64))
