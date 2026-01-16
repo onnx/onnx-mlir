@@ -367,13 +367,16 @@ class ONNXMLIRTorch:
         # Detect unsupported ops.
         for n in self.gm.graph.nodes:
             # copy op
-            if n.op == "call_method" and n.target == "copy_":
-                return True
-            if n.op == "call_function" and n.target in (
-                torch.ops.aten.copy_.default,
-                torch.ops.aten.copy.default,
-            ):
-                return True
+            if n.op == "call_method":
+                if n.target == "copy_":
+                    return True
+            if n.op == "call_function":
+                if n.target in (
+                    torch.ops.aten.copy_.default,
+                    torch.ops.aten.copy.default,
+                    torch.ops.aten.sym_storage_offset.default,
+                ):
+                    return True
 
         return False
 
