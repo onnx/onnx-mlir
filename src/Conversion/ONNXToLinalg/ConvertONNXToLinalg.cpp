@@ -20,6 +20,9 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+#define GEN_PASS_DEF_CONVERTONNXTOLINALG
+#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -31,16 +34,7 @@ namespace onnx_mlir {
 namespace {
 
 struct ConvertONNXToLinalgPass
-    : public PassWrapper<ConvertONNXToLinalgPass, OperationPass<func::FuncOp>> {
-
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertONNXToLinalgPass)
-
-  StringRef getArgument() const override { return "convert-onnx-to-linalg"; }
-
-  StringRef getDescription() const override {
-    return "Lower ONNX operations to Linalg dialect";
-  }
-
+    : public impl::ConvertONNXToLinalgBase<ConvertONNXToLinalgPass> {
   void runOnOperation() override {
     auto function = getOperation();
     MLIRContext *context = &getContext();
