@@ -105,7 +105,8 @@ bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
-bool useLinalgPath; // onnx-mlir only
+bool useLinalgPath;    // onnx-mlir only
+std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -673,6 +674,19 @@ static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
     llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
     llvm::cl::location(useLinalgPath), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
+    llvm::cl::desc(
+        "Specify which operations should be lowered to Linalg dialect.\n"
+        "Operations are specified as a comma-separated list or regex "
+        "patterns using dialect-qualified names.\n"
+        "Example: --linalg-ops=onnx.MatMul,onnx.Conv or "
+        "--linalg-ops=\"onnx.MatMul.*\" or --linalg-ops=\"*.MatMul\"\n"
+        "Special values: ALL (all operations), NONE (no operations).\n"
+        "If not specified, uses the default behavior based on "
+        "--use-linalg-path."),
+    llvm::cl::location(linalgOps), llvm::cl::init(""),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> allowSortingOpt("allowSorting",
     llvm::cl::desc("Perform topological sort on onnx graph."),
