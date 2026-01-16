@@ -42,5 +42,8 @@ bool sameEncodingAttr(mlir::Type t1, mlir::Type t2);
 /// Get the byte width of an int or float type.
 unsigned getIntOrFloatByteWidth(mlir::Type ty);
 
+std::map<int64_t, std::vector<int64_t>> parseShapeInformation(
+    const std::string &);
+
 } // namespace onnx_mlir
 #endif

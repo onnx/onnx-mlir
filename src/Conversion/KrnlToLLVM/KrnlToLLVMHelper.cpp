@@ -394,6 +394,31 @@ void noGreaterOrFailed(ModuleOp &module, OpBuilder &rewriter, Location loc,
       });
 }
 
+void noLessOrFailed(ModuleOp &module, OpBuilder &rewriter, Location loc,
+    Value lhs, Value rhs, std::string errorMsg, bool appendRHS) {
+  MLIRContext *context = rewriter.getContext();
+  MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);
+  create.llvm.ifThenElse(/*cond=*/
+      [&](const LLVMBuilder &createLLVM) {
+        return createLLVM.icmp(LLVM::ICmpPredicate::slt, lhs, rhs);
+      }, /*then=*/
+      [&](const LLVMBuilder &createLLVM) {
+        MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+        // Print an error message.
+        if (!errorMsg.empty()) {
+          if (appendRHS)
+            create.krnl.printf(
+                StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
+          else
+            create.krnl.printf(StringRef(errorMsg + "\n"));
+        }
+        // Set errno.
+        emitErrNo(module, rewriter, loc, EINVAL);
+        // Return NULL.
+        create.llvm._return(create.llvm.null(getI8PointerType(context)));
+      });
+}
+
 void equalOrReturn(ModuleOp &module, OpBuilder &rewriter, Location loc,
     Value lhs, Value rhs, Value retVal, std::string errorMsg) {
   MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);

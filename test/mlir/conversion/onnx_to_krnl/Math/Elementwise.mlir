@@ -692,7 +692,7 @@ func.func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func private @test_clip_default_min
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3xf32>, [[PARAM_1_:%.+]]: memref<f32>, [[PARAM_2_:%.+]]: memref<f32>) -> memref<3xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_3_1_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xf32>

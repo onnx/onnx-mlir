@@ -14,7 +14,7 @@ module {
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) {onnx_node_name = "onnx.Relu_1"} : (tensor<3x2xf32>) -> tensor<3x2xf32>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<3x2xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()
 }
 
 // -----

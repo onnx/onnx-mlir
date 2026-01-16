@@ -284,8 +284,8 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
 // CHECK-DAG:       [[CST_32_:%.+]] = arith.constant 32 : index
 // CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i32>} : () -> memref<i32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<16x32xi16>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_512_]], [[RES_1_]][0] : memref<1xindex>
@@ -357,7 +357,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:               vector.store [[VAR_46_3_]], [[VAR_reshape_17_]]{{.}}[[VAR_44_3_]]{{.}} : memref<512xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_12_:%.+]] = memref.alloc() {{.*}}: memref<1xi16>
 // CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xui8>
 // CHECK:           [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_2_MEM_]] : ui8 to i8
@@ -395,7 +395,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:               vector.store [[VAR_48_1_]], [[VAR_reshape_26_]]{{.}}[[VAR_44_4_]]{{.}} : memref<512xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[VAR_13_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_19_:%.+]] = memref.alloc() {{.*}}: memref<32x64xi16>
 // CHECK-DAG:       [[RES_20_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_2048_]], [[RES_20_]][0] : memref<1xindex>
@@ -467,7 +467,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:               vector.store [[VAR_46_6_]], [[VAR_reshape_46_]]{{.}}[[VAR_44_8_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[VAR_14_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_31_:%.+]] = memref.alloc() {{.*}}: memref<1xi16>
 // CHECK-DAG:       [[LOAD_PARAM_5_MEM_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xui8>
 // CHECK:           [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_5_MEM_]] : ui8 to i8
@@ -505,7 +505,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:               vector.store [[VAR_48_3_]], [[VAR_reshape_55_]]{{.}}[[VAR_44_9_]]{{.}} : memref<2048xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[VAR_25_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>} : () -> memref<i16>
+// CHECK-DAG:       [[VAR_25_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_38_:%.+]] = memref.alloc() {{.*}}: memref<1xi16>
 // CHECK-DAG:       [[LOAD_PARAM_7_MEM_:%.+]] = krnl.load [[PARAM_7_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xui8>
 // CHECK:           [[VAR_27_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_7_MEM_]] : ui8 to i8

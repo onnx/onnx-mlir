@@ -50,7 +50,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : index
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [1], value = dense<9.99999974E-6> : tensor<1xf32>} : () -> memref<1xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [1], value = dense<9.99999974E-6> : tensor<1xf32>}> : () -> memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x64x1x1xf32>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xindex>
 // CHECK:           affine.store [[CST_2_]], [[RES_1_]][0] : memref<3xindex>

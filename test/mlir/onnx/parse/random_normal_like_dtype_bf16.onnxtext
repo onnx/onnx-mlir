@@ -14,6 +14,6 @@ test_random_normal_like_dtype (float[unk__a,unk__b] RandomNormalLike_in) => (flo
 
 // CHECK-LABEL:   func.func @main_graph(
 // CHECK-SAME:    %[[VAL_0:.*]]: tensor<?x?xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "RandomNormalLike_in"}) -> (tensor<?x?xbf16> {onnx.name = "RandomNormalLike_out"}) {
-// CHECK:           %[[VAL_1:.*]] = "onnx.RandomNormalLike"(%[[VAL_0]]) {dtype = 16 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<?x?xf32>) -> tensor<?x?xbf16>
+// CHECK:           %[[VAL_1:.*]] = "onnx.RandomNormalLike"(%[[VAL_0]]) <{dtype = 16 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32}> : (tensor<?x?xf32>) -> tensor<?x?xbf16>
 // CHECK:           onnx.Return %[[VAL_1]] : tensor<?x?xbf16>
 // CHECK:         }

@@ -74,11 +74,11 @@ func.func @test_conv_concat_fail(%arg0: tensor<1x3x64x64xf32>) -> tensor<1x64x66
   // CHECK:      [[VAR_1_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<16x3x3x3xf32>
   // CHECK:      [[VAR_2_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<32x3x5x5xf32>
   // CHECK: [[VAR_NO_VALUE:%.+]] = "onnx.NoValue"()
-  // CHECK:      [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_0_]], [[VAR_NO_VALUE]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_1", pads = [1, 1, 1, 1]}
+  // CHECK:      [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_0_]], [[VAR_NO_VALUE]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]}> {onnx_node_name = "onnx.Conv_1"}
   // CHECK-SAME:     : (tensor<1x3x64x64xf32>, tensor<16x3x1x1xf32>, none) -> tensor<1x16x66x66xf32>
-  // CHECK:     [[VAR_4_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_NO_VALUE]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_2", pads = [2, 2, 2, 2]}
+  // CHECK:     [[VAR_4_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_NO_VALUE]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [2, 2, 2, 2]}> {onnx_node_name = "onnx.Conv_2"}
   // CHECK-SAME:     : (tensor<1x3x64x64xf32>, tensor<16x3x3x3xf32>, none) -> tensor<1x16x66x66xf32>
-  // CHECK:     [[VAR_5_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_2_]], [[VAR_NO_VALUE]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_3", pads = [3, 3, 3, 3]}
+  // CHECK:     [[VAR_5_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_2_]], [[VAR_NO_VALUE]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [3, 3, 3, 3]}> {onnx_node_name = "onnx.Conv_3"}
   // CHECK-SAME:     : (tensor<1x3x64x64xf32>, tensor<32x3x5x5xf32>, none) -> tensor<1x32x66x66xf32>
   // CHECK:     [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]])
   // CHECK-NEXT:     return [[VAR_6_]] : tensor<1x64x66x66xf32>
@@ -108,11 +108,11 @@ func.func @test_combine_conv_split(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x9
 // CHECK:      [[VAR_1_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<96xf32>
 // CHECK:      [[CONV_OUT_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]])
 // CHECK-SAME:     : (tensor<1x1x512x512xf32>, tensor<96x1x3x3xf32>, tensor<96xf32>) -> tensor<1x96x512x512xf32>
-// CHECK: [[VAR_2_:[^ ]+]]:3 = "onnx.Split"([[CONV_OUT_]], [[CONST_SPLIT_]]) {axis = 1 : si64, onnx_node_name = "onnx.Split_6"} : (tensor<1x96x512x512xf32>, tensor<3xi64>) -> (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>)
+// CHECK: [[VAR_2_:[^ ]+]]:3 = "onnx.Split"([[CONV_OUT_]], [[CONST_SPLIT_]]) <{axis = 1 : si64}> {onnx_node_name = "onnx.Split_6"} : (tensor<1x96x512x512xf32>, tensor<3xi64>) -> (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>)
 // CHECK: [[VAR_3_:%.+]] = "onnx.Relu"([[VAR_2_]]#2) {onnx_node_name = "ReLU_1"} : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32>
 // CHECK: [[VAR_4_:%.+]] = "onnx.Sigmoid"([[VAR_2_]]#1) {onnx_node_name = "Sigmoid_2"} : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32>
 // CHECK: [[VAR_5_:%.+]] = "onnx.Tanh"([[VAR_2_]]#0) {onnx_node_name = "Tanh_3"} : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32>
-// CHECK: [[FINAL_OUT:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) {axis = 1 : si64, onnx_node_name = "onnx.Concat_4_7"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x96x512x512xf32>
+// CHECK: [[FINAL_OUT:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) <{axis = 1 : si64}> {onnx_node_name = "onnx.Concat_4_7"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x96x512x512xf32>
 // CHECK: return [[FINAL_OUT]] : tensor<1x96x512x512xf32>
 
 }
@@ -135,10 +135,10 @@ func.func @test_conv_concat_dependency(%arg0: tensor<1x1x512x512xf32>) -> tensor
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 2, 3]> : tensor<3xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32xf32>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_8", pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.ReduceMean"([[VAR_3_]], [[VAR_0_]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64, onnx_node_name = "onnx.ReduceMean_9"} : (tensor<1x32x512x512xf32>, tensor<3xi64>) -> tensor<32xf32>
-// CHECK:           [[VAR_5_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_4_]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_10", pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_5_]]) {axis = 1 : si64, onnx_node_name = "onnx.Concat_11"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x64x512x512xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]}> {onnx_node_name = "onnx.Conv_8"} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.ReduceMean"([[VAR_3_]], [[VAR_0_]]) <{keepdims = 0 : si64, noop_with_empty_axes = 0 : si64}> {onnx_node_name = "onnx.ReduceMean_9"} : (tensor<1x32x512x512xf32>, tensor<3xi64>) -> tensor<32xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_4_]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]}> {onnx_node_name = "onnx.Conv_10"} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_5_]]) <{axis = 1 : si64}> {onnx_node_name = "onnx.Concat_11"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x64x512x512xf32>
 // CHECK:           return [[VAR_6_]] : tensor<1x64x512x512xf32>
 // CHECK:         }
 }
@@ -156,9 +156,9 @@ func.func @test_conv_concat_not_static_shape(%arg0: tensor<1x1x512x512xf32>, %0:
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x512x512xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> tensor<1x64x512x512xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_12", pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<*xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, onnx_node_name = "onnx.Conv_13", pads = [1, 1, 1, 1]} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 1 : si64, onnx_node_name = "onnx.Concat_14"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x64x512x512xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]}> {onnx_node_name = "onnx.Conv_12"} : (tensor<1x1x512x512xf32>, tensor<*xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) <{auto_pad = "NOTSET", group = 1 : si64, pads = [1, 1, 1, 1]}> {onnx_node_name = "onnx.Conv_13"} : (tensor<1x1x512x512xf32>, tensor<32x1x3x3xf32>, tensor<32xf32>) -> tensor<1x32x512x512xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) <{axis = 1 : si64}> {onnx_node_name = "onnx.Concat_14"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x64x512x512xf32>
 // CHECK:           return [[VAR_4_]] : tensor<1x64x512x512xf32>
 // CHECK:         }
 }
@@ -191,20 +191,20 @@ func.func @complex_and_bias_none(%arg0: tensor<1x16x160x256xf32>, %wts0: tensor<
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 7, 320, 512]> : tensor<4xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 7, 160, 1, 512]> : tensor<5xi64>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[1, 7, 160, 256, 1]> : tensor<5xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_15", value} : () -> none
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Concat"([[PARAM_4_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_1_]]) {axis = 0 : si64, onnx_node_name = "onnx.Concat_16"} : (tensor<7x16x3x3xf32>, tensor<7x16x3x3xf32>, tensor<7x16x3x3xf32>, tensor<7x16x3x3xf32>) -> tensor<28x16x3x3xf32>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_5_]], [[VAR_4_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "onnx.Conv_17", pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x16x160x256xf32>, tensor<28x16x3x3xf32>, none) -> tensor<1x28x160x256xf32>
-// CHECK:           [[VAR_7_:%.+]]:4 = "onnx.Split"([[VAR_6_]], [[VAR_0_]]) {axis = 1 : si64, onnx_node_name = "onnx.Split_18"} : (tensor<1x28x160x256xf32>, tensor<4xi64>) -> (tensor<1x7x160x256xf32>, tensor<1x7x160x256xf32>, tensor<1x7x160x256xf32>, tensor<1x7x160x256xf32>)
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Reshape"([[VAR_7_]]#3, [[VAR_3_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_19"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Reshape"([[VAR_7_]]#2, [[VAR_3_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_20"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Reshape"([[VAR_7_]]#1, [[VAR_3_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_21"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_7_]]#0, [[VAR_3_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_22"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Concat"([[VAR_8_]], [[VAR_10_]]) {axis = 4 : si64, onnx_node_name = "onnx.Concat_23"} : (tensor<1x7x160x256x1xf32>, tensor<1x7x160x256x1xf32>) -> tensor<1x7x160x256x2xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Concat"([[VAR_11_]], [[VAR_9_]]) {axis = 4 : si64, onnx_node_name = "onnx.Concat_24"} : (tensor<1x7x160x256x1xf32>, tensor<1x7x160x256x1xf32>) -> tensor<1x7x160x256x2xf32>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Reshape"([[VAR_12_]], [[VAR_2_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_25"} : (tensor<1x7x160x256x2xf32>, tensor<5xi64>) -> tensor<1x7x160x1x512xf32>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Reshape"([[VAR_13_]], [[VAR_2_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_26"} : (tensor<1x7x160x256x2xf32>, tensor<5xi64>) -> tensor<1x7x160x1x512xf32>
-// CHECK:           [[VAR_16_:%.+]] = "onnx.Concat"([[VAR_14_]], [[VAR_15_]]) {axis = 3 : si64, onnx_node_name = "onnx.Concat_27"} : (tensor<1x7x160x1x512xf32>, tensor<1x7x160x1x512xf32>) -> tensor<1x7x160x2x512xf32>
-// CHECK:           [[VAR_17_:%.+]] = "onnx.Reshape"([[VAR_16_]], [[VAR_1_]]) {allowzero = 0 : si64, onnx_node_name = "onnx.Reshape_28"} : (tensor<1x7x160x2x512xf32>, tensor<4xi64>) -> tensor<1x7x320x512xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.NoValue"() <{value}> {onnx_node_name = "onnx.NoValue_15"} : () -> none
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Concat"([[PARAM_4_]], [[PARAM_3_]], [[PARAM_2_]], [[PARAM_1_]]) <{axis = 0 : si64}> {onnx_node_name = "onnx.Concat_16"} : (tensor<7x16x3x3xf32>, tensor<7x16x3x3xf32>, tensor<7x16x3x3xf32>, tensor<7x16x3x3xf32>) -> tensor<28x16x3x3xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_5_]], [[VAR_4_]]) <{auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]}> {onnx_node_name = "onnx.Conv_17"} : (tensor<1x16x160x256xf32>, tensor<28x16x3x3xf32>, none) -> tensor<1x28x160x256xf32>
+// CHECK:           [[VAR_7_:%.+]]:4 = "onnx.Split"([[VAR_6_]], [[VAR_0_]]) <{axis = 1 : si64}> {onnx_node_name = "onnx.Split_18"} : (tensor<1x28x160x256xf32>, tensor<4xi64>) -> (tensor<1x7x160x256xf32>, tensor<1x7x160x256xf32>, tensor<1x7x160x256xf32>, tensor<1x7x160x256xf32>)
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Reshape"([[VAR_7_]]#3, [[VAR_3_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_19"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Reshape"([[VAR_7_]]#2, [[VAR_3_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_20"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Reshape"([[VAR_7_]]#1, [[VAR_3_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_21"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_7_]]#0, [[VAR_3_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_22"} : (tensor<1x7x160x256xf32>, tensor<5xi64>) -> tensor<1x7x160x256x1xf32>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Concat"([[VAR_8_]], [[VAR_10_]]) <{axis = 4 : si64}> {onnx_node_name = "onnx.Concat_23"} : (tensor<1x7x160x256x1xf32>, tensor<1x7x160x256x1xf32>) -> tensor<1x7x160x256x2xf32>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Concat"([[VAR_11_]], [[VAR_9_]]) <{axis = 4 : si64}> {onnx_node_name = "onnx.Concat_24"} : (tensor<1x7x160x256x1xf32>, tensor<1x7x160x256x1xf32>) -> tensor<1x7x160x256x2xf32>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Reshape"([[VAR_12_]], [[VAR_2_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_25"} : (tensor<1x7x160x256x2xf32>, tensor<5xi64>) -> tensor<1x7x160x1x512xf32>
+// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Reshape"([[VAR_13_]], [[VAR_2_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_26"} : (tensor<1x7x160x256x2xf32>, tensor<5xi64>) -> tensor<1x7x160x1x512xf32>
+// CHECK:           [[VAR_16_:%.+]] = "onnx.Concat"([[VAR_14_]], [[VAR_15_]]) <{axis = 3 : si64}> {onnx_node_name = "onnx.Concat_27"} : (tensor<1x7x160x1x512xf32>, tensor<1x7x160x1x512xf32>) -> tensor<1x7x160x2x512xf32>
+// CHECK:           [[VAR_17_:%.+]] = "onnx.Reshape"([[VAR_16_]], [[VAR_1_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_28"} : (tensor<1x7x160x2x512xf32>, tensor<4xi64>) -> tensor<1x7x320x512xf32>
 // CHECK:           return [[VAR_17_]] : tensor<1x7x320x512xf32>
 // CHECK:         }
 
