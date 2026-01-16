@@ -64,7 +64,7 @@ parser.add_argument(
     type=str,
     help="Path to YAML file containing custom operation schemas",
     default=None,
-    action='append'
+    action="append",
 )
 
 args = parser.parse_args()
@@ -81,7 +81,9 @@ current_onnx_version = "1.19.1"
 if (
     not check_operation_version and not list_operation_version
 ) and current_onnx_version != onnx.__version__:
-    if args.custom_ops_yaml and all(os.path.exists(yaml_path) for yaml_path in args.custom_ops_yaml):
+    if args.custom_ops_yaml and all(
+        os.path.exists(yaml_path) for yaml_path in args.custom_ops_yaml
+    ):
         print(
             "WARNING: version of expected onnx is {}, ".format(current_onnx_version)
             + "while onnx package being used is {}".format(onnx.__version__)
@@ -450,7 +452,9 @@ def load_custom_ops_from_yaml(yaml_paths: List[str]) -> List[CustomOpSchema]:
                 schema = CustomOpSchema(op_dict)
                 custom_schemas.append(schema)
             except Exception as e:
-                print(f"Warning: Failed to parse op {op_dict.get('name', 'unknown')}: {e}")
+                print(
+                    f"Warning: Failed to parse op {op_dict.get('name', 'unknown')}: {e}"
+                )
 
     return custom_schemas
 

@@ -680,7 +680,6 @@ LogicalResult XFESpaceToDepthOpShapeInference(
   return success();
 }
 
-
 LogicalResult XFEResizeOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference) {
   auto resizeOp = dyn_cast<XFEResizeOp>(op);

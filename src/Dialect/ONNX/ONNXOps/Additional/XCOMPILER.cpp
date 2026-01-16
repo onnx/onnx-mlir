@@ -5,12 +5,13 @@
 //********************************************************
 
 // DO NOT EDIT - Auto-generated forwarding stubs
-// This file forwards to manual implementations in shape inference, verify, and fold files
-// Copy this file to src/Dialect/ONNX/ONNXOps/Additional/XCOMPILER.cpp
+// This file forwards to manual implementations in shape inference, verify, and
+// fold files Copy this file to
+// src/Dialect/ONNX/ONNXOps/Additional/XCOMPILER.cpp
 
-#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "XCOMPILERShapeInference.hpp"
 #include "XCOMPILERVerify.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -21,7 +22,8 @@ using namespace onnx_mlir;
 
 LogicalResult XCOMPILERFusedEltwiseOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return XCOMPILERFusedEltwiseOpShapeInference(this->getOperation(), doShapeInference);
+  return XCOMPILERFusedEltwiseOpShapeInference(
+      this->getOperation(), doShapeInference);
 }
 
 // ============================================================
@@ -31,4 +33,3 @@ LogicalResult XCOMPILERFusedEltwiseOp::inferShapes(
 LogicalResult XCOMPILERFusedEltwiseOp::verify() {
   return XCOMPILERFusedEltwiseOpVerify(this->getOperation());
 }
-
