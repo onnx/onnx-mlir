@@ -6,7 +6,7 @@
   domain: com.amd.xcompiler
   since_version: 1
   support_level: COMMON
-  description: 'Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: op_type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); qscales contains [a_scale, b_scale, y_scale] quantization scales; qzeropoints contains [a_zp, b_zp, y_zp] quantization zero points; leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU.'
+  description: 'Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: op_type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU, clip_min is minimum value, under which element is replaced by min, clip_max is maximum value, over which element is replaced by max, nonlinear_in_qscales is the quantization scales for the input of the nonlinear activation, nonlinear_in_zeropoints is the quantization zero points for the input of the nonlinear activation.'
   meta_attributes:
   - onnx_opset: 1
   - verify: True
@@ -24,21 +24,33 @@
     type_str: T
   attributes:
   - name: type
-    description: Element-wise operation type (ADD, MUL, SUB, DIV, etc.)
+    description: Element-wise operation type (ADD, MUL, SUB, DIV, EXP, SIN, COS, CLIP, etc.).
     type: string
     required: true
   - name: nonlinear
-    description: Fused activation type (NONE, RELU, PRELU, LEAKYRELU)
+    description: Fused activation type (NONE, RELU, LEAKYRELU).
     type: string
     default_value: NONE
   - name: leakyrelu_alpha
-    description: Original LeakyReLU alpha value (float)
+    description: Original LeakyReLU alpha value (float), valid only when nonlinear is LEAKYRELU.
     type: float
   - name: prelu_in
-    description: Fixed-point multiplier M for LeakyReLU (M/2^N)
+    description: Fixed-point multiplier M for LeakyReLU (M/2^N), valid only when nonlinear is LEAKYRELU.
     type: int
   - name: prelu_shift
-    description: Fixed-point shift N for LeakyReLU
+    description: Fixed-point shift N for LeakyReLU, valid only when nonlinear is LEAKYRELU.
+    type: int
+  - name: clip_min
+    description: Minimum value, under which element is replaced by min for Clip, valid only when type is CLIP.
+    type: int
+  - name: clip_max
+    description: Maximum value, over which element is replaced by max for Clip, valid only when type is CLIP.
+    type: int
+  - name: nonlinear_in_scales
+    description: Quantization scales for the input of the nonlinear activation. This stores quantization information for the activation function in case there is a Q-DQ pair between the elementwise op and activation op.
+    type: float
+  - name: nonlinear_in_zeropoints
+    description: Quantization zero points for the input of the nonlinear activation.
     type: int
   type_constraints:
   - type_param: T
