@@ -52,14 +52,17 @@ public:
             OperationPass<func::FuncOp>>() {
     signaturePattern = pass.signaturePattern;
     nodeNamePattern = pass.nodeNamePattern;
+    skipConstants = pass.skipConstants;
   }
-  InstrumentONNXSignaturePass(
-      const std::string opPattern, const std::string nodePattern)
-      : signaturePattern(opPattern), nodeNamePattern(nodePattern) {}
+  InstrumentONNXSignaturePass(const std::string opPattern,
+      const std::string nodePattern, bool skipConstants)
+      : signaturePattern(opPattern), nodeNamePattern(nodePattern),
+        skipConstants(skipConstants) {}
 
 private:
   std::string signaturePattern;
   std::string nodeNamePattern;
+  bool skipConstants;
 
 public:
   StringRef getArgument() const override {
@@ -113,6 +116,8 @@ public:
           isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
         // as ONNX instrument operations.
+      } else if (skipConstants && (isa<ONNXConstantOp, KrnlGlobalOp>(op))) {
+        // Asked to skip constants, do nothing.
       } else {
         // If has both a print of data and print of signature, favor the
         // printing of data as it also will print the signature.
@@ -141,6 +146,8 @@ public:
  * Create an instrumentation pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXSignaturePass(
-    const std::string pattern, const std::string nodePattern) {
-  return std::make_unique<InstrumentONNXSignaturePass>(pattern, nodePattern);
+    const std::string pattern, const std::string nodePattern,
+    bool profileConstantOps) {
+  return std::make_unique<InstrumentONNXSignaturePass>(
+      pattern, nodePattern, !profileConstantOps);
 }
