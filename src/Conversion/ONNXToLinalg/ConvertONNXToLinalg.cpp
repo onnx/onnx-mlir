@@ -20,9 +20,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-#define GEN_PASS_DEF_CONVERTONNXTOLINALG
-#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -33,18 +30,36 @@ namespace onnx_mlir {
 
 namespace {
 
+#define GEN_PASS_DECL_CONVERTONNXTOLINALG
+#define GEN_PASS_DEF_CONVERTONNXTOLINALG
+#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
+
 struct ConvertONNXToLinalgPass
     : public impl::ConvertONNXToLinalgBase<ConvertONNXToLinalgPass> {
+  using ConvertONNXToLinalgBase::ConvertONNXToLinalgBase;
+
   void runOnOperation() override {
     auto function = getOperation();
     MLIRContext *context = &getContext();
 
+    // Get the linalg-ops option value
+    // Pass::Option<std::string> can be used directly as std::string
+    std::string opsList = linalgOps;
+
+    // If linalg-ops option is specified, check if MatMul is included
+    // For now, we only support MatMul, so if the option is empty or contains
+    // "onnx.MatMul", we add the pattern
+    bool shouldLowerMatMul =
+        opsList.empty() || opsList.find("onnx.MatMul") != std::string::npos;
+
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
 
-    // Populate lowering patterns
-    populateLoweringONNXMatMulOpToLinalgPattern(
-        patterns, typeConverter, context);
+    // Populate lowering patterns based on options
+    if (shouldLowerMatMul) {
+      populateLoweringONNXMatMulOpToLinalgPattern(
+          patterns, typeConverter, context);
+    }
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
