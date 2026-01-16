@@ -42,24 +42,12 @@ struct ConvertONNXToLinalgPass
     auto function = getOperation();
     MLIRContext *context = &getContext();
 
-    // Get the linalg-ops option value
-    // Pass::Option<std::string> can be used directly as std::string
-    std::string opsList = linalgOps;
-
-    // If linalg-ops option is specified, check if MatMul is included
-    // For now, we only support MatMul, so if the option is empty or contains
-    // "onnx.MatMul", we add the pattern
-    bool shouldLowerMatMul =
-        opsList.empty() || opsList.find("onnx.MatMul") != std::string::npos;
-
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
 
-    // Populate lowering patterns based on options
-    if (shouldLowerMatMul) {
-      populateLoweringONNXMatMulOpToLinalgPattern(
-          patterns, typeConverter, context);
-    }
+    // Populate lowering patterns
+    populateLoweringONNXMatMulOpToLinalgPattern(
+        patterns, typeConverter, context);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
