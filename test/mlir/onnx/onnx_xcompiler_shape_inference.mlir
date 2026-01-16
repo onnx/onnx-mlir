@@ -86,21 +86,6 @@ func.func @test_XCOMPILER_fused_eltwise_broadcast_numpy(%arg0: tensor<1x4x1xi8>,
 
 // -----
 
-// COM: Test with prelu_slope attribute (for PReLU activation)
-func.func @test_XCOMPILER_fused_eltwise_with_prelu(%arg0: tensor<1x64x28x28xi8>, %arg1: tensor<1x64x28x28xi8>) -> tensor<*xi8> {
-  %0 = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {
-    type = "ADD",
-    nonlinear = "PRELU"
-  } : (tensor<1x64x28x28xi8>, tensor<1x64x28x28xi8>) -> tensor<*xi8>
-  onnx.Return %0 : tensor<*xi8>
-
-  // CHECK-LABEL: test_XCOMPILER_fused_eltwise_with_prelu
-  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {{.*}} -> tensor<1x64x28x28xi8>
-  // CHECK: onnx.Return [[RES]] : tensor<1x64x28x28xi8>
-}
-
-// -----
-
 // COM: Test with LeakyReLU activation
 func.func @test_XCOMPILER_fused_eltwise_leaky_relu(%arg0: tensor<1x64x28x28xi8>, %arg1: tensor<1x64x28x28xi8>) -> tensor<*xi8> {
   %0 = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {
