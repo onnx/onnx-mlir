@@ -36,7 +36,7 @@ ARG TEST_MARCH
 # Build PyRuntime Light test for s390x only
 # Current test is just for build. Package creation and test run may come later.
 RUN if [ "$(uname -m)" = "s390x" ]; then \
-      cd ${ONNX_MLIR_ROOT} && \
+      cd ${WORK_DIR}/onnx-mlir && \
       rm -rf build-light && mkdir -p build-light && cd build-light && \
       cmake -DCMAKE_BUILD_TYPE=Debug \
             -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON \
