@@ -2,11 +2,12 @@
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(Runtime)
+  add_subdirectory(Support)
   # Accelerators introduces a target AcceleratorsInc. Define a dummy one here
   add_custom_target(AcceleratorsInc
       COMMAND echo "This is the dummy definition for AcceleratorsInc"
   ) 
-  add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
+  #add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
   return()
 endif()
 
