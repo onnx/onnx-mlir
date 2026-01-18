@@ -7,7 +7,6 @@ if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_custom_target(AcceleratorsInc
       COMMAND echo "This is the dummy definition for AcceleratorsInc"
   ) 
-  #add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
   return()
 endif()
 
