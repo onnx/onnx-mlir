@@ -85,6 +85,22 @@ global_session_cache = SessionCache(config.session_cache_limit)
 
 global_failed_compile_gms = set()
 
+def use_eager_mode(gm: torch.fx.GraphModule):
+    # Detect unsupported ops.
+    for n in gm.graph.nodes:
+        # copy op
+        if n.op == "call_method":
+            if n.target == "copy_":
+                return True
+        if n.op == "call_function":
+            if n.target in (
+                torch.ops.aten.copy_.default,
+                torch.ops.aten.copy.default,
+                torch.ops.aten.sym_storage_offset.default,
+            ):
+                return True
+
+    return False
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
@@ -96,6 +112,8 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
     # Backend to export, compile and run inference of model with onnxmlir.
     def onnxmlir_forward_fn(*args, **kwargs):
+        # if use_eager_mode(gm):
+        #     return gm.forward(*args)
         onnxmlirtorch_object = ONNXMLIRTorch(gm, *args, options=onnxmlir_options)
         return onnxmlirtorch_object(*args)
 
@@ -282,7 +300,6 @@ class ONNXMLIRTorch:
         elif self.cache_key in global_failed_compile_gms:
             self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
 
-
         # Touch the code to materialize before exporting.
         _ = self.gm.code
 
@@ -303,24 +320,22 @@ class ONNXMLIRTorch:
                 self.onnxmlir_kwargs[k] = v
 
     def __call__(self, *example_inputs):
-        if self.use_eager_mode():
-            fn = self.eager_forward
-        else:
-            fn = self.compile_forward
         tensor_example_inputs = self.get_tensor_example_inputs(example_inputs)
-        return fn(*tensor_example_inputs)
+        return self.compile_forward(*tensor_example_inputs)
 
     def eager_forward(self, *example_inputs):
-        logger.info("Use the eager mode to run the graph.")
         start = time.perf_counter()
         results = self.gm.forward(*example_inputs)
-        logger.info(f"  torch took {(time.perf_counter() - start)*1000} ms")
+        logger.info(f"Eager mode took {(time.perf_counter() - start)*1000} ms")
         return results
 
     def compile_forward(self, *example_inputs):
         global global_failed_compile_gms
         if self.cached_session is None:
-            logger.info("Export and compile the model.")
+            if self.cache_key in global_failed_compile_gms:
+                logger.info("Found the uncompiled model. Switch to the eager mode")
+                return self.eager_forward(*example_inputs)
+
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
             # Since the session is connected to a .so file, we have to make
@@ -338,9 +353,15 @@ class ONNXMLIRTorch:
 
             # Export the graph module to onnx.
             # If failed, use the graph as it is without compilation.
-            if not self.export_gm_to_onnx(example_inputs):
+            logger.info("Export and compile the model.")
+            succeeded = self.export_gm_to_onnx(example_inputs)
+            if not succeeded:
                 logger.info("Failed to export the model. Switch to the eager mode.")
-                global_failed_compile_gms.add(self.cache_key)
+                # 7, 10, 15, 25 wrong.
+                # 6 good for 5 output tokens
+                if len(global_failed_compile_gms) < 5:
+                    global_failed_compile_gms.add(self.cache_key)
+                    #logger.info(f"graph tung: {self.gm}")
                 return self.eager_forward(*example_inputs)
 
             # Create a session for compiling and running the onnx model.
@@ -368,13 +389,6 @@ class ONNXMLIRTorch:
         om_outputs = sess.run(om_inputs)
         logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
         return [torch.from_numpy(output) for output in om_outputs]
-
-    def use_eager_mode(self):
-        return False
-        if self.cache_key in global_failed_compile_gms:
-            logger.info("found the failed gm")
-            return True 
-        return False
 
     def get_tensor_example_inputs(self, example_inputs):
         if self.example_inputs_indices is None:
