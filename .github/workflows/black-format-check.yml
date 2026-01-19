@@ -12,3 +12,4 @@ jobs:
         with:
           options: "--check --exclude third_party"
           src: "."
+          version: "~= 25.12"
