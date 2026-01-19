@@ -509,4 +509,3 @@ func.func @test_xfe_resize_linear(%arg0: tensor<1x4x4x3xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.XFEResize"(%arg0, %{{.*}}, %{{.*}}, %{{.*}}) {{{.*}}coordinate_transformation_mode = "align_corners"{{.*}}mode = "linear"{{.*}}} : (tensor<1x4x4x3xf32>, none, tensor<4xf32>, none) -> tensor<1x8x8x3xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x8x8x3xf32>
 }
-

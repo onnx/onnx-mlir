@@ -64,6 +64,7 @@ parser.add_argument(
     type=str,
     help="Path to YAML file containing custom operation schemas",
     default=None,
+    action="append",
 )
 
 args = parser.parse_args()
@@ -80,7 +81,9 @@ current_onnx_version = "1.19.1"
 if (
     not check_operation_version and not list_operation_version
 ) and current_onnx_version != onnx.__version__:
-    if args.custom_ops_yaml and os.path.exists(args.custom_ops_yaml):
+    if args.custom_ops_yaml and all(
+        os.path.exists(yaml_path) for yaml_path in args.custom_ops_yaml
+    ):
         print(
             "WARNING: version of expected onnx is {}, ".format(current_onnx_version)
             + "while onnx package being used is {}".format(onnx.__version__)
@@ -332,6 +335,7 @@ domain_abrv_dict = {
     "ai.onnx.preview.training": "ONNX",
     "com.amd.quark": "AMDQuark",
     "com.amd.xfe": "XFE",
+    "com.amd.xcompiler": "XCOMPILER",
 }
 
 
@@ -428,27 +432,29 @@ class CustomOpSchema:
                 self.meta_attributes.update(meta_attr)
 
 
-def load_custom_ops_from_yaml(yaml_path: str) -> List[CustomOpSchema]:
+def load_custom_ops_from_yaml(yaml_paths: List[str]) -> List[CustomOpSchema]:
     """Load custom operation schemas from a YAML file."""
-    if not yaml_path or not os.path.exists(yaml_path):
+    if not yaml_paths or not all(os.path.exists(yaml_path) for yaml_path in yaml_paths):
         return []
-
-    with open(yaml_path, "r") as f:
-        yaml_content = yaml.safe_load(f)
-
-    # YAML file can contain a list of ops or a single op
-    if isinstance(yaml_content, list):
-        ops_list = yaml_content
-    else:
-        ops_list = [yaml_content]
-
     custom_schemas = []
-    for op_dict in ops_list:
-        try:
-            schema = CustomOpSchema(op_dict)
-            custom_schemas.append(schema)
-        except Exception as e:
-            print(f"Warning: Failed to parse op {op_dict.get('name', 'unknown')}: {e}")
+    for yaml_path in yaml_paths:
+        with open(yaml_path, "r") as f:
+            yaml_content = yaml.safe_load(f)
+
+        # YAML file can contain a list of ops or a single op
+        if isinstance(yaml_content, list):
+            ops_list = yaml_content
+        else:
+            ops_list = [yaml_content]
+
+        for op_dict in ops_list:
+            try:
+                schema = CustomOpSchema(op_dict)
+                custom_schemas.append(schema)
+            except Exception as e:
+                print(
+                    f"Warning: Failed to parse op {op_dict.get('name', 'unknown')}: {e}"
+                )
 
     return custom_schemas
 

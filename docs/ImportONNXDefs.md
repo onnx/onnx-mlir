@@ -162,7 +162,7 @@ There are two methods to add operations from custom domains:
 
 ## Method 1: YAML Schema Definition (Recommended)
 
-The easiest way to add custom domain operations is using YAML schema files with the `--custom-ops-yaml` option.
+The easiest way to add custom domain operations is using YAML schema files with the `--custom-ops-yaml` option. This option can be used multiple times, see [utils/gen_onnx_mlir_multiple_custom_ops.sh](../utils/gen_onnx_mlir_multiple_custom_ops.sh).
 
 ### Quick Start
 
