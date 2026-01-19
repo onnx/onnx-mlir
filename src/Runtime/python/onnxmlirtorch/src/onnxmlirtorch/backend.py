@@ -371,6 +371,7 @@ class ONNXMLIRTorch:
     def use_eager_mode(self):
         if "om_use_eager_mode" in self.gm.meta:
             return True
+        return False
 
         # Detect unsupported ops.
         for n in self.gm.graph.nodes:
