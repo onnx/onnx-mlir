@@ -83,6 +83,8 @@ logger = logging.getLogger(__name__)
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
 global_session_cache = SessionCache(config.session_cache_limit)
 
+global_failed_compile_gms = set()
+
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
@@ -226,6 +228,7 @@ def generate_hash_key(
 
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
+        global global_failed_compile_gms
         # Input graph module.
         self.gm = gm
         self.gm.eval()
@@ -276,12 +279,14 @@ class ONNXMLIRTorch:
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
-        elif "om_example_inputs_indices" in self.gm.meta:
+        elif self.cache_key in global_failed_compile_gms:
             self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
 
 
         # Touch the code to materialize before exporting.
         _ = self.gm.code
+
+        logger.info(f"graph meta {self.gm.meta}")
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
@@ -313,6 +318,7 @@ class ONNXMLIRTorch:
         return results
 
     def compile_forward(self, *example_inputs):
+        global global_failed_compile_gms
         if self.cached_session is None:
             logger.info("Export and compile the model.")
             # When there is no cached compiled lib, export the torch model
@@ -334,6 +340,7 @@ class ONNXMLIRTorch:
             # If failed, use the graph as it is without compilation.
             if not self.export_gm_to_onnx(example_inputs):
                 logger.info("Failed to export the model. Switch to the eager mode.")
+                global_failed_compile_gms.add(self.cache_key)
                 return self.eager_forward(*example_inputs)
 
             # Create a session for compiling and running the onnx model.
@@ -364,20 +371,9 @@ class ONNXMLIRTorch:
 
     def use_eager_mode(self):
         return False
-        # Detect unsupported ops.
-        for n in self.gm.graph.nodes:
-            # copy op
-            if n.op == "call_method":
-                if n.target == "copy_":
-                    return True
-            if n.op == "call_function":
-                if n.target in (
-                    torch.ops.aten.copy_.default,
-                    torch.ops.aten.copy.default,
-                    torch.ops.aten.sym_storage_offset.default,
-                ):
-                    return True
-
+        if self.cache_key in global_failed_compile_gms:
+            logger.info("found the failed gm")
+            return True 
         return False
 
     def get_tensor_example_inputs(self, example_inputs):
@@ -616,9 +612,9 @@ class ONNXMLIRTorch:
             )
             succeeded = True
         except torch.onnx.errors.UnsupportedOperatorError as e:
-            print("ONNX export unsupported:", e)
+            print("ONNX export unsupported")
         except Exception as e:
-            print("ONNX export failure:", e)
+            print("ONNX export failure")
 
         return succeeded
 
