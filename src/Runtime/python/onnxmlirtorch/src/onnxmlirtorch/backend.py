@@ -236,11 +236,6 @@ class ONNXMLIRTorch:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
 
-        if self.use_eager_mode():
-            if "om_example_inputs_indices" in self.gm.meta:
-                self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
-            return
-
         # If the model was rewritten, the cache key was stored in "om_hash" in gm.meta.
         need_rewrite = False
         if "om_hash" not in self.gm.meta:
@@ -274,12 +269,16 @@ class ONNXMLIRTorch:
             ) = self.rewrite_gm_for_export(*args)
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
+            self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
 
         # Cache the rewritten graph module.
         assert self.cache_key, "cache key does not exist"
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
+        elif "om_example_inputs_indices" in self.gm.meta:
+            self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
+
 
         # Touch the code to materialize before exporting.
         _ = self.gm.code
@@ -307,11 +306,6 @@ class ONNXMLIRTorch:
         return fn(*tensor_example_inputs)
 
     def eager_forward(self, *example_inputs):
-        if "om_use_eager_mode" not in self.gm.meta:
-            self.gm.meta["om_use_eager_mode"] = True
-        if "om_example_inputs_indices" not in self.gm.meta:
-            self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
-
         logger.info("Use the eager mode to run the graph.")
         start = time.perf_counter()
         results = self.gm.forward(*example_inputs)
@@ -369,10 +363,7 @@ class ONNXMLIRTorch:
         return [torch.from_numpy(output) for output in om_outputs]
 
     def use_eager_mode(self):
-        if "om_use_eager_mode" in self.gm.meta:
-            return True
         return False
-
         # Detect unsupported ops.
         for n in self.gm.graph.nodes:
             # copy op
