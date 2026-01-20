@@ -738,7 +738,7 @@ implementations (even if a seed is specified).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -994,7 +994,7 @@ See documentation of the Cast operator for further details.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -1101,28 +1101,31 @@ deep models. By default the conversion of a float *x* obeys
 to the following rules. `[x]` means the value rounded to
 the target mantissa width.
 
-| x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
-|------|----|----|----|----|
-| 0 | 0 | 0 | 0 | 0 |
-|-0 | -0 | 0 | -0 | 0 |
-| NaN | NaN | NaN | NaN | NaN |
-| +/- Inf | +/- FLT_MAX | NaN | FLT_MAX | NaN |
-| [x] > FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX |
-| [x] < -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
-| else | RNE | RNE | RNE | RNE |
+| x                 | E4M3FN   | E4M3FNUZ | E5M2     | E5M2FNUZ |
+| ----------------- | -------- | -------- | -------- | -------- |
+| 0                 | 0        | 0        | 0        | 0        |
+| -0                | -0       | 0        | -0       | 0        |
+| NaN               | NaN      | NaN      | NaN      | NaN      |
+| Inf               | FLT_MAX  | NaN      | FLT_MAX  | NaN      |
+| -Inf              | -FLT_MAX | NaN      | -FLT_MAX | NaN      |
+| \[x\] > FLT_MAX   | FLT_MAX  | FLT_MAX  | FLT_MAX  | FLT_MAX  |
+| \[x\] \< -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+| else              | RNE      | RNE      | RNE      | RNE      |
 
 The behavior changes if the parameter 'saturate' is set to False.
 The rules then become:
 
-| x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
-|------|----|----|----|----|
-| 0 | 0 | 0 | 0 | 0 |
-|-0 | -0 | 0 | -0 | 0 |
-| NaN | NaN | NaN | NaN | NaN |
-| +/- Inf | NaN | NaN | +/- Inf | NaN |
-| [x] > FLT_MAX | NaN | NaN | Inf | NaN |
-| [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
-| else | RNE | RNE | RNE | RNE |
+| x                 | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+| ----------------- | ------ | -------- | ---- | -------- |
+| 0                 | 0      | 0        | 0    | 0        |
+| -0                | -0     | 0        | -0   | 0        |
+| NaN               | NaN    | NaN      | NaN  | NaN      |
+| -NaN              | -NaN   | NaN      | -NaN | NaN      |
+| Inf               | NaN    | NaN      | Inf  | NaN      |
+| -Inf              | -NaN   | NaN      | -Inf | NaN      |
+| \[x\] > FLT_MAX   | NaN    | NaN      | Inf  | NaN      |
+| \[x\] \< -FLT_MAX | NaN    | NaN      | -Inf | NaN      |
+| else              | RNE    | RNE      | RNE  | RNE      |
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -1264,12 +1267,18 @@ _ONNX CenterCropPad operation_
 
 Center crop or pad an input to given dimensions.
 
-The crop/pad dimensions can be specified for a subset of the `axes`. Non-specified dimensions will not be
-cropped or padded.
+The crop/pad dimensions can be specified for a subset of the `axes`; unspecified dimensions will remain unchanged.
 
-If the input dimensions are bigger than the crop shape, a centered cropping window is extracted from the input.
-If the input dimensions are smaller than the crop shape, the input is padded on each side equally,
-so that the input is centered in the output.
+If the input dimensions are larger than the target crop dimensions, a centered cropping window will be extracted
+from the input. The starting value for the cropping window is rounded down, which means that if the difference
+between the input shape and the crop shape is odd, the cropping window will be shifted half a pixel to the left
+of the input center.
+
+If the input dimensions are smaller than the target crop dimensions, the input will be padded equally on both sides
+to center it in the output. In cases where the total number of padding pixels is odd, an additional pixel will be
+added to the right side.
+
+The padding value used is zero.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -1305,6 +1314,8 @@ _ONNX Clip operation_
 Clip operator limits the given input within an interval. The interval is
 specified by the inputs 'min' and 'max'. They default to
 numeric_limits::lowest() and numeric_limits::max(), respectively.
+When 'min' is greater than 'max', the clip operator sets all the 'input' values to
+the value of 'max'. Thus, this is equivalent to 'Min(max, Max(input, min))'.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -2465,7 +2476,7 @@ y_scale = (maximum(0, max(x)) - minimum(0, min(x))) / (qmax - qmin)
 Zero point is calculated as:
 ```
 intermediate_zero_point = qmin - min(x)/y_scale
-y_zero_point = cast(round(saturate(itermediate_zero_point)))
+y_zero_point = cast(round(saturate(intermediate_zero_point)))
 ```
 
 * where qmax and qmin are max and min values for quantization range .i.e [0, 255] in case of uint8
@@ -2653,13 +2664,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
 ### `onnx.Exp` (ONNXExpOp)
@@ -2734,7 +2745,7 @@ TensorProto message and be valid as an output type.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -3153,7 +3164,22 @@ Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
 entries of the axis dimension of `data` (by default outer-most one as axis=0) indexed by `indices`, and concatenates
 them in an output tensor of rank q + (r - 1).
 
-If `axis = 0`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
+It is an indexing operation that indexes into the input `data` along a single (specified) axis.
+Each entry in `indices` produces a `r-1` dimensional slice of the input tensor.
+The entire operation produces, conceptually, a `q`-dimensional tensor of `r-1` dimensional slices,
+which is arranged into a `q + (r-1)`-dimensional tensor, with the `q` dimensions taking the
+place of the original `axis` that is being indexed into.
+
+The following few examples illustrate how `Gather` works for specific shapes of `data`,
+`indices`, and given value of `axis`:
+| data shape | indices shape | axis | output shape | output equation |
+| --- | --- | --- | --- | --- |
+| (P, Q) | ( )  (a scalar)   | 0 | (Q)       | output[q] = data[indices, q] |
+| (P, Q, R) | ( )  (a scalar)   | 1 | (P, R)       | output[p, r] = data[p, indices, r] |
+| (P, Q) | (R, S) | 0 | (R, S, Q) | output[r, s, q] = data[ [indices[r, s], q] |
+| (P, Q) | (R, S) | 1 | (P, R, S) | output[p, r, s] = data[ p, indices[r, s]] |
+
+More generally, if `axis = 0`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
 then `output[i_{0}, ..., i_{q-1}, j_{0}, ..., j_{r-2\}\] = input[k , j_{0}, ..., j_{r-2\}\]`:
 
 ```
@@ -3363,13 +3389,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
 ### `onnx.GlobalMaxPool` (ONNXGlobalMaxPoolOp)
@@ -3724,7 +3750,7 @@ This operator transforms input according to
 y = scale * (x - mean) / sqrt(variance + epsilon) + bias,
 ```
 where the mean and variance are computed per instance per group of channels, and
-`scale` and `bias` should be specified for each group of channels. The number of
+`scale` and `bias` should be specified for each channel. The number of
 groups `num_groups` should be divisible by the number of channels so that there are
 an equal number of channels per group.
 
@@ -5427,19 +5453,23 @@ Effects: `MemoryEffects::Effect{}`
 
 _ONNX Mod operation_
 
-Performs element-wise binary modulus (with Numpy-style broadcasting support).
-  The sign of the remainder is the same as that of the Divisor.
+Performs an element-wise binary modulo operation.
+The semantics and supported data types depend on the value of the `fmod` attribute which must be `0` (default), or `1`.
 
-  Mod operator can also behave like C fmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
-  (in contrast to integer mod). To force a behavior like numpy.fmod() an 'fmod' Attribute is provided.
-  This attribute is set to 0 by default causing the behavior to be like integer mod.
-  Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.fmod().
+If the `fmod` attribute is set to `0`, `T` is constrained to integer data types and the semantics follow that of the Python `%`-operator.
+The sign of the result is that of the divisor.
 
-  If the input type is floating point, then `fmod` attribute must be set to 1.
+If `fmod` is set to `1`, the behavior of this operator follows that of the `fmod` function in C and `T` is constrained to floating point data types.
+The result of this operator is the remainder of the division operation `x / y` where `x` and `y` are respective elements of `A` and `B`. The result is exactly the value `x - n * y`, where `n` is `x / y` with its fractional part truncated.
+The returned value has the same sign as `x` (except if `x` is `-0`) and is less or equal to `|y|` in magnitude.
+The following special cases apply when `fmod` is set to `1`:
+- If `x` is `-0` and `y` is greater than zero, either `+0` or `-0` may be returned.
+- If `x` is `±∞` and `y` is not `NaN`, `NaN` is returned.
+- If `y` is `±0` and `x` is not `NaN`, `NaN` should be returned.
+- If `y` is `±∞` and `x` is finite, `x` is returned.
+- If either argument is `NaN`, `NaN` is returned.
 
-  In case of dividend being zero, the results will be platform dependent.
-
-  This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
+This operator supports **multidirectional (i.e., NumPy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -9094,7 +9124,7 @@ The `output` is calculated via the following equation:
 output = np.copy(data)
 update_indices = indices.shape[:-1]
 for idx in np.ndindex(update_indices):
-    output[indices[idx]] = updates[idx]
+    output[tuple(indices[idx])] = updates[idx]
 ```
 
 The order of iteration in the above loop is not specified.
@@ -9111,7 +9141,7 @@ When `reduction` is set to some reduction function `f`, `output` is calculated a
 output = np.copy(data)
 update_indices = indices.shape[:-1]
 for idx in np.ndindex(update_indices):
-    output[indices[idx]] = f(output[indices[idx]], updates[idx])
+    output[tuple(indices[idx])] = f(output[tuple(indices[idx])], updates[idx])
 ```
 
 where the `f` is `+`, `*`, `max` or `min` as specified.
@@ -9355,7 +9385,7 @@ Construct an empty tensor sequence, with given data type.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -9507,11 +9537,11 @@ If start axis is omitted, the slice starts from axis 0.
 The end axis, if specified, is exclusive (and the returned value will not include the size of that axis).
 If the end axis is omitted, the axes upto the last one will be included.
 Negative axes indicate counting back from the last axis.
-Note that axes will be clamped to the range [0, r-1], where r is the
+Note that axes will be clamped to the range [0, r], where r is the
 rank of the input tensor if they are out-of-range (after adding r in the case of
 negative axis). Thus, specifying any end value > r is equivalent to specifying an end
 value of r, and specifying any start value < -r is equivalent to specifying a start
-value of 0.
+value of 0. If start > end, the result will be an empty shape.
 
 Examples:
 
@@ -10702,9 +10732,16 @@ Effects: `MemoryEffects::Effect{}`
 
 _ONNX Transpose operation_
 
-Transpose the input tensor similar to numpy.transpose. For example, when
-perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
-will be (2, 1, 3).
+Returns a transpose of the input tensor. (Similar to `numpy.transpose`).
+The optional attribute `perm` must be a permutation of the dimensions of
+the input tensor. Axis `i` of the output tensor corresponds to the axis
+`perm[i]` of the input tensor.
+For example, when perm=(1, 0, 2), given an input tensor of shape (1, 2, 3),
+the output shape will be (2, 1, 3).
+When perm=(1, 2, 0), given an input tensor of shape (1, 2, 3),
+the output shape will be (2, 3, 1).
+If the attribute `perm` is omitted, its default value is `(n-1, ..., 0)`,
+where `n` is the rank of the input tensor.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
