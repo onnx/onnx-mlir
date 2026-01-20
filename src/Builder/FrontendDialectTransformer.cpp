@@ -1315,8 +1315,7 @@ private:
 
     // Populates graph.value_info().
     onnx::shape_inference::InferShapes(&graph, function_opset_map,
-        onnx::OpSchemaRegistry::Instance(),
-        options, in_model_functions_);
+        onnx::OpSchemaRegistry::Instance(),options, in_model_functions_);
 
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
