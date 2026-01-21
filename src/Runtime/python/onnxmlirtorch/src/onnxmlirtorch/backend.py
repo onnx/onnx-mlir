@@ -639,9 +639,11 @@ class ONNXMLIRTorch:
             )
             succeeded = True
         except torch.onnx.errors.UnsupportedOperatorError as e:
-            print("ONNX export unsupported")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(f"ONNX export unsupported: {e}")
         except Exception as e:
-            print("ONNX export failure")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(f"ONNX export failure: {e}")
 
         return succeeded
 
