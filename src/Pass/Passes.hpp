@@ -104,6 +104,9 @@ std::unique_ptr<mlir::Pass> createSetONNXNodeNamePass();
 /// InstanceNormalization, DepthToSpace, SpaceToDepth
 std::unique_ptr<mlir::Pass> createConvertToChannelLastPass();
 
+/// Pass for merging Slice->Concat patterns with downstream ops.
+std::unique_ptr<mlir::Pass> createMergeSliceConcatPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 

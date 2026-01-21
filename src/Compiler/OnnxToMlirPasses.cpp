@@ -9,6 +9,10 @@
 using namespace mlir;
 namespace onnx_mlir {
 
+void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeSliceConcatPass());
+} 
+
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr, OnnxToMlirOptions opts) {
   // This is a transition from previous static passes to full dynamic passes
@@ -149,6 +153,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (opts.instrumentSignatures != "NONE" || opts.instrumentOnnxNode != "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         opts.instrumentSignatures, opts.instrumentOnnxNode));
+
+  addXmcMlirPasses(pm, opts);      
 }
 
 } // namespace onnx_mlir
