@@ -73,6 +73,9 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
       registry);
   linalg::registerBufferizableOpInterfaceExternalModels(registry);
   tensor::registerBufferizableOpInterfaceExternalModels(registry);
+  // Note: ONNX operations that will be converted to Krnl later should NOT
+  // have BufferizableOpInterface registered. They are handled by
+  // allowUnknownOps=true in One-Shot Bufferize pass.
 
   return registry;
 }
