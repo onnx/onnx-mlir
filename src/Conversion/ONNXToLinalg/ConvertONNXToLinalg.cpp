@@ -48,8 +48,9 @@ struct ConvertONNXToLinalgPass
     TypeConverter typeConverter;
 
     // Populate lowering patterns with pass options
+    // TableGen-generated options can be used directly as their types
     populateLoweringONNXMatMulOpToLinalgPattern(patterns, typeConverter,
-        context, linalgOps.getValue(), useLinalgPath.getValue());
+        context, linalgOps, useLinalgPath);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
@@ -57,32 +58,6 @@ struct ConvertONNXToLinalgPass
       signalPassFailure();
     }
   }
-
-public:
-  // Option to specify which ONNX operations should be lowered to Linalg
-  // dialect. Operations are specified as a comma-separated list or regex
-  // patterns. Example: --convert-onnx-to-linalg='linalg-ops=MatMul,Conv' or
-  // --convert-onnx-to-linalg='linalg-ops="MatMul.*"'
-  // Special values: ALL (all operations), NONE (no operations).
-  // If not specified, defaults to converting all operations.
-  Option<std::string> linalgOps{*this, "linalg-ops",
-      llvm::cl::desc(
-          "Specify which ONNX operations should be lowered to Linalg dialect.\n"
-          "Operations are specified as a comma-separated list or regex "
-          "patterns.\n"
-          "Example: --convert-onnx-to-linalg='linalg-ops=MatMul,Conv' or\n"
-          "--convert-onnx-to-linalg='linalg-ops=\"MatMul.*\"'\n"
-          "Special values: ALL (all operations), NONE (no operations).\n"
-          "If not specified, defaults to converting all operations."),
-      llvm::cl::init("")};
-
-  // Option to enable Linalg path for all operations.
-  // This is used when --use-linalg-path is set in the main compiler.
-  Option<bool> useLinalgPath{*this, "use-linalg-path",
-      llvm::cl::desc("Enable Linalg path for all operations (equivalent to "
-                     "--use-linalg-path "
-                     "in onnx-mlir)."),
-      llvm::cl::init(false)};
 };
 
 } // namespace
@@ -93,7 +68,11 @@ std::unique_ptr<Pass> createConvertONNXToLinalg() {
 
 std::unique_ptr<Pass> createConvertONNXToLinalg(
     const std::string &linalgOps, bool useLinalgPath) {
-  return std::make_unique<ConvertONNXToLinalgPass>(linalgOps, useLinalgPath);
+  // Use TableGen-generated options structure
+  ConvertONNXToLinalgOptions options;
+  options.linalgOps = linalgOps;
+  options.useLinalgPath = useLinalgPath;
+  return std::make_unique<ConvertONNXToLinalgPass>(options);
 }
 
 } // namespace onnx_mlir

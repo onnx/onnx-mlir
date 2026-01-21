@@ -156,10 +156,6 @@ void registerOMPasses(int optLevel) {
     return createConvertONNXToTOSAPass();
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createConvertONNXToLinalg();
-  });
-
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToStablehloPass();
@@ -175,6 +171,8 @@ void registerMLIRPasses() {
   mlir::registerTransformsPasses();
   // Passes created from onnx-mlir/src/Transform/Passes.td
   onnx_mlir::registerTransformsPasses();
+  // Passes created from onnx-mlir/src/Conversion/ONNXToLinalg/Passes.td
+  onnx_mlir::registerONNXToLinalgPasses();
 
   affine::registerAffinePasses();
   func::registerFuncPasses();
