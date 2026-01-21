@@ -56,6 +56,7 @@ add_onnx_mlir_library(OMONNXRewrite
   ConvertToChannelLast.cpp
   ResultNamesUpdater.cpp
   xmc/MergeSliceConcatPass.cpp
+  xmc/MergeStridedSliceConcatConvPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

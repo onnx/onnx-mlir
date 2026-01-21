@@ -412,6 +412,10 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
   }
 };
 
+} // namespace
+
+namespace onnx_mlir {
+
 struct MergeSliceConcatPass
     : public PassWrapper<MergeSliceConcatPass, OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "merge-slice-concat"; }
@@ -428,10 +432,6 @@ struct MergeSliceConcatPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createMergeSliceConcatPass() {
   return std::make_unique<MergeSliceConcatPass>();

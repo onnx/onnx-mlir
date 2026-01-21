@@ -106,6 +106,7 @@ std::unique_ptr<mlir::Pass> createConvertToChannelLastPass();
 
 /// Pass for merging Slice->Concat patterns with downstream ops.
 std::unique_ptr<mlir::Pass> createMergeSliceConcatPass();
+std::unique_ptr<mlir::Pass> createMergeStridedSliceConcatConvPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
