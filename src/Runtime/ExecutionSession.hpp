@@ -31,6 +31,7 @@
 typedef llvm::sys::DynamicLibrary DynamicLibraryHandleType;
 #else
 typedef void *DynamicLibraryHandleType;
+#include <dlfcn.h>
 #endif
 
 namespace onnx_mlir {

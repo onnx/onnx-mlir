@@ -71,7 +71,11 @@ bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
     return true;
   llvm::sys::DynamicLibrary sharedLibraryHandle =
       exec->getSharedLibraryHandle();
+#if defined(_WIN32)
   void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+#else
+  void *addr = dlsym(sharedLibraryHandle, instructionName.c_str());
+#endif
   if (!addr) {
     printf("%s not found.\n", instructionName.c_str());
     return false;
