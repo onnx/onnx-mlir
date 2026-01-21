@@ -1099,6 +1099,52 @@ func.func @test_fuse_mul_conv_rank_4D(%arg0: tensor<1x3x800x800xf32>) -> tensor<
 
 // -----
 
+// Test that pattern does apply because
+// 1) the constant with shape [4,4] is splat, and
+// 2) original onnx.Mul doesn't have broadcasting on "spatial" dims (the last two dims)
+func.func @test_fuse_mul_conv_splat_spatial_shape(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x16x4x4xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %w = onnx.Constant dense<2.0> : tensor<16x3x3x3xf32>
+    %splat = onnx.Constant dense<0.5> : tensor<4x4xf32>
+    %conv = "onnx.Conv"(%arg0, %w, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<16x3x3x3xf32>, none) -> tensor<1x16x4x4xf32>
+    %result = "onnx.Mul"(%conv, %splat) : (tensor<1x16x4x4xf32>, tensor<4x4xf32>) -> tensor<1x16x4x4xf32>
+    
+    // CHECK-LABEL: @test_fuse_mul_conv_splat_spatial_shape
+    // CHECK-DAG: %[[NONE:.+]] = "onnx.NoValue"() {value} : () -> none
+    // CHECK-DAG: %[[SCALAR:.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+    // CHECK-DAG: %[[W_ORIG:.+]] = onnx.Constant dense<2.000000e+00> : tensor<16x3x3x3xf32>
+    // CHECK: %[[W_NEW:.+]] = "onnx.Mul"(%[[W_ORIG]], %[[SCALAR]]) : (tensor<16x3x3x3xf32>, tensor<f32>) -> tensor<16x3x3x3xf32>
+    // CHECK: %[[CONV:.+]] = "onnx.Conv"(%arg0, %[[W_NEW]], %[[NONE]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<16x3x3x3xf32>, none) -> tensor<1x16x4x4xf32>
+    // CHECK-NOT: "onnx.Mul"(%[[CONV]]
+    // CHECK: return %[[CONV]]
+    return %result : tensor<1x16x4x4xf32>
+}
+
+// -----
+
+// Test that pattern does NOT apply for splat [4,4] when Mul involves broadcasting on spatial dims
+// Because this requires an additional Broadcast op at the end, which we use Mul to trade for.
+func.func @test_no_fuse_mul_conv_splat_with_broadcasting(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x16x4x4xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %w = onnx.Constant dense<2.0> : tensor<16x3x4x4xf32>
+    // Splat [4,4] constant - all values are 0.5
+    // But Conv outputs [1,16,1,1], so Mul does broadcasting to [1,16,4,4]
+    %splat = onnx.Constant dense<0.5> : tensor<4x4xf32>
+    %conv = "onnx.Conv"(%arg0, %w, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [4, 4], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<16x3x4x4xf32>, none) -> tensor<1x16x1x1xf32>
+    %result = "onnx.Mul"(%conv, %splat) : (tensor<1x16x1x1xf32>, tensor<4x4xf32>) -> tensor<1x16x4x4xf32>
+    
+    // CHECK-LABEL: @test_no_fuse_mul_conv_splat_with_broadcasting
+    // CHECK-DAG: %[[NONE:.+]] = "onnx.NoValue"() {value} : () -> none
+    // CHECK-DAG: %[[W:.+]] = onnx.Constant dense<2.000000e+00> : tensor<16x3x4x4xf32>
+    // CHECK-DAG: %[[SPLAT:.+]] = onnx.Constant dense<5.000000e-01> : tensor<4x4xf32>
+    // CHECK: %[[CONV:.+]] = "onnx.Conv"(%arg0, %[[W]], %[[NONE]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [4, 4], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<16x3x4x4xf32>, none) -> tensor<1x16x1x1xf32>
+    // CHECK: %[[MUL:.+]] = "onnx.Mul"(%[[CONV]], %[[SPLAT]]) : (tensor<1x16x1x1xf32>, tensor<4x4xf32>) -> tensor<1x16x4x4xf32>
+    // CHECK: return %[[MUL]]
+    return %result : tensor<1x16x4x4xf32>
+}
+
+// -----
+
 func.func @test_less(%arg0 : tensor<i32>, %arg1 : tensor<i32>) -> tensor<i1> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<i32>) -> tensor<f32>
   %1 = "onnx.Cast"(%arg1) {to = f32} : (tensor<i32>) -> tensor<f32>

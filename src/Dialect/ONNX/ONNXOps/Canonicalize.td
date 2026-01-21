@@ -12,6 +12,9 @@
 // When adding a canonicalizer for a new operation, please add that operation to
 // the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_REWRITE
@@ -87,7 +90,7 @@ def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
 
 // Create reshaped constant [C_out, 1, 1, ...] if necessary for weight fusion
 def createReshapedConstantForWeightFusion : NativeCodeCall<
-  "onnx_mlir::createReshapedConstantForWeightFusion($_builder, $_loc, $0, $1)">;
+  "onnx_mlir::createReshapedConstantForWeightFusion($_builder, $0, $1)">;
 
 // Create an ArrayAttr of IntegerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
@@ -147,11 +150,12 @@ class HaveSameDim<int dim>: Constraint<
 // Check if $0 is scalar OR first dimension matches $1's first dimension
 // Check if constant ($0) has 1 element (scalar) or C_out elements (per-channel)
 // $0 is constant, $1 is weight with shape [C_out, C_in, ...]
-def HasOneOrCoutElements: Constraint<
-  CPred<"mlir::cast<ShapedType>($0.getType()).getNumElements() == 1 || "
-        "mlir::cast<ShapedType>($0.getType()).getNumElements() == "
-        "mlir::cast<ShapedType>($1.getType()).getShape()[0]">,
-  "Constant has 1 element or C_out elements">;
+// Check if constant has valid shape for weight fusion into Conv.
+// Valid cases: 1) Scalar, 2) Splat constant, 3) Per-channel (proper alignment)
+// $0 is constant, $1 is weight, $2 is the Mul result
+def HasValidShapeForWeightFusion: Constraint<
+  CPred<"onnx_mlir::hasValidShapeForWeightFusion($0, $1, $2)">,
+  "Constant has valid shape for weight fusion (scalar, splat, or per-channel)">;
 
 def HaveSameShapedType: Constraint<
     CPred<"(isa<ShapedType>($0.getType()) &&"
@@ -425,12 +429,10 @@ def NormalizeMulPattern: Pat<
   [(IsFromONNXConstantOp $x), (IsNotFromONNXConstantOp $y)]
 >;
 
-// Unified pattern for Mul-Conv fusion with flexible constant shapes
-// Handles:
-//   1. Scalar: Conv(...) * scalar where scalar is rank 0
-//   2. Other cases: Conv(...) * scale where scale's total number of elements is either 1 or C_out
-// Approach: Reshape constant to [C_out, 1, 1, ...] (if necessary) matching weight rank, then multiply
-// Constraint: constant must have 1 element (scalar) or C_out elements (per-channel)
+// Fold mul-constant into weights of Conv regarding Conv-mul structure with the following mul-constant shape:
+//  1. Scalar
+//  2. Splat value and only if the mul does not broadcast on spatial dimensions (the last two dims)
+//  3. Only one dimension has Cout elements and the rest dimensions have single element
 def FuseMulConvNullBiasPattern: Pat<
   (ONNXMulOp:$res
     (ONNXConvOp
@@ -447,7 +449,7 @@ def FuseMulConvNullBiasPattern: Pat<
    (IsFromONNXConstantOp $w),
    (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.
-   (HasOneOrCoutElements $y, $w)]      // constant has 1 or C_out elements
+   (HasValidShapeForWeightFusion $y, $w, $res)]
 >;
 
 // TODO add pattern for non-null bias with constraints:

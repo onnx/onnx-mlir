@@ -75,40 +75,139 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
   return rewriter.getI64TensorAttr(vals);
 }
 
+// Check if a value is a splat constant (all elements have the same value)
+static bool isSplatConstant(Value val) {
+  auto constOp = val.getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return false;
+
+  auto valueAttr = constOp.getValueAttr();
+  if (!valueAttr)
+    return false;
+
+  if (auto denseAttr = dyn_cast<DenseElementsAttr>(valueAttr))
+    return denseAttr.isSplat();
+
+  return false;
+}
+
 // Create a reshaped constant for fusing into Conv weight multiplication.
-// If constant has C_out elements, creates [C_out, 1, 1, ...].
+//   1. For scalars: returns as-is.
+//   2. For splats: creates scalar.
+//   3. For per-output-channel: reshapes to [C_out, 1, 1, ...]
 Value createReshapedConstantForWeightFusion(
-    PatternRewriter &rewriter, Location loc, Value constant, Value weight) {
+    PatternRewriter &rewriter, Value constant, Value weight) {
   auto constantType = mlir::cast<ShapedType>(constant.getType());
   auto weightType = mlir::cast<ShapedType>(weight.getType());
 
   const int64_t numElements = constantType.getNumElements();
   const int64_t cOut = weightType.getShape()[0];
-  assert((cOut == numElements || numElements == 1) &&
-         "numElements should be either 1 or C_out element");
   const int64_t weightRank = weightType.getRank();
 
-  SmallVector<int64_t> targetShape;
+  // Case 1: Scalar (1 element) - return as-is
   if (numElements == 1) {
-    // 1 element: no need to reshape
     return constant;
-  } else {
-    // C_out elements: reshape to [C_out, 1, 1, ...]
-    targetShape.push_back(cOut);
-    for (int i = 1; i < weightRank; ++i)
-      targetShape.push_back(1);
   }
+
+  auto constOp = constant.getDefiningOp<ONNXConstantOp>();
+  auto constOpLoc = constOp->getLoc();
+
+  // Case 2: Splat constant - create a scalar constant with the splat value
+  if (isSplatConstant(constant)) {
+    auto denseAttr = mlir::cast<DenseElementsAttr>(constOp.getValueAttr());
+
+    // Create a new scalar constant with the splat value
+    auto elementType = constantType.getElementType();
+    auto scalarType = RankedTensorType::get({}, elementType);
+    auto splatValue = denseAttr.getSplatValue<Attribute>();
+    auto scalarAttr = DenseElementsAttr::get(scalarType, splatValue);
+
+    return rewriter.create<ONNXConstantOp>(constOpLoc, nullptr, scalarAttr);
+  }
+
+  // Case 3: Per-ouput-channel (C_out elements) - reshape to [C_out, 1, 1, ...]
+  assert(cOut == numElements &&
+         "For non-splat constants, numElements must equal C_out");
+
+  SmallVector<int64_t> targetShape;
+  targetShape.push_back(cOut);
+  for (int i = 1; i < weightRank; ++i)
+    targetShape.push_back(1);
 
   // Create shape constant
   Value shapeConst = rewriter.create<ONNXConstantOp>(
-      loc, nullptr, rewriter.getI64TensorAttr(targetShape));
+      constOpLoc, nullptr, rewriter.getI64TensorAttr(targetShape));
 
   // Create result type for reshape
   auto elementType = constantType.getElementType();
   auto resultType = RankedTensorType::get(targetShape, elementType);
 
   // Create and return the reshape op
-  return rewriter.create<ONNXReshapeOp>(loc, resultType, constant, shapeConst);
+  return rewriter.create<ONNXReshapeOp>(
+      constOpLoc, resultType, constant, shapeConst);
+}
+
+// Check if constant to Mul has valid shape for folding into the weights of
+// Conv. This is used for  FuseMulConvNullBiasPattern Valid cases:
+//   1. Scalar (1 element)
+//   2. Splat constant and only if Mul doesn't do broadcasting on spatial
+//   dimensions (the last two dims)
+//   3. Only one dim has Cout elements and the rest dims have single element
+bool hasValidShapeForWeightFusion(
+    Value constant, Value weight, Value mulResult) {
+  auto constType = mlir::dyn_cast<ShapedType>(constant.getType());
+  auto weightType = mlir::dyn_cast<ShapedType>(weight.getType());
+  auto resultType = mlir::dyn_cast<ShapedType>(mulResult.getType());
+
+  if (!constType || !weightType || !resultType)
+    return false;
+  if (!constType.hasRank() || !resultType.hasRank())
+    return false;
+
+  const int64_t numElements = constType.getNumElements();
+  const int64_t cOut = weightType.getShape()[0];
+  const int64_t resultRank = resultType.getRank();
+  auto constShape = constType.getShape();
+  const int64_t constRank = constType.getRank();
+
+  // Case 1: Scalar (1 element)
+  if (numElements == 1)
+    return true;
+
+  // Case 2: Splat constant (uniform value) - only if Mul doesn't change shape
+  // If Mul does broadcasting (changes shape), don't fuse because we'd just
+  // trade Mul for a Broadcast op, which is not a real optimization.
+  if (isSplatConstant(constant)) {
+    // Check if Mul changes shape by comparing Conv output with Mul result
+    // We need the Conv output shape, which we can infer from the Mul inputs
+    // For now, check if constant and result have compatible shapes
+    // If they're the same shape, no broadcasting happens
+    auto convOutput = mulResult.getDefiningOp()->getOperand(0);
+    auto convType = mlir::dyn_cast<ShapedType>(convOutput.getType());
+    if (!convType || !convType.hasRank())
+      return false;
+
+    // If Conv output shape != Mul result shape, Mul is doing broadcasting
+    // In that case, don't fuse even for splats
+    return convType.getShape() == resultType.getShape();
+  }
+
+  // Case 3: Per-ouput-channel scaling (must have C_out elements)
+  if (numElements != cOut)
+    return false;
+
+  // Check: only one dimension > 1
+  int dimsGreaterThanOne = 0;
+  for (const int64_t dim : constShape) {
+    if (dim > 1) {
+      dimsGreaterThanOne++;
+    }
+  }
+
+  // Note: No need to explicitly check channel alignment because
+  // if the ONNX structure is valid, invalid alignments would have already
+  // been rejected by ONNX Mul broadcasting rules.
+  return dimsGreaterThanOne == 1;
 }
 
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
