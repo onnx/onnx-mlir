@@ -69,8 +69,7 @@ bool ModelLibBuilder::checkInstructionFromEnv(
 bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   if (instructionName.empty())
     return true;
-  llvm::sys::DynamicLibrary sharedLibraryHandle =
-      exec->getSharedLibraryHandle();
+  DynamicLibraryHandleType sharedLibraryHandle = exec->getSharedLibraryHandle();
 #if defined(_WIN32)
   void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
 #else
