@@ -108,6 +108,30 @@ std::unique_ptr<mlir::Pass> createConvertToChannelLastPass();
 std::unique_ptr<mlir::Pass> createMergeSliceConcatPass();
 std::unique_ptr<mlir::Pass> createMergeStridedSliceConcatConvPass();
 
+/// Pass for transferring Resize Linear operations to depthwise convolutions.
+std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
+
+/// Pass for lowering Reduce operations to Pool operations.
+std::unique_ptr<mlir::Pass> createLowerReduceToPoolPass();
+
+/// Pass for removing semantically useless operations.
+std::unique_ptr<mlir::Pass> createRemoveSemanticallyUselessOpsPass();
+
+/// Pass for transferring ReduceMean/Sum operations to Conv operations.
+std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
+
+/// Pass for transferring Conv->Slice patterns to Conv operations.
+std::unique_ptr<mlir::Pass> createTransferConvSliceToConvPass();
+
+/// Pass for removing dilation from Conv operations.
+std::unique_ptr<mlir::Pass> createRemoveDilationConv();
+
+/// Pass for converting InstanceNorm to GroupNorm.
+std::unique_ptr<mlir::Pass> createConvertInstanceNormToGroupNormPass();
+
+/// Pass for standardizing Slice operations.
+std::unique_ptr<mlir::Pass> createStandardizeSliceOpsPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 

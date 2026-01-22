@@ -57,6 +57,15 @@ add_onnx_mlir_library(OMONNXRewrite
   ResultNamesUpdater.cpp
   xmc/MergeSliceConcatPass.cpp
   xmc/MergeStridedSliceConcatConvPass.cpp
+  xmc/ConvertPoolLikeOpToPool2dPass.cpp
+  xmc/InstanceNormToGroupNormPass.cpp
+  xmc/RemoveDilationConvPass.cpp
+  xmc/RemoveSemanticallyUselessOps.cpp
+  xmc/Resize_to_conv.cpp
+  xmc/StandardizeStridedSlice.cpp
+  xmc/TransferConvSliceToConvPass.cpp
+  xmc/TransferReduceMeanSumToConvPass.cpp
+
 
   DEPENDS
   OMONNXDecomposeIncGen
