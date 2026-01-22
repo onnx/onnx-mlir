@@ -38,7 +38,7 @@ from torch._subclasses.fake_tensor import (
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
-from . import config
+from . import config, fx_utils
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -451,6 +451,11 @@ class ONNXMLIRTorch:
         # After rewriting the argument list of the graph module, we maintain
         # a list of un-removed arguments that are used in forward for passing
         # correct example inputs to the rewritten graph module.
+
+        # Rewrite unexported ops.
+        # torch.sym_sum
+        self.gm = fx_utils.rewrite_torch_sym_sum(self.gm)
+
         return example_inputs_indices, removed_example_inputs, placeholders_to_replace
 
     def convert_symint_args_to_tensors(self):
@@ -510,9 +515,7 @@ class ONNXMLIRTorch:
                 continue
             # Pattern: placeholder -> .item().
             uses = [n for n in graph.nodes if node in n.all_input_nodes]
-            item_nodes = [
-                n for n in uses if n.op == "call_method" and n.target == "item"
-            ]
+            item_nodes = [n for n in uses if fx_utils._is_item_of_tensor(n)]
             if not item_nodes:
                 continue
             item_node = item_nodes[0]
@@ -578,7 +581,7 @@ class ONNXMLIRTorch:
                 use_node.args = tuple(new_args)
 
                 # Remove .item() calls if they follow the pattern.
-                if use_node.op == "call_method" and use_node.target == "item":
+                if fx_utils._is_item_of_tensor(use_node):
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(
                             f"freeze_scalar_constant_args, replace {use_node} by {value}"
@@ -603,6 +606,13 @@ class ONNXMLIRTorch:
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
 
+        def sym_storage_offset_zero(_x):
+            # torch.ops.aten.sym_storage_offset is often generated to guard the offset of a view, which failed
+            # the onnx exporter. Assume that the view is always valid. Hence, replace the offset with 0.
+            from onnxscript import opset18 as op
+
+            return op.Constant(value_ints=[0])  # INT64 scalar 0
+
         succeeded = False
         try:
             torch.onnx.export(
@@ -614,6 +624,9 @@ class ONNXMLIRTorch:
                 dynamo=True,
                 # dynamic_axes=dynamic_shapes,
                 # dynamo=False,
+                custom_translation_table={
+                    torch.ops.aten.sym_storage_offset.default: sym_storage_offset_zero,
+                },
             )
             succeeded = True
         except torch.onnx.errors.UnsupportedOperatorError as e:
