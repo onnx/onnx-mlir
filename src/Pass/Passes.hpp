@@ -133,6 +133,15 @@ std::unique_ptr<mlir::Pass> createConvertInstanceNormToGroupNormPass();
 /// Pass for standardizing Slice operations.
 std::unique_ptr<mlir::Pass> createStandardizeSliceOpsPass();
 
+/// Pass for converting Mul operations to DepthwiseConv2d when applicable.
+std::unique_ptr<mlir::Pass> createConvertMulToDepthwiseConv2dPass();
+
+/// Pass for transferring 3D operations to 2D operations.
+std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
+
+/// Pass for transferring PoolFix operations to DownsampleFix operations.
+std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
