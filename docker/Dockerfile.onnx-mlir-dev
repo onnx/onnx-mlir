@@ -13,6 +13,12 @@ WORKDIR ${WORK_DIR}
 # Copy onnx-mlir from the pull request
 COPY . onnx-mlir
 
+# # Install CMake 3.26+ required by ONNX
+# RUN CMAKE_VERSION=3.26.4 \
+#     && curl -sL https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).tar.gz \
+#        | tar -xz -C /usr/local --strip-components=1 \
+#     && cmake --version
+
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
