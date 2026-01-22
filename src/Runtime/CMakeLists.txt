@@ -72,7 +72,7 @@ set_target_properties(OMTensorUtils
   )
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
+#add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
@@ -80,6 +80,7 @@ add_onnx_mlir_library(OMExecutionSession
 
   LINK_LIBS PUBLIC
   OMTensorUtils
+  OMSmallFPConversion
   )
 else()
 add_onnx_mlir_library(OMExecutionSession
@@ -99,3 +100,4 @@ set_target_properties(OMExecutionSession
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
+target_link_libraries(OMExecutionSession PRIVATE dl)
