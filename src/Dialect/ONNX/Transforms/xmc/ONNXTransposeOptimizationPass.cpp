@@ -1617,6 +1617,8 @@ struct PushTransposeThroughVariadicWithConst
   }
 };
 
+} // anonymous namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Implementation
 //===----------------------------------------------------------------------===//
@@ -1753,8 +1755,6 @@ struct ONNXTransposeOptimizationPass
                << "=== ONNX Transpose Fusion Pass Completed ===\n");
   }
 };
-
-} // anonymous namespace
 
 } // namespace onnx_mlir
 

@@ -99,6 +99,17 @@ void registerOMPasses(int optLevel) {
     return createStandardizeSliceOpsPass();
   });
 
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createConvertMulToDepthwiseConv2dPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferOp3dToOp2dPass();
+  });
+  
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferPoolFixToDownsampleFixPass();
+  });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createONNXTransposeOptimizationPass();
