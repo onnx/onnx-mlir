@@ -68,10 +68,9 @@ typedef enum {
 #define IS_INSTRUMENT_REPORT_MEMORY(x)                                         \
   ((x) & (0x1ull << (unsigned int)InstrumentReportMemory))
 
-#define SET_INSTRUMENT_INIT(x)                                           \
+#define SET_INSTRUMENT_INIT(x)                                                 \
   (x) = (x) | (0x1ull << (unsigned int)InstrumentInit)
-#define IS_INSTRUMENT_INIT(x)                                            \
-  ((x) & (0x1ull << (unsigned int)InstrumentInit))
+#define IS_INSTRUMENT_INIT(x) ((x) & (0x1ull << (unsigned int)InstrumentInit))
 
 /* Second - third byte. */
 #define INSTRUMENT_OP_NAME_MASK 0x3Full /* Max 64 chars. */
