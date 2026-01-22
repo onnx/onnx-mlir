@@ -31,7 +31,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
     # setuptools >= 77.0.0 supports plain string license format in pyproject.toml
-    && python3 -m pip install --upgrade setuptools==77.0.1 'cmake>=3.26,<3.30'  \
+    && python3 -m pip install --upgrade setuptools==77.0.1  \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install . \
     && rm -rf ${HOME}/.cache
