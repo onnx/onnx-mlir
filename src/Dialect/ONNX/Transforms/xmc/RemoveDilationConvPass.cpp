@@ -205,7 +205,7 @@ struct RemoveDilationConvPass
 
 namespace onnx_mlir {
 
-std::unique_ptr<mlir::Pass> createRemoveDilationConvPass() {
+std::unique_ptr<mlir::Pass> createRemoveDilationConv() {
   return std::make_unique<RemoveDilationConvPass>();
 }
 

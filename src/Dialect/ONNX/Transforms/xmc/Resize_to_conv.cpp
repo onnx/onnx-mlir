@@ -999,7 +999,7 @@ struct TransferResizeLinearToDwConvPass
 
 namespace onnx_mlir {
 
-std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConvPass() {
+std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv() {
   return std::make_unique<TransferResizeLinearToDwConvPass>();
 }
 
