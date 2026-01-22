@@ -1,4 +1,4 @@
-// RUN: flexml-opt %s -standardize-strided-slice | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --standardize-slice-ops %s | FileCheck %s
 
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 

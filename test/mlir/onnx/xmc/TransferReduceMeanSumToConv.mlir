@@ -1,4 +1,4 @@
-// RUN: flexml-opt %s -reduce-mean-sum-to-conv -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --transfer-reduce-mean-sum-to-conv %s | FileCheck %s
 
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 // Layout: NCHW [batch, channels, height, width]
