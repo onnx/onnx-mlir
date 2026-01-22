@@ -149,12 +149,8 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 // to register th pass for onnx-mlir-opt. Different Passes.td will generate the
 // same name function. They have to be put into different name space to be
 // distinguished.
-#define GEN_PASS_REGISTRATION
-#include "src/Transform/Passes.h.inc"
-
-// Register passes from src/Conversion/ONNXToLinalg/Passes.td
-#define GEN_PASS_REGISTRATION
-#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
+// Note: GEN_PASS_REGISTRATION includes are done in RegisterPasses.cpp to avoid
+// build order issues with generated files.
 
 } // namespace onnx_mlir
 

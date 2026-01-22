@@ -46,6 +46,12 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 
+// Include generated pass registration functions
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+#define GEN_PASS_REGISTRATION
+#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
+
 using namespace mlir;
 
 namespace onnx_mlir {
