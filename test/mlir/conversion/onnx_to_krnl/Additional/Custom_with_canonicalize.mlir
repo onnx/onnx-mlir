@@ -15,10 +15,10 @@ func.func @test_cumstom_multiple_output(%arg0: tensor<4x2xf32>) -> tensor<4x2xf3
 }
 // CHECK-LABEL:  func.func @test_cumstom_multiple_output
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4x2xf32>) -> memref<4x2xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4, 5], value = dense<{{.}}[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00], [6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00, 1.000000e+01], [1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00], [1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00]{{.}}> : tensor<4x5xf32>} : () -> memref<4x5xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [4, 5], value = dense<{{.}}[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00], [6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00, 1.000000e+01], [1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00], [1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00]{{.}}> : tensor<4x5xf32>}> : () -> memref<4x5xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<4x2xf32>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<2x5xf32>
-// CHECK:           "krnl.call"([[RES_]], [[RES_]]_0, [[VAR_0_]]) {funcName = "Decompose", numOfOutput = 2 : si64, r_value = 2 : si64} : (memref<4x2xf32>, memref<2x5xf32>, memref<4x5xf32>) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_]]_0, [[VAR_0_]]) <{funcName = "Decompose", numOfOutput = 2 : si64}> {r_value = 2 : si64} : (memref<4x2xf32>, memref<2x5xf32>, memref<4x5xf32>) -> ()
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<4x2xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 4, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
@@ -41,7 +41,7 @@ func.func @test_custom3(%arg0: tensor<1024xi32>, %arg1: tensor<4xf32>) -> tensor
 // CHECK-LABEL:  func.func @test_custom3
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1024xi32>, [[PARAM_1_:%.+]]: memref<4xf32>) -> memref<4xf32> {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<4xf32>
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]]) {funcName = "testcall", numOfOutput = 1 : si64} : (memref<4xf32>, memref<1024xi32>, memref<4xf32>) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]]) <{funcName = "testcall", numOfOutput = 1 : si64}> : (memref<4xf32>, memref<1024xi32>, memref<4xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<4xf32>
 // CHECK:         }
 
@@ -57,6 +57,6 @@ func.func @test_custom_dynamic1(%arg0: tensor<1024xi32>, %arg1: tensor<?x4xf32>)
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x4xf32>
 // CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x4xf32>
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]]) {funcName = "testcall", numOfOutput = 1 : si64} : (memref<?x4xf32>, memref<1024xi32>, memref<?x4xf32>) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]]) <{funcName = "testcall", numOfOutput = 1 : si64}> : (memref<?x4xf32>, memref<1024xi32>, memref<?x4xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<?x4xf32>
 // CHECK:         }

@@ -27,8 +27,8 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     int gates) {
-  OP_TYPE rnnOp = llvm::cast<OP_TYPE>(op);
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  OP_TYPE rnnOp = mlir::dyn_cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands, rnnOp);
 
   Value X = operandAdaptor.getX();
   Value W = operandAdaptor.getW();

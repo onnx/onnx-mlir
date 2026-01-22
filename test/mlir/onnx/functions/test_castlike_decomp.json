@@ -88,7 +88,7 @@
 }
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf16> {onnx.name = "input"}, [[PARAM_1_:%.+]]: tensor<1xf32> {onnx.name = "like"}) -> (tensor<3x4xf32> {onnx.name = "output"}) {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = f32} : (tensor<3x4xf16>) -> tensor<3x4xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = f32}> : (tensor<3x4xf16>) -> tensor<3x4xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

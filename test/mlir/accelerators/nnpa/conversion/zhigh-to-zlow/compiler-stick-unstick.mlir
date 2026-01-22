@@ -21,9 +21,9 @@ func.func @should_lower_to_zlow(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_3_]], [[I_1_]], [[I_2_]]{{.}} : memref<1x3x5x7xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_1_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<1x5x7x3xf32>
 // CHECK:           }
-// CHECK:           "zlow.stick"([[RES_1_]], [[RES_]]) {layout = "NHWC"} : (memref<1x5x7x3xf32>, memref<1x5x7x3xf16, #map>) -> ()
+// CHECK:           "zlow.stick"([[RES_1_]], [[RES_]]) <{layout = "NHWC"}> : (memref<1x5x7x3xf32>, memref<1x5x7x3xf16, #map>) -> ()
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1x5x7x3xf32>
-// CHECK:           "zlow.unstick"([[RES_]], [[RES_]]_1) {layout = "NHWC"} : (memref<1x5x7x3xf16, #map>, memref<1x5x7x3xf32>) -> ()
+// CHECK:           "zlow.unstick"([[RES_]], [[RES_]]_1) <{layout = "NHWC"}> : (memref<1x5x7x3xf16, #map>, memref<1x5x7x3xf32>) -> ()
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5x7xf32>
 // CHECK-DAG:       [[LOOP_1_:%.+]]:4 = krnl.define_loops 4
 // CHECK:           [[BLOCK_TILE__1_:%.+]], [[BLOCK_IN__1_:%.+]] = krnl.block [[LOOP_1_]]#3 7 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -66,9 +66,9 @@ func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<1x?x?x7xf32>) -> tens
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_3_]], [[I_1_]], [[I_2_]]{{.}} : memref<1x?x?x7xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_1_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<1x?x7x?xf32>
 // CHECK:           }
-// CHECK:           "zlow.stick"([[RES_1_]], [[RES_]]) {layout = "NHWC"} : (memref<1x?x7x?xf32>, memref<1x?x7x?xf16, #map>) -> ()
+// CHECK:           "zlow.stick"([[RES_1_]], [[RES_]]) <{layout = "NHWC"}> : (memref<1x?x7x?xf32>, memref<1x?x7x?xf16, #map>) -> ()
 // CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_dim_0_]], [[VAR_dim_]]) {{.*}}: memref<1x?x7x?xf32>
-// CHECK:           "zlow.unstick"([[RES_]], [[RES_]]_4) {layout = "NHWC"} : (memref<1x?x7x?xf16, #map>, memref<1x?x7x?xf32>) -> ()
+// CHECK:           "zlow.unstick"([[RES_]], [[RES_]]_4) <{layout = "NHWC"}> : (memref<1x?x7x?xf16, #map>, memref<1x?x7x?xf32>) -> ()
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_]]_0) {{.*}}: memref<1x?x?x7xf32>
 // CHECK-DAG:       [[LOOP_1_:%.+]]:4 = krnl.define_loops 4
 // CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_1_]]#3 7 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)

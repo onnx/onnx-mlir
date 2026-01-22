@@ -32,18 +32,18 @@ func.func private @test_space_to_depth_dynamic_dims(%arg0 : tensor<1x?x8x?xf32>)
 // CHECK:           krnl.store [[CST_4_]], [[RES_]]{{.}}[[CST_5_]]{{.}} : memref<6xindex>
 // CHECK-DAG:       [[VAR_2_:%.+]] = builtin.unrealized_conversion_cast [[RES_]] : memref<6xindex> to tensor<6xi64>
 // CHECK-DAG:       [[VAR_3_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_0_]] : memref<1x?x8x?xf32> to tensor<1x?x8x?xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<1x?x8x?xf32>, tensor<6xi64>) -> tensor<?x?x?x?x?x?xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_2_]]) <{allowzero = 0 : si64}> : (tensor<1x?x8x?xf32>, tensor<6xi64>) -> tensor<?x?x?x?x?x?xf32>
 // CHECK:           [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[VAR_4_]] : tensor<?x?x?x?x?x?xf32> to memref<?x?x?x?x?x?xf32>
 // CHECK:           [[VAR_cast_:%.+]] = memref.cast [[VAR_5_]] : memref<?x?x?x?x?x?xf32> to memref<1x?x2x4x?x4xf32>
 // CHECK:           [[VAR_6_:%.+]] = builtin.unrealized_conversion_cast [[VAR_cast_]] : memref<1x?x2x4x?x4xf32> to tensor<1x?x2x4x?x4xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [0, 1, 3, 5, 2, 4]} : (tensor<1x?x2x4x?x4xf32>) -> tensor<1x?x4x4x2x?xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]) <{perm = [0, 1, 3, 5, 2, 4]}> : (tensor<1x?x2x4x?x4xf32>) -> tensor<1x?x4x4x2x?xf32>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<4xindex>
 // CHECK:           krnl.store [[CST_1_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<4xindex>
 // CHECK:           krnl.store [[VAR_0_]], [[RES_1_]]{{.}}[[CST_1_]]{{.}} : memref<4xindex>
 // CHECK:           krnl.store [[CST_2_]], [[RES_1_]]{{.}}[[CST_2_]]{{.}} : memref<4xindex>
 // CHECK:           krnl.store [[VAR_1_]], [[RES_1_]]{{.}}[[CST_3_]]{{.}} : memref<4xindex>
 // CHECK:           [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[RES_1_]] : memref<4xindex> to tensor<4xi64>
-// CHECK:           [[VAR_9_:%.+]] = "onnx.Reshape"([[VAR_7_]], [[VAR_8_]]) {allowzero = 0 : si64} : (tensor<1x?x4x4x2x?xf32>, tensor<4xi64>) -> tensor<?x?x?x?xf32>
+// CHECK:           [[VAR_9_:%.+]] = "onnx.Reshape"([[VAR_7_]], [[VAR_8_]]) <{allowzero = 0 : si64}> : (tensor<1x?x4x4x2x?xf32>, tensor<4xi64>) -> tensor<?x?x?x?xf32>
 // CHECK:           [[VAR_10_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]] : tensor<?x?x?x?xf32> to memref<?x?x?x?xf32>
 // CHECK:           [[VAR_cast_2_:%.+]] = memref.cast [[VAR_10_]] : memref<?x?x?x?xf32> to memref<1x?x2x?xf32>
 // CHECK:           return [[VAR_cast_2_]] : memref<1x?x2x?xf32>

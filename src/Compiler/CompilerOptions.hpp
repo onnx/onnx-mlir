@@ -107,6 +107,8 @@ extern bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only
+extern std::string shapeInformationUB;                        // onnx-mlir only
+extern std::string shapeInformationLB;                        // onnx-mlir only
 extern std::string dimParams;                                 // onnx-mlir only
 extern ModelSize modelSize;                                   // onnx-mlir only
 extern bool storeConstantsToFile;                             // onnx-mlir only
@@ -145,6 +147,8 @@ extern OptReport optReport;                                   // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
+extern bool useLinalgPath;                                    // onnx-mlir only
+extern std::string linalgOps;                                 // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only

@@ -19,7 +19,7 @@ func.func @reduce_max_axes_defined_noop_0(%arg0: tensor<3x4x5xf16, #zhigh.layout
 // CHECK:           krnl.store [[CST_4_]], [[RES_1_]]{{.}}[[CST_1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[CST_5_]], [[RES_1_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<8192xi8>
-// CHECK:           "zlow.reducemax"([[PARAM_0_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {layout = "3DS"} : (memref<3x4x5xf16, #map>, memref<8192xi8>, memref<3xi64>, memref<3x4x1xf16, #map>) -> ()
+// CHECK:           "zlow.reducemax"([[PARAM_0_]], [[RES_2_]], [[RES_1_]], [[RES_]]) <{layout = "3DS"}> : (memref<3x4x5xf16, #map>, memref<8192xi8>, memref<3xi64>, memref<3x4x1xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<3x4x1xf16, #map>
 // CHECK:         }
 }

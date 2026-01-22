@@ -329,7 +329,7 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult ONNXConvOpShapeHelper::computeShape() {
-  ONNXConvOp poolOp = llvm::cast<ONNXConvOp>(op);
+  ONNXConvOp poolOp = mlir::dyn_cast<ONNXConvOp>(op);
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(operands);
   return customComputeShape(operandAdaptor.getX(), operandAdaptor.getW(),
       poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
@@ -339,7 +339,7 @@ LogicalResult ONNXConvOpShapeHelper::computeShape() {
 
 template <>
 LogicalResult ONNXConvIntegerOpShapeHelper::computeShape() {
-  ONNXConvIntegerOp poolOp = llvm::cast<ONNXConvIntegerOp>(op);
+  ONNXConvIntegerOp poolOp = mlir::dyn_cast<ONNXConvIntegerOp>(op);
   ONNXConvIntegerOpAdaptor operandAdaptor = ONNXConvIntegerOpAdaptor(operands);
   return customComputeShape(operandAdaptor.getX(), operandAdaptor.getW(),
       poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
@@ -349,7 +349,7 @@ LogicalResult ONNXConvIntegerOpShapeHelper::computeShape() {
 
 template <>
 LogicalResult ONNXQLinearConvOpShapeHelper::computeShape() {
-  ONNXQLinearConvOp poolOp = llvm::cast<ONNXQLinearConvOp>(op);
+  ONNXQLinearConvOp poolOp = mlir::dyn_cast<ONNXQLinearConvOp>(op);
   ONNXQLinearConvOpAdaptor operandAdaptor = ONNXQLinearConvOpAdaptor(operands);
   return customComputeShape(operandAdaptor.getX(), operandAdaptor.getW(),
       poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
@@ -358,7 +358,7 @@ LogicalResult ONNXQLinearConvOpShapeHelper::computeShape() {
 }
 
 LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
-  ONNXConvTransposeOp convTransposeOp = llvm::cast<ONNXConvTransposeOp>(op);
+  ONNXConvTransposeOp convTransposeOp = mlir::dyn_cast<ONNXConvTransposeOp>(op);
   ONNXConvTransposeOpAdaptor operandAdaptor(operands);
   std::optional<ArrayAttr> kernelShapeOpt = convTransposeOp.getKernelShape();
   std::optional<ArrayAttr> padOpt = convTransposeOp.getPads();
