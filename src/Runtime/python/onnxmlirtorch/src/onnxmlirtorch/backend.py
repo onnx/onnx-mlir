@@ -90,6 +90,7 @@ def has_unsupported_onnx_ops(gm: torch.fx.GraphModule):
     # Detect unsupported ops. Add unsupported ops here.
     return False
 
+
 def eager_forward_fn(gm: torch.fx.GraphModule):
     stable_gm = torch.fx.GraphModule(gm, gm.graph)
     stable_gm.eval()
