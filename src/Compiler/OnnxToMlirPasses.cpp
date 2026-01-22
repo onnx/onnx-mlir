@@ -10,9 +10,13 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeSliceConcatPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeStridedSliceConcatConvPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXTransposeOptimizationPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
 } 
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
@@ -155,8 +159,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (opts.instrumentSignatures != "NONE" || opts.instrumentOnnxNode != "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         opts.instrumentSignatures, opts.instrumentOnnxNode));
-
-  addXmcMlirPasses(pm, opts);      
+  if(opts.enableXMCPasses)
+    addXmcMlirPasses(pm, opts);      
 }
 
 } // namespace onnx_mlir
