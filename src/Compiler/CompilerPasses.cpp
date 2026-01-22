@@ -554,48 +554,19 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
     // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
     // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
-<<<<<<< HEAD
-    bool shouldCallONNXToMLIR =
-        emissionTarget >= EmitONNXIR ||
-        (emissionTarget >= EmitMLIR && (useLinalgPath || useSelectiveLinalg));
-    if (shouldCallONNXToMLIR) {
-      addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
-    }
-
-    if (useLinalgPath || useSelectiveLinalg) {
-      // Linalg path: Convert ONNX to Linalg (after preprocessing)
-      // This is called either when --use-linalg-path is set, or when
-      // --linalg-ops is specified for selective conversion
-      addONNXToLinalgPasses(pm);
-    }
-=======
     // The function now handles the shouldCallONNXToMLIR check internally and
     // automatically calls addONNXToLinalgPasses if needed
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
->>>>>>> origin/main
   }
 
   // Step 2: Lower to Affine dialect (for EmitMLIR)
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel) {
-<<<<<<< HEAD
-      if (useLinalgPath || useSelectiveLinalg) {
-        // Linalg path: Lower Linalg to Affine
-        // This is called either when --use-linalg-path is set, or when
-        // --linalg-ops is specified for selective conversion
-        addLinalgToAffinePasses(pm);
-      } else {
-        // Krnl path: Convert ONNX to Krnl, then Krnl to Affine
-        addONNXToKrnlPasses(
-            pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
-      }
-=======
       // Convert ONNX to Krnl (and Linalg to Affine if needed)
       // The function now handles both Linalg and ONNX operations in mixed IR
       // scenarios, automatically calling addLinalgToAffinePasses if needed
       addONNXToKrnlPasses(
           pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
->>>>>>> origin/main
     }
     // For Krnl path: Lower Krnl to Affine (when input is already at MLIR level)
     if (inputIRLevel <= MLIRLevel && !useLinalgPath && !useSelectiveLinalg) {
@@ -605,26 +576,11 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   // Step 3: Lower to LLVM dialect (for EmitLLVMIR)
   if (emissionTarget >= EmitLLVMIR) {
-<<<<<<< HEAD
-    if (useLinalgPath || useSelectiveLinalg) {
-      // Linalg path: Lower remaining operations to LLVM
-      // Uses createConvertKrnlToLLVMPass() to generate runtime functions
-      // since onnx.EntryPoint is already converted to krnl.EntryPoint
-      // This is called either when --use-linalg-path is set, or when
-      // --linalg-ops is specified for selective conversion
-      addLinalgToLLVMPasses(pm, outputNameNoExt);
-    } else {
-      // Krnl path: Lower Krnl to LLVM
-      if (inputIRLevel <= LLVMLevel)
-        addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
-    }
-=======
     // Lower to LLVM (handles both Linalg and Krnl operations in mixed IR)
     // The function now handles both Linalg and Krnl operations, automatically
     // calling addLinalgToLLVMPasses if needed
     if (inputIRLevel <= LLVMLevel)
       addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
->>>>>>> origin/main
   }
 }
 
