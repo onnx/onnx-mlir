@@ -12,6 +12,7 @@ namespace onnx_mlir {
 void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeSliceConcatPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeStridedSliceConcatConvPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXTransposeOptimizationPass());
 } 
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,

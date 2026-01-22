@@ -57,6 +57,8 @@ add_onnx_mlir_library(OMONNXRewrite
   ResultNamesUpdater.cpp
   xmc/MergeSliceConcatPass.cpp
   xmc/MergeStridedSliceConcatConvPass.cpp
+  xmc/ONNXTransposeOptimizationPass.cpp
+  xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
