@@ -66,6 +66,8 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/TransferConvSliceToConvPass.cpp
   xmc/TransferReduceMeanSumToConvPass.cpp
 
+  xmc/ONNXTransposeOptimizationPass.cpp
+  xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

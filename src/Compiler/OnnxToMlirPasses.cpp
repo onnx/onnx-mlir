@@ -20,6 +20,7 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveDilationConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertInstanceNormToGroupNormPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXTransposeOptimizationPass());
 } 
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
