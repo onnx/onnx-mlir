@@ -7,8 +7,8 @@ func.func @test_zhigh_quantized_stick_dlfloat16(%arg0: tensor<1x3x5xf32>) -> ten
 
 // CHECK-LABEL:  func.func @test_zhigh_quantized_stick_dlfloat16
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5xf32>) -> tensor<1x3x5xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>> {
-// CHECK:           [[NONE:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[Out_:%.+]], [[RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[NONE]], [[NONE]]) {layout = "3DS", quantized_type = "dlfloat16", sym_mode = 0 : i64} : (tensor<1x3x5xf32>, none, none) -> (tensor<1x3x5xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
+// CHECK:           [[NONE:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[Out_:%.+]], [[RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[NONE]], [[NONE]]) <{layout = "3DS", quantized_type = "dlfloat16", sym_mode = 0 : i64}> : (tensor<1x3x5xf32>, none, none) -> (tensor<1x3x5xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
 // CHECK:           onnx.Return [[Out_]] : tensor<1x3x5xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>
 // CHECK:         }
 }
@@ -22,8 +22,8 @@ func.func @test_zhigh_quantized_stick_int8(%arg0: tensor<1x3x5xf32>) -> tensor<*
 
 // CHECK-LABEL:  func.func @test_zhigh_quantized_stick_int8
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5xf32>) -> tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "INT8"}>> {
-// CHECK:           [[NONE:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[Out_:%.+]], [[RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[NONE]], [[NONE]]) {layout = "3DS", quantized_type = "int8", sym_mode = 0 : i64} : (tensor<1x3x5xf32>, none, none) -> (tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "INT8"}>>, tensor<f32>, tensor<f32>)
+// CHECK:           [[NONE:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[Out_:%.+]], [[RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[NONE]], [[NONE]]) <{layout = "3DS", quantized_type = "int8", sym_mode = 0 : i64}> : (tensor<1x3x5xf32>, none, none) -> (tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "INT8"}>>, tensor<f32>, tensor<f32>)
 // CHECK:           onnx.Return [[Out_]] : tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "INT8"}>>
 // CHECK:         }
 }
@@ -37,8 +37,8 @@ func.func @test_zhigh_quantized_stick_weights(%arg0: tensor<1x3x5xf32>) -> tenso
 
 // CHECK-LABEL:  func.func @test_zhigh_quantized_stick_weights
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5xf32>) -> tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "WEIGHTS"}>> {
-// CHECK:           [[NONE:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[Out_:%.+]], [[RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[NONE]], [[NONE]]) {layout = "3DS", quantized_type = "weights", sym_mode = 0 : i64} : (tensor<1x3x5xf32>, none, none) -> (tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "WEIGHTS"}>>, tensor<f32>, tensor<f32>)
+// CHECK:           [[NONE:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[Out_:%.+]], [[RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[NONE]], [[NONE]]) <{layout = "3DS", quantized_type = "weights", sym_mode = 0 : i64}> : (tensor<1x3x5xf32>, none, none) -> (tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "WEIGHTS"}>>, tensor<f32>, tensor<f32>)
 // CHECK:           onnx.Return [[Out_]] : tensor<1x3x5xi8, #zhigh.layout<{dataLayout = "3DS", quantizedType = "WEIGHTS"}>>
 // CHECK:         }
 }

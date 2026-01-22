@@ -15,7 +15,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 42a8ff877d47131ecb1280a1cc7e5e3c3bca6952 && cd ..
+cd llvm-project && git checkout 0c2701fe7fa002e1befc5f86c268a7964f96d286 && cd ..
 ```
 
 [same-as-file]: <> ({"ref": "utils/build-mlir.sh", "skip-ref": 2})
@@ -88,6 +88,27 @@ Since OSX Big Sur, add the `-DCMAKE_CXX_COMPILER=/usr/bin/c++` option to the abo
 The environment variable `$pythonLocation` may be used to specify the base directory of the Python compiler.
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
+
+#### Build for NNPA
+To enable compilation for accelerator NNPA, `-DONNX_MLIR_ACCELERATORS=NNPA` should be added for cmake initialization. Moreover, the code for NNPA does not support ninja because of the variable for $NPROC (To be fixed). The command to initialize cmake will be:
+```
+if [[ -z "$pythonLocation" ]]; then
+  cmake -DONNX_MLIR_ACCELERATORS=NNPA \
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DMLIR_DIR=${MLIR_DIR} \
+        ..
+else
+  cmake -DONNX_MLIR_ACCELERATORS=NNPA\
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DPython3_ROOT_DIR=$pythonLocation \
+        -DMLIR_DIR=${MLIR_DIR} \
+        ..
+fi
+```
 
 ### Enable CPU Optimizations
 

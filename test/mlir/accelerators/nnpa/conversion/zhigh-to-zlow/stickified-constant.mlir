@@ -19,11 +19,11 @@ module  {
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 // CHECK-LABEL:  func @remove_stick_2d
 // CHECK-SAME:   () -> memref<2x3xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>} : () -> memref<2x3xf16, [[MAP_0_]]>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> memref<2x3xf16, [[MAP_0_]]>
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
-// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) {layout = "2D"} : (memref<2x3xf16, [[MAP_0_]]>, memref<2x3xf32>) -> ()
+// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) <{layout = "2D"}> : (memref<2x3xf16, [[MAP_0_]]>, memref<2x3xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<2x3xf32>
 // CHECK:         }
 
@@ -43,11 +43,11 @@ func.func @splat_stickified_constant() -> tensor<2x3xf32> {
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 // CHECK-LABEL:  func.func @splat_stickified_constant
 // CHECK-SAME:   () -> memref<2x3xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>} : () -> memref<2x3xf16, #map>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> memref<2x3xf16, #map>
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
-// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) {layout = "2D"} : (memref<2x3xf16, #map>, memref<2x3xf32>) -> ()
+// CHECK:           "zlow.unstick"([[VAR_0_]], [[RES_]]) <{layout = "2D"}> : (memref<2x3xf16, #map>, memref<2x3xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<2x3xf32>
 // CHECK:         }
 // CHECK:         dialect_resources: {

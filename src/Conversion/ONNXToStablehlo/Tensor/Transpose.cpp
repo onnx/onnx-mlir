@@ -30,7 +30,7 @@ struct ONNXTransposeOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
-    ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
+    ONNXTransposeOp transposeOp = mlir::dyn_cast<ONNXTransposeOp>(op);
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
 

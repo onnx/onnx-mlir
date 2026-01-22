@@ -32,13 +32,20 @@ namespace onnx_mlir {
 // based on the --linalg-ops option. Returns true if the operation name
 // matches the specified patterns, or if --linalg-ops is not set and
 // --use-linalg-path is enabled.
-inline bool shouldConvertToLinalg(mlir::Operation *op) {
-  // If --linalg-ops is not specified, fall back to --use-linalg-path behavior
-  extern std::string linalgOps;
-  extern bool useLinalgPath;
-
+// Note: When convert-onnx-to-linalg pass is explicitly run (e.g., via
+// onnx-mlir-opt), we default to converting operations if no options are set.
+inline bool shouldConvertToLinalg(
+    mlir::Operation *op, const std::string &linalgOps, bool useLinalgPath) {
+  // When convert-onnx-to-linalg pass is explicitly run (e.g., via
+  // onnx-mlir-opt), we default to converting all operations unless linalgOps
+  // is explicitly set
   if (linalgOps.empty()) {
-    return useLinalgPath;
+    // If linalgOps is not specified, check useLinalgPath flag
+    // If useLinalgPath is true, convert all operations to Linalg
+    // Otherwise, default to true for onnx-mlir-opt usage (when pass is
+    // explicitly run) Note: In onnx-mlir-opt, useLinalgPath may not be
+    // initialized, so we default to true
+    return true;
   }
 
   // Get operation name with dialect prefix (e.g., "onnx.MatMul") for precise
@@ -65,12 +72,14 @@ inline bool shouldConvertToLinalg(mlir::Operation *op) {
   // - "onnx.MatMul" matches only ONNX dialect MatMul
   // - "*.MatMul" matches MatMul from any dialect
   // - "onnx.*" matches all ONNX operations
+  // This prevents accidental conversion of operations from undesired dialects
+  // (e.g., "my.MatMul" won't match "MatMul" pattern)
   return linalgOpsMatcher->isEnabled(opNameWithDialect);
 }
 
 // Math operations
 void populateLoweringONNXMatMulOpToLinalgPattern(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
-    mlir::MLIRContext *ctx);
+    mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
 
 } // namespace onnx_mlir

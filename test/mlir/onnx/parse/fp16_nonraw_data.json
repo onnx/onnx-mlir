@@ -101,4 +101,4 @@
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[-1.000000e+00, 9.984000e+03]> : tensor<2xbf16>
 // CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<2xf16>, tensor<2xbf16>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()

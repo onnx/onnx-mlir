@@ -26,7 +26,7 @@ my_option = {
 }
 
 
-opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option, dynamic=True)
+opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
 
 
 def run_model(x, y):

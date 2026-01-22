@@ -143,7 +143,7 @@ func.func @test_no_c(%arg0: tensor<1x5xf32>, %arg1: tensor<5x5xf32>) -> tensor<1
   return %0 : tensor<1x5xf32>
 // CHECK-LABEL:  func.func @test_no_c
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5xf32>, [[PARAM_1_:%.+]]: tensor<5x5xf32>) -> tensor<1x5xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = tosa.const_shape  {values = dense<[1, 1, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = tosa.reshape [[PARAM_0_]], [[VAR_1_]] : (tensor<1x5xf32>, !tosa.shape<3>) -> tensor<1x1x5xf32>
@@ -168,7 +168,7 @@ func.func @test_no_c_no_trans(%arg0: tensor<1x5xf32>, %arg1: tensor<5x6xf32>) ->
   return %0 : tensor<1x6xf32>
 // CHECK-LABEL:  func.func @test_no_c_no_trans
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5xf32>, [[PARAM_1_:%.+]]: tensor<5x6xf32>) -> tensor<1x6xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = tosa.const_shape  {values = dense<[1, 1, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = tosa.reshape [[PARAM_0_]], [[VAR_1_]] : (tensor<1x5xf32>, !tosa.shape<3>) -> tensor<1x1x5xf32>
@@ -283,7 +283,7 @@ func.func @gemm_no_bias(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>) -> tenso
   return %0 : tensor<1x4xf32>
 // CHECK-LABEL:  func.func @gemm_no_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5xf32>, [[PARAM_1_:%.+]]: tensor<4x5xf32>) -> tensor<1x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = tosa.const_shape  {values = dense<[1, 1, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = tosa.reshape [[PARAM_0_]], [[VAR_1_]] : (tensor<1x5xf32>, !tosa.shape<3>) -> tensor<1x1x5xf32>

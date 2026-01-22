@@ -36,4 +36,4 @@ twice (lx) => (ly) {
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<?xf32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()
