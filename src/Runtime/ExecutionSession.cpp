@@ -13,7 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
+#include <cctype>
 #include <errno.h>
+#include <filesystem>
 #include <string.h>
 
 #include <iostream>
@@ -52,7 +55,16 @@ void ExecutionSession::Init(
     std::string fname = llvm::sys::path::filename(sharedLibPath).str();
     llvm::SmallString<256> fnameWithoutExt(fname);
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
-    tag = fnameWithoutExt.str().lower();
+    tag = fnameWithoutExt.lower();
+#else
+    std::string fnameWithoutExt = std::filesystem::path(sharedLibPath)
+                                      .filename()
+                                      .replace_extension("")
+                                      .string();
+    std::transform(fnameWithoutExt.begin(), fnameWithoutExt.end(),
+        fnameWithoutExt.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+    tag = fnameWithoutExt;
 #endif
   }
 
