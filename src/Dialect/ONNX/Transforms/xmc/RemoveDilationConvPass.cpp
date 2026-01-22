@@ -176,9 +176,13 @@ struct RemoveDilationConv : public OpRewritePattern<ONNXConvOp> {
 }
 };
 
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct RemoveDilationConvPass
     : public PassWrapper<RemoveDilationConvPass, OperationPass<func::FuncOp>> {
@@ -200,10 +204,6 @@ struct RemoveDilationConvPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createRemoveDilationConv() {
   return std::make_unique<RemoveDilationConvPass>();

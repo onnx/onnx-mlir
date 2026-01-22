@@ -658,9 +658,13 @@ struct LowerReduceSumToAvgPoolPattern
   }
 };
 
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct LowerReduceToPoolPass
     : public PassWrapper<LowerReduceToPoolPass, OperationPass<func::FuncOp>> {
@@ -691,10 +695,6 @@ struct LowerReduceToPoolPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createLowerReduceToPoolPass() {
   return std::make_unique<LowerReduceToPoolPass>();

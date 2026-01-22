@@ -286,9 +286,13 @@ struct RemoveRedundantResizePattern
   }
 };
 
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct RemoveSemanticallyUselessOpsPass
     : public PassWrapper<RemoveSemanticallyUselessOpsPass,
@@ -317,10 +321,6 @@ struct RemoveSemanticallyUselessOpsPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createRemoveSemanticallyUselessOpsPass() {
   return std::make_unique<RemoveSemanticallyUselessOpsPass>();

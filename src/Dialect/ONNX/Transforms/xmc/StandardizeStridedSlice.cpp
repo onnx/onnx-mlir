@@ -298,9 +298,13 @@ struct ConvertGatherToSlicePattern
   }
 };
 
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct StandardizeSliceOpsPass
     : public PassWrapper<StandardizeSliceOpsPass, OperationPass<func::FuncOp>> {
@@ -320,10 +324,6 @@ struct StandardizeSliceOpsPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createStandardizeSliceOpsPass() {
   return std::make_unique<StandardizeSliceOpsPass>();
