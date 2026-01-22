@@ -43,16 +43,29 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           yum install -q -y \
               https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
           yum update -q -y && \
-          yum install -q -y \
-              autoconf automake ca-certificates clang cmake diffutils \
-              file java-11-openjdk-devel java-11-openjdk-headless \
-              gcc gcc-c++ git libtool make ncurses-devel ninja-build \
-              python39 python39-devel python39-pip python39-setuptools \
-              python39-wheel tzdata-java unzip which zip zlib-devel && \
+          # For RHEL 9+, install python3.9 from AppStream
+          if [ "${RHEL_VERSION}" -ge 9 ]; then \
+              yum install -q -y \
+                  autoconf automake ca-certificates clang cmake diffutils \
+                  file java-11-openjdk-devel java-11-openjdk-headless \
+                  gcc gcc-c++ git libtool make ncurses-devel ninja-build \
+                  python3.9 python3.9-devel python3.9-pip python3.9-setuptools \
+                  tzdata-java unzip which zip zlib-devel && \
+              # Set python3.9 as the default python3
+              alternatives --set python3 /usr/bin/python3.9 || \
+              alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1; \
+          else \
+              yum install -q -y \
+                  autoconf automake ca-certificates clang cmake diffutils \
+                  file java-11-openjdk-devel java-11-openjdk-headless \
+                  gcc gcc-c++ git libtool make ncurses-devel ninja-build \
+                  python39 python39-devel python39-pip python39-setuptools \
+                  python39-wheel tzdata-java unzip which zip zlib-devel; \
+          fi && \
           # Workaround broken ubi8 amd64 image installing python3.12 as
           # dependency of clang, which also breaks the /usr/bin/pip3
           # symlink creation
-          ([ -f /usr/bin/python3.12 ] && yum remove -y python3.12 || true) && \
+          ([ -f /usr/bin/python3.12 ] && [ "${RHEL_VERSION}" -lt 9 ] && yum remove -y python3.12 || true) && \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
                Cython pytest==6.2.5 numpy==1.21.5 pytest-forked==1.4.0 \
