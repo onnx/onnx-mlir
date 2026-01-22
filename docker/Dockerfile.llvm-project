@@ -41,7 +41,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ([ -x /usr/bin/microdnf ] && microdnf install -y yum) && \
           RHEL_VERSION=$(grep CPE_NAME /etc/os-release | cut -d':' -f5) && \
           yum install -q -y \
-              https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+              https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
           yum update -q -y && \
           yum install -q -y \
               autoconf automake ca-certificates clang cmake diffutils \
