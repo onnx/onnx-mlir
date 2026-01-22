@@ -87,22 +87,8 @@ global_uncompilable_graphs = set()
 
 
 def has_unsupported_onnx_ops(gm: torch.fx.GraphModule):
-    # Detect unsupported ops.
-    for n in gm.graph.nodes:
-        # copy op
-        if n.op == "call_method":
-            if n.target == "copy_":
-                return True
-        if n.op == "call_function":
-            if n.target in (
-                torch.ops.aten.copy_.default,
-                torch.ops.aten.copy.default,
-                torch.ops.aten.sym_storage_offset.default,
-            ):
-                return True
-
+    # Detect unsupported ops. Add unsupported ops here.
     return False
-
 
 def eager_forward_fn(gm: torch.fx.GraphModule):
     stable_gm = torch.fx.GraphModule(gm, gm.graph)
@@ -319,11 +305,10 @@ class ONNXMLIRTorch:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
         elif self.cache_key in global_uncompilable_graphs:
             self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
+        assert self.example_inputs_indices, "example_inputs_indices is None"
 
         # Touch the code to materialize before exporting.
         _ = self.gm.code
-
-        logger.info(f"graph meta {self.gm.meta}")
 
         # Information for compiling and running an onnx model.
         self.workdir = tempfile.TemporaryDirectory()
@@ -371,9 +356,6 @@ class ONNXMLIRTorch:
             succeeded = self.export_gm_to_onnx(example_inputs)
             if not succeeded:
                 logger.info("Failed to export the model. Switch to the eager mode.")
-                # - 6 good for up to 5 output tokens
-                # - 7, 10, 15, 25 wrong output.
-                # if len(global_uncompilable_graphs) < 5:
                 global_uncompilable_graphs.add(self.cache_key)
                 return eager_forward_fn(self.gm)(*example_inputs)
 
@@ -404,13 +386,8 @@ class ONNXMLIRTorch:
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_tensor_example_inputs(self, example_inputs):
-        if self.example_inputs_indices is None:
-            indices = range(len(example_inputs))
-        else:
-            indices = self.example_inputs_indices
-
         tensor_inputs = []
-        for i in indices:
+        for i in self.example_inputs_indices:
             x = example_inputs[i]
             if isinstance(x, int):
                 tensor_inputs.append(torch.tensor(x, dtype=torch.int64))
@@ -639,9 +616,13 @@ class ONNXMLIRTorch:
             )
             succeeded = True
         except torch.onnx.errors.UnsupportedOperatorError as e:
-            print("ONNX export unsupported")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export unsupported: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
         except Exception as e:
-            print("ONNX export failure")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export failure: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
 
         return succeeded
 
