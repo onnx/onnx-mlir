@@ -13,10 +13,8 @@ WORKDIR ${WORK_DIR}
 # Copy onnx-mlir from the pull request
 COPY . onnx-mlir
 
-# Install CMake 3.26+ required by ONNX
-RUN CMAKE_VERSION=3.26.4 \
-    && curl -sL https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).tar.gz \
-       | tar -xz -C /usr/local --strip-components=1 \
+# Install CMake 3.26+ required by ONNX (pip provides universal binaries)
+RUN python3 -m pip install --upgrade 'cmake>=3.26,<3.30' \
     && cmake --version
 
 # Setup onnx
