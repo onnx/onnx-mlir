@@ -68,6 +68,39 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferResizeLinearToDwConv();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createLowerReduceToPoolPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveSemanticallyUselessOpsPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferReduceMeanSumToConvPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferConvSliceToConvPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveDilationConv();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createConvertInstanceNormToGroupNormPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createStandardizeSliceOpsPass();
+  });
+
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createONNXTransposeOptimizationPass();
   });
 
