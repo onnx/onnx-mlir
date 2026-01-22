@@ -1,4 +1,4 @@
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -lower-reduce-to-pool -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --lower-reduce-to-pool %s | FileCheck %s
 
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 // Layout: NCHW [batch, channels, height, width]

@@ -1,4 +1,4 @@
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -remove-dilation-conv -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --remove-dilation-conv %s | FileCheck %s
 
 
 // CHECK-LABEL: conv_dilation_1

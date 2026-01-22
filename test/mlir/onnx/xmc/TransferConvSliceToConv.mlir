@@ -1,5 +1,5 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
-// RUN: flexml-opt %s -transfer-conv-slice-to-conv | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --transfer-conv-slice-to-conv %s | FileCheck %s
 
 // -----
 
@@ -222,7 +222,7 @@ func.func @conv_padded_spatial_slice(%arg0: tensor<1x3x14x14xf32>) -> tensor<1x8
 
 // -----
 
-// Test 8: Simple channel slice without explicit axes/steps (defaults)
+// Test 8: Simple channel slice with standardized format
 // CHECK-LABEL: @conv_channel_slice_defaults
 func.func @conv_channel_slice_defaults(%arg0: tensor<1x3x8x8xf32>) -> tensor<1x2x6x6xf32> {
     %weights = onnx.Constant dense<1.0> : tensor<4x3x3x3xf32>
@@ -236,11 +236,12 @@ func.func @conv_channel_slice_defaults(%arg0: tensor<1x3x8x8xf32>) -> tensor<1x2
         strides = [1, 1]
     } : (tensor<1x3x8x8xf32>, tensor<4x3x3x3xf32>, tensor<4xf32>) -> tensor<1x4x6x6xf32>
 
-    // Slice with only starts/ends (axes and steps default)
+    // Slice in standardized format (explicit axes and steps)
     %starts = onnx.Constant dense<[0, 1, 0, 0]> : tensor<4xi64>
     %ends = onnx.Constant dense<[1, 3, 6, 6]> : tensor<4xi64>
-    %none = "onnx.NoValue"() {value} : () -> none
-    %sliced = "onnx.Slice"(%conv, %starts, %ends, %none, %none) : (tensor<1x4x6x6xf32>, tensor<4xi64>, tensor<4xi64>, none, none) -> tensor<1x2x6x6xf32>
+    %axes = onnx.Constant dense<[0, 1, 2, 3]> : tensor<4xi64>
+    %steps = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+    %sliced = "onnx.Slice"(%conv, %starts, %ends, %axes, %steps) : (tensor<1x4x6x6xf32>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>) -> tensor<1x2x6x6xf32>
 
     return %sliced : tensor<1x2x6x6xf32>
 }
