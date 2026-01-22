@@ -1,5 +1,5 @@
 # By default, use ubuntu:jammy, remember to change Jenkins build script as well
-ARG BASE_IMAGE="ghcr.io/onnxmlir/ubuntu:jammy"
+ARG BASE_IMAGE="ghcr.io/onnxmlir/ubuntu:noble"
 FROM ${BASE_IMAGE}
 
 # Label the image for various checking and cleanup
@@ -28,7 +28,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           dpkg-reconfigure -f noninteractive tzdata && \
           apt-get install -qq -y --no-install-recommends \
-                  autoconf automake ca-certificates clang cmake=3.26.0 cppcheck \
+                  autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
                   libtool make maven ninja-build openjdk-11-jdk-headless \
                   python3 python3-dev python3-distutils python3-numpy \
@@ -41,10 +41,10 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ([ -x /usr/bin/microdnf ] && microdnf install -y yum) && \
           RHEL_VERSION=$(grep CPE_NAME /etc/os-release | cut -d':' -f5) && \
           yum install -q -y \
-              https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
+              https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
           yum update -q -y && \
           yum install -q -y \
-              autoconf automake ca-certificates clang cmake-3.26.0 diffutils \
+              autoconf automake ca-certificates clang cmake diffutils \
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel ninja-build \
               python39 python39-devel python39-pip python39-setuptools \
