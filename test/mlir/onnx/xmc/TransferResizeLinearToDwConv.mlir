@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -transfer-resize-linear-to-dw-conv -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --transfer-resize-linear-to-dwconv %s | FileCheck %s
 
 // CHECK-LABEL: resize_subgraph_1
 func.func @resize_subgraph_1(%arg0: tensor<1x1x4x4x4xf32>) -> tensor<1x1x8x8x8xf32> {

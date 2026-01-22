@@ -1,4 +1,4 @@
-// RUN: flexml-opt %s -remove-tensor-layout-unchanged | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --remove-semantically-useless-ops %s | FileCheck %s
 
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 

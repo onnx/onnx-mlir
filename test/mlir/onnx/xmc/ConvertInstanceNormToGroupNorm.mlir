@@ -1,4 +1,4 @@
-// RUN: flexml-opt %s -convert-instancenorm-to-groupnorm | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --convert-instancenorm-to-groupnorm %s | FileCheck %s
 
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
