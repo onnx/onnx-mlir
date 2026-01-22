@@ -497,9 +497,13 @@ struct ReduceMeanReluToConvPattern : public OpRewritePattern<ONNXReluOp> {
 }
 };
 
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct TransferReduceMeanSumToConvPass
     : public PassWrapper<TransferReduceMeanSumToConvPass,
@@ -527,10 +531,6 @@ struct TransferReduceMeanSumToConvPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass() {
   return std::make_unique<TransferReduceMeanSumToConvPass>();

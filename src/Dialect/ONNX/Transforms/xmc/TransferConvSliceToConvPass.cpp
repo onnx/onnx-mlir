@@ -845,9 +845,13 @@ struct TransferConvSliceToConvPattern
     return mlir::success();
   }
 };
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct TransferConvSliceToConvPass
     : public PassWrapper<TransferConvSliceToConvPass,
@@ -869,10 +873,6 @@ struct TransferConvSliceToConvPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createTransferConvSliceToConvPass() {
   return std::make_unique<TransferConvSliceToConvPass>();

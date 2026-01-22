@@ -967,9 +967,13 @@ struct TransferResizeLinearToDwConv
   }
 };
 
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct TransferResizeLinearToDwConvPass
     : public PassWrapper<TransferResizeLinearToDwConvPass,
@@ -994,10 +998,6 @@ struct TransferResizeLinearToDwConvPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv() {
   return std::make_unique<TransferResizeLinearToDwConvPass>();

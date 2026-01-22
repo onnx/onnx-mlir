@@ -249,9 +249,13 @@ struct MergeReshapeInstanceNormPattern
     return success();
   }
 };
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct ConvertInstanceNormToGroupNormPass
     : public PassWrapper<ConvertInstanceNormToGroupNormPass,
@@ -278,10 +282,6 @@ struct ConvertInstanceNormToGroupNormPass
     }
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createConvertInstanceNormToGroupNormPass() {
   return std::make_unique<ConvertInstanceNormToGroupNormPass>();
