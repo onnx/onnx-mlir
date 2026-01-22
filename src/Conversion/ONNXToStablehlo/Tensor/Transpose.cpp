@@ -30,7 +30,7 @@ struct ONNXTransposeOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
-    ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
+    ONNXTransposeOp transposeOp = mlir::dyn_cast<ONNXTransposeOp>(op);
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
 
@@ -62,8 +62,8 @@ struct ONNXTransposeOpLoweringToStablehlo : public ConversionPattern {
     ONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value transposeValue = rewriter.create<stablehlo::TransposeOp>(
-        loc, outputType, data, permAxis);
+    Value transposeValue = stablehlo::TransposeOp::create(
+        rewriter, loc, outputType, data, permAxis);
     rewriter.replaceOp(op, transposeValue);
 
     return success();

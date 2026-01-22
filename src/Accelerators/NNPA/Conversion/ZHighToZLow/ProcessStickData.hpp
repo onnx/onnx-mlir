@@ -4,7 +4,7 @@
 
 //====---------- ProcessStickData.cpp - Process Stick data ----------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-25 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,10 +16,10 @@
 #ifndef ONNX_MLIR_PROCESS_STICK_DATA_H
 #define ONNX_MLIR_PROCESS_STICK_DATA_H
 
+#include "src/Accelerators/NNPA/Dialect/ZLow/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 namespace onnx_mlir {
-
 // By definition of the conversion from dlf16 to f32, vecOfF32Vals should always
 // contain pairs of vectors.
 using ContiguousVectorOfF32IterateBodyFn = std::function<void(
@@ -28,6 +28,9 @@ using ContiguousVectorOfF32IterateBodyFn = std::function<void(
 
 using ScalarF32IterateBodyFn = std::function<void(
     const KrnlBuilder &b, mlir::Value scalarF32Val, DimsExpr &loopIndices)>;
+
+// TODO: eventually this method can be replaced by the one used by elementwise
+// operations.
 
 // Iterate over each values in the input's sticks, processing vectors (of 4 F32)
 // with processVectorOfF32Vals, and scalars (1 F32) with processScalarF32Val, By

@@ -50,7 +50,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : index
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [1], value = dense<9.99999974E-6> : tensor<1xf32>} : () -> memref<1xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [1], value = dense<9.99999974E-6> : tensor<1xf32>}> : () -> memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x64x1x1xf32>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xindex>
 // CHECK:           affine.store [[CST_2_]], [[RES_1_]][0] : memref<3xindex>
@@ -293,7 +293,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               [[VAR_11_3_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__5_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_4_1_1_:%.+]] = vector.load [[VAR_reshape_35_]]{{.}}[[VAR_8_2_]]#0, [[VAR_8_2_]]#1, [[VAR_11_3_]]{{.}} : memref<2x64x93xf32>, vector<32xf32>
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_5_1_:%.+]] = krnl.load [[VAR_reshape_37_]]{{.}}[[VAR_8_2_]]#0, [[VAR_8_2_]]#1, [[CST_0_]]{{.}} : memref<2x64x1xf32>
-// CHECK:               [[LOAD_VAR_reshape_MEM_6_1_:%.+]] = vector.splat [[LOAD_VAR_reshape_MEM_5_1_]] : vector<32xf32>
+// CHECK:               [[LOAD_VAR_reshape_MEM_6_1_:%.+]] = vector.broadcast [[LOAD_VAR_reshape_MEM_5_1_]] : f32 to vector<32xf32>
 // CHECK:               [[LOAD_VAR_reshape_MEM_7_1_:%.+]] = arith.subf [[LOAD_VAR_reshape_MEM_4_1_1_]], [[LOAD_VAR_reshape_MEM_6_1_]] : vector<32xf32>
 // CHECK:               vector.store [[LOAD_VAR_reshape_MEM_7_1_]], [[VAR_reshape_39_]]{{.}}[[VAR_8_2_]]#0, [[VAR_8_2_]]#1, [[VAR_11_3_]]{{.}} : memref<2x64x93xf32>, vector<32xf32>
 // CHECK:             }
@@ -320,7 +320,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               [[VAR_9_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__6_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOOP_7_:%.+]] = vector.load [[VAR_reshape_42_]]{{.}}[[VAR_9_5_]]{{.}} : memref<128xf32>, vector<32xf32>
 // CHECK-DAG:           [[VAR_11_4_:%.+]] = krnl.load [[VAR_0_]]{{.}}[[CST_0_]]{{.}} : memref<1xf32>
-// CHECK:               [[LOAD_VAR_reshape_MEM_4_1_1_1_:%.+]] = vector.splat [[VAR_11_4_]] : vector<32xf32>
+// CHECK:               [[LOAD_VAR_reshape_MEM_4_1_1_1_:%.+]] = vector.broadcast [[VAR_11_4_]] : f32 to vector<32xf32>
 // CHECK:               [[LOAD_VAR_reshape_MEM_5_1_1_:%.+]] = arith.addf [[LOOP_7_]], [[LOAD_VAR_reshape_MEM_4_1_1_1_]] : vector<32xf32>
 // CHECK:               vector.store [[LOAD_VAR_reshape_MEM_5_1_1_]], [[VAR_reshape_44_]]{{.}}[[VAR_9_5_]]{{.}} : memref<128xf32>, vector<32xf32>
 // CHECK:             }
@@ -384,7 +384,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               [[VAR_11_7_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__9_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_4_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_57_]]{{.}}[[VAR_8_3_]]#0, [[VAR_8_3_]]#1, [[VAR_11_7_]]{{.}} : memref<2x64x93xf32>, vector<32xf32>
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_5_1_1_:%.+]] = krnl.load [[VAR_reshape_59_]]{{.}}[[VAR_8_3_]]#0, [[VAR_8_3_]]#1, [[CST_0_]]{{.}} : memref<2x64x1xf32>
-// CHECK:               [[LOAD_VAR_reshape_MEM_6_1_1_:%.+]] = vector.splat [[LOAD_VAR_reshape_MEM_5_1_1_]] : vector<32xf32>
+// CHECK:               [[LOAD_VAR_reshape_MEM_6_1_1_:%.+]] = vector.broadcast [[LOAD_VAR_reshape_MEM_5_1_1_]] : f32 to vector<32xf32>
 // CHECK:               [[LOAD_VAR_reshape_MEM_7_1_:%.+]] = arith.mulf [[LOAD_VAR_reshape_MEM_4_1_1_1_1_]], [[LOAD_VAR_reshape_MEM_6_1_1_]] : vector<32xf32>
 // CHECK:               vector.store [[LOAD_VAR_reshape_MEM_7_1_]], [[VAR_reshape_61_]]{{.}}[[VAR_8_3_]]#0, [[VAR_8_3_]]#1, [[VAR_11_7_]]{{.}} : memref<2x64x93xf32>, vector<32xf32>
 // CHECK:             }

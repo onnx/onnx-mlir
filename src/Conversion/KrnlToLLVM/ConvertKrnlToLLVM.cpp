@@ -218,9 +218,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateSCFToControlFlowConversionPatterns(patterns);
 
   populateShapeToStandardConversionPatterns(patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   memref::populateExpandOpsPatterns(patterns);
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
@@ -362,7 +360,7 @@ void genSignatureFunction(ModuleOp &module,
 
     // Initialize an array with the addresses of the global strings.
     b.setInsertionPointToStart(block);
-    Value array = b.create<LLVM::UndefOp>(loc, arrayType);
+    Value array = LLVM::UndefOp::create(b, loc, arrayType);
 
     uint32_t index = 0;
     Value lastValue = array;

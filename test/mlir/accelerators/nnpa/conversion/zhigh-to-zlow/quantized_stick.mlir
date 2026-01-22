@@ -54,7 +54,7 @@ func.func @test_zhigh_quantized_stick_dlfloat16(%arg0: tensor<1x3x5xf32>) -> ten
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[VAR_12_]], [[RES_3_]][] : memref<f32>
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5xf16, #map>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_4_]]) {layout = "3DS"} : (memref<1x3x5xf32>, memref<1x3x5xf16, #map>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_4_]]) <{layout = "3DS"}> : (memref<1x3x5xf32>, memref<1x3x5xf16, #map>) -> ()
 // CHECK:           return [[RES_4_]] : memref<1x3x5xf16, #map>
 // CHECK:         }
 }
@@ -72,7 +72,7 @@ func.func @test_zhigh_quantized_stick_dlfloat16_symmetric(%arg0: tensor<1x3x5xf3
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x3x5xf32>) -> memref<1x3x5xf16, #map> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0xFF800000 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<1.270000e+02> : tensor<f32>} : () -> memref<f32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<1.270000e+02> : tensor<f32>}> : () -> memref<f32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
@@ -102,7 +102,7 @@ func.func @test_zhigh_quantized_stick_dlfloat16_symmetric(%arg0: tensor<1x3x5xf3
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[CST_0_dot_000000_]], [[RES_4_]][] : memref<f32>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5xf16, #map>
-// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_5_]]) {layout = "3DS"} : (memref<1x3x5xf32>, memref<1x3x5xf16, #map>) -> ()
+// CHECK:           "zlow.stick"([[PARAM_0_]], [[RES_5_]]) <{layout = "3DS"}> : (memref<1x3x5xf32>, memref<1x3x5xf16, #map>) -> ()
 // CHECK:           return [[RES_5_]] : memref<1x3x5xf16, #map>
 // CHECK:         }
 }
@@ -162,7 +162,7 @@ func.func @test_zhigh_quantized_stick_int8(%arg0: tensor<1x3x5xf32>) -> tensor<*
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[VAR_12_]], [[RES_3_]][] : memref<f32>
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5xi8, #map>
-// CHECK:           "zlow.quantizedStick"([[PARAM_0_]], [[RES_2_]], [[RES_3_]], [[RES_4_]]) {layout = "3DS", q_type = "int8"} : (memref<1x3x5xf32>, memref<f32>, memref<f32>, memref<1x3x5xi8, #map>) -> ()
+// CHECK:           "zlow.quantizedStick"([[PARAM_0_]], [[RES_2_]], [[RES_3_]], [[RES_4_]]) <{layout = "3DS", q_type = "int8"}> : (memref<1x3x5xf32>, memref<f32>, memref<f32>, memref<1x3x5xi8, #map>) -> ()
 // CHECK:           return [[RES_4_]] : memref<1x3x5xi8, #map>
 // CHECK:         }
 }
@@ -223,7 +223,7 @@ func.func @test_zhigh_quantized_stick_weights(%arg0: tensor<1x3x5xf32>) -> tenso
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[VAR_12_]], [[RES_3_]][] : memref<f32>
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x3x5xi8, #map>
-// CHECK:           "zlow.quantizedStick"([[PARAM_0_]], [[RES_2_]], [[RES_3_]], [[RES_4_]]) {layout = "3DS", q_type = "weights"} : (memref<1x3x5xf32>, memref<f32>, memref<f32>, memref<1x3x5xi8, #map>) -> ()
+// CHECK:           "zlow.quantizedStick"([[PARAM_0_]], [[RES_2_]], [[RES_3_]], [[RES_4_]]) <{layout = "3DS", q_type = "weights"}> : (memref<1x3x5xf32>, memref<f32>, memref<f32>, memref<1x3x5xi8, #map>) -> ()
 // CHECK:           return [[RES_4_]] : memref<1x3x5xi8, #map>
 // CHECK:         }
 }

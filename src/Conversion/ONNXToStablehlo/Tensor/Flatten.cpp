@@ -31,7 +31,7 @@ struct ONNXFlattenOpLoweringToStablehlo : public ConversionPattern {
 
     Location loc = op->getLoc();
     ONNXFlattenOpAdaptor operandAdaptor(operands);
-    ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
+    ONNXFlattenOp flattenOp = mlir::dyn_cast<ONNXFlattenOp>(op);
 
     Value input = operandAdaptor.getInput();
     assert(isRankedShapedType(input.getType()) && "Expected Ranked ShapedType");
@@ -41,26 +41,26 @@ struct ONNXFlattenOpLoweringToStablehlo : public ConversionPattern {
     assert(axis >= -rank && axis <= rank - 1);
     axis = axis >= 0 ? axis : rank + axis;
 
-    Value flattenDimFirst = rewriter.create<arith::ConstantIndexOp>(loc, 1);
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
+    Value flattenDimFirst = arith::ConstantIndexOp::create(rewriter, loc, 1);
+    Value inputShape = shape::ShapeOfOp::create(rewriter, loc, input);
     for (int64_t i = 0; i < axis; i++) {
-      Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
+      Value dim = shape::GetExtentOp::create(rewriter, loc, inputShape, i);
       flattenDimFirst =
-          rewriter.create<shape::MulOp>(loc, flattenDimFirst, dim);
+          shape::MulOp::create(rewriter, loc, flattenDimFirst, dim);
     }
-    Value flattenDimSecond = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    Value flattenDimSecond = arith::ConstantIndexOp::create(rewriter, loc, 1);
     for (int64_t i = axis; i < rank; i++) {
-      Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
+      Value dim = shape::GetExtentOp::create(rewriter, loc, inputShape, i);
       flattenDimSecond =
-          rewriter.create<shape::MulOp>(loc, flattenDimSecond, dim);
+          shape::MulOp::create(rewriter, loc, flattenDimSecond, dim);
     }
     SmallVector<Value> dims{flattenDimFirst, flattenDimSecond};
     Type outputShapeType = RankedTensorType::get({2}, rewriter.getIndexType());
-    Value outputShape = rewriter.create<shape::FromExtentsOp>(loc, dims);
-    outputShape = rewriter.create<shape::ToExtentTensorOp>(
-        loc, outputShapeType, outputShape);
-    auto result = rewriter.create<stablehlo::DynamicReshapeOp>(
-        loc, *op->result_type_begin(), input, outputShape);
+    Value outputShape = shape::FromExtentsOp::create(rewriter, loc, dims);
+    outputShape = shape::ToExtentTensorOp::create(
+        rewriter, loc, outputShapeType, outputShape);
+    auto result = stablehlo::DynamicReshapeOp::create(
+        rewriter, loc, *op->result_type_begin(), input, outputShape);
     rewriter.replaceOp(op, result->getResults());
     return success();
   }

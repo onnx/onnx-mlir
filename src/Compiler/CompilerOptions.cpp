@@ -50,10 +50,13 @@ bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
 uint64_t compilationNumThreads;                        // common for both
 std::vector<std::string> decomposeOpsInONNX;           // common for both
+std::string shapeInformationUB;                        // common for both
+std::string shapeInformationLB;                        // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
+int printONNXBasicIR;                                  // onnx-mlir only
 bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
@@ -89,6 +92,7 @@ std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
@@ -100,6 +104,9 @@ bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
+
+bool useLinalgPath;    // onnx-mlir only
+std::string linalgOps; // onnx-mlir only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -259,6 +266,38 @@ static llvm::cl::opt<bool, true> enableSafeCodeGenOpt("enable-safe-code-gen",
     llvm::cl::location(enableSafeCodeGen), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::opt<std::string, true> shapeInformationUBOpt(
+    "shapeInformationUB",
+    llvm::cl::desc(
+        "Specify the upper bound (inclusive) of dimension size for the inputs "
+        "of the ONNX model. A popular use case is the maximum sequence length "
+        "of encoder model.\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\","
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (They can be an "
+        "integer starting from 0, a range e.g. 5-17, or -1 for all input "
+        "indices), and \"D1, D2, ...\" are the UB (positive "
+        "integers or -1 for unknown UB).\n"
+        "Such information will be used by verifyInputTensor and optimizations"),
+    llvm::cl::value_desc("value"), llvm::cl::location(shapeInformationUB),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<std::string, true> shapeInformationLBOpt(
+    "shapeInformationLB",
+    llvm::cl::desc(
+        "Specify the lower bound (inclusive) of dimension size\n"
+        "for the inputs of the ONNX model. A possible example is to used for\n"
+        "batch size if the scheduler can guarantee the minimum batch size\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (They can be an "
+        "integer starting from 0, a range e.g. 5-17, or -1 for all input "
+        "indices), and\n \"D1, D2, ...\" are the LB (positive "
+        "integers or -1 for unknown LB).\n"
+        "Such information will be used by verifyInputTensor and optimizations"),
+    llvm::cl::value_desc("value"), llvm::cl::location(shapeInformationLB),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 // TODO(alexe) re-enable prefetch.
 static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
     "disable-memref-prefetch",
@@ -316,6 +355,16 @@ static llvm::cl::opt<bool, true> preserveLocationsOpt("preserveLocations",
 static llvm::cl::opt<bool, true> printIROpt("printIR",
     llvm::cl::desc("Print the IR to stdout:."), llvm::cl::location(printIR),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<int, true> printIRONNXBasicIROpt("printONNXBasicIR",
+    llvm::cl::desc(
+        "Print ONNXBasicIR to stdout, where constants with more than a given "
+        "number of elements are elided. ONNXBasicIR is imported from the input "
+        "onnx model into MLIR language, and it keeps most of information in "
+        "the input onnx model. This option is useful to examine the onnx model "
+        "without interrupting the compilation."),
+    llvm::cl::location(printONNXBasicIR), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
     "do-not-emit-full-mlir-code",
@@ -617,9 +666,26 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
     llvm::cl::desc(
         "Verify input tensors whenever the entry point function is called.\n"
         "Data type and shape are verified. Enable this may introduce overhead "
-        "at runtime."),
-    llvm::cl::location(verifyInputTensors), llvm::cl::init(false),
+        "at runtime. Default is true"),
+    llvm::cl::location(verifyInputTensors), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
+    llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
+    llvm::cl::location(useLinalgPath), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
+    llvm::cl::desc(
+        "Specify which ONNX operations should be lowered to Linalg dialect.\n"
+        "Operations are specified as a comma-separated list or regex "
+        "patterns.\n"
+        "Example: --linalg-ops=MatMul,Conv or --linalg-ops=\"MatMul.*\"\n"
+        "Special values: ALL (all operations), NONE (no operations).\n"
+        "If not specified, uses the default behavior based on "
+        "--use-linalg-path."),
+    llvm::cl::location(linalgOps), llvm::cl::init(""),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> allowSortingOpt("allowSorting",
     llvm::cl::desc("Perform topological sort on onnx graph."),
@@ -662,6 +728,18 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::list<std::string, std::vector<std::string>>
+    replaceOpWithItsOperandOpt("replace-op-with-its-operand",
+        llvm::cl::desc(
+            "Replace an operation's result by one of its operand. "
+            "Only support operations that have one result. The option's value "
+            "is a string in the form of input_id:node_name_regex, where "
+            "input_id is the index of the input operand used to replace the "
+            "operation's result and node_name_regex is a regex to match the "
+            "operation's onnx_node_name."),
+        llvm::cl::location(replaceOpWithItsOperand),
+        llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
     llvm::cl::desc("Disable Constant Propagation (default is false).\n"

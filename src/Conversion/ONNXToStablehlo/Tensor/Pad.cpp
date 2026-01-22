@@ -29,9 +29,9 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-
     Location loc = op->getLoc();
-    ONNXPadOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+    auto padOp = mlir::dyn_cast<ONNXPadOp>(op);
+    ONNXPadOpAdaptor operandAdaptor(operands, padOp);
     Value data = operandAdaptor.getData();
     Value constantValue = operandAdaptor.getConstantValue();
     Value pads = operandAdaptor.getPads();
@@ -47,15 +47,15 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     if (!constantValue || isNoneValue(constantValue)) {
       // Pad with zeros by default
-      constantValue = rewriter.create<stablehlo::ConstantOp>(
-          loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
-                   rewriter.getZeroAttr(elemType)));
+      constantValue = stablehlo::ConstantOp::create(rewriter, loc,
+          DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
+              rewriter.getZeroAttr(elemType)));
     } else {
       // constantValue might be 1D tensor, reshape it to scalar
       ShapedType constantType = mlir::cast<ShapedType>(constantValue.getType());
       if (constantType.getRank() != 0)
-        constantValue = rewriter.create<stablehlo::ReshapeOp>(
-            loc, RankedTensorType::get({}, elemType), constantValue);
+        constantValue = stablehlo::ReshapeOp::create(
+            rewriter, loc, RankedTensorType::get({}, elemType), constantValue);
     }
     SmallVector<int64_t> edgePaddingLowVec(rank, 0);
     SmallVector<int64_t> edgePaddingHighVec(rank, 0);
@@ -83,7 +83,7 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
         rewriter.getDenseI64ArrayAttr(edgePaddingHighVec);
     mlir::DenseI64ArrayAttr interiorPadding =
         rewriter.getDenseI64ArrayAttr(interiorPaddingVec);
-    Value padResult = rewriter.create<stablehlo::PadOp>(loc, outputType, data,
+    Value padResult = stablehlo::PadOp::create(rewriter, loc, outputType, data,
         constantValue, edgePaddingLow, edgePaddingHigh, interiorPadding);
 
     rewriter.replaceOp(op, padResult);

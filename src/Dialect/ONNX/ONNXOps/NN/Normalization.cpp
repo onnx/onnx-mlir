@@ -191,6 +191,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
   ArrayRef<int64_t> XShape = XType.getShape();
   int64_t XRank = XShape.size();
   Type XElementType = XType.getElementType();
+  if (!XElementType.isFloat())
+    op->emitOpError("LayerNormalization op with incompatible X type");
 
   // Axis attribute (if specified) must be in the range [-r,r), where r =
   // rank(input).
@@ -209,7 +211,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (static_cast<int64_t>(BBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible B shapes "
                       "(unidirectional broadcast)");
-    if (bType.getElementType() != XElementType)
+    // In spec: B element type must be same as X; relax here to just float.
+    if (!bType.getElementType().isFloat())
       op->emitOpError("LayerNormalization op with incompatible B type");
   }
 
@@ -226,7 +229,8 @@ LogicalResult verifyShapeForLayerNorm(OP_TYPE *op) {
     if (static_cast<int64_t>(scaleBroadcastShape.size()) != XRank)
       op->emitOpError("LayerNormalization op with incompatible scale shapes "
                       "(unidirectional broadcast)");
-    if (scaleType.getElementType() != XElementType)
+    // In spec: scale element type must be same as X; relax here to just float.
+    if (!scaleType.getElementType().isFloat())
       op->emitOpError("LayerNormalization op with incompatible scale type");
   }
 
@@ -238,7 +242,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   typename OP_TYPE::Adaptor operandAdaptor(operands);
-  OP_TYPE lnOp = llvm::cast<OP_TYPE>(op);
+  OP_TYPE lnOp = mlir::dyn_cast<OP_TYPE>(op);
 
   // Get rank and axis attribute.
   Value X = operandAdaptor.getX();

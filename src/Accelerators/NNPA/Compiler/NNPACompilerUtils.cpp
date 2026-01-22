@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -143,10 +143,10 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Experimental feature: Decompose stick/unstick into two phases: layout
-  // transform and data conversion. Do some optimizations after decomposing.
-  // Then, recompose again layout and data conversion if they are not optimized.
-  if (nnpaEnableZHighDecomposeStickUnstick) {
+  // Decompose stick/unstick into two phases: layout transform and data
+  // conversion. Do some optimizations after decomposing. Then, recompose again
+  // layout and data conversion if they are not optimized.
+  if (!nnpaDisableZHighDecomposeStickUnstick) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
     pm.addPass(mlir::createCanonicalizerPass());
@@ -158,7 +158,12 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
   // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
   // these ops, e.g vectorize the computation.
-  if (!nnpaDisableZHighToOnnx)
+
+  // If we used a placement heuristic that use cost model, we should probably
+  // not undo it here.
+  if (!nnpaDisableZHighToOnnx &&
+      !(nnpaPlacementHeuristic == FasterOpsWSU ||
+          nnpaPlacementHeuristic == MuchFasterOpsWSU))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
 
   // Constant propagation at ZHighIR: constant stickify.
@@ -175,6 +180,14 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
+
+  // NOTE: Cannot have a pass of shape analysis after this pass as we add
+  // "non-standard" mixtures of types into operations, for example with "add(f16
+  // in stickified format, f23) -> f32". Shape inferences & verification
+  // requires all of the types to be identical, so we need to execute this pass
+  // JUST before lowering to KRNL/ZLow.
+  if (!nnpaDisableFusionOpStickUnstick)
+    pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
@@ -232,6 +245,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
+  // Empty the save json config file if it exists.
+  if (!nnpaSaveConfigFile.empty()) {
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
+    OS.close();
+  }
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
@@ -240,8 +259,10 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
             pm.getContext()));
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
-    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,
-        nnpaSaveDevicePlacementFile, nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createDevicePlacementPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createQuantOpSelectionPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile));
   }
 
   if (emissionTarget >= EmitMLIR) {
@@ -266,6 +287,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O3;
       // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
+      // Optimizations at ZLow that needs affine map in MemRef.
+      pm.addPass(zlow::createZLowRewritePass());
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;

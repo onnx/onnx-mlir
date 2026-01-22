@@ -9,7 +9,7 @@ func.func @remove_stick_1d() -> tensor<6xf16, #zhigh.layout<{dataLayout = "1D"}>
   %res = "zhigh.Stick"(%inp) {layout = "1D"} : (tensor<6xf32>) -> tensor<6xf16, #zhigh.layout<{dataLayout = "1D"}>>
   return %res : tensor<6xf16, #zhigh.layout<{dataLayout = "1D"}>>
 
-  // CHECK-NEXT: %0 = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<6xf16, #zhigh.layout<{dataLayout = "1D"}>>
+  // CHECK-NEXT: %0 = "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<6xf16, #zhigh.layout<{dataLayout = "1D"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -31,7 +31,7 @@ func.func @remove_stick_2d() -> tensor<2x3xf32> {
   %res = "zhigh.Unstick"(%st) {layout = "2D"} : (tensor<2x3xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<2x3xf32>
   return %res : tensor<2x3xf32>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2D"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2D"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -52,7 +52,7 @@ func.func @remove_stick_2ds() -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2D
   %res = "zhigh.Stick"(%inp) {layout = "2DS"} : (tensor<2x3xf32>) -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2DS"}>>
   return %res : tensor<2x3xf16, #zhigh.layout<{dataLayout = "2DS"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>} : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2DS"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>}> : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2DS"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -73,7 +73,7 @@ func.func @remove_stick_3d() -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3
   %res = "zhigh.Stick"(%inp) {layout = "3D"} : (tensor<1x2x3xf32>) -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3D"}>>
   return %res : tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3D"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3D"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3D"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -94,7 +94,7 @@ func.func @remove_stick_3ds() -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "
   %res = "zhigh.Stick"(%inp) {layout = "3DS"} : (tensor<1x2x3xf32>) -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   return %res : tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -115,7 +115,7 @@ func.func @remove_stick_4d() -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = 
   %res = "zhigh.Stick"(%inp) {layout = "4D"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "4D"}>>
   return %res : tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "4D"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "4D"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -136,7 +136,7 @@ func.func @remove_stick_nhwc() -> tensor<1x2x3x1xf16, #zhigh.layout<{dataLayout 
   %res = "zhigh.Stick"(%inp) {layout = "NHWC"} : (tensor<1x1x2x3xf32>) -> tensor<1x2x3x1xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
   return %res : tensor<1x2x3x1xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>} : () -> tensor<1x2x3x1xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>}> : () -> tensor<1x2x3x1xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -157,7 +157,7 @@ func.func @remove_stick_nchw() -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout 
   %res = "zhigh.Stick"(%inp) {layout = "NCHW"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "NCHW"}>>
   return %res : tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "NCHW"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>} : () -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "NCHW"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<8192xi8>}> : () -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "NCHW"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -178,7 +178,7 @@ func.func @remove_stick_cnnk_hwck() -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLa
   %res = "zhigh.Stick"(%inp) {layout = "HWCK"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
   return %res : tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<1x1x2x3xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -202,7 +202,7 @@ func.func @remove_stick_zrh_2d() -> tensor<2x3xf16, #zhigh.layout<{dataLayout = 
   %res = "zhigh.StickForGRU"(%z, %r, %h) : (tensor<2x3xf32>, tensor<2x3xf32>, tensor<2x3xf32>) -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
   return %res : tensor<2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<24576xi8>} : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<24576xi8>}> : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.StickForGRU"
@@ -226,7 +226,7 @@ func.func @remove_stick_zrh_3d() -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout 
   %res = "zhigh.StickForGRU"(%z, %r, %h) : (tensor<1x2x3xf32>, tensor<1x2x3xf32>, tensor<1x2x3xf32>) -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
   return %res : tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<12288xi8>} : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<12288xi8>}> : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "ZRH"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.StickForGRU"
@@ -251,7 +251,7 @@ func.func @remove_stick_fico_2d() -> tensor<2x3xf16, #zhigh.layout<{dataLayout =
   %res = "zhigh.StickForLSTM"(%f, %i, %c, %o) : (tensor<2x3xf32>, tensor<2x3xf32>, tensor<2x3xf32>, tensor<2x3xf32>) -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
   return %res : tensor<2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<32768xi8>} : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<32768xi8>}> : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.StickForLSTM"
@@ -276,7 +276,7 @@ func.func @remove_stick_fico_3d() -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout
   %res = "zhigh.StickForLSTM"(%f, %i, %c, %o) : (tensor<1x2x3xf32>, tensor<1x2x3xf32>, tensor<1x2x3xf32>, tensor<1x2x3xf32>) -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
   return %res : tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<16384xi8>} : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<16384xi8>}> : () -> tensor<1x2x3xf16, #zhigh.layout<{dataLayout = "FICO"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.StickForLSTM"
@@ -297,7 +297,7 @@ func.func @out_of_range_minimum() -> tensor<1xf16, #zhigh.layout<{dataLayout = "
   %res = "zhigh.Stick"(%inp) {layout = "1D"} : (tensor<1xf32>) -> tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
   return %res : tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
 
-  // CHECK-NEXT: %0 = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
+  // CHECK-NEXT: %0 = "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"
@@ -317,7 +317,7 @@ func.func @out_of_range_maximum() -> tensor<1xf16, #zhigh.layout<{dataLayout = "
   %res = "zhigh.Stick"(%inp) {layout = "1D"} : (tensor<1xf32>) -> tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
   return %res : tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
 
-  // CHECK-NEXT: %0 = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
+  // CHECK-NEXT: %0 = "zhigh.StickifiedConstant"() <{alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>}> : () -> tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.Stick"

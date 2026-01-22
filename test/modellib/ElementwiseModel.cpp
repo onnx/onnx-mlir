@@ -72,11 +72,11 @@ bool Elementwise2DLibBuilder::build() {
       FloatAttr alpha = builder.getFloatAttr(elementType, alphaVal);
       FloatAttr beta = builder.getFloatAttr(elementType, betaVal);
       auto op =
-          builder.create<ONNXHardSigmoidOp>(loc, yType, aVal, alpha, beta);
+          ONNXHardSigmoidOp::create(builder, loc, yType, aVal, alpha, beta);
       results.emplace_back(op.getResult());
     } else if (onnxOpName.compare("ONNXErfOp") == 0) {
       // Erf.
-      auto op = builder.create<ONNXErfOp>(loc, yType, aVal);
+      auto op = ONNXErfOp::create(builder, loc, yType, aVal);
       results.emplace_back(op.getResult());
     } else
       llvm_unreachable("unsupported unary elementwise op");
@@ -87,11 +87,11 @@ bool Elementwise2DLibBuilder::build() {
     auto bVal = entryBlock.getArgument(1);
     if (onnxOpName.compare("ONNXAddOp") == 0) {
       // Add.
-      auto op = builder.create<ONNXAddOp>(loc, yType, aVal, bVal);
+      auto op = ONNXAddOp::create(builder, loc, yType, aVal, bVal);
       results.emplace_back(op.getResult());
     } else if (onnxOpName.compare("ONNXDivOp") == 0) {
       // Div.
-      auto op = builder.create<ONNXDivOp>(loc, yType, aVal, bVal);
+      auto op = ONNXDivOp::create(builder, loc, yType, aVal, bVal);
       results.emplace_back(op.getResult());
     } else
       llvm_unreachable("unsupported binary elementwise op");
@@ -99,7 +99,7 @@ bool Elementwise2DLibBuilder::build() {
     llvm_unreachable("support only unary and binary op");
 
   // Create function.
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
   createEntryPoint(funcOp);
   return true;

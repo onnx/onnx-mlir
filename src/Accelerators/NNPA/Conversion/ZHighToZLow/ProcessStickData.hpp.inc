@@ -4,7 +4,7 @@
 
 //====-------- ProcessStickData.hpp.inc - Process Stick data --------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2024-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -24,6 +25,8 @@
 #include "src/Support/SmallVectorHelper.hpp"
 
 namespace onnx_mlir {
+
+// TODO: this could be replaced by the new infra at some time.
 
 // Iterate over each stick, for an original size of dims, and cover the
 // iterations from lbs to ubs. In most cases, lbs={0...} and ubs=dims, namely we
@@ -42,18 +45,14 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, VectorBuilder, SCFBuilder>;
   MDBuilder create(b);
-  //IndexExprScope initialScope(b);
-  // Get info and check some inputs.
+  // IndexExprScope initialScope(b);
+  //  Get info and check some inputs.
   int64_t rank = dims.size();
   int64_t d1 = rank - 1;
   IndexExpr E1 = dims[d1];
   assert(lbs.size() == ubs.size() && "expected same sizes");
   assert(lbs.size() == dims.size() && "expected same sizes");
-  assert((inputLayout.getValue().equals_insensitive("4D") ||
-             inputLayout.getValue().equals_insensitive("3D") ||
-             inputLayout.getValue().equals_insensitive("2D") ||
-             inputLayout.getValue().equals_insensitive("3DS") ||
-             inputLayout.getValue().equals_insensitive("NHWC")) &&
+  assert(zhigh::supportedLayoutForCompilerGeneratedStickUnstick(inputLayout) &&
          "unsupported inputLayout");
 
   // Info for SIMD Vector Length (VL).
@@ -174,8 +173,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           create.vec.loadIE(vecF16Type, inputAsSticks,
                               {SymIE(inputStickOffset), l + (u * archVL)});
                       auto convertOp =
-                          b.getBuilder()
-                              .create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                                   b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
@@ -213,8 +211,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           inputAsSticks, {SymIE(inputStickOffset), l});
                       // Convert back to f32.
                       auto convertOp =
-                          b.getBuilder()
-                              .create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                                   b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
@@ -230,7 +227,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                     inputAsSticks, {SymIE(inputStickOffset), lastL});
                 // Convert back to f32.
                 auto convertOp =
-                    b.getBuilder().create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                    zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                         b.getLoc(), vecOfF16);
                 mlir::Value vecF32H = convertOp.getResult(0);
                 mlir::Value vecF32L = convertOp.getResult(1);

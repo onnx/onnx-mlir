@@ -4,58 +4,78 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
+
     - uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+
     - name: remove system python
       run: |
         sudo rm -rf /Library/Frameworks/Python.framework/Versions/3* /usr/local/Frameworks/Python.framework/Versions/3* /usr/local/bin/python3* || true
+
     - name: install tools that are needed for compilation
       run: |
-        brew install automake ninja pybind11
-    - name: install protobuf
+        brew install automake ninja protobuf@33 pybind11
+        python3 -m pip install protobuf==6.33.0
+
+    - name: get protobuf version
+      id: get-protobuf-version
       run: |
-        cd ~/work
-        sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
-    - name: cache MLIR directory
-      id: cache-mlir
-      uses: actions/cache@v3
+        echo "protobuf_version=$(protoc --version)" >> $GITHUB_OUTPUT
+
+    - name: restore MLIR cache
+      id: restore-mlir-cache
+      uses: actions/cache/restore@v4
       with:
         path: ~/work/onnx-mlir/llvm-project
-        key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+        key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}-${{ steps.get-protobuf-version.outputs.protobuf_version }}
+
     - name: clone & build MLIR
-      if: steps.cache-mlir.outputs.cache-hit != 'true'
+      if: steps.restore-mlir-cache.outputs.cache-hit != 'true'
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
         sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
+
+    - name: save MLIR cache
+      id: save-mlir-cache
+      if: steps.restore-mlir-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/work/onnx-mlir/llvm-project
+        key: ${{ steps.restore-mlir-cache.outputs.cache-primary-key }}
+
+    - name: install third_party/onnx
+      run: |
+        cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx.sh
+
     - name: install python requirements
       run: |
         cd ~/work/onnx-mlir/onnx-mlir
         python3 -m pip install --upgrade wheel
         python3 -m pip install -r requirements.txt
-    - name: install third_party/onnx
-      run: |
-        cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
-        git fetch --prune --unshallow --tags
-        python3 -m pip install -v .
+
     - name: build onnx-mlir
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
+
     - name: build and run docs/doc_example tests
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-doc-example.sh
+
     - name: build and run unit tests
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-unittest.sh
+
     - name: run onnx-mlir backend and numerical tests
       run: |
         cd ~/work/onnx-mlir

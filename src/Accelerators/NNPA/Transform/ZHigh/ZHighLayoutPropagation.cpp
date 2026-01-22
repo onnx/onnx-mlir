@@ -4,7 +4,7 @@
 
 //===---------- ZHighLayoutPropagation.cpp - ZHigh High Level Optimizer ---===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -81,7 +81,7 @@ Type getZTensorType(
     PatternRewriter &rewriter, Location loc, Value tensor, StringAttr layout) {
   // Borrow ZHighStickOp to infer a zTensor type.
   ZHighStickOp stickOp =
-      rewriter.create<ZHighStickOp>(loc, tensor, layout, IntegerAttr());
+      ZHighStickOp::create(rewriter, loc, tensor, layout, IntegerAttr());
   (void)stickOp.inferShapes([](Region &region) {});
 
   Type returnType = stickOp.getOut().getType();
@@ -93,128 +93,6 @@ Type getZTensorType(
 //===----------------------------------------------------------------------===//
 // ZHigh layout propagation patterns
 //===----------------------------------------------------------------------===//
-
-//===----------------------------------------------------------------------===//
-// Layout propagation for ONNX unary element-wise operations
-//
-// ONNX unary operations, such as Relu and Tanh, do not depend on a specific
-// layout. Thus, it is possible to use the layout of the previous zTensor. In
-// other words, propagate the existing layout down to the unary operation, so
-// that other rules can be applied to remove unstick-stick pairs.For example,
-// This sequence of operations:
-//   zhigh.Conv -> Unstick (NHWC) -> onnx.Relu
-// will become:
-//   zhigh.Conv -> onnx.Relu -> Unstick (NHWC)
-// then, canonicalization of unstick/stick will remove the unstick-stick pair.
-//
-//===----------------------------------------------------------------------===//
-
-template <typename ONNX_OP>
-class ONNXUnaryOpLayoutPropPattern : public OpRewritePattern<ONNX_OP> {
-public:
-  using OpRewritePattern<ONNX_OP>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNX_OP unaryOp, PatternRewriter &rewriter) const override {
-    Operation *genericOp = unaryOp.getOperation();
-    Location loc = genericOp->getLoc();
-
-    Value input = unaryOp.getX();
-    Value output = unaryOp.getY();
-
-    // Input is a block argument, do nothing.
-    if (mlir::dyn_cast<BlockArgument>(input))
-      return failure();
-
-    // Input is a CPU tensor, do nothing.
-    auto unstickOp = mlir::dyn_cast<ZHighUnstickOp>(input.getDefiningOp());
-    if (!unstickOp)
-      return failure();
-
-    // Input is unstickified from a zTensor. Do computation directly on the
-    // zTensor.
-    Value zTensor = unstickOp.getIn();
-    Value zOutput = rewriter.create<ONNX_OP>(loc, zTensor.getType(), zTensor);
-    Value replacedValue =
-        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
-    rewriter.replaceOp(genericOp, replacedValue);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Layout propagation for ONNX binary element-wise operations
-//
-// ONNX binary operations, such as Add and Div, do not depend on a specific
-// layout. Thus, it is possible to use the layout of the previous zTensor. In
-// other words, propagate the existing layout down to the unary operation, so
-// that other rules can be applied to remove unstick-stick pairs.For example,
-// This sequence of operations:
-//   X -> Unstick (NHWC) -> onnx.Add
-//                              ^
-//   Y -> Unstick (NHWC) -------|
-//
-// will become:
-//   X -> onnx.Add -> Unstick (NHWC)
-//          ^
-//   Y -----|
-//
-// then, canonicalization of unstick/stick will remove the unstick-stick pairs.
-//
-//===----------------------------------------------------------------------===//
-
-template <typename ONNX_OP>
-class ONNXBinaryOpLayoutPropPattern : public OpRewritePattern<ONNX_OP> {
-public:
-  using OpRewritePattern<ONNX_OP>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNX_OP binaryOp, PatternRewriter &rewriter) const override {
-    Operation *genericOp = binaryOp.getOperation();
-    Location loc = genericOp->getLoc();
-
-    Value A = binaryOp.getA();
-    Value B = binaryOp.getB();
-    Value output = binaryOp.getC();
-
-    // Input is a block argument, do nothing.
-    if (mlir::dyn_cast<BlockArgument>(A) || mlir::dyn_cast<BlockArgument>(B))
-      return failure();
-
-    // Input is a CPU tensor, do nothing.
-    auto unstickAOp = mlir::dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
-    auto unstickBOp = mlir::dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
-    if (!unstickAOp || !unstickBOp)
-      return failure();
-
-    // Input is unstickified from a zTensor. Do computation directly on the
-    // zTensor.
-    Value zTensorA = unstickAOp.getIn();
-    Value zTensorB = unstickBOp.getIn();
-    Type zTensorAType = zTensorA.getType();
-    Type zTensorBType = zTensorB.getType();
-    ZTensorEncodingAttr::DataLayout ALayout = getZTensorLayout(zTensorAType);
-    ZTensorEncodingAttr::DataLayout BLayout = getZTensorLayout(zTensorBType);
-
-    // Support same layout for zTensor A & B in the current implementation.
-    // TODO: Support arbitrary layout in the future. In such a case, what should
-    // be the output layout?
-    if ((ALayout != ZTensorEncodingAttr::DataLayout::UNDEFINED) &&
-        (ALayout != BLayout))
-      return failure();
-
-    // Construct the zTensor type from the output CPU tensor.
-    Type zOutputType = getZTensorType(rewriter, loc, output,
-        convertZTensorDataLayoutToStringAttr(rewriter, ALayout));
-
-    Value zOutput =
-        rewriter.create<ONNX_OP>(loc, zOutputType, zTensorA, zTensorB);
-    Value replacedValue =
-        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
-    rewriter.replaceOp(genericOp, replacedValue);
-    return success();
-  }
-};
 
 /// The pattern
 ///   onnx.Concat (zhigh.Unstick (%X1), zhigh.Unstick (%X2)) { axis })
@@ -255,9 +133,9 @@ public:
     Type newOutputType = getZTensorType(rewriter, loc, output, layout);
 
     Value zOutput =
-        rewriter.create<ONNXConcatOp>(loc, newOutputType, zTensors, newAxis);
+        ONNXConcatOp::create(rewriter, loc, newOutputType, zTensors, newAxis);
     Value replacedValue =
-        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+        ZHighUnstickOp::create(rewriter, loc, output.getType(), zOutput);
     rewriter.replaceOp(genericOp, replacedValue);
     return ::mlir::success();
   };
@@ -341,24 +219,6 @@ struct ZHighLayoutPropagationPass
 
     // Layout propagation for ZHigh Ops.
     populateWithGenerated(patterns);
-
-    // Layout propagation for ONNX Ops. Since DLFLOAT16 is not supported in
-    // LLVM, we disable computation operators like Add, Div, etc. and enable
-    // only data movement operators like Concat.
-
-    // Add
-    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(&getContext());
-    // Div
-    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(&getContext());
-    // Mul
-    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(&getContext());
-    // Sub
-    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(&getContext());
-    // Reciprocal
-    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(
-    //     &getContext());
-    // Sqrt
-    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
 
     // Concat
     patterns.insert<ONNXConcatLayoutPropagatePattern>(&getContext());

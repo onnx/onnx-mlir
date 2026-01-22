@@ -24,6 +24,8 @@ class config:
         "ghcr.io/onnxmlir/onnx-mlir": "/usr/local/bin/bin/onnx-mlir",
         "ghcr.io/onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
         "onnxmlir/onnx-mlir-dev": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+        # The entry point of zDLC image is the compiler
+        "icr.io/ibmz/zdlc:5.0.0": "",
     }
 
     default_compiler_image_name = "ghcr.io/onnxmlir/onnx-mlir-dev"
@@ -56,6 +58,7 @@ class InferenceSession:
     def __init__(self, model_path, **kwargs):
         self.debug = False
         self.session = None
+        self.output_dir = tempfile.TemporaryDirectory()
         self.handleParameters(model_path, **kwargs)
         if self.session is not None:
             return
@@ -103,12 +106,19 @@ class InferenceSession:
 
         # Logically, container_output_dirname should be used for -o
         if "-o" in options_list:
-            self.compiled_model = options_list[options_list.index("-o") + 1]
+            # Convert the output to absolute path so that the compilation
+            # can be done with compiler image.
+            self.compiled_model = os.path.abspath(
+                options_list[options_list.index("-o") + 1]
+            )
+            options_list[options_list.index("-o") + 1] = self.compiled_model
+
+            self.compile_options = " ".join(options_list)
             if not self.compiled_model.endswith(".so"):
                 self.compiled_model += ".so"
             self.output_dirname = os.path.dirname(self.compiled_model)
         else:
-            self.output_dirname = tempfile.TemporaryDirectory().name
+            self.output_dirname = self.output_dir.name
             self.compiled_model = os.path.join(
                 self.output_dirname, self.model_basename.removesuffix(self.model_suffix)
             )
@@ -190,7 +200,7 @@ class InferenceSession:
             # Pull the image if not already available
             try:
                 image = self.container_client.images.get(self.compiler_image_name)
-            except ct.errors.ImageNotFound:
+            except ce.errors.ImageNotFound:
                 image = self.container_client.images.pull(self.compiler_image_name)
 
             # Chek whether the specified compiler exists or not
@@ -200,8 +210,9 @@ class InferenceSession:
                 self.mount_compiler = False
                 try:
                     msg = self.container_client.containers.run(
-                        self.compiler_image_name, "ls " + self.compiler_path
+                        self.compiler_image_name, self.compiler_path + " --version"
                     )
+                    # Could check the valid version of compiler
                 except Exception as e:
                     print(
                         "the compiler path does not exist in container: ",
@@ -271,12 +282,18 @@ class InferenceSession:
                     },
                 )
             except Exception as e:
-                print("compilation error")
+                print(
+                    f"Failed in compilation with docker image: {self.compiler_image_name}"
+                )
+                print(f"Here is the compiling command: {command_str}")
+                print(
+                    "Check whether the flags are correct, the input file exists, and the output file is writable"
+                )
                 exit(-1)
 
     def getSession(self):
         # When the script is used in package onnxmlir, the files to be imported
-        # are within the package. Path in the pakcage should be used.
+        # are within the package. Path in the package should be used.
         # Otherwise, env variable ONNX_MLIR_HOME is used to for import path
         if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
             try:

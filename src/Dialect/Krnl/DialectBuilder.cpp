@@ -83,22 +83,22 @@ void KrnlBuilder::storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices,
 
 Value KrnlBuilder::getLinearOffsetIndex(
     Value memref, ValueRange indices) const {
-  return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indices);
+  return KrnlGetLinearOffsetIndexOp::create(b(), loc(), memref, indices);
 }
 
 Value KrnlBuilder::getLinearOffsetIndexIE(
     Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
-  return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indexValues);
+  return KrnlGetLinearOffsetIndexOp::create(b(), loc(), memref, indexValues);
 }
 
 void KrnlBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
     unsigned localityHint, bool isDataCache) {
   if (disableMemRefPrefetch)
     return;
-  b().create<KrnlPrefetchOp>(
-      loc(), memref, indices, isWrite, localityHint, isDataCache);
+  KrnlPrefetchOp::create(
+      b(), loc(), memref, indices, isWrite, localityHint, isDataCache);
 }
 
 void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
@@ -107,26 +107,26 @@ void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
     return;
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
-  b().create<KrnlPrefetchOp>(
-      loc(), memref, indexValues, isWrite, localityHint, isDataCache);
+  KrnlPrefetchOp::create(
+      b(), loc(), memref, indexValues, isWrite, localityHint, isDataCache);
 }
 
 void KrnlBuilder::seqstore(Value element, Value seq, Value index) const {
-  b().create<KrnlSeqStoreOp>(loc(), element, seq, index);
+  KrnlSeqStoreOp::create(b(), loc(), element, seq, index);
 }
 
 void KrnlBuilder::seqstore(Value element, Value seq, IndexExpr index) const {
-  b().create<KrnlSeqStoreOp>(loc(), element, seq, index.getValue());
+  KrnlSeqStoreOp::create(b(), loc(), element, seq, index.getValue());
 }
 
 Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
-  return b().create<KrnlVectorTypeCastOp>(loc(), sourceMemref, vectorLen);
+  return KrnlVectorTypeCastOp::create(b(), loc(), sourceMemref, vectorLen);
 }
 
 void KrnlBuilder::region(
     function_ref<void(const KrnlBuilder &createKrnl)> bodyBuilderFn) const {
   KrnlBuilder createKrnl(b(), loc());
-  KrnlRegionOp regionOp = b().create<KrnlRegionOp>(loc());
+  KrnlRegionOp regionOp = KrnlRegionOp::create(b(), loc());
   {
     OpBuilder::InsertionGuard guard(b());
     b().setInsertionPointToStart(&regionOp.getBodyRegion().front());
@@ -135,33 +135,67 @@ void KrnlBuilder::region(
 }
 
 ValueRange KrnlBuilder::defineLoops(int64_t originalLoopNum) const {
-  return b()
-      .template create<KrnlDefineLoopsOp>(loc(), originalLoopNum)
-      .getResults();
+  return KrnlDefineLoopsOp::create(b(), loc(), originalLoopNum).getResults();
 }
 
 ValueRange KrnlBuilder::block(Value loop, int64_t blockSize) const {
-  return b().create<KrnlBlockOp>(loc(), loop, blockSize).getResults();
+  return KrnlBlockOp::create(b(), loc(), loop, blockSize).getResults();
 }
 
 void KrnlBuilder::permute(ValueRange loops, ArrayRef<int64_t> map) const {
-  b().create<KrnlPermuteOp>(loc(), loops, map);
+  KrnlPermuteOp::create(b(), loc(), loops, map);
+}
+
+void KrnlBuilder::blockAndPermute(ValueRange originalLoops,
+    ArrayRef<int64_t> blockSizes, SmallVector<Value, 4> &outerLoops,
+    SmallVector<Value, 4> &innerLoops) {
+  int64_t rank = originalLoops.size();
+  int64_t blockedLoopNum = blockSizes.size();
+  int64_t unoptLoopNum = rank - blockedLoopNum;
+  assert(unoptLoopNum >= 0 && "too many blocked loops");
+  outerLoops.clear();
+  innerLoops.clear();
+  // Values for permute pattern.
+  SmallVector<Value, 4> permuteLoops;
+  mlir::SmallVector<int64_t> permuteMap(unoptLoopNum + 2 * blockedLoopNum, 0);
+  // Add unblocked loops as is.
+  for (int64_t u = 0; u < unoptLoopNum; ++u) {
+    outerLoops.emplace_back(originalLoops[u]);
+    permuteLoops.emplace_back(originalLoops[u]);
+    permuteMap[u] = u;
+  }
+  // Iterate over blocked loops
+  for (int64_t b = 0; b < blockedLoopNum; ++b) {
+    // Block the loop (resulting in 2 loops).
+    ValueRange blockedLoops =
+        block(originalLoops[unoptLoopNum + b], blockSizes[b]);
+    // Add to outer/inner loops.
+    outerLoops.emplace_back(blockedLoops[0]);
+    innerLoops.emplace_back(blockedLoops[1]);
+    // Add the 2 resulting loops to the permute input (consecutive order).
+    permuteLoops.emplace_back(blockedLoops[0]);
+    permuteLoops.emplace_back(blockedLoops[1]);
+    // Permute them so that all blocked loops first, then inner blocked loops.
+    permuteMap[unoptLoopNum + 2 * b] = unoptLoopNum + b;
+    permuteMap[unoptLoopNum + 2 * b + 1] = unoptLoopNum + blockedLoopNum + b;
+  }
+  // Apply the permute pattern.
+  permute(permuteLoops, permuteMap);
 }
 
 void KrnlBuilder::unroll(Value loop) const {
-  b().create<KrnlUnrollOp>(loc(), loop);
+  KrnlUnrollOp::create(b(), loc(), loop);
 }
 
 ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
-  return b()
-      .template create<KrnlGetInductionVariableValueOp>(loc(), loops)
+  return KrnlGetInductionVariableValueOp::create(b(), loc(), loops)
       .getResults();
 }
 
 void KrnlBuilder::parallel(ValueRange loops) const {
   Value noneValue;
   StringAttr noneStrAttr;
-  b().template create<KrnlParallelOp>(loc(), loops, noneValue, noneStrAttr);
+  KrnlParallelOp::create(b(), loc(), loops, noneValue, noneStrAttr);
 }
 
 void KrnlBuilder::parallel(
@@ -171,14 +205,14 @@ void KrnlBuilder::parallel(
     assert((str == "primary" || str == "close" || str == "spread") &&
            "expected primary, close, or spread for proc_bind");
   }
-  b().template create<KrnlParallelOp>(loc(), loops, numThreads, procBind);
+  KrnlParallelOp::create(b(), loc(), loops, numThreads, procBind);
 }
 
 void KrnlBuilder::parallelClause(
     Value parallelLoopIndex, Value numThreads, StringAttr procBind) const {
   // No need to check procBind as its value are derived from parallel(...).
-  b().template create<KrnlParallelClauseOp>(
-      loc(), parallelLoopIndex, numThreads, procBind);
+  KrnlParallelClauseOp::create(
+      b(), loc(), parallelLoopIndex, numThreads, procBind);
 }
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
@@ -198,7 +232,7 @@ void KrnlBuilder::iterateWithOrigLoop(ValueRange originalLoops,
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
-  b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs, ubs,
+  KrnlIterateOp::create(b(), loc(), originalLoops, optimizedLoops, lbs, ubs,
       ValueRange(),
       [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
           ValueRange args, ValueRange iterArgs) {
@@ -214,7 +248,7 @@ KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
-  return b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs,
+  return KrnlIterateOp::create(b(), loc(), originalLoops, optimizedLoops, lbs,
       ubs, inits,
       [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
           ValueRange args, ValueRange iterArgs) {
@@ -226,7 +260,7 @@ KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
 
 KrnlIterateOp KrnlBuilder::iterate(
     const krnl::KrnlIterateOperandPack &operands) const {
-  return b().create<KrnlIterateOp>(loc(), operands);
+  return KrnlIterateOp::create(b(), loc(), operands);
 }
 
 void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
@@ -245,7 +279,7 @@ void KrnlBuilder::iterateIEWithOrigLoop(ValueRange originalLoops,
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
-  b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs, ubs,
+  KrnlIterateOp::create(b(), loc(), originalLoops, optimizedLoops, lbs, ubs,
       ValueRange(),
       [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
           ValueRange args, ValueRange iterArgs) {
@@ -261,7 +295,7 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
-  return b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs,
+  return KrnlIterateOp::create(b(), loc(), originalLoops, optimizedLoops, lbs,
       ubs, inits,
       [&](OpBuilder &builder, Location loc, ValueRange origLoopArgs,
           ValueRange args, ValueRange iterArgs) {
@@ -356,31 +390,31 @@ void KrnlBuilder::simdReduce2DIE(IndexExpr lb, IndexExpr ub, int64_t VL,
 }
 
 void KrnlBuilder::yield(ValueRange iterArgs) const {
-  b().create<KrnlYieldOp>(loc(), iterArgs);
+  KrnlYieldOp::create(b(), loc(), iterArgs);
 }
 
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
     ValueRange starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext, bool transpose) const {
-  b().create<KrnlCopyToBufferOp>(loc(), bufferMemref, sourceMemref, starts,
+  KrnlCopyToBufferOp::create(b(), loc(), bufferMemref, sourceMemref, starts,
       padValue, tileSize, padToNext, transpose);
 }
 
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
     ValueRange starts, Value padValue, bool transpose) const {
-  b().create<KrnlCopyToBufferOp>(
-      loc(), bufferMemref, sourceMemref, starts, padValue, transpose);
+  KrnlCopyToBufferOp::create(
+      b(), loc(), bufferMemref, sourceMemref, starts, padValue, transpose);
 }
 
 void KrnlBuilder::copyFromBuffer(Value bufferMemref, Value memref,
     ValueRange starts, ArrayRef<int64_t> tileSize) const {
-  b().create<KrnlCopyFromBufferOp>(
-      loc(), bufferMemref, memref, starts, tileSize);
+  KrnlCopyFromBufferOp::create(
+      b(), loc(), bufferMemref, memref, starts, tileSize);
 }
 
 void KrnlBuilder::copyFromBuffer(
     Value bufferMemref, Value memref, ValueRange starts) const {
-  b().create<KrnlCopyFromBufferOp>(loc(), bufferMemref, memref, starts);
+  KrnlCopyFromBufferOp::create(b(), loc(), bufferMemref, memref, starts);
 }
 
 void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
@@ -389,7 +423,7 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll,
     bool overCompute) const {
-  b().create<KrnlMatMulOp>(loc(), A, aStart, B, bStart, C, cStart, loops,
+  KrnlMatMulOp::create(b(), loc(), A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
       globalUBs[1], globalUBs[2], computeTileSize, aTileSize, bTileSize,
       cTileSize, simdize, unroll, overCompute);
@@ -398,20 +432,20 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
 void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
     ValueRange globalUBs, bool simdize, bool unroll, bool overCompute) const {
-  b().create<KrnlMatMulOp>(loc(), A, aStart, B, bStart, C, cStart, loops,
+  KrnlMatMulOp::create(b(), loc(), A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
       globalUBs[1], globalUBs[2], simdize, unroll, overCompute);
 }
 
 KrnlMovableOp KrnlBuilder::movable() const {
-  return b().create<KrnlMovableOp>(loc());
+  return KrnlMovableOp::create(b(), loc());
 }
 
 Value KrnlBuilder::constant(MemRefType type, StringRef name,
     std::optional<Attribute> value, std::optional<IntegerAttr> offset,
     std::optional<IntegerAttr> alignment) const {
   static int32_t constantID = 0;
-  return b().create<KrnlGlobalOp>(loc(), type,
+  return KrnlGlobalOp::create(b(), loc(), type,
       b().getI64ArrayAttr(type.getShape()),
       b().getStringAttr(name + std::to_string(constantID++)),
       value.value_or(nullptr), offset.value_or(nullptr),
@@ -432,7 +466,7 @@ Value KrnlBuilder::roundEven(Value input) const {
     // Use Krnl round even op as LLVM does not support roundEven.
     if (!vecType)
       // Scalar.
-      return b().create<KrnlRoundEvenOp>(loc(), input.getType(), input);
+      return KrnlRoundEvenOp::create(b(), loc(), input.getType(), input);
 
     // Vector, enable unrolling of multiple archVL.
     int64_t archVL = VectorMachineSupport::getArchVectorLength(
@@ -453,7 +487,7 @@ Value KrnlBuilder::roundEven(Value input) const {
       // output 2D vector.
       Value subInput = create.vec.extractFrom2D(input2D, i);
       Value subOutput =
-          b().create<KrnlRoundEvenOp>(loc(), subInput.getType(), subInput);
+          KrnlRoundEvenOp::create(b(), loc(), subInput.getType(), subInput);
       output2D = create.vec.insertInto2D(subOutput, output2D, i);
     }
     // Recast output 2D vector into the flat vector (same shape as input).
@@ -472,45 +506,45 @@ Value KrnlBuilder::roundEven(Value input) const {
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
   MultiDialectBuilder<MathBuilder> create(*this);
   Value zero = create.math.constantIndex(0);
-  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems,
+  KrnlMemcpyOp::create(b(), loc(), dest, src, numElems,
       /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value numElems,
     Value destOffset, Value srcOffset) const {
-  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems, destOffset, srcOffset);
+  KrnlMemcpyOp::create(b(), loc(), dest, src, numElems, destOffset, srcOffset);
 }
 
 void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
-  b().create<KrnlMemsetOp>(loc(), dest, val, b().getBoolAttr(delayed));
+  KrnlMemsetOp::create(b(), loc(), dest, val, b().getBoolAttr(delayed));
 }
 
 Value KrnlBuilder::strncmp(Value str1, Value str2, Value len) const {
-  return b().create<KrnlStrncmpOp>(loc(), b().getI32Type(), str1, str2, len);
+  return KrnlStrncmpOp::create(b(), loc(), b().getI32Type(), str1, str2, len);
 }
 
 Value KrnlBuilder::strlen(Value str) const {
-  return b().create<KrnlStrlenOp>(loc(), b().getI64Type(), str);
+  return KrnlStrlenOp::create(b(), loc(), b().getI64Type(), str);
 }
 
 void KrnlBuilder::randomNormal(Value alloc, Value numberOfRandomValues,
     Value mean, Value scale, Value seed) const {
-  b().create<KrnlRandomNormalOp>(
-      loc(), alloc, numberOfRandomValues, mean, scale, seed);
+  KrnlRandomNormalOp::create(
+      b(), loc(), alloc, numberOfRandomValues, mean, scale, seed);
 }
 
 Value KrnlBuilder::findIndex(Value input, Value G, Value V, Value len) const {
-  return b().create<KrnlFindIndexOp>(
-      loc(), b().getIndexType(), input, G, V, len);
+  return KrnlFindIndexOp::create(
+      b(), loc(), b().getIndexType(), input, G, V, len);
 }
 
 void KrnlBuilder::printTensor(StringRef msg, Value input) const {
-  b().create<KrnlPrintTensorOp>(loc(), msg, input);
+  KrnlPrintTensorOp::create(b(), loc(), msg, input);
 }
 
 void KrnlBuilder::printf(StringRef msg) const {
   Value noneValue;
-  b().create<KrnlPrintOp>(loc(), msg, noneValue);
+  KrnlPrintOp::create(b(), loc(), msg, noneValue);
 }
 
 void KrnlBuilder::printf(
@@ -518,7 +552,7 @@ void KrnlBuilder::printf(
   StringRef format = getFormat(inputType);
   std::string concat(msg.str() + format.str() + (endsWithNewLine ? "\n" : ""));
   StringRef newFormat(concat);
-  b().create<KrnlPrintOp>(loc(), newFormat, input);
+  KrnlPrintOp::create(b(), loc(), newFormat, input);
 }
 
 void KrnlBuilder::printf(

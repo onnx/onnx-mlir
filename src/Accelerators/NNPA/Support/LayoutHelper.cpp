@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <numeric>
+
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
 using namespace mlir;
@@ -91,6 +93,105 @@ bool isNHWCLayout(StringAttr layout) {
 
 mlir::StringAttr getNCHWLayoutAttr(PatternRewriter &rewriter) {
   return rewriter.getStringAttr(LAYOUT_NCHW);
+}
+
+SmallVector<int64_t, 4> convertTo4DShape(
+    ArrayRef<int64_t> origShape, std::string layout) {
+  SmallVector<int64_t, 4> shape4D;
+  if (layout == LAYOUT_1D) {
+    // (e1) -> (1, 1, 1, e1)
+    assert(origShape.size() == 1 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[0]);
+  } else if (layout == LAYOUT_2D) {
+    // (e2, e1) -> (1, 1, e2, e1)
+    assert(origShape.size() == 2 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(origShape[1]);
+  } else if (layout == LAYOUT_2DS) {
+    // (e4, e1) -> (e4, 1, 1, e1)
+    assert(origShape.size() == 2 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[1]);
+  } else if (layout == LAYOUT_3D) {
+    // (e3, e2, e1) -> (1, e3, e2, e1)
+    assert(origShape.size() == 3 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(origShape[1]);
+    shape4D.emplace_back(origShape[2]);
+  } else if (layout == LAYOUT_3DS) {
+    // (e4, e2, e1) -> (e4, 1, e2, e1)
+    assert(origShape.size() == 3 && "Shape and layout are inconsistent");
+    shape4D.emplace_back(origShape[0]);
+    shape4D.emplace_back(1);
+    shape4D.emplace_back(origShape[1]);
+    shape4D.emplace_back(origShape[2]);
+  } else if (layout == LAYOUT_4D || layout == LAYOUT_4DS) {
+    // (e4, e3, e2, e1) -> (e4, e3, e2, e1)
+    assert(origShape.size() == 4 && "Shape and layout are inconsistent");
+    for (int64_t v : origShape)
+      shape4D.emplace_back(v);
+  } else {
+    llvm_unreachable("Unsupported data layout");
+  }
+  return shape4D;
+}
+
+bool isNoopReshape(ShapedType srcType, std::string srcLayout,
+    ShapedType tgtType, std::string tgtLayout) {
+  // Supported layouts: 2DS, 3DS, 4D.
+  SmallVector<std::string> supportedLayouts = {
+      LAYOUT_2DS, LAYOUT_3DS, LAYOUT_4D};
+  if (llvm::none_of(supportedLayouts,
+          [&srcLayout](std::string v) { return srcLayout == v; }))
+    return false;
+  if (llvm::none_of(supportedLayouts,
+          [&tgtLayout](std::string v) { return tgtLayout == v; }))
+    return false;
+
+  // Both ztensors have static shape.
+  if (!srcType.hasStaticShape() || !tgtType.hasStaticShape())
+    return false;
+
+  // Normalize to 4D shape.
+  SmallVector<int64_t, 4> src4D =
+      convertTo4DShape(srcType.getShape(), srcLayout);
+  SmallVector<int64_t, 4> tgt4D =
+      convertTo4DShape(tgtType.getShape(), tgtLayout);
+
+  // Check total sizes.
+  if (std::accumulate(src4D.begin(), src4D.end(), 1, std::multiplies<>{}) !=
+      std::accumulate(tgt4D.begin(), tgt4D.end(), 1, std::multiplies<>{}))
+    return false;
+
+  // Memory access:
+  // - (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, e2%32, e1%64).
+  //
+  // Check that the shape's changed from
+  // - S1(e4, e3, e2, e1)
+  // to
+  // - S2(e4', e3, e2, e1'),
+  //
+  // where
+  // - e2 = e3 = 1
+  // - e1 % 64 = 0 and e1' % 64 = 0
+  //
+  // which makes sure that values are at the same offset.
+  if ((src4D[1] != tgt4D[1]) || (src4D[1] != 1))
+    return false;
+  if ((src4D[2] != tgt4D[2]) || (src4D[2] != 1))
+    return false;
+  if ((src4D[3] % 64 != 0) || (tgt4D[3] % 64 != 0))
+    return false;
+
+  return true;
 }
 
 } // namespace onnx_mlir

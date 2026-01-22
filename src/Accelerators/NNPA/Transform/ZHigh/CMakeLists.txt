@@ -86,3 +86,18 @@ add_onnx_mlir_library(OMZHighScrubDisposable
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
+
+  add_onnx_mlir_library(OMFusionStickUnstick
+  FusionOpStickUnstick.cpp
+
+  DEPENDS
+  libzdnn
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXToZHigh
+  OMRewriteONNXForZHigh
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )

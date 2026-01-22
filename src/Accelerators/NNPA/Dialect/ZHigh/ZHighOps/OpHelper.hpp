@@ -4,7 +4,7 @@
 
 //===-------- ZHighHelper.hpp - ZHigh Helper Functions --------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -109,6 +109,13 @@ bool hasNNPAUse(mlir::Value v);
 
 /// Get saturation settings.
 mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
+
+// Return true if layout is supported by compiler code that generate custom
+// stick/unstick code.
+bool supportedLayoutForCompilerGeneratedStickUnstick(
+    mlir::Value val, bool includeNHWC = true);
+bool supportedLayoutForCompilerGeneratedStickUnstick(
+    mlir::StringAttr layout, bool includeNHWC = true);
 
 } // namespace zhigh
 } // namespace onnx_mlir

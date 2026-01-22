@@ -553,7 +553,7 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
 }
 
 def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX Bernoulli operation";
   let description = [{
   Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor
@@ -586,6 +586,7 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
@@ -892,10 +893,11 @@ def ONNXCastOp:ONNX_Op<"Cast",
    build($_builder, $_state, resultType, input, saturate, to);
   }] >
   ];
+  let hasVerifier = 1;
 }
 
 def ONNXCastLikeOp:ONNX_Op<"CastLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX CastLike operation";
   let description = [{
   The operator casts the elements of a given input tensor (the first input) to
@@ -925,6 +927,7 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
@@ -2305,7 +2308,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D
@@ -2339,6 +2342,7 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
@@ -6179,6 +6183,7 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
@@ -6257,6 +6262,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
@@ -8327,7 +8333,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX SequenceEmpty operation";
   let description = [{
   Construct an empty tensor sequence, with given data type.

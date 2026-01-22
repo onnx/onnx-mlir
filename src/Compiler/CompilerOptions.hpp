@@ -99,6 +99,7 @@ extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
 extern bool printIR;                                          // onnx-mlir only
+extern int printONNXBasicIR;                                  // onnx-mlir only
 extern bool preserveBitcode;                                  // onnx-mlir only
 extern bool preserveLLVMIR;                                   // onnx-mlir only
 extern bool preserveMLIR;                                     // onnx-mlir only
@@ -106,6 +107,8 @@ extern bool doNotEmitFullMLIRCode;                            // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only
+extern std::string shapeInformationUB;                        // onnx-mlir only
+extern std::string shapeInformationLB;                        // onnx-mlir only
 extern std::string dimParams;                                 // onnx-mlir only
 extern ModelSize modelSize;                                   // onnx-mlir only
 extern bool storeConstantsToFile;                             // onnx-mlir only
@@ -134,6 +137,7 @@ extern std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 extern std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 extern std::string modelTag;                                  // onnx-mlir only
 extern bool enableConvOptPass;                                // onnx-mlir only
+extern std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 extern bool disableConstantProp;                              // onnx-mlir only
 extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
 extern std::vector<std::string> extraLibs;                    // onnx-mlir only
@@ -142,6 +146,8 @@ extern OptReport optReport;                                   // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
+extern bool useLinalgPath;                                    // onnx-mlir only
+extern std::string linalgOps;                                 // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only

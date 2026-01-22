@@ -50,16 +50,16 @@ public:
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
     Type i8PtrType = getPointerType(ctx, i8Type);
-    Value str1Ptr = rewriter.create<LLVM::IntToPtrOp>(
-        loc, i8PtrType, operandAdaptor.getStr1());
-    Value str2Ptr = rewriter.create<LLVM::IntToPtrOp>(
-        loc, i8PtrType, operandAdaptor.getStr2());
+    Value str1Ptr = LLVM::IntToPtrOp::create(
+        rewriter, loc, i8PtrType, operandAdaptor.getStr1());
+    Value str2Ptr = LLVM::IntToPtrOp::create(
+        rewriter, loc, i8PtrType, operandAdaptor.getStr2());
     Value length = operandAdaptor.getLen();
 
     // Strncmp call.
     Type i32Type = IntegerType::get(ctx, 32);
-    auto funcCall = rewriter.create<func::CallOp>(
-        loc, StrncmpRef, i32Type, ArrayRef<Value>({str1Ptr, str2Ptr, length}));
+    auto funcCall = func::CallOp::create(rewriter, loc, StrncmpRef, i32Type,
+        ArrayRef<Value>({str1Ptr, str2Ptr, length}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();

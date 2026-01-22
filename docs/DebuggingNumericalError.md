@@ -64,9 +64,26 @@ optional arguments:
 
 ## Helper script to compare a model under two distinct compile option.
 
-Based on the above `utils/runONNXModel.py`, the `utils/checkONNXModel.py` allows a user to run a given model twice, under two distinct compile options, and compare its results.
+Based on the above `utils/runONNXModel.py`, the `utils/CheckONNXModel.py` allows a user to run a given model twice, under two distinct compile options, and compare its results.
 This let a user simply test a new option, comparing the safe version of the compiler (e.g. `-O0` or `-O3`) with a more advanced version (e.g. `-O3` or `-O3 --march=x86-64`). Simply specify the compile options using the `--ref-compile-args` and `--test-compile-args` flags, a model using the `--model` flag, and possibly a `--shape-info` in presence of dynamic shape inputs.
 Full options are listed under the `--help` flag.
+
+## Tracing the compiler steps.
+
+To gain more insight in what the compiler is doing, you may want to print the output of the compiler after each transformation pass. The flags are well documented in the `mlir` literature, and we have written a script that automatically add such flags by using a custom script.
+This script is found here `utils/onnx-mlir-print.sh`, and it is used by adding all desired compiler option, plus one last argument indicating the file in which to save the log of the compiler output.
+Note that this script will list by default all of the compiler passes, regardless of whether they changed anything or not.
+If you want to limit the output to passes that changed the IR, please manually add the `--mlir-print-ir-after-change` flag when invoking `onnx-mlir-print.sh` script.
+
+
+That compiler log may typically have 10-100 passes. We have a tool to isolate a given pass. Use `utils/IsolatePass.py -m <log-file-name> -l` to list the name of all of these passes. You can then decide to investigate the compiler output of a given pass.
+For example, if interested in the transformation of ONNX to Krnl dialect, you can add the `-p "convert-onnx-to-krnl"` option, where the `convert-onnx-to-krnl` is the name of the actual pass. The `-p` option just take a regex matching a pass as listed with the `-l` option. Alternatively, option `-n 34` will isolate the 34th pass as listed with the `-l` option.
+
+Say you are interested in the pass just before or just after `convert-onnx-to-krnl`, you can use, respectively, the `-a -1`  or the `-a 1` additional option.
+The `-a` option can also list a REGEX, in which case, it will print the next pass that matches that REGEX.
+
+Full options are listed under the `--help` flag.
+
 
 ## Debugging the Code Generated for an Operator.
 

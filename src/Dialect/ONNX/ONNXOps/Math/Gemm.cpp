@@ -30,7 +30,7 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   DimsExpr outputDims;
 
   // Get info.
-  ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
+  ONNXGemmOp gemmOp = mlir::dyn_cast<ONNXGemmOp>(op);
   ONNXGemmOpAdaptor operandAdaptor(operands);
   Value A = operandAdaptor.getA();
   Value B = operandAdaptor.getB();
@@ -79,6 +79,18 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   if (aDims[1].isLiteral() && bDims[0].isLiteral() &&
       aDims[1].getLiteral() != bDims[0].getLiteral()) {
     return op->emitError("Gemm 2nd dim of A is different than 1st dim of B");
+  } else if (aDims[1].isLiteral()) {
+    // Save aDims[1] into bDims[0], in case bDims[0] was runtime.
+    bDims[0] = aDims[1];
+    // Update the 1st dim of B to the literal aDims[1].
+    this->updateInputDimAt(
+        B, aDims[1].getLiteral(), gemmOp.getTransB() == 0 ? 0 : 1);
+  } else if (bDims[0].isLiteral()) {
+    // Save bDims[0] into aDims[1], in case aDims[1] was runtime.
+    aDims[1] = bDims[0];
+    // Update the last dim of A to the literal bDims[0].
+    this->updateInputDimAt(
+        A, bDims[0].getLiteral(), gemmOp.getTransA() == 0 ? 1 : 0);
   }
   if (hasBias) {
     // Check first dim.

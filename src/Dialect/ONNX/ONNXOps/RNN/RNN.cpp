@@ -27,8 +27,8 @@ namespace onnx_mlir {
 template <typename OP_TYPE>
 LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     int gates) {
-  OP_TYPE rnnOp = llvm::cast<OP_TYPE>(op);
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  OP_TYPE rnnOp = mlir::dyn_cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands, rnnOp);
 
   Value X = operandAdaptor.getX();
   Value W = operandAdaptor.getW();
@@ -54,6 +54,11 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   // Get sequence length, batch size.
   IndexExpr seqLength = batchwiseLayout ? xDims[1] : xDims[0];
   IndexExpr batchSize = batchwiseLayout ? xDims[0] : xDims[1];
+
+  // If input_size dim is dynamic in the input and static in the weight,
+  // update the input_size dim in the input to be static.
+  if (!xDims[2].isLiteral() && wDims[2].isLiteral())
+    this->updateInputDimAt(X, wDims[2].getLiteral(), 2);
 
   // Get hidden size from hidden_size attribute.
   IndexExpr hiddenSize;

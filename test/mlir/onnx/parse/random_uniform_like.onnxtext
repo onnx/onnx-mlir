@@ -1,0 +1,16 @@
+
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 9]
+>
+test_eye_like_dtype (float[unk__a,unk__b] RandomUniformLike_in) => (bfloat16[] RandomUniformLike_out) 
+{
+   RandomUniformLike_out = RandomUniformLike<dtype: int = 16> (RandomUniformLike_in)
+}
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "RandomUniformLike_in"}) -> (tensor<?x?xbf16> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "RandomUniformLike_out"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniformLike"([[PARAM_0_]]) <{dtype = 16 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32}> : (tensor<?x?xf32>) -> tensor<?x?xbf16>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?xbf16>
+// CHECK:         }

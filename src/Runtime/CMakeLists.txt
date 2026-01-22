@@ -22,6 +22,7 @@ add_onnx_mlir_library(cruntime STATIC
   OMRandomUniform.c
   OMResize.c
   OMSort.c
+  OMTopK.c
   OMTensor.c
   OMTensorList.c
   OMUnique.c
@@ -50,6 +51,7 @@ add_onnx_mlir_library(OMTensorUtils
   OMRandomUniform.cpp
   OMResize.cpp
   OMSort.cpp
+  OMTopK.cpp
   OMTensor.cpp
   OMTensorList.cpp
   OMUnique.cpp
@@ -88,6 +90,9 @@ add_onnx_mlir_library(OMExecutionSession
   LINK_LIBS PUBLIC
   OMTensorUtils
   LLVMSupport
+  absl::log_internal_check_op
+  absl::log_internal_message
+  absl::status
   )
 endif()
 set_target_properties(OMExecutionSession

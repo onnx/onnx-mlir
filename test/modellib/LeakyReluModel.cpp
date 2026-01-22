@@ -47,15 +47,15 @@ bool LeakyReluLibBuilder::build() {
   auto xVal = entryBlock.getArgument(0);
 
   FloatAttr alphaAttr = FloatAttr::get(builder.getF32Type(), alphaVal);
-  auto addOp = builder.create<ONNXAddOp>(loc,
+  auto addOp = ONNXAddOp::create(builder, loc,
       /*Y=*/yType, /*X=*/xVal, /*X=*/xVal);
-  auto leakyReluOp = builder.create<ONNXLeakyReluOp>(loc,
+  auto leakyReluOp = ONNXLeakyReluOp::create(builder, loc,
       /*Y=*/yType, /*X=*/addOp, /*alpha=*/alphaAttr);
-  auto subOp = builder.create<ONNXSubOp>(loc,
+  auto subOp = ONNXSubOp::create(builder, loc,
       /*Y=*/yType, /*X=*/leakyReluOp, /*X=*/xVal);
 
   llvm::SmallVector<Value, 1> results = {subOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -64,7 +64,7 @@ bool LeakyReluLibBuilder::build() {
 
 bool LeakyReluLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 1;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0];

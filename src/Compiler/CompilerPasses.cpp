@@ -18,25 +18,33 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -68,6 +76,30 @@ void configurePasses() {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr) {
+  // Check if selective Linalg conversion is requested via --linalg-ops
+  // This check is moved here to ensure all drivers (main compiler, NNPA
+  // accelerator, etc.) share the same logic for the linalg path.
+  extern std::string linalgOps;
+  extern bool useLinalgPath;
+  extern EmissionTargetType emissionTarget;
+  // Only enable selective Linalg if --linalg-ops is set and not "NONE"
+  // "NONE" means no operations should be converted to Linalg, so we should
+  // use the Krnl path instead
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
+
+  // Determine if we should call ONNX to MLIR passes
+  // This is needed for both Krnl and Linalg paths when emitting MLIR or above
+  bool shouldCallONNXToMLIR =
+      emissionTarget >= EmitONNXIR ||
+      (emissionTarget >= EmitMLIR && (useLinalgPath || useSelectiveLinalg));
+
+  // Early return if we don't need to add passes
+  if (!shouldCallONNXToMLIR) {
+    return;
+  }
+
+  // Add ONNX to MLIR preprocessing passes
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -83,8 +115,14 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Replace ops with its operand. This is to bypass the operations.
+  if (!replaceOpWithItsOperand.empty())
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceOpWithItsOperandPass(
+        /*nodeNameRegexList=*/replaceOpWithItsOperand));
+
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
@@ -176,10 +214,37 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+
+  // Convert ONNX to Linalg if requested (either --use-linalg-path or
+  // --linalg-ops is specified)
+  // This is called after preprocessing passes to ensure proper IR state
+  if (useLinalgPath || useSelectiveLinalg) {
+    addONNXToLinalgPasses(pm);
+  }
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     std::string ONNXOpsStatFormat) {
+  // Check if selective Linalg conversion is requested via --linalg-ops
+  // This check is moved here to ensure all drivers share the same logic for
+  // handling mixed IR (Linalg + ONNX operations)
+  extern std::string linalgOps;
+  extern bool useLinalgPath;
+  // Only enable selective Linalg if --linalg-ops is set and not "NONE"
+  // "NONE" means no operations should be converted to Linalg
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
+
+  // In mixed IR scenarios (useSelectiveLinalg = true), we need to handle both
+  // Linalg and ONNX operations. Lower Linalg to Affine first, then convert
+  // remaining ONNX operations to Krnl.
+  if (useLinalgPath || useSelectiveLinalg) {
+    // Linalg path: Lower Linalg to Affine
+    // This is called either when --use-linalg-path is set, or when
+    // --linalg-ops is specified for selective conversion
+    addLinalgToAffinePasses(pm);
+  }
+
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -218,8 +283,160 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
       onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
 }
 
+void addONNXToLinalgPasses(mlir::PassManager &pm) {
+  // Convert ONNX operations to Linalg dialect
+  // Similar to addONNXToKrnlPasses for Krnl path
+  // Note: This assumes addONNXToMLIRPasses has been called first to:
+  //   - Replace ONNXReturnOp with func::ReturnOp (createStandardFuncReturnPass)
+  //   - Clean dead code (createSymbolDCEPass)
+  //   - Other preprocessing passes
+
+  // Get linalg options from driver options
+  extern std::string linalgOps;
+  extern bool useLinalgPath;
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createConvertONNXToLinalg(linalgOps, useLinalgPath));
+
+  // Convert ONNXEntryPointOp to KrnlEntryPointOp
+  // This MUST be done BEFORE bufferization because getSignature() needs
+  // tensor types, not memref types. After bufferization, function signatures
+  // are converted to memref types which cannot be properly serialized.
+  // This uses the same ONNXEntryPointLowering pattern as the Krnl pipeline
+  // to ensure consistent signature generation.
+  struct ConvertONNXEntryPointToKrnlPass
+      : public mlir::PassWrapper<ConvertONNXEntryPointToKrnlPass,
+            mlir::OperationPass<mlir::ModuleOp>> {
+    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+        ConvertONNXEntryPointToKrnlPass)
+    void runOnOperation() override {
+      mlir::ModuleOp module = getOperation();
+      mlir::MLIRContext *context = &getContext();
+      mlir::RewritePatternSet patterns(context);
+
+      // Use the existing ONNXEntryPointLowering pattern from
+      // ConvertONNXToKrnl.cpp This ensures identical signature generation as
+      // Krnl pipeline
+      populateLoweringONNXEntryPointOpPattern(patterns, context);
+
+      // Apply patterns greedily
+      mlir::GreedyRewriteConfig config;
+      if (failed(mlir::applyPatternsGreedily(
+              module, std::move(patterns), config))) {
+        signalPassFailure();
+      }
+    }
+    StringRef getArgument() const override {
+      return "convert-onnx-entry-point-to-krnl";
+    }
+    StringRef getDescription() const override {
+      return "Convert onnx.EntryPoint to krnl.EntryPoint for entry point "
+             "function generation (same as Krnl pipeline)";
+    }
+  };
+  pm.addPass(std::make_unique<ConvertONNXEntryPointToKrnlPass>());
+
+  // One-shot bufferization (Tensor → Memref)
+  // This must be a module-level pass to handle function boundaries
+  bufferization::OneShotBufferizePassOptions bufferizeOptions;
+  bufferizeOptions.bufferizeFunctionBoundaries = true;
+  // Allow operations without BufferizableOpInterface (e.g., ONNX ops that will
+  // be handled by Krnl later)
+  bufferizeOptions.allowUnknownOps = true;
+  pm.addPass(bufferization::createOneShotBufferizePass(bufferizeOptions));
+
+  // An additional pass of canonicalization is helpful after conversion
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
+void addLinalgToAffinePasses(mlir::PassManager &pm) {
+  // Convert Linalg operations to Affine/SCF loops
+  // Similar to addKrnlToAffinePasses for Krnl path
+  auto &funcPM = pm.nest<func::FuncOp>();
+
+  // 1. Linalg → Loops (creates structured control-flow loops: affine.for,
+  // scf.for)
+  funcPM.addPass(mlir::createConvertLinalgToLoopsPass());
+
+  // 2. Buffer management (MUST be before convert-scf-to-cf)
+  // buildBufferDeallocationPipeline requires structured control-flow loops
+  // which are created by convert-linalg-to-loops above
+  // convert-scf-to-cf removes structured loops, so buffer management must come
+  // first
+  funcPM.addPass(bufferization::createBufferLoopHoistingPass());
+  bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      funcPM, bufferDeallocOptions);
+  funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+  funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
+
+  // 3. Lower to Affine/SCF (after buffer management)
+  funcPM.addPass(mlir::createLowerAffinePass());
+  funcPM.addPass(mlir::createSCFToControlFlowPass());
+}
+
+void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
+  // Convert remaining operations to LLVM dialect
+  // Similar to addKrnlToLLVMPasses for Krnl path
+  // Note: onnx.EntryPoint is already converted to krnl.EntryPoint in
+  // addONNXToLinalgPasses, so we can use createConvertKrnlToLLVMPass()
+  // to generate runtime functions (omQueryEntryPoints, omInputSignature,
+  // omOutputSignature, etc.)
+
+  // This pass handles:
+  // 1. Entry point preprocessing (PostfixEntrypointNames,
+  // removeUnhandledParamAttrs)
+  // 2. Runtime information collection (recordInputOutputMemRefTypes,
+  //    hasSingleEntryPoint, determineOwnershipForOutputOMTensors)
+  // 3. KrnlEntryPointOp → LLVM conversion (dynamic entry point functions,
+  //    OMTensor conversion, accelerator initialization, signature recording)
+  // 4. Runtime function generation (omQueryEntryPoints, omInputSignature,
+  //    omOutputSignature)
+  // 5. Other features (constants file storage, C wrapper, .lrodata section)
+  pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
+      /*useLRODATA=*/(modelSize == ModelSize::large),
+      /*storeConstantsToFile=*/storeConstantsToFile,
+      constantsToFileSingleThreshold, constantsToFileTotalThreshold,
+      outputNameNoExt, enableParallel));
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
 void addKrnlToLLVMPasses(
     mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE) {
+  // Check if selective Linalg conversion is requested via --linalg-ops
+  // This check is moved here to ensure all drivers share the same logic for
+  // handling mixed IR (Linalg + ONNX operations) when lowering to LLVM
+  extern std::string linalgOps;
+  extern bool useLinalgPath;
+  // Only enable selective Linalg if --linalg-ops is set and not "NONE"
+  // "NONE" means no operations should be converted to Linalg
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
+
+  // In mixed IR scenarios (useSelectiveLinalg = true), Linalg ops are already
+  // converted to Affine. We need to handle both Linalg (via Affine) and Krnl
+  // operations when lowering to LLVM. For Linalg path, we can use a simpler
+  // pass sequence since Linalg ops are already converted to Affine/SCF.
+  if (useLinalgPath || useSelectiveLinalg) {
+    // Linalg path: Lower remaining operations to LLVM
+    // Uses createConvertKrnlToLLVMPass() to generate runtime functions
+    // since onnx.EntryPoint is already converted to krnl.EntryPoint
+    // This is called either when --use-linalg-path is set, or when
+    // --linalg-ops is specified for selective conversion
+    // Note: onnx.EntryPoint is already converted to krnl.EntryPoint in
+    // addONNXToLinalgPasses, so we can use createConvertKrnlToLLVMPass()
+    // to generate runtime functions (omQueryEntryPoints, omInputSignature,
+    // omOutputSignature, etc.)
+    pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
+        /*useLRODATA=*/(modelSize == ModelSize::large),
+        /*storeConstantsToFile=*/storeConstantsToFile,
+        constantsToFileSingleThreshold, constantsToFileTotalThreshold,
+        outputNameNoExt, enableParallel));
+    pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    return;
+  }
+
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -267,6 +484,7 @@ void addKrnlToLLVMPasses(
     //  redundant, which helps reliability of the compilation of these ops.
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(onnx_mlir::createProcessKrnlParallelClausePass());
+    pm.addPass(onnx_mlir::createBufferOMPLoopHoisting());
   }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
@@ -275,12 +493,16 @@ void addKrnlToLLVMPasses(
   // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
+  // This pass is required on s390x targets to ensure all vector operations
+  // are properly lowered to LLVM dialect. (e.g., vector.to_elements)
+  pm.addPass(mlir::createConvertVectorToLLVMPass());
 
   if (profileIR)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
 
   if (enableBoundCheck)
     pm.addPass(mlir::createGenerateRuntimeVerificationPass());
+
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
@@ -319,19 +541,47 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget, std::string outputNameNoExt) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+  // Check if selective Linalg conversion is requested via --linalg-ops
+  extern std::string linalgOps;
+  // Only enable selective Linalg if --linalg-ops is set and not "NONE"
+  // "NONE" means no operations should be converted to Linalg, so we should
+  // use the Krnl path instead
+  bool useSelectiveLinalg =
+      !linalgOps.empty() && linalgOps.find("NONE") == std::string::npos;
 
-  if (emissionTarget >= EmitMLIR) {
-    if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(
-          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
-    if (inputIRLevel <= MLIRLevel)
-      addKrnlToAffinePasses(pm);
+  // Step 1: Convert ONNX to intermediate representation (Krnl or Linalg)
+  if (inputIRLevel <= ONNXLevel) {
+
+    // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
+    // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
+    // The function now handles the shouldCallONNXToMLIR check internally and
+    // automatically calls addONNXToLinalgPasses if needed
+    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
   }
 
-  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+  // Step 2: Lower to Affine dialect (for EmitMLIR)
+  if (emissionTarget >= EmitMLIR) {
+    if (inputIRLevel <= ONNXLevel) {
+      // Convert ONNX to Krnl (and Linalg to Affine if needed)
+      // The function now handles both Linalg and ONNX operations in mixed IR
+      // scenarios, automatically calling addLinalgToAffinePasses if needed
+      addONNXToKrnlPasses(
+          pm, OptimizationLevel, /*enableCSE*/ true, ONNXOpStats);
+    }
+    // For Krnl path: Lower Krnl to Affine (when input is already at MLIR level)
+    if (inputIRLevel <= MLIRLevel && !useLinalgPath && !useSelectiveLinalg) {
+      addKrnlToAffinePasses(pm);
+    }
+  }
+
+  // Step 3: Lower to LLVM dialect (for EmitLLVMIR)
+  if (emissionTarget >= EmitLLVMIR) {
+    // Lower to LLVM (handles both Linalg and Krnl operations in mixed IR)
+    // The function now handles both Linalg and Krnl operations, automatically
+    // calling addLinalgToLLVMPasses if needed
+    if (inputIRLevel <= LLVMLevel)
+      addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+  }
 }
 
 } // namespace onnx_mlir

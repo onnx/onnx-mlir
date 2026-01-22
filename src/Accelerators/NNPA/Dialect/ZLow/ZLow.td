@@ -8,6 +8,8 @@
 //
 // Defines ZLow Dialect operations.
 //
+// When updating, run `make onnx-mlir-docs` to update the docs.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ZLOW_OPS
@@ -20,7 +22,6 @@ def ZLow_Dialect : Dialect {
   let name = "zlow";
   let summary = "A low-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zlow";  
-  let usePropertiesForAttributes = 0;
 }
 
 // Base class for ZLow dialect operations. This operation inherits from the
@@ -710,7 +711,8 @@ def ZLowReshapeOp:ZLow_Op<"reshape", [MemRefsNormalizable]> {
   // Note that no shape is needed for this operation.
   let arguments = (ins ZMemRef:$X,
                        ZMemRef:$Out,
-                       StrAttr:$layout);
+                       StrAttr:$x_layout,
+                       StrAttr:$out_layout);
 }
 
 #endif // ZLOW_OPS

@@ -21,7 +21,7 @@ my_option = {
     "compile_options": "--verifyInputTensors -O3 --maccel=NNPA  --march=arch14",
 }
 
-opt_mod = torch.compile(mod, backend=onnxmlirtorch.onnxmlir_backend, options=my_option)
+opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
 
 # First inference
 input1 = torch.randn(64, 1024)

@@ -4,7 +4,7 @@
 
 //====-------------- DialectBuilder.cpp - Krnl Dialect Builder ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,6 +16,7 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZLow/DialectBuilder.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
@@ -28,13 +29,51 @@ namespace onnx_mlir {
 
 void ZLowBuilder::stick(
     Value x, Value out, StringAttr layout, IntegerAttr noSaturation) const {
-  b().create<zlow::ZLowStickOp>(loc(), x, out, layout, noSaturation);
+  zlow::ZLowStickOp::create(b(), loc(), x, out, layout, noSaturation);
+}
+
+void ZLowBuilder::convertDLF16ToF32(
+    Value dlf16, Value &highF32, Value &lowF32) {
+  assert(mlir::dyn_cast<VectorType>(dlf16.getType()) && "expect vector");
+  auto op = zlow::ZLowConvertDLF16ToF32VectorOp::create(b(), loc(), dlf16);
+  highF32 = op.getResult(0);
+  lowF32 = op.getResult(1);
+}
+
+Value ZLowBuilder::convertDLF16ToF32(Value dlf16) {
+  assert(!mlir::dyn_cast<VectorType>(dlf16.getType()) && "expect scalar");
+  auto op = zlow::ZLowConvertDLF16ToF32Op::create(b(), loc(), dlf16);
+  return op.getResult();
+}
+
+Value ZLowBuilder::convertF32ToDLF16(
+    Value highF32, Value lowF32, bool disableSaturation) {
+  assert(mlir::dyn_cast<VectorType>(highF32.getType()) && "expect vector");
+  assert(mlir::dyn_cast<VectorType>(lowF32.getType()) && "expect vector");
+  if (!disableSaturation) {
+    // Saturation is requested
+    MultiDialectBuilder<MathBuilder> create(*this);
+    Type f32Type = b().getF32Type();
+    Value minInF32 = create.math.constant(f32Type, DLF16_MIN);
+    Value maxInF32 = create.math.constant(f32Type, DLF16_MAX);
+    highF32 = create.math.min(highF32, maxInF32);
+    lowF32 = create.math.min(lowF32, maxInF32);
+    highF32 = create.math.max(highF32, minInF32);
+    lowF32 = create.math.max(lowF32, minInF32);
+  }
+  return zlow::ZLowConvertF32ToDLF16VectorOp::create(
+      b(), loc(), highF32, lowF32);
+}
+
+Value ZLowBuilder::convertF32ToDLF16(Value f32) {
+  assert(!mlir::dyn_cast<VectorType>(f32.getType()) && "expect scalar");
+  return zlow::ZLowConvertF32ToDLF16Op::create(b(), loc(), f32);
 }
 
 void ZLowBuilder::quantizedStick(Value x, Value recScale, Value offset,
     Value out, StringAttr layout, StringAttr qType) const {
-  b().create<zlow::ZLowQuantizedStickOp>(
-      loc(), x, recScale, offset, out, layout, qType);
+  zlow::ZLowQuantizedStickOp::create(
+      b(), loc(), x, recScale, offset, out, layout, qType);
 }
 
 void ZLowBuilder::quantizedMatMul(Value x, Value xRecScale, Value xOffset,
@@ -44,7 +83,7 @@ void ZLowBuilder::quantizedMatMul(Value x, Value xRecScale, Value xOffset,
     StringAttr outQType, IntegerAttr isBcast, IntegerAttr isStacked,
     IntegerAttr preComputedBias, IntegerAttr disableClipping,
     IntegerAttr dequantizeOutput) const {
-  b().create<zlow::ZLowQuantizedMatMulOp>(loc(), x, xRecScale, xOffset, y,
+  zlow::ZLowQuantizedMatMulOp::create(b(), loc(), x, xRecScale, xOffset, y,
       yRecScale, yOffset, bias, biasRecScale, biasOffset, workArea, shape, out,
       outRecScale, outOffset, xQType, yQType, biasQType, outQType, isBcast,
       isStacked, preComputedBias, disableClipping, dequantizeOutput);

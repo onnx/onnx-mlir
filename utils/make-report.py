@@ -36,8 +36,7 @@ import numpy as np
 def print_usage(msg=""):
     if msg:
         print("Error:", msg, "\n")
-    print(
-        """
+    print("""
 Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
 make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
       [-p <plot_file_name][-s <stats>] [--sort <val>] [--supported] [-u <val>]
@@ -88,6 +87,9 @@ Parameters on what to print:
                        2: Also list metrics.
                        3: Also list node name.
   -p/--plot <name>:    Print a "<name>.jpg" plot of the output.
+  --reporting <name>:  quartile: average excluding outlier experiments (default).
+                       all: average including every experiments.
+                       sum: sum of every experiments.
 
 Parameters on how to print:
   -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or
@@ -97,8 +99,7 @@ Parameters on how to print:
 Help:
   -v/--verbose:        Run in verbose mode (see error and warnings).
   -h/--help:           Print usage.
-    """
-    )
+    """)
     exit(1)
 
 
@@ -123,6 +124,7 @@ has_timing = False
 verbose = False
 sorting_preference = ""
 report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names.
+reporting = "QUARTILE"
 time_unit = 1  # seconds.
 min_percent_reporting = 0.0  # percentage.
 
@@ -320,7 +322,7 @@ def parse_file_for_stat(file_name, stat_name):
                 break
 
         # Parse line.
-        (has_stat, op, node_name, details) = parse_line(
+        has_stat, op, node_name, details = parse_line(
             line.rstrip(), report_str, is_perf_stat
         )
         if not has_stat:
@@ -336,7 +338,7 @@ def parse_file_for_stat(file_name, stat_name):
         if timing_key in node_time_used:
             # has seen it
             continue
-        (op, node_name) = get_op_node_from_timing_key(timing_key)
+        op, node_name = get_op_node_from_timing_key(timing_key)
         secondary_key = get_secondary_key(node_name, "")
         record_pattern(op, node_name, secondary_key)
 
@@ -347,7 +349,7 @@ def parse_file_for_stat(file_name, stat_name):
 
 def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     global node_time_dict, tot_time
-    global verbose, has_timing
+    global verbose, has_timing, reporting
 
     try:
         file = open(file_name, "r")
@@ -382,7 +384,7 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
                 break  # On to the next measurement.
 
             # Parse line.
-            (has_stat, op, node_name, details) = parse_line(line, report_str, True)
+            has_stat, op, node_name, details = parse_line(line, report_str, True)
             if not has_stat:
                 continue
             # Keep only after times.
@@ -415,13 +417,23 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     # Encountered now all the measurements, has no more.
     meas_num = start_count - warmup_num
     assert meas_num > 0, "expected at least one set of measurement after warmups"
-    discard_num = int(meas_num / 4)
+
+    discard_num = 0
+    if reporting == "QUARTILE":
+        discard_num = int(meas_num / 4)
+        reporting_msg = "keep inner"
+    elif reporting == "ALL":
+        reporting_msg = "keep all"
+    elif reporting == "SUM":
+        reporting_msg = "sum all"
+
     print(
         "Gather stats from",
         start_count,
         "measurement sets with",
         warmup_num,
-        "warmup; keep inner",
+        "warmup; ",
+        reporting_msg,
         meas_num - 2 * discard_num,
         "experiment(s)",
     )
@@ -432,7 +444,10 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
         if discard_num > 0 and meas_num - 2 * discard_num > 0:
             time_array = np.sort(time_array)
             time_array = time_array[discard_num:-discard_num]
-        node_time_dict[node] = np.average(time_array)
+        if reporting == "SUM":
+            node_time_dict[node] = np.sum(time_array)
+        else:
+            node_time_dict[node] = np.average(time_array)
     # Success.
     has_timing = True
     tot_time = node_time_dict["tot_time"]
@@ -461,7 +476,7 @@ def get_sorting_key(count, name, time):
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
-    global has_timing, time_unit, error_missing_time
+    global has_timing, time_unit, error_missing_time, reporting
     global report_level, supported_only, verbose, min_percent_reporting
     global sorting_preference
     global plot_names, plot_values, plot_x_axis
@@ -622,7 +637,7 @@ def output_plot(runtime_file_name, plot_file_name):
 
 def main(argv):
     global report_level, focus_on_op_with_pattern, supported_only, time_unit
-    global min_percent_reporting, verbose
+    global min_percent_reporting, verbose, reporting
     global sorting_preference
 
     compile_file_name = ""
@@ -642,6 +657,7 @@ def main(argv):
                 "level=",
                 "min=",
                 "plot=",
+                "reporting=",
                 "runtime=",
                 "stats=",
                 "sort=",
@@ -672,6 +688,15 @@ def main(argv):
             plot_file_name = arg
         elif opt in ("-r", "--runtime"):
             runtime_file_name = arg
+        elif opt in ("--reporting"):
+            if re.match(r"\s*quartile\s*", arg):
+                reporting = "QUARTILE"
+            elif re.match(r"\s*all\s*", arg):
+                reporting = "ALL"
+            elif re.match(r"\s*sum\s*", arg):
+                reporting = "SUM"
+            else:
+                print_usage("reporting options are 'quartile', 'all', or 'sum'")
         elif opt in ("-s", "--stats"):
             if re.match(r"\s*par\s*", arg):
                 make_stats = "PAR"

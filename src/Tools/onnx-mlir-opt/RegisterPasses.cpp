@@ -25,8 +25,26 @@
 #include "src/Compiler/CompilerPasses.hpp"
 
 #include "mlir/InitAllPasses.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "src/Pass/Passes.hpp"
+
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/SCFToOpenMP/SCFToOpenMP.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
+
+#include "mlir/Transforms/Passes.h"
+
+#include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/SCF/Transforms/Passes.h"
 
 using namespace mlir;
 
@@ -53,6 +71,10 @@ void registerOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvOptONNXToONNXPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceOpWithItsOperandPass(/*nodeNameRegexList*/ {});
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -134,6 +156,10 @@ void registerOMPasses(int optLevel) {
     return createConvertONNXToTOSAPass();
   });
 
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createConvertONNXToLinalg();
+  });
+
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToStablehloPass();
@@ -142,7 +168,14 @@ void registerOMPasses(int optLevel) {
 }
 
 void registerMLIRPasses() {
-  registerTransformsPasses();
+  // Register passes created from Passes.td.
+  // The function name is registerTransformsPasses(). They are put into
+  // Different name space to be distinguished.
+  // Passes from MLIR project
+  mlir::registerTransformsPasses();
+  // Passes created from onnx-mlir/src/Transform/Passes.td
+  onnx_mlir::registerTransformsPasses();
+
   affine::registerAffinePasses();
   func::registerFuncPasses();
   registerLinalgPasses();

@@ -15,16 +15,17 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout f8cb7987c64dcffb72414a40560055cb717dbf74 && cd ..
+cd llvm-project && git checkout 0c2701fe7fa002e1befc5f86c268a7964f96d286 && cd ..
 ```
 
-[same-as-file]: <> (utils/build-mlir.sh)
+[same-as-file]: <> ({"ref": "utils/build-mlir.sh", "skip-ref": 2})
 ``` bash
 mkdir llvm-project/build
 cd llvm-project/build
 
 cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS="mlir;clang;openmp" \
+   -DLLVM_ENABLE_PROJECTS="mlir;clang" \
+   -DLLVM_ENABLE_RUNTIMES="openmp" \
    -DLLVM_TARGETS_TO_BUILD="host" \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
@@ -36,15 +37,10 @@ cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
-To enable parallelization for onnx-mlir, llvm-project should be configured as
-```
-cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS=mlir \
-   -DLLVM_TARGETS_TO_BUILD="host" \
-   -DCMAKE_BUILD_TYPE=Release \
-   -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DLLVM_ENABLE_RTTI=ON \
-   -DLLVM_ENABLE_LIBEDIT=OFF
+On MacOS with M-chips, or if you have link errors about missing `___kmpc_atomic...` functions, building the additional `compiler-rt`  runtimes should solve the issue. 
+Namely, substitute the line below to the above `cmake` command.
+```bash
+   -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
 ```
 
 ## ONNX-MLIR (this project)
@@ -92,6 +88,27 @@ Since OSX Big Sur, add the `-DCMAKE_CXX_COMPILER=/usr/bin/c++` option to the abo
 The environment variable `$pythonLocation` may be used to specify the base directory of the Python compiler.
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
+
+#### Build for NNPA
+To enable compilation for accelerator NNPA, `-DONNX_MLIR_ACCELERATORS=NNPA` should be added for cmake initialization. Moreover, the code for NNPA does not support ninja because of the variable for $NPROC (To be fixed). The command to initialize cmake will be:
+```
+if [[ -z "$pythonLocation" ]]; then
+  cmake -DONNX_MLIR_ACCELERATORS=NNPA \
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DMLIR_DIR=${MLIR_DIR} \
+        ..
+else
+  cmake -DONNX_MLIR_ACCELERATORS=NNPA\
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DPython3_ROOT_DIR=$pythonLocation \
+        -DMLIR_DIR=${MLIR_DIR} \
+        ..
+fi
+```
 
 ### Enable CPU Optimizations
 

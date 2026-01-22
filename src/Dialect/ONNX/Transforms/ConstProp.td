@@ -123,8 +123,8 @@ def CreateMinimumValueForClip: NativeCodeCall<
   "createMinimumValueForClip($_builder, cast<mlir::ShapedType>($0.getType()), $1)"
 >;
 
-def CreateONNXMinOp : NativeCodeCall<"$_builder.create<ONNXMinOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
-def CreateONNXMaxOp : NativeCodeCall<"$_builder.create<ONNXMaxOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
+def CreateONNXMinOp : NativeCodeCall<"ONNXMinOp::create($_builder, $_loc, $0.getType(), ValueRange({$1, $2}))">;
+def CreateONNXMaxOp : NativeCodeCall<"ONNXMaxOp::create($_builder, $_loc, $0.getType(), ValueRange({$1, $2}))">;
 
 def CreateZeroTensorOfType: NativeCodeCall<
   "ConstZeroTensor($_builder, $_loc, mlir::cast<mlir::ShapedType>($0.getType()))"

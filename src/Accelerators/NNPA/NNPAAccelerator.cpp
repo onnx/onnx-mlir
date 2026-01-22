@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPAAccelerator.cpp -----------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -105,8 +105,13 @@ void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
 void NNPAAccelerator::registerPasses(int optLevel) const {
   LLVM_DEBUG(llvm::dbgs() << "Registering passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,
-        nnpaSaveDevicePlacementFile, nnpaPlacementHeuristic);
+    return onnx_mlir::createDevicePlacementPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic);
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createQuantOpSelectionPass(
+        nnpaLoadConfigFile, nnpaSaveConfigFile);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -151,6 +156,10 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass();
   });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createFusionOpStickUnstick();
+  });
 }
 
 void NNPAAccelerator::configurePasses() const {
@@ -190,7 +199,9 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
   onnx_mlir::zhigh::populateZHighToZLowConversionPattern(patterns,
       typeConverter, ctx,
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
-      enableParallel);
+      enableParallel, nnpaDisableSaturation);
+  onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
+      patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(
