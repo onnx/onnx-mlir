@@ -56,6 +56,7 @@ add_onnx_mlir_library(OMONNXRewrite
   ConvertToChannelLast.cpp
   ResultNamesUpdater.cpp
   xmc/MergeSliceConcatPass.cpp
+  xmc/CombineTransposePair.cpp
   xmc/MergeStridedSliceConcatConvPass.cpp
   xmc/ConvertPoolLikeOpToPool2dPass.cpp
   xmc/InstanceNormToGroupNormPass.cpp

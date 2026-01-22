@@ -109,6 +109,8 @@ std::unique_ptr<mlir::Pass> createMergeSliceConcatPass();
 std::unique_ptr<mlir::Pass> createMergeStridedSliceConcatConvPass();
 std::unique_ptr<mlir::Pass> createONNXTransposeOptimizationPass();
 
+/// Pass to combine two transpose with same input and same perm.
+std::unique_ptr<mlir::Pass> createCombineTransposePairPass();
 /// Pass for transferring Resize Linear operations to depthwise convolutions.
 std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
 
