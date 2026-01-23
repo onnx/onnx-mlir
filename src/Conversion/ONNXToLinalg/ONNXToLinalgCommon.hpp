@@ -36,10 +36,12 @@ namespace onnx_mlir {
 // onnx-mlir-opt), we default to converting operations if no options are set.
 // The linalgOpsMatcher parameter should be a pointer to an EnableByRegexOption
 // instance that is thread-safe (each pattern instance should have its own).
-// Note: linalgOpsMatcher is non-const because isEnabled() modifies internal cache.
+// Note: linalgOpsMatcher is non-const because isEnabled() modifies internal
+// cache.
 inline bool shouldConvertToLinalg(mlir::Operation *op,
     EnableByRegexOption *linalgOpsMatcher, bool useLinalgPath) {
-  // When linalgOpsMatcher is null or empty, default to converting all operations
+  // When linalgOpsMatcher is null or empty, default to converting all
+  // operations
   if (!linalgOpsMatcher) {
     return true;
   }
