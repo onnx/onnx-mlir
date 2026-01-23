@@ -61,9 +61,9 @@ inline bool shouldConvertToLinalg(
   static std::string cachedLinalgOps;
   static std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
 
-  // Reinitialize if linalgOps has changed (shouldn't happen in practice, but
-  // safe)
-  if (cachedLinalgOps != linalgOps) {
+  // Reinitialize if linalgOps has changed or if matcher is not initialized
+  // (shouldn't happen in practice, but safe)
+  if (cachedLinalgOps != linalgOps || !linalgOpsMatcher) {
     cachedLinalgOps = linalgOps;
     linalgOpsMatcher = std::make_unique<EnableByRegexOption>(false, linalgOps);
   }
@@ -71,6 +71,10 @@ inline bool shouldConvertToLinalg(
   // Check both with and without dialect prefix to support:
   // - "onnx.MatMul" or "MatMul" patterns
   // - Future dialects like "tosa.MatMul", "stablehlo.MatMul"
+  // Safety check: ensure matcher is initialized before use
+  if (!linalgOpsMatcher) {
+    return true; // Default to enabled if matcher failed to initialize
+  }
   return linalgOpsMatcher->isEnabled(opNameWithDialect) ||
          linalgOpsMatcher->isEnabled(opNameWithoutDialect);
 }

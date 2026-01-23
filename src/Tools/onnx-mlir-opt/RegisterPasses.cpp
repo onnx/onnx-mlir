@@ -46,13 +46,17 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 
+using namespace mlir;
+using namespace onnx_mlir;
+
 // Include generated pass registration functions
+// These must be included after using namespace declarations so that
+// the generated code can find the pass creation functions in the onnx_mlir
+// namespace
 #define GEN_PASS_REGISTRATION
 #include "src/Transform/Passes.h.inc"
 #define GEN_PASS_REGISTRATION
 #include "src/Conversion/ONNXToLinalg/Passes.h.inc"
-
-using namespace mlir;
 
 namespace onnx_mlir {
 
@@ -176,9 +180,14 @@ void registerMLIRPasses() {
   // Passes from MLIR project
   mlir::registerTransformsPasses();
   // Passes created from onnx-mlir/src/Transform/Passes.td
-  onnx_mlir::registerTransformsPasses();
+  // Note: registerTransformsPasses() is generated as an inline function in
+  // global namespace Use :: prefix to avoid conflict with
+  // mlir::registerTransformsPasses()
+  ::registerTransformsPasses();
   // Passes created from onnx-mlir/src/Conversion/ONNXToLinalg/Passes.td
-  onnx_mlir::registerONNXToLinalgPasses();
+  // Note: registerONNXToLinalgPasses() is generated as an inline function in
+  // global namespace
+  ::registerONNXToLinalgPasses();
 
   affine::registerAffinePasses();
   func::registerFuncPasses();
