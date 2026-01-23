@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-// RUN: onnx-mlir-opt --split-input-file --remove_useless_qlinear_pool %s | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --remove-useless-qlinear-pool %s | FileCheck %s
 
 // Test MaxPool fulfilling noop criteria is removed
 // CHECK-LABEL: func.func @noop_linear_maxpool

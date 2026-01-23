@@ -158,6 +158,21 @@ std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
 /// Pass for transferring PoolFix operations to DownsampleFix operations.
 std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 
+/// Pass for transforming reshape-like operations to Reshape.
+std::unique_ptr<mlir::Pass> createTransformReshapelikeOpToReshapePass();
+
+/// Pass for transforming 5D Transpose to Reshape + 4D Transpose + Reshape.
+std::unique_ptr<mlir::Pass> createTransform5DTransposeTo4DPass();
+
+/// Pass for eliminating reshape operations around slice operations.
+std::unique_ptr<mlir::Pass> createEliminateReshapeAroundSlicePass();
+
+/// Pass for optimizing MHA Slice-Reshape-Transpose blocks.
+std::unique_ptr<mlir::Pass> createOptimizeSliceReshapeTransposeBlockPass();
+
+/// Pass for transferring 5D block operations to 4D equivalents.
+std::unique_ptr<mlir::Pass> createTransfer5dBlockTo4dPass();
+
 /// Pass for transferring 5D strided Slice operations to 4D.
 std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
 
