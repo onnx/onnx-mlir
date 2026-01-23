@@ -39,8 +39,13 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeBatchnormToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOp3dToOp2dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferPoolFixToDownsampleFixPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferPoolFixToDownsampleFixPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransformReshapelikeOpToReshapePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransform5DTransposeTo4DPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createEliminateReshapeAroundSlicePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createOptimizeSliceReshapeTransposeBlockPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dBlockTo4dPass());
+
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dStridedSliceTo4d());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createBatchReductionToReshapeReductionPass());
