@@ -21,6 +21,7 @@ WORKDIR ${WORK_DIR}
 # Install tools needed
 RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]') \
     && TZ="America/New_York" \
+    && rm -f /usr/lib/python*/EXTERNALLY-MANAGED \
     && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
           DEBIAN_FRONTEND=noninteractive && \
           apt-get update -qq && \
