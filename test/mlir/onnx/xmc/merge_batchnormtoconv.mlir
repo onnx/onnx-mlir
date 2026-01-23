@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -merge-batchnorm-to-conv -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --merge-batchnorm-to-conv %s | FileCheck %s
 
 // CHECK-LABEL: @test_merge_batchnorm_to_conv
 

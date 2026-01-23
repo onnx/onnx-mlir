@@ -1,4 +1,4 @@
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -transfer-space-to-depth-to-conv2d -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --transfer-space-to-depth-to-conv2d %s | FileCheck %s
 
   func.func @test_space_to_depth_qdq(%arg0: tensor<1x3x512x512xf32>) -> tensor<1x48x128x128xf32> {
     %0 = onnx.Constant dense<5.000000e-01> : tensor<f32>

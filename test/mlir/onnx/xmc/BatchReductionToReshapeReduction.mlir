@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -batch-reduction-to-reshape-reduction -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --batch-reduction-to-reshape-reduction %s | FileCheck %s
 // -----
 func.func @test_batch_reduction(%arg0: tensor<16x16x300x4xf32>) -> tensor<16x16x300xf32> {
   %0 = onnx.Constant dense<1.000000e-01> : tensor<f32>

@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -replace-ndim-transpose -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --replace-ndim-transpose %s | FileCheck %s
 func.func @replace_ndim_transpose_positive(%arg0: tensor<1x4x320x16xf32>) -> tensor<320x1x64xf32> {
   %0 = "onnx.Transpose"(%arg0) {perm = [2, 0, 3, 1]} : (tensor<1x4x320x16xf32>) -> tensor<320x1x16x4xf32>
 

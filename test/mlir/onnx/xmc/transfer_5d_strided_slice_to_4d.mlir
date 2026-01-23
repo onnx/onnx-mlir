@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-// RUN: flexml-opt %configPassStx -annotate-config="library-metadata-dirs=%S" %s -transfer-5d-strided-slice-to-4d -o - | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --transfer-5d-strided-slice-to-4d %s | FileCheck %s
 
 // CHECK-LABEL: func.func @test_quantized_5d_slice_to_4d
 func.func @test_quantized_5d_slice_to_4d(%arg0: tensor<1x8x16x32x64xf32>) -> tensor<1x8x16x10x64xf32> {
