@@ -21,7 +21,6 @@ WORKDIR ${WORK_DIR}
 # Install tools needed
 RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]') \
     && TZ="America/New_York" \
-    && rm -f /usr/lib/python*/EXTERNALLY-MANAGED \
     && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
           DEBIAN_FRONTEND=noninteractive && \
           apt-get update -qq && \
@@ -36,6 +35,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   python3-pip python3-pytest-xdist python3-setuptools \
                   python3-typing-extensions unzip zip zlib1g-dev && \
           rm -rf /var/lib/apt/lists/* && \
+          rm -f /usr/lib/python*/EXTERNALLY-MANAGED && \
           ln -sf /usr/bin/pytest-3 /usr/bin/pytest || true; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
