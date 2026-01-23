@@ -67,7 +67,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           # symlink creation
           ([ -f /usr/bin/python3.12 ] && [ "${RHEL_VERSION}" -lt 9 ] && yum remove -y python3.12 || true) && \
           # Use same versions as those in ubuntu:jammy
-          pip3 install -q \
+          pip3 install -q --user \
                Cython pytest==7.4.4 numpy==1.26.4 pytest-forked==1.6.0 \
                pytest-xdist==3.4.0 && \
           rm -rf /var/cache/dnf/* && \
