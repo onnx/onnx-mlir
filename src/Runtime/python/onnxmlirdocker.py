@@ -349,6 +349,7 @@ class InferenceSession:
             print("error: input is not provided. ToFix: random input")
             exit(1)
 
+        os.environ["OM_CONSTANT_PATH"] = os.path.dirname(self.compiled_model)
         return self.session.run(inputs)
 
     def input_signature(self):
