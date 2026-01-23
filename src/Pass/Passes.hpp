@@ -142,6 +142,24 @@ std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
 /// Pass for transferring PoolFix operations to DownsampleFix operations.
 std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 
+/// Pass for transferring 5D strided Slice operations to 4D.
+std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
+
+/// Pass for transferring SpaceToDepth patterns to Conv2D.
+std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
+
+/// Pass for merging BatchNormalization parameters into Conv (XMC).
+std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
+
+/// Pass for converting batch ReduceSum operations to reshape-optimized ReduceSum (XMC).
+std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
+
+/// Pass for deleting redundant Relu chains (XMC).
+std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
+
+/// Pass for model-specific transpose decomposition (XMC).
+std::unique_ptr<mlir::Pass> createReplaceNDimTransposePass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 

@@ -104,11 +104,35 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferSpaceToDepthToConv2dPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createMergeBatchnormToConvPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createBatchReductionToReshapeReductionPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveRedundantReluPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceNDimTransposePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createTransferOp3dToOp2dPass();
   });
-  
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createTransferPoolFixToDownsampleFixPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransfer5dStridedSliceTo4d();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

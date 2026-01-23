@@ -68,6 +68,12 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ConvertMulToDepthwiseConv2dPass.cpp
   xmc/TransferOp3dToOp2dPass.cpp
   xmc/TransferPoolFixToDownsampleFixPass.cpp
+  xmc/Transfer5dStridedSliceTo4d.cpp
+  xmc/TransferSpaceToDepthToConv2dPass.cpp
+  xmc/MergeBatchnormToConvPass.cpp
+  xmc/BatchReductionToReshapeReductionPass.cpp
+  xmc/RemoveRedundantReluPass.cpp
+  xmc/ReplaceNDimTransposePass.cpp
   xmc/ONNXTransposeOptimizationPass.cpp
   xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
 
