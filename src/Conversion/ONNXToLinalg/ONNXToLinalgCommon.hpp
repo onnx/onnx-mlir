@@ -34,17 +34,12 @@ namespace onnx_mlir {
 // useLinalgPath is enabled.
 // Note: When convert-onnx-to-linalg pass is explicitly run (e.g., via
 // onnx-mlir-opt), we default to converting operations if no options are set.
-inline bool shouldConvertToLinalg(
-    mlir::Operation *op, const std::string &linalgOps, bool useLinalgPath) {
-  // When convert-onnx-to-linalg pass is explicitly run (e.g., via
-  // onnx-mlir-opt), we default to converting all operations unless linalgOps
-  // is explicitly set
-  if (linalgOps.empty()) {
-    // If linalgOps is not specified, check useLinalgPath flag
-    // If useLinalgPath is true, convert all operations to Linalg
-    // Otherwise, default to true for onnx-mlir-opt usage (when pass is
-    // explicitly run) Note: In onnx-mlir-opt, useLinalgPath may not be
-    // initialized, so we default to true
+// The linalgOpsMatcher parameter should be a pointer to an EnableByRegexOption
+// instance that is thread-safe (each pattern instance should have its own).
+inline bool shouldConvertToLinalg(mlir::Operation *op,
+    const EnableByRegexOption *linalgOpsMatcher, bool useLinalgPath) {
+  // When linalgOpsMatcher is null or empty, default to converting all operations
+  if (!linalgOpsMatcher) {
     return true;
   }
 
@@ -54,19 +49,6 @@ inline bool shouldConvertToLinalg(
   // backward compatibility
   std::string opNameWithDialect = op->getName().getStringRef().str();
   std::string opNameWithoutDialect = op->getName().stripDialect().str();
-
-  // Use EnableByRegexOption to check if operation matches
-  // Use static variable with lazy initialization to ensure linalgOps is set
-  // emptyIsNone=false means empty string enables all (but we already checked)
-  static std::string cachedLinalgOps;
-  static std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
-
-  // Reinitialize if linalgOps has changed (shouldn't happen in practice, but
-  // safe)
-  if (cachedLinalgOps != linalgOps) {
-    cachedLinalgOps = linalgOps;
-    linalgOpsMatcher = std::make_unique<EnableByRegexOption>(false, linalgOps);
-  }
 
   // Check both with and without dialect prefix to support:
   // - "onnx.MatMul" or "MatMul" patterns

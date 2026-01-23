@@ -29,15 +29,17 @@ namespace onnx_mlir {
 struct ONNXMatMulOpLoweringToLinalg : public OpRewritePattern<ONNXMatMulOp> {
   ONNXMatMulOpLoweringToLinalg(
       MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath)
-      : OpRewritePattern<ONNXMatMulOp>(ctx), linalgOps(linalgOps),
-        useLinalgPath(useLinalgPath) {}
+      : OpRewritePattern<ONNXMatMulOp>(ctx), useLinalgPath(useLinalgPath),
+        linalgOpsMatcher(linalgOps.empty() ? nullptr
+                                           : std::make_unique<EnableByRegexOption>(
+                                                 false, linalgOps)) {}
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matMulOp, PatternRewriter &rewriter) const final {
     // Check if this operation should be converted to Linalg based on
     // linalg-ops option
     Operation *op = matMulOp.getOperation();
-    if (!shouldConvertToLinalg(op, linalgOps, useLinalgPath)) {
+    if (!shouldConvertToLinalg(op, linalgOpsMatcher.get(), useLinalgPath)) {
       return rewriter.notifyMatchFailure(
           matMulOp, "operation not selected for Linalg conversion");
     }
@@ -97,8 +99,8 @@ struct ONNXMatMulOpLoweringToLinalg : public OpRewritePattern<ONNXMatMulOp> {
   }
 
 private:
-  std::string linalgOps;
   bool useLinalgPath;
+  std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
 };
 
 void populateLoweringONNXMatMulOpToLinalgPattern(RewritePatternSet &patterns,
