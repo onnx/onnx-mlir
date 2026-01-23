@@ -30,9 +30,10 @@ struct ONNXMatMulOpLoweringToLinalg : public OpRewritePattern<ONNXMatMulOp> {
   ONNXMatMulOpLoweringToLinalg(
       MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath)
       : OpRewritePattern<ONNXMatMulOp>(ctx), useLinalgPath(useLinalgPath),
-        linalgOpsMatcher(linalgOps.empty() ? nullptr
-                                           : std::make_unique<EnableByRegexOption>(
-                                                 false, linalgOps)) {}
+        linalgOpsMatcher(
+            linalgOps.empty()
+                ? nullptr
+                : std::make_unique<EnableByRegexOption>(false, linalgOps)) {}
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matMulOp, PatternRewriter &rewriter) const final {
@@ -100,7 +101,7 @@ struct ONNXMatMulOpLoweringToLinalg : public OpRewritePattern<ONNXMatMulOp> {
 
 private:
   bool useLinalgPath;
-  std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
+  mutable std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
 };
 
 void populateLoweringONNXMatMulOpToLinalgPattern(RewritePatternSet &patterns,
