@@ -107,7 +107,17 @@ std::unique_ptr<mlir::Pass> createConvertToChannelLastPass();
 /// Pass for merging Slice->Concat patterns with downstream ops.
 std::unique_ptr<mlir::Pass> createMergeSliceConcatPass();
 std::unique_ptr<mlir::Pass> createMergeStridedSliceConcatConvPass();
+
+/// Pass for merging continuous chained Slice operations with quantized types.
+std::unique_ptr<mlir::Pass> createMergeContinuousStridedSlicePass();
+
 std::unique_ptr<mlir::Pass> createONNXTransposeOptimizationPass();
+
+/// Pass to combine two transpose with same input and same perm.
+std::unique_ptr<mlir::Pass> createCombineTransposePairPass();
+
+/// Pass to remove redundant Transpose-Reshape-Transpose sequences.
+std::unique_ptr<mlir::Pass> createRemoveContinuousTransposeWithReshapePass();
 
 /// Pass for transferring Resize Linear operations to depthwise convolutions.
 std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
@@ -117,6 +127,12 @@ std::unique_ptr<mlir::Pass> createLowerReduceToPoolPass();
 
 /// Pass for removing semantically useless operations.
 std::unique_ptr<mlir::Pass> createRemoveSemanticallyUselessOpsPass();
+
+/// Pass for removing useless pool operations (kernel_shape and strides all 1s).
+std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
+
+/// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
+std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
 
 /// Pass for transferring ReduceMean/Sum operations to Conv operations.
 std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
