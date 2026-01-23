@@ -131,6 +131,9 @@ std::unique_ptr<mlir::Pass> createRemoveSemanticallyUselessOpsPass();
 /// Pass for removing useless pool operations (kernel_shape and strides all 1s).
 std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
 
+/// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
+std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
+
 /// Pass for transferring ReduceMean/Sum operations to Conv operations.
 std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
 

@@ -42,47 +42,6 @@ LogicalResult extractConstantIntArray(Value value,
   return failure();
 }
 
-/// Helper function to extract constant float value from a tensor value
-/// Returns failure if the value is not a constant or cannot be extracted
-LogicalResult extractConstantFloat(Value value, float &result) {
-  Operation *defOp = value.getDefiningOp();
-  if (!defOp)
-    return failure();
-
-  if (auto constOp = dyn_cast<mlir::ONNXConstantOp>(defOp)) {
-    auto valueAttr = constOp.getValueAttr();
-    if (auto denseAttr = dyn_cast<DenseElementsAttr>(valueAttr)) {
-      if (denseAttr.getNumElements() == 1) {
-        auto floatIt = denseAttr.getSplatValue<APFloat>();
-        result = floatIt.convertToFloat();
-        return success();
-      }
-    }
-  }
-
-  return failure();
-}
-
-/// Helper function to extract constant integer value from a tensor value
-/// Returns failure if the value is not a constant or cannot be extracted
-LogicalResult extractConstantInt(Value value, int32_t &result) {
-  Operation *defOp = value.getDefiningOp();
-  if (!defOp)
-    return failure();
-
-  if (auto constOp = dyn_cast<mlir::ONNXConstantOp>(defOp)) {
-    auto valueAttr = constOp.getValueAttr();
-    if (auto denseAttr = dyn_cast<DenseIntElementsAttr>(valueAttr)) {
-      if (denseAttr.getNumElements() == 1) {
-        auto intIt = denseAttr.getSplatValue<APInt>();
-        result = intIt.getSExtValue();
-        return success();
-      }
-    }
-  }
-
-  return failure();
-}
 
 /// Helper function to extract quantization parameters from a tensor type
 /// Returns failure if the type is not quantized
