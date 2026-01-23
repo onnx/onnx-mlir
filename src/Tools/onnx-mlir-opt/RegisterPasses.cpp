@@ -68,6 +68,18 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createMergeContinuousStridedSlicePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveContinuousTransposeWithReshapePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveUselessQLinearPoolPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createMergeStridedSliceConcatConvPass();
   });
 

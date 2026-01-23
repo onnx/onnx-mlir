@@ -12,7 +12,7 @@
 
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "onnx-combine-transpose-pair"
+#define DEBUG_TYPE "combine-transpose-pair"
 
 using namespace mlir;
 
