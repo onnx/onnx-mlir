@@ -5,7 +5,7 @@
 //===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
-// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
+// Copyright 2025-2026 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -75,7 +75,7 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
   return rewriter.getI64TensorAttr(vals);
 }
 
-// Check if a value is a splat constant (all elements have the same value)
+// Check if a value is a splat constant
 static bool isSplatConstant(Value val) {
   auto constOp = val.getDefiningOp<ONNXConstantOp>();
   if (!constOp)
@@ -151,8 +151,9 @@ Value createReshapedConstantForWeightFusion(
 // Conv. This is used for  FuseMulConvNullBiasPattern Valid cases:
 //   1. Scalar (1 element)
 //   2. Splat constant and only if Mul doesn't do broadcasting on spatial
-//   dimensions (the last two dims)
-//   3. Only one dim has Cout elements and the rest dims have single element
+//      dimensions (the last two dims)
+//   3. Per-channel scaling: after right-aligning shapes for broadcasting,
+//      the constant must be 1 on all dimensions except the channel dim (dim 1)
 bool hasValidShapeForWeightFusion(
     Value constant, Value weight, Value mulResult) {
   auto constType = mlir::dyn_cast<ShapedType>(constant.getType());
@@ -192,22 +193,26 @@ bool hasValidShapeForWeightFusion(
     return convType.getShape() == resultType.getShape();
   }
 
-  // Case 3: Per-ouput-channel scaling (must have C_out elements)
-  if (numElements != cOut)
-    return false;
+  // Case 3: Per-channel scaling
+  // After right-aligning shapes for broadcasting, the constant must be 1 on
+  // all dimensions except the channel dimension (dim 1 in NCHW layout).
+  // This ensures the constant only varies along the channel dimension.
+  for (int64_t i = 0; i < resultRank; ++i) {
+    // Right-align: find corresponding constant dimension
+    int64_t constIdx = constRank - (resultRank - i);
+    int64_t constDim = (constIdx >= 0) ? constShape[constIdx] : 1;
 
-  // Check: only one dimension > 1
-  int dimsGreaterThanOne = 0;
-  for (const int64_t dim : constShape) {
-    if (dim > 1) {
-      dimsGreaterThanOne++;
+    if (i == 1) {
+      // Channel dimension: can be 1 (broadcast) or C_out (per-channel)
+      if (constDim != 1 && constDim != cOut)
+        return false;
+    } else {
+      // Non-channel dimensions: MUST broadcast (must be 1)
+      if (constDim != 1)
+        return false;
     }
   }
-
-  // Note: No need to explicitly check channel alignment because
-  // if the ONNX structure is valid, invalid alignments would have already
-  // been rejected by ONNX Mul broadcasting rules.
-  return dimsGreaterThanOne == 1;
+  return true;
 }
 
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.

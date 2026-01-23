@@ -449,7 +449,9 @@ def FuseMulConvNullBiasPattern: Pat<
    (IsFromONNXConstantOp $w),
    (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.
-   (HasValidShapeForWeightFusion $y, $w, $res)]
+   (HasValidShapeForWeightFusion $y, $w, $res),
+   (IsStaticShapeTensor:$res)
+  ]
 >;
 
 // TODO add pattern for non-null bias with constraints:

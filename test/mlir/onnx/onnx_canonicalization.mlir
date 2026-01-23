@@ -1047,7 +1047,6 @@ func.func @test_fuse_mul_conv_scalar(%arg0: tensor<1x3x224x224xf32>) -> tensor<1
     %result = "onnx.Mul"(%conv, %scalar) : (tensor<1x64x112x112xf32>, tensor<f32>) -> tensor<1x64x112x112xf32>
     return %result : tensor<1x64x112x112xf32>
   // CHECK-LABEL: func.func @test_fuse_mul_conv_scalar
-  // Reshape scalar (1 element) to [1,1,1,1] and fuse into weight
   // CHECK-DAG: %[[NONE:.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-DAG: %[[W:.+]] = onnx.Constant dense<2.000000e+00> : tensor<64x3x3x3xf32>
   // CHECK-DAG: %[[SCALAR:.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
@@ -1141,6 +1140,57 @@ func.func @test_no_fuse_mul_conv_splat_with_broadcasting(%arg0: tensor<1x3x4x4xf
     // CHECK: %[[MUL:.+]] = "onnx.Mul"(%[[CONV]], %[[SPLAT]]) : (tensor<1x16x1x1xf32>, tensor<4x4xf32>) -> tensor<1x16x4x4xf32>
     // CHECK: return %[[MUL]]
     return %result : tensor<1x16x4x4xf32>
+}
+
+// -----
+
+// Test that pattern does NOT apply when constant scales along height dimension
+// instead of channel dimension. Conv output is [1,2,2,4] (NCHW), constant is
+// [1,1,2,1] which has 2 elements matching C_out=2, but the '2' is in the height
+// dimension, not the channel dimension. This would incorrectly apply per-height
+// scaling as per-channel scaling if fused.
+func.func @test_no_fuse_mul_conv_height_scaling(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x2x2x4xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %w = onnx.Constant dense<1.0> : tensor<2x3x3x3xf32>
+    // Constant [1,1,2,1] scales along H dimension, not channel dimension
+    %scale = onnx.Constant dense<[[[[0.5], [2.0]]]]> : tensor<1x1x2x1xf32>
+    %conv = "onnx.Conv"(%arg0, %w, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<2x3x3x3xf32>, none) -> tensor<1x2x2x4xf32>
+    %result = "onnx.Mul"(%conv, %scale) : (tensor<1x2x2x4xf32>, tensor<1x1x2x1xf32>) -> tensor<1x2x2x4xf32>
+    return %result : tensor<1x2x2x4xf32>
+
+    // CHECK-LABEL: @test_no_fuse_mul_conv_height_scaling
+    // Pattern should NOT match - Mul should remain after Conv
+    // CHECK-DAG: %[[NONE:.+]] = "onnx.NoValue"() {value} : () -> none
+    // CHECK-DAG: %[[W:.+]] = onnx.Constant dense<1.000000e+00> : tensor<2x3x3x3xf32>
+    // CHECK-DAG: %[[SCALE:.+]] = onnx.Constant dense<{{.*}}> : tensor<1x1x2x1xf32>
+    // CHECK: %[[CONV:.+]] = "onnx.Conv"(%arg0, %[[W]], %[[NONE]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<2x3x3x3xf32>, none) -> tensor<1x2x2x4xf32>
+    // CHECK: %[[MUL:.+]] = "onnx.Mul"(%[[CONV]], %[[SCALE]]) : (tensor<1x2x2x4xf32>, tensor<1x1x2x1xf32>) -> tensor<1x2x2x4xf32>
+    // CHECK: return %[[MUL]]
+}
+
+// -----
+
+// Test that pattern does NOT apply when constant scales along batch dimension.
+// Conv output is [1,8,27,27], constant is [8,1,1,1] which has 8 in the batch
+// dimension. The Mul broadcasts batch from 1->8, producing [8,8,27,27].
+// This is per-batch scaling, not per-channel scaling, and cannot be fused.
+func.func @test_no_fuse_mul_conv_batch_scaling(%arg0: tensor<1x1x28x28xf32>) -> tensor<8x8x27x27xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %w = onnx.Constant dense<1.0> : tensor<8x1x2x2xf32>
+    // Constant [8,1,1,1] scales along batch dimension, not channel dimension
+    %scale = onnx.Constant dense<[[[[1.0]]], [[[2.0]]], [[[3.0]]], [[[4.0]]], [[[5.0]]], [[[6.0]]], [[[7.0]]], [[[8.0]]]]> : tensor<8x1x1x1xf32>
+    %conv = "onnx.Conv"(%arg0, %w, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x2x2xf32>, none) -> tensor<1x8x27x27xf32>
+    %result = "onnx.Mul"(%conv, %scale) : (tensor<1x8x27x27xf32>, tensor<8x1x1x1xf32>) -> tensor<8x8x27x27xf32>
+    return %result : tensor<8x8x27x27xf32>
+
+    // CHECK-LABEL: @test_no_fuse_mul_conv_batch_scaling
+    // Pattern should NOT match - Mul broadcasts batch dim and should remain
+    // CHECK-DAG: %[[NONE:.+]] = "onnx.NoValue"() {value} : () -> none
+    // CHECK-DAG: %[[W:.+]] = onnx.Constant dense<1.000000e+00> : tensor<8x1x2x2xf32>
+    // CHECK-DAG: %[[SCALE:.+]] = onnx.Constant dense<{{.*}}> : tensor<8x1x1x1xf32>
+    // CHECK: %[[CONV:.+]] = "onnx.Conv"(%arg0, %[[W]], %[[NONE]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x2x2xf32>, none) -> tensor<1x8x27x27xf32>
+    // CHECK: %[[MUL:.+]] = "onnx.Mul"(%[[CONV]], %[[SCALE]]) : (tensor<1x8x27x27xf32>, tensor<8x1x1x1xf32>) -> tensor<8x8x27x27xf32>
+    // CHECK: return %[[MUL]]
 }
 
 // -----
