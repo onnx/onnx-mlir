@@ -68,13 +68,14 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ([ -f /usr/bin/python3.12 ] && [ "${RHEL_VERSION}" -lt 9 ] && yum remove -y python3.12 || true) && \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
-               Cython pytest==6.2.5 numpy==1.21.5 pytest-forked==1.4.0 \
-               pytest-xdist==2.5.0 typing-extensions==3.10.0.2 && \
+               Cython pytest==7.4.4 numpy==1.26.4 pytest-forked==1.6.0 \
+               pytest-xdist==3.4.0 && \
           rm -rf /var/cache/dnf/* && \
           echo -e "/usr/local/lib" > /etc/ld.so.conf.d/local.conf; \
        fi \
     && ln -sf /usr/bin/python3 /usr/bin/python \
-    && pip3 install --upgrade pip \
+    && export PATH=/root/.local/bin:${PATH} \
+    && python3 -m pip install --upgrade --user pip setuptools wheel \
     && rm -rf ${HOME}/.cache
 
 # Install bazel
@@ -132,7 +133,7 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
            ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl \
     && CC=clang CXX=clang++ bazel build //python/dist:binary_wheel \
-    && pip3 install bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl \
+    && pip3 install --user bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
 # Install jsoniter

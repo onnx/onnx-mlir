@@ -24,9 +24,9 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_nullguard' CMakeLists.txt \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
-    && python3 -m pip install --upgrade setuptools==77.0.1 \
+    && python3 -m pip install --upgrade --user setuptools==77.0.1 \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install .
+       python3 -m pip install --user .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -98,7 +98,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
           git remote rename origin upstream; \
        fi \
 # Install joblib for model zoo tests
-    && pip3 install -q joblib \
+    && pip3 install -q --user joblib \
     && rm -rf /tmp/*
 
 # Copy from onnx-mlir-dev-test to squash removed source layer and
