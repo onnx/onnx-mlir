@@ -172,6 +172,7 @@ def setup_per_pr_llvm_project(image_type, exp):
                 path=".",
                 dockerfile=LLVM_PROJECT_DOCKERFILE,
                 tag=image_full,
+                platform="linux/" + cpu_arch,
                 decode=True,
                 rm=True,
                 buildargs={
