@@ -1,6 +1,8 @@
 # By default, use ubuntu:jammy, remember to change Jenkins build script as well
 ARG BASE_IMAGE="ghcr.io/onnxmlir/ubuntu:noble"
-FROM ${BASE_IMAGE}
+# Default platform (can be overridden via --build-arg BASE_PLATFORM=...)
+ARG BASE_PLATFORM="linux/amd64"
+FROM --platform=${BASE_PLATFORM} ${BASE_IMAGE}
 
 # Label the image for various checking and cleanup
 ARG LLVM_PROJECT_SHA1

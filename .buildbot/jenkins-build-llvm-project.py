@@ -177,6 +177,7 @@ def setup_per_pr_llvm_project(image_type, exp):
                 rm=True,
                 buildargs={
                     "BASE_IMAGE": LLVM_PROJECT_BASE_IMAGE[image_type],
+                    "BASE_PLATFORM": "linux/" + cpu_arch,
                     "NPROC": NPROC,
                     "BUILD_SHARED_LIBS": LLVM_PROJECT_BUILD_SHARED_LIBS[image_type],
                     "LLVM_PROJECT_SHA1": exp["llvm_project_sha1"],
