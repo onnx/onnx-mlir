@@ -233,6 +233,7 @@ def resolve_and_override_cpu_arch_from_docker():
         arch = info.get("Architecture", "").lower()
         # Map common Docker Architecture values to cpu_arch tag names used by our registry
         arch_map = {
+            "x86_64": "amd64",  # Docker daemon reports x86_64, but platform needs amd64
             "amd64": "amd64",
             "aarch64": "arm64",
             "arm64": "arm64",
