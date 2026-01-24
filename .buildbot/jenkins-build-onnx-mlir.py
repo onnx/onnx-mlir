@@ -163,6 +163,7 @@ def build_per_pr_onnx_mlir(image_type, exp):
             path=".",
             dockerfile=ONNX_MLIR_DOCKERFILE[image_type],
             tag=image_repo + ":" + image_tag,
+            platform="linux/" + cpu_arch,
             decode=True,
             rm=True,
             buildargs={
@@ -209,6 +210,9 @@ def build_per_pr_onnx_mlir(image_type, exp):
 
 
 def main():
+    # Ensure cpu_arch matches the Docker daemon/host to avoid pulling the wrong arch
+    resolve_and_override_cpu_arch_from_docker()
+
     build_per_pr_onnx_mlir("dev", get_onnx_mlir_info("dev", "."))
     build_per_pr_onnx_mlir("usr", get_onnx_mlir_info("usr", "."))
 
