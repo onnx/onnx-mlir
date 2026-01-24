@@ -50,7 +50,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           if [ "${RHEL_VERSION}" -ge 9 ]; then \
               yum install -q -y \
                   autoconf automake ca-certificates clang cmake diffutils \
-                  file java-11-openjdk-devel java-11-openjdk-headless \
+                  file java-21-openjdk-devel java-21-openjdk-headless \
                   gcc gcc-c++ git libtool make ncurses-devel ninja-build \
                   python3.9 python3.9-devel python3.9-pip python3.9-setuptools \
                   tzdata-java unzip which zip zlib-devel && \
@@ -60,7 +60,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           else \
               yum install -q -y \
                   autoconf automake ca-certificates clang cmake diffutils \
-                  file java-11-openjdk-devel java-11-openjdk-headless \
+                  file java-21-openjdk-devel java-21-openjdk-headless \
                   gcc gcc-c++ git libtool make ncurses-devel ninja-build \
                   python39 python39-devel python39-pip python39-setuptools \
                   python39-wheel tzdata-java unzip which zip zlib-devel; \
@@ -88,15 +88,14 @@ RUN curl -sL ${BAZEL_URL}/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip -o ba
     && unzip -q -d bazel-${BAZEL_VERSION} bazel-${BAZEL_VERSION}-dist.zip \
     && rm -f bazel-${BAZEL_VERSION}-dist.zip \
     && cd bazel-${BAZEL_VERSION} \
-    # This export is the key: it fixes the crash without breaking the script parser
-    && export JAVA_TOOL_OPTIONS="--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
     && EXTRA_BAZEL_ARGS="--show_progress_rate_limit=60 \
                          --color=no \
                          --curses=yes \
                          --copt=-Wno-error=implicit-fallthrough \
                          --host_javabase=@local_jdk//:jdk \
                          --verbose_failures" \
-       BAZEL_JAVAC_OPTS="-J-Xmx4g -J-Xms1g" \
+       BAZEL_JAVAC_OPTS="-J-Xmx4g -J-Xms1g -J--add-opens=java.base/java.lang=ALL-UNNAMED -J--add-opens=java.base/java.nio=ALL-UNNAMED -J--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
+       JAVA_TOOL_OPTIONS="--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
        ./compile.sh \
     && cp output/bazel /usr/local/bin \
     && cd .. && rm -rf bazel-${BAZEL_VERSION} ${HOME}/.cache
