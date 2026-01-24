@@ -93,8 +93,8 @@ RUN curl -sL ${BAZEL_URL}/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip \
                          --curses=yes \
                          --copt=-Wno-error=implicit-fallthrough \
                          --host_javabase=@local_jdk//:jdk \
-                         --host_jvm_args=--add-opens=java.base/java.lang=ALL-UNNAMED \
-                         --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+                         --host_jvm_args --add-opens=java.base/java.lang=ALL-UNNAMED \
+                         --host_jvm_args --add-opens=java.base/java.nio=ALL-UNNAMED \
                          --verbose_failures" \
        BAZEL_JAVAC_OPTS="-J-Xmx4g -J-Xms1g -J--add-opens=java.base/java.lang=ALL-UNNAMED -J--add-opens=java.base/java.nio=ALL-UNNAMED" \
        JAVA_TOOL_OPTIONS="--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED" \
