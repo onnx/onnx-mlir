@@ -224,8 +224,42 @@ def setup_per_pr_llvm_project(image_type, exp):
         logging.info("image %s (%s) found", image_full, id[0][0:19])
 
 
+def resolve_and_override_cpu_arch_from_docker():
+    """Detect the Docker daemon/host architecture and, if different from the
+    current cpu_arch, override it so we pull/build the correct arch images."""
+    global cpu_arch
+    try:
+        info = docker_api.info()
+        arch = info.get("Architecture", "").lower()
+        # Map common Docker Architecture values to cpu_arch tag names used by our registry
+        arch_map = {
+            "amd64": "amd64",
+            "aarch64": "arm64",
+            "arm64": "arm64",
+            "s390x": "s390x",
+            "ppc64le": "ppc64le",
+        }
+        detected = arch_map.get(arch, arch)
+        if detected and cpu_arch != detected:
+            logging.info(
+                "Docker daemon reports Architecture=%s, overriding cpu_arch '%s' -> '%s'",
+                arch,
+                cpu_arch,
+                detected,
+            )
+            cpu_arch = detected
+    except Exception as e:
+        logging.warning(
+            "Could not detect Docker daemon architecture to resolve cpu_arch: %s", e
+        )
+
+
 def main():
     exp = extract_llvm_project_info()
+
+    # Ensure cpu_arch matches the Docker daemon/host to avoid pulling the wrong arch
+    resolve_and_override_cpu_arch_from_docker()
+
     setup_per_pr_llvm_project("static", exp)
     setup_per_pr_llvm_project("shared", exp)
 
