@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Match the minimum required version of LLVM and MLIR
-cmake_minimum_required(VERSION 3.20.0)
+cmake_minimum_required(VERSION 3.26.0)
 
 project(onnx-mlir)
 
