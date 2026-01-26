@@ -392,7 +392,7 @@ void addKrnlToLLVMPasses(
     //  redundant, which helps reliability of the compilation of these ops.
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(onnx_mlir::createProcessKrnlParallelClausePass());
-    pm.addPass(onnx_mlir::createBufferOMPLoopHoisting());
+    pm.addPass(onnx_mlir::createBufferOMPLoopHoistingPass());
   }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,

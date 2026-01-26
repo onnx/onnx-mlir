@@ -9,6 +9,9 @@ add_public_tablegen_target(OMTransformsPassIncGen)
 add_onnx_mlir_library(OMLowerKrnlRegion
   LowerKrnlRegion.cpp
 
+  DEPENDS
+  OMTransformsPassIncGen
+
   LINK_LIBS PUBLIC
   OMSupport
   MLIRTransformUtils
@@ -17,6 +20,9 @@ add_onnx_mlir_library(OMLowerKrnlRegion
 add_onnx_mlir_library(OMScfParallelPrivateRegion
   ProcessScfParallelPrivate.cpp
   ProcessKrnlParallelClause.cpp
+
+  DEPENDS
+  OMTransformsPassIncGen
 
   LINK_LIBS PUBLIC
   OMSupport
@@ -27,6 +33,9 @@ add_onnx_mlir_library(OMScfParallelPrivateRegion
 add_onnx_mlir_library(OMInstrument
   InstrumentPass.cpp
   InstrumentCleanupPass.cpp
+
+  DEPENDS
+  OMTransformsPassIncGen
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
