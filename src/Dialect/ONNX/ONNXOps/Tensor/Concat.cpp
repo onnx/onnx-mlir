@@ -30,20 +30,21 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   ONNXConcatOp concatOp = mlir::dyn_cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
 
-  // Has an empty input. Compute shape later once the empty input is removed by
-  // canonicalization.
-  for (Value operand : operandAdaptor.getOperands()) {
+  Value firstNonEmptyInput = nullptr;
+  for (Value operand : operands) {
     ArrayRef<int64_t> operandShape =
         mlir::cast<ShapedType>(operand.getType()).getShape();
-    if (operandShape.size() == 1 && operandShape[0] == 0) {
-      return success();
-    }
+    if (operandShape.size() == 1 && operandShape[0] == 0)
+      continue;
+    firstNonEmptyInput = operand;
+    break;
   }
+  if (firstNonEmptyInput == nullptr)
+    return success();
 
   unsigned numInputs = op->getNumOperands();
-  Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =
-      mlir::cast<ShapedType>(firstInput.getType()).getShape();
+      mlir::cast<ShapedType>(firstNonEmptyInput.getType()).getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = concatOp.getAxis();
 
@@ -62,13 +63,26 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   // input tensor (implementation dependent) is used for the output tensor.
   DimsExpr outputDims(commonRank);
   for (unsigned dim = 0; dim < commonRank; dim++) {
-    outputDims[dim] = createIE->getShapeAsDim(firstInput, dim);
+    outputDims[dim] = createIE->getShapeAsDim(firstNonEmptyInput, dim);
   }
-  IndexExpr cumulativeAxisSize = createIE->getShapeAsDim(firstInput, axisIndex);
+  IndexExpr cumulativeAxisSize =
+      createIE->getShapeAsDim(firstNonEmptyInput, axisIndex);
 
   // Handle the rest of input
-  for (unsigned i = 1; i < numInputs; ++i) {
+  bool countedFirstInput = false;
+  for (unsigned i = 0; i < numInputs; ++i) {
     Value currInput = operandAdaptor.getInputs()[i];
+    if (!countedFirstInput && currInput == firstNonEmptyInput) {
+      // The first non-empty input may be used multiple times as input.
+      countedFirstInput = true;
+      continue;
+    }
+    // Ignore empty inputs.
+    ArrayRef<int64_t> operandShape =
+        mlir::cast<ShapedType>(currInput.getType()).getShape();
+    if (operandShape.size() == 1 && operandShape[0] == 0)
+      continue;
+    // Handle non-empty inputs.
     for (unsigned dim = 0; dim < commonRank; dim++) {
       if (dim == axisIndex) {
         IndexExpr currentSize = createIE->getShapeAsDim(currInput, axisIndex);
@@ -165,8 +179,22 @@ LogicalResult ONNXConcatOp::inferShapes(
   // However, current check handles dynamic dim only for the concat dim
   if (!hasShapeAndRank(getOperation()))
     return success();
+
+  // Get the first non-empty input.
+  Value firstNonEmptyInput = nullptr;
+  for (Value operand : getOperands()) {
+    ArrayRef<int64_t> operandShape =
+        mlir::cast<ShapedType>(operand.getType()).getShape();
+    if (operandShape.size() == 1 && operandShape[0] == 0)
+      continue;
+    firstNonEmptyInput = operand;
+    break;
+  }
+  if (firstNonEmptyInput == nullptr)
+    return success();
+
   // Checking value of axis parameter.
-  auto commonType = mlir::cast<RankedTensorType>(getOperand(0).getType());
+  auto commonType = mlir::cast<RankedTensorType>(firstNonEmptyInput.getType());
   auto commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = getAxis();
