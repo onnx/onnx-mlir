@@ -83,9 +83,36 @@ logger = logging.getLogger(__name__)
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
 global_session_cache = SessionCache(config.session_cache_limit)
 
+global_uncompilable_graphs = set()
+
+
+def has_unsupported_onnx_ops(gm: torch.fx.GraphModule):
+    # Detect unsupported ops. Add unsupported ops here.
+    return False
+
+
+def eager_forward_fn(gm: torch.fx.GraphModule):
+    stable_gm = torch.fx.GraphModule(gm, gm.graph)
+    stable_gm.eval()
+
+    # Ensure we don't re-enter Dynamo.
+    @torch._dynamo.disable
+    def run(*args):
+        with torch.no_grad():
+            start = time.perf_counter()
+            results = stable_gm(*args)
+            logger.info(f"Eager mode took {(time.perf_counter() - start)*1000} ms")
+            return results
+
+    return run
+
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
+    # Switch back to the eager mode if the graph has unsupported onnx ops.
+    if has_unsupported_onnx_ops(gm):
+        return eager_forward_fn(gm)
+
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
     # The args and kwargs are inputs provided at inference, namely call to
@@ -226,9 +253,13 @@ def generate_hash_key(
 
 class ONNXMLIRTorch:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
+        global global_uncompilable_graphs
         # Input graph module.
         self.gm = gm
         self.gm.eval()
+
+        # Indice of the actual example inputs if the graph's signature is changed.
+        self.example_inputs_indices = None
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
@@ -266,12 +297,16 @@ class ONNXMLIRTorch:
             ) = self.rewrite_gm_for_export(*args)
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
+            self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
 
         # Cache the rewritten graph module.
         assert self.cache_key, "cache key does not exist"
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
+        elif self.cache_key in global_uncompilable_graphs:
+            self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
+        assert self.example_inputs_indices, "example_inputs_indices is None"
 
         # Touch the code to materialize before exporting.
         _ = self.gm.code
@@ -295,8 +330,12 @@ class ONNXMLIRTorch:
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
+        global global_uncompilable_graphs
         if self.cached_session is None:
-            logger.info("Export and compile the model.")
+            if self.cache_key in global_uncompilable_graphs:
+                logger.info("Found the uncompilable model. Switch to the eager mode")
+                return eager_forward_fn(self.gm)(*example_inputs)
+
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
             # Since the session is connected to a .so file, we have to make
@@ -313,7 +352,13 @@ class ONNXMLIRTorch:
             self.cleanup_onnxmlir_files(tag_id)
 
             # Export the graph module to onnx.
-            self.export_gm_to_onnx(example_inputs)
+            # If failed, use the graph as it is without compilation.
+            logger.info("Export and compile the model.")
+            succeeded = self.export_gm_to_onnx(example_inputs)
+            if not succeeded:
+                logger.info("Failed to export the model. Switch to the eager mode.")
+                global_uncompilable_graphs.add(self.cache_key)
+                return eager_forward_fn(self.gm)(*example_inputs)
 
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
@@ -557,13 +602,30 @@ class ONNXMLIRTorch:
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
-        torch.onnx.export(
-            self.gm,
-            example_inputs,
-            self.onnx_model,
-            input_names=input_names,
-            dynamic_shapes=dynamic_shapes,
-        )
+
+        succeeded = False
+        try:
+            torch.onnx.export(
+                self.gm,
+                example_inputs,
+                self.onnx_model,
+                input_names=input_names,
+                dynamic_shapes=dynamic_shapes,
+                dynamo=True,
+                # dynamic_axes=dynamic_shapes,
+                # dynamo=False,
+            )
+            succeeded = True
+        except torch.onnx.errors.UnsupportedOperatorError as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export unsupported: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
+        except Exception as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export failure: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
+
+        return succeeded
 
     def create_onnxmlir_session(self) -> InferenceSession:
         # Return a session to compile and run the onnx model.
