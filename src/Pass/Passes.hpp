@@ -124,13 +124,9 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass(bool parallelEnabled);
 std::unique_ptr<mlir::Pass> createConvertSeqToMemrefPass();
 
 /// Pass for lowering krnl.region operation.
-//To use explicit namespace onnx_mlir::krnl::,
-//we add constructor explicitly in the krnl namespace instead of GEN_PASS_DECL method.
-/*
+// separate krnl pass into different .td
 #define GEN_PASS_DECL_LOWERKRNLREGIONPASS
-#include "src/Transform/Passes.h.inc"
-*/
-std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
+#include "src/Transform/PassesKrnl.h.inc"
 
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
@@ -161,6 +157,12 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg();
 // distinguished.
 #define GEN_PASS_REGISTRATION
 #include "src/Transform/Passes.h.inc"
+
+// pass registration for krnl namespace
+namespace krnl {
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/PassesKrnl.h.inc"
+}// namespace krnl
 
 } // namespace onnx_mlir
 

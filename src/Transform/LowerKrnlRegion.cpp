@@ -28,7 +28,7 @@ using namespace onnx_mlir::krnl;
 namespace {
 
 #define GEN_PASS_DEF_LOWERKRNLREGIONPASS
-#include "src/Transform/Passes.h.inc"
+#include "src/Transform/PassesKrnl.h.inc"
 
 /* All the implementation of this pass is put in the anonymous name space
  * to hide from ourside.
