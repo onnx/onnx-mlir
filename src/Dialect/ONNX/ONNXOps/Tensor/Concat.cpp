@@ -69,10 +69,14 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
       createIE->getShapeAsDim(firstNonEmptyInput, axisIndex);
 
   // Handle the rest of input
+  bool countedFirstInput = false;
   for (unsigned i = 0; i < numInputs; ++i) {
     Value currInput = operandAdaptor.getInputs()[i];
-    if (currInput == firstNonEmptyInput)
+    if (!countedFirstInput && currInput == firstNonEmptyInput) {
+      // The first non-empty input may be used multiple times as input.
+      countedFirstInput = true;
       continue;
+    }
     // Ignore empty inputs.
     ArrayRef<int64_t> operandShape =
         mlir::cast<ShapedType>(currInput.getType()).getShape();
