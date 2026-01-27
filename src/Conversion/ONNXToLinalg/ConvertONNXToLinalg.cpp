@@ -16,6 +16,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -30,16 +32,13 @@ namespace onnx_mlir {
 
 namespace {
 
+#define GEN_PASS_DECL_CONVERTONNXTOLINALG
+#define GEN_PASS_DEF_CONVERTONNXTOLINALG
+#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
+
 struct ConvertONNXToLinalgPass
-    : public PassWrapper<ConvertONNXToLinalgPass, OperationPass<func::FuncOp>> {
-
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertONNXToLinalgPass)
-
-  StringRef getArgument() const override { return "convert-onnx-to-linalg"; }
-
-  StringRef getDescription() const override {
-    return "Lower ONNX operations to Linalg dialect";
-  }
+    : public impl::ConvertONNXToLinalgBase<ConvertONNXToLinalgPass> {
+  using ConvertONNXToLinalgBase::ConvertONNXToLinalgBase;
 
   void runOnOperation() override {
     auto function = getOperation();
@@ -48,9 +47,10 @@ struct ConvertONNXToLinalgPass
     RewritePatternSet patterns(context);
     TypeConverter typeConverter;
 
-    // Populate lowering patterns
+    // Populate lowering patterns with pass options
+    // TableGen-generated options can be used directly as their types
     populateLoweringONNXMatMulOpToLinalgPattern(
-        patterns, typeConverter, context);
+        patterns, typeConverter, context, linalgOps, useLinalgPath);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
@@ -64,6 +64,15 @@ struct ConvertONNXToLinalgPass
 
 std::unique_ptr<Pass> createConvertONNXToLinalg() {
   return std::make_unique<ConvertONNXToLinalgPass>();
+}
+
+std::unique_ptr<Pass> createConvertONNXToLinalg(
+    const std::string &linalgOps, bool useLinalgPath) {
+  // Use TableGen-generated options structure
+  ConvertONNXToLinalgOptions options;
+  options.linalgOps = linalgOps;
+  options.useLinalgPath = useLinalgPath;
+  return std::make_unique<ConvertONNXToLinalgPass>(options);
 }
 
 } // namespace onnx_mlir
