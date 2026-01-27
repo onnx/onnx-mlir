@@ -13,8 +13,6 @@
 
 using namespace mlir;
 
-using namespace mlir;
-
 namespace {
 
 /* Include the definition of BufferOMPLoopHoistingBase from Passes.h.inc,
@@ -22,11 +20,11 @@ namespace {
  * All the implementation of this pass is put in the anonymous name space
  * to hide from ourside.
  */
-#define GEN_PASS_DEF_BUFFEROMPLOOPHOISTING
+#define GEN_PASS_DEF_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
 
 struct BufferOMPLoopHoistingPass
-    : public impl::BufferOMPLoopHoistingBase<BufferOMPLoopHoistingPass> {
+    : public impl::BufferOMPLoopHoistingPassBase<BufferOMPLoopHoistingPass> {
   void runOnOperation() override;
 };
 
@@ -151,7 +149,7 @@ void BufferOMPLoopHoistingPass::runOnOperation() {
 namespace onnx_mlir {
 // This function will be used outside to insert this pass to pass manager.
 // Since it is a pass in onnx-mlir project, name space onnx_mlir is used.
-std::unique_ptr<Pass> createBufferOMPLoopHoisting() {
+std::unique_ptr<Pass> createBufferOMPLoopHoistingPass() {
   return std::make_unique<BufferOMPLoopHoistingPass>();
 };
 } // namespace onnx_mlir
