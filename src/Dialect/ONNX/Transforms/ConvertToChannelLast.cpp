@@ -300,8 +300,8 @@ struct AveragePoolToChannelLastPattern
     auto poolChannelLastOp = rewriter.create<XFEAveragePoolOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
-        poolOp.getCountIncludePadAttr(), poolOp.getKernelShapeAttr(),
-        poolOp.getPadsAttr(), poolOp.getStridesAttr());
+        poolOp.getCountIncludePadAttr(), poolOp.getDilationsAttr(),
+        poolOp.getKernelShapeAttr(), poolOp.getPadsAttr(), poolOp.getStridesAttr());
 
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
