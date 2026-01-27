@@ -1,0 +1,2 @@
+onnxscript==0.5.7
+transformers==4.57.6

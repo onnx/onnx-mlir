@@ -606,17 +606,6 @@ class ONNXMLIRTorch:
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
 
-        from onnxscript import opset18 as onnx_op
-
-        def export_sym_storage_offset(x):
-            # torch.ops.aten.sym_storage_offset is often generated to guard the offset of a view, which failed
-            # the onnx exporter. Assume that the view is always valid. Hence, replace the offset with 0.
-            return onnx_op.Constant(value_ints=[0])  # INT64 scalar 0
-
-        custom_translation_table = {
-            torch.ops.aten.sym_storage_offset.default: export_sym_storage_offset,
-        }
-
         succeeded = False
         try:
             torch.onnx.export(
@@ -628,7 +617,6 @@ class ONNXMLIRTorch:
                 dynamo=True,
                 # dynamic_axes=dynamic_shapes,
                 # dynamo=False,
-                custom_translation_table=custom_translation_table,
                 report=True,
             )
             succeeded = True
