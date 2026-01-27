@@ -41,8 +41,15 @@ def InstrumentPass : Pass<"instrument", "func::FuncOp"> {
             /*default=*/"false", "instrument runtime reports time usage">,
 
     Option<"reportMemory", "report-memory", "bool",
-            /*default=*/"false", "instrument runtime reports memory usage">
+            /*default=*/"false", "instrument runtime reports memory usage">,
 
+    Option<"actions", "actions", "unsigned",
+            /*default=*/"0", [{Bit-tag for Instrument Actions\n"
+                               "InstrumentBeforeOp = 0x0\n"
+                               "InstrumentAfterOp = 0x1\n"
+                               "InstrumentReportTime = 0x2\n"
+                               "InstrumentReportMemory = 0x3\n"
+                               "InstrumentInit = 0x4\n}]>
   ];
 }
 

@@ -60,10 +60,6 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 /// Pass for instrument the ops in specific stage.
 #define GEN_PASS_DECL_INSTRUMENTPASS
 #include "src/Transform/Passes.h.inc"
-// GEN_PASS_DEF method only adds default constructor only,
-// we add custom constructor with multi positional argument explicitly
-std::unique_ptr<mlir::Pass> createInstrumentPass(
-    const std::string &ops, unsigned actions);
 /// Pass for instrument cleanup.
 #define GEN_PASS_DECL_INSTRUMENTCLEANUPPASS
 #include "src/Transform/Passes.h.inc"

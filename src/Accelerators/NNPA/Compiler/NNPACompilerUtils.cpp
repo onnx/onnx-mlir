@@ -212,9 +212,13 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
-  if (hasInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::ZHigh)){
+    InstrumentPassOptions options;
+    options.instrumentOps = instrumentOps;
+    options.actions = instrumentActions;
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+        onnx_mlir::createInstrumentPass(options));
+  }
 }
 
 void normalizeMemRefsPasses(mlir::PassManager &pm) {
@@ -319,9 +323,13 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Omit printing signatures that late.
         assert(false && "Printing signature information at ZLow instrument "
                         "stage is currently unsupported");
-      if (hasInstrumentation(onnx_mlir::InstrumentStages::ZLow))
+      if (hasInstrumentation(onnx_mlir::InstrumentStages::ZLow)){
+        InstrumentPassOptions options;
+        options.instrumentOps = instrumentOps;
+        options.actions = instrumentControlBits;
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-            instrumentOps, instrumentControlBits));
+            options));
+      }
     }
   }
 

@@ -56,19 +56,16 @@ public:
   InstrumentPass(const InstrumentPass &pass)
       : impl::InstrumentPassBase<InstrumentPass>(),
         allowedOps(/*emptyIsNone*/ true) {}
-  InstrumentPass(const std::string &ops, unsigned actions)
-      : impl::InstrumentPassBase<InstrumentPass>(),
+  InstrumentPass(const InstrumentPassOptions &options)
+      : impl::InstrumentPassBase<InstrumentPass>(options),
         allowedOps(/*emptyIsNone*/ true) {
-    this->instrumentOps = ops;
-    unsigned long long tag = actions;
+    this->instrumentOps = options.instrumentOps;
+    unsigned long long tag = options.actions;
     this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
     this->instrumentAfter = IS_INSTRUMENT_AFTER_OP(tag);
     this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
     this->reportMemory = IS_INSTRUMENT_REPORT_MEMORY(tag);
   }
-  InstrumentPass(const InstrumentPassOptions &options)
-        : impl::InstrumentPassBase<InstrumentPass>(options),
-          allowedOps(/*emptyIsNone*/ true) {}
 
 private:
   EnableByRegexOption allowedOps;
@@ -158,20 +155,3 @@ public:
   }
 };
 } // namespace onnx_mlir
-
-/*!
- * Create an instrumentation pass.
- */
-namespace onnx_mlir {
-//Below is defined by GEN_PASS_DEF in onnx_mlir namespace
-/*
-std::unique_ptr<mlir::Pass> createInstrument() {
-  return std::make_unique<InstrumentPass>();
-}
-*/
-
-std::unique_ptr<mlir::Pass> createInstrumentPass(
-    const std::string &ops, unsigned actions) {
-  return std::make_unique<InstrumentPass>(ops, actions);
-}
-}//onnx_mlir
