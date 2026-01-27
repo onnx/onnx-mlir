@@ -122,6 +122,12 @@ std::unique_ptr<mlir::Pass> createRemoveContinuousTransposeWithReshapePass();
 /// Pass for transferring Resize Linear operations to depthwise convolutions.
 std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
 
+/// Pass for fusing Add(Conv(A, X, none), constant) -> Conv(A, X, bias).
+std::unique_ptr<mlir::Pass> createConvWithBiasPass();
+
+/// Pass for removing redundant reshape operations around element-wise ops.
+std::unique_ptr<mlir::Pass> createRemoveRedundantReshapePass();
+
 /// Pass for lowering Reduce operations to Pool operations.
 std::unique_ptr<mlir::Pass> createLowerReduceToPoolPass();
 
