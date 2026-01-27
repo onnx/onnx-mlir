@@ -464,27 +464,57 @@ class ONNXMLIRTorch:
 
         graph = self.gm.graph
         placeholders_to_replace = []
+        tensor_placeholders = []
 
         # First pass: collect SymInt placeholders.
         for node in graph.nodes:
-            if node.op == "placeholder" and node.type in [int, torch.SymInt]:
+            if node.op != "placeholder":
+                continue
+            if node.type in [int, torch.SymInt]:
                 new_name = f"{node.name}_tensor"
                 with graph.inserting_before(node):
                     new_node = graph.placeholder(new_name)
                     new_node.meta = node.meta
-                    new_node.meta["tensor_meta"] = {"shape": [1], "dtype": torch.int64}
+                    new_node.meta["tensor_meta"] = {"shape": [], "dtype": torch.uint64}
                     if node.type is int:
                         new_node.meta["example_value"] = torch.tensor(
-                            [value], dtype=torch.int64
+                            [value], dtype=torch.uint64
                         )
                     new_node.type = torch.Tensor
                 placeholders_to_replace.append((node, new_node))
+            elif "example_value" in node.meta and isinstance(
+                node.meta["example_value"], torch.Tensor
+            ):
+                tensor_placeholders.append(node)
+
+        # Find the carrier of the SymInt, say, from which dim of which input.
+        sym_int_carriers = {}
+        from torch.fx.experimental.symbolic_shapes import sym_eq
+        for sym_int_node, _ in placeholders_to_replace:
+            sym_int = sym_int_node.meta.get("example_value", None)
+            if sym_int is None:
+                continue
+            found = False
+            for node in tensor_placeholders:
+                if found:
+                    break
+                for i, d in enumerate(node.meta["example_value"].shape):
+                    if found:
+                        break
+                    if isinstance(d, torch.SymInt) and sym_eq(d, sym_int):
+                        sym_int_carriers[sym_int] = (node, i)
+                        found = True
 
         # Second pass: replace uses with .item() calls.
         for old_node, new_node in placeholders_to_replace:
             for user in list(old_node.users):
                 with graph.inserting_before(user):
-                    item_node = graph.call_method("item", args=(new_node,))
+                    if old_node in sym_int_carriers:
+                        carrier = sym_int_carriers[old_node][0]
+                        dim = sym_int_carriers[old_node][1]
+                        item_node = graph.call_function(torch.ops.aten.sym_size, args=(carrier, dim))
+                    else:
+                        item_node = graph.call_method("item", args=(new_node,))
                     user.replace_input_with(old_node, item_node)
             graph.erase_node(old_node)
 
