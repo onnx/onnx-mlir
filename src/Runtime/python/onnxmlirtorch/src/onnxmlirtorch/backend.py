@@ -35,6 +35,9 @@ from torch._inductor.codecache import (
 from torch._subclasses.fake_tensor import (
     FakeTensor,
 )
+from torch.fx.experimental.symbolic_shapes import (
+    sym_eq,
+)
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
@@ -293,7 +296,6 @@ class ONNXMLIRTorch:
             (
                 self.example_inputs_indices,
                 removed_example_inputs_indices,
-                placeholders_to_replace,
             ) = self.rewrite_gm_for_export(*args)
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
@@ -327,6 +329,8 @@ class ONNXMLIRTorch:
 
     def __call__(self, *example_inputs):
         tensor_example_inputs = self.get_tensor_example_inputs(example_inputs)
+        for t in tensor_example_inputs:
+            logger.info(f"tung shape {t.shape}")
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
@@ -447,7 +451,11 @@ class ONNXMLIRTorch:
         self.freeze_scalar_constant_args(constant_values)
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
-        placeholders_to_replace = self.convert_symint_args_to_tensors()
+        removed_symint_placeholder = self.convert_symint_args_to_tensors()
+        logger.info(f"remodev symint {removed_symint_placeholder}")
+        # removed_example_inputs += removed_symint_placeholder
+        example_inputs_indices = [i for i in example_inputs_indices if i not in removed_symint_placeholder]
+        logger.info(f"example indices {example_inputs_indices}")
         # After rewriting the argument list of the graph module, we maintain
         # a list of un-removed arguments that are used in forward for passing
         # correct example inputs to the rewritten graph module.
@@ -456,43 +464,38 @@ class ONNXMLIRTorch:
         # torch.sym_sum
         self.gm = fx_utils.rewrite_torch_sym_sum(self.gm)
 
-        return example_inputs_indices, removed_example_inputs, placeholders_to_replace
+        return example_inputs_indices, removed_example_inputs
 
     def convert_symint_args_to_tensors(self):
         # Important note: do not cast SymInt to int by int(SymInt)
         # since that concretizes symbolic dimensions in related Tensors.
 
         graph = self.gm.graph
-        placeholders_to_replace = []
+        symint_placeholders = []
         tensor_placeholders = []
+        removed_placeholders = set() 
 
-        # First pass: collect SymInt placeholders.
+        # Collect SymInt placeholders.
+        symint_placeholder_indices = {} 
+        symint_placeholder_counter = 0
         for node in graph.nodes:
             if node.op != "placeholder":
                 continue
-            if node.type in [int, torch.SymInt]:
-                new_name = f"{node.name}_tensor"
-                with graph.inserting_before(node):
-                    new_node = graph.placeholder(new_name)
-                    new_node.meta = node.meta
-                    new_node.meta["tensor_meta"] = {"shape": [], "dtype": torch.uint64}
-                    if node.type is int:
-                        new_node.meta["example_value"] = torch.tensor(
-                            [value], dtype=torch.uint64
-                        )
-                    new_node.type = torch.Tensor
-                placeholders_to_replace.append((node, new_node))
+            if node.type in [torch.SymInt]:
+                symint_placeholders.append(node)
+                symint_placeholder_indices[node] = symint_placeholder_counter
             elif "example_value" in node.meta and isinstance(
                 node.meta["example_value"], torch.Tensor
             ):
                 tensor_placeholders.append(node)
+            symint_placeholder_counter += 1
 
-        # Find the carrier of the SymInt, say, from which dim of which input.
-        sym_int_carriers = {}
-        from torch.fx.experimental.symbolic_shapes import sym_eq
-        for sym_int_node, _ in placeholders_to_replace:
-            sym_int = sym_int_node.meta.get("example_value", None)
-            if sym_int is None:
+
+        # Find which input the SymInt comes from, say, from which dim of which input.
+        symint_carriers = {}
+        for symint_node in symint_placeholders:
+            symint = symint_node.meta.get("example_value", None)
+            if symint is None:
                 continue
             found = False
             for node in tensor_placeholders:
@@ -501,28 +504,48 @@ class ONNXMLIRTorch:
                 for i, d in enumerate(node.meta["example_value"].shape):
                     if found:
                         break
-                    if isinstance(d, torch.SymInt) and sym_eq(d, sym_int):
-                        sym_int_carriers[sym_int] = (node, i)
+                    if isinstance(d, torch.SymInt) and sym_eq(d, symint):
+                        symint_carriers[symint_node] = (node, i)
                         found = True
 
-        # Second pass: replace uses with .item() calls.
-        for old_node, new_node in placeholders_to_replace:
-            for user in list(old_node.users):
+        # Remove the SymInt input and get the dimension size from the tensor node if possible.
+        # Otherwise replace its uses with .item() calls.
+        changed = False
+        for symint_node in symint_placeholders:
+            if len(symint_node.users) == 0:
+                removed_placeholders.add(symint_placeholder_indices[symint_node])
+                graph.erase_node(symint_node)
+                changed = True
+                continue
+            for user in list(symint_node.users):
                 with graph.inserting_before(user):
-                    if old_node in sym_int_carriers:
-                        carrier = sym_int_carriers[old_node][0]
-                        dim = sym_int_carriers[old_node][1]
-                        item_node = graph.call_function(torch.ops.aten.sym_size, args=(carrier, dim))
+                    if symint_node in symint_carriers:
+                        carrier = symint_carriers[symint_node][0]
+                        dim = symint_carriers[symint_node][1]
+                        item_node = graph.call_function(
+                            torch.ops.aten.sym_size, args=(carrier, dim)
+                        )
+                        removed_placeholders.add(symint_placeholder_indices[symint_node])
                     else:
-                        item_node = graph.call_method("item", args=(new_node,))
-                    user.replace_input_with(old_node, item_node)
-            graph.erase_node(old_node)
+                        logger.info(f"insert {symint_node.name}_tensor")
+                        with graph.inserting_before(symint_node):
+                            tensor_node = graph.placeholder(f"{symint_node.name}_tensor")
+                            tensor_node.meta = symint_node.meta
+                            tensor_node.meta["tensor_meta"] = {
+                                "shape": [1],
+                                "dtype": torch.int64,
+                            }
+                            tensor_node.type = torch.Tensor
+                        item_node = graph.call_method("item", args=(tensor_node,))
+                    user.replace_input_with(symint_node, item_node)
+                    changed = True
+            graph.erase_node(symint_node)
 
-        if placeholders_to_replace:
+        if changed:
             self.gm.graph.lint()
             self.gm.recompile()
 
-        return placeholders_to_replace
+        return removed_placeholders
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
         graph = self.gm.graph
@@ -564,12 +587,12 @@ class ONNXMLIRTorch:
 
         # Keep lists of indices of example inputs that are removed and not removed.
         example_inputs_indices = []
-        removed_example_inputs_indices = []
+        removed_example_inputs_indices = set() 
         for i, name in enumerate(name_to_value.keys()):
             if name not in scalar_constants:
                 example_inputs_indices.append(i)
             else:
-                removed_example_inputs_indices.append(i)
+                removed_example_inputs_indices.add(i)
         return example_inputs_indices, removed_example_inputs_indices, constant_values
 
     def freeze_scalar_constant_args(self, constant_values: dict):
@@ -647,7 +670,7 @@ class ONNXMLIRTorch:
                 dynamo=True,
                 # dynamic_axes=dynamic_shapes,
                 # dynamo=False,
-                report=True,
+                report=False,
             )
             succeeded = True
         except torch.onnx.errors.UnsupportedOperatorError as e:
