@@ -178,7 +178,7 @@ def process_name(
 ):
     definitions = pattern.findall(new_line)
     for d in definitions:
-        (name, num) = d
+        name, num = d
         x = use_name(name, num, append_str, var_prefix)
         y = record_name_def(
             name, num, default_name, append_str, num_for_zero, new_line, var_prefix
@@ -278,7 +278,7 @@ def process_line(i, line):
             for arg_def in arg_defs:
                 args = arg_def_pat.findall(arg_def)
                 for arg in args:
-                    (name, num) = arg
+                    name, num = arg
                     x = use_name(name, num, "")
                     y = record_name_def(name, num, "VAR_" + name, "", 0, new_line)
                     new_line = new_line.replace(x, y)
@@ -286,7 +286,7 @@ def process_line(i, line):
     # Process uses and map use.
     uses = use_qual_pat.findall(new_line)
     for u in uses:
-        (name, num) = u
+        name, num = u
         x = use_name(name, num, "")
         y = translate_use_name(name, num, "")
         new_line = new_line.replace(x, y)
@@ -296,7 +296,7 @@ def process_line(i, line):
         # Had a problem because there is are map names like "map" which
         # subsume names like "map1", "map2"... Since maps are always used with a
         # "(" after it, add it both to the from (x) and to (y) string.
-        (name, num) = u
+        name, num = u
         x = use_name(name, num, "", "#") + "("
         y = translate_use_name(name, num, "") + "("
         new_line = new_line.replace(x, y)
