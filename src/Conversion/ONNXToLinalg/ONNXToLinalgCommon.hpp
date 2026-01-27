@@ -60,9 +60,9 @@ inline bool shouldConvertToLinalg(
   static std::string cachedLinalgOps;
   static std::unique_ptr<EnableByRegexOption> linalgOpsMatcher;
 
-  // Reinitialize if linalgOps has changed (shouldn't happen in practice, but
-  // safe)
-  if (cachedLinalgOps != linalgOps) {
+  // Reinitialize if linalgOps has changed or if matcher is not initialized
+  // (shouldn't happen in practice, but safe)
+  if (cachedLinalgOps != linalgOps || !linalgOpsMatcher) {
     cachedLinalgOps = linalgOps;
     linalgOpsMatcher = std::make_unique<EnableByRegexOption>(false, linalgOps);
   }

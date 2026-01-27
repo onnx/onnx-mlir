@@ -13,7 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
+#include <cctype>
 #include <errno.h>
+#include <filesystem>
 #include <string.h>
 
 #include <iostream>
@@ -21,12 +24,10 @@
 #include <sstream>
 #include <vector>
 
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
-#else
-#include <dlfcn.h>
 #endif
 
 #include "ExecutionSession.hpp"
@@ -50,18 +51,27 @@ void ExecutionSession::Init(
   if (tag == "") {
     // ToFix: equivalent implementation of llvm utilities.
     // The would not be an urgent issue, because tag is usually "NONE"
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
     std::string fname = llvm::sys::path::filename(sharedLibPath).str();
     llvm::SmallString<256> fnameWithoutExt(fname);
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
-    tag = fnameWithoutExt.str().lower();
+    tag = fnameWithoutExt.lower();
+#else
+    std::string fnameWithoutExt = std::filesystem::path(sharedLibPath)
+                                      .filename()
+                                      .replace_extension("")
+                                      .string();
+    std::transform(fnameWithoutExt.begin(), fnameWithoutExt.end(),
+        fnameWithoutExt.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+    tag = fnameWithoutExt;
 #endif
   }
 
   // tag = "NONE" to use functions without tag.
   std::string lowDashTag;
   // ToFix: equivalent implementation of llv::StringRef
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   // Assume tag is always NONE
   if (!llvm::StringRef(tag).equals_insensitive("NONE"))
     lowDashTag = "_" + tag;
@@ -75,7 +85,7 @@ void ExecutionSession::Init(
 #endif
 
   // Init symbols used by execution session.
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
@@ -89,7 +99,7 @@ void ExecutionSession::Init(
 #endif
 
   std::string queryEntryPointsNameWithTag = _queryEntryPointsName + lowDashTag;
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           queryEntryPointsNameWithTag.c_str()));
@@ -103,7 +113,7 @@ void ExecutionSession::Init(
         reportSymbolLoadingError(queryEntryPointsNameWithTag));
 
   std::string inputSignatureNameWithTag = _inputSignatureName + lowDashTag;
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   _inputSignatureFunc = reinterpret_cast<signatureFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           inputSignatureNameWithTag.c_str()));
@@ -116,7 +126,7 @@ void ExecutionSession::Init(
         reportSymbolLoadingError(inputSignatureNameWithTag));
 
   std::string outputSignatureNameWithTag = _outputSignatureName + lowDashTag;
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   _outputSignatureFunc = reinterpret_cast<signatureFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           outputSignatureNameWithTag.c_str()));
@@ -150,7 +160,7 @@ void ExecutionSession::Init(
 }
 
 ExecutionSession::~ExecutionSession() {
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   if (_sharedLibraryHandle.isValid())
     llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
 #else
@@ -173,7 +183,7 @@ const std::string *ExecutionSession::queryEntryPoints(
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
 #else
