@@ -52,34 +52,13 @@ class InstrumentPass
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
 
-  Option<std::string> instrumentOps{*this, "instrument-ops",
-      llvm::cl::desc("Specify regex for ops to be instrumented:\n"
-                     "\"NONE\" or \"\" for no instrument,\n"
-                     "\"regex1,regex2, ...\" for the specified ops.\n"
-                     "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
-                     "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
-      llvm::cl::init("")};
-
-  Option<bool> instrumentBefore{*this, "instrument-before",
-      llvm::cl::desc("insert instrument before op"), llvm::cl::init(false)};
-
-  Option<bool> instrumentAfter{*this, "instrument-after",
-      llvm::cl::desc("insert instrument after op"), llvm::cl::init(false)};
-
-  Option<bool> reportTime{*this, "report-time",
-      llvm::cl::desc("instrument runtime reports time usage"),
-      llvm::cl::init(false)};
-
-  Option<bool> reportMemory{*this, "report-memory",
-      llvm::cl::desc("instrument runtime reports memory usage"),
-      llvm::cl::init(false)};
-
   InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
       : impl::InstrumentPassBase<InstrumentPass>(),
         allowedOps(/*emptyIsNone*/ true) {}
   InstrumentPass(const std::string &ops, unsigned actions)
-      : allowedOps(/*emptyIsNone*/ true) {
+      : impl::InstrumentPassBase<InstrumentPass>(),
+        allowedOps(/*emptyIsNone*/ true) {
     this->instrumentOps = ops;
     unsigned long long tag = actions;
     this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
@@ -87,15 +66,14 @@ public:
     this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
     this->reportMemory = IS_INSTRUMENT_REPORT_MEMORY(tag);
   }
+  InstrumentPass(const InstrumentPassOptions &options)
+        : impl::InstrumentPassBase<InstrumentPass>(options),
+          allowedOps(/*emptyIsNone*/ true) {}
 
 private:
   EnableByRegexOption allowedOps;
 
 public:
-  StringRef getArgument() const override { return "instrument"; }
-
-  StringRef getDescription() const override { return "instrument on ops."; }
-
   // merge all action options into a bitset
   // used to create tags for instrumentation ops
   uint64_t actions() const {
