@@ -54,7 +54,8 @@ LogicalResult XFEMatMulBiasOpShapeInference(
 
   // Use ONNXMatMulOpShapeHelper to compute the shape
   // We pass A and B as operands (bias doesn't affect shape)
-  ONNXMatMulOpShapeHelper shapeHelper(op, {A, B});
+  SmallVector<Value, 2> matmulOperands{A, B};
+  ONNXMatMulOpShapeHelper shapeHelper(op, matmulOperands);
   if (failed(shapeHelper.computeShapeAndUpdateType(elementType)))
     return failure();
 
