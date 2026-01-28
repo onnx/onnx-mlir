@@ -163,11 +163,11 @@ struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
 
     // Create linalg.conv_2d_nchw_fchw operation
     Value convResult = linalg::Conv2DNchwFchwOp::create(rewriter, loc,
-        ValueRange{X, W},           // inputs: [input, filter]
-        ValueRange{filledTensor},    // outputs: [init tensor]
+        TypeRange{outputTensorType},  // result type
+        ValueRange{X, W},             // inputs: [input, filter]
+        ValueRange{filledTensor},     // outputs: [init tensor]
         stridesDenseAttr,            // DenseIntElementsAttr [2]
-        dilationsDenseAttr          // DenseIntElementsAttr [2] = [1, 1]
-    )
+        dilationsDenseAttr)          // DenseIntElementsAttr [2] = [1, 1]
                              .getResult(0);
 
     rewriter.replaceOp(convOp, convResult);
