@@ -7,8 +7,8 @@ LLVM_PROJECT_SHA1_REGEX = "git checkout ([0-9a-f]+)"
 LLVM_PROJECT_DOCKERFILE = "docker/Dockerfile.llvm-project"
 LLVM_PROJECT_GITHUB_URL = "https://api.github.com/repos/llvm/llvm-project"
 LLVM_PROJECT_BASE_IMAGE = {
-    "static": "ghcr.io/onnxmlir/ubuntu:jammy",
-    "shared": "registry.access.redhat.com/ubi8-minimal:latest",
+    "static": "ghcr.io/onnxmlir/ubuntu:noble-",  # Will append cpu_arch
+    "shared": "registry.access.redhat.com/ubi9-minimal:latest",
 }
 LLVM_PROJECT_IMAGE = {
     "static": docker_static_image_name,
@@ -172,10 +172,11 @@ def setup_per_pr_llvm_project(image_type, exp):
                 path=".",
                 dockerfile=LLVM_PROJECT_DOCKERFILE,
                 tag=image_full,
+                platform=cpu_arch,
                 decode=True,
                 rm=True,
                 buildargs={
-                    "BASE_IMAGE": LLVM_PROJECT_BASE_IMAGE[image_type],
+                    "BASE_IMAGE": LLVM_PROJECT_BASE_IMAGE[image_type] + cpu_arch,
                     "NPROC": NPROC,
                     "BUILD_SHARED_LIBS": LLVM_PROJECT_BUILD_SHARED_LIBS[image_type],
                     "LLVM_PROJECT_SHA1": exp["llvm_project_sha1"],
@@ -225,6 +226,10 @@ def setup_per_pr_llvm_project(image_type, exp):
 
 def main():
     exp = extract_llvm_project_info()
+
+    # Ensure cpu_arch matches the Docker daemon/host to avoid pulling the wrong arch
+    resolve_and_override_cpu_arch_from_docker()
+
     setup_per_pr_llvm_project("static", exp)
     setup_per_pr_llvm_project("shared", exp)
 
