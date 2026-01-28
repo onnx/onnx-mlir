@@ -21,6 +21,34 @@ namespace mlir {
 // Helper Functions
 //===----------------------------------------------------------------------===//
 
+/// Safely extract integer values from a DenseElementsAttr, handling different
+/// integer bitwidths (i32, i64, etc.)
+static SmallVector<int64_t> extractIntValues(DenseElementsAttr attr) {
+  SmallVector<int64_t> result;
+  if (!attr)
+    return result;
+
+  Type elementType = attr.getElementType();
+  if (elementType.isInteger(64)) {
+    for (auto val : attr.getValues<int64_t>())
+      result.push_back(val);
+  } else if (elementType.isInteger(32)) {
+    for (auto val : attr.getValues<int32_t>())
+      result.push_back(static_cast<int64_t>(val));
+  } else if (elementType.isInteger(16)) {
+    for (auto val : attr.getValues<int16_t>())
+      result.push_back(static_cast<int64_t>(val));
+  } else if (elementType.isInteger(8)) {
+    for (auto val : attr.getValues<int8_t>())
+      result.push_back(static_cast<int64_t>(val));
+  } else {
+    // Fallback: try using APInt which works for any integer type
+    for (auto val : attr.getValues<llvm::APInt>())
+      result.push_back(val.getSExtValue());
+  }
+  return result;
+}
+
 LogicalResult transformReductionAttributes(Operation *op,
                                            PatternRewriter &rewriter,
                                            ArrayRef<int64_t> perm) {
@@ -36,9 +64,7 @@ LogicalResult transformReductionAttributes(Operation *op,
     return failure();
 
   // Extract current axes
-  SmallVector<int64_t> axes;
-  for (auto val : axesAttr.getValues<int64_t>())
-    axes.push_back(val);
+  SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
   // Transform axes according to permutation
   // When pushing transpose through: Transpose(input, perm) ->
@@ -95,7 +121,7 @@ getReductionAdjustedPermutation(Operation *op, ArrayRef<int64_t> perm,
 
   SmallVector<int64_t> reducedAxes;
   auto rank = static_cast<int64_t>(perm.size());
-  for (auto val : axesAttr.getValues<int64_t>()) {
+  for (int64_t val : extractIntValues(axesAttr)) {
     int64_t axis = val;
     // Normalize negative axis
     if (axis < 0)
@@ -151,9 +177,7 @@ LogicalResult AxisAttributeTransformer<ONNXPadOp>::transformAttributes(
     return failure();
 
   // Extract pads values
-  SmallVector<int64_t> pads;
-  for (auto val : padsAttr.getValues<int64_t>())
-    pads.push_back(val);
+  SmallVector<int64_t> pads = extractIntValues(padsAttr);
 
   size_t rank = perm.size();
   if (pads.size() != 2 * rank)
@@ -203,9 +227,7 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
   if (!axesAttr)
     return failure();
 
-  SmallVector<int64_t> axes;
-  for (auto val : axesAttr.getValues<int64_t>())
-    axes.push_back(val);
+  SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
   // Validate axes is not empty
   if (axes.empty())
@@ -271,9 +293,7 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
         mlir::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
     if (!attr)
       return std::nullopt;
-    SmallVector<int64_t> values;
-    for (auto val : attr.getValues<int64_t>())
-      values.push_back(val);
+    SmallVector<int64_t> values = extractIntValues(attr);
     return values;
   };
 
@@ -366,9 +386,7 @@ LogicalResult AxisAttributeTransformer<ONNXExpandOp>::transformAttributes(
   if (!shapeAttr)
     return failure();
 
-  SmallVector<int64_t> shape;
-  for (auto val : shapeAttr.getValues<int64_t>())
-    shape.push_back(val);
+  SmallVector<int64_t> shape = extractIntValues(shapeAttr);
 
   if (shape.size() != perm.size())
     return failure();
@@ -407,9 +425,7 @@ LogicalResult AxisAttributeTransformer<ONNXTileOp>::transformAttributes(
   if (!repeatsAttr)
     return failure();
 
-  SmallVector<int64_t> repeats;
-  for (auto val : repeatsAttr.getValues<int64_t>())
-    repeats.push_back(val);
+  SmallVector<int64_t> repeats = extractIntValues(repeatsAttr);
 
   if (repeats.size() != perm.size())
     return failure();
@@ -454,9 +470,7 @@ LogicalResult AxisAttributeTransformer<ONNXSqueezeOp>::transformAttributes(
     return failure();
 
   // Extract current axes
-  SmallVector<int64_t> axes;
-  for (auto val : axesAttr.getValues<int64_t>())
-    axes.push_back(val);
+  SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
   // Transform axes according to permutation
   // When pushing transpose through: Transpose(input, perm) ->
@@ -509,7 +523,7 @@ AxisAttributeTransformer<ONNXSqueezeOp>::getAdjustedPermutation(
 
   SmallVector<int64_t> squeezedAxes;
   auto rank = static_cast<int64_t>(perm.size());
-  for (auto val : axesAttr.getValues<int64_t>()) {
+  for (int64_t val : extractIntValues(axesAttr)) {
     int64_t axis = val;
     // Normalize negative axis
     if (axis < 0)

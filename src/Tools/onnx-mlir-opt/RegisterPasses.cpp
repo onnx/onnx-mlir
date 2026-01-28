@@ -152,6 +152,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTransferDepthwiseConv2dWithChannelMultiplierPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createTransformReshapelikeOpToReshapePass();
   });
 

@@ -24,6 +24,8 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeContinuousStridedSlicePass());
   pm.addNestedPass<func::FuncOp>(
   onnx_mlir::createConvertMulToDepthwiseConv2dPass());
+  pm.addNestedPass<func::FuncOp>(
+  onnx_mlir::createTransferDepthwiseConv2dWithChannelMultiplierPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveUselessQLinearPoolPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createOptimizeSliceReshapeTransposeBlockPass());
   pm.addNestedPass<func::FuncOp>(
