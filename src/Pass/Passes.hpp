@@ -155,6 +155,13 @@ std::unique_ptr<mlir::Pass> createConvertMulToDepthwiseConv2dPass();
 /// Pass for transferring 3D operations to 2D operations.
 std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
 
+/// Pass for transferring pool-fix operations to downsample-fix operations.
+std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
+
+/// Pass for splitting depthwise conv2d with channel_multiplier > 1.
+std::unique_ptr<mlir::Pass>
+createTransferDepthwiseConv2dWithChannelMultiplierPass();
+
 /// Pass for transferring PoolFix operations to DownsampleFix operations.
 std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 
