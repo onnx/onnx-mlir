@@ -142,6 +142,7 @@ extern bool disableConstantProp;                              // onnx-mlir only
 extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
 extern std::vector<std::string> extraLibs;                    // onnx-mlir only
 extern ProfileIRs profileIR;                                  // onnx-mlir only
+extern ProfileIRs profileIRWithSig;                           // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only

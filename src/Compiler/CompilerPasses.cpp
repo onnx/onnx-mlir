@@ -194,7 +194,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.
   unsigned instrumentActions = instrumentControlBits;
-  if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
+  if (profileIR == onnx_mlir::ProfileIRs::Onnx ||
+      profileIRWithSig == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
     // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp
@@ -204,7 +205,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
     // Also enable instrumentation of signatures.
-    instrumentSignatures = "onnx.*";
+    if (profileIRWithSig == onnx_mlir::ProfileIRs::Onnx)
+      instrumentSignatures = "onnx.*";
   }
   // Add createInstrument (timing) second so that it will guarantee not to
   // include timing of the signature printing.
@@ -497,7 +499,7 @@ void addKrnlToLLVMPasses(
   // are properly lowered to LLVM dialect. (e.g., vector.to_elements)
   pm.addPass(mlir::createConvertVectorToLLVMPass());
 
-  if (profileIR)
+  if (profileIR || profileIRWithSig)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
 
   if (enableBoundCheck)

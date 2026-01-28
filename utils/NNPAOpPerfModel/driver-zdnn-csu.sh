@@ -46,7 +46,7 @@ function run_experiment { # (option, e2, e1)
         rm run.log || true
         ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModel.py -m $name.mlir -c "$opt" -w $warmup -n $iter --lower-bound=float32:0.1 --upper-bound=float32:0.8 >> $log_file
         cat run.log >> $log_file
-        make-report.py -r run.log -w $warmup >> $log_file
+        make-report.py -r run.log >> $log_file
     done
 }
 
