@@ -293,10 +293,7 @@ class ONNXMLIRTorch:
 
         if need_rewrite:
             # Rewrite the graph for exporting to onnx.
-            (
-                self.example_inputs_indices,
-                removed_example_inputs_indices,
-            ) = self.rewrite_gm_for_export(*args)
+            self.example_inputs_indices = self.rewrite_gm_for_export(*args)
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
             self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
@@ -442,22 +439,23 @@ class ONNXMLIRTorch:
     def rewrite_gm_for_export(self, *example_inputs):
         # Freeze scalar constant arguments that are typically parameters, e.g.,
         # epsilon value, from the config file of the model and they are constants.
-        example_inputs_indices, removed_example_inputs, constant_values = (
-            self.extract_scalar_constant_args(example_inputs)
+        example_inputs_indices, constant_values = self.extract_scalar_constant_args(
+            example_inputs
         )
         self.freeze_scalar_constant_args(constant_values)
+
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
         self.convert_symint_args_to_tensors()
-        # After rewriting the argument list of the graph module, we maintain
-        # a list of un-removed arguments that are used in forward for passing
-        # correct example inputs to the rewritten graph module.
+
+        # Remove unused placeholders.
+        example_inputs_indices = self.remove_unused_placeholders(example_inputs_indices)
 
         # Rewrite unexported ops.
         # torch.sym_sum
         self.gm = fx_utils.rewrite_torch_sym_sum(self.gm)
 
-        return example_inputs_indices, removed_example_inputs
+        return example_inputs_indices
 
     def convert_symint_args_to_tensors(self):
         # Important note: do not cast SymInt to int by int(SymInt)
@@ -487,7 +485,6 @@ class ONNXMLIRTorch:
                 node.meta["example_value"], torch.Tensor
             ):
                 tensor_placeholders.append(node)
-
 
         # Find which input the SymInt comes from, say, from which dim of which input.
         symint_carriers = {}
@@ -526,7 +523,6 @@ class ONNXMLIRTorch:
         if changed:
             self.gm.graph.lint()
             self.gm.recompile()
-
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
         graph = self.gm.graph
@@ -568,13 +564,10 @@ class ONNXMLIRTorch:
 
         # Keep lists of indices of example inputs that are removed and not removed.
         example_inputs_indices = []
-        removed_example_inputs_indices = set() 
         for i, name in enumerate(name_to_value.keys()):
             if name not in scalar_constants:
                 example_inputs_indices.append(i)
-            else:
-                removed_example_inputs_indices.add(i)
-        return example_inputs_indices, removed_example_inputs_indices, constant_values
+        return example_inputs_indices, constant_values
 
     def freeze_scalar_constant_args(self, constant_values: dict):
         if logger.isEnabledFor(logging.DEBUG):
@@ -625,21 +618,47 @@ class ONNXMLIRTorch:
                         value.item() if isinstance(value, torch.Tensor) else value
                     )
                     use_node.replace_all_uses_with(scalar_value)
-                    graph.erase_node(use_node)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"freeze_scalar_constant_args, {name}, {value} END")
-
-            graph.erase_node(node)
 
         graph.lint()
         self.gm.recompile()
         return self.gm
+
+    def remove_unused_placeholders(self, example_inputs_indices):
+        changed = False
+        placeholders = [n for n in self.gm.graph.nodes if n.op == "placeholder"]
+        unused_placeholder_indices = set()
+        for i, n in enumerate(placeholders):
+            if len(n.users) == 0:
+                unused_placeholder_indices.add(i)
+                self.gm.graph.erase_node(n)
+                changed = True
+        if changed:
+            example_inputs_indices = [
+                i for i in example_inputs_indices if i not in unused_placeholder_indices
+            ]
+            self.gm.graph.lint()
+            self.gm.recompile()
+
+        return example_inputs_indices
 
     def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
 
+        logger.info(
+            f"tung before export example_inputs's shape: {[t.shape for t in example_inputs]}"
+        )
+        placeholders = [n for n in self.gm.graph.nodes if n.op == "placeholder"]
+        shapes = []
+        for p in placeholders:
+            if "example_value" in p.meta:
+                if not isinstance(p.meta["example_value"], torch.SymInt):
+                    shapes.append(p.meta["example_value"].shape)
+        logger.info(f"tung before placeholders's shape: {shapes}")
+        logger.info(f"tung before export: {self.gm}")
         succeeded = False
         try:
             torch.onnx.export(
