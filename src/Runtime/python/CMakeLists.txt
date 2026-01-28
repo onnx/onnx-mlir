@@ -22,6 +22,7 @@ if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
     OMMlirUtilities
     pybind11::embed
     pybind11::python_link_helper
+    onnx
     )
 else()
   add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
@@ -32,9 +33,26 @@ else()
 
     LINK_LIBS PUBLIC
     OMExecutionSession
+    # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
+    # it need some support from LLVM.
+    #OMMlirUtilities
     pybind11::embed
     pybind11::python_link_helper
   )
+endif()
+
+# Refer to onnx-mlir/CMakeList.txt
+# Since PyExecutionSessionBase include onnx/onnx_pb.h, absl lib may be needed.
+# Another solution is to simply add onnx into link library, which was tested 
+# and proven. This solution seems more elegant to me.
+# However, not sure whether it is too much to link onnx to PyRuntimeC, though
+# third_party/onnx is built in both normal and light-weight driver
+if (absl_FOUND)
+  target_link_libraries(OMPyExecutionSessionBase PUBLIC
+    absl::log_internal_check_op
+    absl::log_internal_message
+    absl::status
+    )
 endif()
 
 if(MSVC)
