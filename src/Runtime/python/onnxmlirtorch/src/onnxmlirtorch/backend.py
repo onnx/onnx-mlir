@@ -329,8 +329,6 @@ class ONNXMLIRTorch:
 
     def __call__(self, *example_inputs):
         tensor_example_inputs = self.get_tensor_example_inputs(example_inputs)
-        for t in tensor_example_inputs:
-            logger.info(f"tung shape {t.shape}")
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
@@ -395,7 +393,7 @@ class ONNXMLIRTorch:
         for i in self.example_inputs_indices:
             x = example_inputs[i]
             if isinstance(x, int):
-                tensor_inputs.append(torch.tensor(x, dtype=torch.int64))
+                tensor_inputs.append(torch.tensor(x, dtype=torch.int64).reshape((1,)))
             elif isinstance(x, torch.Tensor):
                 tensor_inputs.append(x)
             else:
@@ -447,15 +445,10 @@ class ONNXMLIRTorch:
         example_inputs_indices, removed_example_inputs, constant_values = (
             self.extract_scalar_constant_args(example_inputs)
         )
-
         self.freeze_scalar_constant_args(constant_values)
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
-        removed_symint_placeholder = self.convert_symint_args_to_tensors()
-        logger.info(f"remodev symint {removed_symint_placeholder}")
-        # removed_example_inputs += removed_symint_placeholder
-        example_inputs_indices = [i for i in example_inputs_indices if i not in removed_symint_placeholder]
-        logger.info(f"example indices {example_inputs_indices}")
+        self.convert_symint_args_to_tensors()
         # After rewriting the argument list of the graph module, we maintain
         # a list of un-removed arguments that are used in forward for passing
         # correct example inputs to the rewritten graph module.
@@ -469,31 +462,36 @@ class ONNXMLIRTorch:
     def convert_symint_args_to_tensors(self):
         # Important note: do not cast SymInt to int by int(SymInt)
         # since that concretizes symbolic dimensions in related Tensors.
+        changed = False
 
         graph = self.gm.graph
         symint_placeholders = []
         tensor_placeholders = []
-        removed_placeholders = set() 
 
         # Collect SymInt placeholders.
-        symint_placeholder_indices = {} 
-        symint_placeholder_counter = 0
         for node in graph.nodes:
             if node.op != "placeholder":
                 continue
             if node.type in [torch.SymInt]:
-                symint_placeholders.append(node)
-                symint_placeholder_indices[node] = symint_placeholder_counter
+                with graph.inserting_before(node):
+                    tensor_node = graph.placeholder(f"{node.name}_tensor")
+                    tensor_node.meta = node.meta
+                    tensor_node.meta["tensor_meta"] = {
+                        "sizes": (1,),
+                        "dtype": torch.int64,
+                    }
+                    tensor_node.type = torch.Tensor
+                    changed = True
+                symint_placeholders.append((node, tensor_node))
             elif "example_value" in node.meta and isinstance(
                 node.meta["example_value"], torch.Tensor
             ):
                 tensor_placeholders.append(node)
-            symint_placeholder_counter += 1
 
 
         # Find which input the SymInt comes from, say, from which dim of which input.
         symint_carriers = {}
-        for symint_node in symint_placeholders:
+        for symint_node, _ in symint_placeholders:
             symint = symint_node.meta.get("example_value", None)
             if symint is None:
                 continue
@@ -510,13 +508,7 @@ class ONNXMLIRTorch:
 
         # Remove the SymInt input and get the dimension size from the tensor node if possible.
         # Otherwise replace its uses with .item() calls.
-        changed = False
-        for symint_node in symint_placeholders:
-            if len(symint_node.users) == 0:
-                removed_placeholders.add(symint_placeholder_indices[symint_node])
-                graph.erase_node(symint_node)
-                changed = True
-                continue
+        for symint_node, tensor_node in symint_placeholders:
             for user in list(symint_node.users):
                 with graph.inserting_before(user):
                     if symint_node in symint_carriers:
@@ -525,17 +517,7 @@ class ONNXMLIRTorch:
                         item_node = graph.call_function(
                             torch.ops.aten.sym_size, args=(carrier, dim)
                         )
-                        removed_placeholders.add(symint_placeholder_indices[symint_node])
                     else:
-                        logger.info(f"insert {symint_node.name}_tensor")
-                        with graph.inserting_before(symint_node):
-                            tensor_node = graph.placeholder(f"{symint_node.name}_tensor")
-                            tensor_node.meta = symint_node.meta
-                            tensor_node.meta["tensor_meta"] = {
-                                "shape": [1],
-                                "dtype": torch.int64,
-                            }
-                            tensor_node.type = torch.Tensor
                         item_node = graph.call_method("item", args=(tensor_node,))
                     user.replace_input_with(symint_node, item_node)
                     changed = True
@@ -545,7 +527,6 @@ class ONNXMLIRTorch:
             self.gm.graph.lint()
             self.gm.recompile()
 
-        return removed_placeholders
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
         graph = self.gm.graph
