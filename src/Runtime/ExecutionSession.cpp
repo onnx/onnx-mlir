@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <filesystem>
 #include <string.h>
+#include <strings.h>
 
 #include <iostream>
 #include <memory>
@@ -49,8 +50,6 @@ void ExecutionSession::Init(
 
   // If there is no tag, use the model filename without extension as a tag.
   if (tag == "") {
-    // ToFix: equivalent implementation of llvm utilities.
-    // The would not be an urgent issue, because tag is usually "NONE"
 #if defined(_WIN32)
     std::string fname = llvm::sys::path::filename(sharedLibPath).str();
     llvm::SmallString<256> fnameWithoutExt(fname);
@@ -70,18 +69,17 @@ void ExecutionSession::Init(
 
   // tag = "NONE" to use functions without tag.
   std::string lowDashTag;
-  // ToFix: equivalent implementation of llv::StringRef
-#if defined(_WIN32)
-  // Assume tag is always NONE
-  if (!llvm::StringRef(tag).equals_insensitive("NONE"))
-    lowDashTag = "_" + tag;
-#endif
-
 #if defined(_WIN32)
   // Use functions without tags on Windows since we cannot define at compile
   // time the tagged functions in the header files in
   // `include/onnx-mlir/Runtime` to make the tagged functions visible.
   lowDashTag = "";
+#else
+  // Save the llvm supported implementation.
+  // if (!llvm::StringRef(tag).equals_insensitive("NONE"))
+  // lowDashTag = "_" + tag;
+  if (strcasecmp(tag.c_str(), "NONE") != 0)
+    lowDashTag = "_" + tag;
 #endif
 
   // Init symbols used by execution session.

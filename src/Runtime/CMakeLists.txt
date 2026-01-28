@@ -1,6 +1,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 
+# Light-weight runtime driver supports only python currently
 if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 add_subdirectory(jni)
 add_subdirectory(omp)
@@ -71,8 +72,6 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-#add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
@@ -82,22 +81,17 @@ add_onnx_mlir_library(OMExecutionSession
   OMTensorUtils
   OMSmallFPConversion
   )
-else()
-add_onnx_mlir_library(OMExecutionSession
-  ExecutionSession.cpp
-
-  EXCLUDE_FROM_OM_LIBS
-
-  LINK_LIBS PUBLIC
-  OMTensorUtils
-  LLVMSupport
-  absl::log_internal_check_op
-  absl::log_internal_message
-  absl::status
-  )
-endif()
 set_target_properties(OMExecutionSession
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
-target_link_libraries(OMExecutionSession PRIVATE dl)
+
+# For linux, the dynamic library (dl) is used directly, while for Windows,
+# LLVMSupport is used for locks when dynamic library is loaded. 
+if(WIN32)
+  target_link_libraries(OMEexecutionSession PRIVATE 
+    LLVMSupport
+  )
+else()
+  target_link_libraries(OMExecutionSession PRIVATE dl)
+endif()
