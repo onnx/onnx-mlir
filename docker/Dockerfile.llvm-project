@@ -1,4 +1,4 @@
-# By default, use ubuntu:jammy, remember to change Jenkins build script as well
+# By default, use ubuntu:noble for 24.04
 ARG BASE_IMAGE="ghcr.io/onnxmlir/ubuntu:noble"
 FROM ${BASE_IMAGE}
 
@@ -30,7 +30,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           apt-get install -qq -y --no-install-recommends \
                   autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
-                  libtool make maven ninja-build openjdk-11-jdk-headless \
+                  libtool make maven ninja-build \
+                  openjdk-11-jdk-headless openjdk-21-jdk-headless \
                   python3 python3-dev python3-numpy \
                   python3-pip python3-pytest-xdist python3-setuptools \
                   python3-typing-extensions unzip zip zlib1g-dev && \
@@ -82,29 +83,19 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
 # Install bazel
 ARG BAZEL_VERSION=6.5.0
 ARG BAZEL_URL=https://github.com/bazelbuild/bazel/releases/download
-# Build Bazel from scratch
 RUN curl -sL ${BAZEL_URL}/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-dist.zip -o bazel-${BAZEL_VERSION}-dist.zip \
     && unzip -q -d bazel-${BAZEL_VERSION} bazel-${BAZEL_VERSION}-dist.zip \
     && rm -f bazel-${BAZEL_VERSION}-dist.zip \
     && cd bazel-${BAZEL_VERSION} \
-    # 1. Create the config file Bazel reads automatically
-    && echo "startup --add_opens=java.base/java.lang=ALL-UNNAMED" > .bazelrc \
-    && echo "startup --add_opens=java.base/java.nio=ALL-UNNAMED" >> .bazelrc \
-    && echo "startup --add_opens=java.base/sun.nio.ch=ALL-UNNAMED" >> .bazelrc \
-    && echo "build --host_jvm_args=--add-opens=java.base/java.lang=ALL-UNNAMED" >> .bazelrc \
-    && echo "build --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED" >> .bazelrc \
-    && echo "build --host_jvm_args=--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" >> .bazelrc \
-    # 2. Set environment variables for the initial bootstrap shell
-    && export JAVA_TOOL_OPTIONS="--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
-    && export BAZEL_BOOTSTRAP_JVM_OPTS="${JAVA_TOOL_OPTIONS}" \
-    # 3. Use clean EXTRA_BAZEL_ARGS (No --host_jvm_args here)
+    # We use JDK 11 to bootstrap because it doesn't enforce module boundaries.
+    # This avoids the "InaccessibleObjectException" during the build-from-scratch.
+    && export JAVA_HOME=$(ls -d /usr/lib/jvm/java-11-openjdk-* | head -n 1) \
+    && export PATH="${JAVA_HOME}/bin:${PATH}" \
     && EXTRA_BAZEL_ARGS="--show_progress_rate_limit=60 \
                          --color=no \
                          --curses=yes \
                          --copt=-Wno-error=implicit-fallthrough \
-                         --host_javabase=@local_jdk//:jdk \
                          --verbose_failures" \
-       BAZEL_JAVAC_OPTS="-J-Xmx4g -J-Xms1g" \
        ./compile.sh \
     && cp output/bazel /usr/local/bin \
     && cd .. && rm -rf bazel-${BAZEL_VERSION} ${HOME}/.cache
@@ -125,10 +116,6 @@ ARG PROTOBUF_DIR=protobuf
 RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR} \
     && mkdir -p ${PROTOBUF_DIR}/build \
     && cd ${PROTOBUF_DIR}/build \
-    # Must specify -Dprotobuf_BUILD_TESTS=OFF otherwise find_package(absl)
-    # in onnx will fail due to missing protobuf::gmock target
-    # Must specify -DCMAKE_CXX_STANDARD=17 since protobuf requires c++17 but
-    # clang 14 on Ubuntu Jammy defaults to c++14
     && CC=clang CXX=clang++ \
        cmake -DCMAKE_INSTALL_LIBDIR=lib \
              -DCMAKE_CXX_STANDARD=17 \
@@ -136,16 +123,15 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
              -Dprotobuf_BUILD_TESTS=OFF .. \
     && make -j${NPROC} install && ldconfig \
     && cd .. \
-    # New version of python protobuf can no longer be built with setup.py.
-    # Must use bazel to build. protobuf v6.31.1 is the first version using
-    # rules_rust 0.56.0 which has s390x support. rules_buf still needs a
-    # small patch.
     && export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
     && export CARGO_BAZEL_REPIN=true \
-    && CC=clang CXX=clang++ bazel fetch //python/dist:binary_wheel \
+    # For running the installed Bazel on JDK 21, we must pass the --host_jvm_args
+    # to open the internal Java modules.
+    && BAZEL_JDK_FLAGS="--host_jvm_args=--add-opens=java.base/java.lang=ALL-UNNAMED --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED --host_jvm_args=--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
+    && CC=clang CXX=clang++ bazel ${BAZEL_JDK_FLAGS} fetch //python/dist:binary_wheel \
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
            ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl \
-    && CC=clang CXX=clang++ bazel build //python/dist:binary_wheel \
+    && CC=clang CXX=clang++ bazel ${BAZEL_JDK_FLAGS} build //python/dist:binary_wheel \
     && pip3 install --user bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
