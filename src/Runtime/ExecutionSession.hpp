@@ -26,11 +26,12 @@
 // library. When PYRUNTIME_LIGHT is built without the LLVM, the handle type for
 // dynamic library in Linux is used. DynamicLibraryHandleType is defined for
 // the two cases.
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
 #include "llvm/Support/DynamicLibrary.h"
 typedef llvm::sys::DynamicLibrary DynamicLibraryHandleType;
 #else
 typedef void *DynamicLibraryHandleType;
+#include <dlfcn.h>
 #endif
 
 namespace onnx_mlir {

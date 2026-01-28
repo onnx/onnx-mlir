@@ -44,23 +44,13 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
-#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFPConversion.h"
-#endif
 
 #if defined(__APPLE__) || defined(__MVS__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
 // generated llvm IR, but it somehow doesn't come out of the box on MacOS or
 // MVS.
 int *__errno_location(void) { return &errno; }
-#endif
-
-#ifdef ENABLE_PYRUNTIME_LIGHT
-// The implementation depends on src/Utility and llvm. Will be solved in
-// another PR. Here are just dummy definitions for compilation
-float om_f16_to_f32(uint16_t a) { return (float)0; }
-
-uint16_t om_f32_to_f16(uint16_t a) { return (uint16_t)0; }
 #endif
 
 #define OM_DRIVER_TIMING 1
