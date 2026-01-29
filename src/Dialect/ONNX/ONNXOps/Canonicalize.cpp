@@ -2598,8 +2598,9 @@ struct PushTransposeDownScalePattern : public OpRewritePattern<ONNXMulOp> {
 
     // use shape helper to get perm (handles default transpose case)
     IndexExprBuilderForAnalysis createIE(oldTranspose->getLoc());
+    SmallVector<Value, 1> transposeOperands{oldTranspose.getData()};
     ONNXTransposeOpShapeHelper shapeHelper(
-        oldTranspose.getOperation(), {oldTranspose.getData()}, &createIE);
+        oldTranspose.getOperation(), transposeOperands, &createIE);
     if (shapeHelper.computeShape().failed())
       return rewriter.notifyMatchFailure(
           mulOp, "could not compute transpose shape");
