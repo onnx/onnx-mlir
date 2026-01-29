@@ -22,7 +22,6 @@ if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
     OMMlirUtilities
     pybind11::embed
     pybind11::python_link_helper
-    onnx
     )
 else()
   add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)

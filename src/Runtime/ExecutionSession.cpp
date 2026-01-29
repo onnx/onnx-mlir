@@ -18,7 +18,7 @@
 #include <errno.h>
 #include <filesystem>
 #include <string.h>
-// #include <strings.h>
+#include <strings.h>
 
 #include <iostream>
 #include <memory>
@@ -78,8 +78,7 @@ void ExecutionSession::Init(
   // Save the llvm supported implementation.
   // if (!llvm::StringRef(tag).equals_insensitive("NONE"))
   // lowDashTag = "_" + tag;
-  // if (strcasecmp(tag.c_str(), "NONE") != 0)
-  if (strcmp(tag.c_str(), "NONE") != 0)
+  if (strcasecmp(tag.c_str(), "NONE") != 0)
     lowDashTag = "_" + tag;
 #endif
 
