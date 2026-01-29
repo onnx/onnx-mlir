@@ -25,15 +25,15 @@ module {
   // CHECK: "onnx.Transpose"{{.*}}{perm = [0, 3, 2, 1]}{{.*}}tensor<1x24x32x64xf32>{{.*}}tensor<1x64x32x24xf32>
   // CHECK: onnx.Reshape
 
-  // Test 3: perm = [0, 1, 2, 4, 3] - consecutive pair at positions 0,1 (values 0,1)
-  // Merge dims 0,1 -> 4D perm [0, 1, 3, 2]
+  // Test 3: perm = [0, 1, 2, 4, 3] - dims 0,1,2 are identity
+  // Merge dims 0,1,2 -> 3D perm [0, 2, 1]
   func.func @test_perm_01243(%arg0: tensor<1x3x4x16x32xf32>) -> tensor<1x3x4x32x16xf32> {
     %0 = "onnx.Transpose"(%arg0) {perm = [0, 1, 2, 4, 3]} : (tensor<1x3x4x16x32xf32>) -> tensor<1x3x4x32x16xf32>
     return %0 : tensor<1x3x4x32x16xf32>
   }
   // CHECK-LABEL: func.func @test_perm_01243
   // CHECK: onnx.Reshape
-  // CHECK: "onnx.Transpose"{{.*}}{perm = [0, 1, 3, 2]}{{.*}}tensor<3x4x16x32xf32>{{.*}}tensor<3x4x32x16xf32>
+  // CHECK: "onnx.Transpose"{{.*}}{perm = [0, 2, 1]}{{.*}}tensor<12x16x32xf32>{{.*}}tensor<12x32x16xf32>
   // CHECK: onnx.Reshape
 
   // Test 4: perm = [0, 1, 4, 3, 2] - consecutive pair at positions 0,1 (values 0,1)
@@ -77,5 +77,41 @@ module {
   // CHECK: onnx.Reshape
   // CHECK: "onnx.Transpose"{{.*}}{perm = [0, 3, 2, 1]}
   // CHECK: onnx.Reshape
+
+  //===----------------------------------------------------------------------===//
+  // Tests for Pattern: Merge consecutive identity dimensions (from TransferOpShapeTo4dPass)
+  //===----------------------------------------------------------------------===//
+
+  // Test 8: 5D transpose with consecutive identity dims at [0,1]
+  // Input: [1,2,3,4,5], Order: [0,1,3,2,4]
+  // Dims 0,1 are consecutive identity -> merge: [1*2,3,4,5] = [2,3,4,5]
+  // New order: [0,2,1,3]
+  func.func @test_transpose_5d_to_4d_identity(%arg0: tensor<1x2x3x4x5x!quant.uniform<i8:f32, 0.5:10>>) -> tensor<1x2x4x3x5x!quant.uniform<i8:f32, 0.5:10>> {
+    %0 = "onnx.Transpose"(%arg0) {perm = [0, 1, 3, 2, 4]} : (tensor<1x2x3x4x5x!quant.uniform<i8:f32, 0.5:10>>) -> tensor<1x2x4x3x5x!quant.uniform<i8:f32, 0.5:10>>
+    return %0 : tensor<1x2x4x3x5x!quant.uniform<i8:f32, 0.5:10>>
+  }
+  // CHECK-LABEL: func.func @test_transpose_5d_to_4d_identity
+  // CHECK-DAG: %[[OUT_SHAPE:.*]] = onnx.Constant dense<[1, 2, 4, 3, 5]> : tensor<5xi64>
+  // CHECK-DAG: %[[IN_SHAPE:.*]] = onnx.Constant dense<[2, 3, 4, 5]> : tensor<4xi64>
+  // CHECK: %[[RESHAPE1:.*]] = "onnx.Reshape"(%arg0, %[[IN_SHAPE]]) {{.*}} : (tensor<1x2x3x4x5x!quant.uniform<i8:f32, 5.000000e-01:10>>, tensor<4xi64>) -> tensor<2x3x4x5x!quant.uniform<i8:f32, 5.000000e-01:10>>
+  // CHECK: %[[TRANSPOSE:.*]] = "onnx.Transpose"(%[[RESHAPE1]]) {perm = [0, 2, 1, 3]} : (tensor<2x3x4x5x!quant.uniform<i8:f32, 5.000000e-01:10>>) -> tensor<2x4x3x5x!quant.uniform<i8:f32, 5.000000e-01:10>>
+  // CHECK: %[[RESHAPE2:.*]] = "onnx.Reshape"(%[[TRANSPOSE]], %[[OUT_SHAPE]]) {{.*}} : (tensor<2x4x3x5x!quant.uniform<i8:f32, 5.000000e-01:10>>, tensor<5xi64>) -> tensor<1x2x4x3x5x!quant.uniform<i8:f32, 5.000000e-01:10>>
+  // CHECK: return %[[RESHAPE2]]
+
+  // Test 9: 6D transpose reduced to 4D
+  // Input: [1,2,3,4,3,5], Order: [0,1,2,4,3,5]
+  // Dims 0,1,2 are consecutive identity -> merge: [1*2*3,4,3,5] = [6,4,3,5]
+  // New order: [0,2,1,3]
+  func.func @test_transpose_6d_to_4d(%arg0: tensor<1x2x3x4x3x5x!quant.uniform<i8:f32, 0.25:5>>) -> tensor<1x2x3x3x4x5x!quant.uniform<i8:f32, 0.25:5>> {
+    %0 = "onnx.Transpose"(%arg0) {perm = [0, 1, 2, 4, 3, 5]} : (tensor<1x2x3x4x3x5x!quant.uniform<i8:f32, 0.25:5>>) -> tensor<1x2x3x3x4x5x!quant.uniform<i8:f32, 0.25:5>>
+    return %0 : tensor<1x2x3x3x4x5x!quant.uniform<i8:f32, 0.25:5>>
+  }
+  // CHECK-LABEL: func.func @test_transpose_6d_to_4d
+  // CHECK-DAG: %[[OUT_SHAPE:.*]] = onnx.Constant dense<[1, 2, 3, 3, 4, 5]> : tensor<6xi64>
+  // CHECK-DAG: %[[IN_SHAPE:.*]] = onnx.Constant dense<[6, 4, 3, 5]> : tensor<4xi64>
+  // CHECK: %[[RESHAPE1:.*]] = "onnx.Reshape"(%arg0, %[[IN_SHAPE]]) {{.*}} : (tensor<1x2x3x4x3x5x!quant.uniform<i8:f32, 2.500000e-01:5>>, tensor<4xi64>) -> tensor<6x4x3x5x!quant.uniform<i8:f32, 2.500000e-01:5>>
+  // CHECK: %[[TRANSPOSE:.*]] = "onnx.Transpose"(%[[RESHAPE1]]) {perm = [0, 2, 1, 3]} : (tensor<6x4x3x5x!quant.uniform<i8:f32, 2.500000e-01:5>>) -> tensor<6x3x4x5x!quant.uniform<i8:f32, 2.500000e-01:5>>
+  // CHECK: %[[RESHAPE2:.*]] = "onnx.Reshape"(%[[TRANSPOSE]], %[[OUT_SHAPE]]) {{.*}} : (tensor<6x3x4x5x!quant.uniform<i8:f32, 2.500000e-01:5>>, tensor<6xi64>) -> tensor<1x2x3x3x4x5x!quant.uniform<i8:f32, 2.500000e-01:5>>
+  // CHECK: return %[[RESHAPE2]]
 }
 
