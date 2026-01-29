@@ -51,6 +51,8 @@ struct ConvertONNXToLinalgPass
     // TableGen-generated options can be used directly as their types
     populateLoweringONNXMatMulOpToLinalgPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
+    populateLoweringONNXConvOpToLinalgPattern(
+        patterns, typeConverter, context, linalgOps, useLinalgPath);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
