@@ -64,14 +64,6 @@ set_target_properties(OMPyExecutionSessionBase
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
-target_compile_definitions(OMPyExecutionSessionBase
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(OMPyExecutionSessionBase
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
-  )
 
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
@@ -101,19 +93,10 @@ target_include_directories(OMPyExecutionSessionBase
 # which we add back through target_compile_definitions and
 # target_include_directories.
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
-add_dependencies(PyRuntimeC onnx)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
-target_compile_definitions(PyRuntimeC
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(PyRuntimeC
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 target_link_libraries(PyRuntimeC
   PRIVATE

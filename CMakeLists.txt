@@ -90,19 +90,9 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
-# absl is needed by protobuf (4.21.12). protobuf is needed by llvm and onnx. 
-# However, the light-weight PyRuntime can run on old version protobuf.
-# 
-# Questions:
-# 1. Should a minimum version of protobuf for light-weight PyRuntime
-#    to specified?
-# 2. Should the version of protobuf be used to determine whether absl pacakge
-#    is required?
-# Current solution is to assume that the env has absl when needed.
+# absl is needed by llvm and onnx 
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   find_package(absl REQUIRED)
-else()
-  find_package(absl QUIET)
 endif()
 
 if(ONNX_MLIR_ENABLE_JAVA)
@@ -178,7 +168,7 @@ set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  add_subdirectory(third_party/onnx)
+	#add_subdirectory(third_party/onnx)
   add_subdirectory(third_party/pybind11)
 else()
   set(pybind11_FIND_QUIETLY ON)
@@ -235,10 +225,8 @@ if (ONNX_MLIR_ENABLE_STABLEHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
-# Based on our previous assumption, absl is needed for onnx and the user
-# of onnx target
-if (absl_FOUND)
-  message(STATUS "absl found and add it the dependent library for onnx.")
+# The target onnx is defined here after third_part/onnx is included.
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   target_link_libraries(onnx PUBLIC
     absl::log_internal_check_op
     absl::log_internal_message
