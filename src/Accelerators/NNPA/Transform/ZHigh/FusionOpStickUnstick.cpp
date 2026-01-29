@@ -35,8 +35,6 @@
 
 #define DEBUG_TYPE "fusion-op-stick-unstick"
 
-#include "src/Compiler/CompilerOptions.hpp" // hi alex
-
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
 // because we only care about SIMD gen of the E1 (innermost) dimension.
@@ -689,14 +687,8 @@ public:
               reshapeSplit, reshapeSplitAxis, reshapeSplitFactor, msg)) {
         resultVal = reshapeSplit.getReshaped();
       } else {
-        // old:
-        if (debugTestCompilerOpt) {
-          fprintf(stderr, "use debug option for merge pattern\n");
-          reshapeMayBeMerge = true; // Maybe a merge.
-          reshapeSplitOp = nullptr; // Negate the reshape as we don't have one.
-        } else {
-          return notifyFailure(layoutTransform, reshapeSplitOp, msg);
-        }
+        reshapeMayBeMerge = true; // Maybe a merge.
+        reshapeSplitOp = nullptr; // Negate the reshape as we don't have one.
       }
     }
 
