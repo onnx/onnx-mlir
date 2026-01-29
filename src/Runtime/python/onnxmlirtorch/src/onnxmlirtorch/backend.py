@@ -35,9 +35,6 @@ from torch._inductor.codecache import (
 from torch._subclasses.fake_tensor import (
     FakeTensor,
 )
-from torch.fx.experimental.symbolic_shapes import (
-    sym_eq,
-)
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
@@ -397,7 +394,7 @@ class ONNXMLIRTorch:
                 raise ValueError("Unsupported input type. Consider to support it")
         return tuple(tensor_inputs)
 
-    def get_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
+    def build_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
         """
         This computes a dictionary of dynamic shapes to be used in torch.export.
         """
@@ -437,94 +434,33 @@ class ONNXMLIRTorch:
         return input_names, dynamic_shapes
 
     def rewrite_gm_for_export(self, *example_inputs):
+        n_ph_0 = len([n for n in self.gm.graph.nodes if n.op == "placeholder"])
+
         # Freeze scalar constant arguments that are typically parameters, e.g.,
         # epsilon value, from the config file of the model and they are constants.
-        example_inputs_indices, constant_values = self.extract_scalar_constant_args(
-            example_inputs
-        )
-        self.freeze_scalar_constant_args(constant_values)
+        constant_values = self.extract_scalar_constant_args(example_inputs)
+        self.gm = fx_utils.freeze_scalar_constant_args(self.gm, constant_values)
 
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
-        self.convert_symint_args_to_tensors()
-
-        # Remove unused placeholders.
-        example_inputs_indices = self.remove_unused_placeholders(example_inputs_indices)
-
-        # Rewrite unexported ops.
-        # torch.sym_sum
+        self.gm = fx_utils.convert_symint_args_to_tensors(self.gm)
+        # Rewrite ops related to symbolic integers, e.g. torch.sym_sum.
         self.gm = fx_utils.rewrite_torch_sym_sum(self.gm)
+
+        # Make sure that previous transformations did not change the number of placeholders.
+        n_ph_1 = len([n for n in self.gm.graph.nodes if n.op == "placeholder"])
+        assert n_ph_0 == n_ph_1, "The number of placeholders was changed"
+
+        # Remove unused placeholders in one shot to get a consitent example_inputs_indices.
+        self.gm, example_inputs_indices = fx_utils.remove_unused_placeholders(self.gm)
 
         return example_inputs_indices
 
-    def convert_symint_args_to_tensors(self):
-        # Important note: do not cast SymInt to int by int(SymInt)
-        # since that concretizes symbolic dimensions in related Tensors.
-        changed = False
-
-        graph = self.gm.graph
-        symint_placeholders = []
-        tensor_placeholders = []
-
-        # Collect SymInt placeholders.
-        for node in graph.nodes:
-            if node.op != "placeholder":
-                continue
-            if node.type in [torch.SymInt]:
-                with graph.inserting_before(node):
-                    tensor_node = graph.placeholder(f"{node.name}_tensor")
-                    tensor_node.meta = node.meta
-                    tensor_node.meta["tensor_meta"] = {
-                        "sizes": (1,),
-                        "dtype": torch.int64,
-                    }
-                    tensor_node.type = torch.Tensor
-                    changed = True
-                symint_placeholders.append((node, tensor_node))
-            elif "example_value" in node.meta and isinstance(
-                node.meta["example_value"], torch.Tensor
-            ):
-                tensor_placeholders.append(node)
-
-        # Find which input the SymInt comes from, say, from which dim of which input.
-        symint_carriers = {}
-        for symint_node, _ in symint_placeholders:
-            symint = symint_node.meta.get("example_value", None)
-            if symint is None:
-                continue
-            found = False
-            for node in tensor_placeholders:
-                if found:
-                    break
-                for i, d in enumerate(node.meta["example_value"].shape):
-                    if found:
-                        break
-                    if isinstance(d, torch.SymInt) and sym_eq(d, symint):
-                        symint_carriers[symint_node] = (node, i)
-                        found = True
-
-        # Remove the SymInt input and get the dimension size from the tensor node if possible.
-        # Otherwise replace its uses with .item() calls.
-        for symint_node, tensor_node in symint_placeholders:
-            for user in list(symint_node.users):
-                with graph.inserting_before(user):
-                    if symint_node in symint_carriers:
-                        carrier = symint_carriers[symint_node][0]
-                        dim = symint_carriers[symint_node][1]
-                        item_node = graph.call_function(
-                            torch.ops.aten.sym_size, args=(carrier, dim)
-                        )
-                    else:
-                        item_node = graph.call_method("item", args=(tensor_node,))
-                    user.replace_input_with(symint_node, item_node)
-                    changed = True
-            graph.erase_node(symint_node)
-
-        if changed:
-            self.gm.graph.lint()
-            self.gm.recompile()
-
     def extract_scalar_constant_args(self, example_inputs: tuple):
+        """
+        Extract scalar float constant arguments that are typically parameters, e.g.,
+        epsilon value, from the config file of the model and they are constants.
+        """
         graph = self.gm.graph
         placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
         input_names = [n.name for n in placeholder_nodes]
@@ -533,12 +469,14 @@ class ONNXMLIRTorch:
         name_to_value = dict(zip(input_names, example_inputs))
 
         # Detect scalar constants by this pattern: placeholder -> .item().
-        scalar_constants = []
         name_to_use_nodes = {}
         for node in placeholder_nodes:
             input_arg = node.meta["example_value"]
             # Not a tensor.
             if not isinstance(input_arg, torch.Tensor):
+                continue
+            # Not a float.
+            if input_arg.dtype not in [torch.float32, torch.float64]:
                 continue
             # Not a scalar.
             if input_arg.ndim != 0:
@@ -552,113 +490,25 @@ class ONNXMLIRTorch:
             item_uses = [n for n in graph.nodes if item_node in n.all_input_nodes]
             other_uses = [n for n in uses if n != item_node]
             if item_uses and not other_uses:
-                scalar_constants.append(node.name)
                 name_to_use_nodes[node.name] = item_nodes
 
         # Build constant_values dict.
         constant_values = {
             name: (name_to_value[name], name_to_use_nodes[name])
-            for name in scalar_constants
+            for name in name_to_use_nodes.keys()
             if name in name_to_value
         }
 
-        # Keep lists of indices of example inputs that are removed and not removed.
-        example_inputs_indices = []
-        for i, name in enumerate(name_to_value.keys()):
-            if name not in scalar_constants:
-                example_inputs_indices.append(i)
-        return example_inputs_indices, constant_values
-
-    def freeze_scalar_constant_args(self, constant_values: dict):
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                f"freeze_scalar_constant_args, constant_values: {constant_values}"
-            )
-
-        if not constant_values:
-            return
-
-        graph = self.gm.graph
-        placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
-        name_to_node = {n.name: n for n in placeholder_nodes}
-
-        for name, value_use_nodes in constant_values.items():
-            value, use_nodes = value_use_nodes
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"freeze_scalar_constant_args, {name}, {value}")
-            if name not in name_to_node:
-                continue
-            node = name_to_node[name]
-
-            # Register scalar or tensor.
-            if isinstance(value, torch.Tensor):
-                self.gm.register_buffer(name, value)
-            else:
-                setattr(self.gm, name, value)
-
-            # Insert get_attr node.
-            with graph.inserting_before(node):
-                get_attr_node = graph.get_attr(name)
-
-            # Replace all uses of the placeholder with get_attr.
-            for use_node in use_nodes:
-                new_args = []
-                for arg in use_node.args:
-                    new_args.append(get_attr_node if arg == node else arg)
-                use_node.args = tuple(new_args)
-
-                # Remove .item() calls if they follow the pattern.
-                if fx_utils._is_item_of_tensor(use_node):
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(
-                            f"freeze_scalar_constant_args, replace {use_node} by {value}"
-                        )
-                    # Replace the .item() node with the scalar directly.
-                    scalar_value = (
-                        value.item() if isinstance(value, torch.Tensor) else value
-                    )
-                    use_node.replace_all_uses_with(scalar_value)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"freeze_scalar_constant_args, {name}, {value} END")
-
-        graph.lint()
-        self.gm.recompile()
-        return self.gm
-
-    def remove_unused_placeholders(self, example_inputs_indices):
-        changed = False
-        placeholders = [n for n in self.gm.graph.nodes if n.op == "placeholder"]
-        unused_placeholder_indices = set()
-        for i, n in enumerate(placeholders):
-            if len(n.users) == 0:
-                unused_placeholder_indices.add(i)
-                self.gm.graph.erase_node(n)
-                changed = True
-        if changed:
-            example_inputs_indices = [
-                i for i in example_inputs_indices if i not in unused_placeholder_indices
-            ]
-            self.gm.graph.lint()
-            self.gm.recompile()
-
-        return example_inputs_indices
+        return constant_values
 
     def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
-        input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
+        input_names, dynamic_shapes = self.build_dynamic_shapes_for_export()
 
-        logger.info(
-            f"tung before export example_inputs's shape: {[t.shape for t in example_inputs]}"
-        )
-        placeholders = [n for n in self.gm.graph.nodes if n.op == "placeholder"]
-        shapes = []
-        for p in placeholders:
-            if "example_value" in p.meta:
-                if not isinstance(p.meta["example_value"], torch.SymInt):
-                    shapes.append(p.meta["example_value"].shape)
-        logger.info(f"tung before placeholders's shape: {shapes}")
-        logger.info(f"tung before export: {self.gm}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Fx Graph for exporting to onnx: {self.gm}")
+
         succeeded = False
         try:
             torch.onnx.export(
@@ -703,28 +553,3 @@ class ONNXMLIRTorch:
 # Alternative interface to minic the usage of torch.compile
 def compile(torch_model, *args, **kwargs):
     return ONNXMLIRTorch(torch_model, *args, **kwargs)
-
-
-def print_parameters(model, args, kwargs, outputs):
-    print("------------ Begin ---------")
-    fn = model.forward
-    if fn is not None:
-        signature = inspect.signature(fn)
-        for param_name, param in signature.parameters.items():
-            print(f"Parameter name: {param_name}")
-    print(
-        f"number of input parameters of forward call: args {len(args)}, kwargs {len(kwargs)}"
-    )
-    # Print out each parameter.
-    # ToFix: save them into file
-    print("args")
-    for arg in args:
-        print(arg)
-    print("kwargs")
-    for key, value in kwargs.items():
-        print(f"{key} : {value}")
-    print("------------ End ---------\n")
-
-
-def interceptForward(model):
-    model.register_forward_hook(print_parameters, with_kwargs=True)
