@@ -51,6 +51,7 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createCombineTransposePairPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceNDimTransposePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dStridedSliceTo4d());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOpShapeTo4dPass());
   pm.addNestedPass<func::FuncOp>(
   onnx_mlir::createBatchReductionToReshapeReductionPass());
   pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());

@@ -85,6 +85,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/BatchReductionToReshapeReductionPass.cpp
   xmc/RemoveRedundantReluPass.cpp
   xmc/ReplaceNDimTransposePass.cpp
+  xmc/TransferOpShapeTo4dPass.cpp
   xmc/ONNXTransposeOptimizationPass.cpp
   xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
 
