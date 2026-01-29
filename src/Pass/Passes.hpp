@@ -164,7 +164,7 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 namespace krnl {
 #define GEN_PASS_REGISTRATION
 #include "src/Transform/PassesKrnl.h.inc"
-}// namespace krnl
+} // namespace krnl
 
 } // namespace onnx_mlir
 

@@ -9,8 +9,8 @@ function(add_pass_group NAME TD_FILE PREFIX)
 endfunction()
 
 #separate krnl pass into different .td
-add_pass_group(Transforms Passes Transforms)
 add_pass_group(TransformsKrnl PassesKrnl TransformsKrnl)
+add_pass_group(Transforms Passes Transforms)
 
 add_onnx_mlir_library(OMLowerKrnlRegion
   LowerKrnlRegion.cpp

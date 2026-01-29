@@ -19,11 +19,11 @@
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
-#include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -46,8 +46,7 @@ namespace onnx_mlir {
  * This pass insert KrnlInstrumentOp before and after each ops
  */
 
-class InstrumentPass
-    : public impl::InstrumentPassBase<InstrumentPass> {
+class InstrumentPass : public impl::InstrumentPassBase<InstrumentPass> {
 
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
@@ -185,7 +184,7 @@ public:
  * Create an instrumentation pass.
  */
 namespace onnx_mlir {
-//Below is defined by GEN_PASS_DEF in onnx_mlir namespace
+// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
 /*
 std::unique_ptr<mlir::Pass> createInstrument() {
   return std::make_unique<InstrumentPass>();
@@ -196,4 +195,4 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
     const std::string &ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(ops, actions);
 }
-}//onnx_mlir
+} // namespace onnx_mlir

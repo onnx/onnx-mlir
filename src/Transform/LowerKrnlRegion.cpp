@@ -61,7 +61,7 @@ public:
  *  Function pass that lowers KrnlRegionOp
  */
 class LowerKrnlRegionPass
-  : public impl::LowerKrnlRegionPassBase<LowerKrnlRegionPass> {
+    : public impl::LowerKrnlRegionPassBase<LowerKrnlRegionPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlRegionPass)
 
@@ -85,4 +85,3 @@ std::unique_ptr<Pass> createLowerKrnlRegionPass() {
 }
 } // namespace krnl
 } // namespace onnx_mlir
-

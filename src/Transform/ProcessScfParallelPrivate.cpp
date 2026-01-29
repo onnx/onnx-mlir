@@ -26,8 +26,8 @@
 //===----------------------------------------------------------------------===//
 #include "mlir/Transforms/Passes.h"
 
-#include "src/Transform/ProcessScfParallelPrivate.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ProcessScfParallelPrivate.hpp"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -109,7 +109,8 @@ struct ProcessScfParallelWithoutScopePattern
 };
 
 struct ProcessScfParallelPrivatePass
-    : public impl::ProcessScfParallelPrivatePassBase<ProcessScfParallelPrivatePass> {
+    : public impl::ProcessScfParallelPrivatePassBase<
+          ProcessScfParallelPrivatePass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ProcessScfParallelPrivatePass)
 
   void runOnOperation() final;
@@ -151,4 +152,4 @@ namespace onnx_mlir {
 std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass() {
   return std::make_unique<ProcessScfParallelPrivatePass>();
 }
-}
+} // namespace onnx_mlir

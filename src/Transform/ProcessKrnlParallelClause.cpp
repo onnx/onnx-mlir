@@ -14,9 +14,9 @@
 
 #include "mlir/Transforms/Passes.h"
 
-#include "src/Transform/ProcessKrnlParallelClause.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ProcessKrnlParallelClause.hpp"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -98,7 +98,8 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
 };
 
 struct ProcessKrnlParallelClausePass
-    : public impl::ProcessKrnlParallelClausePassBase<ProcessKrnlParallelClausePass> {
+    : public impl::ProcessKrnlParallelClausePassBase<
+          ProcessKrnlParallelClausePass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ProcessKrnlParallelClausePass)
 
   void runOnOperation() final;
@@ -137,4 +138,4 @@ namespace onnx_mlir {
 std::unique_ptr<Pass> createProcessKrnlParallelClausePass() {
   return std::make_unique<ProcessKrnlParallelClausePass>();
 }
-}
+} // namespace onnx_mlir
