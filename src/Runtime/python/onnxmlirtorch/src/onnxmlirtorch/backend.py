@@ -25,6 +25,7 @@ from collections import deque
 
 import numpy as np
 import torch
+from torch.export import Dim
 from torch._inductor.codecache import (
     _ident,
     extract_tensor_metadata_for_cache_key,
@@ -398,6 +399,7 @@ class ONNXMLIRTorch:
         """
         This computes a dictionary of dynamic shapes to be used in torch.export.
         """
+        dim_tables = {}
         dynamic_shapes = {}
         input_names = []
         for node in self.gm.graph.nodes:
@@ -417,18 +419,21 @@ class ONNXMLIRTorch:
             if isinstance(input_arg, torch.SymInt) or isinstance(
                 input_arg, torch.nn.Parameter
             ):
-                dynamic_shapes[input_name] = None
+                dynamic_shapes[input_name] = {}
                 continue
             # Get dynamic dimensions from dynamic input tensors.
             dynamic_dims = {}
             for dim_idx, dim_size in enumerate(input_arg.shape):
                 if isinstance(dim_size, torch.SymInt):
                     if not str(dim_size).isdigit():
-                        dynamic_dims[dim_idx] = "dim" + str(dim_size)
-            if dynamic_dims:
-                dynamic_shapes[input_name] = dynamic_dims
-            else:
-                dynamic_shapes[input_name] = None
+                        dim_str = "dim" + str(dim_size)
+                        if dim_str in dim_tables:
+                            dim = dim_tables[dim_str]
+                        else:
+                            dim = Dim(dim_str)
+                            dim_tables[dim_str] = dim
+                        dynamic_dims[dim_idx] = dim
+            dynamic_shapes[input_name] = dynamic_dims
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"dynamic_shapes: {dynamic_shapes}")
         return input_names, dynamic_shapes
