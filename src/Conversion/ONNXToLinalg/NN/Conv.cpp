@@ -82,9 +82,9 @@ struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
     // Auto-pad Check: Only support auto_pad="NOTSET"
     StringRef autoPad = convOp.getAutoPad();
     if (autoPad != "NOTSET") {
-      return rewriter.notifyMatchFailure(
-          convOp, "only auto_pad=NOTSET is currently supported in Linalg "
-                  "lowering");
+      return rewriter.notifyMatchFailure(convOp,
+          "only auto_pad=NOTSET is currently supported in Linalg "
+          "lowering");
     }
 
     // Padding Check: Only support padding=0
@@ -95,9 +95,9 @@ struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
       for (size_t i = 0; i < pads.size(); ++i) {
         int64_t padVal = ArrayAttrIntVal(pads, i);
         if (padVal != 0) {
-          return rewriter.notifyMatchFailure(
-              convOp, "only padding=0 is currently supported in Linalg "
-                      "lowering");
+          return rewriter.notifyMatchFailure(convOp,
+              "only padding=0 is currently supported in Linalg "
+              "lowering");
         }
       }
     }
@@ -109,9 +109,9 @@ struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
       for (size_t i = 0; i < dilations.size(); ++i) {
         int64_t dilationVal = ArrayAttrIntVal(dilations, i);
         if (dilationVal != 1) {
-          return rewriter.notifyMatchFailure(
-              convOp, "only dilation=1 is currently supported in Linalg "
-                      "lowering");
+          return rewriter.notifyMatchFailure(convOp,
+              "only dilation=1 is currently supported in Linalg "
+              "lowering");
         }
       }
     }
@@ -163,12 +163,12 @@ struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
 
     // Create linalg.conv_2d_nchw_fchw operation
     Value convResult = linalg::Conv2DNchwFchwOp::create(rewriter, loc,
-        TypeRange{outputTensorType},  // result type
-        ValueRange{X, W},             // inputs: [input, filter]
-        ValueRange{filledTensor},     // outputs: [init tensor]
+        TypeRange{outputTensorType}, // result type
+        ValueRange{X, W},            // inputs: [input, filter]
+        ValueRange{filledTensor},    // outputs: [init tensor]
         stridesDenseAttr,            // DenseIntElementsAttr [2]
         dilationsDenseAttr)          // DenseIntElementsAttr [2] = [1, 1]
-                             .getResult(0);
+                           .getResult(0);
 
     rewriter.replaceOp(convOp, convResult);
     return success();
@@ -186,4 +186,3 @@ void populateLoweringONNXConvOpToLinalgPattern(RewritePatternSet &patterns,
 }
 
 } // namespace onnx_mlir
-
