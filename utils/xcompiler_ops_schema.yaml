@@ -1,7 +1,9 @@
 
-# ==============================================================================
-# FusedEltwise:  Element-wise operation with optional activation fusion
-# ==============================================================================
+#== == == == == == == == == == == == == == == == == == == == == == == == == == \
+    == == == == == == == == == == == == ==
+#FusedEltwise : Element - wise operation with optional activation fusion
+#== == == == == == == == == == == == == == == == == == == == == == == == == == \
+    == == == == == == == == == == == == ==
 - name: FusedEltwise
   domain: com.amd.xcompiler
   since_version: 1
@@ -75,9 +77,12 @@
   min_output: 1
   max_output: 1
 
-# ==============================================================================
-# DepthwiseConv: Depthwise separable convolution (supports 2D and 3D) - NHWC layout
-# ==============================================================================
+#== == == == == == == == == == == == == == == == == == == == == == == == == == \
+    == == == == == == == == == == == == ==
+#DepthwiseConv : Depthwise separable convolution(supports 2D and 3D) -         \
+    NHWC layout
+#== == == == == == == == == == == == == == == == == == == == == == == == == == \
+    == == == == == == == == == == == == ==
 - name: DepthwiseConv
   domain: com.amd.xcompiler
   since_version: 1

@@ -62,8 +62,8 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
     if (xType.hasRank()) {
       xRank = xType.getRank();
       if (xRank != 4 && xRank != 5)
-        return op->emitOpError(
-                   "input X must be 4D [N, H, W, C] or 5D [N, D, H, W, C], got rank ")
+        return op->emitOpError("input X must be 4D [N, H, W, C] or 5D [N, D, "
+                               "H, W, C], got rank ")
                << xRank;
       // Channel is last dimension in NHWC layout
       if (!xType.isDynamicDim(xRank - 1))
@@ -79,7 +79,8 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
   Value W = convOp.getW();
   if (auto wType = mlir::dyn_cast<ShapedType>(W.getType())) {
     if (wType.hasRank()) {
-      int64_t expectedWRank = numSpatialDims + 2; // C + spatial dims + multiplier
+      int64_t expectedWRank =
+          numSpatialDims + 2; // C + spatial dims + multiplier
       if (wType.getRank() != expectedWRank)
         return op->emitOpError("weight W must be ")
                << expectedWRank << "D tensor for " << (is3D ? "3D" : "2D")
@@ -94,8 +95,9 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
                    "be 1, got ")
                << wType.getDimSize(multiplierIdx);
 
-      // Verify input channels match weight output channels (first dim in OHWI weight)
-      int64_t wChannelIdx = 0;  // C_out is first dimension in OHWI format
+      // Verify input channels match weight output channels (first dim in OHWI
+      // weight)
+      int64_t wChannelIdx = 0; // C_out is first dimension in OHWI format
       if (inputChannels != ShapedType::kDynamic &&
           !wType.isDynamicDim(wChannelIdx)) {
         if (inputChannels != wType.getDimSize(wChannelIdx))

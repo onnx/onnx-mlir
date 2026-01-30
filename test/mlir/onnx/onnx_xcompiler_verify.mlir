@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt %s -split-input-file -verify-diagnostics
 
 //===----------------------------------------------------------------------===//
-/// Verification tests for XCOMPILER Operations  
+/// Verification tests for XCOMPILER Operations
 /// Domain: com.amd.xcompiler
 //===----------------------------------------------------------------------===//
 
@@ -241,12 +241,13 @@ func.func @test_depthwise_conv3d_invalid_kernel_shape(%arg0: tensor<1x16x28x28x3
 
 // Test: 3D depthwise conv - pads must have 6 elements for 5D input
 func.func @test_depthwise_conv3d_invalid_pads(%arg0: tensor<1x16x28x28x32xi8>, %arg1: tensor<32x3x3x3x1xi8>) -> tensor<1x16x28x28x32xi8> {
-  %none = "onnx.NoValue"() {value} : () -> none
-  // expected-error @+1 {{pads must have 6 elements, got 4}}
-  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
-    kernel_shape = [3, 3, 3],
-    pads = [1, 1, 1, 1],
-    auto_pad = "NOTSET"
-  } : (tensor<1x16x28x28x32xi8>, tensor<32x3x3x3x1xi8>, none) -> tensor<1x16x28x28x32xi8>
-  onnx.Return %0 : tensor<1x16x28x28x32xi8>
+  % none = "onnx.NoValue"(){value} : ()->none
+           // expected-error @+1 {{pads must have 6 elements, got 4}}
+           % 0 = "onnx.XCOMPILERDepthwiseConv"(
+                     % arg0, % arg1, % none){kernel_shape = [ 3, 3, 3 ],
+                     pads = [ 1, 1, 1, 1 ], auto_pad = "NOTSET"}
+      : (tensor<1x16x28x28x32xi8>, tensor<32x3x3x3x1xi8>, none)
+            ->tensor<1x16x28x28x32xi8>
+                onnx.Return %
+                 0 : tensor<1x16x28x28x32xi8>
 }

@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
-/// Shape inference tests for XCOMPILER Operations  
+/// Shape inference tests for XCOMPILER Operations
 /// Domain: com.amd.xcompiler
 //===----------------------------------------------------------------------===//
 
@@ -274,15 +274,16 @@ func.func @test_XCOMPILER_depthwise_conv3d_basic(%arg0: tensor<1x16x32x32x32xi8>
 // Input: [N=1, D=8, H=16, W=16, C=64], auto_pad: SAME_UPPER
 // Output: [N=1, D=8, H=16, W=16, C=64]
 func.func @test_XCOMPILER_depthwise_conv3d_same_pad(%arg0: tensor<1x8x16x16x64xi8>, %arg1: tensor<64x3x3x3x1xi8>) -> tensor<*xi8> {
-  %none = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
-    kernel_shape = [3, 3, 3],
-    auto_pad = "SAME_UPPER"
-  } : (tensor<1x8x16x16x64xi8>, tensor<64x3x3x3x1xi8>, none) -> tensor<*xi8>
-  onnx.Return %0 : tensor<*xi8>
+  % none = "onnx.NoValue"(){value} : ()->none % 0 =
+               "onnx.XCOMPILERDepthwiseConv"(% arg0, % arg1, % none){
+                   kernel_shape = [ 3, 3, 3 ], auto_pad = "SAME_UPPER"}
+      : (tensor<1x8x16x16x64xi8>, tensor<64x3x3x3x1xi8>, none)
+            ->tensor<*xi8>
+                onnx.Return %
+               0 : tensor<*xi8>
 
   // CHECK-LABEL: test_XCOMPILER_depthwise_conv3d_same_pad
-  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x8x16x16x64xi8>
-  // CHECK: onnx.Return [[RES]] : tensor<1x8x16x16x64xi8>
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}}
+  // -> tensor<1x8x16x16x64xi8> CHECK: onnx.Return [[RES]] :
+  // tensor<1x8x16x16x64xi8>
 }
-
