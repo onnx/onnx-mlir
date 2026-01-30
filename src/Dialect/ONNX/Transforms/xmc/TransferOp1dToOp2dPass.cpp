@@ -2,7 +2,11 @@
 //
 // This pass converts 1D operations to 2D operations:
 // - Conv1D → Conv2D
+// - ConvTranspose1D → ConvTranspose2D
 // - MaxPool1D → MaxPool2D
+// - AveragePool1D → AveragePool2D
+// - GlobalMaxPool1D → GlobalMaxPool2D
+// - GlobalAveragePool1D → GlobalAveragePool2D
 // - DepthwiseConv1D → DepthwiseConv2D
 //
 // The transformation inserts reshape operations before and after the target
@@ -135,8 +139,9 @@ bool is1DSpatialOp(RankedTensorType inputType) {
   return inputType && inputType.getRank() == 3;
 }
 
-/// Get the group attribute from Conv op, defaults to 1
-int64_t getConvGroup(ONNXConvOp convOp) {
+/// Get the group attribute from Conv/ConvTranspose op, defaults to 1
+template <typename ConvOpType>
+int64_t getConvOpGroup(ConvOpType convOp) {
   auto groupAttr = convOp.getGroupAttr();
   return groupAttr ? groupAttr.getValue().getSExtValue() : 1;
 }
@@ -191,106 +196,18 @@ Value createActivation4D(PatternRewriter &rewriter, Location loc,
 }
 
 //===----------------------------------------------------------------------===//
-// Conv1D/DepthwiseConv1D to Conv2D Transformation
+// Pattern: Conv1D/ConvTranspose1D to Conv2D/ConvTranspose2D
+// (handles Conv, ConvTranspose, regular and depthwise, with/without activation)
 //===----------------------------------------------------------------------===//
 
-/// Unified transformation for Conv1D → Conv2D (handles both regular and
-/// depthwise) For depthwise conv, group == C, which getConvGroup() returns
-LogicalResult transformConv1dToConv2d(ONNXConvOp convOp,
-    PatternRewriter &rewriter, Operation *activationOp) {
-  Location loc = convOp.getLoc();
-  Value input = convOp.getX();
-  Value weight = convOp.getW();
-  Value bias = convOp.getB();
+template <typename ConvOpType>
+struct Conv1dToConv2dPattern : public OpRewritePattern<ConvOpType> {
+  using OpRewritePattern<ConvOpType>::OpRewritePattern;
 
-  auto inputType = cast<RankedTensorType>(input.getType());
-  auto weightType = cast<RankedTensorType>(weight.getType());
-
-  auto outputType =
-      cast<RankedTensorType>(activationOp ? activationOp->getResult(0).getType()
-                                          : convOp.getResult().getType());
-  auto outputShape3D = outputType.getShape();
-
-  // Get kernel size for special case handling
-  auto kernel1d = getArrayAttrValues(convOp.getKernelShape());
-  if (kernel1d.empty())
-    kernel1d = {weightType.getShape()[2]};
-  int64_t kernelSize = kernel1d[0];
-
-  // Reshape input: [N, C, L] → [N, C, 1, L] or [1, N, C, L] for kernel=1
-  Value reshapedInput = reshapeInputTo4D(rewriter, loc, input, kernelSize);
-
-  // Reshape weight: [OC, IC/g, K] → [OC, IC/g, 1, K]
-  Value reshapedWeight = reshapeWeightTo4D(rewriter, loc, weight);
-
-  // Get and extend attributes from 1D to 2D
-  auto stride1d = getArrayAttrValues(convOp.getStrides());
-  auto dilation1d = getArrayAttrValues(convOp.getDilations());
-  auto pads1d = getArrayAttrValues(convOp.getPads());
-
-  if (stride1d.empty())
-    stride1d = {1};
-  if (dilation1d.empty())
-    dilation1d = {1};
-  if (pads1d.empty())
-    pads1d = {0, 0};
-
-  auto kernel2d = extend1DAttrTo2D(kernel1d);
-  auto stride2d = extend1DAttrTo2D(stride1d);
-  auto dilation2d = extend1DAttrTo2D(dilation1d);
-  auto pads2d = extend1DPadsTo2D(pads1d);
-
-  // Use unranked type - let ONNX infer Conv2D output shape
-  auto conv2dOutputType = UnrankedTensorType::get(inputType.getElementType());
-
-  // Handle bias
-  Value conv2dBias = bias;
-  if (!bias || isa<NoneType>(bias.getType())) {
-    onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
-    conv2dBias = onnxBuilder.none();
-  }
-
-  auto si64Type =
-      IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
-
-  // Create Conv2D (group from original op - works for both regular and
-  // depthwise)
-  auto conv2dOp = rewriter.create<ONNXConvOp>(loc, conv2dOutputType,
-      reshapedInput, reshapedWeight, conv2dBias,
-      /*auto_pad=*/convOp.getAutoPadAttr(),
-      /*dilations=*/rewriter.getI64ArrayAttr(dilation2d),
-      /*group=*/IntegerAttr::get(si64Type, getConvGroup(convOp)),
-      /*kernel_shape=*/rewriter.getI64ArrayAttr(kernel2d),
-      /*pads=*/rewriter.getI64ArrayAttr(pads2d),
-      /*strides=*/rewriter.getI64ArrayAttr(stride2d));
-
-  Value result = conv2dOp.getResult();
-
-  if (activationOp) {
-    result = createActivation4D(rewriter, loc, activationOp, result);
-  }
-
-  Value finalOutput = reshapeOutputTo3D(rewriter, loc, result, outputShape3D,
-      outputType.getElementType());
-
-  if (activationOp) {
-    rewriter.replaceOp(activationOp, finalOutput);
-  } else {
-    rewriter.replaceOp(convOp, finalOutput);
-  }
-
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// Pattern: Conv1D to Conv2D (handles both regular and depthwise)
-//===----------------------------------------------------------------------===//
-
-struct Conv1dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
-  using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXConvOp convOp,
+  LogicalResult matchAndRewrite(ConvOpType convOp,
       PatternRewriter &rewriter) const override {
+    Location loc = convOp.getLoc();
+
     // Check if this is a 1D convolution (3D input tensor)
     auto inputType = dyn_cast<RankedTensorType>(convOp.getX().getType());
     if (!is1DSpatialOp(inputType))
@@ -301,51 +218,35 @@ struct Conv1dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
     if (!weightType || weightType.getRank() != 3)
       return failure();
 
-    // Check for following activation (relu, leaky-relu, prelu, relu6)
+    // Check for following activation
     Operation *activationOp = getFollowingActivation(convOp);
 
-    return transformConv1dToConv2d(convOp, rewriter, activationOp);
-  }
-};
+    // Get input/output info
+    Value input = convOp.getX();
+    Value weight = convOp.getW();
+    Value bias = convOp.getB();
 
-//===----------------------------------------------------------------------===//
-// Pattern: MaxPool1D to MaxPool2D
-//===----------------------------------------------------------------------===//
-
-struct MaxPool1dToMaxPool2dPattern
-    : public OpRewritePattern<ONNXMaxPoolSingleOutOp> {
-  using OpRewritePattern<ONNXMaxPoolSingleOutOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXMaxPoolSingleOutOp maxPoolOp,
-      PatternRewriter &rewriter) const override {
-    Location loc = maxPoolOp.getLoc();
-    Value input = maxPoolOp.getX();
-
-    // Check if 1D pooling (3D input)
-    auto inputType = dyn_cast<RankedTensorType>(input.getType());
-    if (!is1DSpatialOp(inputType))
-      return failure();
-
-    auto inputShape = inputType.getShape();
-    auto outputType = cast<RankedTensorType>(maxPoolOp.getResult().getType());
+    auto outputType = cast<RankedTensorType>(
+        activationOp ? activationOp->getResult(0).getType()
+                     : convOp.getResult().getType());
     auto outputShape3D = outputType.getShape();
 
-    // Reshape input: [N, C, L] → [N, C, 1, L] (no special kernel=1 case for
-    // maxpool)
-    llvm::SmallVector<int64_t> input4DShape = {inputShape[0], inputShape[1], 1,
-        inputShape[2]};
-    auto input4DType =
-        RankedTensorType::get(input4DShape, inputType.getElementType());
-    auto inputShapeConst = createShapeConstant(rewriter, loc, input4DShape);
-    Value reshapedInput =
-        rewriter.create<ONNXReshapeOp>(loc, input4DType, input, inputShapeConst)
-            .getReshaped();
+    // Get kernel size for special case handling
+    auto kernel1d = getArrayAttrValues(convOp.getKernelShape());
+    if (kernel1d.empty())
+      kernel1d = {weightType.getShape()[2]};
+    int64_t kernelSize = kernel1d[0];
 
-    // Get and extend attributes
-    auto kernel1d = getArrayAttrValues(maxPoolOp.getKernelShape());
-    auto stride1d = getArrayAttrValues(maxPoolOp.getStrides());
-    auto dilation1d = getArrayAttrValues(maxPoolOp.getDilations());
-    auto pads1d = getArrayAttrValues(maxPoolOp.getPads());
+    // Reshape input: [N, C, L] → [N, C, 1, L] or [1, N, C, L] for kernel=1
+    Value reshapedInput = reshapeInputTo4D(rewriter, loc, input, kernelSize);
+
+    // Reshape weight: [OC, IC/g, K] or [IC, OC/g, K] → [..., 1, K]
+    Value reshapedWeight = reshapeWeightTo4D(rewriter, loc, weight);
+
+    // Get and extend common attributes from 1D to 2D
+    auto stride1d = getArrayAttrValues(convOp.getStrides());
+    auto dilation1d = getArrayAttrValues(convOp.getDilations());
+    auto pads1d = getArrayAttrValues(convOp.getPads());
 
     if (stride1d.empty())
       stride1d = {1};
@@ -359,29 +260,254 @@ struct MaxPool1dToMaxPool2dPattern
     auto dilation2d = extend1DAttrTo2D(dilation1d);
     auto pads2d = extend1DPadsTo2D(pads1d);
 
-    // Use unranked type - let ONNX infer MaxPool2D output shape
-    auto pool2dOutputType = UnrankedTensorType::get(inputType.getElementType());
+    // Handle ConvTranspose-specific attributes
+    llvm::SmallVector<int64_t> outputPadding2d;
+    llvm::SmallVector<int64_t> outputShape2d;
+    if constexpr (std::is_same_v<ConvOpType, ONNXConvTransposeOp>) {
+      auto outputPadding1d = getArrayAttrValues(convOp.getOutputPadding());
+      if (!outputPadding1d.empty()) {
+        outputPadding2d = extend1DAttrTo2D(outputPadding1d);
+      }
+
+      auto outputShape1d = getArrayAttrValues(convOp.getOutputShape());
+      if (!outputShape1d.empty()) {
+        outputShape2d = extend1DAttrTo2D(outputShape1d);
+      }
+    }
+
+    // Use unranked type - let ONNX infer Conv2D output shape
+    auto conv2dOutputType =
+        UnrankedTensorType::get(inputType.getElementType());
+
+    // Handle bias
+    Value conv2dBias = bias;
+    if (!bias || isa<NoneType>(bias.getType())) {
+      onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
+      conv2dBias = onnxBuilder.none();
+    }
 
     auto si64Type =
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
 
-    // Create MaxPool2D
-    auto maxPool2dOp = rewriter.create<ONNXMaxPoolSingleOutOp>(loc,
-        pool2dOutputType, reshapedInput,
-        /*auto_pad=*/maxPoolOp.getAutoPadAttr(),
-        /*ceil_mode=*/maxPoolOp.getCeilModeAttr(),
-        /*dilations=*/rewriter.getI64ArrayAttr(dilation2d),
-        /*kernel_shape=*/rewriter.getI64ArrayAttr(kernel2d),
-        /*pads=*/rewriter.getI64ArrayAttr(pads2d),
-        /*storage_order=*/IntegerAttr::get(si64Type, 0),
-        /*strides=*/rewriter.getI64ArrayAttr(stride2d));
+    // Create Conv2D or ConvTranspose2D operation
+    Value result;
+    if constexpr (std::is_same_v<ConvOpType, ONNXConvOp>) {
+      // Create Conv2D
+      auto conv2dOp = rewriter.create<ONNXConvOp>(loc, conv2dOutputType,
+          reshapedInput, reshapedWeight, conv2dBias,
+          /*auto_pad=*/convOp.getAutoPadAttr(),
+          /*dilations=*/rewriter.getI64ArrayAttr(dilation2d),
+          /*group=*/IntegerAttr::get(si64Type, getConvOpGroup(convOp)),
+          /*kernel_shape=*/rewriter.getI64ArrayAttr(kernel2d),
+          /*pads=*/rewriter.getI64ArrayAttr(pads2d),
+          /*strides=*/rewriter.getI64ArrayAttr(stride2d));
+      // Infer the output shape
+      if (failed(conv2dOp.inferShapes([](Region &) {})))
+        return failure();
+      result = conv2dOp.getResult();
+    } else if constexpr (std::is_same_v<ConvOpType, ONNXConvTransposeOp>) {
+      // Create ConvTranspose2D
+      auto convTranspose2dOp = rewriter.create<ONNXConvTransposeOp>(loc,
+          conv2dOutputType, reshapedInput, reshapedWeight, conv2dBias,
+          /*auto_pad=*/convOp.getAutoPadAttr(),
+          /*dilations=*/rewriter.getI64ArrayAttr(dilation2d),
+          /*group=*/IntegerAttr::get(si64Type, getConvOpGroup(convOp)),
+          /*kernel_shape=*/rewriter.getI64ArrayAttr(kernel2d),
+          /*output_padding=*/
+          outputPadding2d.empty() ? ArrayAttr{}
+                                  : rewriter.getI64ArrayAttr(outputPadding2d),
+          /*output_shape=*/
+          outputShape2d.empty() ? ArrayAttr{}
+                                : rewriter.getI64ArrayAttr(outputShape2d),
+          /*pads=*/rewriter.getI64ArrayAttr(pads2d),
+          /*strides=*/rewriter.getI64ArrayAttr(stride2d));
+      // Infer the output shape
+      if (failed(convTranspose2dOp.inferShapes([](Region &) {})))
+        return failure();
+      result = convTranspose2dOp.getResult();
+    } else {
+      static_assert(std::is_same_v<ConvOpType, ONNXConvOp> ||
+                    std::is_same_v<ConvOpType, ONNXConvTransposeOp>,
+                    "Unsupported convolution operation type");
+    }
+
+    // Apply activation if present
+    if (activationOp) {
+      result = createActivation4D(rewriter, loc, activationOp, result);
+    }
+
+    // Reshape output back to 3D
+    Value finalOutput = reshapeOutputTo3D(rewriter, loc, result, outputShape3D,
+        outputType.getElementType());
+
+    // Replace operation
+    if (activationOp) {
+      rewriter.replaceOp(activationOp, finalOutput);
+    } else {
+      rewriter.replaceOp(convOp, finalOutput);
+    }
+
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Pattern: Pool1D to Pool2D (MaxPool, AveragePool)
+//===----------------------------------------------------------------------===//
+
+template <typename PoolOp>
+struct Pool1dToPool2dPattern : public OpRewritePattern<PoolOp> {
+  using OpRewritePattern<PoolOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(PoolOp poolOp,
+      PatternRewriter &rewriter) const override {
+    Location loc = poolOp.getLoc();
+    Value input = poolOp.getX();
+
+    // Check if 1D pooling (3D input)
+    auto inputType = dyn_cast<RankedTensorType>(input.getType());
+    if (!is1DSpatialOp(inputType))
+      return failure();
+
+    auto inputShape = inputType.getShape();
+    auto outputType = cast<RankedTensorType>(poolOp.getResult().getType());
+    auto outputShape3D = outputType.getShape();
+
+    // Reshape input: [N, C, L] → [N, C, 1, L]
+    llvm::SmallVector<int64_t> input4DShape = {inputShape[0], inputShape[1], 1,
+        inputShape[2]};
+    auto input4DType =
+        RankedTensorType::get(input4DShape, inputType.getElementType());
+    auto inputShapeConst = createShapeConstant(rewriter, loc, input4DShape);
+    Value reshapedInput =
+        rewriter.create<ONNXReshapeOp>(loc, input4DType, input, inputShapeConst)
+            .getReshaped();
+
+    // Get and extend common attributes
+    auto kernel1d = getArrayAttrValues(poolOp.getKernelShape());
+    auto stride1d = getArrayAttrValues(poolOp.getStrides());
+    auto pads1d = getArrayAttrValues(poolOp.getPads());
+
+    if (stride1d.empty())
+      stride1d = {1};
+    if (pads1d.empty())
+      pads1d = {0, 0};
+
+    auto kernel2d = extend1DAttrTo2D(kernel1d);
+    auto stride2d = extend1DAttrTo2D(stride1d);
+    auto pads2d = extend1DPadsTo2D(pads1d);
+
+    // Get and extend dilations (supported by both MaxPool and AveragePool)
+    auto dilation1d = getArrayAttrValues(poolOp.getDilations());
+    if (dilation1d.empty())
+      dilation1d = {1};
+    auto dilation2d = extend1DAttrTo2D(dilation1d);
+
+    // Use unranked type - let ONNX infer Pool2D output shape
+    auto pool2dOutputType = UnrankedTensorType::get(inputType.getElementType());
+
+    Value pool2dResult;
+
+    // Create Pool2D operation based on type
+    if constexpr (std::is_same_v<PoolOp, ONNXMaxPoolSingleOutOp>) {
+      // MaxPool: has storage_order
+      auto si64Type =
+          IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
+
+      auto maxPool2dOp = rewriter.create<ONNXMaxPoolSingleOutOp>(loc,
+          pool2dOutputType, reshapedInput,
+          /*auto_pad=*/poolOp.getAutoPadAttr(),
+          /*ceil_mode=*/poolOp.getCeilModeAttr(),
+          /*dilations=*/rewriter.getI64ArrayAttr(dilation2d),
+          /*kernel_shape=*/rewriter.getI64ArrayAttr(kernel2d),
+          /*pads=*/rewriter.getI64ArrayAttr(pads2d),
+          /*storage_order=*/IntegerAttr::get(si64Type, 0),
+          /*strides=*/rewriter.getI64ArrayAttr(stride2d));
+
+      // Infer the output shape
+      if (failed(maxPool2dOp.inferShapes([](Region &) {})))
+        return failure();
+      pool2dResult = maxPool2dOp.getResult();
+    } else if constexpr (std::is_same_v<PoolOp, ONNXAveragePoolOp>) {
+      // AveragePool: has count_include_pad and dilations, NO storage_order
+      auto avgPool2dOp = rewriter.create<ONNXAveragePoolOp>(loc,
+          pool2dOutputType, reshapedInput,
+          /*auto_pad=*/poolOp.getAutoPadAttr(),
+          /*ceil_mode=*/poolOp.getCeilModeAttr(),
+          /*count_include_pad=*/poolOp.getCountIncludePadAttr(),
+          /*dilations=*/rewriter.getI64ArrayAttr(dilation2d),
+          /*kernel_shape=*/rewriter.getI64ArrayAttr(kernel2d),
+          /*pads=*/rewriter.getI64ArrayAttr(pads2d),
+          /*strides=*/rewriter.getI64ArrayAttr(stride2d));
+
+      // Infer the output shape
+      if (failed(avgPool2dOp.inferShapes([](Region &) {})))
+        return failure();
+      pool2dResult = avgPool2dOp.getResult();
+    } else {
+      static_assert(std::is_same_v<PoolOp, ONNXMaxPoolSingleOutOp> ||
+                    std::is_same_v<PoolOp, ONNXAveragePoolOp>,
+                    "Unsupported pooling operation type");
+    }
 
     // Reshape output back to 3D
     Value finalOutput = reshapeOutputTo3D(
-        rewriter, loc, maxPool2dOp.getResult(), outputShape3D,
+        rewriter, loc, pool2dResult, outputShape3D,
         outputType.getElementType());
 
-    rewriter.replaceOp(maxPoolOp, finalOutput);
+    rewriter.replaceOp(poolOp, finalOutput);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Pattern: GlobalPool1D to GlobalPool2D (GlobalMaxPool, GlobalAveragePool)
+//===----------------------------------------------------------------------===//
+
+template <typename GlobalPoolOp>
+struct GlobalPool1dToGlobalPool2dPattern : public OpRewritePattern<GlobalPoolOp> {
+  using OpRewritePattern<GlobalPoolOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(GlobalPoolOp globalPoolOp,
+      PatternRewriter &rewriter) const override {
+    Location loc = globalPoolOp.getLoc();
+    Value input = globalPoolOp.getX();
+
+    // Check if 1D pooling (3D input)
+    auto inputType = dyn_cast<RankedTensorType>(input.getType());
+    if (!is1DSpatialOp(inputType))
+      return failure();
+
+    auto inputShape = inputType.getShape();
+    auto outputType =
+        cast<RankedTensorType>(globalPoolOp.getResult().getType());
+    auto outputShape3D = outputType.getShape();
+
+    // Reshape input: [N, C, L] → [N, C, 1, L]
+    llvm::SmallVector<int64_t> input4DShape = {inputShape[0], inputShape[1], 1,
+        inputShape[2]};
+    auto input4DType =
+        RankedTensorType::get(input4DShape, inputType.getElementType());
+    auto inputShapeConst = createShapeConstant(rewriter, loc, input4DShape);
+    Value reshapedInput =
+        rewriter.create<ONNXReshapeOp>(loc, input4DType, input, inputShapeConst)
+            .getReshaped();
+
+    // Create GlobalPool2D - no attributes to extend
+    auto pool2dOutputType = UnrankedTensorType::get(inputType.getElementType());
+    auto globalPool2dOp = rewriter.create<GlobalPoolOp>(
+        loc, pool2dOutputType, reshapedInput);
+
+    // Infer the output shape
+    if (failed(globalPool2dOp.inferShapes([](Region &) {})))
+      return failure();
+
+    // Reshape output back to 3D
+    Value finalOutput = reshapeOutputTo3D(rewriter, loc,
+        globalPool2dOp.getResult(), outputShape3D,
+        outputType.getElementType());
+
+    rewriter.replaceOp(globalPoolOp, finalOutput);
     return success();
   }
 };
@@ -395,13 +521,16 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 
 /// Pass to transfer 1D operations to 2D operations.
-/// This converts Conv1D, MaxPool1D, and DepthwiseConv1D to their 2D equivalents
-/// by inserting reshape operations before and after.
+/// This converts Conv1D, ConvTranspose1D, MaxPool1D, AveragePool1D,
+/// GlobalMaxPool1D, GlobalAveragePool1D, and DepthwiseConv1D to their 2D
+/// equivalents by inserting reshape operations before and after.
 struct TransferOp1dToOp2dPass
     : public PassWrapper<TransferOp1dToOp2dPass, OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "transfer-op1d-to-op2d"; }
   StringRef getDescription() const override {
-    return "Convert 1D operations (Conv1D, MaxPool1D) to 2D equivalents";
+    return "Convert 1D operations (Conv1D, ConvTranspose1D, MaxPool1D, "
+           "AveragePool1D, GlobalMaxPool1D, GlobalAveragePool1D) to 2D "
+           "equivalents";
   }
 
   void runOnOperation() override {
@@ -409,12 +538,23 @@ struct TransferOp1dToOp2dPass
 
     RewritePatternSet patterns(ctx);
 
-    // Conv1D → Conv2D (handles both regular and depthwise, with or without
-    // activation)
-    patterns.add<Conv1dToConv2dPattern>(ctx);
+    // Conv1D → Conv2D (handles regular and depthwise, with/without activation)
+    patterns.add<Conv1dToConv2dPattern<ONNXConvOp>>(ctx);
+
+    // ConvTranspose1D → ConvTranspose2D (with/without activation)
+    patterns.add<Conv1dToConv2dPattern<ONNXConvTransposeOp>>(ctx);
 
     // MaxPool1D → MaxPool2D
-    patterns.add<MaxPool1dToMaxPool2dPattern>(ctx);
+    patterns.add<Pool1dToPool2dPattern<ONNXMaxPoolSingleOutOp>>(ctx);
+
+    // AveragePool1D → AveragePool2D
+    patterns.add<Pool1dToPool2dPattern<ONNXAveragePoolOp>>(ctx);
+
+    // GlobalMaxPool1D → GlobalMaxPool2D
+    patterns.add<GlobalPool1dToGlobalPool2dPattern<ONNXGlobalMaxPoolOp>>(ctx);
+
+    // GlobalAveragePool1D → GlobalAveragePool2D
+    patterns.add<GlobalPool1dToGlobalPool2dPattern<ONNXGlobalAveragePoolOp>>(ctx);
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
