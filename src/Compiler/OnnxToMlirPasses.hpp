@@ -20,7 +20,6 @@ struct OnnxToMlirOptions {
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
-  bool enableRecomposeLayernormByTranspose = false;
   bool enableSplitToSliceDecompose = false;
 
   bool disableRecomposeOption = false;
