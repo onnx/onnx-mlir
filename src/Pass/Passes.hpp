@@ -158,6 +158,10 @@ std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
 /// Pass for transferring pool-fix operations to downsample-fix operations.
 std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 
+/// Pass for converting XFEConv to XCOMPILERDepthwiseConv when group ==
+/// input_channels.
+std::unique_ptr<mlir::Pass> createConvertXFEConvToDepthwiseConvPass();
+
 /// Pass for splitting depthwise conv2d with channel_multiplier > 1.
 std::unique_ptr<mlir::Pass>
 createTransferDepthwiseConv2dWithChannelMultiplierPass();

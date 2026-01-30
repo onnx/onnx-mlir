@@ -87,6 +87,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ReplaceNDimTransposePass.cpp
   xmc/ONNXTransposeOptimizationPass.cpp
   xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
+  xmc/ConvertXFEConvToDepthwiseConvPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
