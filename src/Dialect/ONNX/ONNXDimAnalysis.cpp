@@ -743,6 +743,8 @@ void DimAnalysis::getONNXDimParams(
     StringRef dimParams = mlir::cast<StringAttr>(
         dictAttr.getNamed("onnx.dim_params").value().getValue())
                               .getValue();
+    if (dimParams.empty())
+      return;
     SmallVector<StringRef, 4> splittedDimParams;
     dimParams.split(splittedDimParams, ',');
     for (size_t k = 0; k < splittedDimParams.size(); ++k) {
