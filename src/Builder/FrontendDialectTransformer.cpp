@@ -1506,7 +1506,7 @@ private:
       for (size_t k = 0; k < funcAttrsToMove.size(); ++k) {
         if (i < funcAttrsToMove[k].size()) {
           auto v = mlir::cast<StringAttr>(funcAttrsToMove[k].getValue()[i]);
-          if (!v.getValue().empty()) {
+          if (v && !v.getValue().empty()) {
             NamedAttribute namedAttr =
                 builder_.getNamedAttr(argAttrNames[k], v);
             argAttrs.emplace_back(namedAttr);
