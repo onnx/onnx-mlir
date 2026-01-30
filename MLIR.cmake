@@ -47,8 +47,6 @@ else()
   add_definitions(${LLVM_DEFINITIONS})
 endif()
 
-set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
 
 # onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
 # the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
