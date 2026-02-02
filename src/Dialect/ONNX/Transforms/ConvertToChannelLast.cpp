@@ -300,8 +300,9 @@ struct AveragePoolToChannelLastPattern
     auto poolChannelLastOp = rewriter.create<XFEAveragePoolOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
-        poolOp.getCountIncludePadAttr(), poolOp.getKernelShapeAttr(),
-        poolOp.getPadsAttr(), poolOp.getStridesAttr());
+        poolOp.getCountIncludePadAttr(), poolOp.getDilationsAttr(),
+        poolOp.getKernelShapeAttr(), poolOp.getPadsAttr(),
+        poolOp.getStridesAttr());
 
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
@@ -393,12 +394,24 @@ struct GlobalAveragePoolToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEGlobalAveragePool operation
-    auto poolChannelLastOp = rewriter.create<XFEGlobalAveragePoolOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast);
+    auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
+    Type outputElementType = origOutputType.getElementType();
+    auto poolChannelLastOp = rewriter.create<XFEGlobalAveragePoolOp>(
+        loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
+
+    // CRITICAL: Immediately run shape inference
+    if (failed(poolChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
+    // Get actual element type from XFEGlobalAveragePool output
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -426,12 +439,24 @@ struct GlobalMaxPoolToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEGlobalMaxPool operation
-    auto poolChannelLastOp = rewriter.create<XFEGlobalMaxPoolOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast);
+    auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
+    Type outputElementType = origOutputType.getElementType();
+    auto poolChannelLastOp = rewriter.create<XFEGlobalMaxPoolOp>(
+        loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
+
+    // CRITICAL: Immediately run shape inference
+    if (failed(poolChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
+    // Get actual element type from XFEGlobalMaxPool output
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -461,13 +486,26 @@ struct InstanceNormToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEInstanceNormalization operation
+    // Use original norm's output element type to preserve quantization
+    auto origOutputType = mlir::cast<ShapedType>(normOp.getType());
+    Type outputElementType = origOutputType.getElementType();
     auto normChannelLastOp = rewriter.create<XFEInstanceNormalizationOp>(loc,
-        UnrankedTensorType::get(inputType.getElementType()), inputChannelLast,
-        scale, B, normOp.getEpsilonAttr());
+        UnrankedTensorType::get(outputElementType), inputChannelLast, scale, B,
+        normOp.getEpsilonAttr());
+
+    // CRITICAL: Immediately run shape inference
+    if (failed(normChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
 
     // Transpose output back to NCHW
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, normChannelLastOp.getResult(), normOp.getType(), rank);
+    // Get actual element type from XFEInstanceNormalization output
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(normChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        normChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(normOp, outputNCHW);
     return success();
@@ -722,6 +760,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     Value sizes = resizeOp.getSizes();
 
     // Helper to permute a 1D tensor from NCHW order to NHWC order
+    // CRITICAL: Must create a constant-folded result for shape inference to
+    // work
     auto permuteForChannelLast = [&](Value tensor) -> Value {
       if (isa<NoneType>(tensor.getType()))
         return tensor;
@@ -734,6 +774,14 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
       if (numElements != rank)
         return tensor; // Can't permute if size doesn't match rank
 
+      // Try to get constant values for folding
+      DenseElementsAttr constAttr;
+      if (auto defOp = tensor.getDefiningOp<ONNXConstantOp>()) {
+        if (auto valueAttr = defOp.getValue()) {
+          constAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
+        }
+      }
+
       // Create permutation for channel-last: [0, 2, 3, ..., N-1, 1]
       SmallVector<int64_t, 4> perm;
       perm.push_back(0); // batch
@@ -741,17 +789,43 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
         perm.push_back(i); // spatial dimensions
       perm.push_back(1);   // channels
 
-      // Create gather indices
+      // If input is a constant, create a permuted constant (constant folding)
+      if (constAttr) {
+        auto elemType = tensorType.getElementType();
+        if (elemType.isF32()) {
+          // Permute float constants
+          auto values = constAttr.getValues<float>();
+          SmallVector<float, 4> permutedValues;
+          for (int64_t p : perm) {
+            permutedValues.push_back(values[p]);
+          }
+          auto permutedAttr = DenseElementsAttr::get(
+              tensorType, llvm::ArrayRef<float>(permutedValues));
+          return rewriter.create<ONNXConstantOp>(
+              loc, mlir::Attribute(), permutedAttr);
+        } else if (elemType.isInteger(64)) {
+          // Permute int64 constants
+          auto values = constAttr.getValues<int64_t>();
+          SmallVector<int64_t, 4> permutedValues;
+          for (int64_t p : perm) {
+            permutedValues.push_back(values[p]);
+          }
+          auto permutedAttr =
+              DenseIntElementsAttr::get(tensorType, permutedValues);
+          return rewriter.create<ONNXConstantOp>(
+              loc, mlir::Attribute(), permutedAttr);
+        }
+      }
+
+      // Fallback: Create Gather op for non-constant inputs
       SmallVector<int64_t, 4> indices(perm.begin(), perm.end());
       auto indicesType = RankedTensorType::get({rank}, rewriter.getI64Type());
       auto indicesAttr = DenseIntElementsAttr::get(indicesType, indices);
       Value indicesValue =
           rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(), indicesAttr);
 
-      // Gather to permute - use si64 for axis attribute
-      auto outputType = tensorType;
       auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
-      return rewriter.create<ONNXGatherOp>(loc, outputType, tensor,
+      return rewriter.create<ONNXGatherOp>(loc, tensorType, tensor,
           indicesValue, rewriter.getIntegerAttr(si64Type, 0));
     };
 

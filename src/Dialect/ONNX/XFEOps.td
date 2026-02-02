@@ -24,6 +24,7 @@ def XFEAveragePoolOp:ONNX_Op<"XFEAveragePool",
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<SI64Attr>:$ceil_mode,
     OptionalAttr<SI64Attr>:$count_include_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);

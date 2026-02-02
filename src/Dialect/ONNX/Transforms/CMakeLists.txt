@@ -55,6 +55,40 @@ add_onnx_mlir_library(OMONNXRewrite
   QuantTypes.cpp
   ConvertToChannelLast.cpp
   ResultNamesUpdater.cpp
+  xmc/MergeSliceConcatPass.cpp
+  xmc/CombineTransposePair.cpp
+  xmc/MergeContinuousStridedSlice.cpp
+  xmc/RemoveContinuousTransposeWithReshape.cpp
+  xmc/RemoveUselessQLinearPoolPass.cpp
+  xmc/ReplaceHsigmoidAndHswishPass.cpp
+  xmc/MergeStridedSliceConcatConvPass.cpp
+  xmc/ConvertPoolLikeOpToPool2dPass.cpp
+  xmc/InstanceNormToGroupNormPass.cpp
+  xmc/RemoveDilationConvPass.cpp
+  xmc/RemoveSemanticallyUselessOps.cpp
+  xmc/Resize_to_conv.cpp
+  xmc/StandardizeStridedSlice.cpp
+  xmc/TransferConvSliceToConvPass.cpp
+  xmc/TransferReduceMeanSumToConvPass.cpp
+  xmc/ConvertMulToDepthwiseConv2dPass.cpp
+  xmc/TransferOp3dToOp2dPass.cpp
+  xmc/TransferPoolFixToDownsampleFixPass.cpp
+  xmc/TransferDepthwiseConv2dWithChannelMultiplierPass.cpp
+  xmc/TransformReshapelikeOpToReshapePass.cpp
+  xmc/Transform5DTransposeTo4DPass.cpp
+  xmc/EliminateReshapeAroundSlicePass.cpp
+  xmc/OptimizeSliceReshapeTransposeBlockPass.cpp
+  xmc/Transfer5dBlockTo4dPass.cpp
+  xmc/Transfer5dStridedSliceTo4d.cpp
+  xmc/TransferSpaceToDepthToConv2dPass.cpp
+  xmc/MergeBatchnormToConvPass.cpp
+  xmc/BatchReductionToReshapeReductionPass.cpp
+  xmc/RemoveRedundantReluPass.cpp
+  xmc/ReplaceNDimTransposePass.cpp
+  xmc/TransferOpShapeTo4dPass.cpp
+  xmc/TransferOp1dToOp2dPass.cpp
+  xmc/ONNXTransposeOptimizationPass.cpp
+  xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

@@ -102,6 +102,107 @@ std::unique_ptr<mlir::Pass> createSetONNXNodeNamePass();
 /// InstanceNormalization, DepthToSpace, SpaceToDepth
 std::unique_ptr<mlir::Pass> createConvertToChannelLastPass();
 
+/// Pass for merging Slice->Concat patterns with downstream ops.
+std::unique_ptr<mlir::Pass> createMergeSliceConcatPass();
+std::unique_ptr<mlir::Pass> createMergeStridedSliceConcatConvPass();
+
+/// Pass for merging continuous chained Slice operations with quantized types.
+std::unique_ptr<mlir::Pass> createMergeContinuousStridedSlicePass();
+
+std::unique_ptr<mlir::Pass> createONNXTransposeOptimizationPass();
+
+/// Pass to combine two transpose with same input and same perm.
+std::unique_ptr<mlir::Pass> createCombineTransposePairPass();
+
+/// Pass to remove redundant Transpose-Reshape-Transpose sequences.
+std::unique_ptr<mlir::Pass> createRemoveContinuousTransposeWithReshapePass();
+
+/// Pass for transferring Resize Linear operations to depthwise convolutions.
+std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
+
+/// Pass for lowering Reduce operations to Pool operations.
+std::unique_ptr<mlir::Pass> createLowerReduceToPoolPass();
+
+/// Pass for removing semantically useless operations.
+std::unique_ptr<mlir::Pass> createRemoveSemanticallyUselessOpsPass();
+
+/// Pass for removing useless pool operations (kernel_shape and strides all 1s).
+std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
+
+/// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
+std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
+
+/// Pass for transferring ReduceMean/Sum operations to Conv operations.
+std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
+
+/// Pass for transferring Conv->Slice patterns to Conv operations.
+std::unique_ptr<mlir::Pass> createTransferConvSliceToConvPass();
+
+/// Pass for removing dilation from Conv operations.
+std::unique_ptr<mlir::Pass> createRemoveDilationConv();
+
+/// Pass for converting InstanceNorm to GroupNorm.
+std::unique_ptr<mlir::Pass> createConvertInstanceNormToGroupNormPass();
+
+/// Pass for standardizing Slice operations.
+std::unique_ptr<mlir::Pass> createStandardizeSliceOpsPass();
+
+/// Pass for converting Mul operations to DepthwiseConv2d when applicable.
+std::unique_ptr<mlir::Pass> createConvertMulToDepthwiseConv2dPass();
+
+/// Pass for transferring 3D operations to 2D operations.
+std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
+
+/// Pass for transferring pool-fix operations to downsample-fix operations.
+std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
+
+/// Pass for splitting depthwise conv2d with channel_multiplier > 1.
+std::unique_ptr<mlir::Pass>
+createTransferDepthwiseConv2dWithChannelMultiplierPass();
+
+/// Pass for transferring PoolFix operations to DownsampleFix operations.
+std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
+
+/// Pass for transforming reshape-like operations to Reshape.
+std::unique_ptr<mlir::Pass> createTransformReshapelikeOpToReshapePass();
+
+/// Pass for transforming 5D Transpose to Reshape + 4D Transpose + Reshape.
+std::unique_ptr<mlir::Pass> createTransform5DTransposeTo4DPass();
+
+/// Pass for eliminating reshape operations around slice operations.
+std::unique_ptr<mlir::Pass> createEliminateReshapeAroundSlicePass();
+
+/// Pass for optimizing MHA Slice-Reshape-Transpose blocks.
+std::unique_ptr<mlir::Pass> createOptimizeSliceReshapeTransposeBlockPass();
+
+/// Pass for transferring 5D block operations to 4D equivalents.
+std::unique_ptr<mlir::Pass> createTransfer5dBlockTo4dPass();
+
+/// Pass for transferring 5D strided Slice operations to 4D.
+std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
+
+/// Pass for transferring SpaceToDepth patterns to Conv2D.
+std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
+
+/// Pass for merging BatchNormalization parameters into Conv (XMC).
+std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
+
+/// Pass for converting batch ReduceSum operations to reshape-optimized
+/// ReduceSum (XMC).
+std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
+
+/// Pass for deleting redundant Relu chains (XMC).
+std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
+
+/// Pass for model-specific transpose decomposition (XMC).
+std::unique_ptr<mlir::Pass> createReplaceNDimTransposePass();
+
+/// Pass for transferring element-wise ops with non-4D shapes to 4D.
+std::unique_ptr<mlir::Pass> createTransferOpShapeTo4dPass();
+
+/// Pass for transferring 1D operations to 2D operations.
+std::unique_ptr<mlir::Pass> createTransferOp1dToOp2dPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 

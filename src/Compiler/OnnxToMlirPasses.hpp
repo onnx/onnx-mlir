@@ -20,6 +20,8 @@ struct OnnxToMlirOptions {
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
+  bool enableXMCPasses = false;
+  bool enableRecomposeLayernormByTranspose = false;
   bool enableSplitToSliceDecompose = false;
 
   bool disableRecomposeOption = false;
@@ -40,6 +42,8 @@ struct OnnxToMlirOptions {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr = false, OnnxToMlirOptions opts = {});
+
+void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts = {});
 } // namespace onnx_mlir
 
 #endif
