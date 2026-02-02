@@ -102,8 +102,14 @@ public:
 
     auto qType = std::get<quant::QuantizedType>(qTypeErr);
     auto qTensorType = cast<TensorType>(dqOp.getType()).clone(qType);
-    rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
-        dqOp, qTensorType, dqOp.getX());
+    if (auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>()) {
+      rewriter.modifyOpInPlace(
+          constOp, [&]() { constOp.getResult().setType(qTensorType); });
+      rewriter.replaceOp(dqOp, constOp);
+    } else {
+      rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
+          dqOp, qTensorType, dqOp.getX());
+    }
 
     return success();
   }
