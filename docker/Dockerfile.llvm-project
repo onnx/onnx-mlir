@@ -56,7 +56,12 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   tzdata-java unzip which zip zlib-devel && \
               # Set python3.9 as the default python3
               alternatives --set python3 /usr/bin/python3.9 || \
-              alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1; \
+              alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 && \
+              # Set Java 21 as the default for runtime (needed for ONNX-MLIR JNI tests)
+              # Java 11 will be explicitly set via JAVA_HOME for Bazel bootstrap only
+              alternatives --set java java-21-openjdk.x86_64 || \
+              alternatives --set java /usr/lib/jvm/java-21-openjdk-*/bin/java || \
+              alternatives --auto java; \
           else \
               yum install -q -y \
                   autoconf automake ca-certificates clang cmake diffutils \
