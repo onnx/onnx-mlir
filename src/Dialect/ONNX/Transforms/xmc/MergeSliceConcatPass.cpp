@@ -146,9 +146,9 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
     bool isNCHW = (concatAxis == 1);
     bool isNHWC = (concatAxis == 3);
     if (!isNCHW && !isNHWC)
-      return rewriter.notifyMatchFailure(
-          convOp, "concat axis is not channel axis (expected 1 for NCHW or 3 "
-                  "for NHWC)");
+      return rewriter.notifyMatchFailure(convOp,
+          "concat axis is not channel axis (expected 1 for NCHW or 3 "
+          "for NHWC)");
 
     auto concatInputs = concatOp.getInputs();
     if (concatInputs.size() < 2)
