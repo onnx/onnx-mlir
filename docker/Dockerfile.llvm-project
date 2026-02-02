@@ -49,7 +49,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           if [ "${RHEL_VERSION}" -ge 9 ]; then \
               yum install -q -y \
                   autoconf automake ca-certificates clang cmake diffutils \
-                  file java-21-openjdk-devel java-21-openjdk-headless \
+                  file java-11-openjdk-devel java-11-openjdk-headless \
+                  java-21-openjdk-devel java-21-openjdk-headless \
                   gcc gcc-c++ git libtool make ncurses-devel ninja-build \
                   python3.9 python3.9-devel python3.9-pip python3.9-setuptools \
                   tzdata-java unzip which zip zlib-devel && \
