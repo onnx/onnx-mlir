@@ -22,8 +22,8 @@ struct BatchReductionToReshapeReductionPattern
     : public OpRewritePattern<ONNXReduceSumOp> {
   using OpRewritePattern<ONNXReduceSumOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReduceSumOp reduceOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReduceSumOp reduceOp, PatternRewriter &rewriter) const override {
     Location loc = reduceOp.getLoc();
 
     // Match only quantized ReduceSum.
@@ -32,8 +32,8 @@ struct BatchReductionToReshapeReductionPattern
     if (!inputType)
       return failure();
 
-    auto inputQType = dyn_cast<quant::UniformQuantizedType>(
-        inputType.getElementType());
+    auto inputQType =
+        dyn_cast<quant::UniformQuantizedType>(inputType.getElementType());
     if (!inputQType)
       return failure();
 
@@ -62,11 +62,12 @@ struct BatchReductionToReshapeReductionPattern
     if (axesVec.size() != 1 || axesVec[0] != 3)
       return failure();
 
-    auto outputType = dyn_cast<RankedTensorType>(reduceOp.getResult().getType());
+    auto outputType =
+        dyn_cast<RankedTensorType>(reduceOp.getResult().getType());
     if (!outputType)
       return failure();
-    auto outputQType = dyn_cast<quant::UniformQuantizedType>(
-        outputType.getElementType());
+    auto outputQType =
+        dyn_cast<quant::UniformQuantizedType>(outputType.getElementType());
     if (!outputQType)
       return failure();
 
@@ -82,8 +83,8 @@ struct BatchReductionToReshapeReductionPattern
 
     SmallVector<int64_t, 4> preReshapeShape = {1, flattenedDims, dim2, dim3};
     SmallVector<int64_t, 3> reduceShape = {1, flattenedDims, dim2};
-    SmallVector<int64_t, 3> postReshapeShape(outputType.getShape().begin(),
-        outputType.getShape().end());
+    SmallVector<int64_t, 3> postReshapeShape(
+        outputType.getShape().begin(), outputType.getShape().end());
 
     rewriter.setInsertionPoint(reduceOp);
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
@@ -91,14 +92,16 @@ struct BatchReductionToReshapeReductionPattern
 
     auto preReshapeType =
         RankedTensorType::get(preReshapeShape, inputType.getElementType());
-    Value preReshape =
-        rewriter.create<ONNXReshapeOp>(loc, preReshapeType, inputValue, preShapeConst)
-            .getResult();
+    Value preReshape = rewriter
+                           .create<ONNXReshapeOp>(
+                               loc, preReshapeType, inputValue, preShapeConst)
+                           .getResult();
 
     // Clone ReduceSum op generically to preserve attributes.
     Operation *oldReduce = reduceOp.getOperation();
     OperationState reduceState(loc, oldReduce->getName().getStringRef());
-    reduceState.addTypes(RankedTensorType::get(reduceShape, outputType.getElementType()));
+    reduceState.addTypes(
+        RankedTensorType::get(reduceShape, outputType.getElementType()));
 
     SmallVector<Value, 4> newOperands;
     for (Value v : oldReduce->getOperands())
@@ -114,8 +117,8 @@ struct BatchReductionToReshapeReductionPattern
     rewriter.setInsertionPointAfter(newReduce);
     Value postShapeConst = onnxBuilder.constantInt64(postReshapeShape);
     Value postReshape = rewriter
-                            .create<ONNXReshapeOp>(loc, outputType, newReduce->getResult(0),
-                                postShapeConst)
+                            .create<ONNXReshapeOp>(loc, outputType,
+                                newReduce->getResult(0), postShapeConst)
                             .getResult();
 
     rewriter.replaceOp(reduceOp, postReshape);
@@ -134,7 +137,8 @@ struct BatchReductionToReshapeReductionPass
     return "batch-reduction-to-reshape-reduction";
   }
   StringRef getDescription() const override {
-    return "Convert batch ReduceSum on quantized tensors into reshape-optimized ReduceSum";
+    return "Convert batch ReduceSum on quantized tensors into "
+           "reshape-optimized ReduceSum";
   }
 
   void runOnOperation() override {
@@ -144,8 +148,8 @@ struct BatchReductionToReshapeReductionPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-            config)))
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
@@ -155,4 +159,3 @@ std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass() {
 }
 
 } // namespace onnx_mlir
-

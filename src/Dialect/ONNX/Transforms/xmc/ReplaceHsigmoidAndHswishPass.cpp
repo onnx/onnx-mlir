@@ -23,8 +23,8 @@ namespace {
 
 /// Helper function to extract quantization parameters from a tensor type
 /// Returns failure if the type is not quantized
-static LogicalResult extractQuantParamsFromType(Type type, double &scale,
-    int64_t &zeroPoint) {
+static LogicalResult extractQuantParamsFromType(
+    Type type, double &scale, int64_t &zeroPoint) {
   auto tensorType = dyn_cast<TensorType>(type);
   if (!tensorType)
     return failure();
@@ -64,19 +64,19 @@ struct ReplaceQuantizedHardSigmoidPattern
     // Extract quantization parameters from input type
     double inputScale;
     int64_t inputZeroPoint;
-    if (failed(extractQuantParamsFromType(input.getType(), inputScale,
-            inputZeroPoint))) {
-      return rewriter.notifyMatchFailure(hardSigmoidOp,
-          "Input does not have quantized type");
+    if (failed(extractQuantParamsFromType(
+            input.getType(), inputScale, inputZeroPoint))) {
+      return rewriter.notifyMatchFailure(
+          hardSigmoidOp, "Input does not have quantized type");
     }
 
     // Extract quantization parameters from output type
     double outputScale;
     int64_t outputZeroPoint;
-    if (failed(extractQuantParamsFromType(output.getType(), outputScale,
-            outputZeroPoint))) {
-      return rewriter.notifyMatchFailure(hardSigmoidOp,
-          "Output does not have quantized type");
+    if (failed(extractQuantParamsFromType(
+            output.getType(), outputScale, outputZeroPoint))) {
+      return rewriter.notifyMatchFailure(
+          hardSigmoidOp, "Output does not have quantized type");
     }
 
     Location loc = hardSigmoidOp.getLoc();
@@ -87,10 +87,10 @@ struct ReplaceQuantizedHardSigmoidPattern
 
     // Create XCOMPILERFusedEltwise op with type = "QLINEARSIGMOID"
     // Directly uses quantized tensor types - no scast needed
-    auto fusedEltwiseOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
-        loc, output.getType(), // Output type (quant tensor)
-        input,                 // A - quantized tensor input
-        noneOp.getResult(),    // B - none for unary op
+    auto fusedEltwiseOp = rewriter.create<XCOMPILERFusedEltwiseOp>(loc,
+        output.getType(),   // Output type (quant tensor)
+        input,              // A - quantized tensor input
+        noneOp.getResult(), // B - none for unary op
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
         /*leakyrelu_alpha=*/FloatAttr(),

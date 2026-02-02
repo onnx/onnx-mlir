@@ -33,8 +33,8 @@ namespace {
 
 static std::vector<int64_t> getShape(Type type) {
   if (auto tensorType = dyn_cast<RankedTensorType>(type))
-    return std::vector<int64_t>(tensorType.getShape().begin(),
-        tensorType.getShape().end());
+    return std::vector<int64_t>(
+        tensorType.getShape().begin(), tensorType.getShape().end());
   return {};
 }
 
@@ -46,8 +46,8 @@ static std::optional<size_t> findNonOnePosition(ArrayRef<int64_t> shape) {
   return std::nullopt;
 }
 
-static std::vector<int64_t> shuffleVec(const std::vector<int64_t> &in,
-    size_t inPos, size_t outPos) {
+static std::vector<int64_t> shuffleVec(
+    const std::vector<int64_t> &in, size_t inPos, size_t outPos) {
   auto ret = in;
   std::swap(ret[inPos], ret[outPos]);
   return ret;
@@ -67,8 +67,8 @@ static std::vector<int64_t> extractI64Values(Value val) {
   return result;
 }
 
-static DenseElementsAttr createDenseI64Attr(MLIRContext *ctx,
-    const std::vector<int64_t> &values) {
+static DenseElementsAttr createDenseI64Attr(
+    MLIRContext *ctx, const std::vector<int64_t> &values) {
   auto tensorType = RankedTensorType::get(
       {static_cast<int64_t>(values.size())}, IntegerType::get(ctx, 64));
   return DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
@@ -256,7 +256,8 @@ static Value transformBranch(Branch &branch, Value originalInput,
     for (auto operand : origOp->getOperands()) {
       if (auto constOp = operand.getDefiningOp<ONNXConstantOp>()) {
         // Reshape the constant, preserving its element type
-        Value newConst = createReshapedConstant(constOp, inPos, outPos, rewriter);
+        Value newConst =
+            createReshapedConstant(constOp, inPos, outPos, rewriter);
         if (!newConst)
           return nullptr;
         newOperands.push_back(newConst);
@@ -270,11 +271,11 @@ static Value transformBranch(Branch &branch, Value originalInput,
     // type)
     auto origOutputType =
         cast<RankedTensorType>(origOp->getResult(0).getType());
-    auto origOutputShape = std::vector<int64_t>(origOutputType.getShape().begin(),
-        origOutputType.getShape().end());
+    auto origOutputShape = std::vector<int64_t>(
+        origOutputType.getShape().begin(), origOutputType.getShape().end());
     auto shuffledOutputShape = shuffleVec(origOutputShape, inPos, outPos);
-    auto newOutputType =
-        RankedTensorType::get(shuffledOutputShape, origOutputType.getElementType());
+    auto newOutputType = RankedTensorType::get(
+        shuffledOutputShape, origOutputType.getElementType());
 
     currentValue =
         recreateEltwiseOp(origOp, newOperands, newOutputType, rewriter);
@@ -292,8 +293,8 @@ class EliminateReshapeAroundSlicePattern
 public:
   using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReshapeOp bottomReshape,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp bottomReshape, PatternRewriter &rewriter) const override {
     // Step 1: Trace back from this reshape to find the complete branch
     auto maybeBranch = traceBackToTopReshape(bottomReshape);
     if (!maybeBranch)
@@ -325,8 +326,8 @@ public:
 
     // Step 3: Transform this branch
     Value originalInput = branch.topReshape.getData();
-    Value newOutput = transformBranch(branch, originalInput, reshapeInShape,
-        inPos, outPos, rewriter);
+    Value newOutput = transformBranch(
+        branch, originalInput, reshapeInShape, inPos, outPos, rewriter);
 
     if (!newOutput)
       return failure();
@@ -379,4 +380,3 @@ std::unique_ptr<mlir::Pass> createEliminateReshapeAroundSlicePass() {
 }
 
 } // namespace onnx_mlir
-

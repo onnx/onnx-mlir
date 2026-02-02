@@ -74,8 +74,8 @@ llvm::SmallVector<int64_t> extend1DPadsTo2D(llvm::ArrayRef<int64_t> pads1d) {
 }
 
 /// Create a shape constant for ONNX Reshape
-Value createShapeConstant(PatternRewriter &rewriter, Location loc,
-    llvm::ArrayRef<int64_t> shape) {
+Value createShapeConstant(
+    PatternRewriter &rewriter, Location loc, llvm::ArrayRef<int64_t> shape) {
   onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
   return onnxBuilder.constantInt64(shape);
 }
@@ -84,8 +84,8 @@ Value createShapeConstant(PatternRewriter &rewriter, Location loc,
 /// ONNX Conv2D expects input in NCHW format: [N, C, H, W]
 /// Normal case: [N, C, L] → [N, C, 1, L] (H=1, W=L)
 /// Kernel=1 case: [N, C, L] → [1, N, C, L] (special optimization)
-Value reshapeInputTo4D(PatternRewriter &rewriter, Location loc, Value input,
-    int64_t kernelSize) {
+Value reshapeInputTo4D(
+    PatternRewriter &rewriter, Location loc, Value input, int64_t kernelSize) {
   auto inputType = cast<RankedTensorType>(input.getType());
   auto inputShape = inputType.getShape();
 
@@ -124,8 +124,8 @@ Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
   auto weightShape = weightType.getShape();
 
   // [OC, IC, K] → [OC, IC, 1, K] (ONNX weight format with kH=1)
-  llvm::SmallVector<int64_t> newShape = {weightShape[0], weightShape[1], 1,
-      weightShape[2]};
+  llvm::SmallVector<int64_t> newShape = {
+      weightShape[0], weightShape[1], 1, weightShape[2]};
 
   auto newType = RankedTensorType::get(newShape, weightType.getElementType());
   auto shapeConst = createShapeConstant(rewriter, loc, newShape);
@@ -176,8 +176,8 @@ Value createActivation4D(PatternRewriter &rewriter, Location loc,
   }
   if (auto leakyReluOp = dyn_cast<ONNXLeakyReluOp>(originalActivation)) {
     return rewriter
-        .create<ONNXLeakyReluOp>(loc, outputType, input4D,
-            leakyReluOp.getAlphaAttr())
+        .create<ONNXLeakyReluOp>(
+            loc, outputType, input4D, leakyReluOp.getAlphaAttr())
         .getResult();
   }
   if (auto preluOp = dyn_cast<ONNXPReluOp>(originalActivation)) {
@@ -187,8 +187,8 @@ Value createActivation4D(PatternRewriter &rewriter, Location loc,
   }
   if (auto clipOp = dyn_cast<ONNXClipOp>(originalActivation)) {
     return rewriter
-        .create<ONNXClipOp>(loc, outputType, input4D, clipOp.getMin(),
-            clipOp.getMax())
+        .create<ONNXClipOp>(
+            loc, outputType, input4D, clipOp.getMin(), clipOp.getMax())
         .getResult();
   }
 
@@ -204,8 +204,8 @@ template <typename ConvOpType>
 struct Conv1dToConv2dPattern : public OpRewritePattern<ConvOpType> {
   using OpRewritePattern<ConvOpType>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ConvOpType convOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ConvOpType convOp, PatternRewriter &rewriter) const override {
     Location loc = convOp.getLoc();
 
     // Check if this is a 1D convolution (3D input tensor)
@@ -276,8 +276,7 @@ struct Conv1dToConv2dPattern : public OpRewritePattern<ConvOpType> {
     }
 
     // Use unranked type - let ONNX infer Conv2D output shape
-    auto conv2dOutputType =
-        UnrankedTensorType::get(inputType.getElementType());
+    auto conv2dOutputType = UnrankedTensorType::get(inputType.getElementType());
 
     // Handle bias
     Value conv2dBias = bias;
@@ -327,8 +326,8 @@ struct Conv1dToConv2dPattern : public OpRewritePattern<ConvOpType> {
       result = convTranspose2dOp.getResult();
     } else {
       static_assert(std::is_same_v<ConvOpType, ONNXConvOp> ||
-                    std::is_same_v<ConvOpType, ONNXConvTransposeOp>,
-                    "Unsupported convolution operation type");
+                        std::is_same_v<ConvOpType, ONNXConvTransposeOp>,
+          "Unsupported convolution operation type");
     }
 
     // Apply activation if present
@@ -337,8 +336,8 @@ struct Conv1dToConv2dPattern : public OpRewritePattern<ConvOpType> {
     }
 
     // Reshape output back to 3D
-    Value finalOutput = reshapeOutputTo3D(rewriter, loc, result, outputShape3D,
-        outputType.getElementType());
+    Value finalOutput = reshapeOutputTo3D(
+        rewriter, loc, result, outputShape3D, outputType.getElementType());
 
     // Replace operation
     if (activationOp) {
@@ -359,8 +358,8 @@ template <typename PoolOp>
 struct Pool1dToPool2dPattern : public OpRewritePattern<PoolOp> {
   using OpRewritePattern<PoolOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(PoolOp poolOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      PoolOp poolOp, PatternRewriter &rewriter) const override {
     Location loc = poolOp.getLoc();
     Value input = poolOp.getX();
 
@@ -374,8 +373,8 @@ struct Pool1dToPool2dPattern : public OpRewritePattern<PoolOp> {
     auto outputShape3D = outputType.getShape();
 
     // Reshape input: [N, C, L] → [N, C, 1, L]
-    llvm::SmallVector<int64_t> input4DShape = {inputShape[0], inputShape[1], 1,
-        inputShape[2]};
+    llvm::SmallVector<int64_t> input4DShape = {
+        inputShape[0], inputShape[1], 1, inputShape[2]};
     auto input4DType =
         RankedTensorType::get(input4DShape, inputType.getElementType());
     auto inputShapeConst = createShapeConstant(rewriter, loc, input4DShape);
@@ -446,14 +445,13 @@ struct Pool1dToPool2dPattern : public OpRewritePattern<PoolOp> {
       pool2dResult = avgPool2dOp.getResult();
     } else {
       static_assert(std::is_same_v<PoolOp, ONNXMaxPoolSingleOutOp> ||
-                    std::is_same_v<PoolOp, ONNXAveragePoolOp>,
-                    "Unsupported pooling operation type");
+                        std::is_same_v<PoolOp, ONNXAveragePoolOp>,
+          "Unsupported pooling operation type");
     }
 
     // Reshape output back to 3D
-    Value finalOutput = reshapeOutputTo3D(
-        rewriter, loc, pool2dResult, outputShape3D,
-        outputType.getElementType());
+    Value finalOutput = reshapeOutputTo3D(rewriter, loc, pool2dResult,
+        outputShape3D, outputType.getElementType());
 
     rewriter.replaceOp(poolOp, finalOutput);
     return success();
@@ -465,11 +463,12 @@ struct Pool1dToPool2dPattern : public OpRewritePattern<PoolOp> {
 //===----------------------------------------------------------------------===//
 
 template <typename GlobalPoolOp>
-struct GlobalPool1dToGlobalPool2dPattern : public OpRewritePattern<GlobalPoolOp> {
+struct GlobalPool1dToGlobalPool2dPattern
+    : public OpRewritePattern<GlobalPoolOp> {
   using OpRewritePattern<GlobalPoolOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(GlobalPoolOp globalPoolOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      GlobalPoolOp globalPoolOp, PatternRewriter &rewriter) const override {
     Location loc = globalPoolOp.getLoc();
     Value input = globalPoolOp.getX();
 
@@ -484,8 +483,8 @@ struct GlobalPool1dToGlobalPool2dPattern : public OpRewritePattern<GlobalPoolOp>
     auto outputShape3D = outputType.getShape();
 
     // Reshape input: [N, C, L] → [N, C, 1, L]
-    llvm::SmallVector<int64_t> input4DShape = {inputShape[0], inputShape[1], 1,
-        inputShape[2]};
+    llvm::SmallVector<int64_t> input4DShape = {
+        inputShape[0], inputShape[1], 1, inputShape[2]};
     auto input4DType =
         RankedTensorType::get(input4DShape, inputType.getElementType());
     auto inputShapeConst = createShapeConstant(rewriter, loc, input4DShape);
@@ -495,8 +494,8 @@ struct GlobalPool1dToGlobalPool2dPattern : public OpRewritePattern<GlobalPoolOp>
 
     // Create GlobalPool2D - no attributes to extend
     auto pool2dOutputType = UnrankedTensorType::get(inputType.getElementType());
-    auto globalPool2dOp = rewriter.create<GlobalPoolOp>(
-        loc, pool2dOutputType, reshapedInput);
+    auto globalPool2dOp =
+        rewriter.create<GlobalPoolOp>(loc, pool2dOutputType, reshapedInput);
 
     // Infer the output shape
     if (failed(globalPool2dOp.inferShapes([](Region &) {})))
@@ -504,8 +503,7 @@ struct GlobalPool1dToGlobalPool2dPattern : public OpRewritePattern<GlobalPoolOp>
 
     // Reshape output back to 3D
     Value finalOutput = reshapeOutputTo3D(rewriter, loc,
-        globalPool2dOp.getResult(), outputShape3D,
-        outputType.getElementType());
+        globalPool2dOp.getResult(), outputShape3D, outputType.getElementType());
 
     rewriter.replaceOp(globalPoolOp, finalOutput);
     return success();
@@ -554,7 +552,8 @@ struct TransferOp1dToOp2dPass
     patterns.add<GlobalPool1dToGlobalPool2dPattern<ONNXGlobalMaxPoolOp>>(ctx);
 
     // GlobalAveragePool1D → GlobalAveragePool2D
-    patterns.add<GlobalPool1dToGlobalPool2dPattern<ONNXGlobalAveragePoolOp>>(ctx);
+    patterns.add<GlobalPool1dToGlobalPool2dPattern<ONNXGlobalAveragePoolOp>>(
+        ctx);
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;

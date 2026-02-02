@@ -1,7 +1,7 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 //
-// This pass transforms >4D Transpose operations to Reshape + 4D Transpose + Reshape
-// using two strategies:
+// This pass transforms >4D Transpose operations to Reshape + 4D Transpose +
+// Reshape using two strategies:
 // 1. Merging consecutive identity dimensions (where i == order[i])
 // 2. Merging consecutive pairs in perm (where perm[i] + 1 == perm[i+1])
 
@@ -48,11 +48,11 @@ Type getElementType(Type type) {
 }
 
 /// Create a constant op with the given int64 values
-Value createConstantI64Array(PatternRewriter &rewriter, Location loc,
-    ArrayRef<int64_t> values) {
+Value createConstantI64Array(
+    PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> values) {
   MLIRContext *ctx = rewriter.getContext();
-  auto tensorType = RankedTensorType::get({static_cast<int64_t>(values.size())},
-      IntegerType::get(ctx, 64));
+  auto tensorType = RankedTensorType::get(
+      {static_cast<int64_t>(values.size())}, IntegerType::get(ctx, 64));
   auto denseAttr = DenseIntElementsAttr::get(tensorType, values);
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
@@ -90,8 +90,8 @@ bool canReduceTransposeTo4D(ArrayAttr permAttr) {
 
 /// Compute reduced transpose order and reshaped input shape
 /// by merging consecutive identity dimensions
-std::pair<SmallVector<int64_t>, SmallVector<int64_t>>
-computeReducedTranspose(ArrayRef<int64_t> inputShape, ArrayAttr permAttr) {
+std::pair<SmallVector<int64_t>, SmallVector<int64_t>> computeReducedTranspose(
+    ArrayRef<int64_t> inputShape, ArrayAttr permAttr) {
   SmallVector<int64_t> order;
   for (auto attr : permAttr) {
     order.push_back(cast<IntegerAttr>(attr).getInt());
@@ -123,8 +123,8 @@ computeReducedTranspose(ArrayRef<int64_t> inputShape, ArrayAttr permAttr) {
 }
 
 /// Compute output shape after transpose
-SmallVector<int64_t> computeTransposeOutputShape(ArrayRef<int64_t> inputShape,
-    ArrayRef<int64_t> perm) {
+SmallVector<int64_t> computeTransposeOutputShape(
+    ArrayRef<int64_t> inputShape, ArrayRef<int64_t> perm) {
   SmallVector<int64_t> outputShape;
   for (int64_t p : perm) {
     outputShape.push_back(inputShape[p]);
@@ -149,8 +149,8 @@ std::optional<size_t> findConsecutivePair(ArrayRef<int64_t> perm) {
 
 /// Compute the 4D perm from 5D perm by merging dimensions at merge_pos
 /// merge_dim is the value perm[merge_pos] (the first of the consecutive pair)
-SmallVector<int64_t, 4> compute4DPerm(ArrayRef<int64_t> perm5D, size_t mergePos,
-    int64_t mergeDim) {
+SmallVector<int64_t, 4> compute4DPerm(
+    ArrayRef<int64_t> perm5D, size_t mergePos, int64_t mergeDim) {
   SmallVector<int64_t, 4> perm4D;
   for (size_t i = 0; i < perm5D.size(); ++i) {
     // Skip the second position of the consecutive pair
@@ -173,8 +173,8 @@ SmallVector<int64_t, 4> compute4DPerm(ArrayRef<int64_t> perm5D, size_t mergePos,
 }
 
 /// Compute 4D shape by merging dimensions mergeDim and mergeDim+1
-SmallVector<int64_t, 4> compute4DShape(ArrayRef<int64_t> shape5D,
-    int64_t mergeDim) {
+SmallVector<int64_t, 4> compute4DShape(
+    ArrayRef<int64_t> shape5D, int64_t mergeDim) {
   SmallVector<int64_t, 4> shape4D;
   for (size_t i = 0; i < shape5D.size(); ++i) {
     if (static_cast<int64_t>(i) == mergeDim) {
@@ -195,8 +195,8 @@ SmallVector<int64_t, 4> compute4DShape(ArrayRef<int64_t> shape5D,
 }
 
 /// Apply permutation to shape
-SmallVector<int64_t, 4> applyPerm(ArrayRef<int64_t> shape,
-    ArrayRef<int64_t> perm) {
+SmallVector<int64_t, 4> applyPerm(
+    ArrayRef<int64_t> shape, ArrayRef<int64_t> perm) {
   SmallVector<int64_t, 4> result;
   for (auto p : perm) {
     result.push_back(shape[p]);
@@ -206,8 +206,8 @@ SmallVector<int64_t, 4> applyPerm(ArrayRef<int64_t> shape,
 
 /// Creates a DenseElementsAttr constant from shape values
 DenseElementsAttr getShapeAttr(MLIRContext *ctx, ArrayRef<int64_t> shape) {
-  auto tensorType = RankedTensorType::get({static_cast<int64_t>(shape.size())},
-      IntegerType::get(ctx, 64));
+  auto tensorType = RankedTensorType::get(
+      {static_cast<int64_t>(shape.size())}, IntegerType::get(ctx, 64));
   return DenseElementsAttr::get(tensorType, shape);
 }
 
@@ -225,13 +225,12 @@ ArrayAttr getI64ArrayAttr(MLIRContext *ctx, ArrayRef<int64_t> values) {
 // Into: input -> reshape -> transpose(<=4D order) -> reshape -> output
 //===----------------------------------------------------------------------===//
 
-class TransferTransposeTo4DPattern
-    : public OpRewritePattern<ONNXTransposeOp> {
+class TransferTransposeTo4DPattern : public OpRewritePattern<ONNXTransposeOp> {
 public:
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp transposeOp, PatternRewriter &rewriter) const override {
     auto permAttr = transposeOp.getPermAttr();
     if (!canReduceTransposeTo4D(permAttr)) {
       return failure();
@@ -269,17 +268,16 @@ public:
         computeTransposeOutputShape(reshapedInputShape, reshapedOrder);
     auto newTransposeType =
         RankedTensorType::get(transposeOutputShape, elementType);
-    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(
-        loc, newTransposeType, inputReshapeOp.getResult(),
+    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(loc,
+        newTransposeType, inputReshapeOp.getResult(),
         rewriter.getI64ArrayAttr(reshapedOrder));
 
     // Create output reshape back to original output shape
     auto outputReshapeType = RankedTensorType::get(outputShape, elementType);
     Value outputReshapeShapeConst =
         createConstantI64Array(rewriter, loc, outputShape);
-    auto outputReshapeOp = rewriter.create<ONNXReshapeOp>(
-        loc, outputReshapeType, newTransposeOp.getResult(),
-        outputReshapeShapeConst);
+    auto outputReshapeOp = rewriter.create<ONNXReshapeOp>(loc,
+        outputReshapeType, newTransposeOp.getResult(), outputReshapeShapeConst);
 
     rewriter.replaceOp(transposeOp, outputReshapeOp.getResult());
     return success();
@@ -297,8 +295,8 @@ class Transform5DTransposeTo4DPattern
 public:
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp transposeOp, PatternRewriter &rewriter) const override {
     // Check input is 5D
     auto inputType =
         dyn_cast<RankedTensorType>(transposeOp.getData().getType());
@@ -336,8 +334,8 @@ public:
     // Compute 4D input shape (merge mergeDim and mergeDim+1)
     auto inputShape4D = compute4DShape(inputShape5D, mergeDim);
     if (inputShape4D.empty())
-      return rewriter.notifyMatchFailure(transposeOp,
-          "cannot merge dynamic dimensions");
+      return rewriter.notifyMatchFailure(
+          transposeOp, "cannot merge dynamic dimensions");
 
     // Compute 4D output shape by applying 4D perm to 4D input shape
     auto outputShape4D = applyPerm(inputShape4D, perm4D);
@@ -347,14 +345,14 @@ public:
 
     // Create first reshape: 5D -> 4D (merge dimensions)
     auto reshape0ShapeAttr = getShapeAttr(ctx, inputShape4D);
-    auto reshape0ShapeOp = rewriter.create<ONNXConstantOp>(loc,
-        reshape0ShapeAttr.getType(), Attribute(), reshape0ShapeAttr,
-        FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-        ArrayAttr());
+    auto reshape0ShapeOp =
+        rewriter.create<ONNXConstantOp>(loc, reshape0ShapeAttr.getType(),
+            Attribute(), reshape0ShapeAttr, FloatAttr(), ArrayAttr(),
+            IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 
     auto reshape0Type = RankedTensorType::get(inputShape4D, elemTy);
-    auto reshape0 = rewriter.create<ONNXReshapeOp>(loc, reshape0Type,
-        transposeOp.getData(), reshape0ShapeOp.getResult());
+    auto reshape0 = rewriter.create<ONNXReshapeOp>(
+        loc, reshape0Type, transposeOp.getData(), reshape0ShapeOp.getResult());
 
     // Create 4D transpose
     auto transpose4DType = RankedTensorType::get(outputShape4D, elemTy);
@@ -363,13 +361,13 @@ public:
 
     // Create second reshape: 4D -> 5D (split back)
     auto reshape1ShapeAttr = getShapeAttr(ctx, outputShape5D);
-    auto reshape1ShapeOp = rewriter.create<ONNXConstantOp>(loc,
-        reshape1ShapeAttr.getType(), Attribute(), reshape1ShapeAttr,
-        FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-        ArrayAttr());
+    auto reshape1ShapeOp =
+        rewriter.create<ONNXConstantOp>(loc, reshape1ShapeAttr.getType(),
+            Attribute(), reshape1ShapeAttr, FloatAttr(), ArrayAttr(),
+            IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 
-    auto reshape1 = rewriter.create<ONNXReshapeOp>(loc, outputType,
-        transpose4D.getResult(), reshape1ShapeOp.getResult());
+    auto reshape1 = rewriter.create<ONNXReshapeOp>(
+        loc, outputType, transpose4D.getResult(), reshape1ShapeOp.getResult());
 
     rewriter.replaceOp(transposeOp, reshape1.getResult());
 
@@ -408,8 +406,8 @@ struct Transform5DTransposeTo4DPass
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
 
-    if (failed(applyPatternsGreedily(
-            getOperation(), std::move(patterns), config)))
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
@@ -419,4 +417,3 @@ std::unique_ptr<mlir::Pass> createTransform5DTransposeTo4DPass() {
 }
 
 } // namespace onnx_mlir
-

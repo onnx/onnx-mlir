@@ -49,18 +49,18 @@ Type getElementType(Type type) {
 }
 
 /// Create a constant op with the given int64 values
-Value createConstantI64Array(PatternRewriter &rewriter, Location loc,
-    ArrayRef<int64_t> values) {
+Value createConstantI64Array(
+    PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> values) {
   MLIRContext *ctx = rewriter.getContext();
-  auto tensorType = RankedTensorType::get({static_cast<int64_t>(values.size())},
-      IntegerType::get(ctx, 64));
+  auto tensorType = RankedTensorType::get(
+      {static_cast<int64_t>(values.size())}, IntegerType::get(ctx, 64));
   auto denseAttr = DenseIntElementsAttr::get(tensorType, values);
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
 /// Multiply all dimensions except those specified in excludeDims
-int64_t mulWithoutDims(ArrayRef<int64_t> shape,
-    const std::set<int64_t> &excludeDims) {
+int64_t mulWithoutDims(
+    ArrayRef<int64_t> shape, const std::set<int64_t> &excludeDims) {
   int64_t result = 1;
   for (size_t i = 0; i < shape.size(); ++i) {
     if (excludeDims.find(i) == excludeDims.end()) {
@@ -95,8 +95,8 @@ bool allInputsAlready4D(ArrayRef<Value> inputs) {
 
 /// Detect which dimensions differ between inputs and output (broadcast dims)
 /// Matches original: assumes same rank, uses input's shape.size() for loop
-std::set<int64_t> detectBroadcastDims(ArrayRef<Value> inputs,
-    ArrayRef<int64_t> outputShape) {
+std::set<int64_t> detectBroadcastDims(
+    ArrayRef<Value> inputs, ArrayRef<int64_t> outputShape) {
   std::set<int64_t> broadcastDims;
 
   for (Value input : inputs) {
@@ -118,9 +118,8 @@ std::set<int64_t> detectBroadcastDims(ArrayRef<Value> inputs,
 /// Compute broadcast-aware 4D shape for an input tensor
 /// Takes into account which dimensions are broadcast dimensions
 /// Returns empty vector if input should be kept unchanged
-SmallVector<int64_t>
-computeBroadcastAware4DShape(ArrayRef<int64_t> inputShape,
-    const std::set<int64_t> &broadcastDims) {
+SmallVector<int64_t> computeBroadcastAware4DShape(
+    ArrayRef<int64_t> inputShape, const std::set<int64_t> &broadcastDims) {
   SmallVector<int64_t> shape(inputShape.begin(), inputShape.end());
 
   // For < 4D: pad with 1s at the front
@@ -187,8 +186,8 @@ class TransferEltwiseTo4DPattern : public OpRewritePattern<OpTy> {
 public:
   using OpRewritePattern<OpTy>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(OpTy op,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      OpTy op, PatternRewriter &rewriter) const override {
     auto outputShape = getShapeFromType(op.getResult().getType());
     Type elementType = getElementType(op.getResult().getType());
 
@@ -197,8 +196,8 @@ public:
     }
 
     // Gather all inputs
-    SmallVector<Value> inputs(op->getOperands().begin(),
-        op->getOperands().end());
+    SmallVector<Value> inputs(
+        op->getOperands().begin(), op->getOperands().end());
 
     // Skip if all inputs are already 4D with batch=1 (matches original)
     if (allInputsAlready4D(inputs)) {
@@ -225,8 +224,8 @@ public:
 
     // If output shape is unchanged, skip
     if (outputShape4D.size() == outputShape.size() &&
-        std::equal(outputShape4D.begin(), outputShape4D.end(),
-            outputShape.begin())) {
+        std::equal(
+            outputShape4D.begin(), outputShape4D.end(), outputShape.begin())) {
       return failure();
     }
 
@@ -251,8 +250,8 @@ public:
 
       // Check if reshape is actually needed
       if (inputShape4D.size() == inputShape.size() &&
-          std::equal(inputShape4D.begin(), inputShape4D.end(),
-              inputShape.begin())) {
+          std::equal(
+              inputShape4D.begin(), inputShape4D.end(), inputShape.begin())) {
         reshapedInputs.push_back(input);
         continue;
       }
@@ -291,8 +290,7 @@ namespace onnx_mlir {
 
 /// Pass to transfer element-wise ops with non-4D shapes to 4D
 struct TransferOpShapeTo4dPass
-    : public PassWrapper<TransferOpShapeTo4dPass,
-          OperationPass<func::FuncOp>> {
+    : public PassWrapper<TransferOpShapeTo4dPass, OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "transfer-op-shape-to-4d"; }
   StringRef getDescription() const override {
     return "Transfer element-wise operations with non-4D shapes to 4D";

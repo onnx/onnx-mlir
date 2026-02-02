@@ -41,8 +41,8 @@ SmallVector<int64_t> getShapeFromTensorType(Type type) {
 }
 
 /// Creates a DenseElementsAttr constant from a vector of int64 values
-DenseElementsAttr createDenseElementsAttr(MLIRContext *context,
-    ArrayRef<int64_t> values) {
+DenseElementsAttr createDenseElementsAttr(
+    MLIRContext *context, ArrayRef<int64_t> values) {
   auto tensorType = RankedTensorType::get(
       {static_cast<int64_t>(values.size())}, IntegerType::get(context, 64));
   return DenseElementsAttr::get(tensorType, values);
@@ -152,8 +152,8 @@ struct TransformTrivialTransposeToReshape
     : public OpRewritePattern<ONNXTransposeOp> {
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp transposeOp, PatternRewriter &rewriter) const override {
     auto inputType = transposeOp.getData().getType();
     auto outputType = transposeOp.getResult().getType();
 
@@ -180,8 +180,7 @@ struct TransformTrivialTransposeToReshape
       return failure();
     }
 
-    LLVM_DEBUG(llvm::dbgs()
-               << "Converting trivial Transpose to Reshape\n");
+    LLVM_DEBUG(llvm::dbgs() << "Converting trivial Transpose to Reshape\n");
 
     replaceWithReshape(
         transposeOp, transposeOp.getData(), outputType, outputShape, rewriter);
@@ -206,8 +205,8 @@ struct TransformReshapelikeToReshape : public OpRewritePattern<OpTy> {
       return "Unsqueeze";
   }
 
-  LogicalResult matchAndRewrite(OpTy op,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      OpTy op, PatternRewriter &rewriter) const override {
     Value inputValue = getOpInputValue(op);
     auto inputType = inputValue.getType();
     auto outputType = op.getResult().getType();
@@ -281,4 +280,3 @@ std::unique_ptr<mlir::Pass> createTransformReshapelikeOpToReshapePass() {
 }
 
 } // namespace onnx_mlir
-

@@ -1,7 +1,5 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
@@ -10,6 +8,8 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
@@ -68,8 +68,8 @@ SmallVector<T> reshapeWeightsData(ArrayRef<T> data,
     assert(c % (stride * stride) == 0 &&
            "Input channel dimension must be divisible by stride^2");
 
-    SmallVector<int64_t> newShape = {n, c / (stride * stride), h * stride,
-        w * stride};
+    SmallVector<int64_t> newShape = {
+        n, c / (stride * stride), h * stride, w * stride};
 
     // Iterate through original weight tensor
     for (int64_t on = 0; on < n; on++) {
@@ -85,8 +85,8 @@ SmallVector<T> reshapeWeightsData(ArrayRef<T> data,
             // Calculate linear indices
             int64_t idxIn = on * c * h * w + ic * h * w + ih * w + iw;
             int64_t idxOut = on * newShape[1] * newShape[2] * newShape[3] +
-                             oc * newShape[2] * newShape[3] +
-                             oh * newShape[3] + ow;
+                             oc * newShape[2] * newShape[3] + oh * newShape[3] +
+                             ow;
             outputData[idxOut] = data[idxIn];
           }
         }
@@ -102,8 +102,8 @@ SmallVector<T> reshapeWeightsData(ArrayRef<T> data,
     assert(c % (stride * stride) == 0 &&
            "Input channel dimension must be divisible by stride^2");
 
-    SmallVector<int64_t> newShape = {n, h * stride, w * stride,
-        c / (stride * stride)};
+    SmallVector<int64_t> newShape = {
+        n, h * stride, w * stride, c / (stride * stride)};
 
     // Iterate through original weight tensor
     for (int64_t on = 0; on < n; on++) {
@@ -119,8 +119,8 @@ SmallVector<T> reshapeWeightsData(ArrayRef<T> data,
             // Calculate linear indices
             int64_t idxIn = on * h * w * c + ih * w * c + iw * c + ic;
             int64_t idxOut = on * newShape[1] * newShape[2] * newShape[3] +
-                             oh * newShape[2] * newShape[3] +
-                             ow * newShape[3] + oc;
+                             oh * newShape[2] * newShape[3] + ow * newShape[3] +
+                             oc;
 
             outputData[idxOut] = data[idxIn];
           }
@@ -163,8 +163,8 @@ bool checkSlicePattern(ONNXSliceOp sliceOp, ArrayRef<int64_t> expectedBegin,
 struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp, PatternRewriter &rewriter) const override {
 
     // Check Conv is suitable: dilation=1, stride=1
     auto dilations = convOp.getDilations();
@@ -184,9 +184,9 @@ struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
     }
     for (auto attr : strideArray) {
       if (mlir::cast<IntegerAttr>(attr).getInt() != 1)
-        return rewriter.notifyMatchFailure(
-            convOp, "conv stride must be 1 for all dimensions (pattern expects "
-                    "stride-2 in slices)");
+        return rewriter.notifyMatchFailure(convOp,
+            "conv stride must be 1 for all dimensions (pattern expects "
+            "stride-2 in slices)");
     }
 
     // Check input comes from concat
@@ -307,8 +307,8 @@ struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
     // Weight shape for NHWC: [O, H, W, I] (OHWI format)
     auto weightsShape = weightsType.getShape();
     if (weightsShape.size() != 4)
-      return rewriter.notifyMatchFailure(convOp,
-          "conv weights are not 4D (expected OHWI format for NHWC)");
+      return rewriter.notifyMatchFailure(
+          convOp, "conv weights are not 4D (expected OHWI format for NHWC)");
 
     // Hardcoded stride=2 (as in original xcompiler implementation)
     int64_t sliceStride = 2;
@@ -350,8 +350,8 @@ struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
             reshapeWeightsData<int8_t>(originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       } else {
         // Unsigned int8 (common for quantized weights)
         auto values = weightsData.getValues<uint8_t>();
@@ -360,8 +360,8 @@ struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
             originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       }
     } else if (actualDataType.isInteger(16)) {
       if (actualDataType.isSignedInteger()) {
@@ -371,8 +371,8 @@ struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
             originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       } else {
         auto values = weightsData.getValues<uint16_t>();
         SmallVector<uint16_t> originalData(values.begin(), values.end());
@@ -380,12 +380,11 @@ struct MergeStridedSliceConcatConvNHWC : public OpRewritePattern<ONNXConvOp> {
             originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       }
     } else {
-      return rewriter.notifyMatchFailure(
-          convOp,
+      return rewriter.notifyMatchFailure(convOp,
           "unsupported weight data type (expected f32, i8, u8, i16, or u16)");
     }
 
@@ -474,8 +473,8 @@ struct MergeStridedSliceConcatTransposeConv
     : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp, PatternRewriter &rewriter) const override {
 
     // Check Conv is suitable: dilation=1, stride=1
     auto dilations = convOp.getDilations();
@@ -495,9 +494,9 @@ struct MergeStridedSliceConcatTransposeConv
     }
     for (auto attr : strideArray) {
       if (mlir::cast<IntegerAttr>(attr).getInt() != 1)
-        return rewriter.notifyMatchFailure(
-            convOp, "conv stride must be 1 for all dimensions (pattern expects "
-                    "stride-2 in slices)");
+        return rewriter.notifyMatchFailure(convOp,
+            "conv stride must be 1 for all dimensions (pattern expects "
+            "stride-2 in slices)");
     }
 
     // Check input comes from transpose
@@ -610,8 +609,9 @@ struct MergeStridedSliceConcatTransposeConv
       return rewriter.notifyMatchFailure(
           convOp, "right first-level slice operations are not identical");
 
-    LLVM_DEBUG(llvm::dbgs()
-               << "MergeStridedSliceConcatTransposeConv: Exact pattern matched\n");
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "MergeStridedSliceConcatTransposeConv: Exact pattern matched\n");
 
     // Get conv weights
     auto weightsOp = convOp.getW().getDefiningOp<ONNXConstantOp>();
@@ -636,8 +636,7 @@ struct MergeStridedSliceConcatTransposeConv
 
     auto weightsShape = weightsType.getShape();
     if (weightsShape.size() != 4)
-      return rewriter.notifyMatchFailure(
-          convOp,
+      return rewriter.notifyMatchFailure(convOp,
           "conv weights are not 4D (expected OIHW format for TransposeConv)");
 
     // Hardcoded stride=2
@@ -671,47 +670,46 @@ struct MergeStridedSliceConcatTransposeConv
       if (actualDataType.isSignedInteger()) {
         auto values = weightsData.getValues<int8_t>();
         SmallVector<int8_t> originalData(values.begin(), values.end());
-        auto reshapedData = reshapeWeightsData<int8_t>(originalData,
-            weightsShape, sliceStride);
+        auto reshapedData =
+            reshapeWeightsData<int8_t>(originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       } else {
         SmallVector<uint8_t> originalData;
         for (auto val : weightsData.getValues<uint8_t>()) {
           originalData.push_back(val);
         }
-        auto reshapedData = reshapeWeightsData<uint8_t>(originalData,
-            weightsShape, sliceStride);
+        auto reshapedData = reshapeWeightsData<uint8_t>(
+            originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       }
     } else if (actualDataType.isInteger(16)) {
       if (actualDataType.isSignedInteger()) {
         auto values = weightsData.getValues<int16_t>();
         SmallVector<int16_t> originalData(values.begin(), values.end());
-        auto reshapedData = reshapeWeightsData<int16_t>(originalData,
-            weightsShape, sliceStride);
+        auto reshapedData = reshapeWeightsData<int16_t>(
+            originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       } else {
         auto values = weightsData.getValues<uint16_t>();
         SmallVector<uint16_t> originalData(values.begin(), values.end());
-        auto reshapedData = reshapeWeightsData<uint16_t>(originalData,
-            weightsShape, sliceStride);
+        auto reshapedData = reshapeWeightsData<uint16_t>(
+            originalData, weightsShape, sliceStride);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       }
     } else {
-      return rewriter.notifyMatchFailure(
-          convOp,
+      return rewriter.notifyMatchFailure(convOp,
           "unsupported weight data type (expected f32, i8, u8, i16, or u16)");
     }
 
@@ -804,8 +802,8 @@ struct MergeStridedSliceConcatConvPureNCHW
     : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp, PatternRewriter &rewriter) const override {
 
     // Check Conv is suitable: dilation=1, stride=1
     auto dilations = convOp.getDilations();
@@ -825,17 +823,17 @@ struct MergeStridedSliceConcatConvPureNCHW
     }
     for (auto attr : strideArray) {
       if (mlir::cast<IntegerAttr>(attr).getInt() != 1)
-        return rewriter.notifyMatchFailure(
-            convOp, "conv stride must be 1 for all dimensions (pattern expects "
-                    "stride-2 in slices)");
+        return rewriter.notifyMatchFailure(convOp,
+            "conv stride must be 1 for all dimensions (pattern expects "
+            "stride-2 in slices)");
     }
 
     // Check input comes directly from concat (NO transpose)
     auto concatOp = convOp.getX().getDefiningOp<ONNXConcatOp>();
     if (!concatOp)
-      return rewriter.notifyMatchFailure(
-          convOp, "conv input does not come from Concat operation (pure NCHW "
-                  "expects no Transpose)");
+      return rewriter.notifyMatchFailure(convOp,
+          "conv input does not come from Concat operation (pure NCHW "
+          "expects no Transpose)");
 
     // Check concat axis = 1 (NCHW channel axis)
     auto axisAttr = concatOp.getAxisAttr();
@@ -922,8 +920,9 @@ struct MergeStridedSliceConcatConvPureNCHW
       return rewriter.notifyMatchFailure(
           convOp, "right first-level slice operations are not identical");
 
-    LLVM_DEBUG(llvm::dbgs()
-               << "MergeStridedSliceConcatConvPureNCHW: Exact pattern matched\n");
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "MergeStridedSliceConcatConvPureNCHW: Exact pattern matched\n");
 
     // Get conv weights
     auto weightsOp = convOp.getW().getDefiningOp<ONNXConstantOp>();
@@ -976,8 +975,8 @@ struct MergeStridedSliceConcatConvPureNCHW
     if (actualDataType.isF32()) {
       auto values = weightsData.getValues<float>();
       SmallVector<float> originalData(values.begin(), values.end());
-      auto reshapedData = reshapeWeightsData<float>(originalData, weightsShape,
-          sliceStride, true);
+      auto reshapedData = reshapeWeightsData<float>(
+          originalData, weightsShape, sliceStride, true);
       auto newWeightsType =
           RankedTensorType::get(newWeightsShape, actualDataType);
       newWeightsAttr =
@@ -990,8 +989,8 @@ struct MergeStridedSliceConcatConvPureNCHW
             originalData, weightsShape, sliceStride, true);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       } else {
         auto values = weightsData.getValues<uint8_t>();
         SmallVector<uint8_t> originalData(values.begin(), values.end());
@@ -999,8 +998,8 @@ struct MergeStridedSliceConcatConvPureNCHW
             originalData, weightsShape, sliceStride, true);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       }
     } else if (actualDataType.isInteger(16)) {
       if (actualDataType.isSignedInteger()) {
@@ -1010,8 +1009,8 @@ struct MergeStridedSliceConcatConvPureNCHW
             originalData, weightsShape, sliceStride, true);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       } else {
         auto values = weightsData.getValues<uint16_t>();
         SmallVector<uint16_t> originalData(values.begin(), values.end());
@@ -1019,12 +1018,11 @@ struct MergeStridedSliceConcatConvPureNCHW
             originalData, weightsShape, sliceStride, true);
         auto newWeightsType =
             RankedTensorType::get(newWeightsShape, actualDataType);
-        newWeightsAttr = DenseElementsAttr::get(newWeightsType,
-            llvm::ArrayRef(reshapedData));
+        newWeightsAttr = DenseElementsAttr::get(
+            newWeightsType, llvm::ArrayRef(reshapedData));
       }
     } else {
-      return rewriter.notifyMatchFailure(
-          convOp,
+      return rewriter.notifyMatchFailure(convOp,
           "unsupported weight data type (expected f32, i8, u8, i16, or u16)");
     }
 

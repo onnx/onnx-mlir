@@ -18,8 +18,8 @@ using namespace mlir;
 namespace {
 
 /// Helper function to create a shape constant for ONNX Reshape
-Value createShapeConstant(PatternRewriter &rewriter, Location loc,
-    llvm::ArrayRef<int64_t> shape) {
+Value createShapeConstant(
+    PatternRewriter &rewriter, Location loc, llvm::ArrayRef<int64_t> shape) {
   onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
   return onnxBuilder.constantInt64(shape);
 }
@@ -52,8 +52,8 @@ bool isValidConstantWeight(Value weight, Value input) {
 struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXMulOp mulOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const override {
     auto loc = mulOp.getLoc();
     Value input;
     Value weight;
@@ -109,8 +109,8 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
       auto newInputType =
           RankedTensorType::get(newInputShape, inputType.getElementType());
       auto shapeConst = createShapeConstant(rewriter, loc, newInputShape);
-      input = rewriter.create<ONNXReshapeOp>(loc, newInputType, input,
-          shapeConst);
+      input =
+          rewriter.create<ONNXReshapeOp>(loc, newInputType, input, shapeConst);
     } else {
       newInputShape =
           llvm::SmallVector<int64_t, 4>(inputShape.begin(), inputShape.end());
@@ -141,14 +141,14 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
       // This would require accessing and expanding the constant data
       // For now, create a reshape
       auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-      newWeight = rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight,
-          shapeConst);
+      newWeight = rewriter.create<ONNXReshapeOp>(
+          loc, newWeightType, weight, shapeConst);
     } else {
       auto newWeightType =
           RankedTensorType::get(newWeightShape, weightType.getElementType());
       auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-      newWeight = rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight,
-          shapeConst);
+      newWeight = rewriter.create<ONNXReshapeOp>(
+          loc, newWeightType, weight, shapeConst);
     }
 
     // Create DepthwiseConv attributes
@@ -156,8 +156,9 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
     auto strides = rewriter.getI64ArrayAttr({1, 1});
     auto dilations = rewriter.getI64ArrayAttr({1, 1});
     auto pads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
-    auto group = IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-        llvm::APInt(64, inputChannel, /*isSigned=*/true));
+    auto group =
+        IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+            llvm::APInt(64, inputChannel, /*isSigned=*/true));
 
     // Create none value for bias
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
@@ -186,8 +187,8 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
 struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXAddOp addOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &rewriter) const override {
     auto loc = addOp.getLoc();
 
     // Check if one input is Mul and other is constant (bias)
@@ -251,16 +252,17 @@ struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
     auto newWeightType =
         RankedTensorType::get(newWeightShape, weightType.getElementType());
     auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-    auto newWeight = rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight,
-        shapeConst);
+    auto newWeight =
+        rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight, shapeConst);
 
     // Create DepthwiseConv attributes
     auto kernel = rewriter.getI64ArrayAttr({1, 1});
     auto strides = rewriter.getI64ArrayAttr({1, 1});
     auto dilations = rewriter.getI64ArrayAttr({1, 1});
     auto pads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
-    auto group = IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-        llvm::APInt(64, inputChannel, /*isSigned=*/true));
+    auto group =
+        IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+            llvm::APInt(64, inputChannel, /*isSigned=*/true));
 
     // Conv output will be in NCHW format (same as input)
     auto convOutputType =
@@ -285,8 +287,8 @@ struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
 struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
   using OpRewritePattern<ONNXReluOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReluOp reluOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReluOp reluOp, PatternRewriter &rewriter) const override {
     auto loc = reluOp.getLoc();
 
     // Check if input is Mul
@@ -328,8 +330,8 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
       auto newInputType =
           RankedTensorType::get(newInputShape, inputType.getElementType());
       auto shapeConst = createShapeConstant(rewriter, loc, newInputShape);
-      input = rewriter.create<ONNXReshapeOp>(loc, newInputType, input,
-          shapeConst);
+      input =
+          rewriter.create<ONNXReshapeOp>(loc, newInputType, input, shapeConst);
     } else {
       newInputShape =
           llvm::SmallVector<int64_t, 4>(inputShape.begin(), inputShape.end());
@@ -346,16 +348,17 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
     auto newWeightType =
         RankedTensorType::get(newWeightShape, weightType.getElementType());
     auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-    auto newWeight = rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight,
-        shapeConst);
+    auto newWeight =
+        rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight, shapeConst);
 
     // Create DepthwiseConv
     auto kernel = rewriter.getI64ArrayAttr({1, 1});
     auto strides = rewriter.getI64ArrayAttr({1, 1});
     auto dilations = rewriter.getI64ArrayAttr({1, 1});
     auto pads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
-    auto group = IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-        llvm::APInt(64, inputChannel, /*isSigned=*/true));
+    auto group =
+        IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+            llvm::APInt(64, inputChannel, /*isSigned=*/true));
 
     // Create none value for bias
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
@@ -374,8 +377,8 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
         /*strides=*/strides);
 
     // Create new Relu
-    auto newReluOp = rewriter.create<ONNXReluOp>(loc,
-        reluOp.getResult().getType(), convOp.getResult());
+    auto newReluOp = rewriter.create<ONNXReluOp>(
+        loc, reluOp.getResult().getType(), convOp.getResult());
 
     rewriter.replaceOp(reluOp, newReluOp.getResult());
     return success();

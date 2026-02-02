@@ -28,8 +28,8 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 /// Check if weights are within quantization bounds
-bool isWeightsWithinBound(std::vector<float> &weights, int ic, int &fix_point,
-                          float limit = 127.0f) {
+bool isWeightsWithinBound(
+    std::vector<float> &weights, int ic, int &fix_point, float limit = 127.0f) {
   float min_value = 1.0f;
   float max_value = 0.0f;
   for (size_t i = 0; i < weights.size(); i += ic) {
@@ -44,10 +44,9 @@ bool isWeightsWithinBound(std::vector<float> &weights, int ic, int &fix_point,
 }
 
 /// Create transposed depthwise conv weights for upsampling
-std::vector<float>
-createTransposedDepthwiseConvWeightsData(const std::vector<int32_t> &scale,
-                                         ONNXResizeOp op_resize,
-                                         mlir::Value op_input) {
+std::vector<float> createTransposedDepthwiseConvWeightsData(
+    const std::vector<int32_t> &scale, ONNXResizeOp op_resize,
+    mlir::Value op_input) {
   auto inputType = mlir::dyn_cast<RankedTensorType>(op_input.getType());
   const int64_t ic = inputType.getShape()[1];
 
@@ -138,11 +137,10 @@ createTransposedDepthwiseConvWeightsData(const std::vector<int32_t> &scale,
 }
 
 /// Create depthwise conv weights for downsampling
-std::vector<float>
-createDepthwiseConvWeightsData(const std::vector<int32_t> &scale,
-                               ONNXResizeOp op_resize, mlir::Value op_input,
-                               int32_t bank_width,
-                               std::vector<int32_t> &weights_shape) {
+std::vector<float> createDepthwiseConvWeightsData(
+    const std::vector<int32_t> &scale, ONNXResizeOp op_resize,
+    mlir::Value op_input, int32_t bank_width,
+    std::vector<int32_t> &weights_shape) {
   auto input_type = cast<RankedTensorType>(op_input.getType());
   const auto input_shape = input_type.getShape();
 
@@ -196,7 +194,8 @@ createDepthwiseConvWeightsData(const std::vector<int32_t> &scale,
           int h_idx = h_iter + std::floor(first_idx[1]);
           int w_idx = w_iter + std::floor(first_idx[0]);
 
-          int offset = c * (1 * kernel[0] * kernel[1]) + h_idx * kernel[1] + w_idx;
+          int offset =
+              c * (1 * kernel[0] * kernel[1]) + h_idx * kernel[1] + w_idx;
           float value = value_h * value_w;
           weights[offset] = value;
         }
@@ -215,7 +214,8 @@ createDepthwiseConvWeightsData(const std::vector<int32_t> &scale,
             int w_idx = w_iter + std::floor(first_idx[0]);
 
             int offset = c * (1 * kernel[0] * kernel[1] * kernel[2]) +
-                         d_idx * (kernel[1] * kernel[2]) + h_idx * kernel[2] + w_idx;
+                         d_idx * (kernel[1] * kernel[2]) + h_idx * kernel[2] +
+                         w_idx;
             float value = value_h * value_w * value_d;
             weights[offset] = value;
           }
@@ -228,10 +228,9 @@ createDepthwiseConvWeightsData(const std::vector<int32_t> &scale,
 }
 
 /// Create transposed conv2d weights (3D to 2D transformation)
-std::vector<float>
-createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
-                                  ONNXResizeOp op_resize, mlir::Value op_input,
-                                  const std::vector<float> &weights) {
+std::vector<float> createTransposedConv2dWeightsData(
+    const std::vector<int32_t> &scale, ONNXResizeOp op_resize,
+    mlir::Value op_input, const std::vector<float> &weights) {
   auto inputType = mlir::dyn_cast<RankedTensorType>(op_input.getType());
   auto inputShape = inputType.getShape();
 
@@ -289,8 +288,9 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
     int pad_l;
     int pad_r;
     if (half_pixel_centers && scale_i != 1) {
-      pad_l = static_cast<int>(std::floor(scale_i / 2.0f) + (scale_i % 2 != 0)) +
-              scale_i;
+      pad_l =
+          static_cast<int>(std::floor(scale_i / 2.0f) + (scale_i % 2 != 0)) +
+          scale_i;
       pad_r = pad_l - (scale_i % 2 != 0);
     } else {
       pad_l = scale_i;
@@ -308,8 +308,8 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
   int32_t conv2d_input_channel = conv3d_input_depth * conv3d_input_channel;
   int32_t conv2d_output_channel = conv3d_output_depth * conv3d_output_channel;
 
-  std::vector<int32_t> raw2d_w_shape{conv2d_output_channel, kernel_h, kernel_w,
-                                     conv2d_input_channel};
+  std::vector<int32_t> raw2d_w_shape{
+      conv2d_output_channel, kernel_h, kernel_w, conv2d_input_channel};
 
   size_t raw_2d_wsize = static_cast<size_t>(conv2d_output_channel) * kernel_h *
                         kernel_w * conv2d_input_channel;
@@ -330,8 +330,9 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
             if (idx_d_out < 0 || idx_d_out >= conv3d_output_depth)
               continue;
 
-            int new_addr_base = (idx_d_out * conv3d_output_channel + idx_c_out) *
-                                kernel_h * kernel_w * conv2d_input_channel;
+            int new_addr_base =
+                (idx_d_out * conv3d_output_channel + idx_c_out) * kernel_h *
+                kernel_w * conv2d_input_channel;
 
             int ori_addr = ori_addr_base +
                            (kernel_d - 1 - idx_kd) * kernel_h * kernel_w * 1 +
@@ -349,8 +350,8 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
     }
   }
 
-  std::vector<int32_t> w_shape{conv2d_output_channel, kernel_h, kernel_w,
-                               static_cast<int32_t>(input_D)};
+  std::vector<int32_t> w_shape{
+      conv2d_output_channel, kernel_h, kernel_w, static_cast<int32_t>(input_D)};
 
   size_t wsize = static_cast<size_t>(conv2d_output_channel) * kernel_h *
                  kernel_w * static_cast<size_t>(input_D);
@@ -360,9 +361,9 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
     for (int idx_kh = 0; idx_kh < kernel_h; idx_kh++) {
       for (int idx_kw = 0; idx_kw < kernel_w; idx_kw++) {
         for (int idx_d_in = 0; idx_d_in < w_shape[3]; idx_d_in++) {
-          int src_addr_base = idx_c_out * kernel_h * kernel_w * raw2d_w_shape[3] +
-                              idx_kh * kernel_w * raw2d_w_shape[3] +
-                              idx_kw * raw2d_w_shape[3];
+          int src_addr_base =
+              idx_c_out * kernel_h * kernel_w * raw2d_w_shape[3] +
+              idx_kh * kernel_w * raw2d_w_shape[3] + idx_kw * raw2d_w_shape[3];
 
           int dst_addr = idx_c_out * kernel_h * kernel_w * w_shape[3] +
                          idx_kh * kernel_w * w_shape[3] + idx_kw * w_shape[3] +
@@ -371,13 +372,13 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
           if (idx_d_in < pad_with[6]) {
             int idx_d_src1 = idx_d_in;
             int idx_d_src2 = 2 * pad_with[6] - idx_d_src1 - 1;
-            ret_custom_layout[dst_addr] =
-                raw_ret[src_addr_base + idx_d_src1] + raw_ret[src_addr_base + idx_d_src2];
+            ret_custom_layout[dst_addr] = raw_ret[src_addr_base + idx_d_src1] +
+                                          raw_ret[src_addr_base + idx_d_src2];
           } else if (idx_d_in >= w_shape[3] - pad_with[7]) {
             int idx_d_src1 = pad_with[6] + idx_d_in;
             int idx_d_src2 = 2 * input_D + pad_with[6] - idx_d_in - 1;
-            ret_custom_layout[dst_addr] =
-                raw_ret[src_addr_base + idx_d_src1] + raw_ret[src_addr_base + idx_d_src2];
+            ret_custom_layout[dst_addr] = raw_ret[src_addr_base + idx_d_src1] +
+                                          raw_ret[src_addr_base + idx_d_src2];
           } else {
             int idx_d_src = pad_with[6] + idx_d_in;
             ret_custom_layout[dst_addr] = raw_ret[src_addr_base + idx_d_src];
@@ -412,10 +413,8 @@ createTransposedConv2dWeightsData(const std::vector<int32_t> &scale,
 
 /// Replace resize with transposed depthwise conv (upsampling)
 void replaceWithTransposedDepthwiseConv(PatternRewriter &rewriter, Location loc,
-                                        Value input, Operation *resizeop,
-                                        const std::vector<int32_t> &scale,
-                                        const std::vector<float> &weights,
-                                        int fix_point) {
+    Value input, Operation *resizeop, const std::vector<int32_t> &scale,
+    const std::vector<float> &weights, int fix_point) {
   auto resizeOutput = resizeop->getResult(0);
 
   auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
@@ -458,8 +457,8 @@ void replaceWithTransposedDepthwiseConv(PatternRewriter &rewriter, Location loc,
 
   if (spatialRank == 2) {
     totalElems = C_in * CoutPerGroup * kernelH * kernelW;
-    weightType = RankedTensorType::get({C_in, CoutPerGroup, kernelH, kernelW},
-                                       rewriter.getF32Type());
+    weightType = RankedTensorType::get(
+        {C_in, CoutPerGroup, kernelH, kernelW}, rewriter.getF32Type());
   } else {
     totalElems = C_in * CoutPerGroup * kernelD * kernelH * kernelW;
     weightType = RankedTensorType::get(
@@ -479,9 +478,8 @@ void replaceWithTransposedDepthwiseConv(PatternRewriter &rewriter, Location loc,
       DenseElementsAttr::get(weightType, ArrayRef<float>(weightsQ));
   auto valueAttr = rewriter.getNamedAttr("value", weightsAttr);
 
-  auto weightsConst = rewriter.create<ONNXConstantOp>(
-      loc, weightType, mlir::ValueRange{},
-      mlir::ArrayRef<mlir::NamedAttribute>{valueAttr});
+  auto weightsConst = rewriter.create<ONNXConstantOp>(loc, weightType,
+      mlir::ValueRange{}, mlir::ArrayRef<mlir::NamedAttribute>{valueAttr});
 
   SmallVector<int64_t> strides(scale.begin(), scale.end());
   SmallVector<int64_t> dilations(scale.size(), 1);
@@ -543,8 +541,8 @@ void replaceWithTransposedDepthwiseConv(PatternRewriter &rewriter, Location loc,
 
   rewriter.setInsertionPointAfterValue(input);
 
-  auto convTransposeOp = rewriter.create<ONNXConvTransposeOp>(
-      loc, outputType, input, weightsConst.getResult(), noneVal,
+  auto convTransposeOp = rewriter.create<ONNXConvTransposeOp>(loc, outputType,
+      input, weightsConst.getResult(), noneVal,
       rewriter.getStringAttr("NOTSET"), rewriter.getI64ArrayAttr(dilations),
       rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), group),
       rewriter.getI64ArrayAttr(kernelShapeAttr),
@@ -564,10 +562,8 @@ void replaceWithTransposedDepthwiseConv(PatternRewriter &rewriter, Location loc,
 
 /// Replace resize with transposed conv2d (5D to 4D case)
 void replaceWithTransposedConv2d(PatternRewriter &rewriter, Location loc,
-                                 Value op_input, Value op_output,
-                                 const std::vector<int32_t> &scale,
-                                 const std::vector<float> &weights,
-                                 int fix_point) {
+    Value op_input, Value op_output, const std::vector<int32_t> &scale,
+    const std::vector<float> &weights, int fix_point) {
   auto inputType = mlir::dyn_cast<RankedTensorType>(op_input.getType());
   auto outputType = mlir::dyn_cast<RankedTensorType>(op_output.getType());
 
@@ -591,16 +587,15 @@ void replaceWithTransposedConv2d(PatternRewriter &rewriter, Location loc,
       RankedTensorType::get(reshaped4DInShape, inputType.getElementType());
 
   auto inShapeType = RankedTensorType::get({4}, rewriter.getI64Type());
-  auto inShapeAttr =
-      DenseElementsAttr::get(inShapeType, llvm::ArrayRef<int64_t>(reshaped4DInShape));
-  auto inShapeConst = rewriter.create<ONNXConstantOp>(
-      loc, inShapeType, ValueRange{}, rewriter.getNamedAttr("value", inShapeAttr));
+  auto inShapeAttr = DenseElementsAttr::get(
+      inShapeType, llvm::ArrayRef<int64_t>(reshaped4DInShape));
+  auto inShapeConst = rewriter.create<ONNXConstantOp>(loc, inShapeType,
+      ValueRange{}, rewriter.getNamedAttr("value", inShapeAttr));
 
-  mlir::Value reshapedInput =
-      rewriter
-          .create<ONNXReshapeOp>(loc, reshaped4DInType, op_input,
-                                 inShapeConst.getResult())
-          .getReshaped();
+  mlir::Value reshapedInput = rewriter
+                                  .create<ONNXReshapeOp>(loc, reshaped4DInType,
+                                      op_input, inShapeConst.getResult())
+                                  .getReshaped();
 
   SmallVector<int64_t> reshaped4DOutShape = {N, C, H_out, W_out};
   auto reshaped4DOutType =
@@ -639,11 +634,11 @@ void replaceWithTransposedConv2d(PatternRewriter &rewriter, Location loc,
 
   RankedTensorType weightType =
       RankedTensorType::get(weightShape, rewriter.getF32Type());
-  DenseElementsAttr weightsAttr =
-      DenseElementsAttr::get(weightType, llvm::ArrayRef<float>(weights_quantized));
+  DenseElementsAttr weightsAttr = DenseElementsAttr::get(
+      weightType, llvm::ArrayRef<float>(weights_quantized));
 
-  auto weightsConst = rewriter.create<ONNXConstantOp>(
-      loc, weightType, ValueRange{}, rewriter.getNamedAttr("value", weightsAttr));
+  auto weightsConst = rewriter.create<ONNXConstantOp>(loc, weightType,
+      ValueRange{}, rewriter.getNamedAttr("value", weightsAttr));
 
   auto noneVal = rewriter.create<mlir::ONNXNoneOp>(loc).getResult();
 
@@ -718,8 +713,8 @@ void replaceWithTransposedConv2d(PatternRewriter &rewriter, Location loc,
     output_padding.push_back(out_pad);
   }
 
-  auto convT = rewriter.create<ONNXConvTransposeOp>(
-      loc, reshaped4DOutType, reshapedInput, weightsConst.getResult(), noneVal,
+  auto convT = rewriter.create<ONNXConvTransposeOp>(loc, reshaped4DOutType,
+      reshapedInput, weightsConst.getResult(), noneVal,
       rewriter.getStringAttr("NOTSET"), rewriter.getI64ArrayAttr(dilations),
       rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), group),
       rewriter.getI64ArrayAttr(kernelShapeAttr),
@@ -731,16 +726,15 @@ void replaceWithTransposedConv2d(PatternRewriter &rewriter, Location loc,
       RankedTensorType::get(final5DShape, outputType.getElementType());
 
   auto outShapeType = RankedTensorType::get({5}, rewriter.getI64Type());
-  auto outShapeAttr =
-      DenseElementsAttr::get(outShapeType, llvm::ArrayRef<int64_t>(final5DShape));
-  auto outShapeConst = rewriter.create<ONNXConstantOp>(
-      loc, outShapeType, ValueRange{}, rewriter.getNamedAttr("value", outShapeAttr));
+  auto outShapeAttr = DenseElementsAttr::get(
+      outShapeType, llvm::ArrayRef<int64_t>(final5DShape));
+  auto outShapeConst = rewriter.create<ONNXConstantOp>(loc, outShapeType,
+      ValueRange{}, rewriter.getNamedAttr("value", outShapeAttr));
 
-  mlir::Value result =
-      rewriter
-          .create<ONNXReshapeOp>(loc, final5DType, convT.getResult(),
-                                 outShapeConst.getResult())
-          .getReshaped();
+  mlir::Value result = rewriter
+                           .create<ONNXReshapeOp>(loc, final5DType,
+                               convT.getResult(), outShapeConst.getResult())
+                           .getReshaped();
 
   mlir::Operation *oldOp = op_output.getDefiningOp();
   if (!oldOp) {
@@ -753,10 +747,9 @@ void replaceWithTransposedConv2d(PatternRewriter &rewriter, Location loc,
 
 /// Replace resize with depthwise conv (downsampling)
 void replaceWithDepthwiseConv(PatternRewriter &rewriter, Location loc,
-                              Value input, Value output,
-                              const std::vector<int32_t> &scale,
-                              const std::vector<float> &weights,
-                              const std::vector<int32_t> &weights_shape) {
+    Value input, Value output, const std::vector<int32_t> &scale,
+    const std::vector<float> &weights,
+    const std::vector<int32_t> &weights_shape) {
   auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
   auto outputType = mlir::dyn_cast<RankedTensorType>(output.getType());
 
@@ -767,7 +760,8 @@ void replaceWithDepthwiseConv(PatternRewriter &rewriter, Location loc,
 
   int64_t inChannels = inputType.getShape()[1];
 
-  std::vector<int64_t> weightsShape64(weights_shape.begin(), weights_shape.end());
+  std::vector<int64_t> weightsShape64(
+      weights_shape.begin(), weights_shape.end());
 
   RankedTensorType weightsType =
       RankedTensorType::get(weightsShape64, rewriter.getF32Type());
@@ -775,8 +769,8 @@ void replaceWithDepthwiseConv(PatternRewriter &rewriter, Location loc,
   DenseElementsAttr weightsAttr =
       DenseElementsAttr::get(weightsType, llvm::ArrayRef<float>(weights));
 
-  auto weightsConst = rewriter.create<ONNXConstantOp>(
-      loc, weightsType, ValueRange{}, rewriter.getNamedAttr("value", weightsAttr));
+  auto weightsConst = rewriter.create<ONNXConstantOp>(loc, weightsType,
+      ValueRange{}, rewriter.getNamedAttr("value", weightsAttr));
 
   SmallVector<int64_t> kernelShape;
   for (size_t i = 2; i < weightsShape64.size(); ++i) {
@@ -789,9 +783,9 @@ void replaceWithDepthwiseConv(PatternRewriter &rewriter, Location loc,
 
   auto noneVal = rewriter.create<mlir::ONNXNoneOp>(loc).getResult();
 
-  auto convOp = rewriter.create<ONNXConvOp>(
-      loc, outputType, input, weightsConst.getResult(), noneVal,
-      rewriter.getStringAttr("NOTSET"), rewriter.getI64ArrayAttr(dilations),
+  auto convOp = rewriter.create<ONNXConvOp>(loc, outputType, input,
+      weightsConst.getResult(), noneVal, rewriter.getStringAttr("NOTSET"),
+      rewriter.getI64ArrayAttr(dilations),
       rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), inChannels),
       rewriter.getI64ArrayAttr(kernelShape), rewriter.getI64ArrayAttr(pads),
       rewriter.getI64ArrayAttr(strides));
@@ -814,8 +808,8 @@ struct TransferResizeLinearToDwConv
     : public OpRewritePattern<mlir::ONNXResizeOp> {
   using OpRewritePattern<mlir::ONNXResizeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(mlir::ONNXResizeOp resizeOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXResizeOp resizeOp, PatternRewriter &rewriter) const override {
     mlir::Location loc = resizeOp.getLoc();
     mlir::Value input = resizeOp.getX();
     mlir::Value output = resizeOp.getY();
@@ -831,7 +825,8 @@ struct TransferResizeLinearToDwConv
       return rewriter.notifyMatchFailure(resizeOp, "unsupported resize mode");
     }
 
-    auto outputType = mlir::dyn_cast<RankedTensorType>(resizeOp.getY().getType());
+    auto outputType =
+        mlir::dyn_cast<RankedTensorType>(resizeOp.getY().getType());
     if (!outputType)
       return rewriter.notifyMatchFailure(resizeOp, "unranked output");
 
@@ -860,7 +855,8 @@ struct TransferResizeLinearToDwConv
           auto valueAttr = constantOp.getValue();
 
           if (valueAttr.has_value()) {
-            auto scalesAttr = mlir::dyn_cast<DenseElementsAttr>(valueAttr.value());
+            auto scalesAttr =
+                mlir::dyn_cast<DenseElementsAttr>(valueAttr.value());
 
             if (scalesAttr) {
               for (auto val : scalesAttr.getValues<float>()) {
@@ -904,10 +900,10 @@ struct TransferResizeLinearToDwConv
 
     // Detect upsample vs downsample
     if (std::all_of(scale_f.begin(), scale_f.end(),
-                    [](float s) { return s >= 1.0f; })) {
+            [](float s) { return s >= 1.0f; })) {
       // upsample
     } else if (std::all_of(scale_f.begin(), scale_f.end(),
-                           [](float s) { return s <= 1.0f; })) {
+                   [](float s) { return s <= 1.0f; })) {
       is_downsample = true;
       for (size_t i = 0; i < scale_f.size(); ++i)
         scale_f[i] = static_cast<float>(inputShape[i + 2]) /
@@ -920,8 +916,8 @@ struct TransferResizeLinearToDwConv
     // Ensure integer scale
     for (auto s : scale_f) {
       if (std::fmod(s, 1.0f) != 0.0f)
-        return rewriter.notifyMatchFailure(resizeOp,
-                                           "Non-integer scaling not supported");
+        return rewriter.notifyMatchFailure(
+            resizeOp, "Non-integer scaling not supported");
     }
 
     std::vector<int32_t> scale;
@@ -939,15 +935,15 @@ struct TransferResizeLinearToDwConv
         int fixPoint2D;
 
         if (isWeightsWithinBound(weights2D, 1, fixPoint2D)) {
-          replaceWithTransposedConv2d(rewriter, loc, input, output, scale,
-                                      weights2D, fixPoint2D);
+          replaceWithTransposedConv2d(
+              rewriter, loc, input, output, scale, weights2D, fixPoint2D);
         } else {
-          replaceWithTransposedDepthwiseConv(rewriter, loc, input, resizeOp,
-                                             scale, weights, fixPoint);
+          replaceWithTransposedDepthwiseConv(
+              rewriter, loc, input, resizeOp, scale, weights, fixPoint);
         }
       } else {
-        replaceWithTransposedDepthwiseConv(rewriter, loc, input, resizeOp,
-                                           scale, weights, fixPoint);
+        replaceWithTransposedDepthwiseConv(
+            rewriter, loc, input, resizeOp, scale, weights, fixPoint);
       }
     } else {
       // Downsample case
@@ -960,8 +956,8 @@ struct TransferResizeLinearToDwConv
         return failure();
       }
 
-      replaceWithDepthwiseConv(rewriter, loc, input, output, scale, weights,
-                               weights_shape);
+      replaceWithDepthwiseConv(
+          rewriter, loc, input, output, scale, weights, weights_shape);
     }
     return success();
   }
@@ -977,7 +973,7 @@ namespace onnx_mlir {
 
 struct TransferResizeLinearToDwConvPass
     : public PassWrapper<TransferResizeLinearToDwConvPass,
-                         OperationPass<func::FuncOp>> {
+          OperationPass<func::FuncOp>> {
   StringRef getArgument() const override {
     return "transfer-resize-linear-to-dwconv";
   }
@@ -992,8 +988,8 @@ struct TransferResizeLinearToDwConvPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-                                     config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

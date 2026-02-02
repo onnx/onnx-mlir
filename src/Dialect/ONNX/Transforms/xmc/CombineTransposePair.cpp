@@ -47,12 +47,11 @@ static bool arePermsEqual(ArrayAttr perm1, ArrayAttr perm2) {
 ///   %t2 = onnx.Transpose(%x) {perm = [0, 2, 1, 3]}
 ///   use(%t2)
 ///   use(%t2)
-struct CombineTransposePairPattern
-    : public OpRewritePattern<ONNXTransposeOp> {
+struct CombineTransposePairPattern : public OpRewritePattern<ONNXTransposeOp> {
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp transposeOp, PatternRewriter &rewriter) const override {
     LLVM_DEBUG(llvm::dbgs() << "combine-transpose-pair: Trying to match "
                             << transposeOp << "\n");
 
@@ -96,9 +95,8 @@ namespace onnx_mlir {
  * This optimization reduces redundant computation and memory usage when the
  * same transpose is computed multiple times in a model.
  */
-struct CombineTransposePairPass
-    : public PassWrapper<CombineTransposePairPass,
-          OperationPass<func::FuncOp>> {
+struct CombineTransposePairPass : public PassWrapper<CombineTransposePairPass,
+                                      OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "combine-transpose-pair"; }
   StringRef getDescription() const override {
     return "Combine duplicate Transpose operations with same input and perm";
