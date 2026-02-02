@@ -93,16 +93,9 @@ func.func @layernorm_without_bias_second_reduce_unsuitable_axis(%x: tensor<1x384
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @layernorm_without_bias_second_reduce_unsuitable_axis
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.200000e+00> : tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.ReduceMeanV13"([[PARAM_0_]]) {axes = [-1], keepdims = 1 : si64} : (tensor<1x384x768xf32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Sub"([[PARAM_0_]], [[VAR_1_]]) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_2_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.ReduceMeanV13"([[VAR_3_]]) {axes = [-2], keepdims = 1 : si64} : (tensor<1x384x768xf32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_5_:%.+]] = "onnx.Add"([[VAR_4_]], [[VAR_0_]]) : (tensor<1x384x1xf32>, tensor<f32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.Sqrt"([[VAR_5_]]) : (tensor<1x384x1xf32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_7_:%.+]] = "onnx.Div"([[VAR_2_]], [[VAR_6_]]) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_8_:%.+]] = "onnx.Mul"([[VAR_7_]], [[PARAM_1_]]) : (tensor<1x384x768xf32>, tensor<768xf32>) -> tensor<1x384x768xf32>
-// CHECK:           return [[VAR_8_]] : tensor<1x384x768xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           return [[VAR_Y_]] : tensor<1x384x768xf32>
 // CHECK:         }
 }
 
@@ -203,18 +196,9 @@ func.func @layernorm_without_bias_second_reduce_unsuitable_axis_v18(%x: tensor<1
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @layernorm_without_bias_second_reduce_unsuitable_axis_v18
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.200000e+00> : tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<-2> : tensor<1xi64>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.ReduceMean"([[PARAM_0_]], [[VAR_1_]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x384x768xf32>, tensor<1xi64>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Sub"([[PARAM_0_]], [[VAR_3_]]) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_4_]], [[VAR_4_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.ReduceMean"([[VAR_5_]], [[VAR_2_]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x384x768xf32>, tensor<1xi64>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_7_:%.+]] = "onnx.Add"([[VAR_6_]], [[VAR_0_]]) : (tensor<1x384x1xf32>, tensor<f32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_8_:%.+]] = "onnx.Sqrt"([[VAR_7_]]) : (tensor<1x384x1xf32>) -> tensor<1x384x1xf32>
-// CHECK:           [[VAR_9_:%.+]] = "onnx.Div"([[VAR_4_]], [[VAR_8_]]) : (tensor<1x384x768xf32>, tensor<1x384x1xf32>) -> tensor<1x384x768xf32>
-// CHECK:           [[VAR_10_:%.+]] = "onnx.Mul"([[VAR_9_]], [[PARAM_1_]]) : (tensor<1x384x768xf32>, tensor<768xf32>) -> tensor<1x384x768xf32>
-// CHECK:           return [[VAR_10_]] : tensor<1x384x768xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {axis = 2 : si64, epsilon = 1.200000e+00 : f32, stash_type = 1 : si64} : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
+// CHECK:           return [[VAR_Y_]] : tensor<1x384x768xf32>
 // CHECK:         }
 }
 

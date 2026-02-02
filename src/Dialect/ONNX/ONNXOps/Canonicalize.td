@@ -12,6 +12,9 @@
 // When adding a canonicalizer for a new operation, please add that operation to
 // the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_REWRITE
@@ -85,6 +88,10 @@ def createDenseElementsAttrOf : NativeCodeCall<
 def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
   "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, mlir::cast<ShapedType>($0.getType()).getRank() - 1)">;
 
+// Create reshaped constant [C_out, 1, 1, ...] if necessary for weight fusion
+def createReshapedConstantForWeightFusion : NativeCodeCall<
+  "onnx_mlir::createReshapedConstantForWeightFusion($_builder, $0, $1)">;
+
 // Create an ArrayAttr of IntegerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "onnx_mlir::createArrayAttrOfNToM($_builder, 2, mlir::cast<ShapedType>($0.getType()).getRank() - 1)">;
@@ -139,6 +146,16 @@ class HaveSameDim<int dim>: Constraint<
         "(mlir::cast<RankedTensorType>($0.getType()).getShape()[" # dim # "] =="
         "mlir::cast<RankedTensorType>($1.getType()).getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
+
+// Check if $0 is scalar OR first dimension matches $1's first dimension
+// Check if constant ($0) has 1 element (scalar) or C_out elements (per-channel)
+// $0 is constant, $1 is weight with shape [C_out, C_in, ...]
+// Check if constant has valid shape for weight fusion into Conv.
+// Valid cases: 1) Scalar, 2) Splat constant, 3) Per-channel (proper alignment)
+// $0 is constant, $1 is weight, $2 is the Mul result
+def HasValidShapeForWeightFusion: Constraint<
+  CPred<"onnx_mlir::hasValidShapeForWeightFusion($0, $1, $2)">,
+  "Constant has valid shape for weight fusion (scalar, splat, or per-channel)">;
 
 def HaveSameShapedType: Constraint<
     CPred<"(isa<ShapedType>($0.getType()) &&"
@@ -412,6 +429,10 @@ def NormalizeMulPattern: Pat<
   [(IsFromONNXConstantOp $x), (IsNotFromONNXConstantOp $y)]
 >;
 
+// Fold mul-constant into weights of Conv regarding Conv-mul structure with the following mul-constant shape:
+//  1. Scalar
+//  2. Splat value and only if the mul does not broadcast on spatial dimensions (the last two dims)
+//  3. Only one dimension has Cout elements and the rest dimensions have single element
 def FuseMulConvNullBiasPattern: Pat<
   (ONNXMulOp:$res
     (ONNXConvOp
@@ -419,22 +440,18 @@ def FuseMulConvNullBiasPattern: Pat<
     (ONNXConstantOp:$y $_, $denseAttr, $_, $_, $_, $_, $_, $_)),
   (ONNXConvOp
      $x,
-     // new_w
-     (ONNXMulOp
-        $w,
-        (ONNXUnsqueezeOp $y,
-           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOf(getRankOf $y))))),
-     // unchanged operands and attributes.
+     // new_w = w * reshaped_constant
+     // Reshape constant to [C_out, 1, 1, ...] (if necessary) matching weight rank
+     (ONNXMulOp $w, (createReshapedConstantForWeightFusion $y, $w)),
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
    (AttributeIsNotNull:$denseAttr),
    (IsFromONNXConstantOp $w),
    (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.
-   (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
-   (HaveSameDim<0> $w, $y),            // the first dimension of $w and $y must be equal.
-   (HasRankGT<0> $y),                  // constant cannot be a scalar.
-   (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
+   (HasValidShapeForWeightFusion $y, $w, $res),
+   (IsStaticShapeTensor:$res)
+  ]
 >;
 
 // TODO add pattern for non-null bias with constraints:

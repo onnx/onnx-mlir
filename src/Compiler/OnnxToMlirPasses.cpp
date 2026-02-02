@@ -83,8 +83,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
       opts.enableConvTranspose1dDecomposeToPhasedConv,
       opts.enableInstanceNormDecompose, opts.enableSplitToSliceDecompose));
   if (!opts.disableRecomposeOption)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass(
-        /*target=*/"", opts.enableRecomposeLayernormByTranspose));
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createRecomposeONNXToONNXPass(/*target=*/""));
 
   if (opts.enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
@@ -92,7 +92,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableConvTransposeDecompose,
         opts.enableConvTransposeDecomposeToPhasedConv,
         opts.enableConvTranspose1dDecomposeToPhasedConv,
-        opts.enableRecomposeLayernormByTranspose,
         opts.enableInstanceNormDecompose, opts.enableSplitToSliceDecompose));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
@@ -104,7 +103,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
           opts.enableConvTransposeDecompose,
           opts.enableConvTransposeDecomposeToPhasedConv,
           opts.enableConvTranspose1dDecomposeToPhasedConv,
-          opts.enableRecomposeLayernormByTranspose,
           opts.enableInstanceNormDecompose, opts.enableSplitToSliceDecompose));
     }
     // If quark quantized legalization is enabled, do a last const prop after it
@@ -163,7 +161,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableConvTransposeDecompose,
         opts.enableConvTransposeDecomposeToPhasedConv,
         opts.enableConvTranspose1dDecomposeToPhasedConv,
-        opts.enableRecomposeLayernormByTranspose,
         opts.enableInstanceNormDecompose, opts.enableSplitToSliceDecompose));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
