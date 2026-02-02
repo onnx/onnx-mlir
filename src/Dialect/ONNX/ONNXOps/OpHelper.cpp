@@ -941,7 +941,29 @@ bool isIdentityReshape(
 bool isDequantQuantSame(
     mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp) {
 
-  // 1. Check zero-points
+  // Helper lambda to check if a value is a scalar (rank 0 or shape [1]).
+  auto isScalar = [](Value v) -> bool {
+    if (!v)
+      return true; // Treat absent optional values as scalar
+    auto tensorType = mlir::dyn_cast<ShapedType>(v.getType());
+    if (!tensorType)
+      return false;
+    // Scalar if rank 0 or has exactly one element
+    return tensorType.getRank() == 0 ||
+           (tensorType.hasStaticShape() && tensorType.getNumElements() == 1);
+  };
+
+  // 1. Check if both DQ and Q have scalar scales and zero points.
+  bool dqHasScalarParams =
+      isScalar(dqOp.getXScale()) && isScalar(dqOp.getXZeroPoint());
+  bool qHasScalarParams =
+      isScalar(qOp.getYScale()) && isScalar(qOp.getYZeroPoint());
+  bool bothHaveScalarParams = dqHasScalarParams && qHasScalarParams;
+
+  if (!bothHaveScalarParams && (qOp.getAxis() != dqOp.getAxis()||qOp.getBlockSize() != dqOp.getBlockSize()))
+    return false;
+
+  // 2. Check zero-points
   auto zpAttr1 = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
   auto zpAttr2 = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
   if (!zpAttr1 || !zpAttr2)
@@ -950,7 +972,7 @@ bool isDequantQuantSame(
   if (!compareValueFromElementAttribute(zpAttr1, zpAttr2)) {
     return false;
   }
-  // 2. Check Scales.
+  // 3. Check Scales.
   auto scaleAttr1 = getElementAttributeFromONNXValue(dqOp.getXScale());
   auto scaleAttr2 = getElementAttributeFromONNXValue(qOp.getYScale());
   if (!scaleAttr1 || !scaleAttr2)
@@ -960,7 +982,7 @@ bool isDequantQuantSame(
     return false;
   }
 
-  // 3. Check data type consistency of the entire DQ->Q chain.
+  // 4. Check data type consistency of the entire DQ->Q chain.
   // The original quantized type before DQ must match the final quantized
   // type after Q.
   auto dqInTypeOp = dqOp.getX().getType();
