@@ -8,7 +8,11 @@ LLVM_PROJECT_DOCKERFILE = "docker/Dockerfile.llvm-project"
 LLVM_PROJECT_GITHUB_URL = "https://api.github.com/repos/llvm/llvm-project"
 LLVM_PROJECT_BASE_IMAGE = {
     "static": "ghcr.io/onnxmlir/ubuntu:noble-",  # Will append cpu_arch
-    "shared": "registry.access.redhat.com/ubi9-minimal:latest",
+    "shared": "registry.access.redhat.com/ubi9-minimal:latest",  # No arch suffix needed
+}
+LLVM_PROJECT_BASE_IMAGE_NEEDS_ARCH = {
+    "static": True,
+    "shared": False,  # UBI9 uses manifest lists, no arch-specific tags
 }
 LLVM_PROJECT_IMAGE = {
     "static": docker_static_image_name,
@@ -168,6 +172,11 @@ def setup_per_pr_llvm_project(image_type, exp):
             or labels["llvm_project_sha1_date"] <= exp["llvm_project_sha1_date"]
         ):
             layer_sha256 = ""
+            # Conditionally append cpu_arch to base image
+            base_image = LLVM_PROJECT_BASE_IMAGE[image_type]
+            if LLVM_PROJECT_BASE_IMAGE_NEEDS_ARCH[image_type]:
+                base_image += cpu_arch
+            
             for line in docker_api.build(
                 path=".",
                 dockerfile=LLVM_PROJECT_DOCKERFILE,
@@ -176,7 +185,7 @@ def setup_per_pr_llvm_project(image_type, exp):
                 decode=True,
                 rm=True,
                 buildargs={
-                    "BASE_IMAGE": LLVM_PROJECT_BASE_IMAGE[image_type] + cpu_arch,
+                    "BASE_IMAGE": base_image,
                     "NPROC": NPROC,
                     "BUILD_SHARED_LIBS": LLVM_PROJECT_BUILD_SHARED_LIBS[image_type],
                     "LLVM_PROJECT_SHA1": exp["llvm_project_sha1"],
