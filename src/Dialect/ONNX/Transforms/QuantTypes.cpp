@@ -8,14 +8,13 @@
 #include <mlir/Dialect/Quant/IR/Quant.h>
 #include <mlir/Dialect/Quant/IR/QuantTypes.h>
 #include <mlir/IR/BuiltinAttributes.h>
+#include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/PatternMatch.h>
-#include <mlir/IR/Verifier.h>
+#include <mlir/IR/Value.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Value.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
@@ -102,15 +101,16 @@ public:
 
     auto qType = std::get<quant::QuantizedType>(qTypeErr);
     auto qTensorType = cast<TensorType>(dqOp.getType()).clone(qType);
-    if (auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>()) {
+    if (auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>();
+        constOp && constOp.getResult().hasOneUse()) {
       rewriter.modifyOpInPlace(
           constOp, [&]() { constOp.getResult().setType(qTensorType); });
       rewriter.replaceOp(dqOp, constOp);
-    } else {
-      rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
-          dqOp, qTensorType, dqOp.getX());
+      return success();
     }
 
+    rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
+        dqOp, qTensorType, dqOp.getX());
     return success();
   }
 };
