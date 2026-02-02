@@ -137,7 +137,7 @@ public:
 
 class QuantTypesPass
     : public PassWrapper<QuantTypesPass, OperationPass<func::FuncOp>> {
-  StringRef getArgument() const override { return "quant-types"; }
+  [[nodiscard]] StringRef getArgument() const override { return "quant-types"; }
 
   void getDependentDialects(::DialectRegistry &registry) const override {
     registry.insert<quant::QuantDialect>();
