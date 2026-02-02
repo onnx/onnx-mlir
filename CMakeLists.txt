@@ -89,6 +89,8 @@ if (WIN32)
 endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+
+# absl is needed by llvm and onnx 
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   find_package(absl REQUIRED)
 endif()
@@ -166,7 +168,7 @@ set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  add_subdirectory(third_party/onnx)
+	#add_subdirectory(third_party/onnx)
   add_subdirectory(third_party/pybind11)
 else()
   set(pybind11_FIND_QUIETLY ON)
@@ -223,6 +225,15 @@ if (ONNX_MLIR_ENABLE_STABLEHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
+# The target onnx is defined here after third_part/onnx is included.
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  target_link_libraries(onnx PUBLIC
+    absl::log_internal_check_op
+    absl::log_internal_message
+    absl::status
+    )
+endif()
+
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(src)
 else()
@@ -232,3 +243,4 @@ else()
   add_subdirectory(docs)
   add_subdirectory(test)
 endif()
+
