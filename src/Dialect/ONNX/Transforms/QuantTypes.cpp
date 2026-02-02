@@ -60,7 +60,8 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
     // Creating a templated lambda and invoking immediately
     []<bool flag = false>() {
       static_assert(flag, "Only defined for DequantizeLinear & QuantizeLinear");
-    }();
+    }
+    ();
   }
 
   if (scale.getNumElements() == 1 && zeropoint.getNumElements() == 1)
