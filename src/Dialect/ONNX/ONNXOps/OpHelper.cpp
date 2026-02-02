@@ -960,7 +960,8 @@ bool isDequantQuantSame(
       isScalar(qOp.getYScale()) && isScalar(qOp.getYZeroPoint());
   bool bothHaveScalarParams = dqHasScalarParams && qHasScalarParams;
 
-  if (!bothHaveScalarParams && (qOp.getAxis() != dqOp.getAxis()||qOp.getBlockSize() != dqOp.getBlockSize()))
+  if (!bothHaveScalarParams && (qOp.getAxis() != dqOp.getAxis() ||
+                                   qOp.getBlockSize() != dqOp.getBlockSize()))
     return false;
 
   // 2. Check zero-points
