@@ -64,7 +64,7 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
     ();
   }
 
-  if (scale.getNumElements() == 1 && zeropoint.getNumElements() == 1)
+  if (scale.getNumElements() == 1 && zeropoint.getNumElements() == 1) {
     return quant::UniformQuantizedType::get(storageType.isSignedInteger(),
         storageType, expressedType,
         scale.template getSplatValue<APFloat>().convertToDouble(),
@@ -76,9 +76,28 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
         quant::QuantizedType::getDefaultMaximumForInteger(
             storageType.isSignedInteger(),
             storageType.getIntOrFloatBitWidth()));
+  } else if (op.getBlockSize() == 0) {
+    SmallVector<double> scales(scale.getNumElements());
+    llvm::transform(scale.template getValues<APFloat>(), scales.begin(),
+        [](APFloat apFloat) { return apFloat.convertToDouble(); });
+    SmallVector<int64_t> zeropoints(zeropoint.getNumElements());
+    llvm::transform(zeropoint.template getValues<APInt>(), zeropoints.begin(),
+        [storageType](APInt apInt) {
+          return storageType.isSignedInteger() ? apInt.getSExtValue()
+                                               : apInt.getZExtValue();
+        });
+    return quant::UniformQuantizedPerAxisType::get(
+        storageType.isSignedInteger(), storageType, expressedType, scales,
+        zeropoints, op.getAxis(),
+        quant::QuantizedType::getDefaultMinimumForInteger(
+            storageType.isSignedInteger(), storageType.getIntOrFloatBitWidth()),
+        quant::QuantizedType::getDefaultMaximumForInteger(
+            storageType.isSignedInteger(),
+            storageType.getIntOrFloatBitWidth()));
+  }
 
-  // TODO: Add support for per-channel quantization
-  return StringLiteral("Scale/Zeropoint not scalar");
+  // TODO: Add support for blockwise quantization
+  return StringLiteral("Blockwise quantization not supported");
 }
 
 } // namespace
