@@ -21,6 +21,7 @@ WORKDIR ${WORK_DIR}
 # Install tools needed
 RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]') \
     && TZ="America/New_York" \
+    && ARCH=$(uname -m) \
     && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
           DEBIAN_FRONTEND=noninteractive && \
           apt-get update -qq && \
@@ -28,15 +29,15 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           dpkg-reconfigure -f noninteractive tzdata && \
           apt-get install -qq -y --no-install-recommends \
-                  # Install clang-19 specifically
-                  clang-19 clang-tools-19 \
                   autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
                   libtool make maven ninja-build \
                   openjdk-11-jdk-headless openjdk-21-jdk-headless \
                   python3 python3-dev python3-numpy \
                   python3-pip python3-pytest-xdist python3-setuptools \
-                  python3-typing-extensions unzip zip zlib1g-dev && \
+                  python3-typing-extensions unzip zip zlib1g-dev \
+                  # Install clang-20 for all architectures
+                  clang-20 clang-tools-20 && \
           rm -rf /var/lib/apt/lists/* && \
           rm -f /usr/lib/python*/EXTERNALLY-MANAGED && \
           ln -sf /usr/bin/pytest-3 /usr/bin/pytest || true; \
@@ -124,14 +125,11 @@ ARG PROTOBUF_DIR=protobuf
 RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR} \
     && mkdir -p ${PROTOBUF_DIR}/build \
     && cd ${PROTOBUF_DIR}/build \
-    # Use clang-19 for s390x to get improved SystemZ backend support
-    # Clang-19 has better handling of multiply-with-overflow operations
-    # compared to Clang-18 which fails on Abseil duration.cc compilation
-    && if [ "$(uname -m)" = "s390x" ]; then \
-          export CC=clang-19; export CXX=clang++-19; \
-       else \
-          export CC=clang; export CXX=clang++; \
-       fi \
+    # Use clang-20 for all architectures
+    # For s390x: Clang-20 has better SystemZ backend support with improved
+    # handling of multiply-with-overflow operations compared to Clang-18
+    # which fails on Abseil duration.cc compilation
+    && export CC=clang-20 CXX=clang++-20 \
     && echo "Using compiler: $CC (version: $($CC --version | head -n1))" \
     && cmake -DCMAKE_INSTALL_LIBDIR=lib \
              -DCMAKE_CXX_STANDARD=17 \
@@ -164,7 +162,7 @@ RUN git clone -n https://github.com/llvm/llvm-project.git \
     && git checkout ${LLVM_PROJECT_SHA1} \
     && mkdir -p build && cd build \
 # Build with clang since gcc on ppc64le doesn't support __builtin_thread_pointer
-    && CC=$CC CXX=$CXX \
+    && CC=clang CXX=clang++ \
        cmake -G Ninja ../llvm \
              -DLLVM_ENABLE_PROJECTS=mlir \
              -DLLVM_TARGETS_TO_BUILD="host" \
