@@ -98,7 +98,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                pytest-xdist typing-extensions && \
           yum remove -q -y \
               adwaita-icon-theme autoconf automake cmake file \
-              git libtool ninja-build python39 && \
+              git libtool ninja-build && \
           rm -rf /var/cache/dnf/*; \
        fi \
     && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \
