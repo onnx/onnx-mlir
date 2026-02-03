@@ -129,4 +129,36 @@ void configureONNXToZHighLoweringPass(bool optReportNNPAUnsupportedOps,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Support to classify ops.
+
+bool isMappedToDevice(Operation *op) {
+  StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+  return device && !device.getValue().empty();
+}
+
+bool isMappedToCPU(Operation *op) {
+  StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+  return device && device.getValue().equals_insensitive(CPU_DEVICE);
+}
+
+bool isMappedToNNPA(Operation *op) {
+  StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+  return device && device.getValue().equals_insensitive(NNPA_DEVICE);
+}
+
+// Determine if op is unsuitable because its not an ONNX op of interest, or it
+// is already mapped to the CPU device.
+bool isNNPAFriendlyOp(Operation *op) {
+  if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
+    return false;
+  // These ops are NNPA unfriendly. Constants are friendly.
+  if (isa<ONNXEntryPointOp, ONNXReturnOp>(op))
+    return false;
+  // If `device` is already set to CPU, it is NNPA unfriendly
+  if (isMappedToCPU(op))
+    return false;
+  return true;
+}
+
 } // namespace onnx_mlir

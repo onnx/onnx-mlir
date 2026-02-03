@@ -133,6 +133,14 @@ def IsFloatType : Constraint<
   CPred<"isFloatType($_self)">,
   "Value has element type of float">;
 
+def IsNNPAFriendly : Constraint<
+  CPred<"isNNPAFriendlyOp($0.getDefiningOp())">,
+  "Operation is NNPA friendly (ONNX, not mapped to device)">;
+
+def IsAtLeastOneOfTwoNNPAFriendly : Constraint<
+  CPred<"isNNPAFriendlyOp($0.getDefiningOp()) || isNNPAFriendlyOp($1.getDefiningOp())">,
+  "Is at least one of the 2 operations NNPA friendly (ONNX, not mapped to device)">;
+
 //===----------------------------------------------------------------------===//
 // ONNXLeakyReluOp %X = ZHighUnstickOp (ZHighLeakyReluOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
@@ -344,10 +352,11 @@ def replaceONNXMaxPattern : Pat<
 //                                 (ZHighInvSqrtOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceDiv1SqrtPattern : Pat<
-  (ONNXDivOp $a, (ONNXSqrtOp $x)),
+  (ONNXDivOp:$div $a, (ONNXSqrtOp:$sqrt $x)),
   (ZHighUnstickOp (ZHighInvSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
                                (returnType $s_x))),
-  [(IsCompatibleWithNNPALevelArch15),(IsConstOfOnes:$a),(IsFloatType:$a)]
+  [(IsCompatibleWithNNPALevelArch15),(IsConstOfOnes:$a),(IsFloatType:$a),
+   (IsAtLeastOneOfTwoNNPAFriendly $div, $sqrt)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -355,10 +364,10 @@ def replaceDiv1SqrtPattern : Pat<
 //                                   (ZHighInvSqrtOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceReciprocalSqrtPattern : Pat<
-  (ONNXReciprocalOp (ONNXSqrtOp $x)),
+  (ONNXReciprocalOp (ONNXSqrtOp:$sqrt $x)),
   (ZHighUnstickOp (ZHighInvSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
                                    (returnType $s_x))),
-  [(IsCompatibleWithNNPALevelArch15)]
+  [(IsCompatibleWithNNPALevelArch15), (IsNNPAFriendly $sqrt)]
 >;
 
 //===----------------------------------------------------------------------===//

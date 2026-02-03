@@ -6,7 +6,7 @@ Files in this directory enables a user to generate a performance model of most N
 
 * measurements on a z16/z17 machine: move all the `.mlir` and `.sh` files to a LoZ machine with an `onnx-mlir` repo (which includes the `onnx-mlir/utils` subdir).
 * Execute the `commands.sh` after updating in it the `arch` flag.
-* File with execute a list of `driver1-*.sh` scripts that gather data for each op. They can also be individually called if only interested in a subset.
+* File with execute a list of `driver-*.sh` scripts that gather data for each op. They can also be individually called if only interested in a subset.
 * Results are in the `res` subdir where all the `*.csv` file are located, with one per "experiment". Detail logs are found in `log` subdir.
 * Move the `res` subdir to a machine with a working browser, where you fire the jupyter lab notebook .
 * Open the `scanOpvUnitNewMeas.ipynb` jupyter lab notebook, and edit in the top box the `dir` variable with an absolute path to your local `res` subdirectory. 

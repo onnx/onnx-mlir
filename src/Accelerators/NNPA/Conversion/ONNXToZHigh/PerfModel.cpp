@@ -325,6 +325,15 @@ void estimateTimeForOp<ONNXGeluOp>(ONNXGeluOp op,
 }
 
 template <>
+void estimateTimeForOp<ONNXLeakyReluOp>(ONNXLeakyReluOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_LeakyRelu_3ds, estimatedTimeForNNPA_LeakyRelu_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
+}
+
+template <>
 void estimateTimeForOp<ONNXLogOp>(ONNXLogOp op, const DimAnalysis *dimAnalysis,
     double &cpuEstimatedTime, double &nnpaEstimatedTime) {
   estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
@@ -358,6 +367,16 @@ void estimateTimeForOp<ONNXSoftmaxOp>(ONNXSoftmaxOp op,
       estimatedTimeForCPU_Softmax_3ds, estimatedTimeForNNPA_Softmax_3ds,
       cpuEstimatedTime, nnpaEstimatedTime);
 }
+
+template <>
+void estimateTimeForOp<ONNXSqrtOp>(ONNXSqrtOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Sqrt_3ds, estimatedTimeForNNPA_Sqrt_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
+}
+
 
 template <>
 void estimateTimeForOp<ONNXTanhOp>(ONNXTanhOp op,
@@ -464,6 +483,8 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
     estimateTimeForOp(expOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto geluOp = mlir::dyn_cast<ONNXGeluOp>(op))
     estimateTimeForOp(geluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto leakyReluOp = mlir::dyn_cast<ONNXLeakyReluOp>(op))
+    estimateTimeForOp(leakyReluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto logOp = mlir::dyn_cast<ONNXLogOp>(op))
     estimateTimeForOp(logOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto reluOp = mlir::dyn_cast<ONNXReluOp>(op))
@@ -474,6 +495,8 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
   else if (auto softmaxOp = mlir::dyn_cast<ONNXSoftmaxOp>(op))
     estimateTimeForOp(
         softmaxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto sqrtOp = mlir::dyn_cast<ONNXSqrtOp>(op))
+    estimateTimeForOp(sqrtOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto tanhOp = mlir::dyn_cast<ONNXTanhOp>(op))
     estimateTimeForOp(tanhOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Reduce
