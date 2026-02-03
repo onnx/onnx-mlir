@@ -81,16 +81,21 @@ void processDim(Value oper, int64_t &e4, int64_t &e3, int64_t &e2, int64_t &e1,
     LLVM_DEBUG(msg += " E4+: assume size 1 for dynamic dims.");
   }
   if (e3 == ShapedType::kDynamic) {
-    e3 = 1; // Assume small.
-    LLVM_DEBUG(msg += " E3=1: dyn, assume size 1.");
+    if (operRank > 3) {
+      e3 = 128; // not outermost rank, assume 128.
+      LLVM_DEBUG(msg += " E3=1: dyn, assume size 128.");
+    } else {
+      e3 = 1; // Assume small.
+      LLVM_DEBUG(msg += " E3=1: dyn, assume size 1.");
+    }
   }
   if (e2 == ShapedType::kDynamic) {
-    e2 = 32; // Assume full.
-    LLVM_DEBUG(msg += " E2=32: dyn, assume full tile.");
+    e2 = 128; // Assume full.
+    LLVM_DEBUG(msg += " E2=32: dyn, assume 4x full tile.");
   }
   if (e1 == ShapedType::kDynamic) {
-    e1 = 64; // Assume full.
-    LLVM_DEBUG(msg += " E1=64: dyn, assume full tile.");
+    e1 = 128; // Assume full.
+    LLVM_DEBUG(msg += " E1=64: dyn, assume 2x full tile.");
   }
 }
 
@@ -377,7 +382,6 @@ void estimateTimeForOp<ONNXSqrtOp>(ONNXSqrtOp op,
       cpuEstimatedTime, nnpaEstimatedTime);
 }
 
-
 template <>
 void estimateTimeForOp<ONNXTanhOp>(ONNXTanhOp op,
     const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
@@ -484,7 +488,8 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
   else if (auto geluOp = mlir::dyn_cast<ONNXGeluOp>(op))
     estimateTimeForOp(geluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto leakyReluOp = mlir::dyn_cast<ONNXLeakyReluOp>(op))
-    estimateTimeForOp(leakyReluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+    estimateTimeForOp(
+        leakyReluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto logOp = mlir::dyn_cast<ONNXLogOp>(op))
     estimateTimeForOp(logOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto reluOp = mlir::dyn_cast<ONNXReluOp>(op))

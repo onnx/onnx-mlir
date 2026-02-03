@@ -458,7 +458,7 @@ def replaceONNXLogSoftmaxPattern : Pattern<
        $unstick,
        (GetI64ArrayAttr<0>))
   ],
-  [(IsSoftmaxLegalForZDNN $s)]
+  [(IsSoftmaxLegalForZDNN $s), (IsAtLeastOneOfTwoNNPAFriendly $res, $s)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -639,7 +639,7 @@ def HaveSameLastDimR2R1: Constraint<
 // Unstacked or BCast23: only 1D bias is suitable for this transformation.
 def replaceONNXMatMulAddUnstackedOrBCast23Pattern1 : Pat<
   // From Add $b, (MatMul $x, $y)
-  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
+  (ONNXAddOp:$a $b, (ONNXMatMulOp:$m $x, $y)),
   // To ZHighMatMulOp
   (ZHighUnstickOp
      (ZHighMatMulOp
@@ -649,14 +649,14 @@ def replaceONNXMatMulAddUnstackedOrBCast23Pattern1 : Pat<
                                                          (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(HasRankOf<2> $y), (HasRankOf<1> $b), (HaveSameLastDimR2R1 $y, $b),
-   (IsMatMulLegalForZDNN $m)], [],
+   (IsMatMulLegalForZDNN $m), (IsAtLeastOneOfTwoNNPAFriendly $a, $m)], [],
   (addBenefit 0)
 >;
 
 // Same as above, multiplication in first slot of add.
 def replaceONNXMatMulAddUnstackedOrBCast23Pattern2 : Pat<
   // From Add (MatMul $x, $y), $b
-  (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
+  (ONNXAddOp:$a (ONNXMatMulOp:$m $x, $y), $b),
   // To ZHighMatMulOp
   (ZHighUnstickOp
      (ZHighMatMulOp
@@ -666,7 +666,7 @@ def replaceONNXMatMulAddUnstackedOrBCast23Pattern2 : Pat<
                                                          (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(HasRankOf<2> $y), (HasRankOf<1> $b), (HaveSameLastDimR2R1 $y, $b), 
-   (IsMatMulLegalForZDNN $m)], [],
+   (IsMatMulLegalForZDNN $m), (IsAtLeastOneOfTwoNNPAFriendly $a, $m)], [],
   (addBenefit 0)
 >;
 
@@ -698,7 +698,7 @@ def Has1InMiddleR3: Constraint<
 
 def replaceONNXMatMulAddStackedPattern1 : Pat<
   // From Add $b, (MatMul $x, $y)
-  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
+  (ONNXAddOp:$a $b, (ONNXMatMulOp:$m $x, $y)),
   // To ZHighMatMulOp
   (ZHighUnstickOp
      (ZHighMatMulOp
@@ -709,14 +709,15 @@ def replaceONNXMatMulAddStackedPattern1 : Pat<
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(HasRankOf<3> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
-   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m),
+   (IsAtLeastOneOfTwoNNPAFriendly $a, $m)],
   [],
   (addBenefit 0)
 >;
 
 def replaceONNXMatMulAddStackedPattern2 : Pat<
   // From Add (MatMul $x, $y), $b
-  (ONNXAddOp (ONNXMatMulOp:$m $x, $y), $b),
+  (ONNXAddOp:$a (ONNXMatMulOp:$m $x, $y), $b),
   // To ZHighMatMulOp
   (ZHighUnstickOp
      (ZHighMatMulOp
@@ -728,7 +729,8 @@ def replaceONNXMatMulAddStackedPattern2 : Pat<
           (GetMatMulBiasLayoutStringAttr (GetRank $x), (GetRank $y)), (GetDefaultSaturation)),
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(HasRankOf<3> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
-   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m),
+   (IsAtLeastOneOfTwoNNPAFriendly $a, $m)],
   [],
   (addBenefit 0)
 >;
@@ -739,7 +741,7 @@ def replaceONNXMatMulAddStackedPattern2 : Pat<
 
 def replaceONNXMatMulAddBCast1Pattern1 : Pat<
   // From Add $b, (MatMul $x, $y)
-  (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
+  (ONNXAddOp:$a $b, (ONNXMatMulOp:$m $x, $y)),
   // To ZHighMatMulOp
   (ZHighUnstickOp
      (ZHighMatMulOp
@@ -751,7 +753,8 @@ def replaceONNXMatMulAddBCast1Pattern1 : Pat<
         (GetZeroI64Attr), (GetZeroI64Attr))),
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankOf<2> $x), (HasRankOf<3> $y), (HasRankOf<3> $b),
-   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m)],
+   (HaveSameFirstAndLastDimR3 $y, $b), (Has1InMiddleR3 $b), (IsMatMulLegalForZDNN $m),
+   (IsAtLeastOneOfTwoNNPAFriendly $a, $m)],
   [],
   (addBenefit 0)
 >;
@@ -802,7 +805,8 @@ def replaceONNXTransBMatMulPattern : Pat<
         (CreateNoneValue), (GetI64ZeroAttr), (GetI64NAttr<1>)
       )
   ),
-  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m), (IsStandardTranspose $perm)]
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m), (IsStandardTranspose $perm),
+   (IsNNPAFriendly $m)]
 >;
 
 def replaceONNXTransAMatMulPattern : Pat<
@@ -814,7 +818,8 @@ def replaceONNXTransAMatMulPattern : Pat<
         (CreateNoneValue), (GetI64NAttr<1>), (GetI64ZeroAttr)
       )
   ),
-  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m), (IsStandardTranspose $perm)]
+  [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m), (IsStandardTranspose $perm),
+   (IsNNPAFriendly $m)]
 >;
 
 def replaceONNXTransABMatMulPattern : Pat<
@@ -827,7 +832,8 @@ def replaceONNXTransABMatMulPattern : Pat<
       )
   ),
   [(IsCompatibleWithNNPALevelArch15),(IsMatMulLegalForZDNN $m),
-   (IsStandardTranspose $perma), (IsStandardTranspose $permb)]
+   (IsStandardTranspose $perma), (IsStandardTranspose $permb),
+   (IsNNPAFriendly $m)]
 >;
 
 //===----------------------------------------------------------------------===//
