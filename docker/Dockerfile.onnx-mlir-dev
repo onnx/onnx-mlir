@@ -25,7 +25,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
     && python3 -m pip install --upgrade --user setuptools==77.0.1 \
-    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
+    && CC=clang-20 CXX=clang++-20 CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install --user .
 
 ARG NPROC=4
@@ -52,7 +52,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && rm -rf build && mkdir -p build && cd build \
 # NNPA acclerator is built on all archs to enable lit tests
 # (dependent libzdnn is built on s390x only)
-    && CC=clang CXX=clang++ \
+    && CC=clang-20 CXX=clang++-20 \
        cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
              -DCMAKE_BUILD_TYPE=Debug \
              -DONNX_MLIR_TEST_OPTLEVEL=0 \
