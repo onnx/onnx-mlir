@@ -96,7 +96,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
           pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
                pytest-xdist typing-extensions && \
-          yum remove -q -y \
+          yum remove -q -y --noautoremove \
               adwaita-icon-theme autoconf automake cmake file \
               git libtool ninja-build && \
           rm -rf /var/cache/dnf/*; \
