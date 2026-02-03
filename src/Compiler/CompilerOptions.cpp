@@ -836,7 +836,7 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "used. Utilities such as CheckONNXModel.py can then verify that the "
         "new opt deliver the same results.\n"
         "E.g. CheckONNXModel.py -m test.mlir -t -O3 -a "
-        "test-compiler-opt=true.\n"
+        "--test-compiler-opt=true.\n"
         "Once the new opt works, it should not rely this option any more.\n"
         "Only defined in DEBUG build and default to false.\n"),
     llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
