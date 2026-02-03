@@ -28,6 +28,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           dpkg-reconfigure -f noninteractive tzdata && \
           apt-get install -qq -y --no-install-recommends \
+                  # Install clang-19 specifically
+                  clang-19 clang-tools-19 \
                   autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
                   libtool make maven ninja-build \
@@ -122,8 +124,16 @@ ARG PROTOBUF_DIR=protobuf
 RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR} \
     && mkdir -p ${PROTOBUF_DIR}/build \
     && cd ${PROTOBUF_DIR}/build \
-    && CC=clang CXX=clang++ \
-       cmake -DCMAKE_INSTALL_LIBDIR=lib \
+    # Use clang-19 for s390x to get improved SystemZ backend support
+    # Clang-19 has better handling of multiply-with-overflow operations
+    # compared to Clang-18 which fails on Abseil duration.cc compilation
+    && if [ "$(uname -m)" = "s390x" ]; then \
+          export CC=clang-19; export CXX=clang++-19; \
+       else \
+          export CC=clang; export CXX=clang++; \
+       fi \
+    && echo "Using compiler: $CC (version: $($CC --version | head -n1))" \
+    && cmake -DCMAKE_INSTALL_LIBDIR=lib \
              -DCMAKE_CXX_STANDARD=17 \
              -DBUILD_SHARED_LIBS=ON \
              -Dprotobuf_BUILD_TESTS=OFF .. \
@@ -134,10 +144,10 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     # For running the installed Bazel on JDK 21, we must pass the --host_jvm_args
     # to open the internal Java modules.
     && BAZEL_JDK_FLAGS="--host_jvm_args=--add-opens=java.base/java.lang=ALL-UNNAMED --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED --host_jvm_args=--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
-    && CC=clang CXX=clang++ bazel ${BAZEL_JDK_FLAGS} fetch //python/dist:binary_wheel \
+    && CC=$CC CXX=$CXX bazel ${BAZEL_JDK_FLAGS} fetch //python/dist:binary_wheel \
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
            ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl \
-    && CC=clang CXX=clang++ bazel ${BAZEL_JDK_FLAGS} build //python/dist:binary_wheel \
+    && CC=$CC CXX=$CXX bazel ${BAZEL_JDK_FLAGS} build //python/dist:binary_wheel \
     && pip3 install --user bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
@@ -154,7 +164,7 @@ RUN git clone -n https://github.com/llvm/llvm-project.git \
     && git checkout ${LLVM_PROJECT_SHA1} \
     && mkdir -p build && cd build \
 # Build with clang since gcc on ppc64le doesn't support __builtin_thread_pointer
-    && CC=clang CXX=clang++ \
+    && CC=$CC CXX=$CXX \
        cmake -G Ninja ../llvm \
              -DLLVM_ENABLE_PROJECTS=mlir \
              -DLLVM_TARGETS_TO_BUILD="host" \
