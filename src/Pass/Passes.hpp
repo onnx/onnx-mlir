@@ -194,6 +194,12 @@ std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
 /// Pass for deleting redundant Relu chains (XMC).
 std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
 
+/// Pass for optimizing requantization in ONNX operations (XMC).
+std::unique_ptr<mlir::Pass> createOptimizeOnnxRequantizationPass();
+
+/// Pass for splitting group convolutions (XMC).
+std::unique_ptr<mlir::Pass> createSplitGroupConvPass();
+
 /// Pass for model-specific transpose decomposition (XMC).
 std::unique_ptr<mlir::Pass> createReplaceNDimTransposePass();
 
