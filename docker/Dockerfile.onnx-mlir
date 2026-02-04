@@ -30,7 +30,16 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
     && python3 -m pip install --upgrade --user setuptools==77.0.1 \
-    && CC=clang-20 CXX=clang++-20 CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
+    # Detect architecture and set flags
+    && EXTRA_CMAKE_ARGS="" \
+    && if [ "$(uname -m)" = "s390x" ]; then \
+          EXTRA_CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF"; \
+       fi \
+    && CC=clang-20 CXX=clang++-20 \
+       CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib \
+                   -Dprotobuf_DIR=/usr/local/lib/cmake/protobuf \
+                   -Dabsl_DIR=/usr/local/lib/cmake/absl \
+                   ${EXTRA_CMAKE_ARGS}" \
        python3 -m pip install --user . \
     && rm -rf ${HOME}/.cache
 
