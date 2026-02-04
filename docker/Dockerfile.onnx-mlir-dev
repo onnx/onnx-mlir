@@ -24,14 +24,16 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_nullguard' CMakeLists.txt \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
-    && python3 -m pip install --upgrade setuptools==77.0.1 \
+    && python3 -m pip install --upgrade --user setuptools==77.0.1 \
     # Detect architecture and set flags
     && EXTRA_CMAKE_ARGS="" \
+    # Patch setup.py to bypass the stub check on s390x
     && if [ "$(uname -m)" = "s390x" ]; then \
-          # Disable type stub generation to avoid protoc-gen-mypy segfault on s390x
           EXTRA_CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF"; \
-          # Create empty stub files to satisfy setup.py's assertion check
-          mkdir -p onnx && touch onnx/onnx_ml_pb2.pyi onnx/onnx_data_pb2.pyi onnx/onnx_operators_ml_pb2.pyi; \
+          # This replaces the assertion with a 'pass' statement
+          sed -i 's/assert len(stubs) > 0/pass #/g' setup.py; \
+       else \
+          EXTRA_CMAKE_ARGS=""; \
        fi \
     && CC=clang-20 CXX=clang++-20 \
        CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib \
