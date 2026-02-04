@@ -345,9 +345,10 @@ struct DevicePlacementWithStickUnstickCost {
       double useCostBenefit = costBenefitIncurredForResults(op);
       double inputCostBenefit = costBenefitIncurredForInputs(op);
       nnpaTimeWithOverheads = nnpaTime + useCostBenefit + inputCostBenefit;
-      LLVM_DEBUG(llvm::dbgs() << "  New estimated nnpa time (" << nnpaTime
-                              << ") with stick/unstick:" << nnpaTimeWithOverheads
-                              << " vs cpu " << cpuTime << ".\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  New estimated nnpa time (" << nnpaTime
+                 << ") with stick/unstick:" << nnpaTimeWithOverheads
+                 << " vs cpu " << cpuTime << ".\n");
     } else {
       // No performance model for this operation, assume faster on NNPA;
       cpuTime = 10;
