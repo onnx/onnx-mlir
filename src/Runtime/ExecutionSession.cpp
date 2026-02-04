@@ -136,7 +136,7 @@ void ExecutionSession::Init(
     throw std::runtime_error(
         reportSymbolLoadingError(outputSignatureNameWithTag));
 
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if defined(_WIN32)
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           _printInstrumentationName.c_str()));
