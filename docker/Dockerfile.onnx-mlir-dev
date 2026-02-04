@@ -40,7 +40,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
                    -Dprotobuf_DIR=/usr/local/lib/cmake/protobuf \
                    -Dabsl_DIR=/usr/local/lib/cmake/absl \
                    ${EXTRA_CMAKE_ARGS}" \
-       python3 -m pip install --no-build-isolation .
+       python3 -m pip install --user .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
