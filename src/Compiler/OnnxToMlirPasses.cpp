@@ -209,8 +209,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (opts.instrumentSignatures != "NONE" || opts.instrumentOnnxNode != "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         opts.instrumentSignatures, opts.instrumentOnnxNode));
-  // if (opts.enableXMCPasses)
-  addXmcMlirPasses(pm, opts);
+  if (opts.enableXMCPasses)
+    addXmcMlirPasses(pm, opts);
 }
 
 } // namespace onnx_mlir
