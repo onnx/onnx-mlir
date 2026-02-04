@@ -30,8 +30,8 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Patch setup.py to bypass the stub check on s390x
     && if [ "$(uname -m)" = "s390x" ]; then \
           EXTRA_CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF"; \
-          # This replaces the assertion with a 'pass' statement
-          sed -i 's/assert len(stubs) > 0/pass #/g' setup.py; \
+          # Robustly comment out the stub assertion by searching for the error message text
+          sed -i '/No generated python stubs found/s/^/#/' setup.py; \
        else \
           EXTRA_CMAKE_ARGS=""; \
        fi \
