@@ -89,7 +89,7 @@ set_target_properties(OMExecutionSession
 # For linux, the dynamic library (dl) is used directly, while for Windows,
 # LLVMSupport is used for locks when dynamic library is loaded. 
 if(WIN32)
-  target_link_libraries(OMEexecutionSession PRIVATE 
+  target_link_libraries(OMExecutionSession PRIVATE 
     LLVMSupport
   )
 else()
