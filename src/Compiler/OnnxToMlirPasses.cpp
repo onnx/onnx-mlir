@@ -13,7 +13,7 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertInstanceNormToGroupNormPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
+//  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveDilationConv());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferResizeLinearToDwConv());
@@ -48,6 +48,7 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferConvSliceToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOp1dToOp2dPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertMatMulToXFEConvPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createONNXTransposeOptimizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
