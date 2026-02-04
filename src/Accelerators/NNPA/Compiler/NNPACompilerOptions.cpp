@@ -83,11 +83,11 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
         "on NNPA device:"),
     llvm::cl::values(
         clEnumVal(QualifyingOps, "Place all qualifying ops on NNPA."),
-        clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA (default)."),
-        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost."),
+        clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA."),
+        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost (default)."),
         clEnumVal(MuchFasterOpsWSU,
             "Much/Significantly FasterOps with stick/unstick cost.")),
-    llvm::cl::init(FasterOps), llvm::cl::cat(OnnxMlirOptions)};
+    llvm::cl::init(FasterOpsWSU), llvm::cl::cat(OnnxMlirOptions)};
 
 llvm::cl::opt<bool> nnpaDisableSaturation("nnpa-disable-saturation",
     llvm::cl::desc("Disable saturating f32 values before stickify them."

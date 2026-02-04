@@ -155,15 +155,34 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
   LLVM_DEBUG(msg = "");
   // Assume the broadcast B dim of the matmul will be small.
   if (aBDynamic) {
-    LLVM_DEBUG(msg += " B+ for input A: assume size 1 for dynamic dims.");
+    if (aRank > 3) {
+      aB *= 128;
+      LLVM_DEBUG(
+          msg +=
+          " B+ for input A: assume size 128 for dynamic dims with rank>3.");
+    } else {
+      LLVM_DEBUG(msg += " B+ for input A: assume size 1 for dynamic dims.");
+    }
   }
   if (bBDynamic) {
-    LLVM_DEBUG(msg += " B+ for input B: assume size 1 for dynamic dims.");
+    if (bRank > 3) {
+      bB *= 128;
+      LLVM_DEBUG(
+          msg +=
+          " B+ for input B: assume size 128 for dynamic dims with rank>3.");
+    } else {
+      LLVM_DEBUG(msg += " B+ for input B: assume size 1 for dynamic dims.");
+    }
   }
   if (N == ShapedType::kDynamic) {
-    // Assume the N dim of the matmul will be small.
-    N = 1;
-    LLVM_DEBUG(msg += " N=1: empty because dyn.");
+    // Assume the N dim of the matmul will be small, unless its a rank3+ vector.
+    if (aRank > 2) {
+      N = 128;
+      LLVM_DEBUG(msg += " N=128: because dyn (rank>2).");
+    } else {
+      N = 1;
+      LLVM_DEBUG(msg += " N=1: empty because dyn.");
+    }
   }
   if (M == ShapedType::kDynamic) {
     // Assume the dynamic lower dim of the matmul will be large enough.
