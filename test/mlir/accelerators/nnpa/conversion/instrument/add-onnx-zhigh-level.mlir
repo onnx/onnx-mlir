@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --printIR --EmitZHighIR --profile-ir=ZHigh  -nnpa-disable-fusion-op-stick-unstick %s  | FileCheck %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --printIR --EmitZHighIR --profile-ir=ZHigh  -nnpa-disable-fusion-op-stick-unstick --nnpa-placement-heuristic=QualifyingOps %s  | FileCheck %s
 
 // -----
 
