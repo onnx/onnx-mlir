@@ -13,7 +13,7 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertInstanceNormToGroupNormPass());
-//  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
+  //  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveDilationConv());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferResizeLinearToDwConv());

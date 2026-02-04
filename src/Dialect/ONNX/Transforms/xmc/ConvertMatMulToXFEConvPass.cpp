@@ -1,12 +1,12 @@
 // Copyright (C) 2025 - 2026 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "llvm/ADT/SmallVector.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -28,8 +28,8 @@ struct ConvShapes {
 /// TODO: Implement proper convolution shapes computation based on HW info.
 /// Helper function to compute convolution shapes from MatMul shapes.
 /// For now, uses dummy logic: H=W=H'=W'=1, so C=K and C_out=N
-ConvShapes computeConvShapes(ArrayRef<int64_t> inputShape,
-                             ArrayRef<int64_t> weightShape) {
+ConvShapes computeConvShapes(
+    ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
   ConvShapes shapes;
 
   // Extract K (last dimension of input) and N (last dimension of weight)
@@ -71,8 +71,8 @@ ConvShapes computeConvShapes(ArrayRef<int64_t> inputShape,
 }
 
 /// Helper function to create a shape constant for ONNX Reshape
-Value createShapeConstant(PatternRewriter &rewriter, Location loc,
-                          ArrayRef<int64_t> shape) {
+Value createShapeConstant(
+    PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> shape) {
   onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
   return onnxBuilder.constantInt64(shape);
 }
@@ -81,8 +81,8 @@ Value createShapeConstant(PatternRewriter &rewriter, Location loc,
 struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXMatMulOp matMulOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXMatMulOp matMulOp, PatternRewriter &rewriter) const override {
     auto loc = matMulOp.getLoc();
 
     // Get input and weight
@@ -150,8 +150,8 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     // Output: [M, H/H', W/W', C_out]
     int64_t outputH = convShapes.inputShape[1] / convShapes.stride[0];
     int64_t outputW = convShapes.inputShape[2] / convShapes.stride[1];
-    SmallVector<int64_t> convOutputShape = {convShapes.inputShape[0], outputH,
-                                            outputW, convShapes.weightShape[0]};
+    SmallVector<int64_t> convOutputShape = {
+        convShapes.inputShape[0], outputH, outputW, convShapes.weightShape[0]};
 
     auto convOutputType = RankedTensorType::get(convOutputShape, elementType);
 
@@ -162,20 +162,18 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
         {convShapes.weightShape[1], convShapes.weightShape[2]});
     auto padsAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
     auto dilationsAttr = rewriter.getI64ArrayAttr({1, 1});
-    auto groupAttr = rewriter.getIntegerAttr(
-        rewriter.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, 1, /*isSigned=*/true));
+    auto groupAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, 1, /*isSigned=*/true));
 
     // Create none value for bias
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
     Value noneBias = onnxBuilder.none();
 
     // Create XFEConv operation
-    auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType, reshape1Output,
-                                             convWeight, noneBias, autoPadAttr,
-                                             dilationsAttr, groupAttr,
-                                             kernelShapeAttr, padsAttr,
-                                             stridesAttr);
+    auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
+        reshape1Output, convWeight, noneBias, autoPadAttr, dilationsAttr,
+        groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
 
     // Create second Reshape: [M, H/H', W/W', C_out] -> [D1, D2, ..., Dn, N]
     // Original output shape: [D1, D2, ..., Dn, N]
@@ -185,8 +183,7 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     }
     outputShape.push_back(weightShape.back()); // N
 
-    auto reshape2OutputType =
-        RankedTensorType::get(outputShape, elementType);
+    auto reshape2OutputType = RankedTensorType::get(outputShape, elementType);
     auto shapeConst2 = createShapeConstant(rewriter, loc, outputShape);
     Value reshape2Output = rewriter.create<ONNXReshapeOp>(
         loc, reshape2OutputType, convOp.getResult(), shapeConst2);
@@ -203,8 +200,10 @@ namespace onnx_mlir {
 
 struct ConvertMatMulToXFEConvPass
     : public PassWrapper<ConvertMatMulToXFEConvPass,
-                         OperationPass<func::FuncOp>> {
-  StringRef getArgument() const override { return "convert-matmul-to-xfe-conv"; }
+          OperationPass<func::FuncOp>> {
+  StringRef getArgument() const override {
+    return "convert-matmul-to-xfe-conv";
+  }
   StringRef getDescription() const override {
     return "Convert MatMul operations to XFEConv operations";
   }
