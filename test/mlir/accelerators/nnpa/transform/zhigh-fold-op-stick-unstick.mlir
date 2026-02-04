@@ -418,3 +418,21 @@ func.func @pattern_extended_layout_transform_v3(%arg0: tensor<3x?x2048xf32>, %ar
 // CHECK:           return [[VAR_4_]] : tensor<3x8x?x64xf32>
 // CHECK:         }
 }
+
+// -----
+
+// layout reshape-merge (squeeze) layout
+
+func.func @test_lt_reshape_lt(%arg0: tensor<1x12x64x256xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+    %0 = onnx.Constant dense<[12, 64, 256]> : tensor<3xi64>
+    %1 = "onnx.LayoutTransform"(%arg0) : (tensor<1x12x64x256xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x12x64x256xf16>
+    %2 = "onnx.Reshape"(%1, %0) <{allowzero = 0 : si64}> : (tensor<1x12x64x256xf16>, tensor<3xi64>) -> tensor<12x64x256xf16>
+    %3 = "onnx.LayoutTransform"(%2) <{target_layout = "3DS"}> : (tensor<12x64x256xf16>) -> tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    return %3 : tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_lt_reshape_lt
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x12x64x256xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.ExtendedLayoutTransform"([[PARAM_0_]]) <{dlf16_to_f32 = false, reshape_merge_axis = 0 : si64, reshape_split_axis = -1 : si64, reshape_split_factor = 1 : si64, target_layout = "3DS"}> : (tensor<1x12x64x256xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_0_]] : tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}
