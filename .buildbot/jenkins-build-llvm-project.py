@@ -176,7 +176,7 @@ def setup_per_pr_llvm_project(image_type, exp):
             base_image = LLVM_PROJECT_BASE_IMAGE[image_type]
             if LLVM_PROJECT_BASE_IMAGE_NEEDS_ARCH[image_type]:
                 base_image += cpu_arch
-            
+
             for line in docker_api.build(
                 path=".",
                 dockerfile=LLVM_PROJECT_DOCKERFILE,
