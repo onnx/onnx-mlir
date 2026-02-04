@@ -112,7 +112,6 @@ add_onnx_mlir_library(OMONNXOps
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
   OMTransformsPassIncGen
-  OMTransformsKrnlPassIncGen
 
   LINK_LIBS PRIVATE
   OMDiagnostic
