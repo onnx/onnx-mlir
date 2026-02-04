@@ -24,7 +24,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_nullguard' CMakeLists.txt \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
-    && python3 -m pip install --upgrade --user setuptools==77.0.1 \
+    && python3 -m pip install --upgrade setuptools==77.0.1 \
     # Detect architecture and set flags
     && EXTRA_CMAKE_ARGS="" \
     && if [ "$(uname -m)" = "s390x" ]; then \
