@@ -61,36 +61,26 @@ Operation *getFollowingActivation(Operation *op) {
 }
 
 /// Reshape ND tensor to 4D tensor for ONNX DepthwiseConv2D
-/// [N, C, ...] → [N, C, 1, 1] or appropriate 4D shape
+/// Prepends 1s to the front like reference implementation (lines 163-168)
+/// [d1, d2, ...] → [1, 1, ..., d1, d2, ...]
 Value reshapeInputTo4D(PatternRewriter &rewriter, Location loc, Value input) {
   auto inputType = cast<RankedTensorType>(input.getType());
   auto inputShape = inputType.getShape();
   int64_t rank = inputShape.size();
 
-  llvm::SmallVector<int64_t> newShape;
-  
-  if (rank == 1) {
-    // [C] → [1, 1, 1, C]
-    newShape = {1, 1, 1, inputShape[0]};
-  } else if (rank == 2) {
-    // [N, C] → [N, C, 1, 1]
-    newShape = {inputShape[0], inputShape[1], 1, 1};
-  } else if (rank == 3) {
-    // [N, C, L] → [N, C, 1, L]
-    newShape = {inputShape[0], inputShape[1], 1, inputShape[2]};
-  } else if (rank == 4) {
+  if (rank == 4) {
     // Already 4D
     return input;
-  } else {
-    // For higher dimensions, pad with 1s
-    newShape.push_back(inputShape[0]);
-    newShape.push_back(inputShape[1]);
-    for (int64_t i = 0; i < 4 - rank; i++) {
-      newShape.push_back(1);
-    }
-    for (int64_t i = 2; i < rank; i++) {
-      newShape.push_back(inputShape[i]);
-    }
+  }
+
+  // Prepend (4 - rank) ones, then append all original dimensions
+  // Reference: lines 163-168
+  llvm::SmallVector<int64_t> newShape;
+  for (int64_t i = 0; i < 4 - rank; i++) {
+    newShape.push_back(1);
+  }
+  for (int64_t i = 0; i < rank; i++) {
+    newShape.push_back(inputShape[i]);
   }
 
   auto newType = RankedTensorType::get(newShape, inputType.getElementType());
@@ -111,7 +101,8 @@ Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc, Value inp
 }
 
 /// Reshape 1D weight [C] to 4D for ONNX DepthwiseConv2D
-/// [C] → [C, 1, 1, 1] (for depthwise conv with kernel 1x1)
+/// [C] → [C, 1, 1, 1] (ONNX Conv format: [C_out, C_in/group, kH, kW])
+/// Note: Reference uses [1,1,1,C] for XIR depthwise-conv2d, but ONNX Conv needs [C,1,1,1]
 Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
   auto weightType = cast<RankedTensorType>(weight.getType());
   auto weightShape = weightType.getShape();
@@ -120,7 +111,7 @@ Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
     return weight; // Already 4D
   }
 
-  // [C] → [C, 1, 1, 1]
+  // [C] → [C, 1, 1, 1] for ONNX Conv
   llvm::SmallVector<int64_t> newShape = {weightShape[0], 1, 1, 1};
 
   auto newType = RankedTensorType::get(newShape, weightType.getElementType());
@@ -215,10 +206,11 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     // Reshape input to 4D
     Value reshapedInput = reshapeInputTo4D(rewriter, loc, input);
 
-    // Reshape scale to 4D weight format [C, 1, 1, 1]
+    // Reshape scale to 4D weight format [1, 1, 1, C]
     Value reshapedWeight = reshapeWeightTo4D(rewriter, loc, scale);
 
-    // Create bias (none)
+    // Check for bias (reference lines 206-209)
+    // In ONNX, Mul doesn't have bias, but could be extended for Mul+Add fusion
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
     Value bias = onnxBuilder.none();
 
@@ -227,10 +219,9 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     auto dwConv2dOutputType = UnrankedTensorType::get(inputType.getElementType());
 
     // Get channel count for group parameter (depthwise = input_channels)
-    int64_t channels = inputShape[inputRank >= 2 ? 1 : 0];
-    if (inputRank == 1) {
-      channels = inputShape[0];
-    }
+    // Channels are at dimension 1 in NCHW 4D tensor
+    auto reshapedInputType = cast<RankedTensorType>(reshapedInput.getType());
+    int64_t channels = reshapedInputType.getShape()[1];
 
     auto dwConvOp = rewriter.create<ONNXConvOp>(loc, dwConv2dOutputType,
         reshapedInput, reshapedWeight, bias,
