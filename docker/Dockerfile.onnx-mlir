@@ -33,7 +33,10 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Detect architecture and set flags
     && EXTRA_CMAKE_ARGS="" \
     && if [ "$(uname -m)" = "s390x" ]; then \
+          # Disable type stub generation to avoid protoc-gen-mypy segfault on s390x
           EXTRA_CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF"; \
+          # Create empty stub files to satisfy setup.py's assertion check
+          mkdir -p onnx && touch onnx/onnx_ml_pb2.pyi onnx/onnx_data_pb2.pyi onnx/onnx_operators_ml_pb2.pyi; \
        fi \
     && CC=clang-20 CXX=clang++-20 \
        CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib \
