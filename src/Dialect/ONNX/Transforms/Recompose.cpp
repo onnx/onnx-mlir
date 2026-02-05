@@ -449,17 +449,16 @@ struct RecomposeLayerNormFromDivPattern : public OpRewritePattern<DivOperator> {
     Operation *dSubOp = nullptr;
     Operation *powOp = nullptr;
 
-    if (!matchLastOperator(
-            LayerNormOp, MatchDivArgs{.isdRecipOp = &isdRecipOp,
-                             .nDivOp = &nDivOp,
-                             .nMulOp = &nMulOp,
-                             .powOp = &powOp,
-                             .sdSqrtOp = &sdSqrtOp,
-                             .veAddOp = &veAddOp,
-                             .d = d,
-                             .invStdDev = invStdDev,
-                             .stdDev = stdDev,
-                             .varEps = varEps})) {
+    if (!matchLastOperator(LayerNormOp, MatchDivArgs{.isdRecipOp = &isdRecipOp,
+                                            .nDivOp = &nDivOp,
+                                            .nMulOp = &nMulOp,
+                                            .powOp = &powOp,
+                                            .sdSqrtOp = &sdSqrtOp,
+                                            .veAddOp = &veAddOp,
+                                            .d = d,
+                                            .invStdDev = invStdDev,
+                                            .stdDev = stdDev,
+                                            .varEps = varEps})) {
       return reportFailure("First operator could not be matched");
     }
 
