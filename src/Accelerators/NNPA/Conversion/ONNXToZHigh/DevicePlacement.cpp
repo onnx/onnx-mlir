@@ -202,7 +202,8 @@ void DevicePlacementPass::runOnOperation() {
     PlaceBeneficialOpsOnNNPA(context, ops, &dimAnalysis, cpuOps);
   else if (placementHeuristic == FasterOpsWSU)
     PlaceBeneficialOpsOnNNPAWithStickUnstick(
-        context, module, ops, &dimAnalysis, cpuOps);
+        context, module, ops, &dimAnalysis, cpuOps, /*min factor*/ 1.1, /*significant CPU Factor*/ 2.0,
+        /*significant NNPA Factor*/ 2.0);
   else if (placementHeuristic == MuchFasterOpsWSU)
     PlaceBeneficialOpsOnNNPAWithStickUnstick(context, module, ops, &dimAnalysis,
         cpuOps, /*min factor*/ 3.0, /*significant CPU Factor*/ 2.0,

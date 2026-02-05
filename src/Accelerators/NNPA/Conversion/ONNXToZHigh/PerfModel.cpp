@@ -237,10 +237,10 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
     nnpaEstimatedTime = estimatedTimeForNNPA_MatMul_3ds(B, N, M, K);
     cpuEstimatedTime = estimatedTimeForCPU_MatMul_3ds(B, N, M, K);
     LLVM_DEBUG(llvm::dbgs()
-               << "  Estimated times for op " << op->getName() << " with dim ("
-               << B << ", " << N << ", " << M << ", " << K << "): nnpa "
-               << nnpaEstimatedTime << ", cpu " << cpuEstimatedTime << "."
-               << msg.c_str() << "\n");
+               << "  Estimated times for matmul op " << op->getName()
+               << " with dim (" << B << ", " << N << ", " << M << ", " << K
+               << "): nnpa " << nnpaEstimatedTime << ", cpu "
+               << cpuEstimatedTime << "." << msg.c_str() << "\n");
 
     return;
   }

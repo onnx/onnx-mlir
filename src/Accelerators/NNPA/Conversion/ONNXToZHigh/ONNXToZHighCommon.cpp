@@ -147,8 +147,8 @@ bool isMappedToNNPA(Operation *op) {
   return device && device.getValue().equals_insensitive(NNPA_DEVICE);
 }
 
-// Determine if op is unsuitable because its not an ONNX op of interest, or it
-// is already mapped to the CPU device.
+// NNPA friendly ops are any ONNX ops (not entry or return) that are not already
+// mapped to CPU.
 bool isNNPAFriendlyOp(Operation *op) {
   if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
     return false;
