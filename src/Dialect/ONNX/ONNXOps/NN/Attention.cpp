@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
