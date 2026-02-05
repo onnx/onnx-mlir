@@ -1,4 +1,4 @@
-// RUN: flexml-opt --split-input-file %s --convert-matmul-to-xfe-conv | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file %s --convert-matmul-to-xfe-conv | FileCheck %s
 
 // Copyright (C) 2025 - 2026 Advanced Micro Devices, Inc. All rights reserved.
 
