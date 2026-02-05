@@ -28,17 +28,16 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 /// Check if the value is from an ONNXNoneOp (represents no bias)
-bool isNoValue(Value val) {
-  return val.getDefiningOp<ONNXNoneOp>() != nullptr;
-}
+bool isNoValue(Value val) { return val.getDefiningOp<ONNXNoneOp>() != nullptr; }
 
 /// Create a 1D bias tensor from a constant value.
 /// If the constant is already 1D, return it as-is.
 /// If multi-dimensional, flatten it to 1D.
 /// Handles both float and quantized types.
-Value create1DBiasFromConstant(PatternRewriter &rewriter, Value biasVal,
-                               Location loc) {
-  auto constOp = mlir::dyn_cast_or_null<ONNXConstantOp>(biasVal.getDefiningOp());
+Value create1DBiasFromConstant(
+    PatternRewriter &rewriter, Value biasVal, Location loc) {
+  auto constOp =
+      mlir::dyn_cast_or_null<ONNXConstantOp>(biasVal.getDefiningOp());
   if (!constOp)
     return biasVal;
 
@@ -51,18 +50,19 @@ Value create1DBiasFromConstant(PatternRewriter &rewriter, Value biasVal,
     return biasVal; // Already 1D or not ranked
 
   // Get the result type from the constant op (may have quant type)
-  auto resultType = mlir::dyn_cast<RankedTensorType>(constOp.getResult().getType());
+  auto resultType =
+      mlir::dyn_cast<RankedTensorType>(constOp.getResult().getType());
   if (!resultType)
     return biasVal;
 
   // Flatten to 1D
   int64_t numElements = attr.getNumElements();
   SmallVector<int64_t, 1> newShape = {numElements};
-  
+
   // Create new storage type (1D version of the attribute type)
   auto storageElemType = oldType.getElementType();
   auto newStorageType = RankedTensorType::get(newShape, storageElemType);
-  
+
   // Create new result type (1D version, preserving quant type if present)
   auto resultElemType = resultType.getElementType();
   auto newResultType = RankedTensorType::get(newShape, resultElemType);
@@ -72,9 +72,8 @@ Value create1DBiasFromConstant(PatternRewriter &rewriter, Value biasVal,
 
   // Create new constant with the reshaped attribute
   auto valueAttr = rewriter.getNamedAttr("value", newAttr);
-  auto newConstOp = rewriter.create<ONNXConstantOp>(
-      loc, newResultType, mlir::ValueRange{},
-      mlir::ArrayRef<mlir::NamedAttribute>{valueAttr});
+  auto newConstOp = rewriter.create<ONNXConstantOp>(loc, newResultType,
+      mlir::ValueRange{}, mlir::ArrayRef<mlir::NamedAttribute>{valueAttr});
 
   return newConstOp.getResult();
 }
@@ -88,7 +87,8 @@ bool isBiasCompatibleWithWeight(Value biasVal, Value weightVal) {
   int64_t outChannels = wType.getShape()[0];
 
   // Bias must be a constant tensor
-  auto constOp = mlir::dyn_cast_or_null<ONNXConstantOp>(biasVal.getDefiningOp());
+  auto constOp =
+      mlir::dyn_cast_or_null<ONNXConstantOp>(biasVal.getDefiningOp());
   if (!constOp)
     return false;
 
@@ -109,8 +109,8 @@ bool isBiasCompatibleWithWeight(Value biasVal, Value weightVal) {
 struct ConvWithBiasPattern : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXAddOp addOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &rewriter) const override {
     // Get add operands
     Value lhs = addOp.getA();
     Value rhs = addOp.getB();
@@ -166,8 +166,7 @@ struct ConvWithBiasPattern : public OpRewritePattern<ONNXAddOp> {
     auto stridesAttr = convOp.getStridesAttr();
 
     // Create new conv with bias
-    auto newConv = rewriter.create<ONNXConvOp>(
-        loc,
+    auto newConv = rewriter.create<ONNXConvOp>(loc,
         addOp.getResult().getType(), // Output type from the add
         convOp.getX(),               // Input
         convOp.getW(),               // Weights
@@ -204,8 +203,8 @@ struct ConvWithBiasPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-                                     config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }
