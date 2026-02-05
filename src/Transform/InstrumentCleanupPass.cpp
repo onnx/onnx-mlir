@@ -25,6 +25,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -42,28 +43,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+#define GEN_PASS_DEF_INSTRUMENTCLEANUPPASS
+#include "src/Transform/Passes.h.inc"
+
 /*!
  * This pass insert KrnlInstrumentOp before and after each ops
  */
 
-class InstrumentCleanupPass : public mlir::PassWrapper<InstrumentCleanupPass,
-                                  OperationPass<func::FuncOp>> {
-
+class InstrumentCleanupPass
+    : public impl::InstrumentCleanupPassBase<InstrumentCleanupPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentCleanupPass)
-
-  InstrumentCleanupPass(){};
-  InstrumentCleanupPass(const InstrumentCleanupPass &pass)
-      : mlir::PassWrapper<InstrumentCleanupPass,
-            OperationPass<func::FuncOp>>() {}
-
-private:
-public:
-  StringRef getArgument() const override { return "instrument-cleanup"; }
-
-  StringRef getDescription() const override {
-    return "instrument cleanup on ops.";
-  }
 
   void runOnOperation() override {
     llvm::SmallVector<Operation *> eraseOpList, debugOpList;
@@ -136,6 +126,11 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentCleanupPass() {
-  return std::make_unique<InstrumentCleanupPass>();
-}
+// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
+/*
+   namespace onnx_mlir {
+   std::unique_ptr<mlir::Pass> createInstrumentCleanupPass() {
+   return std::make_unique<InstrumentCleanupPass>();
+   }
+   }//onnx_mlir
+ */

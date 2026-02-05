@@ -209,8 +209,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling /
   // signatures for onnx and zhigh ops. Keep this pass at the end of this
-  // function. Add createInstrument (timing) second so that it will guarantee
-  // not to include timing of the signature printing.
+  // function. Add createInstrumentPass (timing) second so that it will
+  // guarantee not to include timing of the signature printing.
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
