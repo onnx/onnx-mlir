@@ -27,11 +27,13 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_check_op\
           absl::log_internal_message\
           absl::log_internal_nullguard' CMakeLists.txt \
-    # Required for pip install with `--no-build-isolation` flag.
-    # setuptools >= 70.x creates conflicts with pip packaging versions.
-    && python3 -m pip install --upgrade setuptools==68.2.2 \
+    # To avoid the "externally managed environment" error on ubuntu,
+    # use --prefix=/usr to install into /usr/local/lib (default is
+    # /usr/lib)
+    # ubi9 doesn't have this problem and --prefix=/usr will install
+    # into /usr/lib64 (default is /usr/lib)
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . --no-build-isolation \
+       python3 -m pip install . --prefix=/usr \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
@@ -94,11 +96,11 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                   make ninja-build python3 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-          pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
-               pytest-xdist typing-extensions && \
+          pip3 uninstall -q -y Cython pybind11 pytest pytest-xdist \
+               typing-extensions && \
           yum remove -q -y \
               adwaita-icon-theme autoconf automake cmake file \
-              git libtool ninja-build python39 && \
+              git libtool ninja-build python3 && \
           rm -rf /var/cache/dnf/*; \
        fi \
     && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \
