@@ -15,6 +15,7 @@
 #include <mlir/Support/LLVM.h>
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
+#include "ResultNamesUpdater.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
@@ -130,8 +131,10 @@ public:
       return success();
     }
 
-    rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
-        dqOp, qTensorType, dqOp.getX());
+    auto scast = rewriter.create<quant::StorageCastOp>(
+        dqOp.getLoc(), qTensorType, dqOp.getX());
+    ResultNamesUpdater().notifyOperationReplaced(dqOp, scast.getResult());
+    rewriter.replaceOp(dqOp, scast);
     return success();
   }
 };
@@ -155,9 +158,13 @@ public:
     auto qType = std::get<quant::QuantizedType>(qTypeErr);
     auto qTensorType = cast<TensorType>(qOp.getType()).clone(qType);
     rewriter.modifyOpInPlace(qOp, [&]() { qOp.getX().setType(qTensorType); });
-    rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
-        qOp, qOp.getY().getType(), qOp.getX());
 
+    // Copy the ResultName of qOp to parentOp
+    ResultNamesUpdater().notifyOperationReplaced(qOp, qOp.getX());
+
+    auto scast = rewriter.create<quant::StorageCastOp>(
+        qOp.getLoc(), qOp.getY().getType(), qOp.getX());
+    rewriter.replaceOp(qOp, scast);
     return success();
   }
 };
