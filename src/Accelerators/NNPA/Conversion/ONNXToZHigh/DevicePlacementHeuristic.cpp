@@ -139,6 +139,10 @@ struct DevicePlacementWithStickUnstickCost {
       // Skip ops that the compiler determined are not suitable for NNPA.
       if (cpuOps.contains(op))
         return WalkResult::advance();
+      // Skip ops already marked for NNPA.
+      if (isMappedToNNPA(op))
+        return WalkResult::advance();
+
       // Remaining ops can be mapped to NNPA.
       nnpaCandidateOps.insert(op);
       return WalkResult::advance();
@@ -427,8 +431,18 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
     bool last = (i == ub - 1);
     LLVM_DEBUG(llvm::dbgs() << "\n\n\nPlacement Iteration " << i << "\n\n");
     for (Operation *op : ops) {
-      if (isMappedToDevice(op))
+      if (isMappedToDevice(op)) {
+        LLVM_DEBUG({
+          if (isMappedToCPU(op))
+            llvm::dbgs() << "\nSkip as operations is mapped to cpu\n  ";
+          else if (isMappedToNNPA(op))
+            llvm::dbgs() << "\nSkip as operations is mapped to NNPA\n  ";
+          else
+            llvm_unreachable("expected CPU or NNPA only here");
+          op->dump();
+        });
         continue;
+      }
       // Op that cannot go on NNPA.
       if (cpuOps.contains(op))
         continue;

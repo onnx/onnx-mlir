@@ -157,6 +157,11 @@ void DevicePlacementPass::runOnOperation() {
           op->setAttr(
               DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
         });
+    LLVM_DEBUG({
+      llvm::dbgs() << "\n\nOps after reading config file\n";
+      module.dump();
+      llvm::dbgs() << "\n\n";
+    });
   }
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
@@ -201,8 +206,8 @@ void DevicePlacementPass::runOnOperation() {
   else if (placementHeuristic == FasterOps)
     PlaceBeneficialOpsOnNNPA(context, ops, &dimAnalysis, cpuOps);
   else if (placementHeuristic == FasterOpsWSU)
-    PlaceBeneficialOpsOnNNPAWithStickUnstick(
-        context, module, ops, &dimAnalysis, cpuOps, /*min factor*/ 1.1, /*significant CPU Factor*/ 2.0,
+    PlaceBeneficialOpsOnNNPAWithStickUnstick(context, module, ops, &dimAnalysis,
+        cpuOps, /*min factor*/ 1.1, /*significant CPU Factor*/ 2.0,
         /*significant NNPA Factor*/ 2.0);
   else if (placementHeuristic == MuchFasterOpsWSU)
     PlaceBeneficialOpsOnNNPAWithStickUnstick(context, module, ops, &dimAnalysis,
