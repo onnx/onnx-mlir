@@ -39,7 +39,8 @@ namespace {
 // Helper Functions
 //===----------------------------------------------------------------------===//
 
-/// Helper function to transfer onnx_node_name attribute from source to target op
+/// Helper function to transfer onnx_node_name attribute from source to target
+/// op
 void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
   if (!sourceOp || !targetOp)
     return;
