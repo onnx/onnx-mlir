@@ -2,7 +2,7 @@ This package provides an onnxmlir-based compiler backend for torch.compile().
 
 ## Usage
 Let's start with a simple torch model:
-```
+```python
 import torch
 import torch.nn as nn
 
@@ -25,9 +25,11 @@ print(opt_mod(input1, input2))
 ```
 
 With torch_onnxmlir package, `torch.compile()` can be rewritten as follows:
-```
+```python
 import torch
 import torch.nn as nn
+
+# Import torch_onnxmlir to use onnxmlir backend.
 import torch_onnxmlir
 
 class AddModel(nn.Module):
@@ -56,7 +58,6 @@ print(opt_mod(input1, input2))
 For more information about `torch.compile`, see its [document](https://docs.pytorch.org/docs/stable/generated/torch.compile.html).
 
 ## Installation
-
 
 ### Install from local directory
 First create the source of the package.

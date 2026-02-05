@@ -30,7 +30,7 @@ Not supported yet.
 # Used with torch.compile <a name="backend"></a>
 In this approach, a backend based on onnxmlir compiler is provided to torch.compile(). This backend will first export the torch model to onnx model, then compile the model with onnxmlir compiler to a shared library (.so), and finally run inference with the shared library.
 An example of code piece: 
-```
+```python
 import torch_onnxmlir
 my_option = {
     "compile_options": "-O3",
