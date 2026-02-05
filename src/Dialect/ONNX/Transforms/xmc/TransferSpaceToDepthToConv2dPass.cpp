@@ -2,6 +2,7 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -75,6 +76,15 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
     Location loc = op->getLoc();
     int64_t inputChannels = inputShape[1]; // NCHW
 
+    // Quant types require the Quant dialect's TypeUniquer to be initialized.
+    // If the Quant dialect isn't registered/available (e.g. when quant passes
+    // are disabled), do not attempt to create quant types.
+    // `getOrLoadDialect` returns nullptr if the dialect is not in the registry.
+    MLIRContext *context = rewriter.getContext();
+    bool quantDialectAvailable =
+        (context->getLoadedDialect("quant") != nullptr) ||
+        (context->getOrLoadDialect("quant") != nullptr);
+
     // Weight shape: [out_channels, in_channels, kH, kW]
     // out_channels = in_channels * block_size * block_size
     SmallVector<int64_t, 4> weightShape = {
@@ -96,49 +106,109 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
       }
     }
 
-    // Quantized weight type.
-    auto weightQuantType = quant::UniformQuantizedType::get(
-        /*flags=*/quant::QuantizationFlags::Signed,
-        /*storageType=*/rewriter.getI8Type(),
-        /*expressedType=*/rewriter.getF32Type(),
-        /*scale=*/1.0,
-        /*zeroPoint=*/0,
-        /*storageTypeMin=*/-128,
-        /*storageTypeMax=*/127);
-    auto weightTensorType = RankedTensorType::get(weightShape, weightQuantType);
-    auto weightAttrType =
-        RankedTensorType::get(weightShape, rewriter.getI8Type());
-    auto weightAttr = DenseIntElementsAttr::get(
-        weightAttrType, llvm::ArrayRef<int8_t>(weightsData));
-    Value weightConst =
-        createOnnxConstant(rewriter, loc, weightTensorType, weightAttr);
+    Value weightConst;
+    if (quantDialectAvailable) {
+      // Quantized weight type.
+      auto weightQuantType = quant::UniformQuantizedType::get(
+          /*flags=*/quant::QuantizationFlags::Signed,
+          /*storageType=*/rewriter.getI8Type(),
+          /*expressedType=*/rewriter.getF32Type(),
+          /*scale=*/1.0,
+          /*zeroPoint=*/0,
+          /*storageTypeMin=*/-128,
+          /*storageTypeMax=*/127);
+      auto weightTensorType =
+          RankedTensorType::get(weightShape, weightQuantType);
+      auto weightAttrType =
+          RankedTensorType::get(weightShape, rewriter.getI8Type());
+      auto weightAttr = DenseIntElementsAttr::get(
+          weightAttrType, llvm::ArrayRef<int8_t>(weightsData));
+      weightConst =
+          createOnnxConstant(rewriter, loc, weightTensorType, weightAttr);
+    } else {
+      // Non-quant fallback: build weights with the input element type.
+      Type inputElemTy = inputType.getElementType();
+      auto weightTensorType = RankedTensorType::get(weightShape, inputElemTy);
+
+      Attribute weightAttr;
+      if (auto floatTy = dyn_cast<FloatType>(inputElemTy)) {
+        SmallVector<APFloat> fpVals;
+        fpVals.reserve(weightsSize);
+        for (int64_t i = 0; i < weightsSize; ++i)
+          fpVals.emplace_back(floatTy.getFloatSemantics(),
+              llvm::APInt::getZero(floatTy.getWidth()));
+        for (int64_t i = 0; i < weightsSize; ++i)
+          if (weightsData[i] != 0)
+            fpVals[i] = APFloat(1.0f);
+        weightAttr = DenseFPElementsAttr::get(weightTensorType, fpVals);
+      } else if (auto intTy = dyn_cast<IntegerType>(inputElemTy)) {
+        SmallVector<APInt> intVals;
+        intVals.reserve(weightsSize);
+        for (int64_t i = 0; i < weightsSize; ++i)
+          intVals.emplace_back(intTy.getWidth(),
+              static_cast<uint64_t>(weightsData[i]),
+              /*isSigned=*/intTy.isSigned());
+        weightAttr = DenseIntElementsAttr::get(weightTensorType, intVals);
+      } else {
+        return failure();
+      }
+
+      weightConst =
+          createOnnxConstant(rewriter, loc, weightTensorType, weightAttr);
+    }
 
     // Bias constant (i8, all zeros).
     int64_t numOutputChannels = weightShape[0];
     SmallVector<int64_t, 1> biasShape = {numOutputChannels};
     std::vector<int8_t> biasData(numOutputChannels, 0);
 
-    // Bias scale = input_scale * weight_scale (weight_scale = 1.0).
-    double inputScaleValue = 1.0;
-    if (auto qType =
-            dyn_cast<quant::UniformQuantizedType>(inputType.getElementType()))
-      inputScaleValue = qType.getScale();
-    float biasScale = static_cast<float>(inputScaleValue);
+    Value biasConst;
+    if (quantDialectAvailable) {
+      // Bias scale = input_scale * weight_scale (weight_scale = 1.0).
+      double inputScaleValue = 1.0;
+      if (auto qType =
+              dyn_cast<quant::UniformQuantizedType>(inputType.getElementType()))
+        inputScaleValue = qType.getScale();
+      float biasScale = static_cast<float>(inputScaleValue);
 
-    auto biasQuantType = quant::UniformQuantizedType::get(
-        /*flags=*/quant::QuantizationFlags::Signed,
-        /*storageType=*/rewriter.getI8Type(),
-        /*expressedType=*/rewriter.getF32Type(),
-        /*scale=*/biasScale,
-        /*zeroPoint=*/0,
-        /*storageTypeMin=*/-128,
-        /*storageTypeMax=*/127);
-    auto biasTensorType = RankedTensorType::get(biasShape, biasQuantType);
-    auto biasAttrType = RankedTensorType::get(biasShape, rewriter.getI8Type());
-    auto biasAttr = DenseIntElementsAttr::get(
-        biasAttrType, llvm::ArrayRef<int8_t>(biasData));
-    Value biasConst =
-        createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
+      auto biasQuantType = quant::UniformQuantizedType::get(
+          /*flags=*/quant::QuantizationFlags::Signed,
+          /*storageType=*/rewriter.getI8Type(),
+          /*expressedType=*/rewriter.getF32Type(),
+          /*scale=*/biasScale,
+          /*zeroPoint=*/0,
+          /*storageTypeMin=*/-128,
+          /*storageTypeMax=*/127);
+      auto biasTensorType = RankedTensorType::get(biasShape, biasQuantType);
+      auto biasAttrType =
+          RankedTensorType::get(biasShape, rewriter.getI8Type());
+      auto biasAttr = DenseIntElementsAttr::get(
+          biasAttrType, llvm::ArrayRef<int8_t>(biasData));
+      biasConst =
+          createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
+    } else {
+      // Non-quant fallback: bias matches input element type (zeros).
+      Type inputElemTy = inputType.getElementType();
+      auto biasTensorType = RankedTensorType::get(biasShape, inputElemTy);
+
+      Attribute biasAttr;
+      if (auto floatTy = dyn_cast<FloatType>(inputElemTy)) {
+        SmallVector<APFloat> fpVals;
+        fpVals.reserve(numOutputChannels);
+        for (int64_t i = 0; i < numOutputChannels; ++i)
+          fpVals.emplace_back(floatTy.getFloatSemantics(),
+              llvm::APInt::getZero(floatTy.getWidth()));
+        biasAttr = DenseFPElementsAttr::get(biasTensorType, fpVals);
+      } else if (auto intTy = dyn_cast<IntegerType>(inputElemTy)) {
+        SmallVector<APInt> intVals(numOutputChannels,
+            APInt(intTy.getWidth(), 0, /*isSigned=*/intTy.isSigned()));
+        biasAttr = DenseIntElementsAttr::get(biasTensorType, intVals);
+      } else {
+        return failure();
+      }
+
+      biasConst = createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
+    }
 
     // Conv attributes.
     SmallVector<int64_t, 2> kernel = {blockSize, blockSize};
