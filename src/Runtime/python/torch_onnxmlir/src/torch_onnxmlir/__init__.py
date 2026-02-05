@@ -10,5 +10,11 @@
 ################################################################################
 
 from .register import *
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("torch_onnxmlir")
+except PackageNotFoundError:
+    __version__ = "0.0.0+unknown"
 
 __all__ = ["onnxmlir_backend"]
