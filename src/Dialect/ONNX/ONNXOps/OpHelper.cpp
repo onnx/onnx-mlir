@@ -941,10 +941,27 @@ bool isIdentityReshape(
 bool isDequantQuantSame(
     mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp) {
 
-  // 1. Check Attributes
-  if (qOp.getAxis() != dqOp.getAxis())
-    return false;
-  if (qOp.getBlockSize() != dqOp.getBlockSize())
+  // Helper lambda to check if a value is a scalar (rank 0 or shape [1]).
+  auto isScalar = [](Value v) -> bool {
+    if (!v)
+      return true; // Treat absent optional values as scalar
+    auto tensorType = mlir::dyn_cast<ShapedType>(v.getType());
+    if (!tensorType)
+      return false;
+    // Scalar if rank 0 or has exactly one element
+    return tensorType.getRank() == 0 ||
+           (tensorType.hasStaticShape() && tensorType.getNumElements() == 1);
+  };
+
+  // 1. Check if both DQ and Q have scalar scales and zero points.
+  bool dqHasScalarParams =
+      isScalar(dqOp.getXScale()) && isScalar(dqOp.getXZeroPoint());
+  bool qHasScalarParams =
+      isScalar(qOp.getYScale()) && isScalar(qOp.getYZeroPoint());
+  bool bothHaveScalarParams = dqHasScalarParams && qHasScalarParams;
+
+  if (!bothHaveScalarParams && (qOp.getAxis() != dqOp.getAxis() ||
+                                   qOp.getBlockSize() != dqOp.getBlockSize()))
     return false;
 
   // 2. Check zero-points

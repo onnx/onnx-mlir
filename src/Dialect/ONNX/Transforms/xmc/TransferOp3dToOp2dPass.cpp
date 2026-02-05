@@ -61,8 +61,8 @@ struct Shape5D {
 };
 
 /// Create a shape constant for ONNX Reshape
-Value createShapeConstant(PatternRewriter &rewriter, Location loc,
-    llvm::ArrayRef<int64_t> shape) {
+Value createShapeConstant(
+    PatternRewriter &rewriter, Location loc, llvm::ArrayRef<int64_t> shape) {
   onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
   return onnxBuilder.constantInt64(shape);
 }
@@ -99,8 +99,8 @@ int64_t getConvGroup(ONNXConvOp convOp) {
 struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp, PatternRewriter &rewriter) const override {
     // Only match 3D convolutions (5D tensors: NDHWC format)
     auto inputType = dyn_cast<RankedTensorType>(convOp.getX().getType());
     if (!inputType || inputType.getRank() != 5)
@@ -161,15 +161,15 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
     auto newInputType =
         RankedTensorType::get(newInputShape, inputType.getElementType());
     auto inputShapeConst = createShapeConstant(rewriter, loc, newInputShape);
-    auto reshapedInput = rewriter.create<ONNXReshapeOp>(loc, newInputType,
-        input, inputShapeConst);
+    auto reshapedInput = rewriter.create<ONNXReshapeOp>(
+        loc, newInputType, input, inputShapeConst);
 
     // Reshape weight
     auto newWeightType =
         RankedTensorType::get(newWeightShape, weightType.getElementType());
     auto weightShapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-    auto reshapedWeight = rewriter.create<ONNXReshapeOp>(loc, newWeightType,
-        weight, weightShapeConst);
+    auto reshapedWeight = rewriter.create<ONNXReshapeOp>(
+        loc, newWeightType, weight, weightShapeConst);
 
     // Extract 2D attributes from 3D (drop depth dimension)
     auto kernel = convOp.getKernelShape();
@@ -180,12 +180,12 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
     // 3D [D, H, W] -> 2D [H, W], Pads: 3D [6 values] -> 2D [4 values]
     auto kernel2d =
         kernel ? extract2DFrom3D(*kernel) : llvm::SmallVector<int64_t, 2>{1, 1};
-    auto strides2d =
-        strides ? extract2DFrom3D(*strides) : llvm::SmallVector<int64_t, 2>{1, 1};
+    auto strides2d = strides ? extract2DFrom3D(*strides)
+                             : llvm::SmallVector<int64_t, 2>{1, 1};
     auto dilations2d = dilations ? extract2DFrom3D(*dilations)
                                  : llvm::SmallVector<int64_t, 2>{1, 1};
-    auto pads2d =
-        pads ? extract2DPadsFrom3D(*pads) : llvm::SmallVector<int64_t, 4>{0, 0, 0, 0};
+    auto pads2d = pads ? extract2DPadsFrom3D(*pads)
+                       : llvm::SmallVector<int64_t, 4>{0, 0, 0, 0};
 
     // Handle bias if provided
     Value reshapedBias;
@@ -196,16 +196,16 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
       auto newBiasType =
           RankedTensorType::get(newBiasShape, biasType.getElementType());
       auto biasShapeConst = createShapeConstant(rewriter, loc, newBiasShape);
-      reshapedBias = rewriter.create<ONNXReshapeOp>(loc, newBiasType, bias,
-          biasShapeConst);
+      reshapedBias = rewriter.create<ONNXReshapeOp>(
+          loc, newBiasType, bias, biasShapeConst);
     } else {
       onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
       reshapedBias = onnxBuilder.none();
     }
 
     // Output: [N, OC*D, H, W] (D_out = D for kernel=1)
-    llvm::SmallVector<int64_t, 4> conv2dOutputShape = {inShape.N, OC * inShape.D,
-        inShape.H, inShape.W};
+    llvm::SmallVector<int64_t, 4> conv2dOutputShape = {
+        inShape.N, OC * inShape.D, inShape.H, inShape.W};
 
     auto conv2dOutputType =
         RankedTensorType::get(conv2dOutputShape, inputType.getElementType());
@@ -224,8 +224,8 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
     // Apply Relu if needed
     Value finalOutput = conv2dOp.getResult();
     if (reluOp) {
-      auto reluOutput = rewriter.create<ONNXReluOp>(loc,
-          conv2dOp.getResult().getType(), finalOutput);
+      auto reluOutput = rewriter.create<ONNXReluOp>(
+          loc, conv2dOp.getResult().getType(), finalOutput);
       finalOutput = reluOutput.getResult();
     }
 
@@ -233,13 +233,13 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
     auto outputType =
         reluOp ? reluOp.getResult().getType() : convOp.getResult().getType();
     auto outputShape = cast<RankedTensorType>(outputType).getShape();
-    llvm::SmallVector<int64_t, 5> finalOutputShape(outputShape.begin(),
-        outputShape.end());
+    llvm::SmallVector<int64_t, 5> finalOutputShape(
+        outputShape.begin(), outputShape.end());
 
     auto outputShapeConst =
         createShapeConstant(rewriter, loc, finalOutputShape);
-    auto finalReshape = rewriter.create<ONNXReshapeOp>(loc, outputType,
-        finalOutput, outputShapeConst);
+    auto finalReshape = rewriter.create<ONNXReshapeOp>(
+        loc, outputType, finalOutput, outputShapeConst);
 
     if (reluOp) {
       rewriter.replaceOp(reluOp, finalReshape.getResult());
@@ -255,8 +255,8 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
 struct Conv3dReluToConv2dPattern : public OpRewritePattern<ONNXReluOp> {
   using OpRewritePattern<ONNXReluOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReluOp reluOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReluOp reluOp, PatternRewriter &rewriter) const override {
     // Check if input is Conv3d
     auto convOp = reluOp.getX().getDefiningOp<ONNXConvOp>();
     if (!convOp || !convOp.getResult().hasOneUse())
@@ -273,15 +273,15 @@ struct Conv3dReluToConv2dPattern : public OpRewritePattern<ONNXReluOp> {
 
     // Use the Conv3dToConv2dPattern transformation logic
     Conv3dToConv2dPattern conv3dPattern(rewriter.getContext());
-    return conv3dPattern.transformConv3dToConv2d(convOp, rewriter, nullptr,
-        reluOp);
+    return conv3dPattern.transformConv3dToConv2d(
+        convOp, rewriter, nullptr, reluOp);
   }
 };
 
 /// Helper to transform 5D eltwise Add to 4D
 /// Returns the 4D Add result, caller handles optional Relu and final reshape
-Value transformAdd5Dto4D(ONNXAddOp addOp, PatternRewriter &rewriter,
-    Location loc) {
+Value transformAdd5Dto4D(
+    ONNXAddOp addOp, PatternRewriter &rewriter, Location loc) {
   auto outputType = cast<RankedTensorType>(addOp.getResult().getType());
   Shape5D shape(outputType.getShape());
   auto new4dShape = shape.to4D();
@@ -291,10 +291,10 @@ Value transformAdd5Dto4D(ONNXAddOp addOp, PatternRewriter &rewriter,
   auto new4dType = RankedTensorType::get(new4dShape, elemType);
 
   // Reshape both inputs to 4D and create Add
-  auto reshape1 = rewriter.create<ONNXReshapeOp>(loc, new4dType, addOp.getA(),
-      shapeConst);
-  auto reshape2 = rewriter.create<ONNXReshapeOp>(loc, new4dType, addOp.getB(),
-      shapeConst);
+  auto reshape1 =
+      rewriter.create<ONNXReshapeOp>(loc, new4dType, addOp.getA(), shapeConst);
+  auto reshape2 =
+      rewriter.create<ONNXReshapeOp>(loc, new4dType, addOp.getB(), shapeConst);
   return rewriter.create<ONNXAddOp>(loc, new4dType, reshape1, reshape2);
 }
 
@@ -308,8 +308,8 @@ bool isConvFedAdd(ONNXAddOp addOp) {
 struct Eltwise3dToEltwise2dPattern : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXAddOp addOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &rewriter) const override {
     auto outputType = dyn_cast<RankedTensorType>(addOp.getResult().getType());
     if (!outputType || outputType.getRank() != 5)
       return failure();
@@ -328,9 +328,10 @@ struct Eltwise3dToEltwise2dPattern : public OpRewritePattern<ONNXAddOp> {
 
     // Reshape back to 5D
     Shape5D shape(outputType.getShape());
-    auto outputShapeConst = createShapeConstant(rewriter, loc, shape.toVector());
-    auto finalReshape = rewriter.create<ONNXReshapeOp>(loc, outputType, add4d,
-        outputShapeConst);
+    auto outputShapeConst =
+        createShapeConstant(rewriter, loc, shape.toVector());
+    auto finalReshape = rewriter.create<ONNXReshapeOp>(
+        loc, outputType, add4d, outputShapeConst);
 
     rewriter.replaceOp(addOp, finalReshape.getResult());
     return success();
@@ -341,13 +342,14 @@ struct Eltwise3dToEltwise2dPattern : public OpRewritePattern<ONNXAddOp> {
 struct Eltwise3dReluToEltwise2dPattern : public OpRewritePattern<ONNXReluOp> {
   using OpRewritePattern<ONNXReluOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReluOp reluOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReluOp reluOp, PatternRewriter &rewriter) const override {
     auto addOp = reluOp.getX().getDefiningOp<ONNXAddOp>();
     if (!addOp || !addOp.getResult().hasOneUse())
       return failure();
 
-    auto addOutputType = dyn_cast<RankedTensorType>(addOp.getResult().getType());
+    auto addOutputType =
+        dyn_cast<RankedTensorType>(addOp.getResult().getType());
     if (!addOutputType || addOutputType.getRank() != 5)
       return failure();
 
@@ -362,9 +364,10 @@ struct Eltwise3dReluToEltwise2dPattern : public OpRewritePattern<ONNXReluOp> {
 
     // Reshape back to 5D
     Shape5D shape(addOutputType.getShape());
-    auto outputShapeConst = createShapeConstant(rewriter, loc, shape.toVector());
-    auto finalReshape = rewriter.create<ONNXReshapeOp>(loc,
-        reluOp.getResult().getType(), relu4d, outputShapeConst);
+    auto outputShapeConst =
+        createShapeConstant(rewriter, loc, shape.toVector());
+    auto finalReshape = rewriter.create<ONNXReshapeOp>(
+        loc, reluOp.getResult().getType(), relu4d, outputShapeConst);
 
     rewriter.replaceOp(reluOp, finalReshape.getResult());
     return success();
@@ -395,8 +398,8 @@ struct TransferOp3dToOp2dPass
     // Apply patterns greedily
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-            config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

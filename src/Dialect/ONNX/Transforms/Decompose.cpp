@@ -3425,6 +3425,7 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
 
     attention.setQNumHeadsAttr(qNumHeads);
     attention.setKvNumHeadsAttr(kvNumHeads);
+    attention.setIsCausal(1);
 
     if (customOp->hasAttrOfType<IntegerAttr>("qk_output")) {
       auto qkOutput = customOp->getAttrOfType<IntegerAttr>("qk_output");

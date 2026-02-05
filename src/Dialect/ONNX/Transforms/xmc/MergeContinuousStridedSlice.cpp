@@ -20,8 +20,8 @@ using namespace mlir;
 namespace {
 /// Helper function to extract constant integer array from a tensor value
 /// Returns failure if the value is not a constant or cannot be extracted
-LogicalResult extractConstantIntArray(Value value,
-                                      SmallVector<int32_t> &result) {
+LogicalResult extractConstantIntArray(
+    Value value, SmallVector<int32_t> &result) {
   Operation *defOp = value.getDefiningOp();
   if (!defOp)
     return failure();
@@ -42,11 +42,10 @@ LogicalResult extractConstantIntArray(Value value,
   return failure();
 }
 
-
 /// Helper function to extract quantization parameters from a tensor type
 /// Returns failure if the type is not quantized
-LogicalResult extractQuantParamsFromType(Type type, double &scale,
-                                         int64_t &zeroPoint) {
+LogicalResult extractQuantParamsFromType(
+    Type type, double &scale, int64_t &zeroPoint) {
   auto tensorType = dyn_cast<TensorType>(type);
   if (!tensorType)
     return failure();
@@ -78,10 +77,10 @@ struct MergeContinuousStridedSlicePattern
     : public OpRewritePattern<mlir::ONNXSliceOp> {
   using OpRewritePattern<mlir::ONNXSliceOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(mlir::ONNXSliceOp sliceOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXSliceOp sliceOp, PatternRewriter &rewriter) const override {
     DEBUG_WITH_TYPE("merge-continuous-strided-slice",
-                    llvm::errs() << "Trying to match " << sliceOp << "\n");
+        llvm::errs() << "Trying to match " << sliceOp << "\n");
 
     // Step 1: Check if this slice has quantized input and output types
     Value inputVal = sliceOp.getData();
@@ -95,8 +94,8 @@ struct MergeContinuousStridedSlicePattern
 
     if (failed(extractQuantParamsFromType(inputType, inputScale, inputZp)) ||
         failed(extractQuantParamsFromType(outputType, outputScale, outputZp))) {
-      return rewriter.notifyMatchFailure(sliceOp,
-                                         "Slice does not have quantized types");
+      return rewriter.notifyMatchFailure(
+          sliceOp, "Slice does not have quantized types");
     }
 
     // Verify input and output quantization parameters match
@@ -135,10 +134,10 @@ struct MergeContinuousStridedSlicePattern
       int64_t nextInputZp;
       int64_t nextOutputZp;
 
-      if (failed(extractQuantParamsFromType(nextInputType, nextInputScale,
-                                            nextInputZp)) ||
-          failed(extractQuantParamsFromType(nextOutputType, nextOutputScale,
-                                            nextOutputZp))) {
+      if (failed(extractQuantParamsFromType(
+              nextInputType, nextInputScale, nextInputZp)) ||
+          failed(extractQuantParamsFromType(
+              nextOutputType, nextOutputScale, nextOutputZp))) {
         break;
       }
 
@@ -170,10 +169,10 @@ struct MergeContinuousStridedSlicePattern
       int64_t prevInputZp;
       int64_t prevOutputZp;
 
-      if (failed(extractQuantParamsFromType(prevInputType, prevInputScale,
-                                            prevInputZp)) ||
-          failed(extractQuantParamsFromType(prevOutputType, prevOutputScale,
-                                            prevOutputZp))) {
+      if (failed(extractQuantParamsFromType(
+              prevInputType, prevInputScale, prevInputZp)) ||
+          failed(extractQuantParamsFromType(
+              prevOutputType, prevOutputScale, prevOutputZp))) {
         break;
       }
 
@@ -193,8 +192,8 @@ struct MergeContinuousStridedSlicePattern
     }
 
     if (sliceChain.size() < 2) {
-      return rewriter.notifyMatchFailure(sliceOp,
-                                         "Need at least 2 slices to merge");
+      return rewriter.notifyMatchFailure(
+          sliceOp, "Need at least 2 slices to merge");
     }
 
     auto headSlice = sliceChain[0];
@@ -212,8 +211,8 @@ struct MergeContinuousStridedSlicePattern
       if (failed(extractConstantIntArray(op.getStarts(), starts)) ||
           failed(extractConstantIntArray(op.getEnds(), ends)) ||
           failed(extractConstantIntArray(op.getSteps(), steps))) {
-        return rewriter.notifyMatchFailure(sliceOp,
-                                           "Failed to extract constants");
+        return rewriter.notifyMatchFailure(
+            sliceOp, "Failed to extract constants");
       }
       // Handle axes - if it's None, assume all axes
       SmallVector<int32_t> axesValues;
@@ -268,28 +267,28 @@ struct MergeContinuousStridedSlicePattern
     // Create DenseIntElementsAttr for starts
     auto startsType =
         RankedTensorType::get({static_cast<int64_t>(newStarts.size())},
-                              IntegerType::get(ctx, 32, IntegerType::Signless));
+            IntegerType::get(ctx, 32, IntegerType::Signless));
     auto startsAttr = DenseIntElementsAttr::get(
         startsType, ArrayRef<int32_t>(newStarts.data(), newStarts.size()));
 
     // Create DenseIntElementsAttr for ends
     auto endsType =
         RankedTensorType::get({static_cast<int64_t>(newEnds.size())},
-                              IntegerType::get(ctx, 32, IntegerType::Signless));
+            IntegerType::get(ctx, 32, IntegerType::Signless));
     auto endsAttr = DenseIntElementsAttr::get(
         endsType, ArrayRef<int32_t>(newEnds.data(), newEnds.size()));
 
     // Create DenseIntElementsAttr for steps (strides)
     auto stepsType =
         RankedTensorType::get({static_cast<int64_t>(newSteps.size())},
-                              IntegerType::get(ctx, 32, IntegerType::Signless));
+            IntegerType::get(ctx, 32, IntegerType::Signless));
     auto stepsAttr = DenseIntElementsAttr::get(
         stepsType, ArrayRef<int32_t>(newSteps.data(), newSteps.size()));
 
     // Create axes (use the axes from the head slice)
     auto axesType =
         RankedTensorType::get({static_cast<int64_t>(axesVec[0].size())},
-                              IntegerType::get(ctx, 32, IntegerType::Signless));
+            IntegerType::get(ctx, 32, IntegerType::Signless));
     auto axesAttr = DenseIntElementsAttr::get(
         axesType, ArrayRef<int32_t>(axesVec[0].data(), axesVec[0].size()));
 
@@ -309,8 +308,8 @@ struct MergeContinuousStridedSlicePattern
     Type tailSliceOutputType = sliceChain.back().getOutput().getType();
 
     // Create new merged Slice op
-    auto newSliceOp = rewriter.create<mlir::ONNXSliceOp>(
-        loc, tailSliceOutputType, headSliceInput, startsConst.getOutput(),
+    auto newSliceOp = rewriter.create<mlir::ONNXSliceOp>(loc,
+        tailSliceOutputType, headSliceInput, startsConst.getOutput(),
         endsConst.getOutput(), axesConst.getOutput(), stepsConst.getOutput());
 
     // Step 8: Replace uses and erase old ops

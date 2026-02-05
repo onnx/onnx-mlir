@@ -39,8 +39,8 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
   TransferSpaceToDepthToConv2dPattern(MLIRContext *context)
       : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
 
-  LogicalResult matchAndRewrite(Operation *op,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      Operation *op, PatternRewriter &rewriter) const override {
     // Match SpaceToDepth op.
     if (op->getName().getStringRef() != "onnx.SpaceToDepth")
       return failure();
@@ -60,7 +60,8 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
       return failure();
 
     // blocksize attribute.
-    auto blockSizeAttr = dyn_cast_or_null<IntegerAttr>(op->getAttr("blocksize"));
+    auto blockSizeAttr =
+        dyn_cast_or_null<IntegerAttr>(op->getAttr("blocksize"));
     if (!blockSizeAttr)
       return failure();
     int64_t blockSize = blockSizeAttr.getValue().getSExtValue();
@@ -79,8 +80,8 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
     SmallVector<int64_t, 4> weightShape = {
         inputChannels * blockSize * blockSize, inputChannels, blockSize,
         blockSize};
-    int64_t weightsSize = std::accumulate(weightShape.begin(), weightShape.end(),
-        1LL, std::multiplies<int64_t>());
+    int64_t weightsSize = std::accumulate(weightShape.begin(),
+        weightShape.end(), 1LL, std::multiplies<int64_t>());
 
     // Identity-like weights (i8).
     std::vector<int8_t> weightsData(weightsSize, 0);
@@ -105,7 +106,8 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
         /*storageTypeMin=*/-128,
         /*storageTypeMax=*/127);
     auto weightTensorType = RankedTensorType::get(weightShape, weightQuantType);
-    auto weightAttrType = RankedTensorType::get(weightShape, rewriter.getI8Type());
+    auto weightAttrType =
+        RankedTensorType::get(weightShape, rewriter.getI8Type());
     auto weightAttr = DenseIntElementsAttr::get(
         weightAttrType, llvm::ArrayRef<int8_t>(weightsData));
     Value weightConst =
@@ -133,9 +135,10 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
         /*storageTypeMax=*/127);
     auto biasTensorType = RankedTensorType::get(biasShape, biasQuantType);
     auto biasAttrType = RankedTensorType::get(biasShape, rewriter.getI8Type());
-    auto biasAttr =
-        DenseIntElementsAttr::get(biasAttrType, llvm::ArrayRef<int8_t>(biasData));
-    Value biasConst = createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
+    auto biasAttr = DenseIntElementsAttr::get(
+        biasAttrType, llvm::ArrayRef<int8_t>(biasData));
+    Value biasConst =
+        createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
 
     // Conv attributes.
     SmallVector<int64_t, 2> kernel = {blockSize, blockSize};
@@ -144,9 +147,9 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
     SmallVector<int64_t, 2> dilations = {1, 1};
 
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
-    Value convResult = onnxBuilder.conv(outputType, spaceToDepthInput, weightConst,
-        biasConst, /*autoPad=*/"NOTSET", dilations, /*group=*/1, kernel, pads,
-        strides);
+    Value convResult = onnxBuilder.conv(outputType, spaceToDepthInput,
+        weightConst, biasConst, /*autoPad=*/"NOTSET", dilations, /*group=*/1,
+        kernel, pads, strides);
 
     rewriter.replaceOp(op, convResult);
     return success();
@@ -174,8 +177,8 @@ struct TransferSpaceToDepthToConv2dPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-            config)))
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
@@ -185,4 +188,3 @@ std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass() {
 }
 
 } // namespace onnx_mlir
-

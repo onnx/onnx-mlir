@@ -21,8 +21,8 @@ using namespace mlir;
 
 namespace {
 
-/// Extract scale and zero-point from a `!quant.uniform` type, or return defaults
-/// if the element type is not quantized.
+/// Extract scale and zero-point from a `!quant.uniform` type, or return
+/// defaults if the element type is not quantized.
 static std::pair<double, int64_t> extractQuantParams(Type type) {
   if (auto qType = dyn_cast<quant::UniformQuantizedType>(type))
     return {qType.getScale(), qType.getZeroPoint()};
@@ -53,8 +53,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
   MergeBatchnormToConvPattern(MLIRContext *ctx)
       : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      Operation *op, PatternRewriter &rewriter) const override {
     if (op->getName().getStringRef() != "onnx.Conv")
       return failure();
 
@@ -71,7 +71,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
 
     Value reshapeOutput = reshapeOp->getResult(0);
     Operation *transposeOp = *reshapeOutput.getUsers().begin();
-    if (!transposeOp || transposeOp->getName().getStringRef() != "onnx.Transpose")
+    if (!transposeOp ||
+        transposeOp->getName().getStringRef() != "onnx.Transpose")
       return failure();
     if (!transposeOp->hasOneUse())
       return failure();
@@ -107,7 +108,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
     auto biasData = extractFloatData(biasOp);
     auto meanData = extractFloatData(meanOp);
     auto varData = extractFloatData(varOp);
-    if (scaleData.empty() || biasData.empty() || meanData.empty() || varData.empty())
+    if (scaleData.empty() || biasData.empty() || meanData.empty() ||
+        varData.empty())
       return failure();
 
     // Infer channel count from conv output shape (XCompiler behavior).
@@ -128,7 +130,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
     // Output quantization params from BatchNorm output.
     float outputScale = 1.0f;
     int32_t outputZeroPoint = 0;
-    if (auto shapedType = dyn_cast<ShapedType>(batchnormOp->getResult(0).getType())) {
+    if (auto shapedType =
+            dyn_cast<ShapedType>(batchnormOp->getResult(0).getType())) {
       auto [s, zp] = extractQuantParams(shapedType.getElementType());
       outputScale = static_cast<float>(s);
       outputZeroPoint = static_cast<int32_t>(zp);
@@ -159,7 +162,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
     SmallVector<int32_t> batchnorm_out_q(numChannels);
     SmallVector<int32_t> batchnorm_out_q_255(numChannels);
 
-    float inv_output_scale = (outputScale == 0.0f) ? 1.0f : (1.0f / outputScale);
+    float inv_output_scale =
+        (outputScale == 0.0f) ? 1.0f : (1.0f / outputScale);
 
     for (int64_t i = 0; i < numChannels; ++i) {
       float std_dev = std::sqrt(varData[i]);
@@ -177,8 +181,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
           (dq_output_255 - meanData[i]) / std_dev * scaleData[i] + biasData[i];
 
       batchnorm_out_q[i] = std::clamp(
-          static_cast<int32_t>(std::round(batchnorm_out_f * inv_output_scale) +
-                               outputZeroPoint),
+          static_cast<int32_t>(
+              std::round(batchnorm_out_f * inv_output_scale) + outputZeroPoint),
           0, 255);
       batchnorm_out_q_255[i] =
           std::clamp(static_cast<int32_t>(
@@ -191,11 +195,13 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
     convOp->setAttr("nonlinear", rewriter.getStringAttr("BATCHNORM"));
     convOp->setAttr("c2_f", rewriter.getF32ArrayAttr(c2_f));
     convOp->setAttr("c3_f", rewriter.getF32ArrayAttr(c3_f));
-    convOp->setAttr("batchnorm_out_q", rewriter.getI32ArrayAttr(batchnorm_out_q));
+    convOp->setAttr(
+        "batchnorm_out_q", rewriter.getI32ArrayAttr(batchnorm_out_q));
     convOp->setAttr(
         "batchnorm_out_q_255", rewriter.getI32ArrayAttr(batchnorm_out_q_255));
 
-    // Replace BatchNormalization output uses with transpose output and erase BN.
+    // Replace BatchNormalization output uses with transpose output and erase
+    // BN.
     rewriter.replaceAllUsesWith(batchnormOp->getResult(0), transposeOutput);
     rewriter.eraseOp(batchnormOp);
 
@@ -207,8 +213,8 @@ struct MergeBatchnormToConvPattern : public RewritePattern {
 
 namespace onnx_mlir {
 
-struct MergeBatchnormToConvPass
-    : public PassWrapper<MergeBatchnormToConvPass, OperationPass<func::FuncOp>> {
+struct MergeBatchnormToConvPass : public PassWrapper<MergeBatchnormToConvPass,
+                                      OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "merge-batchnorm-to-conv"; }
   StringRef getDescription() const override {
     return "Merge BatchNormalization parameters into Conv as attributes";
@@ -221,8 +227,8 @@ struct MergeBatchnormToConvPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-            config)))
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
@@ -232,4 +238,3 @@ std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass() {
 }
 
 } // namespace onnx_mlir
-

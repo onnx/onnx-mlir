@@ -95,8 +95,8 @@ struct RemoveUselessAveragePoolPattern
     : public OpRewritePattern<ONNXAveragePoolOp> {
   using OpRewritePattern<ONNXAveragePoolOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXAveragePoolOp poolOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXAveragePoolOp poolOp, PatternRewriter &rewriter) const override {
     LLVM_DEBUG(llvm::dbgs() << "remove-useless-qlinear-pool: Trying to match "
                             << poolOp << "\n");
 
@@ -134,8 +134,8 @@ struct RemoveUselessMaxPoolPattern
     : public OpRewritePattern<ONNXMaxPoolSingleOutOp> {
   using OpRewritePattern<ONNXMaxPoolSingleOutOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXMaxPoolSingleOutOp poolOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXMaxPoolSingleOutOp poolOp, PatternRewriter &rewriter) const override {
     LLVM_DEBUG(llvm::dbgs() << "remove-useless-qlinear-pool: Trying to match "
                             << poolOp << "\n");
 
@@ -174,7 +174,9 @@ namespace onnx_mlir {
 struct RemoveUselessQLinearPoolPass
     : public PassWrapper<RemoveUselessQLinearPoolPass,
           OperationPass<func::FuncOp>> {
-  StringRef getArgument() const override { return "remove-useless-qlinear-pool"; }
+  StringRef getArgument() const override {
+    return "remove-useless-qlinear-pool";
+  }
   StringRef getDescription() const override {
     return "Remove useless pool operations where kernel_shape and strides are "
            "all 1s (no-op pools)";
@@ -196,4 +198,3 @@ std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass() {
 }
 
 } // namespace onnx_mlir
-

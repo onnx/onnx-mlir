@@ -44,8 +44,7 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     bool enableInstanceNormDecompose = true,
     bool enableSplitToSliceDecompose = false);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
-    const std::string &target = "",
-    const bool &recomposeLayernormByTranspose = false);
+    const std::string &target = "");
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
@@ -89,7 +88,6 @@ std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
     bool enableConvTransposeDecompose = false,
     bool enableConvTransposeDecomposeToPhasedConv = false,
     bool enableConvTranspose1dDecomposeToPhasedConv = false,
-    bool enableRecomposeLayernormByTranspose = false,
     bool enableInstanceNormDecompose = true,
     bool enableSplitToSliceDecompose = false);
 
@@ -161,6 +159,13 @@ std::unique_ptr<mlir::Pass> createConvertMulToDepthwiseConv2dPass();
 /// Pass for transferring 3D operations to 2D operations.
 std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
 
+/// Pass for transferring pool-fix operations to downsample-fix operations.
+std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
+
+/// Pass for splitting depthwise conv2d with channel_multiplier > 1.
+std::unique_ptr<mlir::Pass>
+createTransferDepthwiseConv2dWithChannelMultiplierPass();
+
 /// Pass for transferring PoolFix operations to DownsampleFix operations.
 std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 
@@ -188,7 +193,8 @@ std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 /// Pass for merging BatchNormalization parameters into Conv (XMC).
 std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
 
-/// Pass for converting batch ReduceSum operations to reshape-optimized ReduceSum (XMC).
+/// Pass for converting batch ReduceSum operations to reshape-optimized
+/// ReduceSum (XMC).
 std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
 
 /// Pass for deleting redundant Relu chains (XMC).
@@ -196,6 +202,12 @@ std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
 
 /// Pass for model-specific transpose decomposition (XMC).
 std::unique_ptr<mlir::Pass> createReplaceNDimTransposePass();
+
+/// Pass for transferring element-wise ops with non-4D shapes to 4D.
+std::unique_ptr<mlir::Pass> createTransferOpShapeTo4dPass();
+
+/// Pass for transferring 1D operations to 2D operations.
+std::unique_ptr<mlir::Pass> createTransferOp1dToOp2dPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();

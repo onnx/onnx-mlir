@@ -90,8 +90,8 @@ void normalizeAxes(SmallVector<int64_t> &axes, int64_t rank) {
 }
 
 /// Remove trivial axes (dimension size = 1)
-SmallVector<int64_t> removeTrivialAxes(ArrayRef<int64_t> axes,
-                                       ArrayRef<int64_t> shape) {
+SmallVector<int64_t> removeTrivialAxes(
+    ArrayRef<int64_t> axes, ArrayRef<int64_t> shape) {
   SmallVector<int64_t> result;
   for (auto axis : axes) {
     if (axis >= 0 && axis < static_cast<int64_t>(shape.size()) &&
@@ -136,8 +136,8 @@ bool includesChannelDimension(ArrayRef<int64_t> axes, int64_t /*rank*/) {
 /// Calculate pool parameters for SPATIAL reduction
 /// Layout: NCHW - [batch, channels, height, width]
 std::tuple<SmallVector<int64_t>, int64_t, int64_t>
-calculateSpatialPoolParameters(ArrayRef<int64_t> inputShape,
-                               ArrayRef<int64_t> reductionAxes) {
+calculateSpatialPoolParameters(
+    ArrayRef<int64_t> inputShape, ArrayRef<int64_t> reductionAxes) {
   int64_t rank = inputShape.size();
   // NCHW: C is at index 1
   int64_t N = inputShape[0];
@@ -152,7 +152,7 @@ calculateSpatialPoolParameters(ArrayRef<int64_t> inputShape,
   // Process spatial dimensions (indices 2 and beyond)
   for (int64_t idx = 2; idx < rank; ++idx) {
     bool isReductionAxis = std::find(reductionAxes.begin(), reductionAxes.end(),
-                                     idx) != reductionAxes.end();
+                               idx) != reductionAxes.end();
 
     if (isReductionAxis) {
       if (kernelH * inputShape[idx] <= MAX_KERNEL_SIZE) {
@@ -184,8 +184,8 @@ calculateSpatialPoolParameters(ArrayRef<int64_t> inputShape,
 /// Calculate pool parameters for CHANNEL reduction (reshape trick)
 /// Layout: NCHW - channels are moved to spatial dimension for pooling
 std::tuple<SmallVector<int64_t>, int64_t, int64_t>
-calculateChannelPoolParameters(ArrayRef<int64_t> inputShape,
-                               ArrayRef<int64_t> reductionAxes) {
+calculateChannelPoolParameters(
+    ArrayRef<int64_t> inputShape, ArrayRef<int64_t> reductionAxes) {
   int64_t rank = inputShape.size();
 
   // For channel reduction in NCHW: [N, C, H, W] → [1, 1, H*W*N, C] then pool
@@ -194,7 +194,7 @@ calculateChannelPoolParameters(ArrayRef<int64_t> inputShape,
 
   for (int64_t idx = 0; idx < rank; ++idx) {
     bool isReductionAxis = std::find(reductionAxes.begin(), reductionAxes.end(),
-                                     idx) != reductionAxes.end();
+                               idx) != reductionAxes.end();
 
     if (isReductionAxis) {
       C *= inputShape[idx]; // Dimensions to reduce → becomes kernel
@@ -213,16 +213,16 @@ calculateChannelPoolParameters(ArrayRef<int64_t> inputShape,
 
 /// Create a reshape operation
 Value createReshapeOp(PatternRewriter &rewriter, Location loc, Value input,
-                      ArrayRef<int64_t> newShape, Type elementType) {
+    ArrayRef<int64_t> newShape, Type elementType) {
   auto newType = RankedTensorType::get(newShape, elementType);
   auto shapeSize = static_cast<int64_t>(newShape.size());
   auto shapeType = RankedTensorType::get({shapeSize}, rewriter.getI64Type());
   auto shapeAttr =
       DenseElementsAttr::get(shapeType, llvm::ArrayRef<int64_t>(newShape));
 
-  auto shapeConst = rewriter.create<ONNXConstantOp>(
-      loc, shapeType, Attribute(), shapeAttr, FloatAttr(), ArrayAttr(),
-      IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  auto shapeConst = rewriter.create<ONNXConstantOp>(loc, shapeType, Attribute(),
+      shapeAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
+      StringAttr(), ArrayAttr());
 
   return rewriter
       .create<ONNXReshapeOp>(loc, newType, input, shapeConst, IntegerAttr())
@@ -233,11 +233,10 @@ Value createReshapeOp(PatternRewriter &rewriter, Location loc, Value input,
 /// Returns nullopt if axes become empty after filtering (trivial reduction).
 /// When nullopt is returned, the reduce op is replaced with input or reshape.
 template <typename ReduceOpType>
-std::optional<SmallVector<int64_t>>
-normalizeAndFilterAxes(SmallVector<int64_t> axes, int64_t rank,
-                       ArrayRef<int64_t> inputShape, ReduceOpType reduceOp,
-                       RankedTensorType inputType, RankedTensorType outputType,
-                       PatternRewriter &rewriter, Location loc) {
+std::optional<SmallVector<int64_t>> normalizeAndFilterAxes(
+    SmallVector<int64_t> axes, int64_t rank, ArrayRef<int64_t> inputShape,
+    ReduceOpType reduceOp, RankedTensorType inputType,
+    RankedTensorType outputType, PatternRewriter &rewriter, Location loc) {
   normalizeAxes(axes, rank);
   axes = removeTrivialAxes(axes, inputShape);
 
@@ -245,9 +244,8 @@ normalizeAndFilterAxes(SmallVector<int64_t> axes, int64_t rank,
     if (inputType.getShape() == outputType.getShape()) {
       rewriter.replaceOp(reduceOp, reduceOp.getData());
     } else {
-      Value reshaped =
-          createReshapeOp(rewriter, loc, reduceOp.getData(),
-                          outputType.getShape(), outputType.getElementType());
+      Value reshaped = createReshapeOp(rewriter, loc, reduceOp.getData(),
+          outputType.getShape(), outputType.getElementType());
       rewriter.replaceOp(reduceOp, reshaped);
     }
     return std::nullopt;
@@ -264,8 +262,8 @@ struct LowerReduceMeanToAvgPoolPattern
     : public OpRewritePattern<ONNXReduceMeanOp> {
   using OpRewritePattern<ONNXReduceMeanOp>::OpRewritePattern;
   /// match and rewrite the ReduceMean op to AveragePool op
-  LogicalResult matchAndRewrite(ONNXReduceMeanOp reduceOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReduceMeanOp reduceOp, PatternRewriter &rewriter) const override {
     Location loc = reduceOp.getLoc();
 
     auto inputType = dyn_cast<RankedTensorType>(reduceOp.getData().getType());
@@ -287,9 +285,8 @@ struct LowerReduceMeanToAvgPoolPattern
     if (!axesOpt)
       return failure();
 
-    auto axesResult =
-        normalizeAndFilterAxes(*axesOpt, rank, inputShape, reduceOp, inputType,
-                               outputType, rewriter, loc);
+    auto axesResult = normalizeAndFilterAxes(*axesOpt, rank, inputShape,
+        reduceOp, inputType, outputType, rewriter, loc);
     if (!axesResult)
       return success(); // Trivial reduction handled
 
@@ -306,7 +303,7 @@ struct LowerReduceMeanToAvgPoolPattern
     Value poolInput = reduceOp.getData();
     if (inputShape != ArrayRef<int64_t>(poolShape)) {
       poolInput = createReshapeOp(rewriter, loc, reduceOp.getData(), poolShape,
-                                  inputType.getElementType());
+          inputType.getElementType());
     }
 
     auto kernelShapeAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
@@ -316,26 +313,26 @@ struct LowerReduceMeanToAvgPoolPattern
     // NCHW: poolShape = [N, C, H, W]
     int64_t outH = (poolShape[2] + kernelH - 1) / kernelH;
     int64_t outW = (poolShape[3] + kernelW - 1) / kernelW;
-    SmallVector<int64_t> poolOutputShape = {poolShape[0], poolShape[1], outH,
-                                            outW};
+    SmallVector<int64_t> poolOutputShape = {
+        poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
         RankedTensorType::get(poolOutputShape, inputType.getElementType());
 
     // Create signed i64 type for ONNX attributes (si64)
     auto si64Type =
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
-    auto avgPoolOp = rewriter.create<ONNXAveragePoolOp>(
-        loc, poolOutputType, poolInput,
-        /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
-        /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
-        /*count_include_pad=*/IntegerAttr::get(si64Type, 0),
-        /*dilations=*/nullptr, kernelShapeAttr, padsAttr, stridesAttr);
+    auto avgPoolOp =
+        rewriter.create<ONNXAveragePoolOp>(loc, poolOutputType, poolInput,
+            /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
+            /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
+            /*count_include_pad=*/IntegerAttr::get(si64Type, 0),
+            /*dilations=*/nullptr, kernelShapeAttr, padsAttr, stridesAttr);
 
     Value result = avgPoolOp.getResult();
 
     if (poolOutputShape != outputType.getShape()) {
       result = createReshapeOp(rewriter, loc, result, outputType.getShape(),
-                               outputType.getElementType());
+          outputType.getElementType());
     }
 
     rewriter.replaceOp(reduceOp, result);
@@ -352,8 +349,8 @@ struct LowerReduceMaxToMaxPoolSpatialPattern
   using OpRewritePattern<ONNXReduceMaxOp>::OpRewritePattern;
 
   /// match and rewrite the ReduceMax op to MaxPool op (spatial reduction)
-  LogicalResult matchAndRewrite(ONNXReduceMaxOp reduceOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReduceMaxOp reduceOp, PatternRewriter &rewriter) const override {
     Location loc = reduceOp.getLoc();
 
     auto inputType = dyn_cast<RankedTensorType>(reduceOp.getData().getType());
@@ -375,9 +372,8 @@ struct LowerReduceMaxToMaxPoolSpatialPattern
     if (!axesOpt)
       return failure();
 
-    auto axesResult =
-        normalizeAndFilterAxes(*axesOpt, rank, inputShape, reduceOp, inputType,
-                               outputType, rewriter, loc);
+    auto axesResult = normalizeAndFilterAxes(*axesOpt, rank, inputShape,
+        reduceOp, inputType, outputType, rewriter, loc);
     if (!axesResult)
       return success(); // Trivial reduction handled
 
@@ -394,7 +390,7 @@ struct LowerReduceMaxToMaxPoolSpatialPattern
     Value poolInput = reduceOp.getData();
     if (inputShape != ArrayRef<int64_t>(poolShape)) {
       poolInput = createReshapeOp(rewriter, loc, reduceOp.getData(), poolShape,
-                                  inputType.getElementType());
+          inputType.getElementType());
     }
 
     auto kernelShapeAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
@@ -404,8 +400,8 @@ struct LowerReduceMaxToMaxPoolSpatialPattern
     // NCHW: poolShape = [N, C, H, W]
     int64_t outH = (poolShape[2] + kernelH - 1) / kernelH;
     int64_t outW = (poolShape[3] + kernelW - 1) / kernelW;
-    SmallVector<int64_t> poolOutputShape = {poolShape[0], poolShape[1], outH,
-                                            outW};
+    SmallVector<int64_t> poolOutputShape = {
+        poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
         RankedTensorType::get(poolOutputShape, inputType.getElementType());
 
@@ -414,21 +410,21 @@ struct LowerReduceMaxToMaxPoolSpatialPattern
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
 
     // Create MaxPool (single output version)
-    auto maxPoolOp = rewriter.create<ONNXMaxPoolSingleOutOp>(
-        loc, poolOutputType, poolInput,
-        /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
-        /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
-        /*dilations=*/nullptr,
-        /*kernel_shape=*/kernelShapeAttr,
-        /*pads=*/padsAttr,
-        /*storage_order=*/IntegerAttr::get(si64Type, 0),
-        /*strides=*/stridesAttr);
+    auto maxPoolOp =
+        rewriter.create<ONNXMaxPoolSingleOutOp>(loc, poolOutputType, poolInput,
+            /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
+            /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
+            /*dilations=*/nullptr,
+            /*kernel_shape=*/kernelShapeAttr,
+            /*pads=*/padsAttr,
+            /*storage_order=*/IntegerAttr::get(si64Type, 0),
+            /*strides=*/stridesAttr);
 
     Value result = maxPoolOp.getResult();
 
     if (poolOutputShape != outputType.getShape()) {
       result = createReshapeOp(rewriter, loc, result, outputType.getShape(),
-                               outputType.getElementType());
+          outputType.getElementType());
     }
 
     rewriter.replaceOp(reduceOp, result);
@@ -448,8 +444,8 @@ struct LowerReduceMaxToMaxPoolChannelPattern
       : OpRewritePattern<ONNXReduceMaxOp>(context, /*benefit=*/1) {}
   /// match and rewrite the ReduceMax op to MaxPool op (channel reduction via
   /// reshape trick)
-  LogicalResult matchAndRewrite(ONNXReduceMaxOp reduceOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReduceMaxOp reduceOp, PatternRewriter &rewriter) const override {
     Location loc = reduceOp.getLoc();
 
     auto inputType = dyn_cast<RankedTensorType>(reduceOp.getData().getType());
@@ -516,7 +512,7 @@ struct LowerReduceMaxToMaxPoolChannelPattern
      */
 
     Value poolInput = createReshapeOp(rewriter, loc, reduceOp.getData(),
-                                      poolShape, inputType.getElementType());
+        poolShape, inputType.getElementType());
 
     auto kernelShapeAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
     auto stridesAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
@@ -534,8 +530,8 @@ struct LowerReduceMaxToMaxPoolChannelPattern
     auto si64Type =
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
 
-    auto maxPoolOp = rewriter.create<ONNXMaxPoolSingleOutOp>(
-        loc, poolOutputType, poolInput, rewriter.getStringAttr("NOTSET"),
+    auto maxPoolOp = rewriter.create<ONNXMaxPoolSingleOutOp>(loc,
+        poolOutputType, poolInput, rewriter.getStringAttr("NOTSET"),
         IntegerAttr::get(si64Type, 0), nullptr, kernelShapeAttr, padsAttr,
         IntegerAttr::get(si64Type, 0), stridesAttr);
 
@@ -544,7 +540,7 @@ struct LowerReduceMaxToMaxPoolChannelPattern
     // Reshape to expected output shape
     if (poolOutputShape != outputType.getShape()) {
       result = createReshapeOp(rewriter, loc, result, outputType.getShape(),
-                               outputType.getElementType());
+          outputType.getElementType());
     }
 
     rewriter.replaceOp(reduceOp, result);
@@ -560,8 +556,8 @@ struct LowerReduceSumToAvgPoolPattern
     : public OpRewritePattern<ONNXReduceSumOp> {
   using OpRewritePattern<ONNXReduceSumOp>::OpRewritePattern;
   /// match and rewrite the ReduceSum op to AveragePool op + Mul(count)
-  LogicalResult matchAndRewrite(ONNXReduceSumOp reduceOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReduceSumOp reduceOp, PatternRewriter &rewriter) const override {
     Location loc = reduceOp.getLoc();
 
     auto inputType = dyn_cast<RankedTensorType>(reduceOp.getData().getType());
@@ -582,9 +578,8 @@ struct LowerReduceSumToAvgPoolPattern
     if (!axesOpt)
       return failure();
 
-    auto axesResult =
-        normalizeAndFilterAxes(*axesOpt, rank, inputShape, reduceOp, inputType,
-                               outputType, rewriter, loc);
+    auto axesResult = normalizeAndFilterAxes(*axesOpt, rank, inputShape,
+        reduceOp, inputType, outputType, rewriter, loc);
     if (!axesResult)
       return success(); // Trivial reduction handled
 
@@ -606,7 +601,7 @@ struct LowerReduceSumToAvgPoolPattern
     Value poolInput = reduceOp.getData();
     if (inputShape != ArrayRef<int64_t>(poolShape)) {
       poolInput = createReshapeOp(rewriter, loc, reduceOp.getData(), poolShape,
-                                  inputType.getElementType());
+          inputType.getElementType());
     }
 
     auto kernelShapeAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
@@ -616,41 +611,40 @@ struct LowerReduceSumToAvgPoolPattern
     // NCHW: poolShape = [N, C, H, W]
     int64_t outH = (poolShape[2] + kernelH - 1) / kernelH;
     int64_t outW = (poolShape[3] + kernelW - 1) / kernelW;
-    SmallVector<int64_t> poolOutputShape = {poolShape[0], poolShape[1], outH,
-                                            outW};
+    SmallVector<int64_t> poolOutputShape = {
+        poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
         RankedTensorType::get(poolOutputShape, inputType.getElementType());
 
     // Create signed i64 type for ONNX attributes (si64)
     auto si64Type =
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
-    auto avgPoolOp = rewriter.create<ONNXAveragePoolOp>(
-        loc, poolOutputType, poolInput,
-        /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
-        /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
-        /*count_include_pad=*/IntegerAttr::get(si64Type, 0),
-        /*dilations=*/nullptr, kernelShapeAttr, padsAttr, stridesAttr);
+    auto avgPoolOp =
+        rewriter.create<ONNXAveragePoolOp>(loc, poolOutputType, poolInput,
+            /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
+            /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
+            /*count_include_pad=*/IntegerAttr::get(si64Type, 0),
+            /*dilations=*/nullptr, kernelShapeAttr, padsAttr, stridesAttr);
 
     Value result = avgPoolOp.getResult();
 
     // Multiply by count to convert avg to sum
     auto multiplier = static_cast<float>(reductionCount);
     auto multiplierType = RankedTensorType::get({}, inputType.getElementType());
-    auto multiplierAttr = DenseElementsAttr::get(
-        multiplierType,
+    auto multiplierAttr = DenseElementsAttr::get(multiplierType,
         rewriter.getFloatAttr(inputType.getElementType(), multiplier));
 
-    auto multiplierConst = rewriter.create<ONNXConstantOp>(
-        loc, multiplierType, Attribute(), multiplierAttr, FloatAttr(),
-        ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    auto multiplierConst = rewriter.create<ONNXConstantOp>(loc, multiplierType,
+        Attribute(), multiplierAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
+        ArrayAttr(), StringAttr(), ArrayAttr());
 
-    auto mulOp = rewriter.create<ONNXMulOp>(loc, poolOutputType, result,
-                                            multiplierConst);
+    auto mulOp = rewriter.create<ONNXMulOp>(
+        loc, poolOutputType, result, multiplierConst);
     result = mulOp.getResult();
 
     if (poolOutputShape != outputType.getShape()) {
       result = createReshapeOp(rewriter, loc, result, outputType.getShape(),
-                               outputType.getElementType());
+          outputType.getElementType());
     }
 
     rewriter.replaceOp(reduceOp, result);
@@ -689,8 +683,8 @@ struct LowerReduceToPoolPass
     GreedyRewriteConfig config;
     config.maxIterations = 3;
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-                                     config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

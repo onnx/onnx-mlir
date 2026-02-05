@@ -32,12 +32,12 @@ bool isAllZeros(DenseElementsAttr attr) {
 
   // Check all elements
   if (auto floatAttr = mlir::dyn_cast<FloatType>(attr.getElementType())) {
-    return llvm::all_of(attr.getValues<APFloat>(),
-                        [](APFloat val) { return val.isZero(); });
+    return llvm::all_of(
+        attr.getValues<APFloat>(), [](APFloat val) { return val.isZero(); });
   } else if (auto intAttr =
                  mlir::dyn_cast<IntegerType>(attr.getElementType())) {
-    return llvm::all_of(attr.getValues<APInt>(),
-                        [](APInt val) { return val.isZero(); });
+    return llvm::all_of(
+        attr.getValues<APInt>(), [](APInt val) { return val.isZero(); });
   }
 
   return false;
@@ -64,8 +64,8 @@ std::optional<DenseElementsAttr> getConstantAttr(Value value) {
 }
 
 // Create a zero constant tensor with given shape and type
-Value createZeroConstant(PatternRewriter &rewriter, Location loc,
-                         RankedTensorType type) {
+Value createZeroConstant(
+    PatternRewriter &rewriter, Location loc, RankedTensorType type) {
   DenseElementsAttr zeroAttr;
   if (mlir::isa<FloatType>(type.getElementType())) {
     zeroAttr = DenseElementsAttr::get(
@@ -77,8 +77,7 @@ Value createZeroConstant(PatternRewriter &rewriter, Location loc,
     return nullptr;
   }
 
-  return rewriter.create<mlir::ONNXConstantOp>(
-      loc, type, mlir::ValueRange{},
+  return rewriter.create<mlir::ONNXConstantOp>(loc, type, mlir::ValueRange{},
       mlir::ArrayRef<mlir::NamedAttribute>{
           rewriter.getNamedAttr("value", zeroAttr)});
 }
@@ -87,8 +86,8 @@ Value createZeroConstant(PatternRewriter &rewriter, Location loc,
 struct RemoveMulWithZerosPattern : public OpRewritePattern<mlir::ONNXMulOp> {
   using OpRewritePattern<mlir::ONNXMulOp>::OpRewritePattern;
   /// match and rewrite Mul with zeros
-  LogicalResult matchAndRewrite(mlir::ONNXMulOp mulOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXMulOp mulOp, PatternRewriter &rewriter) const override {
     Value lhs = mulOp.getA();
     Value rhs = mulOp.getB();
     // Check if either input is a zero constant
@@ -121,11 +120,11 @@ struct RemoveSemanticallyUselessOps : public RewritePattern {
   RemoveSemanticallyUselessOps(MLIRContext *context)
       : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
   /// match and rewrite tensor layout unchanged ops (Concat/Reshape)
-  LogicalResult matchAndRewrite(Operation *op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      Operation *op, PatternRewriter &rewriter) const override {
     // Check if operation is in the list of tensor-unchanged ops
-    std::set<std::string> tensorUnchangeOpList = {"onnx.Concat", "onnx.Reshape",
-                                                  "onnx.Identity"};
+    std::set<std::string> tensorUnchangeOpList = {
+        "onnx.Concat", "onnx.Reshape", "onnx.Identity"};
     std::string opName = op->getName().getStringRef().str();
 
     if (!tensorUnchangeOpList.contains(opName)) {
@@ -177,8 +176,8 @@ struct RemoveSubWithSameInputsPattern
     : public OpRewritePattern<mlir::ONNXSubOp> {
   using OpRewritePattern<mlir::ONNXSubOp>::OpRewritePattern;
   /// match and rewrite Sub with same inputs (result = 0)
-  LogicalResult matchAndRewrite(mlir::ONNXSubOp subOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXSubOp subOp, PatternRewriter &rewriter) const override {
     Value lhs = subOp.getA();
     Value rhs = subOp.getB();
 
@@ -204,8 +203,8 @@ struct RemoveSubWithSameInputsPattern
 struct RemoveRedundantPadPattern : public OpRewritePattern<mlir::ONNXPadOp> {
   using OpRewritePattern<mlir::ONNXPadOp>::OpRewritePattern;
   /// matchandrewrite redundant pad (all zeros)
-  LogicalResult matchAndRewrite(mlir::ONNXPadOp padOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXPadOp padOp, PatternRewriter &rewriter) const override {
     // Check if pads attribute exists and is all zeros
     auto padsAttr = getConstantAttr(padOp.getPads());
     if (!padsAttr) {
@@ -237,8 +236,8 @@ struct RemoveRedundantResizePattern
     : public OpRewritePattern<mlir::ONNXResizeOp> {
   using OpRewritePattern<mlir::ONNXResizeOp>::OpRewritePattern;
   /// match and rewrite redundant resize (scale=1 or same input/output size)
-  LogicalResult matchAndRewrite(mlir::ONNXResizeOp resizeOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXResizeOp resizeOp, PatternRewriter &rewriter) const override {
     auto inputType =
         mlir::dyn_cast<RankedTensorType>(resizeOp.getX().getType());
     auto outputType = mlir::dyn_cast<RankedTensorType>(resizeOp.getType());
@@ -296,7 +295,7 @@ namespace onnx_mlir {
 
 struct RemoveSemanticallyUselessOpsPass
     : public PassWrapper<RemoveSemanticallyUselessOpsPass,
-                         OperationPass<func::FuncOp>> {
+          OperationPass<func::FuncOp>> {
   StringRef getArgument() const override {
     return "remove-semantically-useless-ops";
   }
@@ -315,8 +314,8 @@ struct RemoveSemanticallyUselessOpsPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-                                     config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

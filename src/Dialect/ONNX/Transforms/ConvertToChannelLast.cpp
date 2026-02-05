@@ -301,7 +301,8 @@ struct AveragePoolToChannelLastPattern
         UnrankedTensorType::get(outputElementType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
         poolOp.getCountIncludePadAttr(), poolOp.getDilationsAttr(),
-        poolOp.getKernelShapeAttr(), poolOp.getPadsAttr(), poolOp.getStridesAttr());
+        poolOp.getKernelShapeAttr(), poolOp.getPadsAttr(),
+        poolOp.getStridesAttr());
 
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
@@ -395,8 +396,8 @@ struct GlobalAveragePoolToChannelLastPattern
     // Create XFEGlobalAveragePool operation
     auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
     Type outputElementType = origOutputType.getElementType();
-    auto poolChannelLastOp = rewriter.create<XFEGlobalAveragePoolOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast);
+    auto poolChannelLastOp = rewriter.create<XFEGlobalAveragePoolOp>(
+        loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
 
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
@@ -409,8 +410,8 @@ struct GlobalAveragePoolToChannelLastPattern
         mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), transposeOutputType, rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -440,8 +441,8 @@ struct GlobalMaxPoolToChannelLastPattern
     // Create XFEGlobalMaxPool operation
     auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
     Type outputElementType = origOutputType.getElementType();
-    auto poolChannelLastOp = rewriter.create<XFEGlobalMaxPoolOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast);
+    auto poolChannelLastOp = rewriter.create<XFEGlobalMaxPoolOp>(
+        loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
 
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
@@ -454,8 +455,8 @@ struct GlobalMaxPoolToChannelLastPattern
         mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, poolChannelLastOp.getResult(), transposeOutputType, rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        poolChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -489,8 +490,8 @@ struct InstanceNormToChannelLastPattern
     auto origOutputType = mlir::cast<ShapedType>(normOp.getType());
     Type outputElementType = origOutputType.getElementType();
     auto normChannelLastOp = rewriter.create<XFEInstanceNormalizationOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast,
-        scale, B, normOp.getEpsilonAttr());
+        UnrankedTensorType::get(outputElementType), inputChannelLast, scale, B,
+        normOp.getEpsilonAttr());
 
     // CRITICAL: Immediately run shape inference
     if (failed(normChannelLastOp.inferShapes(nullptr))) {
@@ -503,8 +504,8 @@ struct InstanceNormToChannelLastPattern
         mlir::cast<ShapedType>(normChannelLastOp.getResult().getType());
     auto transposeOutputType = RankedTensorType::get(
         origOutputType.getShape(), xfeOutputType.getElementType());
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, normChannelLastOp.getResult(), transposeOutputType, rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        normChannelLastOp.getResult(), transposeOutputType, rank);
 
     rewriter.replaceOp(normOp, outputNCHW);
     return success();
@@ -759,7 +760,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     Value sizes = resizeOp.getSizes();
 
     // Helper to permute a 1D tensor from NCHW order to NHWC order
-    // CRITICAL: Must create a constant-folded result for shape inference to work
+    // CRITICAL: Must create a constant-folded result for shape inference to
+    // work
     auto permuteForChannelLast = [&](Value tensor) -> Value {
       if (isa<NoneType>(tensor.getType()))
         return tensor;
@@ -808,8 +810,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
           for (int64_t p : perm) {
             permutedValues.push_back(values[p]);
           }
-          auto permutedAttr = DenseIntElementsAttr::get(
-              tensorType, permutedValues);
+          auto permutedAttr =
+              DenseIntElementsAttr::get(tensorType, permutedValues);
           return rewriter.create<ONNXConstantOp>(
               loc, mlir::Attribute(), permutedAttr);
         }

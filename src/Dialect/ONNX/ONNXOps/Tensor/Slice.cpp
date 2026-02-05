@@ -97,16 +97,15 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     IndexExpr pos = startPos.clamp(0, dimInput);
     IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
 
-    // Calculation for end: end<0 -> end + dim else -> end;
-    // special case end <= -inf -> -1;  end >= inf -> dim;
-    int64_t negInf = std::numeric_limits<int32_t>::min();
-    int64_t posInf = std::numeric_limits<int32_t>::max();
-    IndexExpr endPos =
-        IndexExpr::select(endInput < 0, endInput + dimInput, endInput);
-    endPos = endPos.selectOrSelf(endInput <= negInf, -1);
-    endPos = endPos.selectOrSelf(endInput >= posInf, dimInput);
-    // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
-    neg = endPos.clamp(-1, dimInput);
+    IndexExpr endPos = endInput;
+    IndexExpr endInputIsNeg = endInput < 0;
+    int64_t maxI64 = std::numeric_limits<int64_t>::max();
+    IndexExpr maxMinusDim = LitIE(maxI64) - dimInput;
+    IndexExpr endInputSafe = IndexExpr::min({endPos, maxMinusDim});
+    endPos = IndexExpr::select(endInputIsNeg, endInputSafe + dimInput, endPos);
+
+    // End: step<0: clamp(-1, end, dim - 1); step>0 clamp(0, end, dim)
+    neg = endPos.clamp(-1, dimInput - 1);
     pos = endPos.clamp(0, dimInput);
     IndexExpr endFinal = IndexExpr::select(stepInput < 0, neg, pos);
 

@@ -1,20 +1,23 @@
 // (c) Copyright 2022 - 2025 Advanced Micro Devices, Inc. All Rights reserved.
 
 #include <memory>
+#include <variant>
 
 #include <llvm/ADT/STLExtras.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Quant/IR/Quant.h>
 #include <mlir/Dialect/Quant/IR/QuantTypes.h>
 #include <mlir/IR/BuiltinAttributes.h>
+#include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/PatternMatch.h>
-#include <mlir/IR/Verifier.h>
+#include <mlir/IR/Value.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
 #include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+
+using namespace mlir;
 
 namespace onnx_mlir {
 
@@ -25,158 +28,158 @@ namespace onnx_mlir {
  * or vice-versa
  */
 
-template <typename QdqOp>
-class QuantTypesFrom : public mlir::OpRewritePattern<QdqOp> {
-  using mlir::OpRewritePattern<QdqOp>::OpRewritePattern;
+namespace {
+template <typename QDQOp>
+std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
 
-  mlir::LogicalResult matchAndRewrite(
-      QdqOp op, mlir::PatternRewriter &rewriter) const override {
+  auto scaleOp = op->getOperand(1).template getDefiningOp<ONNXConstantOp>();
+  auto zeropointOp = op->getOperand(2).template getDefiningOp<ONNXConstantOp>();
+  if (!scaleOp || !zeropointOp)
+    return StringLiteral("Scale/Zeropoint not constant");
 
-    // Should not convert when input comes from blockArg or Cast node
-    // TODO: Fix for cast node by either of:
-    //  - Updating the cast to quantized type
-    //  - Add qcast/scast after cast based on types
-    mlir::Value input = op->getOperand(0);
-    mlir::Operation *inputOp = input.getDefiningOp();
-    if (inputOp == nullptr || mlir::isa<mlir::ONNXCastOp>(inputOp))
-      return rewriter.notifyMatchFailure(
-          op, "Not converting blockArg or Cast output");
+  auto scale =
+      dyn_cast_if_present<DenseIntOrFPElementsAttr>(scaleOp.getValueAttr());
+  auto zeropoint =
+      dyn_cast_if_present<DenseIntOrFPElementsAttr>(zeropointOp.getValueAttr());
+  if (!scale || !zeropoint)
+    return StringLiteral("Scale/Zeropoint not DenseElementsAttr");
 
-    // Should not convert types when the output is used by 'return' op
-    // Check both func::ReturnOp and ONNXReturnOp
-    mlir::Value result = op->getResult(0);
-    if (llvm::any_of(result.getUsers(), [](mlir::Operation *op) {
-          return mlir::isa<mlir::func::ReturnOp>(op);
-        }))
-      return rewriter.notifyMatchFailure(
-          op, "Not converting return value from function");
+  Value input = op->getOperand(0);
+  Value result = op->getResult(0);
 
-    auto scaleOp = mlir::dyn_cast_if_present<mlir::ONNXConstantOp>(
-        op->getOperand(1).getDefiningOp());
-    auto zeropointOp = mlir::dyn_cast_if_present<mlir::ONNXConstantOp>(
-        op->getOperand(2).getDefiningOp());
-    if (!scaleOp || !zeropointOp)
-      return rewriter.notifyMatchFailure(op, "Scale/Zeropoint not constant");
-
-    auto scale = mlir::dyn_cast_if_present<mlir::DenseIntOrFPElementsAttr>(
-        scaleOp.getValueAttr());
-    auto zeropoint = mlir::dyn_cast_if_present<mlir::DenseIntOrFPElementsAttr>(
-        zeropointOp.getValueAttr());
-    if (!scale || !zeropoint)
-      return rewriter.notifyMatchFailure(
-          op, "Scale/Zeropoint not DenseElementsAttr");
-
-    // TODO: Add support for per-channel quantization
-    if (scale.getNumElements() != 1 || zeropoint.getNumElements() != 1)
-      return rewriter.notifyMatchFailure(op, "Scale/Zeropoint not scalar");
-
-    auto inType = mlir::cast<mlir::TensorType>(input.getType());
-    mlir::Type inElemType = inType.getElementType();
-    auto outType = mlir::cast<mlir::TensorType>(result.getType());
-    mlir::Type outElemType = outType.getElementType();
-    unsigned flags = outElemType.isSignedInteger();
-
-    mlir::Type storageType;
-    mlir::Type expressedType;
-
-    if constexpr (std::is_same_v<QdqOp, mlir::ONNXDequantizeLinearOp>) {
-      storageType = inElemType;
-      expressedType = outElemType;
-    } else if constexpr (std::is_same_v<QdqOp, mlir::ONNXQuantizeLinearOp>) {
-      storageType = outElemType;
-      expressedType = inElemType;
-    } else {
-      // Cannot directly use static_assert(false) before c++23
-      // Creating a templated lambda and invoking immediately
-      []<bool flag = false>() {
-        static_assert(
-            flag, "Only defined for DequantizeLinear & QuantizeLinear");
-      }
-      ();
+  Type storageType;
+  Type expressedType;
+  if constexpr (std::is_same_v<QDQOp, ONNXDequantizeLinearOp>) {
+    storageType = cast<TensorType>(input.getType()).getElementType();
+    expressedType = cast<TensorType>(result.getType()).getElementType();
+  } else if constexpr (std::is_same_v<QDQOp, ONNXQuantizeLinearOp>) {
+    storageType = cast<TensorType>(result.getType()).getElementType();
+    expressedType = cast<TensorType>(input.getType()).getElementType();
+  } else {
+    // Cannot directly use static_assert(false) before c++23
+    // Creating a templated lambda and invoking immediately
+    []<bool flag = false>() {
+      static_assert(flag, "Only defined for DequantizeLinear & QuantizeLinear");
     }
+    ();
+  }
 
-    // Get existing quantized type if available
-    mlir::quant::QuantizedType oldQuantType;
-    if (oldQuantType = mlir::dyn_cast<mlir::quant::QuantizedType>(storageType);
-        oldQuantType)
-      storageType = oldQuantType.getStorageType();
-
-    // Create quantized type
-    mlir::Type quantType = mlir::quant::UniformQuantizedType::get(flags,
+  if (scale.getNumElements() == 1 && zeropoint.getNumElements() == 1) {
+    return quant::UniformQuantizedType::get(storageType.isSignedInteger(),
         storageType, expressedType,
-        scale.template getSplatValue<mlir::APFloat>().convertToDouble(),
+        scale.template getSplatValue<APFloat>().convertToDouble(),
         storageType.isSignedInteger()
-            ? zeropoint.template getSplatValue<mlir::APInt>().getSExtValue()
-            : zeropoint.template getSplatValue<mlir::APInt>().getZExtValue(),
-        mlir::quant::QuantizedType::getDefaultMinimumForInteger(
+            ? zeropoint.template getSplatValue<APInt>().getSExtValue()
+            : zeropoint.template getSplatValue<APInt>().getZExtValue(),
+        quant::QuantizedType::getDefaultMinimumForInteger(
             storageType.isSignedInteger(), storageType.getIntOrFloatBitWidth()),
-        mlir::quant::QuantizedType::getDefaultMaximumForInteger(
+        quant::QuantizedType::getDefaultMaximumForInteger(
             storageType.isSignedInteger(),
             storageType.getIntOrFloatBitWidth()));
+  } else if (op.getBlockSize() == 0) {
+    SmallVector<double> scales(scale.getNumElements());
+    llvm::transform(scale.template getValues<APFloat>(), scales.begin(),
+        [](APFloat apFloat) { return apFloat.convertToDouble(); });
+    SmallVector<int64_t> zeropoints(zeropoint.getNumElements());
+    llvm::transform(zeropoint.template getValues<APInt>(), zeropoints.begin(),
+        [storageType](APInt apInt) {
+          return storageType.isSignedInteger() ? apInt.getSExtValue()
+                                               : apInt.getZExtValue();
+        });
+    return quant::UniformQuantizedPerAxisType::get(
+        storageType.isSignedInteger(), storageType, expressedType, scales,
+        zeropoints, op.getAxis(),
+        quant::QuantizedType::getDefaultMinimumForInteger(
+            storageType.isSignedInteger(), storageType.getIntOrFloatBitWidth()),
+        quant::QuantizedType::getDefaultMaximumForInteger(
+            storageType.isSignedInteger(),
+            storageType.getIntOrFloatBitWidth()));
+  }
 
-    if (oldQuantType && oldQuantType != quantType)
-      return rewriter.notifyMatchFailure(op, "Unequal quant types");
+  // TODO: Add support for blockwise quantization
+  return StringLiteral("Blockwise quantization not supported");
+}
 
-    // To avoid disrupting other uses of input, create a copy of defining op
-    mlir::Operation *newInputOp = rewriter.clone(*inputOp);
+} // namespace
 
-    // Change input tensor to be quant type
-    auto results = inputOp->getOpResults();
-    unsigned int resultIdx = std::distance(
-        results.begin(), std::find(results.begin(), results.end(), input));
-    mlir::Value newResult = newInputOp->getResult(resultIdx);
-    rewriter.modifyOpInPlace(
-        newInputOp, [&]() { newResult.setType(outType.clone(quantType)); });
-    {
-      onnx_mlir::IgnoreDiagnostic diag(rewriter.getContext()->getDiagEngine());
-      if (mlir::failed(mlir::verify(newInputOp))) {
-        // Roll back the changes
-        rewriter.eraseOp(newInputOp);
-        return rewriter.notifyMatchFailure(
-            op, "Quant type not allowed as result");
-      }
+class DQToSCast : public OpRewritePattern<ONNXDequantizeLinearOp> {
+public:
+  using OpRewritePattern<ONNXDequantizeLinearOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXDequantizeLinearOp dqOp, PatternRewriter &rewriter) const override {
+    if (llvm::any_of(dqOp.getY().getUsers(),
+            [](Operation *op) { return isa<func::ReturnOp>(op); })) {
+      return rewriter.notifyMatchFailure(
+          dqOp, "Cannot convert DQ output to function return");
     }
 
-    // Remove the Q/DQ op
-    rewriter.replaceAllUsesWith(result, newResult);
-    {
-      onnx_mlir::IgnoreDiagnostic diag(rewriter.getContext()->getDiagEngine());
-      for (auto *userOp : newResult.getUsers()) {
-        if (mlir::failed(mlir::verify(userOp))) {
-          // Rollback the changes
-          rewriter.replaceAllUsesWith(newResult, result);
-          rewriter.eraseOp(newInputOp);
-          return rewriter.notifyMatchFailure(
-              op, "Quant type not allowed as operand");
-        }
-      }
-    }
-    rewriter.eraseOp(op);
+    auto qTypeErr = getQuantType(dqOp);
+    if (std::holds_alternative<StringLiteral>(qTypeErr))
+      return rewriter.notifyMatchFailure(
+          dqOp, std::get<StringLiteral>(qTypeErr));
 
-    return mlir::success();
+    auto qType = std::get<quant::QuantizedType>(qTypeErr);
+    auto qTensorType = cast<TensorType>(dqOp.getType()).clone(qType);
+    if (auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>();
+        constOp && constOp.getResult().hasOneUse()) {
+      rewriter.modifyOpInPlace(
+          constOp, [&]() { constOp.getResult().setType(qTensorType); });
+      rewriter.replaceOp(dqOp, constOp);
+      return success();
+    }
+
+    rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
+        dqOp, qTensorType, dqOp.getX());
+    return success();
   }
 };
 
-class QuantTypesPass : public mlir::PassWrapper<QuantTypesPass,
-                           mlir::OperationPass<mlir::func::FuncOp>> {
-  mlir::StringRef getArgument() const override { return "quant-types"; }
+class QToSCast : public OpRewritePattern<ONNXQuantizeLinearOp> {
+public:
+  using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
 
-  void getDependentDialects(::mlir::DialectRegistry &registry) const override {
-    registry.insert<mlir::quant::QuantDialect>();
+  LogicalResult matchAndRewrite(
+      ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
+    if (isa<BlockArgument>(qOp.getOperand(0))) {
+      return rewriter.notifyMatchFailure(
+          qOp, "Cannot convert Q input from BlockArg");
+    }
+
+    auto qTypeErr = getQuantType(qOp);
+    if (std::holds_alternative<StringLiteral>(qTypeErr))
+      return rewriter.notifyMatchFailure(
+          qOp, std::get<StringLiteral>(qTypeErr));
+
+    auto qType = std::get<quant::QuantizedType>(qTypeErr);
+    auto qTensorType = cast<TensorType>(qOp.getType()).clone(qType);
+    rewriter.modifyOpInPlace(qOp, [&]() { qOp.getX().setType(qTensorType); });
+    rewriter.replaceOpWithNewOp<quant::StorageCastOp>(
+        qOp, qOp.getY().getType(), qOp.getX());
+
+    return success();
+  }
+};
+
+class QuantTypesPass
+    : public PassWrapper<QuantTypesPass, OperationPass<func::FuncOp>> {
+  [[nodiscard]] StringRef getArgument() const override { return "quant-types"; }
+
+  void getDependentDialects(::DialectRegistry &registry) const override {
+    registry.insert<quant::QuantDialect>();
   }
 
   void runOnOperation() override {
     auto func = getOperation();
     auto *ctx = &getContext();
-    mlir::RewritePatternSet patterns(ctx);
-    patterns.add<QuantTypesFrom<mlir::ONNXDequantizeLinearOp>,
-        QuantTypesFrom<mlir::ONNXQuantizeLinearOp>>(ctx);
-    if (failed(mlir::applyPatternsGreedily(func, std::move(patterns))))
+    RewritePatternSet patterns(ctx);
+    patterns.add<DQToSCast, QToSCast>(ctx);
+    if (failed(applyPatternsGreedily(func, std::move(patterns))))
       signalPassFailure();
   }
 };
 
-std::unique_ptr<mlir::Pass> createQuantTypesPass() {
+std::unique_ptr<Pass> createQuantTypesPass() {
   return std::make_unique<QuantTypesPass>();
 }
 

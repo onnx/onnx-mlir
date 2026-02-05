@@ -52,8 +52,8 @@ SmallVector<int64_t> computeNewOrder(ArrayRef<int64_t> order) {
 /// Merge continuous shape dimensions according to the order permutation.
 /// Example: shape = [1,96,4,16,16], order = [0,3,4,1,2]
 ///          output_shape = [1, 96*4, 16*16] = [1, 384, 256]
-SmallVector<int64_t> computeNewShape(ArrayRef<int64_t> shape,
-                                     ArrayRef<int64_t> order) {
+SmallVector<int64_t> computeNewShape(
+    ArrayRef<int64_t> shape, ArrayRef<int64_t> order) {
   SmallVector<int64_t> result;
 
   size_t i = 0;
@@ -111,9 +111,9 @@ struct RemoveContinuousTransposeWithReshapePattern
   using OpRewritePattern<mlir::ONNXTransposeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mlir::ONNXTransposeOp transpose1,
-                                PatternRewriter &rewriter) const override {
+      PatternRewriter &rewriter) const override {
     DEBUG_WITH_TYPE("remove-continuous-transpose-with-reshape",
-                    llvm::errs() << "Trying to match " << transpose1 << "\n");
+        llvm::errs() << "Trying to match " << transpose1 << "\n");
 
     // Get the input to transpose1 (should be a reshape)
     auto reshapeOp = transpose1.getData().getDefiningOp<ONNXReshapeOp>();
@@ -164,9 +164,9 @@ struct RemoveContinuousTransposeWithReshapePattern
 
     // Check if merged shapes are equal
     if (newInputShape != newOutputShape)
-      return rewriter.notifyMatchFailure(
-          transpose1, "Merged shapes are not equal, remove continuous reshape "
-                      "transpose optimization cannot be applied.");
+      return rewriter.notifyMatchFailure(transpose1,
+          "Merged shapes are not equal, remove continuous reshape "
+          "transpose optimization cannot be applied.");
 
     // The pattern matches! Now optimize.
     Value originalInput = transpose0.getData();
@@ -200,8 +200,8 @@ struct RemoveContinuousTransposeWithReshapePattern
       // Use the simple 2-argument build: (sparse_value, value)
       auto shapeConstOp =
           rewriter.create<mlir::ONNXConstantOp>(transpose1.getLoc(),
-                                                /*sparse_value=*/Attribute(),
-                                                /*value=*/shapeAttr);
+              /*sparse_value=*/Attribute(),
+              /*value=*/shapeAttr);
 
       auto newReshape = rewriter.create<mlir::ONNXReshapeOp>(
           transpose1.getLoc(), transpose1.getResult().getType(), originalInput,

@@ -130,8 +130,8 @@ Value createEmptyRoiConstant(PatternRewriter &rewriter, Location loc) {
 }
 
 /// Create output sizes constant for resize op
-Value createSizesConstant(PatternRewriter &rewriter, Location loc,
-    ArrayRef<int64_t> outputShape) {
+Value createSizesConstant(
+    PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> outputShape) {
   auto sizesType = RankedTensorType::get(
       {static_cast<int64_t>(outputShape.size())}, rewriter.getI64Type());
   auto sizesAttr = DenseElementsAttr::get(sizesType, outputShape);
@@ -156,8 +156,8 @@ struct TransferPoolToDownsamplePattern : public OpRewritePattern<PoolOpT> {
       return "AvgPool";
   }
 
-  LogicalResult matchAndRewrite(PoolOpT poolOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      PoolOpT poolOp, PatternRewriter &rewriter) const override {
     Location loc = poolOp.getLoc();
 
     auto inputType = dyn_cast<RankedTensorType>(poolOp.getX().getType());
@@ -207,21 +207,21 @@ struct TransferPoolToDownsamplePattern : public OpRewritePattern<PoolOpT> {
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
 
     // Create resize op with mode "nearest"
-    auto resizeOp = rewriter.create<ONNXResizeOp>(loc, outputType,
-        poolOp.getX(),
-        /*roi=*/roiConst,
-        /*scales=*/scalesNone,
-        /*sizes=*/sizesConst,
-        /*antialias=*/IntegerAttr::get(si64Type, 0),
-        /*axes=*/nullptr,
-        /*coordinate_transformation_mode=*/
-        rewriter.getStringAttr("asymmetric"),
-        /*cubic_coeff_a=*/rewriter.getF32FloatAttr(-0.75f),
-        /*exclude_outside=*/IntegerAttr::get(si64Type, 0),
-        /*extrapolation_value=*/rewriter.getF32FloatAttr(0.0f),
-        /*keep_aspect_ratio_policy=*/rewriter.getStringAttr("stretch"),
-        /*mode=*/rewriter.getStringAttr("nearest"),
-        /*nearest_mode=*/rewriter.getStringAttr("floor"));
+    auto resizeOp =
+        rewriter.create<ONNXResizeOp>(loc, outputType, poolOp.getX(),
+            /*roi=*/roiConst,
+            /*scales=*/scalesNone,
+            /*sizes=*/sizesConst,
+            /*antialias=*/IntegerAttr::get(si64Type, 0),
+            /*axes=*/nullptr,
+            /*coordinate_transformation_mode=*/
+            rewriter.getStringAttr("asymmetric"),
+            /*cubic_coeff_a=*/rewriter.getF32FloatAttr(-0.75f),
+            /*exclude_outside=*/IntegerAttr::get(si64Type, 0),
+            /*extrapolation_value=*/rewriter.getF32FloatAttr(0.0f),
+            /*keep_aspect_ratio_policy=*/rewriter.getStringAttr("stretch"),
+            /*mode=*/rewriter.getStringAttr("nearest"),
+            /*nearest_mode=*/rewriter.getStringAttr("floor"));
 
     rewriter.replaceOp(poolOp, resizeOp.getResult());
 
@@ -254,8 +254,8 @@ struct TransferONNXXFEPoolToDownsamplePattern
       return "ONNX_XFE_AvgPool";
   }
 
-  LogicalResult matchAndRewrite(ONNXXFEPoolOpT poolOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXXFEPoolOpT poolOp, PatternRewriter &rewriter) const override {
     Location loc = poolOp.getLoc();
 
     auto inputType = dyn_cast<RankedTensorType>(poolOp.getX().getType());
@@ -308,8 +308,7 @@ struct TransferONNXXFEPoolToDownsamplePattern
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
 
     // Create XFE resize op with mode "nearest"
-    auto resizeOp = rewriter.create<XFEResizeOp>(loc, outputType,
-        poolOp.getX(),
+    auto resizeOp = rewriter.create<XFEResizeOp>(loc, outputType, poolOp.getX(),
         /*roi=*/roiConst,
         /*scales=*/scalesNone,
         /*sizes=*/sizesConst,
@@ -376,8 +375,8 @@ struct TransferPoolFixToDownsampleFixPass
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-            config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

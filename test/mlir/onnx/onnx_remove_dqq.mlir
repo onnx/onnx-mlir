@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --qdq-canonicalize="remove-qdq-around-ops=true" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --qdq-canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_qdq_pattern1(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16> {
 %0 = onnx.Constant dense<2.57987776E-5> : tensor<f32>
@@ -37,9 +37,11 @@ return %3 : tensor<1x128x768xui16>
 
 }
 
-// CHECK-LABEL: func.func @test_qdq_pattern3(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16>
-// CHECK: onnx.DequantizeLinear
-// CHECK: onnx.QuantizeLinear
+// CHECK-LABEL: func.func @test_qdq_pattern3(
+// CHECK-SAME:   %[[ARG0:[A-Za-z0-9_]+]]: tensor<1x128x768xui16>
+// CHECK-SAME: ) -> tensor<1x128x768xui16>
+// CHECK-NEXT:   return %[[ARG0]] : tensor<1x128x768xui16>
+// CHECK-NEXT: }
 
 func.func @test_qdq_pattern4(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16> {
 %0 = onnx.Constant dense<2.57987776E-5> : tensor<f32>
@@ -50,10 +52,11 @@ return %3 : tensor<1x128x768xui16>
 
 }
 
-// CHECK-LABEL: func.func @test_qdq_pattern4(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16>
-// CHECK: onnx.DequantizeLinear
-// CHECK: onnx.QuantizeLinear
-
+// CHECK-LABEL: func.func @test_qdq_pattern4(
+// CHECK-SAME:   %[[ARG0:[A-Za-z0-9_]+]]: tensor<1x128x768xui16>
+// CHECK-SAME: ) -> tensor<1x128x768xui16>
+// CHECK-NEXT:   return %[[ARG0]] : tensor<1x128x768xui16>
+// CHECK-NEXT: }
 func.func @test_qdq_pattern6(%arg0: tensor<1x128x768xui16>, %arg1: tensor<f32>) -> tensor<1x128x768xui16> {
 %0 = onnx.Constant dense<39664> : tensor<ui16>
 %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128x768xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x128x768xf32>
@@ -87,3 +90,33 @@ return %3 : tensor<1x128x768xui16>
 // CHECK-LABEL: func.func @test_qdq_pattern8(%arg0: tensor<1x128x768xi16>) -> tensor<1x128x768xui16>
 // CHECK: onnx.DequantizeLinear
 // CHECK: onnx.QuantizeLinear
+
+func.func @test_qdq_pattern9_per_axis(%arg0: tensor<1x3x1x2xui16>) -> tensor<1x3x1x2xui16> {
+%0 = onnx.Constant dense<[0.01, 0.1, 0.02]> : tensor<3xf32>
+%1 = onnx.Constant dense<[0, 0, 0]> : tensor<3xui16>
+%2 = "onnx.DequantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x1x2xui16>, tensor<3xf32>, tensor<3xui16>) -> tensor<1x3x1x2xf32>
+%3 = "onnx.QuantizeLinear"(%2, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x1x2xf32>, tensor<3xf32>, tensor<3xui16>) -> tensor<1x3x1x2xui16>
+return %3 : tensor<1x3x1x2xui16>
+}
+
+// CHECK-LABEL: func.func @test_qdq_pattern9_per_axis(
+// CHECK-SAME:   %[[ARG0:[A-Za-z0-9_]+]]: tensor<1x3x1x2xui16>
+// CHECK-SAME: ) -> tensor<1x3x1x2xui16>
+// CHECK-NEXT:   return %[[ARG0]] : tensor<1x3x1x2xui16>
+// CHECK-NEXT: }
+
+
+
+func.func @test_qdq_pattern10_per_block(%arg0: tensor<1x128xui16>) -> tensor<1x128xui16> {
+%0 = onnx.Constant dense<[[0.02, 0.025, 0.03, 0.04]]> : tensor<1x4xf32>
+%1 = onnx.Constant dense<[[0, 0, 0, 0]]> : tensor<1x4xui16>
+%2 = "onnx.DequantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 32 : si64} : (tensor<1x128xui16>, tensor<1x4xf32>, tensor<1x4xui16>) -> tensor<1x128xf32>
+%3 = "onnx.QuantizeLinear"(%2, %0, %1) {axis = 1 : si64, block_size = 32 : si64} : (tensor<1x128xf32>, tensor<1x4xf32>, tensor<1x4xui16>) -> tensor<1x128xui16>
+return %3 : tensor<1x128xui16>
+}
+
+// CHECK-LABEL: func.func @test_qdq_pattern10_per_block(
+// CHECK-SAME:   %[[ARG0:[A-Za-z0-9_]+]]: tensor<1x128xui16>
+// CHECK-SAME: ) -> tensor<1x128xui16>
+// CHECK-NEXT:   return %[[ARG0]] : tensor<1x128xui16>
+// CHECK-NEXT: }

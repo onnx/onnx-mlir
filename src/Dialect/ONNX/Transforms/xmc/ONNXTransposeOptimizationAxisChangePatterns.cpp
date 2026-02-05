@@ -21,9 +21,36 @@ namespace mlir {
 // Helper Functions
 //===----------------------------------------------------------------------===//
 
-LogicalResult transformReductionAttributes(Operation *op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm) {
+/// Safely extract integer values from a DenseElementsAttr, handling different
+/// integer bitwidths (i32, i64, etc.)
+static SmallVector<int64_t> extractIntValues(DenseElementsAttr attr) {
+  SmallVector<int64_t> result;
+  if (!attr)
+    return result;
+
+  Type elementType = attr.getElementType();
+  if (elementType.isInteger(64)) {
+    for (auto val : attr.getValues<int64_t>())
+      result.push_back(val);
+  } else if (elementType.isInteger(32)) {
+    for (auto val : attr.getValues<int32_t>())
+      result.push_back(static_cast<int64_t>(val));
+  } else if (elementType.isInteger(16)) {
+    for (auto val : attr.getValues<int16_t>())
+      result.push_back(static_cast<int64_t>(val));
+  } else if (elementType.isInteger(8)) {
+    for (auto val : attr.getValues<int8_t>())
+      result.push_back(static_cast<int64_t>(val));
+  } else {
+    // Fallback: try using APInt which works for any integer type
+    for (auto val : attr.getValues<llvm::APInt>())
+      result.push_back(val.getSExtValue());
+  }
+  return result;
+}
+
+LogicalResult transformReductionAttributes(
+    Operation *op, PatternRewriter &rewriter, ArrayRef<int64_t> perm) {
   // Get the axes operand (second operand for reduction ops)
   Value axesOperand = op->getOperand(1);
   auto axesConstOp = axesOperand.getDefiningOp<ONNXConstantOp>();
@@ -36,9 +63,7 @@ LogicalResult transformReductionAttributes(Operation *op,
     return failure();
 
   // Extract current axes
-  SmallVector<int64_t> axes;
-  for (auto val : axesAttr.getValues<int64_t>())
-    axes.push_back(val);
+  SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
   // Transform axes according to permutation
   // When pushing transpose through: Transpose(input, perm) ->
@@ -59,22 +84,21 @@ LogicalResult transformReductionAttributes(Operation *op,
   }
 
   // Create new axes constant
-  auto axesType = RankedTensorType::get({static_cast<int64_t>(newAxes.size())},
-                                        rewriter.getI64Type());
+  auto axesType = RankedTensorType::get(
+      {static_cast<int64_t>(newAxes.size())}, rewriter.getI64Type());
   auto newAxesAttr =
       DenseElementsAttr::get(axesType, ArrayRef<int64_t>(newAxes));
-  auto newAxesConst = rewriter.create<ONNXConstantOp>(
-      op->getLoc(), axesType, Attribute(), newAxesAttr, nullptr, nullptr,
-      nullptr, nullptr, nullptr, nullptr);
+  auto newAxesConst =
+      rewriter.create<ONNXConstantOp>(op->getLoc(), axesType, Attribute(),
+          newAxesAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
   op->setOperand(1, newAxesConst.getResult());
   return success();
 }
 
-SmallVector<int64_t>
-getReductionAdjustedPermutation(Operation *op, ArrayRef<int64_t> perm,
-                                ArrayRef<int64_t> /*inputShape*/,
-                                ArrayRef<int64_t> /*outputShape*/) {
+SmallVector<int64_t> getReductionAdjustedPermutation(Operation *op,
+    ArrayRef<int64_t> perm, ArrayRef<int64_t> /*inputShape*/,
+    ArrayRef<int64_t> /*outputShape*/) {
   // Get keepdims attribute
   auto keepdimsAttr = op->getAttrOfType<IntegerAttr>("keepdims");
   if (!keepdimsAttr || keepdimsAttr.getValue().getSExtValue() != 0) {
@@ -95,7 +119,7 @@ getReductionAdjustedPermutation(Operation *op, ArrayRef<int64_t> perm,
 
   SmallVector<int64_t> reducedAxes;
   auto rank = static_cast<int64_t>(perm.size());
-  for (auto val : axesAttr.getValues<int64_t>()) {
+  for (int64_t val : extractIntValues(axesAttr)) {
     int64_t axis = val;
     // Normalize negative axis
     if (axis < 0)
@@ -151,9 +175,7 @@ LogicalResult AxisAttributeTransformer<ONNXPadOp>::transformAttributes(
     return failure();
 
   // Extract pads values
-  SmallVector<int64_t> pads;
-  for (auto val : padsAttr.getValues<int64_t>())
-    pads.push_back(val);
+  SmallVector<int64_t> pads = extractIntValues(padsAttr);
 
   size_t rank = perm.size();
   if (pads.size() != 2 * rank)
@@ -169,13 +191,13 @@ LogicalResult AxisAttributeTransformer<ONNXPadOp>::transformAttributes(
   }
 
   // Create new pads constant
-  auto padsType = RankedTensorType::get({2 * static_cast<int64_t>(rank)},
-                                        rewriter.getI64Type());
+  auto padsType = RankedTensorType::get(
+      {2 * static_cast<int64_t>(rank)}, rewriter.getI64Type());
   auto newPadsAttr =
       DenseElementsAttr::get(padsType, ArrayRef<int64_t>(newPads));
-  auto newPadsConst = rewriter.create<ONNXConstantOp>(
-      op.getLoc(), padsType, Attribute(), newPadsAttr, nullptr, nullptr,
-      nullptr, nullptr, nullptr, nullptr);
+  auto newPadsConst =
+      rewriter.create<ONNXConstantOp>(op.getLoc(), padsType, Attribute(),
+          newPadsAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
   op.getPadsMutable().assign(newPadsConst.getResult());
   return success();
@@ -203,9 +225,7 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
   if (!axesAttr)
     return failure();
 
-  SmallVector<int64_t> axes;
-  for (auto val : axesAttr.getValues<int64_t>())
-    axes.push_back(val);
+  SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
   // Validate axes is not empty
   if (axes.empty())
@@ -250,13 +270,12 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
     return failure();
 
   auto makeConst = [&](ArrayRef<int64_t> values) -> Value {
-    auto newType = RankedTensorType::get({static_cast<int64_t>(values.size())},
-                                         rewriter.getI64Type());
+    auto newType = RankedTensorType::get(
+        {static_cast<int64_t>(values.size())}, rewriter.getI64Type());
     auto newAttr = DenseElementsAttr::get(newType, values);
     return rewriter
         .create<ONNXConstantOp>(op.getLoc(), newType, Attribute(), newAttr,
-                                nullptr, nullptr, nullptr, nullptr, nullptr,
-                                nullptr)
+            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr)
         .getResult();
   };
 
@@ -271,9 +290,7 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
         mlir::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
     if (!attr)
       return std::nullopt;
-    SmallVector<int64_t> values;
-    for (auto val : attr.getValues<int64_t>())
-      values.push_back(val);
+    SmallVector<int64_t> values = extractIntValues(attr);
     return values;
   };
 
@@ -366,9 +383,7 @@ LogicalResult AxisAttributeTransformer<ONNXExpandOp>::transformAttributes(
   if (!shapeAttr)
     return failure();
 
-  SmallVector<int64_t> shape;
-  for (auto val : shapeAttr.getValues<int64_t>())
-    shape.push_back(val);
+  SmallVector<int64_t> shape = extractIntValues(shapeAttr);
 
   if (shape.size() != perm.size())
     return failure();
@@ -384,9 +399,9 @@ LogicalResult AxisAttributeTransformer<ONNXExpandOp>::transformAttributes(
       {static_cast<int64_t>(newShape.size())}, rewriter.getI64Type());
   auto newShapeAttr =
       DenseElementsAttr::get(shapeType, ArrayRef<int64_t>(newShape));
-  auto newShapeConst = rewriter.create<ONNXConstantOp>(
-      op.getLoc(), shapeType, Attribute(), newShapeAttr, nullptr, nullptr,
-      nullptr, nullptr, nullptr, nullptr);
+  auto newShapeConst =
+      rewriter.create<ONNXConstantOp>(op.getLoc(), shapeType, Attribute(),
+          newShapeAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
   op.getShapeMutable().assign(newShapeConst.getResult());
   return success();
@@ -407,9 +422,7 @@ LogicalResult AxisAttributeTransformer<ONNXTileOp>::transformAttributes(
   if (!repeatsAttr)
     return failure();
 
-  SmallVector<int64_t> repeats;
-  for (auto val : repeatsAttr.getValues<int64_t>())
-    repeats.push_back(val);
+  SmallVector<int64_t> repeats = extractIntValues(repeatsAttr);
 
   if (repeats.size() != perm.size())
     return failure();
@@ -425,9 +438,9 @@ LogicalResult AxisAttributeTransformer<ONNXTileOp>::transformAttributes(
       {static_cast<int64_t>(newRepeats.size())}, rewriter.getI64Type());
   auto newRepeatsAttr =
       DenseElementsAttr::get(repeatsType, ArrayRef<int64_t>(newRepeats));
-  auto newRepeatsConst = rewriter.create<ONNXConstantOp>(
-      op.getLoc(), repeatsType, Attribute(), newRepeatsAttr, nullptr, nullptr,
-      nullptr, nullptr, nullptr, nullptr);
+  auto newRepeatsConst =
+      rewriter.create<ONNXConstantOp>(op.getLoc(), repeatsType, Attribute(),
+          newRepeatsAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
   op.getRepeatsMutable().assign(newRepeatsConst.getResult());
   return success();
@@ -454,9 +467,7 @@ LogicalResult AxisAttributeTransformer<ONNXSqueezeOp>::transformAttributes(
     return failure();
 
   // Extract current axes
-  SmallVector<int64_t> axes;
-  for (auto val : axesAttr.getValues<int64_t>())
-    axes.push_back(val);
+  SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
   // Transform axes according to permutation
   // When pushing transpose through: Transpose(input, perm) ->
@@ -477,13 +488,13 @@ LogicalResult AxisAttributeTransformer<ONNXSqueezeOp>::transformAttributes(
   }
 
   // Create new axes constant
-  auto axesType = RankedTensorType::get({static_cast<int64_t>(newAxes.size())},
-                                        rewriter.getI64Type());
+  auto axesType = RankedTensorType::get(
+      {static_cast<int64_t>(newAxes.size())}, rewriter.getI64Type());
   auto newAxesAttr =
       DenseElementsAttr::get(axesType, ArrayRef<int64_t>(newAxes));
-  auto newAxesConst = rewriter.create<ONNXConstantOp>(
-      op.getLoc(), axesType, Attribute(), newAxesAttr, nullptr, nullptr,
-      nullptr, nullptr, nullptr, nullptr);
+  auto newAxesConst =
+      rewriter.create<ONNXConstantOp>(op.getLoc(), axesType, Attribute(),
+          newAxesAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
   op.getAxesMutable().assign(newAxesConst.getResult());
   return success();
@@ -509,7 +520,7 @@ AxisAttributeTransformer<ONNXSqueezeOp>::getAdjustedPermutation(
 
   SmallVector<int64_t> squeezedAxes;
   auto rank = static_cast<int64_t>(perm.size());
-  for (auto val : axesAttr.getValues<int64_t>()) {
+  for (int64_t val : extractIntValues(axesAttr)) {
     int64_t axis = val;
     // Normalize negative axis
     if (axis < 0)
@@ -582,8 +593,8 @@ LogicalResult AxisAttributeTransformer<ONNXArgMaxOp>::transformAttributes(
 }
 
 SmallVector<int64_t>
-AxisAttributeTransformer<ONNXArgMaxOp>::getAdjustedPermutation(
-    ONNXArgMaxOp op, ArrayRef<int64_t> perm, ArrayRef<int64_t> /*inputShape*/,
+AxisAttributeTransformer<ONNXArgMaxOp>::getAdjustedPermutation(ONNXArgMaxOp op,
+    ArrayRef<int64_t> perm, ArrayRef<int64_t> /*inputShape*/,
     ArrayRef<int64_t> /*outputShape*/) {
   // Check if keepdims is 0 (rank-changing case)
   auto keepdimsAttr = op.getKeepdimsAttr();

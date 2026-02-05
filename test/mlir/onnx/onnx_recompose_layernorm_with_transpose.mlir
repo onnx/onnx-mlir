@@ -1,5 +1,5 @@
 // Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
-// RUN: onnx-mlir-opt -split-input-file --recompose-onnx="recompose-layernorm-by-transpose" --canonicalize %s | FileCheck %s
+// RUN: onnx-mlir-opt -split-input-file --recompose-onnx --canonicalize %s | FileCheck %s
 
 func.func @decomposition_to_layernorm_axis_1(%arg0: tensor<1x4x128x128xf32>) -> tensor<1x4x128x128xf32> {
   %2 = onnx.Constant dense<1.000000e+00> : tensor<f32>

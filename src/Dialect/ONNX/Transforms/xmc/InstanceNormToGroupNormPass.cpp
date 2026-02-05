@@ -46,8 +46,8 @@ static bool shapesEqual(ArrayRef<int64_t> shape1, ArrayRef<int64_t> shape2) {
 /// Expand constant data by repeating it to fill the target size.
 /// Used to expand InstanceNorm scale/bias to GroupNorm scale/bias.
 template <typename T>
-static SmallVector<T> expandConstantData(ArrayRef<T> original,
-                                         int64_t targetSize) {
+static SmallVector<T> expandConstantData(
+    ArrayRef<T> original, int64_t targetSize) {
   SmallVector<T> expanded;
   expanded.reserve(targetSize);
   while (static_cast<int64_t>(expanded.size()) < targetSize) {
@@ -76,8 +76,7 @@ static std::optional<SmallVector<T>> getConstantData(Value value) {
 
 /// Create an expanded constant by repeating the original constant data.
 static Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
-                                    Value originalConst, int64_t targetSize,
-                                    int64_t /*originalSize*/) {
+    Value originalConst, int64_t targetSize, int64_t /*originalSize*/) {
   // Try to get the constant op
   auto constOp = originalConst.getDefiningOp<ONNXConstantOp>();
 
@@ -114,21 +113,21 @@ static Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
     auto tensorType = RankedTensorType::get({targetSize}, elementType);
     newAttr = DenseElementsAttr::get(tensorType, ArrayRef<int32_t>(expanded));
   } else {
-    LLVM_DEBUG(llvm::dbgs()
-               << "Unsupported element type for constant expansion\n");
+    LLVM_DEBUG(
+        llvm::dbgs() << "Unsupported element type for constant expansion\n");
     return nullptr;
   }
 
   // Create new constant op with expanded data
   return rewriter.create<ONNXConstantOp>(loc, newAttr.getType(),
-                                         /*sparse_value=*/Attribute(),
-                                         /*value=*/newAttr,
-                                         /*value_float=*/FloatAttr(),
-                                         /*value_floats=*/ArrayAttr(),
-                                         /*value_int=*/IntegerAttr(),
-                                         /*value_ints=*/ArrayAttr(),
-                                         /*value_string=*/StringAttr(),
-                                         /*value_strings=*/ArrayAttr());
+      /*sparse_value=*/Attribute(),
+      /*value=*/newAttr,
+      /*value_float=*/FloatAttr(),
+      /*value_floats=*/ArrayAttr(),
+      /*value_int=*/IntegerAttr(),
+      /*value_ints=*/ArrayAttr(),
+      /*value_string=*/StringAttr(),
+      /*value_strings=*/ArrayAttr());
 }
 
 //===----------------------------------------------------------------------===//
@@ -146,8 +145,8 @@ struct MergeReshapeInstanceNormPattern
 
   using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReshapeOp bottomReshape,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp bottomReshape, PatternRewriter &rewriter) const override {
     LLVM_DEBUG(llvm::dbgs() << "Checking reshape op for IN->GN pattern\n");
 
     // Match the pattern bottom-up from the final reshape
@@ -222,8 +221,8 @@ struct MergeReshapeInstanceNormPattern
       return failure();
 
     // Create expanded bias constant
-    Value newBias = createExpandedConstant(rewriter, bottomReshape.getLoc(),
-                                           instanceBias, gnChannel, inChannel);
+    Value newBias = createExpandedConstant(
+        rewriter, bottomReshape.getLoc(), instanceBias, gnChannel, inChannel);
     if (!newBias)
       return failure();
 
@@ -244,8 +243,8 @@ struct MergeReshapeInstanceNormPattern
     // Replace all uses of the bottom reshape with the GroupNorm result
     rewriter.replaceOp(bottomReshape, groupNormOp.getResult());
 
-    LLVM_DEBUG(llvm::dbgs()
-               << "Successfully converted InstanceNorm to GroupNorm\n");
+    LLVM_DEBUG(
+        llvm::dbgs() << "Successfully converted InstanceNorm to GroupNorm\n");
     return success();
   }
 };
@@ -259,7 +258,7 @@ namespace onnx_mlir {
 
 struct ConvertInstanceNormToGroupNormPass
     : public PassWrapper<ConvertInstanceNormToGroupNormPass,
-                         OperationPass<func::FuncOp>> {
+          OperationPass<func::FuncOp>> {
   StringRef getArgument() const override {
     return "convert-instancenorm-to-groupnorm";
   }
@@ -276,8 +275,8 @@ struct ConvertInstanceNormToGroupNormPass
     GreedyRewriteConfig config;
     config.maxIterations = 3;
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-                                     config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }
