@@ -395,4 +395,12 @@ std::string PyExecutionSessionBase::reportPythonError(
   return errStr.str();
 }
 
+// =============================================================================
+// Instrumentation reporting
+void PyExecutionSessionBase::pyPrintInstrumentation() {
+  TIMING_INIT_START(print_instrumentation);
+  printInstrumentation();
+  TIMING_STOP_PRINT(print_instrumentation);
+}
+
 } // namespace onnx_mlir

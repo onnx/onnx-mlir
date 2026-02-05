@@ -38,7 +38,9 @@ PYBIND11_MODULE(PyRuntimeC, m) {
       .def("run", &onnx_mlir::PyExecutionSession::pyRun, py::arg("input"),
           py::arg("shape"), py::arg("stride"))
       .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
-      .def("output_signature",
-          &onnx_mlir::PyExecutionSession::pyOutputSignature);
+      .def(
+          "output_signature", &onnx_mlir::PyExecutionSession::pyOutputSignature)
+      .def("print_instrumentation",
+          &onnx_mlir::PyExecutionSession::pyPrintInstrumentation);
 }
 #endif
