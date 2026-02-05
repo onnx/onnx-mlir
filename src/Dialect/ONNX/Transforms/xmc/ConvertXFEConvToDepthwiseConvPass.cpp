@@ -39,6 +39,21 @@ namespace {
 // Helper Functions
 //===----------------------------------------------------------------------===//
 
+/// Helper function to transfer onnx_node_name attribute from source to target op
+void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
+  if (!sourceOp || !targetOp)
+    return;
+
+  // Get onnx_node_name from source operation
+  auto onnxNodeName =
+      sourceOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+
+  // If source has onnx_node_name, set it on target
+  if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+    targetOp->setAttr("onnx_node_name", onnxNodeName);
+  }
+}
+
 /// Check if the XFEConv operation is a depthwise convolution.
 /// Depthwise conv: group == input_channels and channel_multiplier == 1
 ///
@@ -172,6 +187,10 @@ struct ConvertXFEConvToDepthwiseConvPattern
         padsAttr,                     // pads
         stridesAttr                   // strides
     );
+
+    // Transfer onnx_node_name attribute from XFEConv to XCOMPILERDepthwiseConv
+    transferOnnxNodeName(convOp, depthwiseConv);
+
     // Replace XFEConv with DepthwiseConv
     rewriter.replaceOp(convOp, depthwiseConv.getResult());
 
