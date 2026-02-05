@@ -9,8 +9,8 @@
 # This module contains various configuration flags and settings that control the backend.
 # These flags and settings can be set in users' script by using package.config., e.g.:
 # ```python
-# import onnxmlirtorch
-# onnxmlirtorch.config.same_hash_size = 1
+# import torch_onnxmlir
+# torch_onnxmlir.config.same_hash_size = 1
 # ```
 #
 ################################################################################

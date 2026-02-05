@@ -13,7 +13,7 @@ class AddModel(nn.Module):
 
 mod = AddModel()
 
-import onnxmlirtorch
+import torch_onnxmlir
 
 # Use the default compiler container image to compile
 # --verifyInputTensors is for debug purpose

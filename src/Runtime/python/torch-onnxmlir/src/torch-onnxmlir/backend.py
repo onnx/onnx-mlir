@@ -52,7 +52,7 @@ or using "onnxmlir" as the backend name:
 Below is one example of running a bert model using onnx-mlir backend.
 ```python
 import torch
-import onnxmlirtorch
+import torch_onnxmlir
 from transformers import AutoModel, AutoTokenizer
 
 model_path = "ibm-granite/granite-embedding-30m-english"
@@ -122,8 +122,8 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
     # Backend to export, compile and run inference of model with onnxmlir.
     def onnxmlir_forward_fn(*args, **kwargs):
-        onnxmlirtorch_object = ONNXMLIRTorch(gm, *args, options=onnxmlir_options)
-        return onnxmlirtorch_object(*args)
+        torch_onnxmlir_object = TorchONNXMLIR(gm, *args, options=onnxmlir_options)
+        return torch_onnxmlir_object(*args)
 
     return onnxmlir_forward_fn
 
@@ -252,7 +252,7 @@ def generate_hash_key(
     return key
 
 
-class ONNXMLIRTorch:
+class TorchONNXMLIR:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
         global global_uncompilable_graphs
         # Input graph module.
@@ -557,4 +557,4 @@ class ONNXMLIRTorch:
 
 # Alternative interface to minic the usage of torch.compile
 def compile(torch_model, *args, **kwargs):
-    return ONNXMLIRTorch(torch_model, *args, **kwargs)
+    return TorchONNXMLIR(torch_model, *args, **kwargs)

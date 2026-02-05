@@ -10,13 +10,13 @@ from transformers import (
     TextStreamer,
 )
 
-import onnxmlirtorch
+import torch_onnxmlir
 import logging
 
 # logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 
-onnxmlirtorch.config.session_cache_limit = 200
-onnxmlirtorch.config.same_hash_size = 0
+torch_onnxmlir.config.session_cache_limit = 200
+torch_onnxmlir.config.same_hash_size = 0
 
 model_name = sys.argv[1]
 if model_name == "gpt2":

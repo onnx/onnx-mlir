@@ -17,7 +17,7 @@ mod = AddModel()
 
 logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 
-import onnxmlirtorch
+import torch_onnxmlir
 
 my_option = {
     "compiler_image_name": None,
