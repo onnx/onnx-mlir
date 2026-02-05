@@ -108,8 +108,9 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXDequantizeLinearOp dqOp, PatternRewriter &rewriter) const override {
-    if (llvm::any_of(dqOp.getY().getUsers(),
-            [](Operation *op) { return isa<func::ReturnOp>(op); })) {
+    if (llvm::any_of(dqOp.getY().getUsers(), [](Operation *op) {
+          return op->hasTrait<OpTrait::IsTerminator>();
+        })) {
       return rewriter.notifyMatchFailure(
           dqOp, "Cannot convert DQ output to function return");
     }
