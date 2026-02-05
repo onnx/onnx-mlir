@@ -193,7 +193,8 @@ std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 /// Pass for merging BatchNormalization parameters into Conv (XMC).
 std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
 
-/// Pass for converting batch ReduceSum operations to reshape-optimized ReduceSum (XMC).
+/// Pass for converting batch ReduceSum operations to reshape-optimized
+/// ReduceSum (XMC).
 std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
 
 /// Pass for deleting redundant Relu chains (XMC).

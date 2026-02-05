@@ -28,9 +28,8 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include <iostream>
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-
+#include <iostream>
 
 using namespace mlir;
 
@@ -42,7 +41,7 @@ namespace {
 
 /// Check if the XFEConv operation is a depthwise convolution.
 /// Depthwise conv: group == input_channels and channel_multiplier == 1
-/// 
+///
 /// XFEConv uses:
 ///   - Input X: NHWC layout [N, H, W, C_in] for 2D, [N, D, H, W, C_in] for 3D
 ///   - Weight W: OHWI layout [C_out, kH, kW, C_in/group] for 2D
@@ -87,7 +86,7 @@ bool isDepthwiseConv(XFEConvOp convOp) {
   // For OHWI format: [C_out, spatial_dims..., C_in/group]
   // C_out is the first dimension
   int64_t outputChannels = wType.getDimSize(0);
-  
+
   // C_in/group is the last dimension (should be 1 for depthwise)
   int64_t cInPerGroup = wType.getDimSize(wRank - 1);
   if (cInPerGroup != ShapedType::kDynamic && cInPerGroup != 1)
@@ -135,8 +134,8 @@ struct ConvertXFEConvToDepthwiseConvPattern
     : public OpRewritePattern<XFEConvOp> {
   using OpRewritePattern<XFEConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(XFEConvOp convOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      XFEConvOp convOp, PatternRewriter &rewriter) const override {
     // Check if this is a depthwise convolution
     if (!isDepthwiseConv(convOp))
       return failure();
@@ -162,8 +161,7 @@ struct ConvertXFEConvToDepthwiseConvPattern
     auto dilationsAttr = convOp.getDilationsAttr();
 
     // Create the DepthwiseConv operation
-    auto depthwiseConv = rewriter.create<XCOMPILERDepthwiseConvOp>(
-        loc,
+    auto depthwiseConv = rewriter.create<XCOMPILERDepthwiseConvOp>(loc,
         convOp.getResult().getType(), // Output type
         X,                            // Input
         W,                            // Weights
@@ -191,7 +189,7 @@ namespace onnx_mlir {
 
 struct ConvertXFEConvToDepthwiseConvPass
     : public PassWrapper<ConvertXFEConvToDepthwiseConvPass,
-                         OperationPass<func::FuncOp>> {
+          OperationPass<func::FuncOp>> {
   StringRef getArgument() const override {
     return "convert-xfe-conv-to-depthwise-conv";
   }
@@ -207,8 +205,8 @@ struct ConvertXFEConvToDepthwiseConvPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns),
-                                     config))) {
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }
