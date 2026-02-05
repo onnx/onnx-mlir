@@ -42,6 +42,21 @@ using namespace mlir;
 
 namespace {
 
+// Helper function to transfer onnx_node_name attribute from source to target op
+void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
+  if (!sourceOp || !targetOp)
+    return;
+
+  // Get onnx_node_name from source operation
+  auto onnxNodeName =
+      sourceOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+
+  // If source has onnx_node_name, set it on target
+  if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+    targetOp->setAttr("onnx_node_name", onnxNodeName);
+  }
+}
+
 // Helper function to create input transpose (NCHW -> channel-last)
 // For rank N: [0, 2, 3, ..., N-1, 1]
 Value createInputTranspose(PatternRewriter &rewriter, Location loc, Value input,
@@ -167,6 +182,9 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
         convOp.getStridesAttr());
 
+    // Transfer onnx_node_name attribute from original Conv to XFEConv
+    transferOnnxNodeName(convOp, convChannelLastOp);
+
     // CRITICAL: Immediately run shape inference to resolve unranked type
     // This ensures the output has correct shape AND element type before
     // creating Transpose
@@ -244,6 +262,10 @@ struct ConvTransposeToChannelLastPattern
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
         convTransposeOp.getStridesAttr());
 
+    // Transfer onnx_node_name attribute from original ConvTranspose to
+    // XFEConvTranspose
+    transferOnnxNodeName(convTransposeOp, convTransposeChannelLastOp);
+
     // CRITICAL: Immediately run shape inference
     if (failed(convTransposeChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -304,6 +326,10 @@ struct AveragePoolToChannelLastPattern
         poolOp.getKernelShapeAttr(), poolOp.getPadsAttr(),
         poolOp.getStridesAttr());
 
+    // Transfer onnx_node_name attribute from original AveragePool to
+    // XFEAveragePool
+    transferOnnxNodeName(poolOp, poolChannelLastOp);
+
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -354,6 +380,9 @@ struct MaxPoolToChannelLastPattern
         poolOp.getPadsAttr(), poolOp.getStorageOrderAttr(),
         poolOp.getStridesAttr());
 
+    // Transfer onnx_node_name attribute from original MaxPool to XFEMaxPool
+    transferOnnxNodeName(poolOp, poolChannelLastOp);
+
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -399,6 +428,10 @@ struct GlobalAveragePoolToChannelLastPattern
     auto poolChannelLastOp = rewriter.create<XFEGlobalAveragePoolOp>(
         loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
 
+    // Transfer onnx_node_name attribute from original GlobalAveragePool to
+    // XFEGlobalAveragePool
+    transferOnnxNodeName(poolOp, poolChannelLastOp);
+
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
@@ -443,6 +476,10 @@ struct GlobalMaxPoolToChannelLastPattern
     Type outputElementType = origOutputType.getElementType();
     auto poolChannelLastOp = rewriter.create<XFEGlobalMaxPoolOp>(
         loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
+
+    // Transfer onnx_node_name attribute from original GlobalMaxPool to
+    // XFEGlobalMaxPool
+    transferOnnxNodeName(poolOp, poolChannelLastOp);
 
     // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
@@ -492,6 +529,10 @@ struct InstanceNormToChannelLastPattern
     auto normChannelLastOp = rewriter.create<XFEInstanceNormalizationOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast, scale, B,
         normOp.getEpsilonAttr());
+
+    // Transfer onnx_node_name attribute from original InstanceNormalization to
+    // XFEInstanceNormalization
+    transferOnnxNodeName(normOp, normChannelLastOp);
 
     // CRITICAL: Immediately run shape inference
     if (failed(normChannelLastOp.inferShapes(nullptr))) {
@@ -543,6 +584,10 @@ struct DepthToSpaceToChannelLastPattern
         UnrankedTensorType::get(outputElemType), inputChannelLast,
         d2sOp.getBlocksizeAttr(), d2sOp.getModeAttr());
 
+    // Transfer onnx_node_name attribute from original DepthToSpace to
+    // XFEDepthToSpace
+    transferOnnxNodeName(d2sOp, d2sChannelLastOp);
+
     // Infer shapes to get ranked type
     if (failed(d2sChannelLastOp.inferShapes([](Region &) {}))) {
       return rewriter.notifyMatchFailure(
@@ -588,6 +633,10 @@ struct SpaceToDepthToChannelLastPattern
     auto s2dChannelLastOp = rewriter.create<XFESpaceToDepthOp>(loc,
         UnrankedTensorType::get(outputElemType), inputChannelLast,
         s2dOp.getBlocksizeAttr());
+
+    // Transfer onnx_node_name attribute from original SpaceToDepth to
+    // XFESpaceToDepth
+    transferOnnxNodeName(s2dOp, s2dChannelLastOp);
 
     // Infer shapes to get ranked type
     if (failed(s2dChannelLastOp.inferShapes([](Region &) {}))) {
@@ -843,6 +892,9 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
         resizeOp.getExtrapolationValueAttr(),
         resizeOp.getKeepAspectRatioPolicyAttr(), resizeOp.getModeAttr(),
         resizeOp.getNearestModeAttr());
+
+    // Transfer onnx_node_name attribute from original Resize to XFEResize
+    transferOnnxNodeName(resizeOp, resizeChannelLastOp);
 
     // Infer shapes to get ranked type
     if (failed(resizeChannelLastOp.inferShapes([](Region &) {}))) {
