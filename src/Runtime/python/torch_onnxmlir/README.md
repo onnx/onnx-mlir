@@ -24,7 +24,7 @@ print(opt_mod(input1, input2))
 
 ```
 
-With torch-onnxmlir package, `torch.compile()` can be rewritten as follows:
+With torch_onnxmlir package, `torch.compile()` can be rewritten as follows:
 ```
 import torch
 import torch.nn as nn
@@ -39,7 +39,7 @@ class AddModel(nn.Module):
 
 mod = AddModel()
 
-# Compile the model using onnxmlir backend in the torch-onnxmlir package.
+# Compile the model using onnxmlir backend in the torch_onnxmlir package.
 om_option = {
     "compiler_image_name": None,
     "compile_options": "-O3",
@@ -61,8 +61,8 @@ For more information about `torch.compile`, see its [document](https://docs.pyto
 ### Install from local directory
 First create the source of the package.
 In onnx-mlir/build, `cmake --build . --target OMCreateTorchONNXMLIRPackage`
-At top of onnx-mlir: `pip3 install -e src/Runtime/python/torch-onnxmlir`
+At top of onnx-mlir: `pip3 install -e src/Runtime/python/torch_onnxmlir`
 
 ### Install from repo
-After the package is uploaded to pip server, you can install with 'pip3 install torch-onnxmlir`
+After the package is uploaded to pip server, you can install with 'pip3 install torch_onnxmlir`
 
